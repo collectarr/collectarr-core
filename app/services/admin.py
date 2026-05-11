@@ -11,6 +11,8 @@ from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import ProviderIngestRequest, ProviderIngestResponse, ProviderSearchRequest
 from app.schemas.metadata import ItemResponse
+from app.search.client import SearchClient
+from app.search.documents import item_search_document
 
 
 class AdminMetadataService:
@@ -83,6 +85,8 @@ class AdminMetadataService:
             self._add_provider_links(payload.provider, normalized.volume_provider_ids, "volume", volume.id)
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
+        if loaded_item:
+            await SearchClient().index_documents_best_effort([item_search_document(loaded_item)])
         return ProviderIngestResponse(
             item_id=item.id,
             created=True,

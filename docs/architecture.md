@@ -68,7 +68,7 @@ Future strategy:
 
 PostgreSQL is the source of truth. Meilisearch is a derived index.
 
-Workers sync changed canonical records to Meilisearch and build autocomplete/fuzzy search documents. API search can fall back to PostgreSQL if Meilisearch is unavailable.
+Provider ingest indexes newly imported canonical items into Meilisearch immediately on a best-effort basis, so search becomes fresh without waiting for the periodic worker. Workers still rebuild derived search documents periodically, and API search can fall back to PostgreSQL if Meilisearch is unavailable or empty.
 
 ## Storage
 

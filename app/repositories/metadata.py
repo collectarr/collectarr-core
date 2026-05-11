@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.base import ItemKind
-from app.models.canonical import Edition, Item, Variant
+from app.models.canonical import Edition, Item, Variant, Volume
 
 
 class MetadataRepository:
@@ -13,7 +13,11 @@ class MetadataRepository:
         self.db = db
 
     def _item_detail_stmt(self) -> Select[tuple[Item]]:
-        return select(Item).options(selectinload(Item.editions).selectinload(Edition.variants))
+        return select(Item).options(
+            selectinload(Item.volume).selectinload(Volume.series),
+            selectinload(Item.editions).selectinload(Edition.variants),
+            selectinload(Item.editions).selectinload(Edition.releases),
+        )
 
     async def get_item(self, item_id: UUID, kind: ItemKind | None = None) -> Item | None:
         stmt = self._item_detail_stmt().where(Item.id == item_id)
@@ -50,4 +54,3 @@ class MetadataRepository:
             variant = await self.db.get(Variant, variant_id)
             if variant is None or variant.edition_id != edition_id:
                 raise ValueError("variant_id does not belong to edition_id")
-

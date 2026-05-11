@@ -29,7 +29,17 @@ class SearchClient:
             return
         self.client.index(self.index_name).add_documents(documents, primary_key="id")
 
+    async def index_documents_best_effort(self, documents: list[dict[str, Any]]) -> bool:
+        try:
+            await self.configure()
+            await self.index_documents(documents)
+        except Exception:
+            return False
+        return True
+
     async def configure(self) -> None:
         index = self.client.index(self.index_name)
         index.update_filterable_attributes(["kind", "publisher", "region"])
-        index.update_searchable_attributes(["title", "item_number", "synopsis", "series_title"])
+        index.update_searchable_attributes(
+            ["title", "item_number", "synopsis", "series_title", "volume_name"]
+        )

@@ -8,6 +8,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.canonical import ExternalProviderId, Item, Release, Series, Variant, Volume
 from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
+from app.search.client import SearchClient
 
 
 async def admin_token(client, monkeypatch) -> str:
@@ -79,11 +80,17 @@ async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
+    indexed_documents = []
 
     async def fake_get_item(self, provider_item_id):
         return ProviderItem(provider="comicvine", provider_item_id="4000-12345", raw=comicvine_issue_raw())
 
+    async def fake_index_documents(self, documents):
+        indexed_documents.extend(documents)
+        return True
+
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
 
     response = await client.post(
         "/admin/providers/ingest",
@@ -97,6 +104,20 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert body["item"]["item_number"] == "1"
     assert body["item"]["editions"][0]["publisher"] == "Marvel"
     assert body["item"]["editions"][0]["variants"][0]["cover_image_url"].endswith("cover.jpg")
+    assert indexed_documents == [
+        {
+            "id": body["item_id"],
+            "kind": "comic",
+            "title": "The Amazing Spider-Man",
+            "item_number": "1",
+            "synopsis": "Peter Parker faces a new chapter as Spider-Man.",
+            "cover_image_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+            "publisher": "Marvel",
+            "region": "US",
+            "series_title": "The Amazing Spider-Man",
+            "volume_name": "The Amazing Spider-Man",
+        }
+    ]
 
     second_response = await client.post(
         "/admin/providers/ingest",

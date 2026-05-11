@@ -13,6 +13,7 @@ from app.schemas.admin import ProviderIngestRequest, ProviderIngestResponse, Pro
 from app.schemas.metadata import ItemResponse
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
+from app.storage.images import ImageMirror
 
 
 class AdminMetadataService:
@@ -65,10 +66,16 @@ class AdminMetadataService:
                 "source": provider_item.raw,
             },
         )
+        mirrored_cover = await ImageMirror().mirror_cover_best_effort(
+            normalized.cover_image_url,
+            payload.provider,
+            provider_item.provider_item_id,
+        )
         variant = Variant(
             edition=edition,
             name="Cover A",
-            cover_image_url=normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             is_primary=True,
         )
         release = Release(

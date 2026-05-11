@@ -9,6 +9,7 @@ from app.models.canonical import ExternalProviderId, Item, Release, Series, Vari
 from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
 from app.search.client import SearchClient
+from app.storage.images import MirroredImage, ImageMirror
 
 
 async def admin_token(client, monkeypatch) -> str:
@@ -89,8 +90,19 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         indexed_documents.extend(documents)
         return True
 
+    async def fake_mirror_cover(self, source_url, provider, provider_item_id):
+        assert source_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+        assert provider == "comicvine"
+        assert provider_item_id == "4000-12345"
+        return MirroredImage(
+            key="covers/comicvine/4000-12345/cover.jpg",
+            url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
+            content_type="image/jpeg",
+        )
+
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
     monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fake_mirror_cover)
 
     response = await client.post(
         "/admin/providers/ingest",
@@ -103,7 +115,10 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert body["item"]["title"] == "The Amazing Spider-Man"
     assert body["item"]["item_number"] == "1"
     assert body["item"]["editions"][0]["publisher"] == "Marvel"
-    assert body["item"]["editions"][0]["variants"][0]["cover_image_url"].endswith("cover.jpg")
+    assert (
+        body["item"]["editions"][0]["variants"][0]["cover_image_url"]
+        == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg"
+    )
     assert indexed_documents == [
         {
             "id": body["item_id"],
@@ -111,7 +126,7 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "title": "The Amazing Spider-Man",
             "item_number": "1",
             "synopsis": "Peter Parker faces a new chapter as Spider-Man.",
-            "cover_image_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+            "cover_image_url": "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
             "publisher": "Marvel",
             "region": "US",
             "series_title": "The Amazing Spider-Man",
@@ -138,3 +153,5 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             select(ExternalProviderId.provider_item_id).order_by(ExternalProviderId.provider_item_id)
         )
         assert list(provider_ids) == ["4000-12345", "4050-6789"]
+        cover = await db.scalar(select(Variant.cover_image_key))
+        assert cover == "covers/comicvine/4000-12345/cover.jpg"

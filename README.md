@@ -21,6 +21,7 @@ Collectarr is a centralized collector metadata hub with personal libraries, vari
 - Canonical metadata separated from user-owned library data
 - Franchise, series, volume, item, edition, variant, and release hierarchy
 - External provider IDs for ComicVine, IGDB, TMDb, and future providers
+- Provider cover images mirrored into MinIO/S3 instead of backend filesystem storage
 - Meilisearch-backed fuzzy search with PostgreSQL fallback
 
 ### 🧾 Personal Libraries
@@ -167,6 +168,7 @@ Collectarr uses **semantic-release** with Conventional Commits. Releases are man
 - **API cannot connect to Postgres** - run `docker compose ps` and verify the `postgres` service is healthy.
 - **Search returns no results** - run the seed command, then wait for the worker to index items.
 - **MinIO image URLs fail** - verify `S3_PUBLIC_URL` and bucket settings in `.env`.
+- **Cover upload works but public URL fails** - keep `S3_MANAGE_PUBLIC_READ_POLICY=true` for local MinIO, or configure your external bucket/CDN policy manually.
 - **Flutter cannot reach the API** - use a platform-specific base URL when testing on emulators or physical devices.
 
 ---

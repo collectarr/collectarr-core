@@ -72,7 +72,7 @@ Provider ingest indexes newly imported canonical items into Meilisearch immediat
 
 ## Storage
 
-Images are stored in MinIO/S3. The backend stores object keys/URLs only. Thumbnail generation is asynchronous.
+Images are stored in MinIO/S3. The backend stores object keys/URLs only and never writes provider images to the backend filesystem. Provider ingest mirrors cover images into object storage on a best-effort basis; if mirroring fails, metadata ingest still succeeds and can be retried by a later image job. Local MinIO can be configured with a public read bucket policy through `S3_MANAGE_PUBLIC_READ_POLICY`.
 
 ## Scaling
 

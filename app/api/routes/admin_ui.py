@@ -19,13 +19,14 @@ _ADMIN_UI_HTML = """
     <style>
       :root {
         color-scheme: dark;
-        --bg: #111418;
-        --panel: #1b2027;
-        --panel-2: #242b34;
-        --line: #333c47;
+        --bg: #0f1113;
+        --panel: #1d1d1d;
+        --panel-2: #2d2d2d;
+        --line: #444;
         --text: #f2f5f8;
         --muted: #9ea9b6;
-        --accent: #47b7d8;
+        --accent: #4dbbd5;
+        --yellow: #ffd400;
         --danger: #ff6b6b;
         --ok: #75d490;
       }
@@ -43,8 +44,14 @@ _ADMIN_UI_HTML = """
         justify-content: space-between;
         gap: 16px;
         padding: 14px 20px;
-        background: #202730;
+        background: var(--accent);
         border-bottom: 1px solid var(--line);
+      }
+      header .muted { color: #10262c; font-weight: 700; }
+      header button {
+        background: #202020;
+        color: #fff;
+        border-color: #202020;
       }
       h1, h2, h3, p { margin: 0; }
       h1 { font-size: 18px; letter-spacing: 0; }
@@ -124,6 +131,31 @@ _ADMIN_UI_HTML = """
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 12px;
       }
+      .dashboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .metric {
+        display: grid;
+        gap: 4px;
+        padding: 12px;
+        background: #222;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .metric span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .metric strong {
+        color: var(--accent);
+        font-size: 24px;
+        line-height: 1;
+      }
+      .metric.warn strong { color: var(--yellow); }
+      .metric.ok strong { color: var(--ok); }
       .results {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -148,6 +180,19 @@ _ADMIN_UI_HTML = """
         display: grid;
         grid-template-columns: 80px minmax(0, 1fr);
         gap: 10px;
+      }
+      .log {
+        display: grid;
+        gap: 6px;
+        max-height: 190px;
+        overflow: auto;
+      }
+      .log-entry {
+        padding: 8px 10px;
+        background: #151515;
+        border: 1px solid #303030;
+        border-radius: 6px;
+        color: var(--muted);
       }
       pre {
         overflow: auto;
@@ -193,6 +238,20 @@ _ADMIN_UI_HTML = """
         </div>
       </aside>
       <section class="stack">
+        <div class="dashboard">
+          <div class="metric warn">
+            <span>Pending proposals</span>
+            <strong id="proposalMetric">-</strong>
+          </div>
+          <div class="metric ok">
+            <span>Providers online</span>
+            <strong id="providerMetric">-</strong>
+          </div>
+          <div class="metric">
+            <span>Last ingest</span>
+            <strong id="ingestMetric">-</strong>
+          </div>
+        </div>
         <div class="grid">
           <div class="panel stack">
             <h2>Catalog search</h2>
@@ -226,6 +285,12 @@ _ADMIN_UI_HTML = """
             </div>
             <div id="proposalResults" class="results"></div>
           </div>
+          <div class="panel stack">
+            <h2>Ingest log</h2>
+            <div id="ingestLog" class="log">
+              <div class="log-entry">No admin actions yet.</div>
+            </div>
+          </div>
         </div>
         <div class="panel stack">
           <h2>Response</h2>
@@ -252,6 +317,21 @@ _ADMIN_UI_HTML = """
 
       function setResponse(value) {
         responseBox.value = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      }
+
+      function setMetric(id, value) {
+        $(id).textContent = value;
+      }
+
+      function logEvent(message) {
+        const target = $("ingestLog");
+        if (target.firstElementChild?.textContent === "No admin actions yet.") {
+          target.innerHTML = "";
+        }
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+        target.prepend(entry);
       }
 
       function setBusy(button, isBusy) {
@@ -410,6 +490,7 @@ _ADMIN_UI_HTML = """
           updateAuthStatus();
           setStatus("Logged in.", "ok");
           setResponse(data);
+          logEvent("Admin login succeeded.");
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
@@ -424,6 +505,7 @@ _ADMIN_UI_HTML = """
           const data = await request("/health");
           setStatus("Health check complete.", "ok");
           setResponse(data);
+          logEvent("Health check completed.");
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
@@ -478,6 +560,7 @@ _ADMIN_UI_HTML = """
           renderProviderResults(data);
           setStatus(`Found ${data.length} provider items.`, "ok");
           setResponse(data);
+          logEvent(`Provider search returned ${data.length} items.`);
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
@@ -493,8 +576,10 @@ _ADMIN_UI_HTML = """
             headers: headers(true),
           });
           renderProviderStatuses(data);
+          setMetric("providerMetric", data.filter((item) => item.status === "ok").length);
           setStatus("Provider status loaded.", "ok");
           setResponse(data);
+          logEvent("Provider status refreshed.");
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
@@ -513,7 +598,9 @@ _ADMIN_UI_HTML = """
             }),
           });
           setStatus(data.created ? "Metadata item ingested." : "Metadata item already exists.", "ok");
+          setMetric("ingestMetric", data.created ? "new" : "exists");
           setResponse(data);
+          logEvent(data.created ? "Metadata item ingested." : "Ingest skipped, item already exists.");
         } catch (error) {
           setStatus(error.message, "error");
         }
@@ -527,8 +614,10 @@ _ADMIN_UI_HTML = """
             headers: headers(true),
           });
           renderProposals(data);
+          setMetric("proposalMetric", data.length);
           setStatus(`Loaded ${data.length} pending proposals.`, "ok");
           setResponse(data);
+          logEvent(`Loaded ${data.length} pending proposals.`);
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
@@ -543,7 +632,9 @@ _ADMIN_UI_HTML = """
             headers: headers(true),
           });
           setStatus("Proposal approved and ingested.", "ok");
+          setMetric("ingestMetric", "approved");
           setResponse(data);
+          logEvent("Proposal approved and ingested.");
           loadProposals();
         } catch (error) {
           setStatus(error.message, "error");
@@ -558,6 +649,7 @@ _ADMIN_UI_HTML = """
           });
           setStatus("Proposal rejected.", "ok");
           setResponse(data);
+          logEvent("Proposal rejected.");
           loadProposals();
         } catch (error) {
           setStatus(error.message, "error");

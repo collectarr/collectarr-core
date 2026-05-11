@@ -33,13 +33,15 @@ class MetadataService:
         results: list[SearchResult] = []
         for item in items:
             cover_url = None
+            thumbnail_url = None
             for edition in item.editions:
                 primary = next((variant for variant in edition.variants if variant.is_primary), None)
                 if primary:
                     cover_url = primary.cover_image_url
+                    thumbnail_url = primary.thumbnail_image_url
                     break
             results.append(
-                self._search_result(item, cover_url)
+                self._search_result(item, cover_url, thumbnail_url)
             )
         return results
 
@@ -49,14 +51,18 @@ class MetadataService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Barcode not found")
 
         cover_url = None
+        thumbnail_url = None
         for edition in item.editions:
             primary = next((variant for variant in edition.variants if variant.is_primary), None)
             if primary:
                 cover_url = primary.cover_image_url
+                thumbnail_url = primary.thumbnail_image_url
                 break
-        return self._search_result(item, cover_url)
+        return self._search_result(item, cover_url, thumbnail_url)
 
-    def _search_result(self, item, cover_url: str | None) -> SearchResult:
+    def _search_result(
+        self, item, cover_url: str | None, thumbnail_url: str | None
+    ) -> SearchResult:
         return SearchResult(
             id=item.id,
             kind=item.kind,
@@ -64,4 +70,5 @@ class MetadataService:
             item_number=item.item_number,
             synopsis=item.synopsis,
             cover_image_url=cover_url,
+            thumbnail_image_url=thumbnail_url,
         )

@@ -92,6 +92,8 @@ class Variant(UuidMixin, TimestampMixin, Base):
     sku: Mapped[str | None] = mapped_column(String(100), index=True)
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
+    thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
+    thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     edition: Mapped[Edition] = relationship(back_populates="variants")
@@ -125,4 +127,3 @@ class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     raw_url: Mapped[str | None] = mapped_column(String(1024))
-

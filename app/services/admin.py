@@ -112,6 +112,8 @@ class AdminMetadataService:
             name="Cover A",
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
+            thumbnail_image_url=mirrored_cover.thumbnail_url if mirrored_cover else None,
             is_primary=True,
         )
         release = Release(

@@ -5,6 +5,7 @@ from app.models.canonical import Item
 
 def item_search_document(item: Item) -> dict[str, Any]:
     cover_url = None
+    thumbnail_url = None
     publisher = None
     release_region = None
     series_title = item.volume.series.title if item.volume and item.volume.series else None
@@ -15,6 +16,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
         primary = next((variant for variant in edition.variants if variant.is_primary), None)
         if primary:
             cover_url = primary.cover_image_url
+            thumbnail_url = primary.thumbnail_image_url
         for release in edition.releases:
             release_region = release_region or release.region
 
@@ -25,6 +27,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
         "item_number": item.item_number,
         "synopsis": item.synopsis,
         "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
         "publisher": publisher,
         "region": release_region,
         "series_title": series_title,

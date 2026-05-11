@@ -11,6 +11,7 @@ class VariantResponse(BaseModel):
     name: str
     sku: str | None
     cover_image_url: str | None
+    thumbnail_image_url: str | None
     is_primary: bool
 
     model_config = {"from_attributes": True}
@@ -49,4 +50,4 @@ class SearchResult(BaseModel):
     item_number: str | None = None
     synopsis: str | None = None
     cover_image_url: str | None = None
-
+    thumbnail_image_url: str | None = None

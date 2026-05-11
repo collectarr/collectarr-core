@@ -98,6 +98,11 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             key="covers/comicvine/4000-12345/cover.jpg",
             url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
             content_type="image/jpeg",
+            thumbnail_key="thumbnails/comicvine/4000-12345/cover.jpg",
+            thumbnail_url=(
+                "http://localhost:9000/collectarr-images/"
+                "thumbnails/comicvine/4000-12345/cover.jpg"
+            ),
         )
 
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
@@ -119,6 +124,10 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         body["item"]["editions"][0]["variants"][0]["cover_image_url"]
         == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg"
     )
+    assert (
+        body["item"]["editions"][0]["variants"][0]["thumbnail_image_url"]
+        == "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
+    )
     assert indexed_documents == [
         {
             "id": body["item_id"],
@@ -127,6 +136,10 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "item_number": "1",
             "synopsis": "Peter Parker faces a new chapter as Spider-Man.",
             "cover_image_url": "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
+            "thumbnail_image_url": (
+                "http://localhost:9000/collectarr-images/"
+                "thumbnails/comicvine/4000-12345/cover.jpg"
+            ),
             "publisher": "Marvel",
             "region": "US",
             "series_title": "The Amazing Spider-Man",
@@ -155,3 +168,5 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert list(provider_ids) == ["4000-12345", "4050-6789"]
         cover = await db.scalar(select(Variant.cover_image_key))
         assert cover == "covers/comicvine/4000-12345/cover.jpg"
+        thumbnail = await db.scalar(select(Variant.thumbnail_image_key))
+        assert thumbnail == "thumbnails/comicvine/4000-12345/cover.jpg"

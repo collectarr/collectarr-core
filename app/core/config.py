@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     s3_manage_public_read_policy: bool = True
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
+    max_image_pixels: int = 40_000_000
     thumbnail_max_width: int = 360
     thumbnail_quality: int = 82
 

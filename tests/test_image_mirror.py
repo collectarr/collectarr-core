@@ -56,6 +56,23 @@ def test_image_mirror_creates_bounded_jpeg_thumbnail():
         assert image.height <= mirror.settings.thumbnail_max_width * 2
 
 
+def test_image_mirror_rejects_non_image_bytes():
+    mirror = ImageMirror(storage=None)
+
+    with pytest.raises(ValueError, match="valid image"):
+        mirror._validate_image_bytes(b"<html>not an image</html>")
+
+
+def test_image_mirror_rejects_images_over_pixel_limit(monkeypatch):
+    mirror = ImageMirror(storage=None)
+    monkeypatch.setattr(mirror.settings, "max_image_pixels", 100)
+    source = BytesIO()
+    Image.new("RGB", (20, 20), color=(20, 80, 140)).save(source, format="PNG")
+
+    with pytest.raises(ValueError, match="pixel limit"):
+        mirror._validate_image_bytes(source.getvalue())
+
+
 @pytest.mark.asyncio
 async def test_image_mirror_returns_none_for_missing_source_url():
     mirror = ImageMirror(storage=None)

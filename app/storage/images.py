@@ -7,13 +7,19 @@ from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 import httpx
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import get_settings
 from app.storage.client import ObjectStorage
 
 
 _SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9._-]+")
+_SUPPORTED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+}
 
 
 @dataclass(frozen=True)
@@ -65,10 +71,11 @@ class ImageMirror:
             response.raise_for_status()
 
         content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-        if not content_type.startswith("image/"):
-            raise ValueError("Downloaded content is not an image")
+        if content_type not in _SUPPORTED_IMAGE_TYPES:
+            raise ValueError("Downloaded content is not a supported image")
         if len(response.content) > self.settings.max_image_bytes:
             raise ValueError("Image exceeds configured max size")
+        self._validate_image_bytes(response.content)
         return response.content, content_type
 
     def _cover_key(
@@ -108,6 +115,20 @@ class ImageMirror:
             output = BytesIO()
             image.save(output, format="JPEG", quality=self.settings.thumbnail_quality, optimize=True)
             return output.getvalue()
+
+    def _validate_image_bytes(self, image_bytes: bytes) -> None:
+        if not image_bytes:
+            raise ValueError("Image response is empty")
+        try:
+            with Image.open(BytesIO(image_bytes)) as image:
+                width, height = image.size
+                if width <= 0 or height <= 0:
+                    raise ValueError("Image has invalid dimensions")
+                if width * height > self.settings.max_image_pixels:
+                    raise ValueError("Image exceeds configured pixel limit")
+                image.verify()
+        except UnidentifiedImageError as exc:
+            raise ValueError("Downloaded content is not a valid image") from exc
 
     def _extension(self, source_url: str, content_type: str) -> str:
         suffix = PurePosixPath(urlparse(source_url).path).suffix.lower()

@@ -65,7 +65,10 @@ class SearchResult(BaseModel):
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
     publisher: str | None = None
+    release_date: date | None = None
     release_year: int | None = None
+    barcode: str | None = None
+    variant: str | None = None
 
 
 class ProviderSearchResultResponse(BaseModel):

@@ -15,7 +15,10 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()[0]["id"] == item_id
     assert response.json()[0]["publisher"] == "Marvel"
+    assert response.json()[0]["release_date"] == "1963-03-01"
     assert response.json()[0]["release_year"] == 1963
+    assert response.json()[0]["barcode"] == "75960604716100111"
+    assert response.json()[0]["variant"] == "Cover A"
 
     detail = await client.get(f"/comics/{item_id}")
     assert detail.status_code == 200
@@ -44,7 +47,10 @@ async def test_search_supports_comic_filters(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()[0]["id"] == item_id
     assert response.json()[0]["publisher"] == "Marvel"
+    assert response.json()[0]["release_date"] == "1963-03-01"
     assert response.json()[0]["release_year"] == 1963
+    assert response.json()[0]["barcode"] == "75960604716100111"
+    assert response.json()[0]["variant"] == "Cover A"
 
 
 @pytest.mark.asyncio
@@ -78,7 +84,10 @@ async def test_lookup_comic_by_barcode(client, monkeypatch):
     assert response.json()["id"] == item_id
     assert response.json()["title"] == "The Amazing Spider-Man"
     assert response.json()["publisher"] == "Marvel"
+    assert response.json()["release_date"] == "1963-03-01"
     assert response.json()["release_year"] == 1963
+    assert response.json()["barcode"] == "75960604716100111"
+    assert response.json()["variant"] == "Cover A"
 
 
 @pytest.mark.asyncio

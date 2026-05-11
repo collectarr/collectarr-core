@@ -125,12 +125,25 @@ class MetadataService:
         self, item, cover_url: str | None, thumbnail_url: str | None
     ) -> SearchResult:
         publisher = None
+        release_date = None
         release_year = None
+        barcode = None
+        variant_name = None
         for edition in item.editions:
             publisher = publisher or edition.publisher
-            if edition.release_date is not None and release_year is None:
+            barcode = barcode or edition.upc or edition.isbn
+            if edition.release_date is not None and release_date is None:
+                release_date = edition.release_date
                 release_year = edition.release_date.year
-            if publisher is not None and release_year is not None:
+            primary = next((variant for variant in edition.variants if variant.is_primary), None)
+            if primary is not None and variant_name is None:
+                variant_name = primary.name
+            if (
+                publisher is not None
+                and release_date is not None
+                and barcode is not None
+                and variant_name is not None
+            ):
                 break
         return SearchResult(
             id=item.id,
@@ -141,5 +154,8 @@ class MetadataService:
             cover_image_url=cover_url,
             thumbnail_image_url=thumbnail_url,
             publisher=publisher,
+            release_date=release_date,
             release_year=release_year,
+            barcode=barcode,
+            variant=variant_name,
         )

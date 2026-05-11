@@ -1,4 +1,4 @@
-from app.models.base import Base, ExternalProvider, ItemKind, SyncAction
+from app.models.base import Base, ExternalProvider, ItemKind
 from app.models.canonical import (
     Edition,
     ExternalProviderId,
@@ -9,8 +9,7 @@ from app.models.canonical import (
     Variant,
     Volume,
 )
-from app.models.sync import SyncChange
-from app.models.user import Note, OwnedItem, OwnedItemTag, Tag, User, UserCollection, WishlistItem
+from app.models.user import User
 
 __all__ = [
     "Base",
@@ -20,18 +19,9 @@ __all__ = [
     "Franchise",
     "Item",
     "ItemKind",
-    "Note",
-    "OwnedItem",
-    "OwnedItemTag",
     "Release",
     "Series",
-    "SyncAction",
-    "SyncChange",
-    "Tag",
     "User",
-    "UserCollection",
     "Variant",
     "Volume",
-    "WishlistItem",
 ]
-

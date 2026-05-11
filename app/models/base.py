@@ -40,9 +40,3 @@ class ExternalProvider(str, enum.Enum):
     comicvine = "comicvine"
     igdb = "igdb"
     tmdb = "tmdb"
-
-
-class SyncAction(str, enum.Enum):
-    upsert = "upsert"
-    delete = "delete"
-

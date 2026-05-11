@@ -8,9 +8,9 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Mobile%20%7C%20Desktop-lightgrey)
 
-> Self-hosted metadata and library management for comics, games, Blu-rays, manga, and other collectibles.
+> Self-hosted metadata hub for comics, games, Blu-rays, manga, and other collectibles.
 
-Collectarr is a centralized collector metadata hub with personal libraries, variant-aware catalog records, offline-first sync, and plugin-based metadata providers. It starts with a comics MVP while keeping the schema and client architecture ready for more collectible types.
+Collectarr is a centralized collector metadata hub with variant-aware catalog records, offline-first local libraries, and plugin-based metadata providers. The central server stores shared metadata only. Personal collection data stays on the user's device, with a future optional `collectarr-sync` service planned for people who want to sync their own devices.
 
 ---
 
@@ -18,7 +18,7 @@ Collectarr is a centralized collector metadata hub with personal libraries, vari
 
 ### 📚 Metadata Catalog
 
-- Canonical metadata separated from user-owned library data
+- Canonical metadata kept separate from personal library data
 - Franchise, series, volume, item, edition, variant, and release hierarchy
 - External provider IDs for ComicVine, IGDB, TMDb, and future providers
 - Provider cover images mirrored into MinIO/S3 instead of backend filesystem storage
@@ -26,16 +26,16 @@ Collectarr is a centralized collector metadata hub with personal libraries, vari
 
 ### 🧾 Personal Libraries
 
-- User collections with owned items, wishlist-ready schema, notes, tags, condition, and grading
-- Edition-aware and variant-aware ownership records
-- Soft-delete tombstones for syncable user data
+- Owned items, wishlist, purchase dates, prices, condition, grading, and notes are stored in the Flutter app's local Drift database
+- Edition-aware and variant-aware local ownership records
+- The central metadata server does not store personal collection or wishlist records
 
 ### 🔄 Offline-First Sync
 
-- Flutter client stores local data and pending changes
-- Server accepts diffs and returns ordered updates since a timestamp
-- Initial conflict policy is last-write-wins
-- Device IDs are included in the sync contract for multi-device workflows
+- Flutter clients work offline against a local database first
+- The central server is metadata-only and does not expose personal `/collection` or `/sync` APIs
+- Multi-device personal sync is reserved for a separate self-hosted `collectarr-sync` service
+- The future sync service will be opt-in, user-owned infrastructure
 
 ### 🧩 Provider Plugins
 
@@ -51,7 +51,7 @@ Collectarr is a centralized collector metadata hub with personal libraries, vari
 The backend is a FastAPI modular monolith:
 
 - `api`: routers and HTTP schemas
-- `services`: business logic and sync rules
+- `services`: business logic and metadata ingest rules
 - `repositories`: SQLAlchemy database access
 - `providers`: external metadata adapters
 - `worker`: background indexing and image jobs
@@ -62,8 +62,8 @@ The Flutter app keeps client models separate from backend database models:
 
 - `core/api`: REST client
 - `core/db`: Drift local database
-- `core/sync`: offline queue and sync orchestration
 - `features/comics`: first MVP feature
+- `features/collection`: local-only ownership and wishlist state
 - `features/games` and `features/bluray`: expansion placeholders
 - `state`: Riverpod providers
 - `ui`: shared UI components
@@ -142,13 +142,15 @@ Admin metadata endpoints:
 
 ## 🔄 Sync / Offline Mode
 
-Clients write local changes to a Drift-backed sync queue. The backend exposes:
+Clients write personal collection data to the local Drift database. The central backend intentionally stores only shared metadata, provider IDs, images, search indexes, auth/admin identity, and operational state.
 
-- `POST /sync/push`
-- `POST /sync/pull`
-- `GET /sync/changes?since=`
+Planned multi-device sync will live in a separate self-hosted service:
 
-See [docs/sync.md](docs/sync.md) for the wire format and conflict policy.
+- `collectarr-sync`: user-hosted personal database bridge
+- app clients can point mobile, desktop, and web builds at that service
+- the central metadata server remains stateless with respect to personal libraries
+
+See [docs/sync.md](docs/sync.md) for the boundary and planned service shape.
 
 ---
 
@@ -179,7 +181,7 @@ PRs are welcome! Please:
 
 - Keep commits small and conventional.
 - Run backend and Flutter checks before submitting.
-- Keep canonical metadata separate from personal library data.
+- Keep personal library data out of the central metadata backend.
 
 ---
 

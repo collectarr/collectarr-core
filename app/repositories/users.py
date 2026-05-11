@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User, UserCollection
+from app.models.user import User
 
 
 class UserRepository:
@@ -25,7 +25,5 @@ class UserRepository:
             is_admin=is_admin,
         )
         self.db.add(user)
-        await self.db.flush()
-        self.db.add(UserCollection(user_id=user.id, name="Default"))
         await self.db.flush()
         return user

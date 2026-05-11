@@ -2,7 +2,7 @@
 
 ## Domain Boundary
 
-Canonical metadata is shared across users. User data references canonical records but never mutates them.
+Canonical metadata is shared across clients. Personal library data references canonical records locally but is not stored by the central metadata server.
 
 Canonical hierarchy:
 
@@ -11,13 +11,13 @@ Franchise -> Series -> Volume -> Item -> Edition -> Variant
                                       -> Release
 ```
 
-User hierarchy:
+Local client hierarchy:
 
 ```text
-User -> UserCollection -> OwnedItem
-                       -> WishlistItem
-OwnedItem -> Notes
-OwnedItem -> Tags
+LocalDatabase -> OwnedItem
+              -> WishlistItem
+OwnedItem -> personal notes
+OwnedItem -> condition / grading / purchase data
 ```
 
 External provider IDs are stored separately and can point at any canonical entity by `(entity_type, entity_id)`.
@@ -29,8 +29,6 @@ API routers validate HTTP payloads, call services, and return DTOs.
 Services own business rules, including:
 
 - registration/login
-- collection item updates
-- sync conflict resolution
 - metadata provider orchestration
 - search indexing decisions
 
@@ -47,22 +45,22 @@ class MetadataProvider(Protocol):
 
 ComicVine is the first live provider. Its issue ingest path stores provider IDs for the item and volume, normalizes issue payloads into canonical metadata, and creates the first edition, primary cover variant, and US release record. If no `COMICVINE_API_KEY` is configured, the provider returns stub data so local development still works without secrets.
 
-## Sync
+## Local Personal Data
 
-The client stores local records and a pending change log. The server accepts diffs through `/sync/push`.
+The Flutter client stores personal collection state in Drift. Owned items, wishlist entries, purchase dates, prices, grades, condition, and notes stay on the user's device.
 
-Initial strategy:
+The central backend intentionally does not expose `/collection` or `/sync` endpoints. This keeps the shared metadata server stateless with respect to personal libraries and avoids turning public web access into a private-data hosting requirement.
 
-- UUIDs generated client-side or server-side
-- `changed_at` timestamps on server changes
-- last-write-wins based on `updated_at`/client change timestamps
-- deletes are soft-deleted where user data needs sync visibility
+Future multi-device sync belongs in a separate user-hosted service, tentatively named `collectarr-sync`.
 
-Future strategy:
+Suggested future strategy for `collectarr-sync`:
 
-- per-field conflict records
-- manual conflict resolution UI
-- device identity and sync sessions
+- UUIDs generated client-side
+- `device_id` per installation
+- `client_changed_at` timestamps on local mutations
+- last-write-wins to start
+- tombstones for deletes
+- later manual conflict resolution UI
 
 ## Search
 

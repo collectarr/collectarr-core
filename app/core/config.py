@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     s3_bucket: str = "collectarr-images"
     s3_public_url: str = "http://localhost:9000/collectarr-images"
 
+    comicvine_api_key: str | None = None
+    comicvine_base_url: str = "https://comicvine.gamespot.com/api"
+    comicvine_timeout_seconds: float = 20.0
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @model_validator(mode="after")

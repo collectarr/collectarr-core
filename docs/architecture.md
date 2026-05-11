@@ -45,6 +45,8 @@ class MetadataProvider(Protocol):
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem: ...
 ```
 
+ComicVine is the first live provider. Its issue ingest path stores provider IDs for the item and volume, normalizes issue payloads into canonical metadata, and creates the first edition, primary cover variant, and US release record. If no `COMICVINE_API_KEY` is configured, the provider returns stub data so local development still works without secrets.
+
 ## Sync
 
 The client stores local records and a pending change log. The server accepts diffs through `/sync/push`.
@@ -75,4 +77,3 @@ Images are stored in MinIO/S3. The backend stores object keys/URLs only. Thumbna
 ## Scaling
 
 The API is stateless. State lives in PostgreSQL, Redis, Meilisearch, and MinIO. API and worker containers can scale independently.
-

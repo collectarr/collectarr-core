@@ -39,7 +39,8 @@ Collectarr is a centralized collector metadata hub with personal libraries, vari
 ### 🧩 Provider Plugins
 
 - Provider abstraction for search, item fetch, and normalization
-- ComicVine provider is the first live target
+- ComicVine provider supports live issue search/fetch when `COMICVINE_API_KEY` is set
+- Admin ingest upserts ComicVine issues into canonical series, volume, item, edition, variant, and release records
 - IGDB and TMDb providers are scaffolded for future game and Blu-ray metadata
 
 ---
@@ -95,6 +96,13 @@ docker compose exec api python -m app.scripts.seed_comics
 
 To bootstrap an admin account, set `BOOTSTRAP_ADMIN_EMAILS=["you@example.com"]` before registering that email.
 
+Optional ComicVine live metadata:
+
+```powershell
+$env:COMICVINE_API_KEY="your-key"
+# or set COMICVINE_API_KEY in .env before starting Docker
+```
+
 Open:
 
 - API: http://localhost:8010
@@ -123,6 +131,11 @@ Common commands:
 .\tools\dev.ps1 seed
 .\tools\dev.ps1 test-backend
 ```
+
+Admin metadata endpoints:
+
+- `POST /admin/providers/search` - provider search, admin auth required
+- `POST /admin/providers/ingest` - fetch, normalize, and upsert provider metadata, admin auth required
 
 ---
 

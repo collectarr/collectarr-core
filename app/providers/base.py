@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, Mapping, Protocol
 
 from app.models.base import ItemKind
@@ -27,8 +28,17 @@ class NormalizedItem:
     title: str
     item_number: str | None = None
     synopsis: str | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    volume_number: int | None = None
+    volume_start_year: int | None = None
     edition_title: str | None = None
+    edition_format: str | None = None
+    publisher: str | None = None
+    release_date: date | None = None
+    cover_image_url: str | None = None
     provider_ids: dict[str, str] = field(default_factory=dict)
+    volume_provider_ids: dict[str, str] = field(default_factory=dict)
 
 
 class MetadataProvider(Protocol):
@@ -42,4 +52,3 @@ class MetadataProvider(Protocol):
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
         ...
-

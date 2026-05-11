@@ -276,7 +276,14 @@ _ADMIN_UI_HTML = """
       async function request(path, options = {}) {
         const response = await fetch(path, options);
         const text = await response.text();
-        const data = text ? JSON.parse(text) : null;
+        let data = null;
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { detail: text };
+          }
+        }
         if (!response.ok) {
           const message = data?.detail || response.statusText;
           throw new Error(Array.isArray(message) ? JSON.stringify(message) : message);

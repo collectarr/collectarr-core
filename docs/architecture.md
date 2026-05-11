@@ -51,9 +51,9 @@ The Flutter client stores personal collection state in Drift. Owned items, wishl
 
 The central backend intentionally does not expose `/collection` or `/sync` endpoints. This keeps the shared metadata server stateless with respect to personal libraries and avoids turning public web access into a private-data hosting requirement.
 
-Future multi-device sync belongs in a separate user-hosted service, tentatively named `collectarr-sync`.
+Multi-device sync belongs in the separate user-hosted `collectarr-sync` service.
 
-Suggested future strategy for `collectarr-sync`:
+Initial strategy for `collectarr-sync`:
 
 - UUIDs generated client-side
 - `device_id` per installation

@@ -10,7 +10,7 @@
 
 > Self-hosted metadata hub for comics, games, Blu-rays, manga, and other collectibles.
 
-Collectarr is a centralized collector metadata hub with variant-aware catalog records, offline-first local libraries, and plugin-based metadata providers. The central server stores shared metadata only. Personal collection data stays on the user's device, with a future optional `collectarr-sync` service planned for people who want to sync their own devices.
+Collectarr is a centralized collector metadata hub with variant-aware catalog records, offline-first local libraries, and plugin-based metadata providers. The central server stores shared metadata only. Personal collection data stays on the user's device, with an optional `collectarr-sync` service for people who want to sync their own devices.
 
 ---
 
@@ -35,7 +35,7 @@ Collectarr is a centralized collector metadata hub with variant-aware catalog re
 - Flutter clients work offline against a local database first
 - The central server is metadata-only and does not expose personal `/collection` or `/sync` APIs
 - Multi-device personal sync is reserved for a separate self-hosted `collectarr-sync` service
-- The future sync service will be opt-in, user-owned infrastructure
+- The sync service is opt-in, user-owned infrastructure
 
 ### 🧩 Provider Plugins
 
@@ -123,6 +123,7 @@ The local stack includes:
 - Redis
 - Meilisearch
 - MinIO
+- optional `collectarr-sync` personal sync service
 
 Common commands:
 
@@ -132,6 +133,14 @@ Common commands:
 .\tools\dev.ps1 seed
 .\tools\dev.ps1 test-backend
 ```
+
+Optional personal sync service:
+
+```powershell
+docker compose --profile sync up --build sync
+```
+
+The sync service is separate from the central metadata backend and uses `SYNC_API_KEY` plus its own SQLite database volume.
 
 Admin metadata endpoints:
 
@@ -144,13 +153,13 @@ Admin metadata endpoints:
 
 Clients write personal collection data to the local Drift database. The central backend intentionally stores only shared metadata, provider IDs, images, search indexes, auth/admin identity, and operational state.
 
-Planned multi-device sync will live in a separate self-hosted service:
+Multi-device sync lives in a separate self-hosted service:
 
 - `collectarr-sync`: user-hosted personal database bridge
 - app clients can point mobile, desktop, and web builds at that service
 - the central metadata server remains stateless with respect to personal libraries
 
-See [docs/sync.md](docs/sync.md) for the boundary and planned service shape.
+See [docs/sync.md](docs/sync.md) for the boundary and service shape.
 
 ---
 

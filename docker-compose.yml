@@ -85,7 +85,21 @@ services:
     volumes:
       - minio_data:/data
 
+  sync:
+    build:
+      context: ./sync_service
+    env_file: .env
+    environment:
+      SYNC_DATABASE_PATH: /data/collectarr-sync.db
+    ports:
+      - "8020:8020"
+    volumes:
+      - sync_data:/data
+    profiles:
+      - sync
+
 volumes:
   postgres_data:
   meili_data:
   minio_data:
+  sync_data:

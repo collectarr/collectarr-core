@@ -51,6 +51,25 @@ async def _ensure_test_database(database_url: str) -> None:
     finally:
         await connection.close()
 
+    try:
+        target_connection = await asyncpg.connect(
+            user=url.username,
+            password=url.password,
+            database=database,
+            host=url.host,
+            port=url.port or 5432,
+        )
+    except (OSError, asyncpg.PostgresError) as exc:
+        pytest.skip(f"Cannot connect to PostgreSQL test database {database}: {exc}")
+
+    try:
+        await target_connection.execute("drop schema if exists public cascade")
+        await target_connection.execute("create schema public")
+    except asyncpg.PostgresError as exc:
+        pytest.skip(f"Cannot reset PostgreSQL test database {database}: {exc}")
+    finally:
+        await target_connection.close()
+
 
 @pytest.fixture(scope="session", autouse=True)
 def migrated_database() -> None:

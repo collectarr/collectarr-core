@@ -1,0 +1,2 @@
+"""Collector backend package."""
+

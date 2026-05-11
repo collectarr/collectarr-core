@@ -156,6 +156,23 @@ _ADMIN_UI_HTML = """
       }
       .metric.warn strong { color: var(--yellow); }
       .metric.ok strong { color: var(--ok); }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        width: fit-content;
+        padding: 2px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #171717;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .badge.live, .badge.approved { color: var(--ok); border-color: #2d7a43; }
+      .badge.stub, .badge.pending { color: var(--yellow); border-color: #8a7600; }
+      .badge.rejected { color: var(--danger); border-color: #7a2d2d; }
       .results {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -193,6 +210,14 @@ _ADMIN_UI_HTML = """
         border: 1px solid #303030;
         border-radius: 6px;
         color: var(--muted);
+      }
+      .summary {
+        max-height: 170px;
+        overflow: auto;
+        padding: 8px;
+        background: #151515;
+        border: 1px solid #303030;
+        border-radius: 6px;
       }
       pre {
         overflow: auto;
@@ -440,8 +465,9 @@ _ADMIN_UI_HTML = """
           const card = document.createElement("article");
           card.className = "result";
           card.innerHTML = `
-            <h3>${escapeHtml(item.name)} (${escapeHtml(item.kind)})</h3>
-            <p class="muted">${escapeHtml(item.status)} - ${escapeHtml(item.message)}</p>
+          <h3>${escapeHtml(item.name)} (${escapeHtml(item.kind)})</h3>
+            <span class="badge ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
+            <p class="muted">${escapeHtml(item.message)}</p>
           `;
           target.appendChild(card);
         }
@@ -460,17 +486,19 @@ _ADMIN_UI_HTML = """
           const title = escapeHtml(item.title || item.query || "Untitled proposal");
           const provider = escapeHtml(item.provider || "");
           const providerId = escapeHtml(item.provider_item_id || "");
+          const status = escapeHtml(item.status || "pending");
           const summary = escapeHtml(item.summary || "");
           card.innerHTML = `
             <h3>${title}</h3>
-            <p class="muted">${provider} ${providerId}</p>
-            ${summary ? `<p>${summary}</p>` : ""}
+            <span class="badge ${status}">${status}</span>
+            <p class="muted">${provider} ${providerId || "manual correction"}</p>
+            ${summary ? `<pre class="summary">${summary}</pre>` : ""}
             <div class="row">
-              <button type="button" class="primary" data-action="approve">Approve</button>
+              ${providerId ? '<button type="button" class="primary" data-action="approve">Approve</button>' : ""}
               <button type="button" data-action="reject">Reject</button>
             </div>
           `;
-          card.querySelector('[data-action="approve"]').addEventListener("click", () => approveProposal(item.id));
+          card.querySelector('[data-action="approve"]')?.addEventListener("click", () => approveProposal(item.id));
           card.querySelector('[data-action="reject"]').addEventListener("click", () => rejectProposal(item.id));
           target.appendChild(card);
         }
@@ -576,7 +604,7 @@ _ADMIN_UI_HTML = """
             headers: headers(true),
           });
           renderProviderStatuses(data);
-          setMetric("providerMetric", data.filter((item) => item.status === "ok").length);
+          setMetric("providerMetric", data.filter((item) => item.is_configured).length);
           setStatus("Provider status loaded.", "ok");
           setResponse(data);
           logEvent("Provider status refreshed.");
@@ -669,6 +697,10 @@ _ADMIN_UI_HTML = """
       $("providerButton").addEventListener("click", providerSearch);
       $("proposalsButton").addEventListener("click", loadProposals);
       updateAuthStatus();
+      if (state.token) {
+        loadProviders();
+        loadProposals();
+      }
     </script>
   </body>
 </html>

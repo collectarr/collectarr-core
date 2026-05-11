@@ -22,6 +22,8 @@ async def test_admin_ui_is_served_without_api_token(client):
     assert "text/html" in response.headers["content-type"]
     assert "Collectarr Admin" in response.text
     assert "Personal library data stays local" in response.text
+    assert "manual correction" in response.text
+    assert ".badge.pending" in response.text
 
 
 @pytest.mark.asyncio

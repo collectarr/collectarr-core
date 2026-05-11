@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import re
 from datetime import date
 from html import unescape
@@ -13,6 +15,8 @@ from app.providers.base import NormalizedItem, ProviderItem, ProviderSearchResul
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _RESOURCE_ID_RE = re.compile(r"/(issue|volume)/(\d+-\d+)/?")
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+logger = logging.getLogger(__name__)
 
 
 class ComicVineProvider:
@@ -22,12 +26,16 @@ class ComicVineProvider:
         self.settings = get_settings()
 
     async def search(self, query: str) -> list[ProviderSearchResult]:
-        if not self.settings.comicvine_api_key:
+        normalized_query = " ".join(query.split())
+        if not normalized_query:
+            return []
+
+        if not self._is_configured:
             return [
                 ProviderSearchResult(
                     provider=self.name,
-                    provider_item_id=f"stub-comic-{query.lower().replace(' ', '-')}",
-                    title=f"{query} (ComicVine stub)",
+                    provider_item_id=f"stub-comic-{self._slug(normalized_query)}",
+                    title=f"{normalized_query} (ComicVine stub)",
                     kind=ItemKind.comic,
                     summary="Set COMICVINE_API_KEY to enable live ComicVine metadata.",
                 )
@@ -36,9 +44,9 @@ class ComicVineProvider:
         payload = await self._request(
             "search/",
             {
-                "query": query,
+                "query": normalized_query,
                 "resources": "issue",
-                "limit": 10,
+                "limit": self.settings.comicvine_search_limit,
                 "field_list": ",".join(
                     [
                         "id",
@@ -57,10 +65,17 @@ class ComicVineProvider:
         if not isinstance(results, list):
             return []
 
-        return [self._search_result(result) for result in results if isinstance(result, Mapping)]
+        normalized_results = []
+        for result in results:
+            if not isinstance(result, Mapping):
+                continue
+            search_result = self._search_result(result)
+            if search_result.provider_item_id:
+                normalized_results.append(search_result)
+        return normalized_results
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
-        if not self.settings.comicvine_api_key:
+        if not self._is_configured:
             title = provider_item_id.removeprefix("stub-comic-").replace("-", " ").title()
             return ProviderItem(
                 provider=self.name,
@@ -128,28 +143,55 @@ class ComicVineProvider:
 
     async def _request(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         request_params = {
-            "api_key": self.settings.comicvine_api_key,
+            "api_key": self.settings.comicvine_api_key.strip()
+            if self.settings.comicvine_api_key
+            else "",
             "format": "json",
             **params,
         }
-        headers = {"User-Agent": "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"}
+        headers = {"User-Agent": self.settings.comicvine_user_agent}
         url = f"{self.settings.comicvine_base_url.rstrip('/')}/{path.lstrip('/')}"
-        try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.comicvine_timeout_seconds, headers=headers
-            ) as client:
-                response = await client.get(url, params=request_params)
-                response.raise_for_status()
-                payload = response.json()
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"ComicVine returned HTTP {exc.response.status_code}",
-            ) from exc
-        except (httpx.HTTPError, ValueError) as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="ComicVine request failed"
-            ) from exc
+        attempts = max(1, self.settings.comicvine_retry_attempts + 1)
+        last_error: Exception | None = None
+        payload: Any = None
+        async with httpx.AsyncClient(
+            timeout=self.settings.comicvine_timeout_seconds,
+            headers=headers,
+            follow_redirects=True,
+        ) as client:
+            for attempt in range(attempts):
+                try:
+                    response = await client.get(url, params=request_params)
+                    if response.status_code in {429, 500, 502, 503, 504} and attempt < attempts - 1:
+                        await self._backoff(response, attempt)
+                        continue
+                    response.raise_for_status()
+                    payload = response.json()
+                    break
+                except httpx.HTTPStatusError as exc:
+                    last_error = exc
+                    if exc.response.status_code in {429, 500, 502, 503, 504} and attempt < attempts - 1:
+                        await self._backoff(exc.response, attempt)
+                        continue
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"ComicVine returned HTTP {exc.response.status_code}",
+                    ) from exc
+                except (httpx.HTTPError, ValueError) as exc:
+                    last_error = exc
+                    if attempt < attempts - 1:
+                        await self._backoff(None, attempt)
+                        continue
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="ComicVine request failed",
+                    ) from exc
+            else:
+                logger.warning("ComicVine request exhausted retries for %s", path)
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="ComicVine request failed",
+                ) from last_error
 
         if not isinstance(payload, dict):
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine response")
@@ -157,6 +199,15 @@ class ComicVineProvider:
             error = payload.get("error") or "ComicVine API error"
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error))
         return payload
+
+    @property
+    def _is_configured(self) -> bool:
+        return bool(self.settings.comicvine_api_key and self.settings.comicvine_api_key.strip())
+
+    async def _backoff(self, response: httpx.Response | None, attempt: int) -> None:
+        retry_after = response.headers.get("Retry-After") if response is not None else None
+        delay = self._retry_after_seconds(retry_after) or min(0.5 * (2**attempt), 3.0)
+        await asyncio.sleep(delay)
 
     def _search_result(self, result: Mapping[str, Any]) -> ProviderSearchResult:
         volume = result.get("volume") if isinstance(result.get("volume"), Mapping) else {}
@@ -180,6 +231,18 @@ class ComicVineProvider:
         if provider_item_id.isdigit():
             return f"4000-{provider_item_id}"
         return provider_item_id
+
+    def _slug(self, value: str) -> str:
+        slug = _SLUG_RE.sub("-", value.lower()).strip("-")
+        return slug or "untitled"
+
+    def _retry_after_seconds(self, value: str | None) -> float | None:
+        if value is None:
+            return None
+        try:
+            return min(max(float(value), 0.0), 10.0)
+        except ValueError:
+            return None
 
     def _resource_id(self, data: Mapping[str, Any], resource: str) -> str | None:
         api_detail_url = str(data.get("api_detail_url") or "")

@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     comicvine_api_key: str | None = None
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"
     comicvine_timeout_seconds: float = 20.0
+    comicvine_retry_attempts: int = 2
+    comicvine_search_limit: int = 20
+    comicvine_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

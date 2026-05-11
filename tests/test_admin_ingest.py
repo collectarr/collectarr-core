@@ -62,6 +62,18 @@ async def test_comicvine_provider_normalizes_issue_payload():
 
 
 @pytest.mark.asyncio
+async def test_comicvine_provider_stub_search_uses_stable_slug(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", None)
+
+    results = await ComicVineProvider().search("  Spider-Man: Vol. 2  ")
+
+    assert len(results) == 1
+    assert results[0].provider_item_id == "stub-comic-spider-man-vol-2"
+    assert results[0].title == "Spider-Man: Vol. 2 (ComicVine stub)"
+
+
+@pytest.mark.asyncio
 async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 

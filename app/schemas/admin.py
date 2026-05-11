@@ -2,6 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.base import ExternalProvider
 from app.schemas.metadata import ItemResponse
 
 
@@ -29,3 +30,16 @@ class ProviderIngestResponse(BaseModel):
     item_id: UUID
     created: bool
     item: ItemResponse
+
+
+class MetadataProposalAdminResponse(BaseModel):
+    id: UUID
+    provider: ExternalProvider
+    provider_item_id: str | None
+    query: str
+    title: str | None
+    summary: str | None
+    image_url: str | None
+    status: str
+
+    model_config = {"from_attributes": True}

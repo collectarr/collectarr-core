@@ -219,6 +219,13 @@ _ADMIN_UI_HTML = """
             </div>
             <div id="providerResults" class="results"></div>
           </div>
+          <div class="panel stack">
+            <h2>Metadata proposals</h2>
+            <div class="row">
+              <button id="proposalsButton" type="button">Load pending</button>
+            </div>
+            <div id="proposalResults" class="results"></div>
+          </div>
         </div>
         <div class="panel stack">
           <h2>Response</h2>
@@ -360,6 +367,35 @@ _ADMIN_UI_HTML = """
         }
       }
 
+      function renderProposals(items) {
+        const target = $("proposalResults");
+        target.innerHTML = "";
+        if (!items.length) {
+          target.innerHTML = '<p class="muted">No pending proposals.</p>';
+          return;
+        }
+        for (const item of items) {
+          const card = document.createElement("article");
+          card.className = "result";
+          const title = escapeHtml(item.title || item.query || "Untitled proposal");
+          const provider = escapeHtml(item.provider || "");
+          const providerId = escapeHtml(item.provider_item_id || "");
+          const summary = escapeHtml(item.summary || "");
+          card.innerHTML = `
+            <h3>${title}</h3>
+            <p class="muted">${provider} ${providerId}</p>
+            ${summary ? `<p>${summary}</p>` : ""}
+            <div class="row">
+              <button type="button" class="primary" data-action="approve">Approve</button>
+              <button type="button" data-action="reject">Reject</button>
+            </div>
+          `;
+          card.querySelector('[data-action="approve"]').addEventListener("click", () => approveProposal(item.id));
+          card.querySelector('[data-action="reject"]').addEventListener("click", () => rejectProposal(item.id));
+          target.appendChild(card);
+        }
+      }
+
       async function login() {
         const button = $("loginButton");
         setBusy(button, true);
@@ -483,6 +519,51 @@ _ADMIN_UI_HTML = """
         }
       }
 
+      async function loadProposals() {
+        const button = $("proposalsButton");
+        setBusy(button, true);
+        try {
+          const data = await request("/admin/metadata/proposals?status=pending", {
+            headers: headers(true),
+          });
+          renderProposals(data);
+          setStatus(`Loaded ${data.length} pending proposals.`, "ok");
+          setResponse(data);
+        } catch (error) {
+          setStatus(error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
+      async function approveProposal(id) {
+        try {
+          const data = await request(`/admin/metadata/proposals/${id}/approve`, {
+            method: "POST",
+            headers: headers(true),
+          });
+          setStatus("Proposal approved and ingested.", "ok");
+          setResponse(data);
+          loadProposals();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
+      async function rejectProposal(id) {
+        try {
+          const data = await request(`/admin/metadata/proposals/${id}/reject`, {
+            method: "POST",
+            headers: headers(true),
+          });
+          setStatus("Proposal rejected.", "ok");
+          setResponse(data);
+          loadProposals();
+        } catch (error) {
+          setStatus(error.message, "error");
+        }
+      }
+
       $("loginButton").addEventListener("click", login);
       $("clearTokenButton").addEventListener("click", () => {
         state.token = "";
@@ -494,6 +575,7 @@ _ADMIN_UI_HTML = """
       $("barcodeButton").addEventListener("click", barcodeLookup);
       $("providersButton").addEventListener("click", loadProviders);
       $("providerButton").addEventListener("click", providerSearch);
+      $("proposalsButton").addEventListener("click", loadProposals);
       updateAuthStatus();
     </script>
   </body>

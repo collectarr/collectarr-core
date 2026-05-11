@@ -30,15 +30,46 @@ class MetadataService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
         return ItemResponse.model_validate(item)
 
-    async def search(self, query: str, kind: ItemKind | None = None) -> list[SearchResult]:
-        if not query.strip():
+    async def search(
+        self,
+        query: str | None = None,
+        kind: ItemKind | None = None,
+        series: str | None = None,
+        issue_number: str | None = None,
+        publisher: str | None = None,
+        year: int | None = None,
+        barcode: str | None = None,
+        limit: int = 25,
+    ) -> list[SearchResult]:
+        if not any(
+            value is not None and str(value).strip()
+            for value in (query, series, issue_number, publisher, year, barcode)
+        ):
             return []
 
-        meili_results = await self.search_client.search(query=query, kind=kind)
+        meili_results = await self.search_client.search(
+            query=query or "",
+            kind=kind,
+            series=series,
+            issue_number=issue_number,
+            publisher=publisher,
+            year=year,
+            barcode=barcode,
+            limit=limit,
+        )
         if meili_results:
             return [SearchResult(**result) for result in meili_results]
 
-        items = await self.metadata.search_items(query=query, kind=kind)
+        items = await self.metadata.search_items(
+            query=query,
+            kind=kind,
+            limit=limit,
+            series=series,
+            issue_number=issue_number,
+            publisher=publisher,
+            year=year,
+            barcode=barcode,
+        )
         results: list[SearchResult] = []
         for item in items:
             cover_url = None

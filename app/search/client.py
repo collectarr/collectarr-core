@@ -13,13 +13,36 @@ class SearchClient:
         settings = get_settings()
         self.client = meilisearch.Client(settings.meili_url, settings.meili_master_key)
 
-    async def search(self, query: str, kind: ItemKind | None = None) -> list[dict[str, Any]] | None:
+    async def search(
+        self,
+        query: str,
+        kind: ItemKind | None = None,
+        series: str | None = None,
+        issue_number: str | None = None,
+        publisher: str | None = None,
+        year: int | None = None,
+        barcode: str | None = None,
+        limit: int = 25,
+    ) -> list[dict[str, Any]] | None:
         try:
-            filters = f'kind = "{kind.value}"' if kind else None
-            options: dict[str, Any] = {"limit": 25}
+            filter_parts: list[str] = []
+            if kind:
+                filter_parts.append(f'kind = "{kind.value}"')
+            if publisher:
+                filter_parts.append(f'publisher = "{publisher}"')
+            if year is not None:
+                filter_parts.append(f"release_year = {year}")
+            if barcode:
+                normalized = barcode.strip().replace("-", "").replace(" ", "")
+                filter_parts.append(f'barcodes = "{normalized}"')
+            options: dict[str, Any] = {"limit": limit}
+            filters = " AND ".join(filter_parts) if filter_parts else None
             if filters:
                 options["filter"] = filters
-            result = self.client.index(self.index_name).search(query, options)
+            search_query = " ".join(
+                part for part in (query, series, issue_number) if part and part.strip()
+            )
+            result = self.client.index(self.index_name).search(search_query, options)
         except Exception:
             return None
         return result.get("hits", [])
@@ -39,7 +62,17 @@ class SearchClient:
 
     async def configure(self) -> None:
         index = self.client.index(self.index_name)
-        index.update_filterable_attributes(["kind", "publisher", "region"])
+        index.update_filterable_attributes(
+            ["kind", "publisher", "region", "release_year", "barcodes"]
+        )
         index.update_searchable_attributes(
-            ["title", "item_number", "synopsis", "series_title", "volume_name"]
+            [
+                "title",
+                "item_number",
+                "synopsis",
+                "series_title",
+                "volume_name",
+                "publisher",
+                "barcodes",
+            ]
         )

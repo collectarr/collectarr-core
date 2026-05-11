@@ -54,7 +54,10 @@ async def test_comicvine_provider_normalizes_issue_payload():
     assert normalized.release_date == date(1963, 3, 1)
     assert normalized.provider_ids == {"comicvine": "4000-12345"}
     assert normalized.volume_provider_ids == {"comicvine": "4050-6789"}
-    assert normalized.cover_image_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+    assert (
+        normalized.cover_image_url
+        == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+    )
     assert normalized.synopsis == "Peter Parker faces a new chapter as Spider-Man."
 
 
@@ -84,7 +87,9 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     indexed_documents = []
 
     async def fake_get_item(self, provider_item_id):
-        return ProviderItem(provider="comicvine", provider_item_id="4000-12345", raw=comicvine_issue_raw())
+        return ProviderItem(
+            provider="comicvine", provider_item_id="4000-12345", raw=comicvine_issue_raw()
+        )
 
     async def fake_index_documents(self, documents):
         indexed_documents.extend(documents)
@@ -100,8 +105,7 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             content_type="image/jpeg",
             thumbnail_key="thumbnails/comicvine/4000-12345/cover.jpg",
             thumbnail_url=(
-                "http://localhost:9000/collectarr-images/"
-                "thumbnails/comicvine/4000-12345/cover.jpg"
+                "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
             ),
         )
 
@@ -137,11 +141,12 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "synopsis": "Peter Parker faces a new chapter as Spider-Man.",
             "cover_image_url": "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
             "thumbnail_image_url": (
-                "http://localhost:9000/collectarr-images/"
-                "thumbnails/comicvine/4000-12345/cover.jpg"
+                "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
             ),
             "publisher": "Marvel",
             "region": "US",
+            "release_year": 1963,
+            "barcodes": [],
             "series_title": "The Amazing Spider-Man",
             "volume_name": "The Amazing Spider-Man",
         }
@@ -163,7 +168,9 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(Variant)) == 1
         assert await db.scalar(select(func.count()).select_from(Release)) == 1
         provider_ids = await db.scalars(
-            select(ExternalProviderId.provider_item_id).order_by(ExternalProviderId.provider_item_id)
+            select(ExternalProviderId.provider_item_id).order_by(
+                ExternalProviderId.provider_item_id
+            )
         )
         assert list(provider_ids) == ["4000-12345", "4050-6789"]
         cover = await db.scalar(select(Variant.cover_image_key))

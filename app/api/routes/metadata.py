@@ -19,10 +19,25 @@ router = APIRouter(tags=["metadata"])
 @router.get("/search", response_model=list[SearchResult])
 async def search(
     db: DbSession,
-    q: str = Query(min_length=1),
+    q: str | None = Query(default=None, min_length=1),
     kind: ItemKind | None = None,
+    series: str | None = Query(default=None, min_length=1),
+    issue_number: str | None = Query(default=None, min_length=1),
+    publisher: str | None = Query(default=None, min_length=1),
+    year: int | None = Query(default=None, ge=1800, le=2200),
+    barcode: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=25, ge=1, le=100),
 ) -> list[SearchResult]:
-    return await MetadataService(db).search(query=q, kind=kind)
+    return await MetadataService(db).search(
+        query=q,
+        kind=kind,
+        series=series,
+        issue_number=issue_number,
+        publisher=publisher,
+        year=year,
+        barcode=barcode,
+        limit=limit,
+    )
 
 
 @router.get("/barcode/{barcode}", response_model=SearchResult)

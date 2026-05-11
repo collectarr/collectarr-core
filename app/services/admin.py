@@ -5,11 +5,17 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.canonical import Edition, ExternalProviderId, Item, Release, Series, Variant, Volume
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
-from app.schemas.admin import ProviderIngestRequest, ProviderIngestResponse, ProviderSearchRequest
+from app.schemas.admin import (
+    ProviderIngestRequest,
+    ProviderIngestResponse,
+    ProviderSearchRequest,
+    ProviderStatusResponse,
+)
 from app.schemas.metadata import ItemResponse
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
@@ -20,6 +26,36 @@ class AdminMetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.providers = ProviderRegistry()
+        self.settings = get_settings()
+
+    async def provider_statuses(self) -> list[ProviderStatusResponse]:
+        return [
+            ProviderStatusResponse(
+                name="comicvine",
+                kind=ItemKind.comic.value,
+                status="live" if self.settings.comicvine_api_key else "stub",
+                is_configured=bool(self.settings.comicvine_api_key),
+                message=(
+                    "ComicVine API key configured."
+                    if self.settings.comicvine_api_key
+                    else "Set COMICVINE_API_KEY to enable live ComicVine metadata."
+                ),
+            ),
+            ProviderStatusResponse(
+                name="igdb",
+                kind=ItemKind.game.value,
+                status="stub",
+                is_configured=False,
+                message="IGDB live metadata is planned after the comics MVP.",
+            ),
+            ProviderStatusResponse(
+                name="tmdb",
+                kind=ItemKind.bluray.value,
+                status="stub",
+                is_configured=False,
+                message="TMDb live metadata is planned after the comics MVP.",
+            ),
+        ]
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
         provider = self.providers.get(payload.provider)

@@ -186,6 +186,11 @@ _ADMIN_UI_HTML = """
           <label>Barcode <input id="barcode" placeholder="75960604716100111"></label>
           <button id="barcodeButton" type="button">Lookup comic</button>
         </div>
+        <div class="panel stack">
+          <h2>Providers</h2>
+          <button id="providersButton" type="button">Load provider status</button>
+          <div id="providerStatusList" class="stack"></div>
+        </div>
       </aside>
       <section class="stack">
         <div class="grid">
@@ -330,6 +335,24 @@ _ADMIN_UI_HTML = """
         }
       }
 
+      function renderProviderStatuses(items) {
+        const target = $("providerStatusList");
+        target.innerHTML = "";
+        if (!items.length) {
+          target.innerHTML = '<p class="muted">No providers.</p>';
+          return;
+        }
+        for (const item of items) {
+          const card = document.createElement("article");
+          card.className = "result";
+          card.innerHTML = `
+            <h3>${escapeHtml(item.name)} (${escapeHtml(item.kind)})</h3>
+            <p class="muted">${escapeHtml(item.status)} - ${escapeHtml(item.message)}</p>
+          `;
+          target.appendChild(card);
+        }
+      }
+
       async function login() {
         const button = $("loginButton");
         setBusy(button, true);
@@ -419,6 +442,23 @@ _ADMIN_UI_HTML = """
         }
       }
 
+      async function loadProviders() {
+        const button = $("providersButton");
+        setBusy(button, true);
+        try {
+          const data = await request("/admin/providers", {
+            headers: headers(true),
+          });
+          renderProviderStatuses(data);
+          setStatus("Provider status loaded.", "ok");
+          setResponse(data);
+        } catch (error) {
+          setStatus(error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      }
+
       async function ingestProviderItem(providerItemId) {
         try {
           const data = await request("/admin/providers/ingest", {
@@ -445,6 +485,7 @@ _ADMIN_UI_HTML = """
       $("healthButton").addEventListener("click", health);
       $("catalogButton").addEventListener("click", catalogSearch);
       $("barcodeButton").addEventListener("click", barcodeLookup);
+      $("providersButton").addEventListener("click", loadProviders);
       $("providerButton").addEventListener("click", providerSearch);
       updateAuthStatus();
     </script>

@@ -166,8 +166,6 @@ def upgrade() -> None:
         sa.Column("sku", sa.String(length=100), nullable=True),
         sa.Column("cover_image_key", sa.String(length=512), nullable=True),
         sa.Column("cover_image_url", sa.String(length=1024), nullable=True),
-        sa.Column("thumbnail_image_key", sa.String(length=512), nullable=True),
-        sa.Column("thumbnail_image_url", sa.String(length=1024), nullable=True),
         sa.Column("is_primary", sa.Boolean(), nullable=False),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),

@@ -127,3 +127,18 @@ class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     raw_url: Mapped[str | None] = mapped_column(String(1024))
+
+
+class MetadataProposal(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "metadata_proposals"
+    __table_args__ = (Index("ix_metadata_proposals_status_provider", "status", "provider"),)
+
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    query: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255))
+    summary: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)

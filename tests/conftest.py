@@ -130,7 +130,7 @@ async def clean_database() -> AsyncIterator[None]:
             text(
                 """
                 truncate table
-                  users, releases, variants, editions, external_provider_ids,
+                  users, metadata_proposals, releases, variants, editions, external_provider_ids,
                   items, volumes, series, franchises
                 restart identity cascade
                 """

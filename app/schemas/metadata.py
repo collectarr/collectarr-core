@@ -1,9 +1,9 @@
 from datetime import date
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.models.base import ItemKind
+from app.models.base import ExternalProvider, ItemKind
 
 
 class VariantResponse(BaseModel):
@@ -51,3 +51,32 @@ class SearchResult(BaseModel):
     synopsis: str | None = None
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
+
+
+class ProviderSearchResultResponse(BaseModel):
+    provider: ExternalProvider
+    provider_item_id: str
+    title: str
+    kind: ItemKind
+    summary: str | None = None
+    image_url: str | None = None
+
+
+class MetadataProposalCreate(BaseModel):
+    provider: ExternalProvider = ExternalProvider.comicvine
+    provider_item_id: str | None = Field(default=None, max_length=255)
+    query: str = Field(min_length=1, max_length=255)
+    title: str | None = Field(default=None, max_length=255)
+    summary: str | None = None
+    image_url: str | None = Field(default=None, max_length=1024)
+
+
+class MetadataProposalResponse(BaseModel):
+    id: UUID
+    provider: ExternalProvider
+    provider_item_id: str | None
+    query: str
+    title: str | None
+    status: str
+
+    model_config = {"from_attributes": True}

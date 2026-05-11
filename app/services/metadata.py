@@ -3,9 +3,17 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.base import ItemKind
+from app.models.base import ExternalProvider, ItemKind
+from app.models.canonical import MetadataProposal
+from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
-from app.schemas.metadata import ItemResponse, SearchResult
+from app.schemas.metadata import (
+    ItemResponse,
+    MetadataProposalCreate,
+    MetadataProposalResponse,
+    ProviderSearchResultResponse,
+    SearchResult,
+)
 from app.search.client import SearchClient
 
 
@@ -14,6 +22,7 @@ class MetadataService:
         self.db = db
         self.metadata = MetadataRepository(db)
         self.search_client = SearchClient()
+        self.providers = ProviderRegistry()
 
     async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse:
         item = await self.metadata.get_item(item_id, kind)
@@ -35,14 +44,14 @@ class MetadataService:
             cover_url = None
             thumbnail_url = None
             for edition in item.editions:
-                primary = next((variant for variant in edition.variants if variant.is_primary), None)
+                primary = next(
+                    (variant for variant in edition.variants if variant.is_primary), None
+                )
                 if primary:
                     cover_url = primary.cover_image_url
                     thumbnail_url = primary.thumbnail_image_url
                     break
-            results.append(
-                self._search_result(item, cover_url, thumbnail_url)
-            )
+            results.append(self._search_result(item, cover_url, thumbnail_url))
         return results
 
     async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:
@@ -59,6 +68,27 @@ class MetadataService:
                 thumbnail_url = primary.thumbnail_image_url
                 break
         return self._search_result(item, cover_url, thumbnail_url)
+
+    async def search_provider(
+        self, provider_name: ExternalProvider, query: str
+    ) -> list[ProviderSearchResultResponse]:
+        provider = self.providers.get(provider_name.value)
+        results = await provider.search(query)
+        return [ProviderSearchResultResponse(**result.__dict__) for result in results]
+
+    async def create_proposal(self, payload: MetadataProposalCreate) -> MetadataProposalResponse:
+        proposal = MetadataProposal(
+            provider=payload.provider,
+            provider_item_id=payload.provider_item_id,
+            query=payload.query,
+            title=payload.title,
+            summary=payload.summary,
+            image_url=payload.image_url,
+        )
+        self.db.add(proposal)
+        await self.db.commit()
+        await self.db.refresh(proposal)
+        return MetadataProposalResponse.model_validate(proposal)
 
     def _search_result(
         self, item, cover_url: str | None, thumbnail_url: str | None

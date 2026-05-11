@@ -40,6 +40,24 @@ class MetadataRepository:
         result = await self.db.execute(stmt)
         return list(result.scalars().unique())
 
+    async def find_item_by_barcode(
+        self, barcode: str, kind: ItemKind | None = None
+    ) -> Item | None:
+        normalized = barcode.strip().replace("-", "").replace(" ", "")
+        if not normalized:
+            return None
+
+        stmt = (
+            self._item_detail_stmt()
+            .join(Item.editions)
+            .where(or_(Edition.upc == normalized, Edition.isbn == normalized))
+            .limit(1)
+        )
+        if kind:
+            stmt = stmt.where(Item.kind == kind)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def validate_refs(
         self, item_id: UUID, edition_id: UUID | None, variant_id: UUID | None
     ) -> None:

@@ -39,13 +39,29 @@ class MetadataService:
                     cover_url = primary.cover_image_url
                     break
             results.append(
-                SearchResult(
-                    id=item.id,
-                    kind=item.kind,
-                    title=item.title,
-                    item_number=item.item_number,
-                    synopsis=item.synopsis,
-                    cover_image_url=cover_url,
-                )
+                self._search_result(item, cover_url)
             )
         return results
+
+    async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:
+        item = await self.metadata.find_item_by_barcode(barcode, kind)
+        if item is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Barcode not found")
+
+        cover_url = None
+        for edition in item.editions:
+            primary = next((variant for variant in edition.variants if variant.is_primary), None)
+            if primary:
+                cover_url = primary.cover_image_url
+                break
+        return self._search_result(item, cover_url)
+
+    def _search_result(self, item, cover_url: str | None) -> SearchResult:
+        return SearchResult(
+            id=item.id,
+            kind=item.kind,
+            title=item.title,
+            item_number=item.item_number,
+            synopsis=item.synopsis,
+            cover_image_url=cover_url,
+        )

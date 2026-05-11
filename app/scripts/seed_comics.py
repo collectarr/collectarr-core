@@ -23,6 +23,7 @@ class SeedComic:
     title: str
     synopsis: str
     release_date: date
+    upc: str | None = None
 
     @property
     def sort_key(self) -> str:
@@ -47,6 +48,7 @@ SEED_COMICS = [
         title="The Amazing Spider-Man",
         synopsis="Peter Parker steps into a new chapter as Spider-Man in this seed MVP record.",
         release_date=date(1963, 3, 1),
+        upc="75960604716100111",
     ),
     SeedComic(
         franchise="Marvel",
@@ -138,6 +140,7 @@ SEED_COMICS = [
         title="Superman, Vol. 4",
         synopsis="Escape From Dinosaur Island, Part One.",
         release_date=date(2016, 10, 5),
+        upc="76194134192700811",
     ),
     SeedComic(
         franchise="DC",
@@ -164,6 +167,7 @@ SEED_COMICS = [
         title="Batman",
         synopsis="A new Gotham era starts with impossible saves and a city watching closely.",
         release_date=date(2016, 6, 15),
+        upc="76194134182800111",
     ),
     SeedComic(
         franchise="Image",
@@ -326,6 +330,7 @@ async def _ensure_edition_and_variant(db, comic: SeedComic, item: Item) -> None:
         edition.publisher = comic.publisher
         edition.language = "en"
         edition.release_date = comic.release_date
+    edition.upc = comic.upc
 
     result = await db.execute(select(Variant).where(Variant.edition_id == edition.id))
     variant = result.scalar_one_or_none()

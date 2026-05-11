@@ -163,6 +163,12 @@ See [docs/sync.md](docs/sync.md) for the boundary and service shape.
 
 ---
 
+## 🗺 Roadmap
+
+See [docs/implementation-plan.md](docs/implementation-plan.md) for the current phase plan, completed work, and next PR sequence.
+
+---
+
 ## 🔄 Releases
 
 Collectarr uses **semantic-release** with Conventional Commits. Releases are manual only through the GitHub `Release` workflow.

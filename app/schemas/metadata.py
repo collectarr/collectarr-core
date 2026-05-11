@@ -64,6 +64,8 @@ class SearchResult(BaseModel):
     synopsis: str | None = None
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
+    publisher: str | None = None
+    release_year: int | None = None
 
 
 class ProviderSearchResultResponse(BaseModel):

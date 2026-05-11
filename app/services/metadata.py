@@ -124,6 +124,14 @@ class MetadataService:
     def _search_result(
         self, item, cover_url: str | None, thumbnail_url: str | None
     ) -> SearchResult:
+        publisher = None
+        release_year = None
+        for edition in item.editions:
+            publisher = publisher or edition.publisher
+            if edition.release_date is not None and release_year is None:
+                release_year = edition.release_date.year
+            if publisher is not None and release_year is not None:
+                break
         return SearchResult(
             id=item.id,
             kind=item.kind,
@@ -132,4 +140,6 @@ class MetadataService:
             synopsis=item.synopsis,
             cover_image_url=cover_url,
             thumbnail_image_url=thumbnail_url,
+            publisher=publisher,
+            release_year=release_year,
         )

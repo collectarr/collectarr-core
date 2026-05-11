@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -17,6 +18,16 @@ class VariantResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ReleaseResponse(BaseModel):
+    id: UUID
+    region: str
+    release_date: date | None
+    publisher: str | None
+    external_ids: dict[str, Any] | None
+
+    model_config = {"from_attributes": True}
+
+
 class EditionResponse(BaseModel):
     id: UUID
     title: str
@@ -26,7 +37,9 @@ class EditionResponse(BaseModel):
     upc: str | None
     language: str | None
     release_date: date | None
+    metadata_json: dict[str, Any] | None
     variants: list[VariantResponse] = []
+    releases: list[ReleaseResponse] = []
 
     model_config = {"from_attributes": True}
 

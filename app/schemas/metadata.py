@@ -1,17 +1,39 @@
 from datetime import date
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from app.models.base import ItemKind
+from app.models.base import ExternalProvider, ItemKind
 
 
 class VariantResponse(BaseModel):
     id: UUID
     name: str
+    variant_type: str | None
     sku: str | None
+    barcode: str | None
+    isbn: str | None
+    region: str | None
+    platform: str | None
+    cover_price_cents: int | None
+    currency: str | None
     cover_image_url: str | None
+    thumbnail_image_url: str | None
+    description: str | None
+    metadata_json: dict[str, Any] | None
     is_primary: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ReleaseResponse(BaseModel):
+    id: UUID
+    region: str
+    release_date: date | None
+    publisher: str | None
+    external_ids: dict[str, Any] | None
+    metadata_json: dict[str, Any] | None
 
     model_config = {"from_attributes": True}
 
@@ -24,8 +46,11 @@ class EditionResponse(BaseModel):
     isbn: str | None
     upc: str | None
     language: str | None
+    region: str | None
     release_date: date | None
+    metadata_json: dict[str, Any] | None
     variants: list[VariantResponse] = []
+    releases: list[ReleaseResponse] = []
 
     model_config = {"from_attributes": True}
 
@@ -37,6 +62,12 @@ class ItemResponse(BaseModel):
     item_number: str | None
     sort_key: str | None
     synopsis: str | None
+    release_type: str | None
+    season_number: int | None
+    episode_number: int | None
+    runtime_minutes: int | None
+    page_count: int | None
+    metadata_json: dict[str, Any] | None
     editions: list[EditionResponse] = []
 
     model_config = {"from_attributes": True}
@@ -49,4 +80,38 @@ class SearchResult(BaseModel):
     item_number: str | None = None
     synopsis: str | None = None
     cover_image_url: str | None = None
+    thumbnail_image_url: str | None = None
+    publisher: str | None = None
+    release_date: date | None = None
+    release_year: int | None = None
+    barcode: str | None = None
+    variant: str | None = None
 
+
+class ProviderSearchResultResponse(BaseModel):
+    provider: ExternalProvider
+    provider_item_id: str
+    title: str
+    kind: ItemKind
+    summary: str | None = None
+    image_url: str | None = None
+
+
+class MetadataProposalCreate(BaseModel):
+    provider: ExternalProvider = ExternalProvider.comicvine
+    provider_item_id: str | None = Field(default=None, max_length=255)
+    query: str = Field(min_length=1, max_length=255)
+    title: str | None = Field(default=None, max_length=255)
+    summary: str | None = None
+    image_url: str | None = Field(default=None, max_length=1024)
+
+
+class MetadataProposalResponse(BaseModel):
+    id: UUID
+    provider: ExternalProvider
+    provider_item_id: str | None
+    query: str
+    title: str | None
+    status: str
+
+    model_config = {"from_attributes": True}

@@ -21,7 +21,7 @@ Back up:
 
 The API and worker are stateless containers. Scale them separately from storage:
 
-- PostgreSQL for source-of-truth metadata and user data
+- PostgreSQL for source-of-truth metadata and operational data
 - Redis for cache/queues
 - Meilisearch for derived search indexes
 - S3-compatible storage for images

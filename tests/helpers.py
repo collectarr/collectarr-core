@@ -22,6 +22,7 @@ async def seed_comic() -> tuple[str, str, str]:
             title="Standard Edition",
             format="Single Issue",
             publisher="Marvel",
+            upc="75960604716100111",
             language="en",
             release_date=date(1963, 3, 1),
         )
@@ -38,4 +39,3 @@ async def register_and_login(client) -> str:
     )
     assert response.status_code == 201
     return response.json()["access_token"]
-

@@ -18,24 +18,62 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    item_kind = postgresql.ENUM("comic", "game", "bluray", "manga", name="item_kind")
-    external_provider = postgresql.ENUM("comicvine", "igdb", "tmdb", name="external_provider")
-    sync_action = postgresql.ENUM("upsert", "delete", name="sync_action")
-    item_kind.create(op.get_bind(), checkfirst=True)
-    external_provider.create(op.get_bind(), checkfirst=True)
-    sync_action.create(op.get_bind(), checkfirst=True)
     item_kind = postgresql.ENUM(
-        "comic", "game", "bluray", "manga", name="item_kind", create_type=False
+        "anime",
+        "boardgame",
+        "book",
+        "bluray",
+        "comic",
+        "game",
+        "manga",
+        "movie",
+        "music",
+        "tv",
+        name="item_kind",
     )
     external_provider = postgresql.ENUM(
-        "comicvine", "igdb", "tmdb", name="external_provider", create_type=False
+        "anilist",
+        "bgg",
+        "comicvine",
+        "igdb",
+        "musicbrainz",
+        "openlibrary",
+        "tmdb",
+        name="external_provider",
     )
-    sync_action = postgresql.ENUM("upsert", "delete", name="sync_action", create_type=False)
+    item_kind.create(op.get_bind(), checkfirst=True)
+    external_provider.create(op.get_bind(), checkfirst=True)
+    item_kind = postgresql.ENUM(
+        "anime",
+        "boardgame",
+        "book",
+        "bluray",
+        "comic",
+        "game",
+        "manga",
+        "movie",
+        "music",
+        "tv",
+        name="item_kind",
+        create_type=False,
+    )
+    external_provider = postgresql.ENUM(
+        "anilist",
+        "bgg",
+        "comicvine",
+        "igdb",
+        "musicbrainz",
+        "openlibrary",
+        "tmdb",
+        name="external_provider",
+        create_type=False,
+    )
 
     op.create_table(
         "franchises",
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -79,6 +117,13 @@ def upgrade() -> None:
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("original_title", sa.String(length=255), nullable=True),
+        sa.Column("start_date", sa.Date(), nullable=True),
+        sa.Column("end_date", sa.Date(), nullable=True),
+        sa.Column("status", sa.String(length=64), nullable=True),
+        sa.Column("language", sa.String(length=16), nullable=True),
+        sa.Column("country", sa.String(length=64), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -86,53 +131,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_series_franchise_id"), "series", ["franchise_id"])
+    op.create_index(op.f("ix_series_country"), "series", ["country"])
+    op.create_index(op.f("ix_series_language"), "series", ["language"])
     op.create_index(op.f("ix_series_slug"), "series", ["slug"])
+    op.create_index(op.f("ix_series_status"), "series", ["status"])
     op.create_index(op.f("ix_series_title"), "series", ["title"])
-
-    op.create_table(
-        "sync_changes",
-        sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("entity_type", sa.String(length=80), nullable=False),
-        sa.Column("entity_id", sa.UUID(), nullable=False),
-        sa.Column("device_id", sa.String(length=120), nullable=True),
-        sa.Column("action", sync_action, nullable=False),
-        sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column("changed_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_sync_changes_changed_at"), "sync_changes", ["changed_at"])
-    op.create_index(op.f("ix_sync_changes_entity_id"), "sync_changes", ["entity_id"])
-    op.create_index(op.f("ix_sync_changes_entity_type"), "sync_changes", ["entity_type"])
-    op.create_index(op.f("ix_sync_changes_device_id"), "sync_changes", ["device_id"])
-    op.create_index("ix_sync_user_changed", "sync_changes", ["user_id", "changed_at"])
-    op.create_index(op.f("ix_sync_changes_user_id"), "sync_changes", ["user_id"])
-
-    op.create_table(
-        "tags",
-        sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("name", sa.String(length=80), nullable=False),
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "name", name="uq_user_tag_name"),
-    )
-
-    op.create_table(
-        "user_collections",
-        sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("name", sa.String(length=120), nullable=False),
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "name", name="uq_user_collection_name"),
-    )
-    op.create_index(op.f("ix_user_collections_user_id"), "user_collections", ["user_id"])
 
     op.create_table(
         "volumes",
@@ -140,6 +143,10 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("volume_number", sa.Integer(), nullable=True),
         sa.Column("start_year", sa.Integer(), nullable=True),
+        sa.Column("start_date", sa.Date(), nullable=True),
+        sa.Column("end_date", sa.Date(), nullable=True),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -156,6 +163,12 @@ def upgrade() -> None:
         sa.Column("item_number", sa.String(length=64), nullable=True),
         sa.Column("sort_key", sa.String(length=255), nullable=True),
         sa.Column("synopsis", sa.Text(), nullable=True),
+        sa.Column("release_type", sa.String(length=64), nullable=True),
+        sa.Column("season_number", sa.Integer(), nullable=True),
+        sa.Column("episode_number", sa.Integer(), nullable=True),
+        sa.Column("runtime_minutes", sa.Integer(), nullable=True),
+        sa.Column("page_count", sa.Integer(), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -164,6 +177,9 @@ def upgrade() -> None:
     )
     op.create_index("ix_items_kind_title", "items", ["kind", "title"])
     op.create_index(op.f("ix_items_item_number"), "items", ["item_number"])
+    op.create_index(op.f("ix_items_episode_number"), "items", ["episode_number"])
+    op.create_index(op.f("ix_items_release_type"), "items", ["release_type"])
+    op.create_index(op.f("ix_items_season_number"), "items", ["season_number"])
     op.create_index(op.f("ix_items_sort_key"), "items", ["sort_key"])
     op.create_index(op.f("ix_items_title"), "items", ["title"])
     op.create_index(op.f("ix_items_volume_id"), "items", ["volume_id"])
@@ -177,6 +193,7 @@ def upgrade() -> None:
         sa.Column("isbn", sa.String(length=32), nullable=True),
         sa.Column("upc", sa.String(length=32), nullable=True),
         sa.Column("language", sa.String(length=16), nullable=True),
+        sa.Column("region", sa.String(length=32), nullable=True),
         sa.Column("release_date", sa.Date(), nullable=True),
         sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
@@ -189,23 +206,8 @@ def upgrade() -> None:
     op.create_index(op.f("ix_editions_item_id"), "editions", ["item_id"])
     op.create_index(op.f("ix_editions_language"), "editions", ["language"])
     op.create_index(op.f("ix_editions_publisher"), "editions", ["publisher"])
+    op.create_index(op.f("ix_editions_region"), "editions", ["region"])
     op.create_index(op.f("ix_editions_upc"), "editions", ["upc"])
-
-    op.create_table(
-        "wishlist_items",
-        sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("item_id", sa.UUID(), nullable=False),
-        sa.Column("edition_id", sa.UUID(), nullable=True),
-        sa.Column("priority", sa.Integer(), nullable=True),
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["edition_id"], ["editions.id"], ondelete="SET NULL"),
-        sa.ForeignKeyConstraint(["item_id"], ["items.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
 
     op.create_table(
         "releases",
@@ -214,6 +216,7 @@ def upgrade() -> None:
         sa.Column("release_date", sa.Date(), nullable=True),
         sa.Column("publisher", sa.String(length=255), nullable=True),
         sa.Column("external_ids", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -227,9 +230,18 @@ def upgrade() -> None:
         "variants",
         sa.Column("edition_id", sa.UUID(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("variant_type", sa.String(length=64), nullable=True),
         sa.Column("sku", sa.String(length=100), nullable=True),
+        sa.Column("barcode", sa.String(length=32), nullable=True),
+        sa.Column("isbn", sa.String(length=32), nullable=True),
+        sa.Column("region", sa.String(length=32), nullable=True),
+        sa.Column("platform", sa.String(length=64), nullable=True),
+        sa.Column("cover_price_cents", sa.Integer(), nullable=True),
+        sa.Column("currency", sa.String(length=3), nullable=True),
         sa.Column("cover_image_key", sa.String(length=512), nullable=True),
         sa.Column("cover_image_url", sa.String(length=1024), nullable=True),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("is_primary", sa.Boolean(), nullable=False),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -237,85 +249,175 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["edition_id"], ["editions.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index(op.f("ix_variants_barcode"), "variants", ["barcode"])
     op.create_index(op.f("ix_variants_edition_id"), "variants", ["edition_id"])
+    op.create_index(op.f("ix_variants_isbn"), "variants", ["isbn"])
+    op.create_index(op.f("ix_variants_platform"), "variants", ["platform"])
+    op.create_index(op.f("ix_variants_region"), "variants", ["region"])
     op.create_index(op.f("ix_variants_sku"), "variants", ["sku"])
+    op.create_index(op.f("ix_variants_variant_type"), "variants", ["variant_type"])
 
     op.create_table(
-        "owned_items",
-        sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("collection_id", sa.UUID(), nullable=False),
-        sa.Column("item_id", sa.UUID(), nullable=False),
-        sa.Column("edition_id", sa.UUID(), nullable=True),
-        sa.Column("variant_id", sa.UUID(), nullable=True),
-        sa.Column("condition", sa.String(length=64), nullable=True),
-        sa.Column("grade", sa.String(length=64), nullable=True),
-        sa.Column("acquired_from", sa.String(length=255), nullable=True),
-        sa.Column("purchase_price_cents", sa.Integer(), nullable=True),
-        sa.Column("currency", sa.String(length=3), nullable=True),
-        sa.Column("personal_notes", sa.Text(), nullable=True),
-        sa.Column("client_updated_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        "organizations",
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("type", sa.String(length=64), nullable=True),
+        sa.Column("country", sa.String(length=64), nullable=True),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["collection_id"], ["user_collections.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["edition_id"], ["editions.id"], ondelete="SET NULL"),
-        sa.ForeignKeyConstraint(["item_id"], ["items.id"], ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["variant_id"], ["variants.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_owned_items_collection_id"), "owned_items", ["collection_id"])
-    op.create_index(op.f("ix_owned_items_deleted_at"), "owned_items", ["deleted_at"])
-    op.create_index(op.f("ix_owned_items_edition_id"), "owned_items", ["edition_id"])
-    op.create_index(op.f("ix_owned_items_item_id"), "owned_items", ["item_id"])
-    op.create_index("ix_owned_user_updated", "owned_items", ["user_id", "updated_at"])
-    op.create_index(op.f("ix_owned_items_user_id"), "owned_items", ["user_id"])
-    op.create_index(op.f("ix_owned_items_variant_id"), "owned_items", ["variant_id"])
+    op.create_index(op.f("ix_organizations_country"), "organizations", ["country"])
+    op.create_index(op.f("ix_organizations_name"), "organizations", ["name"])
+    op.create_index(op.f("ix_organizations_type"), "organizations", ["type"])
 
     op.create_table(
-        "notes",
-        sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("owned_item_id", sa.UUID(), nullable=False),
-        sa.Column("body", sa.Text(), nullable=False),
+        "persons",
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("metadata_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["owned_item_id"], ["owned_items.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index(op.f("ix_persons_name"), "persons", ["name"])
 
     op.create_table(
-        "owned_item_tags",
-        sa.Column("owned_item_id", sa.UUID(), nullable=False),
+        "tags",
+        sa.Column("kind", sa.String(length=64), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("kind", "name", name="uq_tags_kind_name"),
+    )
+    op.create_index(op.f("ix_tags_kind"), "tags", ["kind"])
+    op.create_index(op.f("ix_tags_name"), "tags", ["name"])
+
+    op.create_table(
+        "entity_organizations",
+        sa.Column("entity_type", sa.String(length=64), nullable=False),
+        sa.Column("entity_id", sa.UUID(), nullable=False),
+        sa.Column("organization_id", sa.UUID(), nullable=False),
+        sa.Column("role", sa.String(length=64), nullable=False),
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["organization_id"], ["organizations.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "organization_id",
+            "role",
+            name="uq_entity_organization_role",
+        ),
+    )
+    op.create_index(
+        "ix_entity_organizations_entity", "entity_organizations", ["entity_type", "entity_id"]
+    )
+    op.create_index(op.f("ix_entity_organizations_role"), "entity_organizations", ["role"])
+
+    op.create_table(
+        "entity_persons",
+        sa.Column("entity_type", sa.String(length=64), nullable=False),
+        sa.Column("entity_id", sa.UUID(), nullable=False),
+        sa.Column("person_id", sa.UUID(), nullable=False),
+        sa.Column("role", sa.String(length=64), nullable=False),
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(["person_id"], ["persons.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "person_id",
+            "role",
+            name="uq_entity_person_role",
+        ),
+    )
+    op.create_index("ix_entity_persons_entity", "entity_persons", ["entity_type", "entity_id"])
+    op.create_index(op.f("ix_entity_persons_role"), "entity_persons", ["role"])
+
+    op.create_table(
+        "entity_tags",
+        sa.Column("entity_type", sa.String(length=64), nullable=False),
+        sa.Column("entity_id", sa.UUID(), nullable=False),
         sa.Column("tag_id", sa.UUID(), nullable=False),
-        sa.ForeignKeyConstraint(["owned_item_id"], ["owned_items.id"], ondelete="CASCADE"),
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["tag_id"], ["tags.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("owned_item_id", "tag_id"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("entity_type", "entity_id", "tag_id", name="uq_entity_tag"),
     )
+    op.create_index("ix_entity_tags_entity", "entity_tags", ["entity_type", "entity_id"])
+
+    op.create_table(
+        "image_assets",
+        sa.Column("entity_type", sa.String(length=64), nullable=False),
+        sa.Column("entity_id", sa.UUID(), nullable=False),
+        sa.Column("image_type", sa.String(length=64), nullable=False),
+        sa.Column("storage_key", sa.String(length=512), nullable=False),
+        sa.Column("thumbnail_storage_key", sa.String(length=512), nullable=True),
+        sa.Column("source_url", sa.String(length=1024), nullable=True),
+        sa.Column("provider", sa.String(length=64), nullable=True),
+        sa.Column("attribution", sa.Text(), nullable=True),
+        sa.Column("width", sa.Integer(), nullable=True),
+        sa.Column("height", sa.Integer(), nullable=True),
+        sa.Column("phash", sa.String(length=128), nullable=True),
+        sa.Column("is_primary", sa.Boolean(), nullable=False),
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index("ix_image_assets_entity", "image_assets", ["entity_type", "entity_id"])
+    op.create_index(op.f("ix_image_assets_image_type"), "image_assets", ["image_type"])
+    op.create_index(op.f("ix_image_assets_phash"), "image_assets", ["phash"])
+    op.create_index(op.f("ix_image_assets_provider"), "image_assets", ["provider"])
 
 
 def downgrade() -> None:
-    op.drop_table("owned_item_tags")
-    op.drop_table("notes")
-    op.drop_index(op.f("ix_owned_items_variant_id"), table_name="owned_items")
-    op.drop_index(op.f("ix_owned_items_user_id"), table_name="owned_items")
-    op.drop_index("ix_owned_user_updated", table_name="owned_items")
-    op.drop_index(op.f("ix_owned_items_item_id"), table_name="owned_items")
-    op.drop_index(op.f("ix_owned_items_edition_id"), table_name="owned_items")
-    op.drop_index(op.f("ix_owned_items_deleted_at"), table_name="owned_items")
-    op.drop_index(op.f("ix_owned_items_collection_id"), table_name="owned_items")
-    op.drop_table("owned_items")
+    op.drop_index(op.f("ix_image_assets_provider"), table_name="image_assets")
+    op.drop_index(op.f("ix_image_assets_phash"), table_name="image_assets")
+    op.drop_index(op.f("ix_image_assets_image_type"), table_name="image_assets")
+    op.drop_index("ix_image_assets_entity", table_name="image_assets")
+    op.drop_table("image_assets")
+    op.drop_index("ix_entity_tags_entity", table_name="entity_tags")
+    op.drop_table("entity_tags")
+    op.drop_index(op.f("ix_entity_persons_role"), table_name="entity_persons")
+    op.drop_index("ix_entity_persons_entity", table_name="entity_persons")
+    op.drop_table("entity_persons")
+    op.drop_index(op.f("ix_entity_organizations_role"), table_name="entity_organizations")
+    op.drop_index("ix_entity_organizations_entity", table_name="entity_organizations")
+    op.drop_table("entity_organizations")
+    op.drop_index(op.f("ix_tags_name"), table_name="tags")
+    op.drop_index(op.f("ix_tags_kind"), table_name="tags")
+    op.drop_table("tags")
+    op.drop_index(op.f("ix_persons_name"), table_name="persons")
+    op.drop_table("persons")
+    op.drop_index(op.f("ix_organizations_type"), table_name="organizations")
+    op.drop_index(op.f("ix_organizations_name"), table_name="organizations")
+    op.drop_index(op.f("ix_organizations_country"), table_name="organizations")
+    op.drop_table("organizations")
+    op.drop_index(op.f("ix_variants_variant_type"), table_name="variants")
     op.drop_index(op.f("ix_variants_sku"), table_name="variants")
+    op.drop_index(op.f("ix_variants_region"), table_name="variants")
+    op.drop_index(op.f("ix_variants_platform"), table_name="variants")
+    op.drop_index(op.f("ix_variants_isbn"), table_name="variants")
     op.drop_index(op.f("ix_variants_edition_id"), table_name="variants")
+    op.drop_index(op.f("ix_variants_barcode"), table_name="variants")
     op.drop_table("variants")
     op.drop_index(op.f("ix_releases_region"), table_name="releases")
     op.drop_index(op.f("ix_releases_edition_id"), table_name="releases")
     op.drop_table("releases")
-    op.drop_table("wishlist_items")
     op.drop_index(op.f("ix_editions_upc"), table_name="editions")
     op.drop_index(op.f("ix_editions_publisher"), table_name="editions")
+    op.drop_index(op.f("ix_editions_region"), table_name="editions")
     op.drop_index(op.f("ix_editions_language"), table_name="editions")
     op.drop_index(op.f("ix_editions_item_id"), table_name="editions")
     op.drop_index(op.f("ix_editions_isbn"), table_name="editions")
@@ -323,24 +425,20 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_items_volume_id"), table_name="items")
     op.drop_index(op.f("ix_items_title"), table_name="items")
     op.drop_index(op.f("ix_items_sort_key"), table_name="items")
+    op.drop_index(op.f("ix_items_season_number"), table_name="items")
+    op.drop_index(op.f("ix_items_release_type"), table_name="items")
     op.drop_index(op.f("ix_items_item_number"), table_name="items")
+    op.drop_index(op.f("ix_items_episode_number"), table_name="items")
     op.drop_index("ix_items_kind_title", table_name="items")
     op.drop_table("items")
     op.drop_index(op.f("ix_volumes_series_id"), table_name="volumes")
     op.drop_table("volumes")
-    op.drop_index(op.f("ix_user_collections_user_id"), table_name="user_collections")
-    op.drop_table("user_collections")
-    op.drop_table("tags")
-    op.drop_index(op.f("ix_sync_changes_user_id"), table_name="sync_changes")
-    op.drop_index("ix_sync_user_changed", table_name="sync_changes")
-    op.drop_index(op.f("ix_sync_changes_device_id"), table_name="sync_changes")
-    op.drop_index(op.f("ix_sync_changes_entity_type"), table_name="sync_changes")
-    op.drop_index(op.f("ix_sync_changes_entity_id"), table_name="sync_changes")
-    op.drop_index(op.f("ix_sync_changes_changed_at"), table_name="sync_changes")
-    op.drop_table("sync_changes")
     op.drop_index(op.f("ix_series_title"), table_name="series")
+    op.drop_index(op.f("ix_series_status"), table_name="series")
     op.drop_index(op.f("ix_series_slug"), table_name="series")
+    op.drop_index(op.f("ix_series_language"), table_name="series")
     op.drop_index(op.f("ix_series_franchise_id"), table_name="series")
+    op.drop_index(op.f("ix_series_country"), table_name="series")
     op.drop_table("series")
     op.drop_index("ix_external_entity", table_name="external_provider_ids")
     op.drop_table("external_provider_ids")
@@ -349,6 +447,5 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_franchises_name"), table_name="franchises")
     op.drop_table("franchises")
 
-    postgresql.ENUM(name="sync_action").drop(op.get_bind(), checkfirst=True)
     postgresql.ENUM(name="external_provider").drop(op.get_bind(), checkfirst=True)
     postgresql.ENUM(name="item_kind").drop(op.get_bind(), checkfirst=True)

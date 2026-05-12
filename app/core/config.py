@@ -26,10 +26,16 @@ class Settings(BaseSettings):
     s3_manage_public_read_policy: bool = True
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
+    max_image_pixels: int = 40_000_000
+    thumbnail_max_width: int = 360
+    thumbnail_quality: int = 82
 
     comicvine_api_key: str | None = None
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"
     comicvine_timeout_seconds: float = 20.0
+    comicvine_retry_attempts: int = 2
+    comicvine_search_limit: int = 20
+    comicvine_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

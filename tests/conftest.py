@@ -1,6 +1,6 @@
+import asyncio
 import os
 import socket
-import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -10,8 +10,8 @@ import pytest_asyncio
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.engine.url import make_url
 from sqlalchemy import text
+from sqlalchemy.engine.url import make_url
 
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test-secret")
@@ -26,8 +26,10 @@ from app.main import app  # noqa: E402
 async def _ensure_test_database(database_url: str) -> None:
     url = make_url(database_url)
     database = url.database
-    if not database or not database.endswith("_test"):
-        return
+    if not _is_safe_test_database(url):
+        pytest.skip(
+            "Refusing to reset PostgreSQL schema because DATABASE_URL is not a local *_test database"
+        )
 
     maintenance_url = url.set(database="postgres")
     try:
@@ -50,6 +52,60 @@ async def _ensure_test_database(database_url: str) -> None:
         pytest.skip(f"Cannot create PostgreSQL test database {database}: {exc}")
     finally:
         await connection.close()
+
+    try:
+        target_connection = await asyncpg.connect(
+            user=url.username,
+            password=url.password,
+            database=database,
+            host=url.host,
+            port=url.port or 5432,
+        )
+    except (OSError, asyncpg.PostgresError) as exc:
+        pytest.skip(f"Cannot connect to PostgreSQL test database {database}: {exc}")
+
+    try:
+        await _reset_public_schema_objects(target_connection)
+    except asyncpg.PostgresError as exc:
+        pytest.skip(f"Cannot reset PostgreSQL test database {database}: {exc}")
+    finally:
+        await target_connection.close()
+
+
+def _is_safe_test_database(url) -> bool:
+    database = url.database or ""
+    host = url.host or "localhost"
+    return (
+        os.environ.get("ENVIRONMENT") == "test"
+        and database.endswith("_test")
+        and host in {"localhost", "127.0.0.1", "::1"}
+    )
+
+
+async def _reset_public_schema_objects(connection: asyncpg.Connection) -> None:
+    tables = await connection.fetch(
+        """
+        select tablename
+        from pg_tables
+        where schemaname = 'public'
+        """
+    )
+    for table in tables:
+        quoted_table = '"' + table["tablename"].replace('"', '""') + '"'
+        await connection.execute(f"drop table if exists public.{quoted_table} cascade")
+
+    enum_types = await connection.fetch(
+        """
+        select typname
+        from pg_type
+        join pg_namespace on pg_namespace.oid = pg_type.typnamespace
+        where pg_namespace.nspname = 'public'
+          and pg_type.typtype = 'e'
+        """
+    )
+    for enum_type in enum_types:
+        quoted_type = '"' + enum_type["typname"].replace('"', '""') + '"'
+        await connection.execute(f"drop type if exists public.{quoted_type} cascade")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -74,7 +130,9 @@ async def clean_database() -> AsyncIterator[None]:
             text(
                 """
                 truncate table
-                  users, releases, variants, editions, external_provider_ids,
+                  users, metadata_proposals, image_assets, entity_tags, entity_persons,
+                  entity_organizations, tags, persons, organizations,
+                  releases, variants, editions, external_provider_ids,
                   items, volumes, series, franchises
                 restart identity cascade
                 """

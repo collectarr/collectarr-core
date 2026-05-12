@@ -30,13 +30,23 @@ class UuidMixin:
 
 
 class ItemKind(str, enum.Enum):
+    anime = "anime"
+    boardgame = "boardgame"
+    book = "book"
+    bluray = "bluray"
     comic = "comic"
     game = "game"
-    bluray = "bluray"
     manga = "manga"
+    movie = "movie"
+    music = "music"
+    tv = "tv"
 
 
 class ExternalProvider(str, enum.Enum):
+    anilist = "anilist"
+    bgg = "bgg"
     comicvine = "comicvine"
     igdb = "igdb"
+    musicbrainz = "musicbrainz"
+    openlibrary = "openlibrary"
     tmdb = "tmdb"

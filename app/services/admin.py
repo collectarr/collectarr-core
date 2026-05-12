@@ -5,11 +5,28 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.canonical import Edition, ExternalProviderId, Item, Release, Series, Variant, Volume
+from app.core.config import get_settings
 from app.models.base import ExternalProvider, ItemKind
+from app.models.canonical import (
+    Edition,
+    ExternalProviderId,
+    Item,
+    MetadataProposal,
+    Release,
+    Series,
+    Variant,
+    Volume,
+)
+from app.providers.base import MetadataProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
-from app.schemas.admin import ProviderIngestRequest, ProviderIngestResponse, ProviderSearchRequest
+from app.schemas.admin import (
+    ProviderIngestRequest,
+    ProviderIngestResponse,
+    MetadataProposalAdminResponse,
+    ProviderSearchRequest,
+    ProviderStatusResponse,
+)
 from app.schemas.metadata import ItemResponse
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
@@ -20,14 +37,84 @@ class AdminMetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.providers = ProviderRegistry()
+        self.settings = get_settings()
+
+    async def provider_statuses(self) -> list[ProviderStatusResponse]:
+        return [
+            ProviderStatusResponse(
+                name="comicvine",
+                kind=ItemKind.comic.value,
+                status="live" if self.settings.comicvine_api_key else "stub",
+                is_configured=bool(self.settings.comicvine_api_key),
+                message=(
+                    "ComicVine API key configured."
+                    if self.settings.comicvine_api_key
+                    else "Set COMICVINE_API_KEY to enable live ComicVine metadata."
+                ),
+            ),
+            ProviderStatusResponse(
+                name="igdb",
+                kind=ItemKind.game.value,
+                status="stub",
+                is_configured=False,
+                message="IGDB live metadata is planned after the comics MVP.",
+            ),
+            ProviderStatusResponse(
+                name="tmdb",
+                kind=ItemKind.bluray.value,
+                status="stub",
+                is_configured=False,
+                message="TMDb live metadata is planned after the comics MVP.",
+            ),
+        ]
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
-        provider = self.providers.get(payload.provider)
+        provider = self._provider(payload.provider)
         results = await provider.search(payload.query)
         return [result.__dict__ for result in results]
 
+    async def list_proposals(
+        self, status_filter: str = "pending"
+    ) -> list[MetadataProposalAdminResponse]:
+        result = await self.db.execute(
+            select(MetadataProposal)
+            .where(MetadataProposal.status == status_filter)
+            .order_by(MetadataProposal.created_at.asc())
+        )
+        return [
+            MetadataProposalAdminResponse.model_validate(proposal) for proposal in result.scalars()
+        ]
+
+    async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
+        proposal = await self.db.get(MetadataProposal, proposal_id)
+        if proposal is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+        if proposal.provider_item_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Proposal does not have a provider item id",
+            )
+        response = await self.ingest(
+            ProviderIngestRequest(
+                provider=proposal.provider,
+                provider_item_id=proposal.provider_item_id,
+            )
+        )
+        proposal.status = "approved"
+        await self.db.commit()
+        return response
+
+    async def reject_proposal(self, proposal_id: UUID) -> MetadataProposalAdminResponse:
+        proposal = await self.db.get(MetadataProposal, proposal_id)
+        if proposal is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+        proposal.status = "rejected"
+        await self.db.commit()
+        await self.db.refresh(proposal)
+        return MetadataProposalAdminResponse.model_validate(proposal)
+
     async def ingest(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:
-        provider = self.providers.get(payload.provider)
+        provider = self._provider(payload.provider)
         existing_provider_id = await self._get_provider_id(payload)
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
@@ -39,7 +126,9 @@ class AdminMetadataService:
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
 
-        normalized = await provider.normalize(dict(provider_item.raw) | {"id": provider_item.provider_item_id})
+        normalized = await provider.normalize(
+            dict(provider_item.raw) | {"id": provider_item.provider_item_id}
+        )
         volume = await self._upsert_volume(
             normalized.kind,
             normalized.series_title,
@@ -61,14 +150,14 @@ class AdminMetadataService:
             publisher=normalized.publisher,
             release_date=normalized.release_date,
             metadata_json={
-                "provider": payload.provider,
+                "provider": payload.provider.value,
                 "provider_item_id": provider_item.provider_item_id,
                 "source": provider_item.raw,
             },
         )
         mirrored_cover = await ImageMirror().mirror_cover_best_effort(
             normalized.cover_image_url,
-            payload.provider,
+            payload.provider.value,
             provider_item.provider_item_id,
         )
         variant = Variant(
@@ -76,6 +165,8 @@ class AdminMetadataService:
             name="Cover A",
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
+            thumbnail_image_url=mirrored_cover.thumbnail_url if mirrored_cover else None,
             is_primary=True,
         )
         release = Release(
@@ -89,7 +180,9 @@ class AdminMetadataService:
         await self.db.flush()
         self._add_provider_links(payload.provider, normalized.provider_ids, "item", item.id)
         if volume:
-            self._add_provider_links(payload.provider, normalized.volume_provider_ids, "volume", volume.id)
+            self._add_provider_links(
+                payload.provider, normalized.volume_provider_ids, "volume", volume.id
+            )
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -100,15 +193,24 @@ class AdminMetadataService:
             item=ItemResponse.model_validate(loaded_item),
         )
 
+    def _provider(self, provider: ExternalProvider) -> MetadataProvider:
+        try:
+            return self.providers.get(provider.value)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Provider '{provider.value}' is not configured",
+            ) from exc
+
     async def _get_provider_id(self, payload: ProviderIngestRequest) -> ExternalProviderId | None:
         return await self._get_provider_id_value(payload.provider, payload.provider_item_id)
 
     async def _get_provider_id_value(
-        self, provider: str, provider_item_id: str
+        self, provider: ExternalProvider, provider_item_id: str
     ) -> ExternalProviderId | None:
         result = await self.db.execute(
             select(ExternalProviderId).where(
-                ExternalProviderId.provider == ExternalProvider(provider),
+                ExternalProviderId.provider == provider,
                 ExternalProviderId.provider_item_id == provider_item_id,
             )
         )
@@ -117,7 +219,9 @@ class AdminMetadataService:
     async def _existing_response(self, provider_id: ExternalProviderId) -> ProviderIngestResponse:
         item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider link is stale")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Provider link is stale"
+            )
         return ProviderIngestResponse(
             item_id=item.id,
             created=False,
@@ -150,7 +254,9 @@ class AdminMetadataService:
         return volume
 
     async def _get_or_create_series(self, kind: ItemKind, title: str) -> Series:
-        result = await self.db.execute(select(Series).where(Series.kind == kind, Series.title == title))
+        result = await self.db.execute(
+            select(Series).where(Series.kind == kind, Series.title == title)
+        )
         series = result.scalar_one_or_none()
         if series is None:
             series = Series(kind=kind, title=title, slug=self._slug(title))
@@ -159,14 +265,18 @@ class AdminMetadataService:
         return series
 
     def _add_provider_links(
-        self, provider: str, provider_ids: dict[str, str], entity_type: str, entity_id: UUID
+        self,
+        provider: ExternalProvider,
+        provider_ids: dict[str, str],
+        entity_type: str,
+        entity_id: UUID,
     ) -> None:
-        provider_id = provider_ids.get(provider)
+        provider_id = provider_ids.get(provider.value)
         if not provider_id:
             return
         self.db.add(
             ExternalProviderId(
-                provider=ExternalProvider(provider),
+                provider=provider,
                 provider_item_id=provider_id,
                 entity_type=entity_type,
                 entity_id=entity_id,

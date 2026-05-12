@@ -26,6 +26,20 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_search_does_not_fallback_when_meilisearch_returns_empty(client, monkeypatch):
+    async def empty_search(self, query, kind=None, **kwargs):
+        return []
+
+    monkeypatch.setattr("app.search.client.SearchClient.search", empty_search)
+    await seed_comic()
+
+    response = await client.get("/search", params={"q": "spider", "kind": "comic"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
 async def test_search_supports_comic_filters(client, monkeypatch):
     async def unavailable_search(self, query, kind=None, **kwargs):
         return None

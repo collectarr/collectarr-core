@@ -66,17 +66,26 @@ class ImageMirror:
         if parsed.scheme not in {"http", "https"}:
             raise ValueError("Unsupported image URL scheme")
 
-        async with httpx.AsyncClient(timeout=self.settings.image_download_timeout_seconds) as client:
-            response = await client.get(source_url, follow_redirects=True)
-            response.raise_for_status()
+        async with httpx.AsyncClient(
+            timeout=self.settings.image_download_timeout_seconds
+        ) as client:
+            async with client.stream("GET", source_url, follow_redirects=True) as response:
+                response.raise_for_status()
+                content_type = (
+                    response.headers.get("content-type", "").split(";")[0].strip().lower()
+                )
+                if content_type not in _SUPPORTED_IMAGE_TYPES:
+                    raise ValueError("Downloaded content is not a supported image")
 
-        content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-        if content_type not in _SUPPORTED_IMAGE_TYPES:
-            raise ValueError("Downloaded content is not a supported image")
-        if len(response.content) > self.settings.max_image_bytes:
-            raise ValueError("Image exceeds configured max size")
-        self._validate_image_bytes(response.content)
-        return response.content, content_type
+                image_bytes = bytearray()
+                async for chunk in response.aiter_bytes():
+                    image_bytes.extend(chunk)
+                    if len(image_bytes) > self.settings.max_image_bytes:
+                        raise ValueError("Image exceeds configured max size")
+
+        downloaded = bytes(image_bytes)
+        self._validate_image_bytes(downloaded)
+        return downloaded, content_type
 
     def _cover_key(
         self, provider: str, provider_item_id: str, source_url: str, content_type: str
@@ -113,7 +122,9 @@ class ImageMirror:
             if image.mode not in {"RGB", "L"}:
                 image = image.convert("RGB")
             output = BytesIO()
-            image.save(output, format="JPEG", quality=self.settings.thumbnail_quality, optimize=True)
+            image.save(
+                output, format="JPEG", quality=self.settings.thumbnail_quality, optimize=True
+            )
             return output.getvalue()
 
     def _validate_image_bytes(self, image_bytes: bytes) -> None:

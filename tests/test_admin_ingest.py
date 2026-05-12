@@ -150,7 +150,6 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "kind": "comic",
             "title": "The Amazing Spider-Man",
             "item_number": "1",
-            "synopsis": "Peter Parker faces a new chapter as Spider-Man.",
             "cover_image_url": "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
             "thumbnail_image_url": (
                 "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"

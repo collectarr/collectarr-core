@@ -38,7 +38,6 @@ def item_search_document(item: Item) -> dict[str, Any]:
         "kind": item.kind.value,
         "title": item.title,
         "item_number": item.item_number,
-        "synopsis": item.synopsis,
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
         "publisher": publisher,

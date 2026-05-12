@@ -69,7 +69,6 @@ class SearchClient:
             [
                 "title",
                 "item_number",
-                "synopsis",
                 "series_title",
                 "volume_name",
                 "publisher",

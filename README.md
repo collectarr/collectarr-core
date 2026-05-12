@@ -8,7 +8,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Mobile%20%7C%20Desktop-lightgrey)
 
-> Self-hosted metadata hub for comics, games, Blu-rays, manga, and other collectibles.
+> Self-hosted metadata hub for comics, manga, anime, movies, TV, games, books, music, board games, and other collectibles.
 
 Collectarr is a centralized collector metadata hub with variant-aware catalog records, offline-first local libraries, and plugin-based metadata providers. The central server stores shared metadata only. Personal collection data stays on the user's device, with an optional `collectarr-sync` service for people who want to sync their own devices.
 
@@ -19,10 +19,11 @@ Collectarr is a centralized collector metadata hub with variant-aware catalog re
 ### 📚 Metadata Catalog
 
 - Canonical metadata kept separate from personal library data
-- Franchise, series, volume, item, edition, variant, and release hierarchy
-- External provider IDs for ComicVine, IGDB, TMDb, and future providers
+- Generalized work, series, release, edition, and variant hierarchy
+- External provider IDs for ComicVine, IGDB, TMDb, AniList, BGG, OpenLibrary, MusicBrainz, and future providers
 - Provider cover images mirrored into MinIO/S3 instead of backend filesystem storage
 - Meilisearch-backed fuzzy search with PostgreSQL fallback
+- See [docs/schema.md](docs/schema.md) for the database boundary and catalog schema
 
 ### 🧾 Personal Libraries
 
@@ -78,6 +79,11 @@ The Flutter app keeps client models separate from backend database models:
 | Games | Scaffolded | IGDB |
 | Blu-rays | Scaffolded | TMDb |
 | Manga | Schema-ready | Future provider |
+| Anime | Schema-ready | AniList |
+| Movies / TV | Schema-ready | TMDb |
+| Board games | Schema-ready | BGG |
+| Books | Schema-ready | OpenLibrary |
+| Music | Schema-ready | MusicBrainz |
 
 ---
 

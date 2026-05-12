@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from typing import Any
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,7 @@ class Franchise(UuidMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class Series(UuidMixin, TimestampMixin, Base):
@@ -26,6 +27,13 @@ class Series(UuidMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     slug: Mapped[str | None] = mapped_column(String(255), index=True)
     description: Mapped[str | None] = mapped_column(Text)
+    original_title: Mapped[str | None] = mapped_column(String(255))
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str | None] = mapped_column(String(64), index=True)
+    language: Mapped[str | None] = mapped_column(String(16), index=True)
+    country: Mapped[str | None] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     franchise: Mapped[Franchise | None] = relationship()
     volumes: Mapped[list["Volume"]] = relationship(back_populates="series")
@@ -40,6 +48,10 @@ class Volume(UuidMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     volume_number: Mapped[int | None]
     start_year: Mapped[int | None]
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    description: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     series: Mapped[Series] = relationship(back_populates="volumes")
     items: Mapped[list["Item"]] = relationship(back_populates="volume")
@@ -57,6 +69,12 @@ class Item(UuidMixin, TimestampMixin, Base):
     item_number: Mapped[str | None] = mapped_column(String(64), index=True)
     sort_key: Mapped[str | None] = mapped_column(String(255), index=True)
     synopsis: Mapped[str | None] = mapped_column(Text)
+    release_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    season_number: Mapped[int | None] = mapped_column(Integer, index=True)
+    episode_number: Mapped[int | None] = mapped_column(Integer, index=True)
+    runtime_minutes: Mapped[int | None] = mapped_column(Integer)
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     volume: Mapped[Volume | None] = relationship(back_populates="items")
     editions: Mapped[list["Edition"]] = relationship(back_populates="item")
@@ -74,6 +92,7 @@ class Edition(UuidMixin, TimestampMixin, Base):
     isbn: Mapped[str | None] = mapped_column(String(32), index=True)
     upc: Mapped[str | None] = mapped_column(String(32), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
+    region: Mapped[str | None] = mapped_column(String(32), index=True)
     release_date: Mapped[date | None] = mapped_column(Date)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -89,11 +108,20 @@ class Variant(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("editions.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    variant_type: Mapped[str | None] = mapped_column(String(64), index=True)
     sku: Mapped[str | None] = mapped_column(String(100), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(32), index=True)
+    isbn: Mapped[str | None] = mapped_column(String(32), index=True)
+    region: Mapped[str | None] = mapped_column(String(32), index=True)
+    platform: Mapped[str | None] = mapped_column(String(64), index=True)
+    cover_price_cents: Mapped[int | None] = mapped_column(Integer)
+    currency: Mapped[str | None] = mapped_column(String(3))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
+    description: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     edition: Mapped[Edition] = relationship(back_populates="variants")
@@ -109,6 +137,7 @@ class Release(UuidMixin, TimestampMixin, Base):
     release_date: Mapped[date | None] = mapped_column(Date)
     publisher: Mapped[str | None] = mapped_column(String(255))
     external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     edition: Mapped[Edition] = relationship(back_populates="releases")
 
@@ -127,6 +156,110 @@ class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     raw_url: Mapped[str | None] = mapped_column(String(1024))
+
+
+class Organization(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "organizations"
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    type: Mapped[str | None] = mapped_column(String(64), index=True)
+    country: Mapped[str | None] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class Person(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "persons"
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class EntityOrganization(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_organizations"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "organization_id",
+            "role",
+            name="uq_entity_organization_role",
+        ),
+        Index("ix_entity_organizations_entity", "entity_type", "entity_id"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    organization: Mapped[Organization] = relationship()
+
+
+class EntityPerson(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_persons"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "person_id",
+            "role",
+            name="uq_entity_person_role",
+        ),
+        Index("ix_entity_persons_entity", "entity_type", "entity_id"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    person: Mapped[Person] = relationship()
+
+
+class Tag(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tags"
+    __table_args__ = (UniqueConstraint("kind", "name", name="uq_tags_kind_name"),)
+
+    kind: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+
+
+class EntityTag(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_tags"
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_id", "tag_id", name="uq_entity_tag"),
+        Index("ix_entity_tags_entity", "entity_type", "entity_id"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    tag_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tags.id", ondelete="CASCADE"), nullable=False
+    )
+
+    tag: Mapped[Tag] = relationship()
+
+
+class ImageAsset(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "image_assets"
+    __table_args__ = (Index("ix_image_assets_entity", "entity_type", "entity_id"),)
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    image_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    thumbnail_storage_key: Mapped[str | None] = mapped_column(String(512))
+    source_url: Mapped[str | None] = mapped_column(String(1024))
+    provider: Mapped[str | None] = mapped_column(String(64), index=True)
+    attribution: Mapped[str | None] = mapped_column(Text)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    phash: Mapped[str | None] = mapped_column(String(128), index=True)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class MetadataProposal(UuidMixin, TimestampMixin, Base):

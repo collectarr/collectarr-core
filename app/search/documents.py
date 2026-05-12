@@ -22,6 +22,11 @@ def item_search_document(item: Item) -> dict[str, Any]:
         if edition.isbn:
             barcodes.append(edition.isbn)
         primary = next((variant for variant in edition.variants if variant.is_primary), None)
+        for variant in edition.variants:
+            if variant.barcode:
+                barcodes.append(variant.barcode)
+            if variant.isbn:
+                barcodes.append(variant.isbn)
         if primary:
             cover_url = primary.cover_image_url
             thumbnail_url = primary.thumbnail_image_url

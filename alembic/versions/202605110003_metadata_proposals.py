@@ -19,7 +19,15 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     external_provider = postgresql.ENUM(
-        "comicvine", "igdb", "tmdb", name="external_provider", create_type=False
+        "anilist",
+        "bgg",
+        "comicvine",
+        "igdb",
+        "musicbrainz",
+        "openlibrary",
+        "tmdb",
+        name="external_provider",
+        create_type=False,
     )
     op.create_table(
         "metadata_proposals",

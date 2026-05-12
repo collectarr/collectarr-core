@@ -43,6 +43,7 @@ class MetadataRepository:
             .join(Item.volume, isouter=True)
             .join(Volume.series, isouter=True)
             .join(Item.editions, isouter=True)
+            .join(Edition.variants, isouter=True)
             .order_by(Item.sort_key.nullslast(), Item.title)
             .limit(limit)
         )
@@ -58,6 +59,10 @@ class MetadataRepository:
                     Edition.publisher.ilike(pattern),
                     Edition.upc.ilike(pattern),
                     Edition.isbn.ilike(pattern),
+                    Variant.name.ilike(pattern),
+                    Variant.barcode.ilike(pattern),
+                    Variant.isbn.ilike(pattern),
+                    Variant.platform.ilike(pattern),
                 )
             )
         if kind:
@@ -84,7 +89,14 @@ class MetadataRepository:
             )
         if barcode:
             normalized = barcode.strip().replace("-", "").replace(" ", "")
-            stmt = stmt.where(or_(Edition.upc == normalized, Edition.isbn == normalized))
+            stmt = stmt.where(
+                or_(
+                    Edition.upc == normalized,
+                    Edition.isbn == normalized,
+                    Variant.barcode == normalized,
+                    Variant.isbn == normalized,
+                )
+            )
         result = await self.db.execute(stmt)
         return list(result.scalars().unique())
 
@@ -96,7 +108,15 @@ class MetadataRepository:
         stmt = (
             self._item_detail_stmt()
             .join(Item.editions)
-            .where(or_(Edition.upc == normalized, Edition.isbn == normalized))
+            .join(Edition.variants, isouter=True)
+            .where(
+                or_(
+                    Edition.upc == normalized,
+                    Edition.isbn == normalized,
+                    Variant.barcode == normalized,
+                    Variant.isbn == normalized,
+                )
+            )
             .limit(1)
         )
         if kind:

@@ -138,6 +138,7 @@ class MetadataService:
             primary = next((variant for variant in edition.variants if variant.is_primary), None)
             if primary is not None and variant_name is None:
                 variant_name = primary.name
+                barcode = barcode or primary.barcode or primary.isbn
             if (
                 publisher is not None
                 and release_date is not None

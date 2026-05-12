@@ -17,12 +17,12 @@ class ProviderStatusResponse(BaseModel):
 
 
 class ProviderIngestRequest(BaseModel):
-    provider: str = Field(pattern="^(comicvine|igdb|tmdb)$")
+    provider: ExternalProvider
     provider_item_id: str = Field(min_length=1, max_length=255)
 
 
 class ProviderSearchRequest(BaseModel):
-    provider: str = Field(pattern="^(comicvine|igdb|tmdb)$")
+    provider: ExternalProvider
     query: str = Field(min_length=1, max_length=255)
 
 

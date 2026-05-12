@@ -94,6 +94,20 @@ async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_admin_provider_search_rejects_unconfigured_provider(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    response = await client.post(
+        "/admin/providers/search",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "anilist", "query": "naruto"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Provider 'anilist' is not configured"
+
+
+@pytest.mark.asyncio
 async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     indexed_documents = []

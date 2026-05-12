@@ -17,6 +17,7 @@ from app.models.canonical import (
     Variant,
     Volume,
 )
+from app.providers.base import MetadataProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
@@ -68,7 +69,7 @@ class AdminMetadataService:
         ]
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
-        provider = self.providers.get(payload.provider)
+        provider = self._provider(payload.provider)
         results = await provider.search(payload.query)
         return [result.__dict__ for result in results]
 
@@ -95,7 +96,7 @@ class AdminMetadataService:
             )
         response = await self.ingest(
             ProviderIngestRequest(
-                provider=proposal.provider.value,
+                provider=proposal.provider,
                 provider_item_id=proposal.provider_item_id,
             )
         )
@@ -113,7 +114,7 @@ class AdminMetadataService:
         return MetadataProposalAdminResponse.model_validate(proposal)
 
     async def ingest(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:
-        provider = self.providers.get(payload.provider)
+        provider = self._provider(payload.provider)
         existing_provider_id = await self._get_provider_id(payload)
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
@@ -149,14 +150,14 @@ class AdminMetadataService:
             publisher=normalized.publisher,
             release_date=normalized.release_date,
             metadata_json={
-                "provider": payload.provider,
+                "provider": payload.provider.value,
                 "provider_item_id": provider_item.provider_item_id,
                 "source": provider_item.raw,
             },
         )
         mirrored_cover = await ImageMirror().mirror_cover_best_effort(
             normalized.cover_image_url,
-            payload.provider,
+            payload.provider.value,
             provider_item.provider_item_id,
         )
         variant = Variant(
@@ -192,15 +193,24 @@ class AdminMetadataService:
             item=ItemResponse.model_validate(loaded_item),
         )
 
+    def _provider(self, provider: ExternalProvider) -> MetadataProvider:
+        try:
+            return self.providers.get(provider.value)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Provider '{provider.value}' is not configured",
+            ) from exc
+
     async def _get_provider_id(self, payload: ProviderIngestRequest) -> ExternalProviderId | None:
         return await self._get_provider_id_value(payload.provider, payload.provider_item_id)
 
     async def _get_provider_id_value(
-        self, provider: str, provider_item_id: str
+        self, provider: ExternalProvider, provider_item_id: str
     ) -> ExternalProviderId | None:
         result = await self.db.execute(
             select(ExternalProviderId).where(
-                ExternalProviderId.provider == ExternalProvider(provider),
+                ExternalProviderId.provider == provider,
                 ExternalProviderId.provider_item_id == provider_item_id,
             )
         )
@@ -255,14 +265,18 @@ class AdminMetadataService:
         return series
 
     def _add_provider_links(
-        self, provider: str, provider_ids: dict[str, str], entity_type: str, entity_id: UUID
+        self,
+        provider: ExternalProvider,
+        provider_ids: dict[str, str],
+        entity_type: str,
+        entity_id: UUID,
     ) -> None:
-        provider_id = provider_ids.get(provider)
+        provider_id = provider_ids.get(provider.value)
         if not provider_id:
             return
         self.db.add(
             ExternalProviderId(
-                provider=ExternalProvider(provider),
+                provider=provider,
                 provider_item_id=provider_id,
                 entity_type=entity_type,
                 entity_id=entity_id,

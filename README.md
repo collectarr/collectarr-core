@@ -24,7 +24,7 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Generalized work, series, release, edition, and variant hierarchy
 - External provider IDs for ComicVine, IGDB, TMDb, AniList, BGG, OpenLibrary, MusicBrainz, and future providers
 - Public provider cover URLs kept as references by default, with MinIO/S3 reserved for manual or non-public assets
-- Meilisearch-backed fuzzy search with PostgreSQL fallback
+- Meilisearch-backed fuzzy search with PostgreSQL fallback when the search index is unavailable
 - See [docs/schema.md](docs/schema.md) for the database boundary and catalog schema
 
 ### 🧾 Personal Libraries

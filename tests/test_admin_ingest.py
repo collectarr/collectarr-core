@@ -120,6 +120,29 @@ def gcd_issue_raw() -> dict:
     }
 
 
+def gcd_variant_issue_raw() -> dict:
+    issue = gcd_issue_raw()
+    issue.update(
+        {
+            "api_url": "https://www.comics.org/api/issue/2665653/",
+            "series_name": "Absolute Batman (2024 series)",
+            "descriptor": "1 [Jim Lee & Scott Williams Cardstock Variant Cover]",
+            "number": "1",
+            "variant_name": "Jim Lee & Scott Williams Cardstock Variant Cover",
+            "variant_of": "https://www.comics.org/api/issue/2663120/",
+            "price": "5.99 USD",
+            "barcode": "76194138584600121",
+            "on_sale_date": "2024-10-09",
+            "key_date": "2024-10-00",
+            "publication_date": "December 2024",
+            "page_count": "52.000",
+            "series": "https://www.comics.org/api/series/216143/",
+            "cover": "https://files1.comics.org//img/gcd/covers_by_id/1791/w400/1791589.jpg",
+        }
+    )
+    return issue
+
+
 @pytest.mark.asyncio
 async def test_comicvine_provider_normalizes_issue_payload():
     normalized = await ComicVineProvider().normalize(comicvine_issue_raw())
@@ -176,6 +199,30 @@ async def test_gcd_provider_normalizes_issue_payload():
         == "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg"
     )
     assert normalized.synopsis == "Two-Face seeks revenge."
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_normalizes_variant_issue_payload():
+    normalized = await GCDProvider().normalize(gcd_variant_issue_raw())
+
+    assert normalized.title == "Absolute Batman"
+    assert normalized.item_number == "1"
+    assert normalized.edition_title == "Standard Edition"
+    assert normalized.variant_name == "Jim Lee & Scott Williams Cardstock Variant Cover"
+    assert normalized.variant_type == "variant"
+    assert normalized.volume_start_year == 2024
+    assert normalized.publisher == "DC Comics"
+    assert normalized.release_date == date(2024, 10, 9)
+    assert normalized.page_count == 52
+    assert normalized.barcode == "76194138584600121"
+    assert normalized.cover_price_cents == 599
+    assert normalized.currency == "USD"
+    assert normalized.provider_ids == {"gcd": "2665653"}
+    assert normalized.volume_provider_ids == {"gcd": "216143"}
+    assert (
+        normalized.cover_image_url
+        == "https://files1.comics.org//img/gcd/covers_by_id/1791/w400/1791589.jpg"
+    )
 
 
 @pytest.mark.asyncio

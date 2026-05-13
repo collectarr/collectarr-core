@@ -9,5 +9,5 @@ def configure_logging(environment: str) -> None:
     )
     logging.getLogger("app").setLevel(app_level)
 
-    for logger_name in ("boto3", "botocore", "s3transfer", "urllib3"):
+    for logger_name in ("boto3", "botocore", "s3transfer", "urllib3", "httpx"):
         logging.getLogger(logger_name).setLevel(logging.WARNING)

@@ -30,6 +30,13 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
     assert detail.status_code == 200
     assert detail.json()["title"] == "The Amazing Spider-Man"
 
+    generic_detail = await client.get(f"/metadata/comics/{item_id}")
+    assert generic_detail.status_code == 200
+    assert generic_detail.json()["title"] == "The Amazing Spider-Man"
+
+    wrong_media_detail = await client.get(f"/metadata/games/{item_id}")
+    assert wrong_media_detail.status_code == 404
+
 
 @pytest.mark.asyncio
 async def test_search_treats_empty_meilisearch_results_as_authoritative(client, monkeypatch):

@@ -104,7 +104,12 @@ class MetadataService:
     async def search_provider(
         self, provider_name: ExternalProvider, query: str
     ) -> list[ProviderSearchResultResponse]:
-        provider = self.providers.get(provider_name.value)
+        provider = self.providers.maybe_get(provider_name)
+        if provider is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Provider '{provider_name.value}' is not configured",
+            )
         results = await provider.search(query)
         return [ProviderSearchResultResponse(**result.__dict__) for result in results]
 

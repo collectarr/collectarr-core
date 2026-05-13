@@ -40,6 +40,20 @@ async def test_provider_search_returns_comicvine_results(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_provider_search_rejects_unimplemented_provider(client):
+    token = await register_and_login(client)
+
+    response = await client.get(
+        "/metadata/providers/anilist/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": "naruto"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Provider 'anilist' is not configured"
+
+
+@pytest.mark.asyncio
 async def test_metadata_proposal_is_saved_without_user_collection_data(client):
     token = await register_and_login(client)
 

@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUser, DbSession
+from app.catalog.media_types import media_type_for_route
 from app.models.base import ExternalProvider, ItemKind
 from app.schemas.metadata import (
     ItemResponse,
@@ -75,16 +76,31 @@ async def create_metadata_proposal(
     return await MetadataService(db).create_proposal(payload)
 
 
+@router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse)
+async def get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> ItemResponse:
+    return await _get_metadata_item(media_type, item_id, db)
+
+
 @router.get("/comics/{item_id}", response_model=ItemResponse)
 async def get_comic(item_id: UUID, db: DbSession) -> ItemResponse:
-    return await MetadataService(db).get_item(item_id, ItemKind.comic)
+    return await _get_metadata_item("comics", item_id, db)
 
 
 @router.get("/games/{item_id}", response_model=ItemResponse)
 async def get_game(item_id: UUID, db: DbSession) -> ItemResponse:
-    return await MetadataService(db).get_item(item_id, ItemKind.game)
+    return await _get_metadata_item("games", item_id, db)
 
 
 @router.get("/blu-ray/{item_id}", response_model=ItemResponse)
 async def get_bluray(item_id: UUID, db: DbSession) -> ItemResponse:
-    return await MetadataService(db).get_item(item_id, ItemKind.bluray)
+    return await _get_metadata_item("blu-ray", item_id, db)
+
+
+async def _get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> ItemResponse:
+    media_config = media_type_for_route(media_type)
+    if media_config is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown media type '{media_type}'",
+        )
+    return await MetadataService(db).get_item(item_id, media_config.kind)

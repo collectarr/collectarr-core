@@ -70,7 +70,7 @@ Provider ingest indexes newly imported canonical items into Meilisearch immediat
 
 ## Storage
 
-Images are stored in MinIO/S3. The backend stores object keys/URLs only and never writes provider images to the backend filesystem. Provider ingest mirrors cover images into object storage on a best-effort basis; if mirroring fails, metadata ingest still succeeds and can be retried by a later image job. Local MinIO can be configured with a public read bucket policy through `S3_MANAGE_PUBLIC_READ_POLICY`.
+Images are stored as references, not backend filesystem files. For public providers such as ComicVine, Collectarr keeps the provider cover URL by default and avoids copying that image into MinIO/S3. MinIO/S3 is reserved for manual uploads, generated assets, and providers without stable public cover URLs; provider mirroring can be enabled with `MIRROR_PROVIDER_IMAGES=true` when a fully self-contained catalog is preferred. Local MinIO can be configured with a public read bucket policy through `S3_MANAGE_PUBLIC_READ_POLICY`.
 
 ## Scaling
 

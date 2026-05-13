@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     s3_bucket: str = "collectarr-images"
     s3_public_url: str = "http://localhost:9000/collectarr-images"
     s3_manage_public_read_policy: bool = True
-    mirror_provider_images: bool = True
+    mirror_provider_images: bool = False
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
     max_image_pixels: int = 40_000_000

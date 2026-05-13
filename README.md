@@ -21,7 +21,7 @@ Collectarr is a centralized collector metadata hub with variant-aware catalog re
 - Canonical metadata kept separate from personal library data
 - Generalized work, series, release, edition, and variant hierarchy
 - External provider IDs for ComicVine, IGDB, TMDb, AniList, BGG, OpenLibrary, MusicBrainz, and future providers
-- Provider cover images mirrored into MinIO/S3 instead of backend filesystem storage
+- Public provider cover URLs kept as references by default, with MinIO/S3 reserved for manual or non-public assets
 - Meilisearch-backed fuzzy search with PostgreSQL fallback
 - See [docs/schema.md](docs/schema.md) for the database boundary and catalog schema
 

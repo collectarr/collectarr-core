@@ -48,18 +48,19 @@ The default Compose stack is tuned for local development:
 - API and sync access logs are disabled to avoid writing one Docker log line for every health/status request.
 - Docker JSON logs are rotated at `10m` with three retained files per service.
 - The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when catalog tables changed.
+- Public provider image URLs are stored as URLs by default, without copying covers into MinIO.
 - Object storage bucket setup is cached per process, so repeated image uploads do not rewrite MinIO bucket policy each time.
 
 PostgreSQL checkpoint lines such as `wrote 331 buffers` are normal and usually small. The `write=33s` value means PostgreSQL spread the write work over that interval; the `sync` duration is the part that more directly reflects waiting for disk flushes.
 
-For a lower-write development stack, set this in `.env`:
+For a lower-write development stack, keep this in `.env`:
 
 ```env
 MIRROR_PROVIDER_IMAGES=false
 WORKER_INDEX_INTERVAL_SECONDS=3600
 ```
 
-With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers/thumbnails into MinIO. For production, keep image mirroring enabled and place MinIO/S3 data on storage you are comfortable writing to.
+With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers/thumbnails into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to.
 
 ## Readiness
 

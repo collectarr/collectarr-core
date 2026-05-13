@@ -149,23 +149,12 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         indexed_documents.extend(documents)
         return True
 
-    async def fake_mirror_cover(self, source_url, provider, provider_item_id):
-        assert source_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
-        assert provider == "comicvine"
-        assert provider_item_id == "4000-12345"
-        return MirroredImage(
-            key="covers/comicvine/4000-12345/cover.jpg",
-            url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
-            content_type="image/jpeg",
-            thumbnail_key="thumbnails/comicvine/4000-12345/cover.jpg",
-            thumbnail_url=(
-                "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
-            ),
-        )
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
 
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
     monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
-    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fake_mirror_cover)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
 
     response = await client.post(
         "/admin/providers/ingest",
@@ -210,22 +199,17 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert body["item"]["editions"][0]["publisher"] == "Marvel"
     assert (
         body["item"]["editions"][0]["variants"][0]["cover_image_url"]
-        == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg"
+        == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
     )
-    assert (
-        body["item"]["editions"][0]["variants"][0]["thumbnail_image_url"]
-        == "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
-    )
+    assert body["item"]["editions"][0]["variants"][0]["thumbnail_image_url"] is None
     assert indexed_documents == [
         {
             "id": body["item_id"],
             "kind": "comic",
             "title": "The Amazing Spider-Man",
             "item_number": "1",
-            "cover_image_url": "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
-            "thumbnail_image_url": (
-                "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
-            ),
+            "cover_image_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+            "thumbnail_image_url": None,
             "publisher": "Marvel",
             "release_date": "1963-03-01",
             "region": "US",
@@ -276,6 +260,63 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         tags = await db.scalars(select(Tag.name).order_by(Tag.kind, Tag.name))
         assert list(tags) == ["Spider-Man", "The Spider Strikes"]
         cover = await db.scalar(select(Variant.cover_image_key))
-        assert cover == "covers/comicvine/4000-12345/cover.jpg"
+        assert cover is None
         thumbnail = await db.scalar(select(Variant.thumbnail_image_key))
-        assert thumbnail == "thumbnails/comicvine/4000-12345/cover.jpg"
+        assert thumbnail is None
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "mirror_provider_images", True)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(
+            provider="comicvine", provider_item_id="4000-12345", raw=comicvine_issue_raw()
+        )
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fake_mirror_cover(self, source_url, provider, provider_item_id):
+        assert source_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+        return MirroredImage(
+            key="covers/comicvine/4000-12345/cover.jpg",
+            url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
+            content_type="image/jpeg",
+            thumbnail_key="thumbnails/comicvine/4000-12345/cover.jpg",
+            thumbnail_url=(
+                "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
+            ),
+        )
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fake_mirror_cover)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "comicvine", "provider_item_id": "12345"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    variant = body["item"]["editions"][0]["variants"][0]
+    assert (
+        variant["cover_image_url"]
+        == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg"
+    )
+    assert (
+        variant["thumbnail_image_url"]
+        == "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
+    )
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(Variant.cover_image_key)) == (
+            "covers/comicvine/4000-12345/cover.jpg"
+        )
+        assert await db.scalar(select(Variant.thumbnail_image_key)) == (
+            "thumbnails/comicvine/4000-12345/cover.jpg"
+        )

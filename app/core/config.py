@@ -24,11 +24,13 @@ class Settings(BaseSettings):
     s3_bucket: str = "collectarr-images"
     s3_public_url: str = "http://localhost:9000/collectarr-images"
     s3_manage_public_read_policy: bool = True
+    mirror_provider_images: bool = True
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
     max_image_pixels: int = 40_000_000
     thumbnail_max_width: int = 360
     thumbnail_quality: int = 82
+    worker_index_interval_seconds: int = Field(default=900, ge=5)
 
     comicvine_api_key: str | None = None
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"

@@ -194,11 +194,13 @@ class AdminMetadataService:
                 "source": provider_item.raw,
             },
         )
-        mirrored_cover = await ImageMirror().mirror_cover_best_effort(
-            normalized.cover_image_url,
-            payload.provider.value,
-            provider_item.provider_item_id,
-        )
+        mirrored_cover = None
+        if self.settings.mirror_provider_images:
+            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
+                normalized.cover_image_url,
+                payload.provider.value,
+                provider_item.provider_item_id,
+            )
         variant = Variant(
             edition=edition,
             name="Cover A",

@@ -6,14 +6,17 @@ from app.core.config import get_settings
 
 
 class ObjectStorage:
+    _ensured_buckets: set[tuple[str, str, bool]] = set()
+
     def __init__(self) -> None:
         settings = get_settings()
+        self.endpoint_url = settings.s3_endpoint_url
         self.bucket = settings.s3_bucket
         self.public_url = settings.s3_public_url.rstrip("/")
         self.manage_public_read_policy = settings.s3_manage_public_read_policy
         self.client = boto3.client(
             "s3",
-            endpoint_url=settings.s3_endpoint_url,
+            endpoint_url=self.endpoint_url,
             aws_access_key_id=settings.s3_access_key_id,
             aws_secret_access_key=settings.s3_secret_access_key,
         )
@@ -22,6 +25,10 @@ class ObjectStorage:
         return f"{self.public_url}/{key.lstrip('/')}"
 
     def ensure_bucket(self) -> None:
+        cache_key = (self.endpoint_url, self.bucket, self.manage_public_read_policy)
+        if cache_key in self._ensured_buckets:
+            return
+
         buckets = self.client.list_buckets().get("Buckets", [])
         if not any(bucket["Name"] == self.bucket for bucket in buckets):
             self.client.create_bucket(Bucket=self.bucket)
@@ -30,6 +37,7 @@ class ObjectStorage:
                 self._ensure_public_read_policy()
             except Exception:
                 pass
+        self._ensured_buckets.add(cache_key)
 
     def put_object(self, key: str, body: bytes, content_type: str) -> str:
         self.ensure_bucket()

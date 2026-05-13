@@ -32,7 +32,7 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_search_does_not_fallback_when_meilisearch_returns_empty(client, monkeypatch):
+async def test_search_treats_empty_meilisearch_results_as_authoritative(client, monkeypatch):
     async def empty_search(self, query, kind=None, **kwargs):
         return []
 

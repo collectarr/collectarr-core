@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.models.base import ItemKind
-from app.providers.base import NormalizedItem, ProviderItem, ProviderSearchResult
+from app.providers.base import NormalizedCredit, NormalizedItem, ProviderItem, ProviderSearchResult
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -98,6 +98,10 @@ class ComicVineProvider:
                         "description",
                         "cover_date",
                         "store_date",
+                        "number_of_pages",
+                        "person_credits",
+                        "character_credits",
+                        "story_arc_credits",
                         "image",
                         "volume",
                     ]
@@ -106,7 +110,9 @@ class ComicVineProvider:
         )
         raw = payload.get("results") or {}
         if not isinstance(raw, Mapping):
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine item")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine item"
+            )
 
         return ProviderItem(provider=self.name, provider_item_id=canonical_id, raw=raw)
 
@@ -132,11 +138,15 @@ class ComicVineProvider:
             series_title=volume_name,
             volume_name=volume_name,
             volume_start_year=self._year(data.get("cover_date") or data.get("store_date")),
+            page_count=self._int_value(data.get("number_of_pages")),
             edition_title=edition_title,
             edition_format="Single Issue",
             publisher=self._publisher(volume),
             release_date=self._date(data.get("cover_date") or data.get("store_date")),
             cover_image_url=self._image_url(data.get("image")),
+            creators=self._credits(data.get("person_credits"), default_role="Creator"),
+            characters=self._credits(data.get("character_credits")),
+            story_arcs=self._credits(data.get("story_arc_credits")),
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: volume_id} if volume_id else {},
         )
@@ -170,7 +180,10 @@ class ComicVineProvider:
                     break
                 except httpx.HTTPStatusError as exc:
                     last_error = exc
-                    if exc.response.status_code in {429, 500, 502, 503, 504} and attempt < attempts - 1:
+                    if (
+                        exc.response.status_code in {429, 500, 502, 503, 504}
+                        and attempt < attempts - 1
+                    ):
                         await self._backoff(exc.response, attempt)
                         continue
                     raise HTTPException(
@@ -194,7 +207,9 @@ class ComicVineProvider:
                 ) from last_error
 
         if not isinstance(payload, dict):
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine response")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine response"
+            )
         if payload.get("status_code") not in {1, "1"}:
             error = payload.get("error") or "ComicVine API error"
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error))
@@ -214,7 +229,11 @@ class ComicVineProvider:
         volume_name = str(volume.get("name") or "").strip()
         issue_name = str(result.get("name") or "").strip()
         issue_number = str(result.get("issue_number") or "").strip()
-        title_parts = [part for part in [volume_name, f"#{issue_number}" if issue_number else "", issue_name] if part]
+        title_parts = [
+            part
+            for part in [volume_name, f"#{issue_number}" if issue_number else "", issue_name]
+            if part
+        ]
         title = " ".join(title_parts) or issue_name or volume_name or "Unknown ComicVine issue"
         return ProviderSearchResult(
             provider=self.name,
@@ -289,3 +308,46 @@ class ComicVineProvider:
         if isinstance(publisher, Mapping) and publisher.get("name"):
             return str(publisher["name"])
         return None
+
+    def _credits(self, values: Any, *, default_role: str | None = None) -> list[NormalizedCredit]:
+        if not isinstance(values, list):
+            return []
+        credits: list[NormalizedCredit] = []
+        seen: set[tuple[str, str | None]] = set()
+        for value in values:
+            if not isinstance(value, Mapping):
+                continue
+            name = str(value.get("name") or "").strip()
+            if not name:
+                continue
+            role = value.get("role") or value.get("roles") or default_role
+            if isinstance(role, list):
+                role = ", ".join(str(item).strip() for item in role if str(item).strip())
+            role_text = str(role).strip() if role else None
+            key = (name.casefold(), role_text.casefold() if role_text else None)
+            if key in seen:
+                continue
+            seen.add(key)
+            credits.append(
+                NormalizedCredit(
+                    name=name,
+                    role=role_text,
+                    api_detail_url=self._optional_text(value.get("api_detail_url")),
+                    site_detail_url=self._optional_text(value.get("site_detail_url")),
+                )
+            )
+        return credits
+
+    def _int_value(self, value: Any) -> int | None:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _optional_text(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None

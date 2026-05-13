@@ -178,6 +178,56 @@ _ADMIN_UI_HTML = """
         grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
         gap: 10px;
       }
+      .proposal-toolbar {
+        display: grid;
+        grid-template-columns: minmax(140px, 170px) minmax(140px, 170px) minmax(160px, 1fr) auto;
+        gap: 8px;
+        align-items: end;
+      }
+      .quick-filters {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .quick-filters button.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #071217;
+        font-weight: 800;
+      }
+      .proposal-list {
+        display: grid;
+        gap: 8px;
+      }
+      .proposal {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        padding: 10px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .proposal-body {
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr);
+        min-height: 0;
+        gap: 10px;
+      }
+      .proposal img {
+        width: 50px;
+        height: 74px;
+        object-fit: cover;
+        border-radius: 4px;
+        background: #0b0d10;
+      }
+      .proposal-actions {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
       .result {
         display: grid;
         gap: 8px;
@@ -230,6 +280,9 @@ _ADMIN_UI_HTML = """
       @media (max-width: 780px) {
         main { grid-template-columns: 1fr; }
         aside { border-right: 0; border-bottom: 1px solid var(--line); }
+        .proposal-toolbar, .proposal { grid-template-columns: 1fr; }
+        .proposal-body { grid-template-columns: 1fr; }
+        .proposal-actions { justify-content: flex-start; }
       }
     </style>
   </head>
@@ -269,6 +322,14 @@ _ADMIN_UI_HTML = """
             <strong id="proposalMetric">-</strong>
           </div>
           <div class="metric ok">
+            <span>Approved</span>
+            <strong id="approvedProposalMetric">-</strong>
+          </div>
+          <div class="metric">
+            <span>Rejected</span>
+            <strong id="rejectedProposalMetric">-</strong>
+          </div>
+          <div class="metric ok">
             <span>Providers online</span>
             <strong id="providerMetric">-</strong>
           </div>
@@ -305,10 +366,36 @@ _ADMIN_UI_HTML = """
           </div>
           <div class="panel stack">
             <h2>Metadata proposals</h2>
-            <div class="row">
-              <button id="proposalsButton" type="button">Load pending</button>
+            <div class="quick-filters" id="proposalQuickFilters">
+              <button type="button" data-status="pending" class="active">Pending</button>
+              <button type="button" data-status="approved">Approved</button>
+              <button type="button" data-status="rejected">Rejected</button>
             </div>
-            <div id="proposalResults" class="results"></div>
+            <div class="proposal-toolbar">
+              <label>Status
+                <select id="proposalStatus">
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              <label>Provider
+                <select id="proposalProvider">
+                  <option value="">All providers</option>
+                  <option value="comicvine">ComicVine</option>
+                  <option value="igdb">IGDB</option>
+                  <option value="tmdb">TMDb</option>
+                  <option value="anilist">AniList</option>
+                  <option value="openlibrary">OpenLibrary</option>
+                  <option value="bgg">BoardGameGeek</option>
+                </select>
+              </label>
+              <label>Search proposals
+                <input id="proposalSearch" placeholder="title, query, summary, provider">
+              </label>
+              <button id="proposalsButton" type="button">Load</button>
+            </div>
+            <div id="proposalResults" class="proposal-list"></div>
           </div>
           <div class="panel stack">
             <h2>Ingest log</h2>
@@ -328,6 +415,9 @@ _ADMIN_UI_HTML = """
       const tokenKey = "collectarr.admin.token";
       const state = {
         token: localStorage.getItem(tokenKey) || "",
+        proposals: [],
+        activeProposalId: "",
+        activeProposalTitle: "",
       };
 
       const $ = (id) => document.getElementById(id);
@@ -346,6 +436,12 @@ _ADMIN_UI_HTML = """
 
       function setMetric(id, value) {
         $(id).textContent = value;
+      }
+
+      function updateProposalQuickFilters(status) {
+        document.querySelectorAll("#proposalQuickFilters button").forEach((button) => {
+          button.classList.toggle("active", button.dataset.status === status);
+        });
       }
 
       function logEvent(message) {
@@ -444,12 +540,19 @@ _ADMIN_UI_HTML = """
           const providerId = item.provider_item_id || item.id || "";
           const title = escapeHtml(item.title || "Untitled");
           const safeProviderId = escapeHtml(providerId);
+          const actionLabel = state.activeProposalId ? "Approve proposal" : "Ingest";
           card.innerHTML = `
             <h3>${title}</h3>
             <p class="muted">${safeProviderId}</p>
-            <button type="button" class="primary">Ingest</button>
+            <button type="button" class="primary">${actionLabel}</button>
           `;
-          card.querySelector("button").addEventListener("click", () => ingestProviderItem(providerId));
+          card.querySelector("button").addEventListener("click", () => {
+            if (state.activeProposalId) {
+              approveProposalWithProviderItem(state.activeProposalId, providerId);
+            } else {
+              ingestProviderItem(providerId);
+            }
+          });
           target.appendChild(card);
         }
       }
@@ -476,32 +579,70 @@ _ADMIN_UI_HTML = """
       function renderProposals(items) {
         const target = $("proposalResults");
         target.innerHTML = "";
+        state.proposals = items;
+        const filtered = filterProposals(items);
         if (!items.length) {
-          target.innerHTML = '<p class="muted">No pending proposals.</p>';
+          target.innerHTML = '<p class="muted">No proposals for this status.</p>';
           return;
         }
-        for (const item of items) {
+        if (!filtered.length) {
+          target.innerHTML = '<p class="muted">No proposals match this filter.</p>';
+          return;
+        }
+        for (const item of filtered) {
           const card = document.createElement("article");
-          card.className = "result";
+          card.className = "proposal";
           const title = escapeHtml(item.title || item.query || "Untitled proposal");
+          const query = escapeHtml(item.query || "");
           const provider = escapeHtml(item.provider || "");
           const providerId = escapeHtml(item.provider_item_id || "");
           const status = escapeHtml(item.status || "pending");
           const summary = escapeHtml(item.summary || "");
+          const imageUrl = escapeHtml(item.image_url || "");
+          const actions = item.status === "pending"
+            ? `${providerId ? '<button type="button" class="primary" data-action="approve">Approve</button>' : '<button type="button" class="primary" data-action="search-provider">Search provider</button>'}
+              <button type="button" data-action="reject">Reject</button>`
+            : '<span class="muted">Reviewed</span>';
           card.innerHTML = `
-            <h3>${title}</h3>
-            <span class="badge ${status}">${status}</span>
-            <p class="muted">${provider} ${providerId || "manual correction"}</p>
-            ${summary ? `<pre class="summary">${summary}</pre>` : ""}
-            <div class="row">
-              ${providerId ? '<button type="button" class="primary" data-action="approve">Approve</button>' : ""}
-              <button type="button" data-action="reject">Reject</button>
+            <div class="proposal-body">
+              ${imageUrl ? `<img src="${imageUrl}" alt="">` : "<div></div>"}
+              <div class="stack">
+                <div class="row">
+                  <h3>${title}</h3>
+                  <span class="badge ${status}">${status}</span>
+                </div>
+                <p class="muted">${provider} ${providerId || "manual correction / proposal"}${query ? ` - ${query}` : ""}</p>
+                <div class="row">
+                  <span class="badge">${provider || "manual"}</span>
+                  ${providerId ? `<span class="badge">Provider ID ${providerId}</span>` : '<span class="badge">Needs provider match</span>'}
+                </div>
+                ${summary ? `<pre class="summary">${summary}</pre>` : ""}
+              </div>
+            </div>
+            <div class="proposal-actions">
+              ${actions}
             </div>
           `;
           card.querySelector('[data-action="approve"]')?.addEventListener("click", () => approveProposal(item.id));
-          card.querySelector('[data-action="reject"]').addEventListener("click", () => rejectProposal(item.id));
+          card.querySelector('[data-action="search-provider"]')?.addEventListener("click", () => searchProviderForProposal(item));
+          card.querySelector('[data-action="reject"]')?.addEventListener("click", () => rejectProposal(item.id));
           target.appendChild(card);
         }
+      }
+
+      function filterProposals(items) {
+        const needle = $("proposalSearch").value.trim().toLowerCase();
+        if (!needle) {
+          return items;
+        }
+        return items.filter((item) => [
+          item.title,
+          item.query,
+          item.provider,
+          item.provider_item_id,
+          item.summary,
+          item.status,
+        ].some((value) => String(value || "").toLowerCase().includes(needle)));
       }
 
       async function login() {
@@ -586,7 +727,12 @@ _ADMIN_UI_HTML = """
             }),
           });
           renderProviderResults(data);
-          setStatus(`Found ${data.length} provider items.`, "ok");
+          setStatus(
+            state.activeProposalId
+              ? `Found ${data.length} provider items for proposal ${state.activeProposalTitle}.`
+              : `Found ${data.length} provider items.`,
+            "ok"
+          );
           setResponse(data);
           logEvent(`Provider search returned ${data.length} items.`);
         } catch (error) {
@@ -615,6 +761,21 @@ _ADMIN_UI_HTML = """
         }
       }
 
+      async function loadProposalSummary() {
+        try {
+          const data = await request("/admin/metadata/proposals/summary", {
+            headers: headers(true),
+          });
+          setMetric("proposalMetric", data.pending);
+          setMetric("approvedProposalMetric", data.approved);
+          setMetric("rejectedProposalMetric", data.rejected);
+        } catch (error) {
+          setMetric("proposalMetric", "!");
+          setMetric("approvedProposalMetric", "!");
+          setMetric("rejectedProposalMetric", "!");
+        }
+      }
+
       async function ingestProviderItem(providerItemId) {
         try {
           const data = await request("/admin/providers/ingest", {
@@ -638,18 +799,56 @@ _ADMIN_UI_HTML = """
         const button = $("proposalsButton");
         setBusy(button, true);
         try {
-          const data = await request("/admin/metadata/proposals?status=pending", {
+          const status = encodeURIComponent($("proposalStatus").value);
+          const provider = $("proposalProvider").value;
+          const providerParam = provider ? `&provider=${encodeURIComponent(provider)}` : "";
+          const data = await request(`/admin/metadata/proposals?status=${status}${providerParam}`, {
             headers: headers(true),
           });
           renderProposals(data);
-          setMetric("proposalMetric", data.length);
-          setStatus(`Loaded ${data.length} pending proposals.`, "ok");
+          updateProposalQuickFilters($("proposalStatus").value);
+          loadProposalSummary();
+          setStatus(`Loaded ${data.length} ${$("proposalStatus").value} proposals.`, "ok");
           setResponse(data);
-          logEvent(`Loaded ${data.length} pending proposals.`);
+          logEvent(`Loaded ${data.length} ${$("proposalStatus").value} proposals.`);
         } catch (error) {
           setStatus(error.message, "error");
         } finally {
           setBusy(button, false);
+        }
+      }
+
+      function searchProviderForProposal(item) {
+        state.activeProposalId = item.id;
+        state.activeProposalTitle = item.title || item.query || item.id;
+        $("provider").value = item.provider || "comicvine";
+        $("providerQuery").value = item.query || item.title || "";
+        setStatus("Provider search prepared from proposal.", "ok");
+        logEvent("Prepared provider search from metadata proposal.");
+        providerSearch();
+      }
+
+      async function approveProposalWithProviderItem(id, providerItemId) {
+        try {
+          const data = await request(`/admin/metadata/proposals/${id}/approve-provider`, {
+            method: "POST",
+            headers: headers(true),
+            body: JSON.stringify({
+              provider: $("provider").value,
+              provider_item_id: providerItemId,
+            }),
+          });
+          state.activeProposalId = "";
+          state.activeProposalTitle = "";
+          setStatus("Proposal approved with selected provider item.", "ok");
+          setMetric("ingestMetric", data.created ? "new" : "exists");
+          setResponse(data);
+          logEvent("Manual proposal approved with provider item.");
+          $("providerResults").innerHTML = "";
+          loadProposalSummary();
+          loadProposals();
+        } catch (error) {
+          setStatus(error.message, "error");
         }
       }
 
@@ -663,6 +862,7 @@ _ADMIN_UI_HTML = """
           setMetric("ingestMetric", "approved");
           setResponse(data);
           logEvent("Proposal approved and ingested.");
+          loadProposalSummary();
           loadProposals();
         } catch (error) {
           setStatus(error.message, "error");
@@ -678,6 +878,7 @@ _ADMIN_UI_HTML = """
           setStatus("Proposal rejected.", "ok");
           setResponse(data);
           logEvent("Proposal rejected.");
+          loadProposalSummary();
           loadProposals();
         } catch (error) {
           setStatus(error.message, "error");
@@ -696,9 +897,23 @@ _ADMIN_UI_HTML = """
       $("providersButton").addEventListener("click", loadProviders);
       $("providerButton").addEventListener("click", providerSearch);
       $("proposalsButton").addEventListener("click", loadProposals);
+      $("proposalStatus").addEventListener("change", () => {
+        updateProposalQuickFilters($("proposalStatus").value);
+        loadProposals();
+      });
+      $("proposalProvider").addEventListener("change", loadProposals);
+      $("proposalSearch").addEventListener("input", () => renderProposals(state.proposals));
+      document.querySelectorAll("#proposalQuickFilters button").forEach((button) => {
+        button.addEventListener("click", () => {
+          $("proposalStatus").value = button.dataset.status;
+          updateProposalQuickFilters(button.dataset.status);
+          loadProposals();
+        });
+      });
       updateAuthStatus();
       if (state.token) {
         loadProviders();
+        loadProposalSummary();
         loadProposals();
       }
     </script>

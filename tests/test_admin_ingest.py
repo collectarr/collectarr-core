@@ -5,7 +5,20 @@ from sqlalchemy import func, select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.canonical import ExternalProviderId, Item, Release, Series, Variant, Volume
+from app.models.canonical import (
+    EntityOrganization,
+    EntityPerson,
+    EntityTag,
+    ExternalProviderId,
+    Item,
+    Organization,
+    Person,
+    Release,
+    Series,
+    Tag,
+    Variant,
+    Volume,
+)
 from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
 from app.search.client import SearchClient
@@ -33,6 +46,14 @@ def comicvine_issue_raw() -> dict:
         "deck": "Peter Parker begins a new chapter.",
         "description": "<p>Peter Parker faces a new chapter as Spider-Man.</p>",
         "cover_date": "1963-03-01",
+        "store_date": "1963-02-10",
+        "number_of_pages": 32,
+        "person_credits": [
+            {"name": "Stan Lee", "role": "Writer"},
+            {"name": "Steve Ditko", "role": "Artist"},
+        ],
+        "character_credits": [{"name": "Spider-Man"}],
+        "story_arc_credits": [{"name": "The Spider Strikes"}],
         "image": {"super_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"},
         "volume": {
             "id": 6789,
@@ -52,8 +73,15 @@ async def test_comicvine_provider_normalizes_issue_payload():
     assert normalized.edition_title == "The Spider Strikes"
     assert normalized.publisher == "Marvel"
     assert normalized.release_date == date(1963, 3, 1)
+    assert normalized.page_count == 32
     assert normalized.provider_ids == {"comicvine": "4000-12345"}
     assert normalized.volume_provider_ids == {"comicvine": "4050-6789"}
+    assert [(credit.name, credit.role) for credit in normalized.creators] == [
+        ("Stan Lee", "Writer"),
+        ("Steve Ditko", "Artist"),
+    ]
+    assert [credit.name for credit in normalized.characters] == ["Spider-Man"]
+    assert [credit.name for credit in normalized.story_arcs] == ["The Spider Strikes"]
     assert (
         normalized.cover_image_url
         == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
@@ -149,6 +177,36 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert body["created"] is True
     assert body["item"]["title"] == "The Amazing Spider-Man"
     assert body["item"]["item_number"] == "1"
+    assert body["item"]["series_title"] == "The Amazing Spider-Man"
+    assert body["item"]["volume_name"] == "The Amazing Spider-Man"
+    assert body["item"]["volume_start_year"] == 1963
+    assert body["item"]["page_count"] == 32
+    assert body["item"]["cover_date"] == "1963-03-01"
+    assert body["item"]["store_date"] == "1963-02-10"
+    assert body["item"]["publisher"] == "Marvel"
+    assert body["item"]["creators"] == [
+        {
+            "name": "Stan Lee",
+            "role": "Writer",
+            "api_detail_url": None,
+            "site_detail_url": None,
+        },
+        {
+            "name": "Steve Ditko",
+            "role": "Artist",
+            "api_detail_url": None,
+            "site_detail_url": None,
+        },
+    ]
+    assert body["item"]["characters"][0]["name"] == "Spider-Man"
+    assert body["item"]["story_arcs"][0]["name"] == "The Spider Strikes"
+    assert body["item"]["provider_links"][0] == {
+        "provider": "comicvine",
+        "entity_type": "item",
+        "provider_item_id": "4000-12345",
+        "site_url": "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
+        "api_url": "https://comicvine.gamespot.com/api/issue/4000-12345/",
+    }
     assert body["item"]["editions"][0]["publisher"] == "Marvel"
     assert (
         body["item"]["editions"][0]["variants"][0]["cover_image_url"]
@@ -169,11 +227,18 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
                 "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
             ),
             "publisher": "Marvel",
+            "release_date": "1963-03-01",
             "region": "US",
             "release_year": 1963,
+            "barcode": None,
             "barcodes": [],
+            "variant": "Cover A",
+            "variant_names": ["Cover A"],
             "series_title": "The Amazing Spider-Man",
             "volume_name": "The Amazing Spider-Man",
+            "creators": ["Stan Lee", "Steve Ditko"],
+            "characters": ["Spider-Man"],
+            "story_arcs": ["The Spider Strikes"],
         }
     ]
 
@@ -192,12 +257,24 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(Volume)) == 1
         assert await db.scalar(select(func.count()).select_from(Variant)) == 1
         assert await db.scalar(select(func.count()).select_from(Release)) == 1
+        assert await db.scalar(select(func.count()).select_from(Organization)) == 1
+        assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 1
+        assert await db.scalar(select(func.count()).select_from(Person)) == 2
+        assert await db.scalar(select(func.count()).select_from(EntityPerson)) == 2
+        assert await db.scalar(select(func.count()).select_from(Tag)) == 2
+        assert await db.scalar(select(func.count()).select_from(EntityTag)) == 2
         provider_ids = await db.scalars(
             select(ExternalProviderId.provider_item_id).order_by(
                 ExternalProviderId.provider_item_id
             )
         )
         assert list(provider_ids) == ["4000-12345", "4050-6789"]
+        publisher = await db.scalar(select(Organization.name))
+        assert publisher == "Marvel"
+        roles = await db.scalars(select(EntityPerson.role).order_by(EntityPerson.role))
+        assert list(roles) == ["Artist", "Writer"]
+        tags = await db.scalars(select(Tag.name).order_by(Tag.kind, Tag.name))
+        assert list(tags) == ["Spider-Man", "The Spider Strikes"]
         cover = await db.scalar(select(Variant.cover_image_key))
         assert cover == "covers/comicvine/4000-12345/cover.jpg"
         thumbnail = await db.scalar(select(Variant.thumbnail_image_key))

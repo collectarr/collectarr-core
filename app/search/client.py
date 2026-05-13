@@ -27,14 +27,14 @@ class SearchClient:
         try:
             filter_parts: list[str] = []
             if kind:
-                filter_parts.append(f'kind = "{kind.value}"')
+                filter_parts.append(f"kind = {_meili_string(kind.value)}")
             if publisher:
-                filter_parts.append(f'publisher = "{publisher}"')
+                filter_parts.append(f"publisher = {_meili_string(publisher)}")
             if year is not None:
                 filter_parts.append(f"release_year = {year}")
             if barcode:
                 normalized = barcode.strip().replace("-", "").replace(" ", "")
-                filter_parts.append(f'barcodes = "{normalized}"')
+                filter_parts.append(f"barcodes = {_meili_string(normalized)}")
             options: dict[str, Any] = {"limit": limit}
             filters = " AND ".join(filter_parts) if filter_parts else None
             if filters:
@@ -63,7 +63,14 @@ class SearchClient:
     async def configure(self) -> None:
         index = self.client.index(self.index_name)
         index.update_filterable_attributes(
-            ["kind", "publisher", "region", "release_year", "barcodes"]
+            [
+                "kind",
+                "publisher",
+                "region",
+                "release_year",
+                "barcodes",
+                "series_title",
+            ]
         )
         index.update_searchable_attributes(
             [
@@ -72,6 +79,39 @@ class SearchClient:
                 "series_title",
                 "volume_name",
                 "publisher",
+                "variant",
+                "variant_names",
                 "barcodes",
+                "creators",
+                "characters",
+                "story_arcs",
             ]
         )
+        index.update_displayed_attributes(
+            [
+                "id",
+                "kind",
+                "title",
+                "item_number",
+                "cover_image_url",
+                "thumbnail_image_url",
+                "publisher",
+                "release_date",
+                "region",
+                "release_year",
+                "barcode",
+                "barcodes",
+                "variant",
+                "variant_names",
+                "series_title",
+                "volume_name",
+                "creators",
+                "characters",
+                "story_arcs",
+            ]
+        )
+        index.update_sortable_attributes(["title", "item_number", "release_year", "publisher"])
+
+
+def _meili_string(value: str) -> str:
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'

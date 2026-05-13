@@ -32,6 +32,13 @@ class ProviderIngestResponse(BaseModel):
     item: ItemResponse
 
 
+class MetadataProposalSummaryResponse(BaseModel):
+    pending: int
+    approved: int
+    rejected: int
+    total: int
+
+
 class MetadataProposalAdminResponse(BaseModel):
     id: UUID
     provider: ExternalProvider

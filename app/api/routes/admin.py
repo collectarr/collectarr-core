@@ -5,11 +5,13 @@ from fastapi import APIRouter, Query
 from app.api.deps import CurrentAdmin, DbSession
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
+    MetadataProposalSummaryResponse,
     ProviderIngestRequest,
     ProviderIngestResponse,
     ProviderSearchRequest,
     ProviderStatusResponse,
 )
+from app.models.base import ExternalProvider
 from app.services.admin import AdminMetadataService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -37,8 +39,17 @@ async def metadata_proposals(
     db: DbSession,
     user: CurrentAdmin,
     status: str = Query(default="pending", pattern="^(pending|approved|rejected)$"),
+    provider: ExternalProvider | None = None,
 ) -> list[MetadataProposalAdminResponse]:
-    return await AdminMetadataService(db).list_proposals(status)
+    return await AdminMetadataService(db).list_proposals(status, provider)
+
+
+@router.get("/metadata/proposals/summary", response_model=MetadataProposalSummaryResponse)
+async def metadata_proposals_summary(
+    db: DbSession,
+    user: CurrentAdmin,
+) -> MetadataProposalSummaryResponse:
+    return await AdminMetadataService(db).proposal_summary()
 
 
 @router.post(
@@ -51,6 +62,22 @@ async def approve_metadata_proposal(
     user: CurrentAdmin,
 ) -> ProviderIngestResponse:
     return await AdminMetadataService(db).approve_proposal(proposal_id)
+
+
+@router.post(
+    "/metadata/proposals/{proposal_id}/approve-provider",
+    response_model=ProviderIngestResponse,
+)
+async def approve_metadata_proposal_with_provider_item(
+    proposal_id: UUID,
+    payload: ProviderIngestRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ProviderIngestResponse:
+    return await AdminMetadataService(db).approve_proposal_with_provider_item(
+        proposal_id,
+        payload,
+    )
 
 
 @router.post(

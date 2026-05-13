@@ -23,6 +23,14 @@ class ProviderItem:
 
 
 @dataclass(frozen=True)
+class NormalizedCredit:
+    name: str
+    role: str | None = None
+    api_detail_url: str | None = None
+    site_detail_url: str | None = None
+
+
+@dataclass(frozen=True)
 class NormalizedItem:
     kind: ItemKind
     title: str
@@ -32,11 +40,15 @@ class NormalizedItem:
     volume_name: str | None = None
     volume_number: int | None = None
     volume_start_year: int | None = None
+    page_count: int | None = None
     edition_title: str | None = None
     edition_format: str | None = None
     publisher: str | None = None
     release_date: date | None = None
     cover_image_url: str | None = None
+    creators: list[NormalizedCredit] = field(default_factory=list)
+    characters: list[NormalizedCredit] = field(default_factory=list)
+    story_arcs: list[NormalizedCredit] = field(default_factory=list)
     provider_ids: dict[str, str] = field(default_factory=dict)
     volume_provider_ids: dict[str, str] = field(default_factory=dict)
 
@@ -44,11 +56,8 @@ class NormalizedItem:
 class MetadataProvider(Protocol):
     name: str
 
-    async def search(self, query: str) -> list[ProviderSearchResult]:
-        ...
+    async def search(self, query: str) -> list[ProviderSearchResult]: ...
 
-    async def get_item(self, provider_item_id: str) -> ProviderItem:
-        ...
+    async def get_item(self, provider_item_id: str) -> ProviderItem: ...
 
-    async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
-        ...
+    async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem: ...

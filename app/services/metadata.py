@@ -13,6 +13,7 @@ from app.schemas.metadata import (
     MetadataProposalResponse,
     ProviderSearchResultResponse,
     SearchResult,
+    item_response_from_model,
 )
 from app.search.client import SearchClient
 
@@ -28,7 +29,7 @@ class MetadataService:
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-        return ItemResponse.model_validate(item)
+        return item_response_from_model(item)
 
     async def search(
         self,

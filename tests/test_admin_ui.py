@@ -24,6 +24,9 @@ async def test_admin_ui_is_served_without_api_token(client):
     assert "Personal library data stays local" in response.text
     assert "manual correction" in response.text
     assert ".badge.pending" in response.text
+    assert "Approved</span>" in response.text
+    assert "proposalQuickFilters" in response.text
+    assert "Needs provider match" in response.text
 
 
 @pytest.mark.asyncio

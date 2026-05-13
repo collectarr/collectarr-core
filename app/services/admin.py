@@ -2,32 +2,39 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     Edition,
+    EntityOrganization,
+    EntityPerson,
+    EntityTag,
     ExternalProviderId,
     Item,
     MetadataProposal,
+    Organization,
+    Person,
     Release,
     Series,
+    Tag,
     Variant,
     Volume,
 )
-from app.providers.base import MetadataProvider
+from app.providers.base import MetadataProvider, NormalizedCredit
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     ProviderIngestRequest,
     ProviderIngestResponse,
     MetadataProposalAdminResponse,
+    MetadataProposalSummaryResponse,
     ProviderSearchRequest,
     ProviderStatusResponse,
 )
-from app.schemas.metadata import ItemResponse
+from app.schemas.metadata import item_response_from_model
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
 from app.storage.images import ImageMirror
@@ -73,14 +80,30 @@ class AdminMetadataService:
         results = await provider.search(payload.query)
         return [result.__dict__ for result in results]
 
-    async def list_proposals(
-        self, status_filter: str = "pending"
-    ) -> list[MetadataProposalAdminResponse]:
+    async def proposal_summary(self) -> MetadataProposalSummaryResponse:
         result = await self.db.execute(
-            select(MetadataProposal)
-            .where(MetadataProposal.status == status_filter)
-            .order_by(MetadataProposal.created_at.asc())
+            select(MetadataProposal.status, func.count(MetadataProposal.id)).group_by(
+                MetadataProposal.status
+            )
         )
+        counts = {status: count for status, count in result.all()}
+        pending = counts.get("pending", 0)
+        approved = counts.get("approved", 0)
+        rejected = counts.get("rejected", 0)
+        return MetadataProposalSummaryResponse(
+            pending=pending,
+            approved=approved,
+            rejected=rejected,
+            total=pending + approved + rejected,
+        )
+
+    async def list_proposals(
+        self, status_filter: str = "pending", provider_filter: ExternalProvider | None = None
+    ) -> list[MetadataProposalAdminResponse]:
+        stmt = select(MetadataProposal).where(MetadataProposal.status == status_filter)
+        if provider_filter:
+            stmt = stmt.where(MetadataProposal.provider == provider_filter)
+        result = await self.db.execute(stmt.order_by(MetadataProposal.created_at.asc()))
         return [
             MetadataProposalAdminResponse.model_validate(proposal) for proposal in result.scalars()
         ]
@@ -100,6 +123,21 @@ class AdminMetadataService:
                 provider_item_id=proposal.provider_item_id,
             )
         )
+        proposal.status = "approved"
+        await self.db.commit()
+        return response
+
+    async def approve_proposal_with_provider_item(
+        self,
+        proposal_id: UUID,
+        payload: ProviderIngestRequest,
+    ) -> ProviderIngestResponse:
+        proposal = await self.db.get(MetadataProposal, proposal_id)
+        if proposal is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+        response = await self.ingest(payload)
+        proposal.provider = payload.provider
+        proposal.provider_item_id = payload.provider_item_id
         proposal.status = "approved"
         await self.db.commit()
         return response
@@ -142,6 +180,7 @@ class AdminMetadataService:
             item_number=normalized.item_number,
             sort_key=self._sort_key(normalized.kind, normalized.title, normalized.item_number),
             synopsis=normalized.synopsis,
+            page_count=normalized.page_count,
         )
         edition = Edition(
             item=item,
@@ -183,6 +222,10 @@ class AdminMetadataService:
             self._add_provider_links(
                 payload.provider, normalized.volume_provider_ids, "volume", volume.id
             )
+        await self._link_publisher(item.id, normalized.publisher)
+        await self._link_people(item.id, normalized.creators)
+        await self._link_tags(item.id, "character", normalized.characters)
+        await self._link_tags(item.id, "story_arc", normalized.story_arcs)
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -190,7 +233,7 @@ class AdminMetadataService:
         return ProviderIngestResponse(
             item_id=item.id,
             created=True,
-            item=ItemResponse.model_validate(loaded_item),
+            item=item_response_from_model(loaded_item),
         )
 
     def _provider(self, provider: ExternalProvider) -> MetadataProvider:
@@ -225,7 +268,7 @@ class AdminMetadataService:
         return ProviderIngestResponse(
             item_id=item.id,
             created=False,
-            item=ItemResponse.model_validate(item),
+            item=item_response_from_model(item),
         )
 
     async def _upsert_volume(
@@ -282,6 +325,98 @@ class AdminMetadataService:
                 entity_id=entity_id,
             )
         )
+
+    async def _link_publisher(self, item_id: UUID, publisher: str | None) -> None:
+        if not publisher:
+            return
+        organization = await self._get_or_create_organization(publisher, "publisher")
+        exists = await self.db.scalar(
+            select(EntityOrganization.id).where(
+                EntityOrganization.entity_type == "item",
+                EntityOrganization.entity_id == item_id,
+                EntityOrganization.organization_id == organization.id,
+                EntityOrganization.role == "publisher",
+            )
+        )
+        if exists:
+            return
+        self.db.add(
+            EntityOrganization(
+                entity_type="item",
+                entity_id=item_id,
+                organization_id=organization.id,
+                role="publisher",
+            )
+        )
+
+    async def _link_people(self, item_id: UUID, credits: list[NormalizedCredit]) -> None:
+        for credit in credits:
+            person = await self._get_or_create_person(credit.name)
+            role = credit.role or "creator"
+            exists = await self.db.scalar(
+                select(EntityPerson.id).where(
+                    EntityPerson.entity_type == "item",
+                    EntityPerson.entity_id == item_id,
+                    EntityPerson.person_id == person.id,
+                    EntityPerson.role == role,
+                )
+            )
+            if exists:
+                continue
+            self.db.add(
+                EntityPerson(
+                    entity_type="item",
+                    entity_id=item_id,
+                    person_id=person.id,
+                    role=role,
+                )
+            )
+
+    async def _link_tags(self, item_id: UUID, kind: str, credits: list[NormalizedCredit]) -> None:
+        for credit in credits:
+            tag = await self._get_or_create_tag(kind, credit.name)
+            exists = await self.db.scalar(
+                select(EntityTag.id).where(
+                    EntityTag.entity_type == "item",
+                    EntityTag.entity_id == item_id,
+                    EntityTag.tag_id == tag.id,
+                )
+            )
+            if exists:
+                continue
+            self.db.add(EntityTag(entity_type="item", entity_id=item_id, tag_id=tag.id))
+
+    async def _get_or_create_organization(self, name: str, organization_type: str) -> Organization:
+        result = await self.db.execute(
+            select(Organization).where(
+                Organization.name == name,
+                Organization.type == organization_type,
+            )
+        )
+        organization = result.scalar_one_or_none()
+        if organization is None:
+            organization = Organization(name=name, type=organization_type)
+            self.db.add(organization)
+            await self.db.flush()
+        return organization
+
+    async def _get_or_create_person(self, name: str) -> Person:
+        result = await self.db.execute(select(Person).where(Person.name == name))
+        person = result.scalar_one_or_none()
+        if person is None:
+            person = Person(name=name)
+            self.db.add(person)
+            await self.db.flush()
+        return person
+
+    async def _get_or_create_tag(self, kind: str, name: str) -> Tag:
+        result = await self.db.execute(select(Tag).where(Tag.kind == kind, Tag.name == name))
+        tag = result.scalar_one_or_none()
+        if tag is None:
+            tag = Tag(kind=kind, name=name)
+            self.db.add(tag)
+            await self.db.flush()
+        return tag
 
     def _sort_key(self, kind: ItemKind, title: str, item_number: str | None) -> str:
         if kind == ItemKind.comic and item_number:

@@ -223,9 +223,9 @@ class AdminMetadataService:
         )
         self.db.add_all([item, edition, variant, release])
         await self.db.flush()
-        self._add_provider_links(payload.provider, normalized.provider_ids, "item", item.id)
+        await self._add_provider_links(payload.provider, normalized.provider_ids, "item", item.id)
         if volume:
-            self._add_provider_links(
+            await self._add_provider_links(
                 payload.provider, normalized.volume_provider_ids, "volume", volume.id
             )
         await self._link_publisher(item.id, normalized.publisher)
@@ -313,7 +313,7 @@ class AdminMetadataService:
             await self.db.flush()
         return series
 
-    def _add_provider_links(
+    async def _add_provider_links(
         self,
         provider: ExternalProvider,
         provider_ids: dict[str, str],
@@ -322,6 +322,14 @@ class AdminMetadataService:
     ) -> None:
         provider_id = provider_ids.get(provider.value)
         if not provider_id:
+            return
+        exists = await self.db.scalar(
+            select(ExternalProviderId.id).where(
+                ExternalProviderId.provider == provider,
+                ExternalProviderId.provider_item_id == provider_id,
+            )
+        )
+        if exists:
             return
         self.db.add(
             ExternalProviderId(

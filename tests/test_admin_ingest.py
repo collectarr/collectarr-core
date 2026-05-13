@@ -508,6 +508,58 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
 
 
 @pytest.mark.asyncio
+async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    primary_issue = gcd_variant_issue_raw()
+    primary_issue.update(
+        {
+            "api_url": "https://www.comics.org/api/issue/2663120/",
+            "descriptor": "1 [Nick Dragotta Cover]",
+            "variant_name": "Nick Dragotta Cover",
+            "variant_of": None,
+            "price": "4.99 USD",
+            "barcode": "76194138584600111",
+            "page_count": "48.000",
+        }
+    )
+    variant_issue = gcd_variant_issue_raw()
+    issues = {"2663120": primary_issue, "2665653": variant_issue}
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="gcd", provider_item_id=provider_item_id, raw=issues[provider_item_id])
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(GCDProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    for provider_item_id in issues:
+        response = await client.post(
+            "/admin/providers/ingest",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"provider": "gcd", "provider_item_id": provider_item_id},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["created"] is True
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(func.count()).select_from(Item)) == 2
+        assert await db.scalar(select(func.count()).select_from(Volume)) == 1
+        provider_ids = await db.scalars(
+            select(ExternalProviderId.provider_item_id).order_by(
+                ExternalProviderId.provider_item_id
+            )
+        )
+        assert list(provider_ids) == ["216143", "2663120", "2665653"]
+
+
+@pytest.mark.asyncio
 async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     settings = get_settings()

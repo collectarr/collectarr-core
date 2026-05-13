@@ -1,8 +1,11 @@
 import json
+import logging
 
 import boto3
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class ObjectStorage:
@@ -36,7 +39,11 @@ class ObjectStorage:
             try:
                 self._ensure_public_read_policy()
             except Exception:
-                pass
+                logger.warning(
+                    "Failed to apply public read policy to S3 bucket %s",
+                    self.bucket,
+                    exc_info=True,
+                )
         self._ensured_buckets.add(cache_key)
 
     def put_object(self, key: str, body: bytes, content_type: str) -> str:

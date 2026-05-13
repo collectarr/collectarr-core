@@ -67,7 +67,7 @@ if (-not (Test-Path ".env")) {
 
 Invoke-Compose up --build -d postgres redis meilisearch minio
 Invoke-Compose run --rm api alembic upgrade head
-Invoke-Compose run --rm api python -m app.commands.seed_comics
+Invoke-Compose run --rm api python -m app.scripts.seed_comics
 Invoke-Compose up --build -d
 
 Write-Host "Collectarr dev stack reset complete." -ForegroundColor Green

@@ -21,6 +21,7 @@ from app.models.canonical import (
 )
 from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
+from app.providers.gcd import GCDProvider
 from app.search.client import SearchClient
 from app.storage.images import MirroredImage, ImageMirror
 
@@ -64,6 +65,61 @@ def comicvine_issue_raw() -> dict:
     }
 
 
+def gcd_issue_raw() -> dict:
+    return {
+        "api_url": "https://www.comics.org/api/issue/256114/",
+        "series_name": "Batman: Dark Victory (1999 series)",
+        "descriptor": "12",
+        "number": "12",
+        "volume": "",
+        "variant_name": "",
+        "title": "",
+        "publication_date": "November 2000",
+        "key_date": "2000-11-00",
+        "price": "2.95 USD; 4.50 CAD",
+        "page_count": "36.000",
+        "editing": "Mark Chiarello (editor)",
+        "indicia_publisher": "DC Comics",
+        "brand_emblem": "DC [bullet]",
+        "isbn": "",
+        "barcode": "76194122054301211",
+        "on_sale_date": "2000-09-20",
+        "notes": "",
+        "variant_of": None,
+        "series": "https://www.comics.org/api/series/6139/",
+        "story_set": [
+            {
+                "type": "cover",
+                "title": "Revenge",
+                "script": "None",
+                "pencils": "Tim Sale",
+                "inks": "Tim Sale",
+                "colors": "Mark Chiarello",
+                "letters": "None",
+                "editing": "None",
+                "characters": "Two-Face",
+                "synopsis": "",
+            },
+            {
+                "type": "comic story",
+                "title": "Revenge",
+                "script": "Jeph Loeb",
+                "pencils": "Tim Sale",
+                "inks": "Tim Sale",
+                "colors": "Gregory Wright (colors); Heroic Age (separations)",
+                "letters": "Richard Starkings",
+                "editing": "None",
+                "characters": (
+                    "Batman [Bruce Wayne]; Dick Grayson; Alfred Pennyworth; "
+                    "Two-Face [Harvey Dent]"
+                ),
+                "synopsis": "Two-Face seeks revenge.",
+            },
+        ],
+        "cover": "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg",
+    }
+
+
 @pytest.mark.asyncio
 async def test_comicvine_provider_normalizes_issue_payload():
     normalized = await ComicVineProvider().normalize(comicvine_issue_raw())
@@ -87,6 +143,84 @@ async def test_comicvine_provider_normalizes_issue_payload():
         == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
     )
     assert normalized.synopsis == "Peter Parker faces a new chapter as Spider-Man."
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_normalizes_issue_payload():
+    normalized = await GCDProvider().normalize(gcd_issue_raw())
+
+    assert normalized.title == "Batman: Dark Victory"
+    assert normalized.item_number == "12"
+    assert normalized.edition_title == "Standard Edition"
+    assert normalized.publisher == "DC Comics"
+    assert normalized.release_date == date(2000, 9, 20)
+    assert normalized.page_count == 36
+    assert normalized.barcode == "76194122054301211"
+    assert normalized.cover_price_cents == 295
+    assert normalized.currency == "USD"
+    assert normalized.provider_ids == {"gcd": "256114"}
+    assert normalized.volume_provider_ids == {"gcd": "6139"}
+    assert normalized.volume_start_year == 1999
+    assert ("Mark Chiarello", "editing") in [
+        (credit.name, credit.role) for credit in normalized.creators
+    ]
+    assert ("Jeph Loeb", "script") in [
+        (credit.name, credit.role) for credit in normalized.creators
+    ]
+    assert ("Tim Sale", "pencils") in [
+        (credit.name, credit.role) for credit in normalized.creators
+    ]
+    assert "Batman [Bruce Wayne]" in [credit.name for credit in normalized.characters]
+    assert (
+        normalized.cover_image_url
+        == "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg"
+    )
+    assert normalized.synopsis == "Two-Face seeks revenge."
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_search_uses_issue_query(monkeypatch):
+    async def fake_request(self, path):
+        assert path == "series/name/Batman/issue/12/"
+        return {
+            "results": [
+                {
+                    "api_url": "https://www.comics.org/api/issue/999999/",
+                    "series_name": "Absolute Batman (2024 series)",
+                    "descriptor": "12",
+                    "publication_date": "November 2025",
+                    "price": "4.99 USD",
+                    "page_count": "32.000",
+                    "variant_of": None,
+                },
+                {
+                    "api_url": "https://www.comics.org/api/issue/256114/",
+                    "series_name": "Batman: Dark Victory (1999 series)",
+                    "descriptor": "12",
+                    "publication_date": "November 2000",
+                    "price": "2.95 USD",
+                    "page_count": "36.000",
+                    "variant_of": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(GCDProvider, "_request", fake_request)
+
+    results = await GCDProvider().search("  Batman # 12  ")
+
+    assert len(results) == 2
+    assert results[0].provider == "gcd"
+    assert results[0].provider_item_id == "256114"
+    assert results[0].title == "Batman: Dark Victory (1999 series) #12"
+    assert results[0].summary == "November 2000 · 2.95 USD · 36 pages"
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_search_requires_issue_number():
+    results = await GCDProvider().search("Batman")
+
+    assert results == []
 
 
 @pytest.mark.asyncio
@@ -263,6 +397,67 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert cover is None
         thumbnail = await db.scalar(select(Variant.thumbnail_image_key))
         assert thumbnail is None
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    indexed_documents = []
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="gcd", provider_item_id="256114", raw=gcd_issue_raw())
+
+    async def fake_index_documents(self, documents):
+        indexed_documents.extend(documents)
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(GCDProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "gcd", "provider_item_id": "256114"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["created"] is True
+    assert body["item"]["title"] == "Batman: Dark Victory"
+    assert body["item"]["item_number"] == "12"
+    assert body["item"]["series_title"] == "Batman: Dark Victory"
+    assert body["item"]["volume_start_year"] == 1999
+    assert body["item"]["publisher"] == "DC Comics"
+    assert body["item"]["editions"][0]["release_date"] == "2000-09-20"
+    assert body["item"]["barcode"] == "76194122054301211"
+    assert body["item"]["cover_price_cents"] == 295
+    assert body["item"]["currency"] == "USD"
+    assert body["item"]["provider_links"][0]["provider"] == "gcd"
+    assert body["item"]["provider_links"][0]["provider_item_id"] == "256114"
+    variant = body["item"]["editions"][0]["variants"][0]
+    assert variant["name"] == "Cover A"
+    assert variant["barcode"] == "76194122054301211"
+    assert variant["cover_price_cents"] == 295
+    assert variant["currency"] == "USD"
+    assert (
+        variant["cover_image_url"]
+        == "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg"
+    )
+    assert indexed_documents[0]["barcode"] == "76194122054301211"
+    assert indexed_documents[0]["barcodes"] == ["76194122054301211"]
+    assert indexed_documents[0]["variant"] == "Cover A"
+
+    async with AsyncSessionLocal() as db:
+        provider_ids = await db.scalars(
+            select(ExternalProviderId.provider_item_id).order_by(
+                ExternalProviderId.provider_item_id
+            )
+        )
+        assert list(provider_ids) == ["256114", "6139"]
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,6 @@
 from app.providers.base import MetadataProvider
 from app.providers.comicvine import ComicVineProvider
+from app.providers.gcd import GCDProvider
 from app.providers.igdb import IGDBProvider
 from app.providers.tmdb import TMDbProvider
 
@@ -8,6 +9,7 @@ class ProviderRegistry:
     def __init__(self) -> None:
         self._providers: dict[str, MetadataProvider] = {
             "comicvine": ComicVineProvider(),
+            "gcd": GCDProvider(),
             "igdb": IGDBProvider(),
             "tmdb": TMDbProvider(),
         }
@@ -17,4 +19,3 @@ class ProviderRegistry:
 
     def all(self) -> list[MetadataProvider]:
         return list(self._providers.values())
-

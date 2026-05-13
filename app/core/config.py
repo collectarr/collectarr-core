@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     comicvine_search_limit: int = 20
     comicvine_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
+    gcd_base_url: str = "https://www.comics.org/api"
+    gcd_timeout_seconds: float = 20.0
+    gcd_search_limit: int = 20
+    gcd_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @model_validator(mode="after")

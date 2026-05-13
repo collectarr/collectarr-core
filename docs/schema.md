@@ -42,7 +42,7 @@ The central catalog also has generic relationship tables:
 - `tags`: genres, characters, arcs, franchises, themes.
 - `entity_tags`: tag assignments.
 - `image_assets`: cover/poster/banner/background image refs in object storage.
-- `external_provider_ids`: provider mappings such as ComicVine, IGDB, TMDb, AniList, BGG,
+- `external_provider_ids`: provider mappings such as GCD, ComicVine, IGDB, TMDb, AniList, BGG,
   OpenLibrary, MusicBrainz.
 
 ## Client Local Data

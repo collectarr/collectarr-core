@@ -6,6 +6,23 @@ from app.models.base import ItemKind
 
 
 @dataclass(frozen=True)
+class ProviderCapabilities:
+    kind: ItemKind
+    display_name: str
+    supports_search: bool = True
+    supports_ingest: bool = True
+    requires_user_key: bool = False
+    non_commercial_only: bool = False
+    allows_redistribution: bool = False
+    requires_attribution: bool = False
+    license_name: str | None = None
+    terms_url: str | None = None
+    attribution_url: str | None = None
+    rate_limit: str | None = None
+    cache_policy: str | None = None
+
+
+@dataclass(frozen=True)
 class ProviderSearchResult:
     provider: str
     provider_item_id: str
@@ -45,6 +62,12 @@ class NormalizedItem:
     edition_format: str | None = None
     publisher: str | None = None
     release_date: date | None = None
+    isbn: str | None = None
+    barcode: str | None = None
+    cover_price_cents: int | None = None
+    currency: str | None = None
+    variant_name: str | None = None
+    variant_type: str | None = None
     cover_image_url: str | None = None
     creators: list[NormalizedCredit] = field(default_factory=list)
     characters: list[NormalizedCredit] = field(default_factory=list)
@@ -55,6 +78,13 @@ class NormalizedItem:
 
 class MetadataProvider(Protocol):
     name: str
+    capabilities: ProviderCapabilities
+
+    @property
+    def is_configured(self) -> bool: ...
+
+    @property
+    def status_message(self) -> str: ...
 
     async def search(self, query: str) -> list[ProviderSearchResult]: ...
 

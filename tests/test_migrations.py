@@ -59,3 +59,20 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         assert {"comic", "manga", "anime", "movie", "tv", "game", "boardgame", "book", "music"}.issubset(
             enum_values
         )
+
+        provider_values = {
+            row[0]
+            for row in (
+                await db.execute(
+                    text(
+                        """
+                        select enumlabel
+                        from pg_enum
+                        join pg_type on pg_type.oid = pg_enum.enumtypid
+                        where pg_type.typname = 'external_provider'
+                        """
+                    )
+                )
+            ).all()
+        }
+        assert "gcd" in provider_values

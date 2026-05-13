@@ -22,6 +22,7 @@ def upgrade() -> None:
         "anilist",
         "bgg",
         "comicvine",
+        "gcd",
         "igdb",
         "musicbrainz",
         "openlibrary",

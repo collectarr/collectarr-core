@@ -352,6 +352,7 @@ _ADMIN_UI_HTML = """
             <label>Provider
               <select id="provider">
                 <option value="comicvine">ComicVine</option>
+                <option value="gcd">GCD</option>
                 <option value="igdb">IGDB</option>
                 <option value="tmdb">TMDb</option>
               </select>
@@ -383,6 +384,7 @@ _ADMIN_UI_HTML = """
                 <select id="proposalProvider">
                   <option value="">All providers</option>
                   <option value="comicvine">ComicVine</option>
+                  <option value="gcd">GCD</option>
                   <option value="igdb">IGDB</option>
                   <option value="tmdb">TMDb</option>
                   <option value="anilist">AniList</option>
@@ -567,10 +569,18 @@ _ADMIN_UI_HTML = """
         for (const item of items) {
           const card = document.createElement("article");
           card.className = "result";
+          const flags = [
+            item.license_name,
+            item.requires_attribution ? "attribution" : null,
+            item.non_commercial_only ? "non-commercial" : null,
+            item.requires_user_key ? "user key" : null,
+          ].filter(Boolean);
           card.innerHTML = `
-          <h3>${escapeHtml(item.name)} (${escapeHtml(item.kind)})</h3>
+          <h3>${escapeHtml(item.display_name || item.name)} (${escapeHtml(item.kind)})</h3>
             <span class="badge ${escapeHtml(item.status)}">${escapeHtml(item.status)}</span>
+            ${flags.map((flag) => `<span class="badge">${escapeHtml(flag)}</span>`).join("")}
             <p class="muted">${escapeHtml(item.message)}</p>
+            ${item.cache_policy ? `<p class="muted">${escapeHtml(item.cache_policy)}</p>` : ""}
           `;
           target.appendChild(card);
         }

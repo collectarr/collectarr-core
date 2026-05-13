@@ -10,7 +10,13 @@ from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.models.base import ItemKind
-from app.providers.base import NormalizedCredit, NormalizedItem, ProviderItem, ProviderSearchResult
+from app.providers.base import (
+    NormalizedCredit,
+    NormalizedItem,
+    ProviderCapabilities,
+    ProviderItem,
+    ProviderSearchResult,
+)
 
 
 _TAG_RE = re.compile(r"<[^>]+>")
@@ -21,6 +27,19 @@ logger = logging.getLogger(__name__)
 
 class ComicVineProvider:
     name = "comicvine"
+    capabilities = ProviderCapabilities(
+        kind=ItemKind.comic,
+        display_name="Comic Vine",
+        requires_user_key=True,
+        non_commercial_only=True,
+        allows_redistribution=False,
+        requires_attribution=True,
+        license_name="Comic Vine API Terms",
+        terms_url="https://comicvine.gamespot.com/api/",
+        attribution_url="https://comicvine.gamespot.com/",
+        rate_limit="200 requests per resource per hour, plus velocity detection.",
+        cache_policy="Cache per instance to reduce duplicate API calls; do not redistribute.",
+    )
 
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -214,6 +233,18 @@ class ComicVineProvider:
             error = payload.get("error") or "ComicVine API error"
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error))
         return payload
+
+    @property
+    def is_configured(self) -> bool:
+        return self._is_configured
+
+    @property
+    def status_message(self) -> str:
+        return (
+            "ComicVine API key configured."
+            if self._is_configured
+            else "Set COMICVINE_API_KEY to enable live ComicVine metadata."
+        )
 
     @property
     def _is_configured(self) -> bool:

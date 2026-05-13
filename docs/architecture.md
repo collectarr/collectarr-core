@@ -38,12 +38,19 @@ Providers adapt external APIs behind one plugin contract:
 
 ```python
 class MetadataProvider(Protocol):
+    capabilities: ProviderCapabilities
+    @property
+    def is_configured(self) -> bool: ...
+    @property
+    def status_message(self) -> str: ...
     async def search(self, query: str) -> list[ProviderSearchResult]: ...
     async def get_item(self, provider_item_id: str) -> ProviderItem: ...
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem: ...
 ```
 
-ComicVine is the first live provider. Its issue ingest path stores provider IDs for the item and volume, normalizes issue payloads into canonical metadata, and creates the first edition, primary cover variant, and US release record. If no `COMICVINE_API_KEY` is configured, the provider returns stub data so local development still works without secrets.
+GCD is the default legal-clean comics seed candidate because it provides CC BY-SA bibliographic issue metadata without an API key. Its provider searches issue-style queries such as `Batman #12`, normalizes issue detail into canonical metadata, and preserves source provenance.
+
+ComicVine remains an optional personal/non-commercial enrichment provider. Its issue ingest path stores provider IDs for the item and volume, normalizes issue payloads into canonical metadata, and creates the first edition, primary cover variant, and US release record. If no `COMICVINE_API_KEY` is configured, the provider returns stub data so local development still works without secrets.
 
 ## Local Personal Data
 

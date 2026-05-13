@@ -1,11 +1,30 @@
 from typing import Any, Mapping
 
 from app.models.base import ItemKind
-from app.providers.base import NormalizedItem, ProviderItem, ProviderSearchResult
+from app.providers.base import NormalizedItem, ProviderCapabilities, ProviderItem, ProviderSearchResult
 
 
 class TMDbProvider:
     name = "tmdb"
+    capabilities = ProviderCapabilities(
+        kind=ItemKind.bluray,
+        display_name="TMDb",
+        requires_user_key=True,
+        requires_attribution=True,
+        allows_redistribution=False,
+        license_name="TMDb API Terms",
+        terms_url="https://www.themoviedb.org/documentation/api/terms-of-use",
+        attribution_url="https://www.themoviedb.org/",
+        cache_policy="Planned provider; commercial use may require a written agreement.",
+    )
+
+    @property
+    def is_configured(self) -> bool:
+        return False
+
+    @property
+    def status_message(self) -> str:
+        return "TMDb live metadata is planned after the comics MVP."
 
     async def search(self, query: str) -> list[ProviderSearchResult]:
         return [
@@ -27,4 +46,3 @@ class TMDbProvider:
             synopsis=data.get("overview"),
             provider_ids={self.name: str(data.get("id"))} if data.get("id") else {},
         )
-

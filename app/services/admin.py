@@ -47,33 +47,31 @@ class AdminMetadataService:
         self.settings = get_settings()
 
     async def provider_statuses(self) -> list[ProviderStatusResponse]:
-        return [
-            ProviderStatusResponse(
-                name="comicvine",
-                kind=ItemKind.comic.value,
-                status="live" if self.settings.comicvine_api_key else "stub",
-                is_configured=bool(self.settings.comicvine_api_key),
-                message=(
-                    "ComicVine API key configured."
-                    if self.settings.comicvine_api_key
-                    else "Set COMICVINE_API_KEY to enable live ComicVine metadata."
-                ),
-            ),
-            ProviderStatusResponse(
-                name="igdb",
-                kind=ItemKind.game.value,
-                status="stub",
-                is_configured=False,
-                message="IGDB live metadata is planned after the comics MVP.",
-            ),
-            ProviderStatusResponse(
-                name="tmdb",
-                kind=ItemKind.bluray.value,
-                status="stub",
-                is_configured=False,
-                message="TMDb live metadata is planned after the comics MVP.",
-            ),
-        ]
+        statuses: list[ProviderStatusResponse] = []
+        for provider in self.providers.all():
+            capabilities = provider.capabilities
+            statuses.append(
+                ProviderStatusResponse(
+                    name=provider.name,
+                    display_name=capabilities.display_name,
+                    kind=capabilities.kind.value,
+                    status="live" if provider.is_configured else "stub",
+                    is_configured=provider.is_configured,
+                    supports_search=capabilities.supports_search,
+                    supports_ingest=capabilities.supports_ingest,
+                    requires_user_key=capabilities.requires_user_key,
+                    non_commercial_only=capabilities.non_commercial_only,
+                    allows_redistribution=capabilities.allows_redistribution,
+                    requires_attribution=capabilities.requires_attribution,
+                    license_name=capabilities.license_name,
+                    terms_url=capabilities.terms_url,
+                    attribution_url=capabilities.attribution_url,
+                    rate_limit=capabilities.rate_limit,
+                    cache_policy=capabilities.cache_policy,
+                    message=provider.status_message,
+                )
+            )
+        return statuses
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
         provider = self._provider(payload.provider)
@@ -187,6 +185,7 @@ class AdminMetadataService:
             title=normalized.edition_title or "Standard Edition",
             format=normalized.edition_format,
             publisher=normalized.publisher,
+            isbn=normalized.isbn,
             release_date=normalized.release_date,
             metadata_json={
                 "provider": payload.provider.value,
@@ -203,7 +202,12 @@ class AdminMetadataService:
             )
         variant = Variant(
             edition=edition,
-            name="Cover A",
+            name=normalized.variant_name or "Cover A",
+            variant_type=normalized.variant_type,
+            barcode=normalized.barcode,
+            isbn=normalized.isbn,
+            cover_price_cents=normalized.cover_price_cents,
+            currency=normalized.currency,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,

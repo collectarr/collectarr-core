@@ -22,7 +22,7 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 
 - Canonical metadata kept separate from personal library data
 - Generalized work, series, release, edition, and variant hierarchy
-- External provider IDs for ComicVine, IGDB, TMDb, AniList, BGG, OpenLibrary, MusicBrainz, and future providers
+- External provider IDs for GCD, ComicVine, IGDB, TMDb, AniList, BGG, OpenLibrary, MusicBrainz, and future providers
 - Public provider cover URLs kept as references by default, with MinIO/S3 reserved for manual or non-public assets
 - Meilisearch-backed fuzzy search with PostgreSQL fallback when the search index is unavailable
 - See [docs/schema.md](docs/schema.md) for the database boundary and catalog schema
@@ -43,8 +43,10 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 ### 🧩 Provider Plugins
 
 - Provider abstraction for search, item fetch, and normalization
+- GCD provider supports issue search/fetch without an API key for CC BY-SA bibliographic comics metadata
 - ComicVine provider supports live issue search/fetch when `COMICVINE_API_KEY` is set
-- Admin ingest upserts ComicVine issues into canonical series, volume, item, edition, variant, and release records
+- Provider status reports compliance metadata such as attribution, redistribution, user-key, and non-commercial flags
+- Admin ingest upserts provider issues into canonical series, volume, item, edition, variant, and release records
 - IGDB and TMDb providers are scaffolded for future game and Blu-ray metadata
 - Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true` only when you want to copy public provider covers into MinIO/S3
 
@@ -78,7 +80,7 @@ The Flutter app keeps client models separate from backend database models:
 
 | Type | MVP Status | Provider |
 |------|------------|----------|
-| Comics | Active MVP | ComicVine |
+| Comics | Active MVP | GCD + ComicVine |
 | Games | Scaffolded | IGDB |
 | Blu-rays | Scaffolded | TMDb |
 | Manga | Schema-ready | Future provider |
@@ -106,7 +108,8 @@ docker compose exec api python -m app.scripts.seed_comics
 
 To bootstrap an admin account, set `BOOTSTRAP_ADMIN_EMAILS=["you@example.com"]` before registering that email.
 
-Optional ComicVine live metadata:
+GCD live comics metadata works without a key. Optional ComicVine enrichment requires a personal
+non-commercial API key:
 
 ```powershell
 $env:COMICVINE_API_KEY="your-key"

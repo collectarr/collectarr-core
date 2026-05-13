@@ -8,11 +8,21 @@ from app.schemas.metadata import ItemResponse
 
 class ProviderStatusResponse(BaseModel):
     name: str
+    display_name: str
     kind: str
     status: str
     is_configured: bool
     supports_search: bool = True
     supports_ingest: bool = True
+    requires_user_key: bool = False
+    non_commercial_only: bool = False
+    allows_redistribution: bool = False
+    requires_attribution: bool = False
+    license_name: str | None = None
+    terms_url: str | None = None
+    attribution_url: str | None = None
+    rate_limit: str | None = None
+    cache_policy: str | None = None
     message: str
 
 

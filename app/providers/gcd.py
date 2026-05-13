@@ -1,0 +1,365 @@
+import re
+from datetime import date
+from decimal import Decimal, InvalidOperation
+from typing import Any, Mapping
+from urllib.parse import quote
+
+import httpx
+from fastapi import HTTPException, status
+
+from app.core.config import get_settings
+from app.models.base import ItemKind
+from app.providers.base import (
+    NormalizedCredit,
+    NormalizedItem,
+    ProviderCapabilities,
+    ProviderItem,
+    ProviderSearchResult,
+)
+
+
+_ISSUE_ID_RE = re.compile(r"/issue/(\d+)/?")
+_SERIES_ID_RE = re.compile(r"/series/(\d+)/?")
+_SERIES_YEAR_RE = re.compile(r"\s+\((?P<year>\d{4})\s+series\)$")
+_ISSUE_QUERY_RE = re.compile(
+    r"^(?P<series>.+?)\s*(?:#|issue\s+|no\.?\s*)?\s*(?P<issue>\d+[A-Za-z0-9./-]*)$",
+    re.IGNORECASE,
+)
+_PRICE_RE = re.compile(r"(?P<amount>\d+(?:[.,]\d+)?)\s*(?P<currency>[A-Z]{3})")
+_EDITOR_SUFFIX_RE = re.compile(r"\s+\((?:editor|editors?)\)$", re.IGNORECASE)
+_EMPTY_CREDIT_VALUES = {"", "?", "none", "[none]", "n/a"}
+
+
+class GCDProvider:
+    name = "gcd"
+    capabilities = ProviderCapabilities(
+        kind=ItemKind.comic,
+        display_name="Grand Comics Database",
+        supports_search=True,
+        supports_ingest=True,
+        requires_user_key=False,
+        non_commercial_only=False,
+        allows_redistribution=True,
+        requires_attribution=True,
+        license_name="CC BY-SA 4.0",
+        terms_url="https://www.comics.org/",
+        attribution_url="https://www.comics.org/",
+        cache_policy="Cache with attribution and share-alike provenance; cover rights vary.",
+    )
+
+    def __init__(self) -> None:
+        self.settings = get_settings()
+
+    @property
+    def is_configured(self) -> bool:
+        return True
+
+    @property
+    def status_message(self) -> str:
+        return "GCD metadata is available without an API key."
+
+    async def search(self, query: str) -> list[ProviderSearchResult]:
+        parsed = self._parse_issue_query(query)
+        if parsed is None:
+            return []
+
+        series_name, issue_number = parsed
+        path = f"series/name/{quote(series_name, safe='')}/issue/{quote(issue_number, safe='')}/"
+        payload = await self._request(path)
+        results = payload.get("results") or []
+        if not isinstance(results, list):
+            return []
+
+        issue_results = [result for result in results if isinstance(result, Mapping)]
+        issue_results.sort(key=lambda result: self._series_rank(result, series_name))
+
+        normalized_results: list[ProviderSearchResult] = []
+        for result in issue_results[: self.settings.gcd_search_limit]:
+            search_result = self._search_result(result)
+            if search_result.provider_item_id:
+                normalized_results.append(search_result)
+        return normalized_results
+
+    async def get_item(self, provider_item_id: str) -> ProviderItem:
+        issue_id = self._issue_id(provider_item_id)
+        if issue_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid GCD issue id",
+            )
+        payload = await self._request(f"issue/{issue_id}/")
+        if not isinstance(payload, Mapping):
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid GCD item")
+        return ProviderItem(provider=self.name, provider_item_id=issue_id, raw=payload)
+
+    async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
+        issue_id = self._issue_id(data.get("api_url") or data.get("id"))
+        series_url = self._optional_text(data.get("series"))
+        series_id = self._series_id(series_url)
+        raw_series_name = self._optional_text(data.get("series_name")) or "Unknown comic"
+        series_title = self._series_title(raw_series_name)
+        volume_start_year = self._series_start_year(raw_series_name)
+        issue_number = self._optional_text(data.get("number")) or self._descriptor_number(data)
+        variant_name = self._optional_text(data.get("variant_name"))
+        issue_title = self._optional_text(data.get("title"))
+        release_date = self._date(data.get("on_sale_date")) or self._date(data.get("key_date"))
+        cover_price_cents, currency = self._price(data.get("price"))
+
+        return NormalizedItem(
+            kind=ItemKind.comic,
+            title=series_title,
+            item_number=issue_number,
+            synopsis=self._synopsis(data),
+            series_title=series_title,
+            volume_name=series_title,
+            volume_start_year=volume_start_year,
+            page_count=self._int_decimal(data.get("page_count")),
+            edition_title=issue_title or "Standard Edition",
+            edition_format="Single Issue",
+            publisher=self._optional_text(data.get("indicia_publisher")),
+            release_date=release_date,
+            isbn=self._optional_text(data.get("isbn")),
+            barcode=self._optional_text(data.get("barcode")),
+            cover_price_cents=cover_price_cents,
+            currency=currency,
+            variant_name=variant_name or self._variant_name_from_descriptor(data),
+            variant_type="variant" if data.get("variant_of") else None,
+            cover_image_url=self._optional_text(data.get("cover")),
+            creators=self._credits(data.get("story_set"), issue_editing=data.get("editing")),
+            characters=self._characters(data.get("story_set")),
+            provider_ids={self.name: issue_id} if issue_id else {},
+            volume_provider_ids={self.name: series_id} if series_id else {},
+        )
+
+    async def _request(self, path: str) -> dict[str, Any]:
+        url = f"{self.settings.gcd_base_url.rstrip('/')}/{path.lstrip('/')}"
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.settings.gcd_timeout_seconds,
+                headers={"User-Agent": self.settings.gcd_user_agent, "Accept": "application/json"},
+                follow_redirects=True,
+            ) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                payload = response.json()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"GCD returned HTTP {exc.response.status_code}",
+            ) from exc
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="GCD request failed",
+            ) from exc
+        if not isinstance(payload, dict):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid GCD response",
+            )
+        return payload
+
+    def _search_result(self, result: Mapping[str, Any]) -> ProviderSearchResult:
+        issue_id = self._issue_id(result.get("api_url"))
+        series_name = self._optional_text(result.get("series_name")) or "Unknown GCD issue"
+        descriptor = self._optional_text(result.get("descriptor"))
+        title = f"{series_name} #{descriptor}" if descriptor else series_name
+        summary_parts = [
+            self._optional_text(result.get("publication_date")),
+            self._optional_text(result.get("price")),
+            self._page_summary(result.get("page_count")),
+            "variant" if result.get("variant_of") else None,
+        ]
+        return ProviderSearchResult(
+            provider=self.name,
+            provider_item_id=issue_id or "",
+            title=title,
+            kind=ItemKind.comic,
+            summary=" · ".join(part for part in summary_parts if part),
+        )
+
+    def _series_rank(self, result: Mapping[str, Any], query: str) -> tuple[int, str]:
+        series_name = self._optional_text(result.get("series_name")) or ""
+        series_key = self._normalized_title_key(self._series_title(series_name))
+        query_key = self._normalized_title_key(query)
+        if series_key == query_key:
+            rank = 0
+        elif series_key.removeprefix("the ") == query_key.removeprefix("the "):
+            rank = 1
+        elif series_key.startswith(f"{query_key} "):
+            rank = 2
+        elif series_key.endswith(f" {query_key}"):
+            rank = 3
+        else:
+            rank = 4
+        return rank, series_key
+
+    def _normalized_title_key(self, value: str) -> str:
+        normalized = "".join(char.lower() if char.isalnum() else " " for char in value)
+        return " ".join(normalized.split())
+
+    def _parse_issue_query(self, query: str) -> tuple[str, str] | None:
+        normalized_query = " ".join(query.split())
+        if not normalized_query:
+            return None
+        match = _ISSUE_QUERY_RE.match(normalized_query)
+        if not match:
+            return None
+        series = match.group("series").strip()
+        issue = match.group("issue").strip()
+        if not series or not issue:
+            return None
+        return series, issue
+
+    def _issue_id(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if text.isdigit():
+            return text
+        match = _ISSUE_ID_RE.search(text)
+        return match.group(1) if match else None
+
+    def _series_id(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        match = _SERIES_ID_RE.search(str(value))
+        return match.group(1) if match else None
+
+    def _series_title(self, value: str) -> str:
+        title = _SERIES_YEAR_RE.sub("", value).strip()
+        return title or value
+
+    def _series_start_year(self, value: str) -> int | None:
+        match = _SERIES_YEAR_RE.search(value)
+        if not match:
+            return None
+        try:
+            return int(match.group("year"))
+        except ValueError:
+            return None
+
+    def _descriptor_number(self, data: Mapping[str, Any]) -> str | None:
+        descriptor = self._optional_text(data.get("descriptor"))
+        if descriptor is None:
+            return None
+        return descriptor.split("[", 1)[0].split("-", 1)[0].strip() or descriptor
+
+    def _variant_name_from_descriptor(self, data: Mapping[str, Any]) -> str | None:
+        descriptor = self._optional_text(data.get("descriptor"))
+        if not descriptor or "[" not in descriptor or "]" not in descriptor:
+            return None
+        return descriptor.split("[", 1)[1].split("]", 1)[0].strip() or None
+
+    def _synopsis(self, data: Mapping[str, Any]) -> str | None:
+        story_set = data.get("story_set")
+        if isinstance(story_set, list):
+            for story in story_set:
+                if not isinstance(story, Mapping):
+                    continue
+                if story.get("type") != "comic story":
+                    continue
+                synopsis = self._optional_text(story.get("synopsis"))
+                if synopsis:
+                    return synopsis
+        return self._optional_text(data.get("notes"))
+
+    def _credits(self, story_set: Any, *, issue_editing: Any = None) -> list[NormalizedCredit]:
+        credits: list[NormalizedCredit] = []
+        seen: set[tuple[str, str]] = set()
+        for name in self._split_credit_names(issue_editing, role="editing"):
+            seen.add((name.casefold(), "editing"))
+            credits.append(NormalizedCredit(name=name, role="editing"))
+        if not isinstance(story_set, list):
+            return credits
+        for story in story_set:
+            if not isinstance(story, Mapping):
+                continue
+            for field, role in (
+                ("script", "script"),
+                ("pencils", "pencils"),
+                ("inks", "inks"),
+                ("colors", "colors"),
+                ("letters", "letters"),
+                ("editing", "editing"),
+            ):
+                for name in self._split_credit_names(story.get(field), role=role):
+                    key = (name.casefold(), role)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    credits.append(NormalizedCredit(name=name, role=role))
+        return credits
+
+    def _characters(self, story_set: Any) -> list[NormalizedCredit]:
+        if not isinstance(story_set, list):
+            return []
+        characters: list[NormalizedCredit] = []
+        seen: set[str] = set()
+        for story in story_set:
+            if not isinstance(story, Mapping):
+                continue
+            for name in self._split_credit_names(story.get("characters")):
+                key = name.casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                characters.append(NormalizedCredit(name=name))
+        return characters
+
+    def _split_credit_names(self, value: Any, *, role: str | None = None) -> list[str]:
+        text = self._optional_text(value)
+        if text is None:
+            return []
+        names: list[str] = []
+        for part in text.split(";"):
+            name = part.strip()
+            if name.casefold() in _EMPTY_CREDIT_VALUES:
+                continue
+            if role == "editing":
+                name = _EDITOR_SUFFIX_RE.sub("", name).strip()
+            names.append(name)
+        return names
+
+    def _page_summary(self, value: Any) -> str | None:
+        count = self._int_decimal(value)
+        return f"{count} pages" if count else None
+
+    def _int_decimal(self, value: Any) -> int | None:
+        if value is None or value == "":
+            return None
+        try:
+            return int(Decimal(str(value)))
+        except (InvalidOperation, ValueError):
+            return None
+
+    def _price(self, value: Any) -> tuple[int | None, str | None]:
+        text = self._optional_text(value)
+        if text is None:
+            return None, None
+        match = _PRICE_RE.search(text.replace(",", "."))
+        if not match:
+            return None, None
+        try:
+            cents = int(Decimal(match.group("amount")) * 100)
+        except InvalidOperation:
+            return None, None
+        return cents, match.group("currency")
+
+    def _date(self, value: Any) -> date | None:
+        text = self._optional_text(value)
+        if text is None:
+            return None
+        parts = text[:10].split("-")
+        if len(parts) != 3 or "00" in parts:
+            return None
+        try:
+            return date.fromisoformat("-".join(parts))
+        except ValueError:
+            return None
+
+    def _optional_text(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None

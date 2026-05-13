@@ -41,5 +41,9 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     providers = {item["name"]: item for item in response.json()}
     assert providers["comicvine"]["kind"] == "comic"
     assert providers["comicvine"]["status"] == "stub"
+    assert providers["comicvine"]["non_commercial_only"] is True
+    assert providers["gcd"]["kind"] == "comic"
+    assert providers["gcd"]["status"] == "live"
+    assert providers["gcd"]["license_name"] == "CC BY-SA 4.0"
     assert providers["igdb"]["status"] == "stub"
     assert providers["tmdb"]["status"] == "stub"

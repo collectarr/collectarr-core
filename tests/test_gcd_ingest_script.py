@@ -73,8 +73,12 @@ async def test_ingest_gcd_dry_run_searches_without_writing(monkeypatch, capsys):
     async def fail_get_item(self, provider_item_id):
         raise AssertionError("Dry run should not fetch or ingest provider items")
 
+    def fail_session():
+        raise AssertionError("Dry run should not open the database")
+
     monkeypatch.setattr(GCDProvider, "search", fake_search)
     monkeypatch.setattr(GCDProvider, "get_item", fail_get_item)
+    monkeypatch.setattr(ingest_gcd, "AsyncSessionLocal", fail_session)
 
     args = ingest_gcd.parse_args(["--series", "Batman", "--issue", "12", "--dry-run"])
     exit_code = await ingest_gcd.run_ingest(args)
@@ -82,9 +86,6 @@ async def test_ingest_gcd_dry_run_searches_without_writing(monkeypatch, capsys):
     assert exit_code == 0
     output = capsys.readouterr().out
     assert "DRY-RUN gcd:256114 Batman: Dark Victory (1999 series) #12" in output
-
-    async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Item)) == 0
 
 
 @pytest.mark.asyncio

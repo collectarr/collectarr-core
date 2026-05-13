@@ -198,14 +198,15 @@ async def run_ingest(
     if not candidates:
         write("No GCD candidates found.")
         return 1
+    if args.dry_run:
+        for candidate in candidates:
+            write(f"DRY-RUN {format_candidate(candidate)}")
+        return 0
 
     async with AsyncSessionLocal() as db:
         service = AdminMetadataService(db)
         for candidate in candidates:
             label = format_candidate(candidate)
-            if args.dry_run:
-                write(f"DRY-RUN {label}")
-                continue
             if args.skip_existing and await provider_item_exists(db, candidate.provider_item_id):
                 write(f"SKIPPED {label} already linked")
                 continue

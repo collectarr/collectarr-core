@@ -11,6 +11,14 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
+For live GCD-backed comics metadata, run a dry run first and then ingest with
+duplicate skipping:
+
+```powershell
+docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --issue 12 --dry-run
+docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --from-issue 1 --to-issue 12 --skip-existing
+```
+
 Back up:
 
 - PostgreSQL volume or logical `pg_dump`

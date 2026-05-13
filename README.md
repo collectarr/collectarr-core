@@ -106,6 +106,14 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
+To populate the catalog from live GCD issue metadata:
+
+```powershell
+docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --issue 12 --dry-run
+docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --from-issue 1 --to-issue 12 --skip-existing
+docker compose exec api python -m app.scripts.ingest_gcd --provider-item-id 256114 --skip-existing
+```
+
 To bootstrap an admin account, set `BOOTSTRAP_ADMIN_EMAILS=["you@example.com"]` before registering that email.
 
 GCD live comics metadata works without a key. Optional ComicVine enrichment requires a personal

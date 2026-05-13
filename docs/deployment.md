@@ -17,6 +17,25 @@ Back up:
 - MinIO bucket data
 - `.env` secrets outside the repository.
 
+## Corporate Networks Without Docker Hub
+
+The Compose stack references public base/service images for PostgreSQL, Redis,
+Meilisearch, MinIO, and the Python build images used by the backend and sync
+Dockerfiles. In networks where Docker Hub is blocked, do not rely on first-run
+pulls during deployment.
+
+Recommended options:
+
+- mirror the required images into an internal registry and point Compose at
+  those names with an override file
+- pre-load approved image tarballs on the host before running Compose
+- run the backend and `collectarr-sync` directly with Python 3.12 when managed
+  PostgreSQL, Redis, Meilisearch, and S3-compatible storage are available.
+
+Keep the production `.env` separate from development defaults. The local Compose
+configuration uses bind mounts, reload processes, and sample credentials; treat
+it as a development baseline rather than a hardened production manifest.
+
 ## Cloud
 
 The API and worker are stateless containers. Scale them separately from storage:

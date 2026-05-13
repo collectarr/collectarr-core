@@ -34,8 +34,9 @@ Recommended options:
 
 GitHub Container Registry is a viable mirror target when `ghcr.io` is allowed by
 the corporate network, but the Docker Hub image names are not automatically
-available there. Mirror the approved images into your own organization/package
-names, then set values such as:
+available there. This repository includes a `Mirror Container Images` GitHub
+Actions workflow that copies the required Docker Hub images into GHCR under the
+repository owner. After it runs, set values such as:
 
 ```env
 POSTGRES_IMAGE=ghcr.io/your-org/collectarr-postgres:16-alpine
@@ -45,6 +46,12 @@ MINIO_IMAGE=ghcr.io/your-org/collectarr-minio:RELEASE.2025-04-22T22-12-26Z
 API_PYTHON_BASE_IMAGE=ghcr.io/your-org/collectarr-python:3.14-slim
 SYNC_PYTHON_BASE_IMAGE=ghcr.io/your-org/collectarr-python:3.12-slim
 ```
+
+Run it manually from GitHub Actions after the workflow is on the default branch.
+If Docker Hub rate limits become a problem, add `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN` repository secrets; the workflow will use them automatically.
+For local pulls from private GHCR packages, log in with a token that has
+`read:packages`, or make the mirrored packages public in GitHub Packages.
 
 Keep the production `.env` separate from development defaults. The local Compose
 configuration uses bind mounts, reload processes, and sample credentials; treat

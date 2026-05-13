@@ -351,8 +351,8 @@ _ADMIN_UI_HTML = """
             <h2>Provider ingest</h2>
             <label>Provider
               <select id="provider">
-                <option value="comicvine">ComicVine</option>
                 <option value="gcd">GCD</option>
+                <option value="comicvine">ComicVine</option>
                 <option value="igdb">IGDB</option>
                 <option value="tmdb">TMDb</option>
               </select>
@@ -383,8 +383,8 @@ _ADMIN_UI_HTML = """
               <label>Provider
                 <select id="proposalProvider">
                   <option value="">All providers</option>
-                  <option value="comicvine">ComicVine</option>
                   <option value="gcd">GCD</option>
+                  <option value="comicvine">ComicVine</option>
                   <option value="igdb">IGDB</option>
                   <option value="tmdb">TMDb</option>
                   <option value="anilist">AniList</option>
@@ -831,7 +831,7 @@ _ADMIN_UI_HTML = """
       function searchProviderForProposal(item) {
         state.activeProposalId = item.id;
         state.activeProposalTitle = item.title || item.query || item.id;
-        $("provider").value = item.provider || "comicvine";
+        $("provider").value = item.provider || "gcd";
         $("providerQuery").value = item.query || item.title || "";
         setStatus("Provider search prepared from proposal.", "ok");
         logEvent("Prepared provider search from metadata proposal.");

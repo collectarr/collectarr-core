@@ -27,10 +27,24 @@ pulls during deployment.
 Recommended options:
 
 - mirror the required images into an internal registry and point Compose at
-  those names with an override file
+  those names with the image variables from `.env`
 - pre-load approved image tarballs on the host before running Compose
 - run the backend and `collectarr-sync` directly with Python 3.12 when managed
   PostgreSQL, Redis, Meilisearch, and S3-compatible storage are available.
+
+GitHub Container Registry is a viable mirror target when `ghcr.io` is allowed by
+the corporate network, but the Docker Hub image names are not automatically
+available there. Mirror the approved images into your own organization/package
+names, then set values such as:
+
+```env
+POSTGRES_IMAGE=ghcr.io/your-org/collectarr-postgres:16-alpine
+REDIS_IMAGE=ghcr.io/your-org/collectarr-redis:7-alpine
+MEILI_IMAGE=ghcr.io/your-org/collectarr-meilisearch:v1.13
+MINIO_IMAGE=ghcr.io/your-org/collectarr-minio:RELEASE.2025-04-22T22-12-26Z
+API_PYTHON_BASE_IMAGE=ghcr.io/your-org/collectarr-python:3.14-slim
+SYNC_PYTHON_BASE_IMAGE=ghcr.io/your-org/collectarr-python:3.12-slim
+```
 
 Keep the production `.env` separate from development defaults. The local Compose
 configuration uses bind mounts, reload processes, and sample credentials; treat

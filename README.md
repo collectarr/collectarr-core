@@ -12,6 +12,8 @@
 
 Collectarr is a centralized collector metadata hub with variant-aware catalog records, offline-first local libraries, and plugin-based metadata providers. The central server stores shared metadata only. Personal collection data stays on the user's device, with an optional `collectarr-sync` service for people who want to sync their own devices.
 
+For quick handoff context in new chats, see [docs/context.md](docs/context.md).
+
 ---
 
 ## ✨ Features
@@ -44,6 +46,7 @@ Collectarr is a centralized collector metadata hub with variant-aware catalog re
 - ComicVine provider supports live issue search/fetch when `COMICVINE_API_KEY` is set
 - Admin ingest upserts ComicVine issues into canonical series, volume, item, edition, variant, and release records
 - IGDB and TMDb providers are scaffolded for future game and Blu-ray metadata
+- Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true` only when you want to copy public provider covers into MinIO/S3
 
 ---
 
@@ -91,7 +94,7 @@ The Flutter app keeps client models separate from backend database models:
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up --build
+docker compose --profile sync up --build -d
 ```
 
 Apply migrations and seed development comics data:
@@ -114,8 +117,16 @@ Open:
 
 - API: http://localhost:8010
 - Docs: http://localhost:8010/docs
+- Admin UI: http://localhost:8010/admin/ui
+- Sync service: http://localhost:8020
 - Meilisearch: http://localhost:7700
 - MinIO Console: http://localhost:9001
+
+If PowerShell cannot find `docker`, Docker Desktop is installed at:
+
+```powershell
+& "C:\Program Files\Docker\Docker\resources\bin\docker.exe" compose --profile sync up --build -d
+```
 
 ---
 
@@ -147,6 +158,19 @@ docker compose --profile sync up --build sync
 ```
 
 The sync service is separate from the central metadata backend and uses `SYNC_API_KEY` plus its own SQLite database volume.
+
+Reset the local pre-release development stack when schemas drift:
+
+```powershell
+.\scripts\dev-reset-stack.ps1 -WithSync
+```
+
+Low-write development settings for SSDs:
+
+```env
+MIRROR_PROVIDER_IMAGES=false
+WORKER_INDEX_INTERVAL_SECONDS=3600
+```
 
 Admin metadata endpoints:
 
@@ -190,7 +214,9 @@ Collectarr uses **semantic-release** with Conventional Commits. Releases are man
 
 - **API cannot connect to Postgres** - run `docker compose ps` and verify the `postgres` service is healthy.
 - **Search returns no results** - run the seed command, then wait for the worker to index items.
-- **MinIO image URLs fail** - verify `S3_PUBLIC_URL` and bucket settings in `.env`.
+- **`column items.release_type does not exist`** - your Docker PostgreSQL volume was created from an older pre-release schema; run `.\scripts\dev-reset-stack.ps1 -WithSync`.
+- **MinIO writes too much in dev** - keep `MIRROR_PROVIDER_IMAGES=false`; public provider covers will remain external URLs.
+- **MinIO image URLs fail for hosted assets** - verify `S3_PUBLIC_URL` and bucket settings in `.env`.
 - **Cover upload works but public URL fails** - keep `S3_MANAGE_PUBLIC_READ_POLICY=true` for local MinIO, or configure your external bucket/CDN policy manually.
 - **Flutter cannot reach the API** - use a platform-specific base URL when testing on emulators or physical devices.
 

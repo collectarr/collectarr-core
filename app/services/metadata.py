@@ -58,7 +58,7 @@ class MetadataService:
             barcode=barcode,
             limit=limit,
         )
-        if meili_results is not None:
+        if meili_results:
             return [SearchResult(**result) for result in meili_results]
 
         items = await self.metadata.search_items(

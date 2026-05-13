@@ -32,17 +32,17 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_search_does_not_fallback_when_meilisearch_returns_empty(client, monkeypatch):
+async def test_search_falls_back_to_postgres_when_meilisearch_returns_empty(client, monkeypatch):
     async def empty_search(self, query, kind=None, **kwargs):
         return []
 
     monkeypatch.setattr("app.search.client.SearchClient.search", empty_search)
-    await seed_comic()
+    item_id, _, _ = await seed_comic()
 
     response = await client.get("/search", params={"q": "spider", "kind": "comic"})
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()[0]["id"] == item_id
 
 
 @pytest.mark.asyncio

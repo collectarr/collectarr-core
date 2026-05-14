@@ -317,6 +317,20 @@ async def test_admin_provider_search_rejects_unconfigured_provider(client, monke
 
 
 @pytest.mark.asyncio
+async def test_admin_provider_search_rejects_provider_for_wrong_kind(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    response = await client.post(
+        "/admin/providers/search",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "gcd", "query": "spider", "kind": "book"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Provider 'gcd' does not support kind 'book'"
+
+
+@pytest.mark.asyncio
 async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 

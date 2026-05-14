@@ -253,6 +253,14 @@ class AdminMetadataService:
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
         provider = self._provider(payload.provider)
+        if payload.kind is not None and provider.capabilities.kind != payload.kind:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Provider '{payload.provider.value}' does not support "
+                    f"kind '{payload.kind.value}'"
+                ),
+            )
         results = await provider.search(payload.query)
         return [result.__dict__ for result in results]
 

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.base import ExternalProvider
+from app.models.base import ExternalProvider, ItemKind
 from app.schemas.metadata import ItemResponse
 
 
@@ -35,6 +35,7 @@ class ProviderIngestRequest(BaseModel):
 class ProviderSearchRequest(BaseModel):
     provider: ExternalProvider
     query: str = Field(min_length=1, max_length=255)
+    kind: ItemKind | None = None
 
 
 class ProviderIngestResponse(BaseModel):

@@ -40,6 +40,20 @@ async def test_provider_search_returns_comicvine_results(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_provider_search_rejects_provider_for_wrong_kind(client):
+    token = await register_and_login(client)
+
+    response = await client.get(
+        "/metadata/providers/comicvine/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": "spider", "kind": "book"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Provider 'comicvine' does not support kind 'book'"
+
+
+@pytest.mark.asyncio
 async def test_provider_search_rejects_unimplemented_provider(client):
     token = await register_and_login(client)
 

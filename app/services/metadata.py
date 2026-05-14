@@ -102,13 +102,21 @@ class MetadataService:
         return self._search_result(item, cover_url, thumbnail_url)
 
     async def search_provider(
-        self, provider_name: ExternalProvider, query: str
+        self,
+        provider_name: ExternalProvider,
+        query: str,
+        kind: ItemKind | None = None,
     ) -> list[ProviderSearchResultResponse]:
         provider = self.providers.maybe_get(provider_name)
         if provider is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Provider '{provider_name.value}' is not configured",
+            )
+        if kind is not None and provider.capabilities.kind != kind:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(f"Provider '{provider_name.value}' does not support kind '{kind.value}'"),
             )
         results = await provider.search(query)
         return [ProviderSearchResultResponse(**result.__dict__) for result in results]

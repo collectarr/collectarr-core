@@ -59,8 +59,9 @@ async def provider_search(
     db: DbSession,
     _user: CurrentUser,
     q: str = Query(min_length=1),
+    kind: ItemKind | None = None,
 ) -> list[ProviderSearchResultResponse]:
-    return await MetadataService(db).search_provider(provider, q)
+    return await MetadataService(db).search_provider(provider, q, kind)
 
 
 @router.post(

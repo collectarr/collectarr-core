@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.models.base import ExternalProvider, ItemKind
 
 
@@ -21,6 +22,8 @@ class VariantResponse(BaseModel):
     cover_image_url: str | None
     thumbnail_image_url: str | None
     description: str | None
+    physical_format: str | None = None
+    physical_format_label: str | None = None
     metadata_json: dict[str, Any] | None
     is_primary: bool
 
@@ -63,6 +66,8 @@ class EditionResponse(BaseModel):
     language: str | None
     region: str | None
     release_date: date | None
+    physical_format: str | None = None
+    physical_format_label: str | None = None
     metadata_json: dict[str, Any] | None
     variants: list[VariantResponse] = []
     releases: list[ReleaseResponse] = []
@@ -126,6 +131,26 @@ class ProviderSearchResultResponse(BaseModel):
     image_url: str | None = None
 
 
+class PhysicalFormatResponse(BaseModel):
+    id: str
+    label: str
+    media_family: str
+    variant_type: str
+    aliases: list[str] = Field(default_factory=list)
+
+
+class MediaTypeResponse(BaseModel):
+    kind: ItemKind
+    singular_label: str
+    plural_label: str
+    route_segments: list[str]
+    default_provider: ExternalProvider | None = None
+    providers: list[ExternalProvider] = Field(default_factory=list)
+    is_top_level: bool = True
+    legacy_of: ItemKind | None = None
+    physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)
+
+
 class MetadataProposalCreate(BaseModel):
     provider: ExternalProvider
     provider_item_id: str | None = Field(default=None, max_length=255)
@@ -148,6 +173,7 @@ class MetadataProposalResponse(BaseModel):
 
 def item_response_from_model(item: Any) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
+    _enrich_physical_formats(base, item)
     edition = _primary_edition(item)
     variant = _primary_variant(item)
     source = _source_metadata(edition)
@@ -176,6 +202,74 @@ def item_response_from_model(item: Any) -> ItemResponse:
         }
     )
     return ItemResponse(**base)
+
+
+def _enrich_physical_formats(base: dict[str, Any], item: Any) -> None:
+    kind = getattr(item, "kind", None)
+    response_editions = base.get("editions")
+    source_editions = list(getattr(item, "editions", []) or [])
+    if not isinstance(response_editions, list):
+        return
+    for response_edition, source_edition in zip(response_editions, source_editions, strict=False):
+        if not isinstance(response_edition, dict):
+            continue
+        physical_format = _physical_format_payload(
+            getattr(source_edition, "metadata_json", None),
+            fallback_format=getattr(source_edition, "format", None),
+            kind=kind,
+        )
+        if physical_format is not None:
+            response_edition.update(physical_format)
+        response_variants = response_edition.get("variants")
+        source_variants = list(getattr(source_edition, "variants", []) or [])
+        if not isinstance(response_variants, list):
+            continue
+        for response_variant, source_variant in zip(
+            response_variants,
+            source_variants,
+            strict=False,
+        ):
+            if not isinstance(response_variant, dict):
+                continue
+            variant_format = _physical_format_payload(
+                getattr(source_variant, "metadata_json", None),
+                fallback_format=None,
+                kind=kind,
+            )
+            if variant_format is None:
+                variant_format = physical_format
+            if variant_format is not None:
+                response_variant.update(variant_format)
+
+
+def _physical_format_payload(
+    metadata: dict[str, Any] | None,
+    *,
+    fallback_format: str | None,
+    kind: Any,
+) -> dict[str, str] | None:
+    metadata_format = _metadata_physical_format(metadata)
+    config = physical_format_for_id(metadata_format) if metadata_format else None
+    if config is None and fallback_format and is_video_item_kind(kind):
+        config = physical_format_for_id(fallback_format)
+    if config is None:
+        return None
+    return {
+        "physical_format": config.id,
+        "physical_format_label": config.label,
+    }
+
+
+def _metadata_physical_format(metadata: dict[str, Any] | None) -> str | None:
+    if not isinstance(metadata, dict):
+        return None
+    normalized = metadata.get("normalized")
+    if isinstance(normalized, dict):
+        physical_format = normalized.get("physical_format")
+        if physical_format:
+            return str(physical_format)
+    physical_format = metadata.get("physical_format")
+    return str(physical_format) if physical_format else None
 
 
 def _primary_edition(item: Any) -> Any | None:

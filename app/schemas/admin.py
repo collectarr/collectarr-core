@@ -11,6 +11,7 @@ class ProviderStatusResponse(BaseModel):
     name: str
     display_name: str
     kind: str
+    supported_kinds: list[str] = Field(default_factory=list)
     status: str
     is_configured: bool
     supports_search: bool = True
@@ -18,6 +19,7 @@ class ProviderStatusResponse(BaseModel):
     requires_user_key: bool = False
     non_commercial_only: bool = False
     allows_redistribution: bool = False
+    allows_image_mirroring: bool = False
     requires_attribution: bool = False
     license_name: str | None = None
     terms_url: str | None = None
@@ -84,6 +86,19 @@ class ProviderIngestJobResponse(BaseModel):
 class ProviderIngestJobRunResponse(BaseModel):
     processed: int
     jobs: list[ProviderIngestJobResponse]
+    recovered: int = 0
+
+
+class ProviderIngestJobSummaryResponse(BaseModel):
+    queued: int = 0
+    running: int = 0
+    failed: int = 0
+    done: int = 0
+    due_queued: int = 0
+    stale_running: int = 0
+    oldest_queued_at: datetime | None = None
+    next_run_at: datetime | None = None
+    latest_failure_at: datetime | None = None
 
 
 class AdminMetadataCorrectionRequest(BaseModel):
@@ -93,6 +108,7 @@ class AdminMetadataCorrectionRequest(BaseModel):
     page_count: int | None = Field(default=None, ge=0)
     publisher: str | None = Field(default=None, max_length=255)
     release_date: date | None = None
+    physical_format: str | None = Field(default=None, max_length=64)
     variant_name: str | None = Field(default=None, max_length=255)
     barcode: str | None = Field(default=None, max_length=32)
     cover_image_url: str | None = Field(default=None, max_length=1024)
@@ -138,6 +154,19 @@ class AdminSearchHistoryEntry(BaseModel):
     index_name: str
     indexed_documents: int
     error: str | None = None
+
+
+class AdminAuditLogResponse(BaseModel):
+    id: UUID
+    action: str
+    actor_user_id: UUID | None = None
+    actor_email: str | None = None
+    entity_type: str
+    entity_id: UUID | None = None
+    details_json: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class AdminDuplicateCandidateResponse(BaseModel):

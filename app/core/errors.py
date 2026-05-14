@@ -1,15 +1,35 @@
+from typing import Any
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
+class ApiHTTPException(StarletteHTTPException):
+    def __init__(
+        self,
+        *,
+        status_code: int,
+        code: str,
+        detail: str | dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(status_code=status_code, detail=detail, headers=headers)
+        self.code = code
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        detail = exc.detail
+        code = getattr(exc, "code", None)
+        if isinstance(detail, dict):
+            code = code or detail.get("code")
+            detail = detail.get("detail", detail)
         return JSONResponse(
             status_code=exc.status_code,
-            content={"detail": exc.detail, "code": _http_code(exc.status_code)},
+            content={"detail": detail, "code": code or _http_code(exc.status_code)},
             headers=getattr(exc, "headers", None),
         )
 
@@ -36,4 +56,3 @@ def _http_code(status_code: int) -> str:
         409: "conflict",
         422: "unprocessable_entity",
     }.get(status_code, "http_error")
-

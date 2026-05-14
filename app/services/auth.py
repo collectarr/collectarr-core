@@ -1,7 +1,8 @@
-from fastapi import HTTPException, status
+from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.errors import ApiHTTPException
 from app.core.security import create_access_token, hash_password, verify_password
 from app.repositories.users import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
@@ -16,7 +17,11 @@ class AuthService:
         email = str(payload.email).lower()
         existing = await self.users.get_by_email(email)
         if existing:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+            raise ApiHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="email_already_registered",
+                detail="Email already registered",
+            )
 
         settings = get_settings()
         user = await self.users.create(
@@ -31,11 +36,16 @@ class AuthService:
     async def login(self, payload: LoginRequest) -> TokenResponse:
         user = await self.users.get_by_email(str(payload.email))
         if user is None or not verify_password(payload.password, user.password_hash):
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
+                code="invalid_credentials",
                 detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         if not user.is_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+            raise ApiHTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                code="user_inactive",
+                detail="User is inactive",
+            )
         return TokenResponse(access_token=create_access_token(user.id), user=user)

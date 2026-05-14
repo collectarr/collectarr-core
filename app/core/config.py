@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     s3_public_url: str = "http://localhost:9000/collectarr-images"
     s3_manage_public_read_policy: bool = True
     mirror_provider_images: bool = False
+    mirror_provider_images_allow_restricted: bool = False
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
     max_image_pixels: int = 40_000_000
@@ -34,7 +35,14 @@ class Settings(BaseSettings):
     image_cache_evict_target_bytes: int = Field(default=85_000_000_000, ge=0)
     image_cache_cleanup_batch_size: int = Field(default=250, ge=1)
     worker_index_interval_seconds: int = Field(default=900, ge=5)
+    worker_provider_ingest_interval_seconds: int = Field(default=30, ge=5)
+    worker_provider_ingest_batch_size: int = Field(default=5, ge=1, le=100)
+    worker_provider_ingest_stale_after_seconds: int = Field(default=1800, ge=60)
     provider_ingest_retry_attempts: int = Field(default=1, ge=0, le=5)
+    auth_rate_limit_requests: int = Field(default=20, ge=0)
+    auth_rate_limit_window_seconds: int = Field(default=60, ge=0)
+    admin_provider_rate_limit_requests: int = Field(default=60, ge=0)
+    admin_provider_rate_limit_window_seconds: int = Field(default=60, ge=0)
 
     comicvine_api_key: str | None = None
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"
@@ -47,6 +55,48 @@ class Settings(BaseSettings):
     gcd_timeout_seconds: float = 20.0
     gcd_search_limit: int = 20
     gcd_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
+    openlibrary_base_url: str = "https://openlibrary.org"
+    openlibrary_covers_url: str = "https://covers.openlibrary.org"
+    openlibrary_timeout_seconds: float = 20.0
+    openlibrary_search_limit: int = 20
+    openlibrary_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
+    bgg_api_token: str | None = None
+    bgg_base_url: str = "https://boardgamegeek.com/xmlapi2"
+    bgg_timeout_seconds: float = 20.0
+    bgg_retry_attempts: int = 2
+    bgg_search_limit: int = 20
+    bgg_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
+    anilist_api_url: str = "https://graphql.anilist.co"
+    anilist_timeout_seconds: float = 20.0
+    anilist_search_limit: int = 20
+    anilist_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
+    musicbrainz_base_url: str = "https://musicbrainz.org/ws/2"
+    cover_art_archive_base_url: str = "https://coverartarchive.org"
+    musicbrainz_timeout_seconds: float = 20.0
+    musicbrainz_search_limit: int = 20
+    musicbrainz_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
+    igdb_client_id: str | None = None
+    igdb_client_secret: str | None = None
+    igdb_access_token: str | None = None
+    igdb_token_url: str = "https://id.twitch.tv/oauth2/token"
+    igdb_base_url: str = "https://api.igdb.com/v4"
+    igdb_timeout_seconds: float = 20.0
+    igdb_search_limit: int = 20
+    igdb_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
+    tmdb_api_read_access_token: str | None = None
+    tmdb_api_key: str | None = None
+    tmdb_base_url: str = "https://api.themoviedb.org/3"
+    tmdb_image_base_url: str = "https://image.tmdb.org/t/p"
+    tmdb_timeout_seconds: float = 20.0
+    tmdb_search_limit: int = 20
+    tmdb_language: str = "en-US"
+    tmdb_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

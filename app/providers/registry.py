@@ -1,15 +1,13 @@
 from app.catalog.media_types import media_type_for_kind
 from app.models.base import ExternalProvider, ItemKind
+from app.providers.anilist import AniListProvider
 from app.providers.base import MetadataProvider
+from app.providers.bgg import BGGProvider
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.igdb import IGDBProvider
-from app.providers.planned import (
-    AniListProvider,
-    BGGProvider,
-    MusicBrainzProvider,
-    OpenLibraryProvider,
-)
+from app.providers.musicbrainz import MusicBrainzProvider
+from app.providers.openlibrary import OpenLibraryProvider
 from app.providers.tmdb import TMDbProvider
 
 
@@ -38,7 +36,7 @@ class ProviderRegistry:
         return list(self._providers.values())
 
     def for_kind(self, kind: ItemKind) -> list[MetadataProvider]:
-        return [provider for provider in self.all() if provider.capabilities.kind == kind]
+        return [provider for provider in self.all() if provider.capabilities.supports_kind(kind)]
 
     def default_for_kind(self, kind: ItemKind) -> MetadataProvider | None:
         media_type = media_type_for_kind(kind)

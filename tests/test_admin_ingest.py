@@ -1,9 +1,9 @@
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 import pytest
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
@@ -154,6 +154,7 @@ def gcd_variant_issue_raw() -> dict:
 async def test_comicvine_provider_normalizes_issue_payload():
     normalized = await ComicVineProvider().normalize(comicvine_issue_raw())
 
+    assert normalized.kind == ItemKind.comic
     assert normalized.title == "The Amazing Spider-Man"
     assert normalized.item_number == "1"
     assert normalized.edition_title == "The Spider Strikes"
@@ -173,6 +174,22 @@ async def test_comicvine_provider_normalizes_issue_payload():
         == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
     )
     assert normalized.synopsis == "Peter Parker faces a new chapter as Spider-Man."
+
+
+@pytest.mark.asyncio
+async def test_comicvine_provider_can_tag_results_as_manga():
+    raw = comicvine_issue_raw()
+    raw["media_type"] = "manga"
+
+    search_result = ComicVineProvider()._search_result(raw, ItemKind.manga)
+    normalized = await ComicVineProvider().normalize(raw)
+
+    assert search_result.kind == ItemKind.manga
+    assert search_result.provider_item_id == "manga:4000-12345"
+    assert normalized.kind == ItemKind.manga
+    assert normalized.edition_format == "Manga Issue"
+    assert normalized.provider_ids == {"comicvine": "manga:4000-12345"}
+    assert normalized.volume_provider_ids == {"comicvine": "manga:4050-6789"}
 
 
 @pytest.mark.asyncio
@@ -280,17 +297,20 @@ async def test_comicvine_provider_stub_search_uses_stable_slug(monkeypatch):
     monkeypatch.setattr(settings, "comicvine_api_key", None)
 
     results = await ComicVineProvider().search("  Spider-Man: Vol. 2  ")
+    manga_results = await ComicVineProvider().search("  One Piece  ", ItemKind.manga)
 
     assert len(results) == 1
     assert results[0].provider_item_id == "stub-comic-spider-man-vol-2"
     assert results[0].title == "Spider-Man: Vol. 2 (ComicVine stub)"
+    assert manga_results[0].provider_item_id == "stub-manga-one-piece"
+    assert manga_results[0].kind == ItemKind.manga
 
 
 @pytest.mark.asyncio
 async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 
-    async def fake_search(self, query):
+    async def fake_search(self, query, kind=None):
         return [ComicVineProvider()._search_result(comicvine_issue_raw())]
 
     monkeypatch.setattr(ComicVineProvider, "search", fake_search)
@@ -313,27 +333,27 @@ async def test_admin_provider_search_returns_planned_provider_stub(client, monke
     response = await client.post(
         "/admin/providers/search",
         headers={"Authorization": f"Bearer {token}"},
-        json={"provider": "anilist", "query": "naruto"},
+        json={"provider": "tmdb", "query": "the matrix"},
     )
 
     assert response.status_code == 200
-    assert response.json()[0]["provider"] == "anilist"
-    assert response.json()[0]["provider_item_id"] == "stub-manga-naruto"
-    assert response.json()[0]["kind"] == "manga"
+    assert response.json()[0]["provider"] == "tmdb"
+    assert response.json()[0]["provider_item_id"] == "stub-movie-the-matrix"
+    assert response.json()[0]["kind"] == "movie"
 
 
 @pytest.mark.asyncio
-async def test_admin_provider_ingest_rejects_search_only_provider(client, monkeypatch):
+async def test_admin_provider_ingest_rejects_unconfigured_tmdb(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 
     response = await client.post(
         "/admin/providers/ingest",
         headers={"Authorization": f"Bearer {token}"},
-        json={"provider": "anilist", "provider_item_id": "stub-manga-naruto"},
+        json={"provider": "tmdb", "provider_item_id": "movie:603"},
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Provider 'anilist' does not support catalog ingest yet"
+    assert response.json()["code"] == "tmdb_not_configured"
 
 
 @pytest.mark.asyncio
@@ -739,6 +759,62 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
 
 
 @pytest.mark.asyncio
+async def test_admin_catalog_correction_updates_video_physical_format(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            kind=ItemKind.movie,
+            title="The Matrix",
+            sort_key="matrix-the",
+        )
+        edition = Edition(item=item, title="Standard Edition")
+        variant = Variant(edition=edition, name="Primary release", is_primary=True)
+        db.add_all([item, edition, variant])
+        await db.flush()
+        item_uuid = item.id
+        item_id = str(item.id)
+        await db.commit()
+
+    updated = await client.patch(
+        f"/admin/catalog/items/movie/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"physical_format": "4K Blu-ray"},
+    )
+
+    assert updated.status_code == 200
+    body = updated.json()
+    edition_body = body["editions"][0]
+    variant_body = edition_body["variants"][0]
+    assert edition_body["format"] == "4K UHD"
+    assert edition_body["physical_format"] == "4k-uhd"
+    assert edition_body["physical_format_label"] == "4K UHD"
+    assert variant_body["variant_type"] == "physical"
+    assert variant_body["physical_format"] == "4k-uhd"
+    assert variant_body["physical_format_label"] == "4K UHD"
+
+    async with AsyncSessionLocal() as db:
+        stored_edition = await db.scalar(select(Edition).where(Edition.item_id == item_uuid))
+        stored_variant = await db.scalar(
+            select(Variant).join(Edition).where(Edition.item_id == item_uuid)
+        )
+        assert stored_edition is not None
+        assert stored_variant is not None
+        assert stored_edition.format == "4K UHD"
+        assert stored_edition.metadata_json["normalized"]["physical_format"] == "4k-uhd"
+        assert stored_variant.variant_type == "physical"
+        assert stored_variant.metadata_json["normalized"]["physical_format"] == "4k-uhd"
+
+    invalid_format = await client.patch(
+        f"/admin/catalog/items/movie/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"physical_format": "Betamax"},
+    )
+    assert invalid_format.status_code == 400
+    assert invalid_format.json()["code"] == "invalid_physical_format"
+
+
+@pytest.mark.asyncio
 async def test_admin_provider_ingest_persistent_job_queue(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     settings = get_settings()
@@ -822,6 +898,144 @@ async def test_admin_provider_ingest_persistent_job_queue(client, monkeypatch):
         persisted = await db.get(ProviderIngestJob, UUID(job_id))
         assert persisted is not None
         assert persisted.status == "done"
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_ingest_job_summary_and_filters(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "worker_provider_ingest_stale_after_seconds", 60)
+    now = datetime.now(UTC)
+    async with AsyncSessionLocal() as db:
+        db.add_all(
+            [
+                ProviderIngestJob(
+                    provider=ExternalProvider.gcd,
+                    provider_item_id="due-1",
+                    status="queued",
+                    attempts=0,
+                    max_attempts=3,
+                    next_run_at=now - timedelta(seconds=5),
+                ),
+                ProviderIngestJob(
+                    provider=ExternalProvider.gcd,
+                    provider_item_id="failed-cover",
+                    status="failed",
+                    attempts=2,
+                    max_attempts=2,
+                    last_error="Provider timeout while fetching cover",
+                    updated_at=now - timedelta(seconds=30),
+                ),
+                ProviderIngestJob(
+                    provider=ExternalProvider.comicvine,
+                    provider_item_id="running-1",
+                    status="running",
+                    attempts=1,
+                    max_attempts=3,
+                    updated_at=now - timedelta(minutes=10),
+                ),
+                ProviderIngestJob(
+                    provider=ExternalProvider.gcd,
+                    provider_item_id="done-1",
+                    status="done",
+                    attempts=1,
+                    max_attempts=3,
+                ),
+            ]
+        )
+        await db.commit()
+
+    summary = await client.get(
+        "/admin/providers/ingest/jobs/summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert summary.status_code == 200
+    assert summary.json()["queued"] == 1
+    assert summary.json()["running"] == 1
+    assert summary.json()["failed"] == 1
+    assert summary.json()["done"] == 1
+    assert summary.json()["due_queued"] == 1
+    assert summary.json()["stale_running"] == 1
+    assert summary.json()["latest_failure_at"] is not None
+
+    filtered = await client.get(
+        "/admin/providers/ingest/jobs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"status": "failed", "provider": "gcd", "q": "timeout"},
+    )
+
+    assert filtered.status_code == 200
+    assert [job["provider_item_id"] for job in filtered.json()] == ["failed-cover"]
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_ingest_run_pending_recovers_stale_running_job(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "provider_ingest_retry_attempts", 0)
+    monkeypatch.setattr(settings, "worker_provider_ingest_stale_after_seconds", 60)
+
+    async def fake_get_item(self, provider_item_id):
+        raw = comicvine_issue_raw()
+        raw["id"] = 93001
+        raw["api_detail_url"] = "https://comicvine.gamespot.com/api/issue/4000-93001/"
+        raw["site_detail_url"] = "https://comicvine.gamespot.com/stale-job/4000-93001/"
+        raw["volume"] = {
+            **raw["volume"],
+            "id": 99301,
+            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-99301/",
+        }
+        return ProviderItem(provider="comicvine", provider_item_id="4000-93001", raw=raw)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    created = await client.post(
+        "/admin/providers/ingest/jobs",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "provider": "comicvine",
+            "provider_item_id": "stale-job",
+            "max_attempts": 2,
+        },
+    )
+
+    assert created.status_code == 201
+    job_id = UUID(created.json()["id"])
+    stale_timestamp = datetime.now(UTC) - timedelta(minutes=10)
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            update(ProviderIngestJob)
+            .where(ProviderIngestJob.id == job_id)
+            .values(
+                status="running",
+                next_run_at=None,
+                last_error=None,
+                updated_at=stale_timestamp,
+            )
+        )
+        await db.commit()
+
+    run_pending = await client.post(
+        "/admin/providers/ingest/jobs/run-pending",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"limit": 5},
+    )
+
+    assert run_pending.status_code == 200
+    body = run_pending.json()
+    assert body["processed"] == 1
+    assert body["recovered"] == 1
+    assert body["jobs"][0]["id"] == str(job_id)
+    assert body["jobs"][0]["status"] == "done"
 
 
 @pytest.mark.asyncio
@@ -1203,6 +1417,7 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
     token = await admin_token(client, monkeypatch)
     settings = get_settings()
     monkeypatch.setattr(settings, "mirror_provider_images", True)
+    monkeypatch.setattr(settings, "mirror_provider_images_allow_restricted", True)
 
     async def fake_get_item(self, provider_item_id):
         return ProviderItem(
@@ -1268,3 +1483,43 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
         assert cache_entry.height == 1280
         assert cache_entry.content_hash == "abc123"
         assert cache_entry.access_count == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_skips_restricted_provider_cover_mirroring(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "mirror_provider_images", True)
+    monkeypatch.setattr(settings, "mirror_provider_images_allow_restricted", False)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(
+            provider="comicvine", provider_item_id="4000-12345", raw=comicvine_issue_raw()
+        )
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Restricted provider cover should not be mirrored by default")
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "comicvine", "provider_item_id": "12345"},
+    )
+
+    assert response.status_code == 201
+    variant = response.json()["item"]["editions"][0]["variants"][0]
+    assert (
+        variant["cover_image_url"]
+        == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+    )
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(Variant.cover_image_key)) is None
+        assert await db.scalar(select(ImageCacheEntry)) is None

@@ -25,7 +25,16 @@ generalized around this shape:
 
 Supported media kinds are:
 
-`anime`, `boardgame`, `book`, `bluray`, `comic`, `game`, `manga`, `movie`, `music`, `tv`.
+`anime`, `boardgame`, `book`, `comic`, `game`, `manga`, `movie`, `music`, `tv`.
+
+`bluray` remains a pre-release compatibility enum/route only. New video catalog
+work should store Blu-ray, DVD, 4K UHD, VHS, LaserDisc, and digital purchases as
+edition/variant formats under `movie` or `tv` records.
+
+Until a release schema is finalized, normalized video format IDs are stored in
+`editions.metadata_json.normalized.physical_format` and mirrored onto the
+primary variant metadata. `editions.format` keeps the display label, while
+`variants.variant_type` distinguishes `physical` from `digital` releases.
 
 Most shared catalog tables include `metadata_json` so provider-specific fields can be stored
 without changing the relational shape for every media type. Keep commonly filtered fields as

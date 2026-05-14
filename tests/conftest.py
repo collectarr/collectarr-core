@@ -21,6 +21,7 @@ os.environ.setdefault(
 
 from app.db.session import AsyncSessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
+from app.core.rate_limit import reset_rate_limits  # noqa: E402
 
 
 async def _ensure_test_database(database_url: str) -> None:
@@ -125,12 +126,13 @@ def migrated_database() -> None:
 
 @pytest_asyncio.fixture(autouse=True)
 async def clean_database() -> AsyncIterator[None]:
+    reset_rate_limits()
     async with AsyncSessionLocal() as db:
         await db.execute(
             text(
                 """
                 truncate table
-                  users, metadata_proposals, image_cache_entries, image_assets,
+                  users, admin_audit_logs, metadata_proposals, image_cache_entries, image_assets,
                   provider_ingest_jobs,
                   entity_tags, entity_persons, entity_organizations, tags, persons, organizations,
                   releases, variants, editions, external_provider_ids,
@@ -141,6 +143,7 @@ async def clean_database() -> AsyncIterator[None]:
         )
         await db.commit()
     yield
+    reset_rate_limits()
 
 
 @pytest_asyncio.fixture

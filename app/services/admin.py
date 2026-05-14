@@ -1,5 +1,8 @@
 from collections import deque
-from datetime import UTC, datetime, timedelta
+from dataclasses import replace
+from datetime import UTC, date, datetime, timedelta
+from enum import Enum as PythonEnum
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -8,10 +11,17 @@ from sqlalchemy import exists, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.catalog.physical_formats import (
+    PhysicalFormatConfig,
+    is_video_item_kind,
+    physical_format_for_id,
+)
 from app.core.config import get_settings
+from app.core.errors import ApiHTTPException
 from app.catalog.media_types import media_type_for_kind
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    AdminAuditLog,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -30,10 +40,13 @@ from app.models.canonical import (
     Variant,
     Volume,
 )
-from app.providers.base import MetadataProvider, NormalizedCredit
+from app.models.user import User
+from app.providers.base import MetadataProvider, NormalizedCredit, NormalizedItem
+from app.providers.comicvine import ComicVineProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
+    AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -47,6 +60,7 @@ from app.schemas.admin import (
     ProviderIngestJobCreateRequest,
     ProviderIngestJobResponse,
     ProviderIngestJobRunResponse,
+    ProviderIngestJobSummaryResponse,
     ProviderIngestRequest,
     ProviderIngestRetryRequest,
     ProviderIngestResponse,
@@ -65,11 +79,14 @@ from app.storage.images import ImageMirror
 _SEARCH_HISTORY: deque[AdminSearchHistoryEntry] = deque(maxlen=20)
 _INGEST_HISTORY: deque[ProviderIngestHistoryEntry] = deque(maxlen=50)
 _INGEST_HISTORY_SEQUENCE = 0
+logger = logging.getLogger(__name__)
 
 
 class AdminMetadataService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, actor: User | None = None) -> None:
         self.db = db
+        self.actor_user_id = actor.id if actor else None
+        self.actor_email = actor.email if actor else None
         self.providers = ProviderRegistry()
         self.settings = get_settings()
 
@@ -82,6 +99,7 @@ class AdminMetadataService:
                     name=provider.name,
                     display_name=capabilities.display_name,
                     kind=capabilities.kind.value,
+                    supported_kinds=[kind.value for kind in capabilities.supported_kinds],
                     status="live" if provider.is_configured else "stub",
                     is_configured=provider.is_configured,
                     supports_search=capabilities.supports_search,
@@ -89,6 +107,7 @@ class AdminMetadataService:
                     requires_user_key=capabilities.requires_user_key,
                     non_commercial_only=capabilities.non_commercial_only,
                     allows_redistribution=capabilities.allows_redistribution,
+                    allows_image_mirroring=capabilities.allows_image_mirroring,
                     requires_attribution=capabilities.requires_attribution,
                     license_name=capabilities.license_name,
                     terms_url=capabilities.terms_url,
@@ -126,6 +145,7 @@ class AdminMetadataService:
             client.client.health()
             stats = client.client.index(client.index_name).get_stats()
         except Exception as exc:
+            logger.warning("admin_search_status_failed error=%s", exc)
             return AdminSearchStatusResponse(
                 ok=False,
                 index_name=SearchClient.index_name,
@@ -153,6 +173,7 @@ class AdminMetadataService:
             documents = await self._search_documents()
             await search.replace_documents(documents)
         except Exception as exc:
+            logger.warning("admin_search_reindex_failed index=%s error=%s", search.index_name, exc)
             response = AdminSearchReindexResponse(
                 ok=False,
                 index_name=search.index_name,
@@ -171,6 +192,23 @@ class AdminMetadataService:
 
     def search_history(self) -> list[AdminSearchHistoryEntry]:
         return list(_SEARCH_HISTORY)
+
+    async def audit_logs(
+        self,
+        action: str | None = None,
+        entity_type: str | None = None,
+        limit: int = 25,
+    ) -> list[AdminAuditLogResponse]:
+        stmt = select(AdminAuditLog).order_by(
+            AdminAuditLog.created_at.desc(),
+            AdminAuditLog.id.desc(),
+        )
+        if action:
+            stmt = stmt.where(AdminAuditLog.action == action)
+        if entity_type:
+            stmt = stmt.where(AdminAuditLog.entity_type == entity_type)
+        result = await self.db.execute(stmt.limit(limit))
+        return [AdminAuditLogResponse.model_validate(row) for row in result.scalars()]
 
     async def catalog_items(
         self,
@@ -193,8 +231,18 @@ class AdminMetadataService:
     ) -> Any:
         item = await MetadataRepository(self.db).get_item(item_id, kind)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Item not found",
+            )
         update_data = payload.model_dump(exclude_unset=True)
+        before = {
+            "title": item.title,
+            "item_number": item.item_number,
+            "synopsis": item.synopsis,
+            "page_count": item.page_count,
+        }
         if "title" in update_data and payload.title is not None:
             item.title = payload.title
         if "item_number" in update_data:
@@ -206,11 +254,19 @@ class AdminMetadataService:
         item.sort_key = self._sort_key(item.kind, item.title, item.item_number)
 
         edition = self._primary_edition_model(item)
+        physical_format = None
+        if "physical_format" in update_data:
+            physical_format = self._validated_physical_format(
+                item.kind,
+                payload.physical_format,
+            )
         if edition is not None:
             if "publisher" in update_data:
                 edition.publisher = payload.publisher
             if "release_date" in update_data:
                 edition.release_date = payload.release_date
+            if physical_format is not None:
+                self._apply_physical_format_to_edition(edition, physical_format)
 
         variant = self._primary_variant_model(item)
         if variant is not None:
@@ -222,16 +278,98 @@ class AdminMetadataService:
                 variant.cover_image_url = payload.cover_image_url
             if "thumbnail_image_url" in update_data:
                 variant.thumbnail_image_url = payload.thumbnail_image_url
+            if physical_format is not None:
+                self._apply_physical_format_to_variant(variant, physical_format)
 
         metadata = dict(item.metadata_json or {})
         metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
         metadata["admin_corrected_fields"] = sorted(update_data.keys())
         item.metadata_json = metadata
+        self._record_admin_audit(
+            action="metadata.correction",
+            entity_type="item",
+            entity_id=item.id,
+            details={
+                "kind": item.kind,
+                "fields": sorted(update_data.keys()),
+                "before": before,
+                "after": update_data,
+            },
+        )
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
             await SearchClient().index_documents_best_effort([item_search_document(loaded_item)])
         return item_response_from_model(loaded_item)
+
+    def _validated_physical_format(
+        self,
+        kind: ItemKind,
+        physical_format: str | None,
+    ) -> PhysicalFormatConfig:
+        if not physical_format:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="physical_format_required",
+                detail="physical_format is required when updating a video format",
+            )
+        if not is_video_item_kind(kind):
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="physical_format_unsupported",
+                detail="physical_format is only supported for movie and TV catalog items",
+            )
+        config = physical_format_for_id(physical_format)
+        if config is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="invalid_physical_format",
+                detail="physical_format must be one of DVD, Blu-ray, 4K UHD, VHS, LaserDisc, or digital",
+            )
+        return config
+
+    def _apply_physical_format_to_edition(
+        self,
+        edition: Edition,
+        physical_format: PhysicalFormatConfig,
+    ) -> None:
+        edition.format = physical_format.label
+        metadata = self._metadata_with_physical_format(
+            edition.metadata_json,
+            physical_format,
+        )
+        edition.metadata_json = metadata
+
+    def _apply_physical_format_to_variant(
+        self,
+        variant: Variant,
+        physical_format: PhysicalFormatConfig,
+    ) -> None:
+        variant.variant_type = physical_format.variant_type
+        metadata = self._metadata_with_physical_format(
+            variant.metadata_json,
+            physical_format,
+        )
+        variant.metadata_json = metadata
+
+    def _metadata_with_physical_format(
+        self,
+        metadata_json: dict[str, Any] | None,
+        physical_format: PhysicalFormatConfig,
+    ) -> dict[str, Any]:
+        metadata = dict(metadata_json or {})
+        normalized_source = metadata.get("normalized")
+        normalized = dict(normalized_source) if isinstance(normalized_source, dict) else {}
+        normalized.update(
+            {
+                "physical_format": physical_format.id,
+                "physical_format_label": physical_format.label,
+                "physical_format_media_family": physical_format.media_family,
+                "physical_format_variant_type": physical_format.variant_type,
+            }
+        )
+        metadata["normalized"] = normalized
+        return metadata
 
     async def duplicate_candidates(self, limit: int = 10) -> list[AdminDuplicateCandidateResponse]:
         count_label = func.count(Item.id).label("count")
@@ -276,8 +414,9 @@ class AdminMetadataService:
     ) -> AdminDuplicateActionResponse:
         items = await self._items_by_ids(payload.item_ids)
         if len(items) != len(set(payload.item_ids)):
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
+                code="duplicate_item_not_found",
                 detail="One or more duplicate items were not found",
             )
         self._ensure_same_duplicate_group(items)
@@ -287,6 +426,16 @@ class AdminMetadataService:
             metadata["admin_duplicate_ignore_token"] = token
             metadata["admin_duplicate_ignored_at"] = datetime.now(UTC).isoformat()
             item.metadata_json = metadata
+        self._record_admin_audit(
+            action="duplicates.ignore",
+            entity_type="duplicate_group",
+            details={
+                "item_ids": [item.id for item in items],
+                "kind": items[0].kind if items else None,
+                "title": items[0].title if items else None,
+                "item_number": items[0].item_number if items else None,
+            },
+        )
         await self.db.commit()
         return AdminDuplicateActionResponse(ok=True, affected_items=len(items))
 
@@ -297,14 +446,16 @@ class AdminMetadataService:
             item_id for item_id in payload.source_item_ids if item_id != payload.target_item_id
         ]
         if not source_ids:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="duplicate_source_required",
                 detail="At least one source item different from target_item_id is required",
             )
         items = await self._items_by_ids([payload.target_item_id, *source_ids])
         if len(items) != len({payload.target_item_id, *source_ids}):
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
+                code="duplicate_item_not_found",
                 detail="One or more duplicate items were not found",
             )
         target = next(item for item in items if item.id == payload.target_item_id)
@@ -314,12 +465,25 @@ class AdminMetadataService:
         for source in sources:
             await self._move_item_children(source.id, target.id)
             await self.db.delete(source)
+        self._record_admin_audit(
+            action="duplicates.merge",
+            entity_type="item",
+            entity_id=target.id,
+            details={
+                "target_item_id": target.id,
+                "source_item_ids": [source.id for source in sources],
+                "kind": target.kind,
+                "title": target.title,
+                "item_number": target.item_number,
+            },
+        )
         await self.db.commit()
 
         loaded_item = await MetadataRepository(self.db).get_item(target.id)
         if loaded_item is None:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_409_CONFLICT,
+                code="merged_target_unavailable",
                 detail="Merged target item could not be loaded",
             )
         return AdminDuplicateActionResponse(
@@ -331,19 +495,21 @@ class AdminMetadataService:
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
         provider = self._provider(payload.provider)
         if not provider.capabilities.supports_search:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_search_unsupported",
                 detail=f"Provider '{payload.provider.value}' does not support search",
             )
-        if payload.kind is not None and provider.capabilities.kind != payload.kind:
-            raise HTTPException(
+        if payload.kind is not None and not provider.capabilities.supports_kind(payload.kind):
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_kind_unsupported",
                 detail=(
                     f"Provider '{payload.provider.value}' does not support "
                     f"kind '{payload.kind.value}'"
                 ),
             )
-        results = await provider.search(payload.query)
+        results = await provider.search(payload.query, payload.kind)
         return [result.__dict__ for result in results]
 
     async def proposal_summary(self) -> MetadataProposalSummaryResponse:
@@ -377,10 +543,15 @@ class AdminMetadataService:
     async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
         proposal = await self.db.get(MetadataProposal, proposal_id)
         if proposal is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_proposal_not_found",
+                detail="Proposal not found",
+            )
         if proposal.provider_item_id is None:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="metadata_proposal_missing_provider_item",
                 detail="Proposal does not have a provider item id",
             )
         response = await self.ingest(
@@ -390,6 +561,17 @@ class AdminMetadataService:
             )
         )
         proposal.status = "approved"
+        self._record_admin_audit(
+            action="metadata_proposal.approve",
+            entity_type="metadata_proposal",
+            entity_id=proposal.id,
+            details={
+                "provider": proposal.provider,
+                "provider_item_id": proposal.provider_item_id,
+                "item_id": response.item_id,
+                "created": response.created,
+            },
+        )
         await self.db.commit()
         return response
 
@@ -400,19 +582,48 @@ class AdminMetadataService:
     ) -> ProviderIngestResponse:
         proposal = await self.db.get(MetadataProposal, proposal_id)
         if proposal is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_proposal_not_found",
+                detail="Proposal not found",
+            )
         response = await self.ingest(payload)
         proposal.provider = payload.provider
         proposal.provider_item_id = payload.provider_item_id
         proposal.status = "approved"
+        self._record_admin_audit(
+            action="metadata_proposal.approve_provider",
+            entity_type="metadata_proposal",
+            entity_id=proposal.id,
+            details={
+                "provider": payload.provider,
+                "provider_item_id": payload.provider_item_id,
+                "item_id": response.item_id,
+                "created": response.created,
+            },
+        )
         await self.db.commit()
         return response
 
     async def reject_proposal(self, proposal_id: UUID) -> MetadataProposalAdminResponse:
         proposal = await self.db.get(MetadataProposal, proposal_id)
         if proposal is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proposal not found")
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_proposal_not_found",
+                detail="Proposal not found",
+            )
         proposal.status = "rejected"
+        self._record_admin_audit(
+            action="metadata_proposal.reject",
+            entity_type="metadata_proposal",
+            entity_id=proposal.id,
+            details={
+                "provider": proposal.provider,
+                "provider_item_id": proposal.provider_item_id,
+                "query": proposal.query,
+            },
+        )
         await self.db.commit()
         await self.db.refresh(proposal)
         return MetadataProposalAdminResponse.model_validate(proposal)
@@ -432,6 +643,17 @@ class AdminMetadataService:
             next_run_at=datetime.now(UTC),
         )
         self.db.add(job)
+        await self.db.flush()
+        self._record_admin_audit(
+            action="provider_ingest.job_create",
+            entity_type="provider_ingest_job",
+            entity_id=job.id,
+            details={
+                "provider": payload.provider,
+                "provider_item_id": payload.provider_item_id,
+                "max_attempts": payload.max_attempts,
+            },
+        )
         await self.db.commit()
         await self.db.refresh(job)
         return ProviderIngestJobResponse.model_validate(job)
@@ -440,6 +662,8 @@ class AdminMetadataService:
         self,
         status_filter: str | None = None,
         limit: int = 25,
+        provider_filter: ExternalProvider | None = None,
+        query: str | None = None,
     ) -> list[ProviderIngestJobResponse]:
         stmt = select(ProviderIngestJob).order_by(
             ProviderIngestJob.created_at.desc(),
@@ -447,31 +671,120 @@ class AdminMetadataService:
         )
         if status_filter:
             stmt = stmt.where(ProviderIngestJob.status == status_filter)
+        if provider_filter:
+            stmt = stmt.where(ProviderIngestJob.provider == provider_filter)
+        normalized_query = " ".join(query.split()) if query else ""
+        if normalized_query:
+            pattern = f"%{normalized_query}%"
+            stmt = stmt.where(
+                or_(
+                    ProviderIngestJob.provider_item_id.ilike(pattern),
+                    ProviderIngestJob.last_error.ilike(pattern),
+                )
+            )
         result = await self.db.execute(stmt.limit(limit))
         return [ProviderIngestJobResponse.model_validate(job) for job in result.scalars().all()]
+
+    async def ingest_job_summary(self) -> ProviderIngestJobSummaryResponse:
+        now = datetime.now(UTC)
+        stale_cutoff = now - timedelta(
+            seconds=self.settings.worker_provider_ingest_stale_after_seconds
+        )
+        counts_result = await self.db.execute(
+            select(ProviderIngestJob.status, func.count())
+            .select_from(ProviderIngestJob)
+            .group_by(ProviderIngestJob.status)
+        )
+        counts = {
+            "queued": 0,
+            "running": 0,
+            "failed": 0,
+            "done": 0,
+        }
+        for status_value, count in counts_result.all():
+            if status_value in counts:
+                counts[status_value] = int(count)
+
+        due_queued = await self.db.scalar(
+            select(func.count())
+            .select_from(ProviderIngestJob)
+            .where(
+                ProviderIngestJob.status == "queued",
+                or_(
+                    ProviderIngestJob.next_run_at.is_(None),
+                    ProviderIngestJob.next_run_at <= now,
+                ),
+            )
+        )
+        stale_running = await self.db.scalar(
+            select(func.count())
+            .select_from(ProviderIngestJob)
+            .where(
+                ProviderIngestJob.status == "running",
+                ProviderIngestJob.updated_at < stale_cutoff,
+            )
+        )
+        oldest_queued_at = await self.db.scalar(
+            select(func.min(ProviderIngestJob.created_at)).where(
+                ProviderIngestJob.status == "queued"
+            )
+        )
+        next_run_at = await self.db.scalar(
+            select(func.min(ProviderIngestJob.next_run_at)).where(
+                ProviderIngestJob.status == "queued",
+                ProviderIngestJob.next_run_at.is_not(None),
+            )
+        )
+        latest_failure_at = await self.db.scalar(
+            select(func.max(ProviderIngestJob.updated_at)).where(
+                ProviderIngestJob.status == "failed"
+            )
+        )
+        return ProviderIngestJobSummaryResponse(
+            **counts,
+            due_queued=int(due_queued or 0),
+            stale_running=int(stale_running or 0),
+            oldest_queued_at=oldest_queued_at,
+            next_run_at=next_run_at,
+            latest_failure_at=latest_failure_at,
+        )
 
     async def run_ingest_job(self, job_id: UUID) -> ProviderIngestJobResponse:
         job = await self.db.get(ProviderIngestJob, job_id)
         if job is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Ingest job not found"
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="provider_ingest_job_not_found",
+                detail="Ingest job not found",
             )
         if job.status == "running":
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_409_CONFLICT,
+                code="provider_ingest_job_running",
                 detail="Ingest job is already running",
             )
-        return ProviderIngestJobResponse.model_validate(await self._execute_ingest_job(job))
+        executed = await self._execute_ingest_job(job)
+        self._record_admin_audit(
+            action="provider_ingest.job_run",
+            entity_type="provider_ingest_job",
+            entity_id=executed.id,
+            details=self._ingest_job_audit_details(executed),
+        )
+        await self.db.commit()
+        return ProviderIngestJobResponse.model_validate(executed)
 
     async def retry_ingest_job(self, job_id: UUID) -> ProviderIngestJobResponse:
         job = await self.db.get(ProviderIngestJob, job_id)
         if job is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Ingest job not found"
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="provider_ingest_job_not_found",
+                detail="Ingest job not found",
             )
         if job.status == "running":
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_409_CONFLICT,
+                code="provider_ingest_job_running",
                 detail="Ingest job is already running",
             )
         job.status = "queued"
@@ -479,9 +792,18 @@ class AdminMetadataService:
         job.last_error = None
         await self.db.commit()
         await self.db.refresh(job)
-        return ProviderIngestJobResponse.model_validate(await self._execute_ingest_job(job))
+        executed = await self._execute_ingest_job(job)
+        self._record_admin_audit(
+            action="provider_ingest.job_retry",
+            entity_type="provider_ingest_job",
+            entity_id=executed.id,
+            details=self._ingest_job_audit_details(executed),
+        )
+        await self.db.commit()
+        return ProviderIngestJobResponse.model_validate(executed)
 
     async def run_pending_ingest_jobs(self, limit: int = 5) -> ProviderIngestJobRunResponse:
+        recovered = await self.recover_stale_ingest_jobs()
         now = datetime.now(UTC)
         result = await self.db.execute(
             select(ProviderIngestJob)
@@ -500,7 +822,44 @@ class AdminMetadataService:
             processed.append(
                 ProviderIngestJobResponse.model_validate(await self._execute_ingest_job(job))
             )
-        return ProviderIngestJobRunResponse(processed=len(processed), jobs=processed)
+        if self.actor_user_id is not None:
+            self._record_admin_audit(
+                action="provider_ingest.jobs_run_pending",
+                entity_type="provider_ingest_queue",
+                details={
+                    "processed": len(processed),
+                    "recovered": recovered,
+                    "job_ids": [job.id for job in processed],
+                },
+            )
+            await self.db.commit()
+        return ProviderIngestJobRunResponse(
+            processed=len(processed),
+            jobs=processed,
+            recovered=recovered,
+        )
+
+    async def recover_stale_ingest_jobs(self) -> int:
+        stale_after = self.settings.worker_provider_ingest_stale_after_seconds
+        cutoff = datetime.now(UTC) - timedelta(seconds=stale_after)
+        result = await self.db.execute(
+            update(ProviderIngestJob)
+            .where(
+                ProviderIngestJob.status == "running",
+                ProviderIngestJob.updated_at < cutoff,
+            )
+            .values(
+                status="queued",
+                next_run_at=datetime.now(UTC),
+                last_error="Recovered stale running ingest job",
+            )
+            .returning(ProviderIngestJob.id)
+        )
+        recovered = len(result.scalars().all())
+        if recovered:
+            await self.db.commit()
+            logger.warning("provider_ingest_jobs_recovered count=%s", recovered)
+        return recovered
 
     def ingest_history(self) -> list[ProviderIngestHistoryEntry]:
         return list(_INGEST_HISTORY)
@@ -511,21 +870,36 @@ class AdminMetadataService:
             None,
         )
         if entry is None:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
+                code="provider_ingest_history_not_found",
                 detail="Provider ingest history entry not found",
             )
         if entry.status != "failed":
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_ingest_history_not_failed",
                 detail="Only failed provider ingest entries can be retried",
             )
-        return await self.ingest(
+        response = await self.ingest(
             ProviderIngestRequest(
                 provider=entry.provider,
                 provider_item_id=entry.provider_item_id,
             )
         )
+        self._record_admin_audit(
+            action="provider_ingest.history_retry",
+            entity_type="provider_ingest_history",
+            details={
+                "history_id": entry.id,
+                "provider": entry.provider,
+                "provider_item_id": entry.provider_item_id,
+                "item_id": response.item_id,
+                "created": response.created,
+            },
+        )
+        await self.db.commit()
+        return response
 
     async def ingest(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:
         attempts = max(1, self.settings.provider_ingest_retry_attempts + 1)
@@ -539,6 +913,15 @@ class AdminMetadataService:
                     attempts=attempt,
                     item_id=response.item_id,
                 )
+                logger.info(
+                    "provider_ingest_finished provider=%s provider_item_id=%s status=%s "
+                    "attempts=%s item_id=%s",
+                    payload.provider.value,
+                    payload.provider_item_id,
+                    "created" if response.created else "existing",
+                    attempt,
+                    response.item_id,
+                )
                 return response
             except Exception as exc:
                 last_error = exc
@@ -549,6 +932,14 @@ class AdminMetadataService:
                         status="failed",
                         attempts=attempt,
                         error=self._error_message(exc),
+                    )
+                    logger.warning(
+                        "provider_ingest_failed provider=%s provider_item_id=%s attempts=%s "
+                        "error=%s",
+                        payload.provider.value,
+                        payload.provider_item_id,
+                        attempt,
+                        self._error_message(exc),
                     )
                     raise
         raise RuntimeError("Provider ingest retry loop exited unexpectedly") from last_error
@@ -570,6 +961,26 @@ class AdminMetadataService:
         normalized = await provider.normalize(
             dict(provider_item.raw) | {"id": provider_item.provider_item_id}
         )
+        normalized = await self._enrich_missing_comic_cover(normalized)
+        physical_format = self._physical_format_for_normalized(normalized)
+        edition_format = physical_format.label if physical_format else normalized.edition_format
+        variant_name = normalized.variant_name or (
+            physical_format.label if physical_format is not None else "Cover A"
+        )
+        variant_type = normalized.variant_type or (
+            physical_format.variant_type if physical_format is not None else None
+        )
+        mirrored_cover = None
+        if self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
+                normalized.cover_image_url,
+                payload.provider.value,
+                provider_item.provider_item_id,
+            )
+        cover_metadata = self._cover_metadata(
+            normalized.cover_image_url,
+            mirrored_cover,
+        )
         volume = await self._upsert_volume(
             normalized.kind,
             normalized.series_title,
@@ -583,6 +994,7 @@ class AdminMetadataService:
             item_number=normalized.item_number,
             sort_key=self._sort_key(normalized.kind, normalized.title, normalized.item_number),
             synopsis=normalized.synopsis,
+            runtime_minutes=normalized.runtime_minutes,
             page_count=normalized.page_count,
             metadata_json={
                 "provider": payload.provider.value,
@@ -593,14 +1005,16 @@ class AdminMetadataService:
                     "volume_name": normalized.volume_name,
                     "volume_number": normalized.volume_number,
                     "volume_start_year": normalized.volume_start_year,
+                    "runtime_minutes": normalized.runtime_minutes,
                     "story_arcs": [credit.name for credit in normalized.story_arcs],
+                    **cover_metadata,
                 },
             },
         )
         edition = Edition(
             item=item,
             title=normalized.edition_title or "Standard Edition",
-            format=normalized.edition_format,
+            format=edition_format,
             publisher=normalized.publisher,
             isbn=normalized.isbn,
             release_date=normalized.release_date,
@@ -609,7 +1023,15 @@ class AdminMetadataService:
                 "provider_item_id": provider_item.provider_item_id,
                 "normalized": {
                     "title": normalized.edition_title or "Standard Edition",
-                    "format": normalized.edition_format,
+                    "format": edition_format,
+                    "physical_format": physical_format.id if physical_format else None,
+                    "physical_format_label": physical_format.label if physical_format else None,
+                    "physical_format_media_family": (
+                        physical_format.media_family if physical_format else None
+                    ),
+                    "physical_format_variant_type": (
+                        physical_format.variant_type if physical_format else None
+                    ),
                     "publisher": normalized.publisher,
                     "release_date": (
                         normalized.release_date.isoformat() if normalized.release_date else None
@@ -621,21 +1043,15 @@ class AdminMetadataService:
                     ],
                     "characters": [credit.name for credit in normalized.characters],
                     "story_arcs": [credit.name for credit in normalized.story_arcs],
+                    **cover_metadata,
                 },
                 "source": provider_item.raw,
             },
         )
-        mirrored_cover = None
-        if self.settings.mirror_provider_images:
-            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
-                normalized.cover_image_url,
-                payload.provider.value,
-                provider_item.provider_item_id,
-            )
         variant = Variant(
             edition=edition,
-            name=normalized.variant_name or "Cover A",
-            variant_type=normalized.variant_type,
+            name=variant_name,
+            variant_type=variant_type,
             barcode=normalized.barcode,
             isbn=normalized.isbn,
             cover_price_cents=normalized.cover_price_cents,
@@ -648,13 +1064,21 @@ class AdminMetadataService:
                 "provider": payload.provider.value,
                 "provider_item_id": provider_item.provider_item_id,
                 "normalized": {
-                    "name": normalized.variant_name or "Cover A",
-                    "variant_type": normalized.variant_type,
+                    "name": variant_name,
+                    "variant_type": variant_type,
+                    "physical_format": physical_format.id if physical_format else None,
+                    "physical_format_label": physical_format.label if physical_format else None,
+                    "physical_format_media_family": (
+                        physical_format.media_family if physical_format else None
+                    ),
+                    "physical_format_variant_type": (
+                        physical_format.variant_type if physical_format else None
+                    ),
                     "barcode": normalized.barcode,
                     "isbn": normalized.isbn,
                     "cover_price_cents": normalized.cover_price_cents,
                     "currency": normalized.currency,
-                    "cover_image_url": normalized.cover_image_url,
+                    **cover_metadata,
                 },
             },
             is_primary=True,
@@ -700,6 +1124,90 @@ class AdminMetadataService:
             item=item_response_from_model(loaded_item),
         )
 
+    def _physical_format_for_normalized(
+        self,
+        normalized: NormalizedItem,
+    ) -> PhysicalFormatConfig | None:
+        if not is_video_item_kind(normalized.kind):
+            return None
+        candidate = normalized.physical_format or normalized.edition_format
+        if not candidate:
+            return None
+        return physical_format_for_id(candidate)
+
+    def _cover_metadata(
+        self,
+        source_url: str | None,
+        mirrored_cover: Any | None,
+    ) -> dict[str, Any]:
+        if mirrored_cover is not None:
+            return {
+                "cover_status": "mirrored",
+                "cover_source_url": source_url,
+                "cover_delivery_url": mirrored_cover.url,
+                "cover_storage": "object_storage",
+                "cover_policy": "minio_mirror",
+            }
+        if source_url:
+            return {
+                "cover_status": "external_url",
+                "cover_source_url": source_url,
+                "cover_delivery_url": source_url,
+                "cover_storage": "provider_external_url",
+                "cover_policy": "external_url_default",
+            }
+        return {
+            "cover_status": "missing",
+            "cover_source_url": None,
+            "cover_delivery_url": None,
+            "cover_storage": "generated_client_fallback",
+            "cover_policy": "generated_cover_fallback",
+        }
+
+    async def _enrich_missing_comic_cover(
+        self,
+        normalized: NormalizedItem,
+    ) -> NormalizedItem:
+        if normalized.cover_image_url or normalized.kind not in {
+            ItemKind.comic,
+            ItemKind.manga,
+        }:
+            return normalized
+        issue_number = normalized.item_number
+        series_title = normalized.series_title or normalized.title
+        if not issue_number or not series_title:
+            return normalized
+        try:
+            provider = self.providers.get("comicvine")
+        except KeyError:
+            return normalized
+        if not isinstance(provider, ComicVineProvider) or not provider.is_configured:
+            return normalized
+        try:
+            cover = await provider.find_issue_cover(
+                series_title=series_title,
+                issue_number=issue_number,
+                start_year=normalized.volume_start_year,
+            )
+        except Exception:
+            logger.warning(
+                "comicvine_cover_enrichment_failed series=%s issue=%s",
+                series_title,
+                issue_number,
+                exc_info=True,
+            )
+            return normalized
+        if cover is None:
+            return normalized
+        return replace(
+            normalized,
+            cover_image_url=cover.image_url,
+            provider_ids={
+                **normalized.provider_ids,
+                "comicvine": cover.provider_item_id,
+            },
+        )
+
     async def _execute_ingest_job(self, job: ProviderIngestJob) -> ProviderIngestJob:
         job_id = job.id
         provider = job.provider
@@ -730,12 +1238,23 @@ class AdminMetadataService:
                 refreshed.next_run_at = None
             await self.db.commit()
             await self.db.refresh(refreshed)
+            logger.warning(
+                "provider_ingest_job_failed job_id=%s provider=%s provider_item_id=%s "
+                "status=%s attempts=%s error=%s",
+                refreshed.id,
+                refreshed.provider.value,
+                refreshed.provider_item_id,
+                refreshed.status,
+                refreshed.attempts,
+                refreshed.last_error,
+            )
             return refreshed
 
         refreshed = await self.db.get(ProviderIngestJob, job_id)
         if refreshed is None:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
+                code="provider_ingest_job_not_found",
                 detail="Ingest job disappeared during execution",
             )
         refreshed.status = "done"
@@ -744,14 +1263,22 @@ class AdminMetadataService:
         refreshed.next_run_at = None
         await self.db.commit()
         await self.db.refresh(refreshed)
+        logger.info(
+            "provider_ingest_job_finished job_id=%s provider=%s provider_item_id=%s item_id=%s",
+            refreshed.id,
+            refreshed.provider.value,
+            refreshed.provider_item_id,
+            refreshed.item_id,
+        )
         return refreshed
 
     def _provider(self, provider: ExternalProvider) -> MetadataProvider:
         try:
             return self.providers.get(provider.value)
         except KeyError as exc:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_not_configured",
                 detail=f"Provider '{provider.value}' is not configured",
             ) from exc
 
@@ -762,10 +1289,18 @@ class AdminMetadataService:
     ) -> None:
         if provider.capabilities.supports_ingest:
             return
-        raise HTTPException(
+        raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            code="provider_ingest_unsupported",
             detail=f"Provider '{provider_name.value}' does not support catalog ingest yet",
         )
+
+    def _should_mirror_provider_images(self, provider: MetadataProvider) -> bool:
+        if not self.settings.mirror_provider_images:
+            return False
+        if self.settings.mirror_provider_images_allow_restricted:
+            return True
+        return provider.capabilities.allows_image_mirroring
 
     async def _get_provider_id(self, payload: ProviderIngestRequest) -> ExternalProviderId | None:
         return await self._get_provider_id_value(payload.provider, payload.provider_item_id)
@@ -784,8 +1319,10 @@ class AdminMetadataService:
     async def _existing_response(self, provider_id: ExternalProviderId) -> ProviderIngestResponse:
         item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
         if item is None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail="Provider link is stale"
+            raise ApiHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="provider_link_stale",
+                detail="Provider link is stale",
             )
         return ProviderIngestResponse(
             item_id=item.id,
@@ -836,25 +1373,32 @@ class AdminMetadataService:
         entity_type: str,
         entity_id: UUID,
     ) -> None:
-        provider_id = provider_ids.get(provider.value)
-        if not provider_id:
-            return
-        exists = await self.db.scalar(
-            select(ExternalProviderId.id).where(
-                ExternalProviderId.provider == provider,
-                ExternalProviderId.provider_item_id == provider_id,
+        candidate_ids = provider_ids or {}
+        if provider.value not in candidate_ids:
+            candidate_ids = {provider.value: "", **candidate_ids}
+        for provider_name, provider_id in candidate_ids.items():
+            if not provider_id:
+                continue
+            try:
+                provider_enum = ExternalProvider(provider_name)
+            except ValueError:
+                continue
+            exists = await self.db.scalar(
+                select(ExternalProviderId.id).where(
+                    ExternalProviderId.provider == provider_enum,
+                    ExternalProviderId.provider_item_id == provider_id,
+                )
             )
-        )
-        if exists:
-            return
-        self.db.add(
-            ExternalProviderId(
-                provider=provider,
-                provider_item_id=provider_id,
-                entity_type=entity_type,
-                entity_id=entity_id,
+            if exists:
+                continue
+            self.db.add(
+                ExternalProviderId(
+                    provider=provider_enum,
+                    provider_item_id=provider_id,
+                    entity_type=entity_type,
+                    entity_id=entity_id,
+                )
             )
-        )
 
     async def _link_publisher(self, item_id: UUID, publisher: str | None) -> None:
         if not publisher:
@@ -1020,15 +1564,17 @@ class AdminMetadataService:
 
     def _ensure_same_duplicate_group(self, items: list[Item]) -> None:
         if len(items) < 2:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="duplicate_action_requires_multiple_items",
                 detail="Duplicate action requires at least two items",
             )
         first = items[0]
         signature = (first.kind, first.title, first.item_number)
         if any((item.kind, item.title, item.item_number) != signature for item in items[1:]):
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="duplicate_group_mismatch",
                 detail="Duplicate action items must belong to the same candidate group",
             )
 
@@ -1249,6 +1795,48 @@ class AdminMetadataService:
             if variants:
                 return variants[0]
         return None
+
+    def _record_admin_audit(
+        self,
+        action: str,
+        entity_type: str,
+        entity_id: UUID | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        self.db.add(
+            AdminAuditLog(
+                action=action,
+                actor_user_id=self.actor_user_id,
+                actor_email=self.actor_email,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                details_json=self._audit_json_safe(details or {}),
+            )
+        )
+
+    def _ingest_job_audit_details(self, job: ProviderIngestJob) -> dict[str, Any]:
+        return {
+            "provider": job.provider,
+            "provider_item_id": job.provider_item_id,
+            "status": job.status,
+            "attempts": job.attempts,
+            "max_attempts": job.max_attempts,
+            "item_id": job.item_id,
+            "last_error": job.last_error,
+        }
+
+    def _audit_json_safe(self, value: Any) -> Any:
+        if isinstance(value, UUID):
+            return str(value)
+        if isinstance(value, datetime | date):
+            return value.isoformat()
+        if isinstance(value, PythonEnum):
+            return value.value
+        if isinstance(value, dict):
+            return {str(key): self._audit_json_safe(item) for key, item in value.items()}
+        if isinstance(value, list | tuple | set):
+            return [self._audit_json_safe(item) for item in value]
+        return value
 
     def _backoff_delay(self, attempts: int) -> timedelta:
         return timedelta(seconds=min(300, 5 * (2 ** max(0, attempts - 1))))

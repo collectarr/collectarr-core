@@ -20,7 +20,7 @@ async def test_provider_search_requires_login(client):
 async def test_provider_search_returns_comicvine_results(client, monkeypatch):
     token = await register_and_login(client)
 
-    async def fake_search(self, query):
+    async def fake_search(self, query, kind=None):
         assert query == "spider"
         return [ComicVineProvider()._search_result(comicvine_issue_raw())]
 
@@ -58,16 +58,16 @@ async def test_provider_search_returns_planned_provider_stub(client):
     token = await register_and_login(client)
 
     response = await client.get(
-        "/metadata/providers/anilist/search",
+        "/metadata/providers/tmdb/search",
         headers={"Authorization": f"Bearer {token}"},
-        params={"q": "naruto"},
+        params={"q": "the matrix"},
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body[0]["provider"] == "anilist"
-    assert body[0]["provider_item_id"] == "stub-manga-naruto"
-    assert body[0]["kind"] == "manga"
+    assert body[0]["provider"] == "tmdb"
+    assert body[0]["provider_item_id"] == "stub-movie-the-matrix"
+    assert body[0]["kind"] == "movie"
 
 
 @pytest.mark.asyncio

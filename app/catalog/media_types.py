@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_formats
 from app.models.base import ExternalProvider, ItemKind
 
 
@@ -12,6 +13,9 @@ class MediaTypeConfig:
     default_provider: ExternalProvider | None = None
     providers: tuple[ExternalProvider, ...] = ()
     item_number_sort_padding: int | None = None
+    is_top_level: bool = True
+    legacy_of: ItemKind | None = None
+    physical_formats: tuple[PhysicalFormatConfig, ...] = ()
 
     @property
     def primary_route_segment(self) -> str:
@@ -34,7 +38,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Manga",
         route_segments=("manga",),
         default_provider=ExternalProvider.anilist,
-        providers=(ExternalProvider.anilist,),
+        providers=(ExternalProvider.anilist, ExternalProvider.comicvine),
     ),
     MediaTypeConfig(
         kind=ItemKind.anime,
@@ -42,7 +46,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Anime",
         route_segments=("anime",),
         default_provider=ExternalProvider.anilist,
-        providers=(ExternalProvider.anilist,),
+        providers=(ExternalProvider.anilist, ExternalProvider.tmdb),
     ),
     MediaTypeConfig(
         kind=ItemKind.movie,
@@ -51,6 +55,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("movies", "movie"),
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
+        physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
         kind=ItemKind.tv,
@@ -59,6 +64,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("tv", "shows", "series"),
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
+        physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
         kind=ItemKind.game,
@@ -94,12 +100,21 @@ media_types: tuple[MediaTypeConfig, ...] = (
     ),
     MediaTypeConfig(
         kind=ItemKind.bluray,
-        singular_label="Blu-ray",
-        plural_label="Blu-rays",
+        singular_label="Legacy Blu-ray",
+        plural_label="Legacy Blu-rays",
         route_segments=("blu-ray", "blu-rays", "bluray"),
-        default_provider=ExternalProvider.tmdb,
-        providers=(ExternalProvider.tmdb,),
+        is_top_level=False,
+        legacy_of=ItemKind.movie,
+        physical_formats=tuple(
+            physical_format
+            for physical_format in video_physical_formats
+            if physical_format.id == "blu-ray"
+        ),
     ),
+)
+
+top_level_media_types: tuple[MediaTypeConfig, ...] = tuple(
+    config for config in media_types if config.is_top_level
 )
 
 _MEDIA_TYPES_BY_KIND = {config.kind: config for config in media_types}

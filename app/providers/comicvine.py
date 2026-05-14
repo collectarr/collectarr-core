@@ -7,9 +7,10 @@ from html import unescape
 from typing import Any, Mapping
 
 import httpx
-from fastapi import HTTPException, status
+from fastapi import status
 
 from app.core.config import get_settings
+from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
@@ -37,6 +38,7 @@ class ComicVineProvider:
     name = "comicvine"
     capabilities = ProviderCapabilities(
         kind=ItemKind.comic,
+        kinds=(ItemKind.comic, ItemKind.manga),
         display_name="Comic Vine",
         requires_user_key=True,
         non_commercial_only=True,
@@ -52,18 +54,23 @@ class ComicVineProvider:
     def __init__(self) -> None:
         self.settings = get_settings()
 
-    async def search(self, query: str) -> list[ProviderSearchResult]:
+    async def search(
+        self,
+        query: str,
+        kind: ItemKind | None = None,
+    ) -> list[ProviderSearchResult]:
         normalized_query = " ".join(query.split())
         if not normalized_query:
             return []
 
+        target_kind = self._target_kind(kind)
         if not self._is_configured:
             return [
                 ProviderSearchResult(
                     provider=self.name,
-                    provider_item_id=f"stub-comic-{self._slug(normalized_query)}",
+                    provider_item_id=f"stub-{target_kind.value}-{self._slug(normalized_query)}",
                     title=f"{normalized_query} (ComicVine stub)",
-                    kind=ItemKind.comic,
+                    kind=target_kind,
                     summary="Set COMICVINE_API_KEY to enable live ComicVine metadata.",
                 )
             ]
@@ -96,18 +103,25 @@ class ComicVineProvider:
         for result in results:
             if not isinstance(result, Mapping):
                 continue
-            search_result = self._search_result(result)
+            search_result = self._search_result(result, target_kind)
             if search_result.provider_item_id:
                 normalized_results.append(search_result)
         return normalized_results
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
+        target_kind, _ = self._kind_and_resource_id(provider_item_id)
         if not self._is_configured:
-            title = provider_item_id.removeprefix("stub-comic-").replace("-", " ").title()
+            stub_prefix = f"stub-{target_kind.value}-"
+            title = provider_item_id.removeprefix(stub_prefix).replace("-", " ").title()
             return ProviderItem(
                 provider=self.name,
                 provider_item_id=provider_item_id,
-                raw={"id": provider_item_id, "name": title, "issue_number": None},
+                raw={
+                    "id": provider_item_id,
+                    "name": title,
+                    "issue_number": None,
+                    "media_type": target_kind.value,
+                },
             )
 
         canonical_id = self._issue_resource_id(provider_item_id)
@@ -137,11 +151,19 @@ class ComicVineProvider:
         )
         raw = payload.get("results") or {}
         if not isinstance(raw, Mapping):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine item"
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="comicvine_invalid_item",
+                detail="Invalid ComicVine item",
             )
 
-        return ProviderItem(provider=self.name, provider_item_id=canonical_id, raw=raw)
+        raw = dict(raw)
+        raw["media_type"] = target_kind.value
+        return ProviderItem(
+            provider=self.name,
+            provider_item_id=self._provider_item_id(target_kind, canonical_id),
+            raw=raw,
+        )
 
     async def find_issue_cover(
         self,
@@ -199,21 +221,23 @@ class ComicVineProvider:
         return None
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
+        kind = self._kind_from_raw(data)
         provider_item_id = self._resource_id(data, "issue") or str(data.get("id") or "")
         if provider_item_id and provider_item_id.isdigit():
             provider_item_id = f"4000-{provider_item_id}"
+        provider_item_id = self._provider_item_id(kind, provider_item_id)
 
         volume = data.get("volume") if isinstance(data.get("volume"), Mapping) else {}
         volume_name = str(volume.get("name") or "").strip() or None
-        volume_id = self._resource_id(volume, "volume")
+        volume_id = self._provider_item_id(kind, self._resource_id(volume, "volume"))
 
         issue_name = str(data.get("name") or "").strip()
         issue_number = str(data.get("issue_number") or "").strip() or None
-        title = volume_name or issue_name or "Unknown comic"
+        title = volume_name or issue_name or f"Unknown {kind.value}"
         edition_title = issue_name or "Standard Edition"
 
         return NormalizedItem(
-            kind=ItemKind.comic,
+            kind=kind,
             title=title,
             item_number=issue_number,
             synopsis=self._clean_text(data.get("description") or data.get("deck")),
@@ -222,7 +246,7 @@ class ComicVineProvider:
             volume_start_year=self._year(data.get("cover_date") or data.get("store_date")),
             page_count=self._int_value(data.get("number_of_pages")),
             edition_title=edition_title,
-            edition_format="Single Issue",
+            edition_format="Single Issue" if kind == ItemKind.comic else "Manga Issue",
             publisher=self._publisher(volume),
             release_date=self._date(data.get("cover_date") or data.get("store_date")),
             cover_image_url=self._image_url(data.get("image")),
@@ -268,8 +292,9 @@ class ComicVineProvider:
                     ):
                         await self._backoff(exc.response, attempt)
                         continue
-                    raise HTTPException(
+                    raise ApiHTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
+                        code="comicvine_http_error",
                         detail=f"ComicVine returned HTTP {exc.response.status_code}",
                     ) from exc
                 except (httpx.HTTPError, ValueError) as exc:
@@ -277,24 +302,32 @@ class ComicVineProvider:
                     if attempt < attempts - 1:
                         await self._backoff(None, attempt)
                         continue
-                    raise HTTPException(
+                    raise ApiHTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
+                        code="comicvine_request_failed",
                         detail="ComicVine request failed",
                     ) from exc
             else:
                 logger.warning("ComicVine request exhausted retries for %s", path)
-                raise HTTPException(
+                raise ApiHTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
+                    code="comicvine_request_failed",
                     detail="ComicVine request failed",
                 ) from last_error
 
         if not isinstance(payload, dict):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid ComicVine response"
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="comicvine_invalid_response",
+                detail="Invalid ComicVine response",
             )
         if payload.get("status_code") not in {1, "1"}:
             error = payload.get("error") or "ComicVine API error"
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error))
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="comicvine_api_error",
+                detail=str(error),
+            )
         return payload
 
     @property
@@ -318,7 +351,12 @@ class ComicVineProvider:
         delay = self._retry_after_seconds(retry_after) or min(0.5 * (2**attempt), 3.0)
         await asyncio.sleep(delay)
 
-    def _search_result(self, result: Mapping[str, Any]) -> ProviderSearchResult:
+    def _search_result(
+        self,
+        result: Mapping[str, Any],
+        kind: ItemKind | None = None,
+    ) -> ProviderSearchResult:
+        target_kind = self._target_kind(kind)
         volume = result.get("volume") if isinstance(result.get("volume"), Mapping) else {}
         volume_name = str(volume.get("name") or "").strip()
         issue_name = str(result.get("name") or "").strip()
@@ -329,21 +367,50 @@ class ComicVineProvider:
             if part
         ]
         title = " ".join(title_parts) or issue_name or volume_name or "Unknown ComicVine issue"
+        resource_id = self._resource_id(result, "issue") or str(result.get("id") or "")
         return ProviderSearchResult(
             provider=self.name,
-            provider_item_id=self._resource_id(result, "issue") or str(result.get("id") or ""),
+            provider_item_id=self._provider_item_id(target_kind, resource_id),
             title=title,
-            kind=ItemKind.comic,
+            kind=target_kind,
             summary=self._clean_text(result.get("deck") or result.get("description")),
             image_url=self._image_url(result.get("image")),
         )
 
     def _issue_resource_id(self, provider_item_id: str) -> str:
-        if re.fullmatch(r"\d+-\d+", provider_item_id):
-            return provider_item_id
-        if provider_item_id.isdigit():
-            return f"4000-{provider_item_id}"
-        return provider_item_id
+        _, resource_id = self._kind_and_resource_id(provider_item_id)
+        if re.fullmatch(r"\d+-\d+", resource_id):
+            return resource_id
+        if resource_id.isdigit():
+            return f"4000-{resource_id}"
+        return resource_id
+
+    def _target_kind(self, kind: ItemKind | None) -> ItemKind:
+        return kind if kind in self.capabilities.supported_kinds else ItemKind.comic
+
+    def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
+        media_type = str(data.get("media_type") or data.get("kind") or "").strip().lower()
+        return ItemKind.manga if media_type == ItemKind.manga.value else ItemKind.comic
+
+    def _kind_and_resource_id(self, provider_item_id: str) -> tuple[ItemKind, str]:
+        text = str(provider_item_id or "").strip()
+        normalized = text.lower()
+        for kind in (ItemKind.manga, ItemKind.comic):
+            for separator in (":", "-"):
+                prefix = f"{kind.value}{separator}"
+                if normalized.startswith(prefix):
+                    return kind, text[len(prefix) :]
+        if normalized.startswith("stub-manga-"):
+            return ItemKind.manga, text
+        return ItemKind.comic, text
+
+    def _provider_item_id(self, kind: ItemKind, resource_id: str | None) -> str:
+        if not resource_id:
+            return ""
+        _, stripped = self._kind_and_resource_id(resource_id)
+        if stripped.startswith("stub-") or kind == ItemKind.comic:
+            return stripped
+        return f"{kind.value}:{stripped}"
 
     def _slug(self, value: str) -> str:
         slug = _SLUG_RE.sub("-", value.lower()).strip("-")

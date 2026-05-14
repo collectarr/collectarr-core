@@ -1,5 +1,6 @@
 from typing import Any
 
+from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.models.canonical import Item
 
 
@@ -22,6 +23,14 @@ def item_search_document(item: Item) -> dict[str, Any]:
 
     for edition in item.editions:
         publisher = publisher or edition.publisher
+        physical_format = _physical_format_label(
+            edition.metadata_json,
+            fallback_format=edition.format,
+            kind=item.kind,
+        )
+        if physical_format:
+            _append_unique(variant_names, physical_format)
+            variant = variant or physical_format
         if edition.release_date and release_year is None:
             release_date = edition.release_date.isoformat()
             release_year = edition.release_date.year
@@ -45,7 +54,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
                 _append_unique(barcodes, _normalized_barcode(variant_row.isbn))
                 barcode = barcode or _normalized_barcode(variant_row.isbn)
         if primary:
-            variant = primary.name
+            variant = physical_format or primary.name
             cover_url = cover_url or primary.cover_image_url
             thumbnail_url = thumbnail_url or primary.thumbnail_image_url
         for release in edition.releases:
@@ -79,6 +88,22 @@ def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     source = metadata.get("source")
     return source if isinstance(source, dict) else {}
+
+
+def _physical_format_label(
+    metadata: dict[str, Any] | None,
+    *,
+    fallback_format: str | None,
+    kind: Any,
+) -> str | None:
+    config = None
+    if isinstance(metadata, dict):
+        normalized = metadata.get("normalized")
+        if isinstance(normalized, dict) and normalized.get("physical_format"):
+            config = physical_format_for_id(str(normalized["physical_format"]))
+    if config is None and fallback_format and is_video_item_kind(kind):
+        config = physical_format_for_id(fallback_format)
+    return config.label if config else None
 
 
 def _credit_names(values: Any) -> list[str]:

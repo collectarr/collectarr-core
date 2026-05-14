@@ -41,15 +41,28 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     providers = {item["name"]: item for item in response.json()}
     assert providers["comicvine"]["kind"] == "comic"
     assert providers["comicvine"]["status"] == "stub"
+    assert providers["comicvine"]["supported_kinds"] == ["comic", "manga"]
     assert providers["comicvine"]["non_commercial_only"] is True
     assert providers["gcd"]["kind"] == "comic"
     assert providers["gcd"]["status"] == "live"
     assert providers["gcd"]["license_name"] == "CC BY-SA 4.0"
     assert providers["igdb"]["status"] == "stub"
-    assert providers["igdb"]["supports_ingest"] is False
+    assert providers["igdb"]["supports_ingest"] is True
+    assert providers["igdb"]["requires_user_key"] is True
+    assert providers["igdb"]["non_commercial_only"] is True
     assert providers["tmdb"]["status"] == "stub"
-    assert providers["tmdb"]["supports_ingest"] is False
+    assert providers["tmdb"]["supports_ingest"] is True
+    assert providers["tmdb"]["supported_kinds"] == ["movie", "tv", "anime"]
     assert providers["anilist"]["kind"] == "manga"
+    assert providers["anilist"]["status"] == "live"
+    assert providers["anilist"]["supports_ingest"] is True
+    assert providers["anilist"]["supported_kinds"] == ["manga", "anime"]
     assert providers["openlibrary"]["kind"] == "book"
     assert providers["bgg"]["kind"] == "boardgame"
+    assert providers["bgg"]["status"] == "stub"
+    assert providers["bgg"]["supports_ingest"] is True
+    assert providers["bgg"]["requires_user_key"] is True
+    assert providers["bgg"]["non_commercial_only"] is True
     assert providers["musicbrainz"]["kind"] == "music"
+    assert providers["musicbrainz"]["status"] == "live"
+    assert providers["musicbrainz"]["supports_ingest"] is True

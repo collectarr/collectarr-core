@@ -9,17 +9,26 @@ from app.models.base import ItemKind
 class ProviderCapabilities:
     kind: ItemKind
     display_name: str
+    kinds: tuple[ItemKind, ...] = ()
     supports_search: bool = True
     supports_ingest: bool = True
     requires_user_key: bool = False
     non_commercial_only: bool = False
     allows_redistribution: bool = False
+    allows_image_mirroring: bool = False
     requires_attribution: bool = False
     license_name: str | None = None
     terms_url: str | None = None
     attribution_url: str | None = None
     rate_limit: str | None = None
     cache_policy: str | None = None
+
+    @property
+    def supported_kinds(self) -> tuple[ItemKind, ...]:
+        return self.kinds or (self.kind,)
+
+    def supports_kind(self, kind: ItemKind) -> bool:
+        return kind in self.supported_kinds
 
 
 @dataclass(frozen=True)
@@ -57,9 +66,11 @@ class NormalizedItem:
     volume_name: str | None = None
     volume_number: int | None = None
     volume_start_year: int | None = None
+    runtime_minutes: int | None = None
     page_count: int | None = None
     edition_title: str | None = None
     edition_format: str | None = None
+    physical_format: str | None = None
     publisher: str | None = None
     release_date: date | None = None
     isbn: str | None = None
@@ -86,7 +97,11 @@ class MetadataProvider(Protocol):
     @property
     def status_message(self) -> str: ...
 
-    async def search(self, query: str) -> list[ProviderSearchResult]: ...
+    async def search(
+        self,
+        query: str,
+        kind: ItemKind | None = None,
+    ) -> list[ProviderSearchResult]: ...
 
     async def get_item(self, provider_item_id: str) -> ProviderItem: ...
 

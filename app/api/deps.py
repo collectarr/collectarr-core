@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import ApiHTTPException
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
@@ -18,21 +19,27 @@ async def get_current_user(
     db: DbSession,
 ) -> User:
     if credentials is None:
-        raise HTTPException(
+        raise ApiHTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
+            code="missing_bearer_token",
             detail="Missing bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     user_id = decode_access_token(credentials.credentials)
     if user_id is None:
-        raise HTTPException(
+        raise ApiHTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
+            code="invalid_bearer_token",
             detail="Invalid bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     user = await UserRepository(db).get_by_id(user_id)
     if user is None or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise ApiHTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="user_not_found",
+            detail="User not found",
+        )
     return user
 
 
@@ -41,7 +48,11 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 async def get_current_admin(user: CurrentUser) -> User:
     if not user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        raise ApiHTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="admin_required",
+            detail="Admin access required",
+        )
     return user
 
 

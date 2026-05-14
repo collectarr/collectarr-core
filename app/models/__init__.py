@@ -1,5 +1,6 @@
 from app.models.base import Base, ExternalProvider, ItemKind
 from app.models.canonical import (
+    AdminAuditLog,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -23,6 +24,7 @@ from app.models.user import User
 
 __all__ = [
     "Base",
+    "AdminAuditLog",
     "Edition",
     "EntityOrganization",
     "EntityPerson",

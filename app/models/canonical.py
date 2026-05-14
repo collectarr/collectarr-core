@@ -314,6 +314,23 @@ class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
     last_error: Mapped[str | None] = mapped_column(Text)
 
 
+class AdminAuditLog(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "admin_audit_logs"
+    __table_args__ = (
+        Index("ix_admin_audit_logs_action_created", "action", "created_at"),
+        Index("ix_admin_audit_logs_entity", "entity_type", "entity_id"),
+    )
+
+    action: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    actor_email: Mapped[str | None] = mapped_column(String(320), index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+
 class MetadataProposal(UuidMixin, TimestampMixin, Base):
     __tablename__ = "metadata_proposals"
     __table_args__ = (Index("ix_metadata_proposals_status_provider", "status", "provider"),)

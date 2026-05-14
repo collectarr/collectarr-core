@@ -5,9 +5,10 @@ from typing import Any, Mapping
 from urllib.parse import quote
 
 import httpx
-from fastapi import HTTPException, status
+from fastapi import status
 
 from app.core.config import get_settings
+from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
@@ -58,7 +59,11 @@ class GCDProvider:
     def status_message(self) -> str:
         return "GCD metadata is available without an API key."
 
-    async def search(self, query: str) -> list[ProviderSearchResult]:
+    async def search(
+        self,
+        query: str,
+        kind: ItemKind | None = None,
+    ) -> list[ProviderSearchResult]:
         parsed = self._parse_issue_query(query)
         if parsed is None:
             return []
@@ -83,13 +88,18 @@ class GCDProvider:
     async def get_item(self, provider_item_id: str) -> ProviderItem:
         issue_id = self._issue_id(provider_item_id)
         if issue_id is None:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="gcd_invalid_issue_id",
                 detail="Invalid GCD issue id",
             )
         payload = await self._request(f"issue/{issue_id}/")
         if not isinstance(payload, Mapping):
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Invalid GCD item")
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_invalid_item",
+                detail="Invalid GCD item",
+            )
         return ProviderItem(provider=self.name, provider_item_id=issue_id, raw=payload)
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
@@ -116,7 +126,7 @@ class GCDProvider:
             page_count=self._int_decimal(data.get("page_count")),
             edition_title=issue_title or "Standard Edition",
             edition_format="Single Issue",
-            publisher=self._optional_text(data.get("indicia_publisher")),
+            publisher=self._publisher(data),
             release_date=release_date,
             isbn=self._optional_text(data.get("isbn")),
             barcode=self._optional_text(data.get("barcode")),
@@ -144,18 +154,21 @@ class GCDProvider:
                 response.raise_for_status()
                 payload = response.json()
         except httpx.HTTPStatusError as exc:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_http_error",
                 detail=f"GCD returned HTTP {exc.response.status_code}",
             ) from exc
         except (httpx.HTTPError, ValueError) as exc:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_request_failed",
                 detail="GCD request failed",
             ) from exc
         if not isinstance(payload, dict):
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_invalid_response",
                 detail="Invalid GCD response",
             )
         return payload
@@ -177,6 +190,7 @@ class GCDProvider:
             title=title,
             kind=ItemKind.comic,
             summary=" · ".join(part for part in summary_parts if part),
+            image_url=self._optional_text(result.get("cover")),
         )
 
     def _series_rank(self, result: Mapping[str, Any], query: str) -> tuple[int, str]:
@@ -264,6 +278,13 @@ class GCDProvider:
                 if synopsis:
                     return synopsis
         return self._optional_text(data.get("notes"))
+
+    def _publisher(self, data: Mapping[str, Any]) -> str | None:
+        return (
+            self._optional_text(data.get("indicia_publisher"))
+            or self._optional_text(data.get("publisher"))
+            or self._optional_text(data.get("publisher_name"))
+        )
 
     def _credits(self, story_set: Any, *, issue_editing: Any = None) -> list[NormalizedCredit]:
         credits: list[NormalizedCredit] = []

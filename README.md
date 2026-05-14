@@ -44,12 +44,32 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 
 - Provider abstraction for search, item fetch, and normalization
 - GCD provider supports issue search/fetch without an API key for CC BY-SA bibliographic comics metadata
-- ComicVine provider supports live issue search/fetch when `COMICVINE_API_KEY` is set
+- ComicVine provider supports live comics and manga issue search/fetch when `COMICVINE_API_KEY` is set
+- AniList provider supports live public anime and manga search/fetch without OAuth
+- OpenLibrary provider supports live book search/fetch without an API key
+- BoardGameGeek provider supports live board game search/fetch when `BGG_API_TOKEN` is set
+- MusicBrainz provider supports live music release search/fetch without an API key
+- IGDB provider supports live game search/fetch when Twitch/IGDB credentials are set
+- TMDb provider supports live movie, TV, and anime search/fetch when
+  `TMDB_API_READ_ACCESS_TOKEN` or `TMDB_API_KEY` is set
 - Provider status reports compliance metadata such as attribution, redistribution, user-key, and non-commercial flags
-- Admin ingest upserts provider issues into canonical series, volume, item, edition, variant, and release records
-- IGDB, TMDb, AniList, OpenLibrary, BGG, and MusicBrainz providers are
-  scaffolded as search-only planned providers until live normalization is built
-- Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true` only when you want to copy public provider covers into MinIO/S3 as one normalized WebP cover per source image, tracked in a bounded LRU cache
+- Admin ingest upserts provider records into canonical series, volume, item,
+  edition, variant, and release records
+- DVD, Blu-ray, 4K UHD, VHS, LaserDisc, and digital video are modeled as
+  physical/digital formats on movie and TV editions/variants, not as top-level
+  media types
+- Flutter loads `/metadata/media-types` at runtime for media labels, route
+  aliases, provider defaults, provider ordering, and physical format options;
+  a local fallback keeps the app usable when Core is offline
+- Admin catalog corrections can set a normalized video `physical_format`
+  (`dvd`, `blu-ray`, `4k-uhd`, `vhs`, `laserdisc`, or `digital`) without a
+  schema migration; the value is stored in edition/variant metadata and exposed
+  in metadata responses
+- Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true`
+  only when you want Core to copy provider covers into MinIO/S3 as one
+  normalized WebP cover per source image, tracked in a bounded LRU cache. Core
+  only mirrors providers explicitly marked image-mirroring safe unless
+  `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is also set.
 - If GCD cover URLs are blocked by a browser or network, run `python -m app.scripts.enrich_comicvine_covers --replace-gcd-covers` with `COMICVINE_API_KEY` set to replace those cover references with ComicVine image URLs
 
 ---
@@ -62,7 +82,7 @@ The backend is a FastAPI modular monolith:
 - `services`: business logic and metadata ingest rules
 - `repositories`: SQLAlchemy database access
 - `providers`: external metadata adapters
-- `worker`: background indexing and image jobs
+- `worker`: background indexing, provider-ingest queue, and image jobs
 - `search`: Meilisearch integration
 - `storage`: MinIO/S3 object storage
 
@@ -74,7 +94,7 @@ The Flutter app keeps client models separate from backend database models:
 - `features/collection`: local-only ownership and wishlist state
 - `features/library`: reusable media type configs, workspace adapters, and
   local collection behavior
-- `features/games` and `features/bluray`: expansion placeholders
+- `features/games`: expansion placeholder
 - `state`: Riverpod providers
 - `ui`: shared UI components
 
@@ -85,15 +105,15 @@ The Flutter app keeps client models separate from backend database models:
 | Type | MVP Status | Provider |
 |------|------------|----------|
 | Comics | Active MVP | GCD + ComicVine |
-| Manga | Scaffolded | AniList |
-| Books | Scaffolded | OpenLibrary |
-| Games | Scaffolded | IGDB |
-| Movies | Scaffolded | TMDb |
-| Blu-rays | Scaffolded | TMDb |
-| Anime | Schema-ready | AniList |
-| TV | Schema-ready | TMDb |
-| Board games | Schema-ready | BGG |
-| Music | Schema-ready | MusicBrainz |
+| Manga | Provider-ready | AniList + ComicVine |
+| Books | Provider-ready | OpenLibrary |
+| Games | Provider-ready | IGDB |
+| Movies | Provider-ready | TMDb |
+| Physical video | Edition/variant format | DVD, Blu-ray, 4K UHD, VHS, LaserDisc, digital |
+| Anime | Provider-ready | AniList + TMDb |
+| TV | Provider-ready | TMDb |
+| Board games | Provider-ready | BGG |
+| Music | Provider-ready | MusicBrainz |
 
 ---
 
@@ -188,12 +208,42 @@ MIRROR_PROVIDER_IMAGES=false
 WORKER_INDEX_INTERVAL_SECONDS=3600
 ```
 
-When `MIRROR_PROVIDER_IMAGES=true`, provider covers are normalized to one WebP asset and tracked by `image_cache_entries`. The default cache budget is 100 GB (`IMAGE_CACHE_MAX_BYTES`), with cleanup evicting least-recently-used cached objects down to 85 GB (`IMAGE_CACHE_EVICT_TARGET_BYTES`).
+When `MIRROR_PROVIDER_IMAGES=true`, provider covers are normalized to one WebP
+asset and tracked by `image_cache_entries`. Restricted providers such as
+ComicVine, AniList, TMDb, BGG, IGDB, and GCD stay as external URLs by default;
+set `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` only for a self-hosted
+instance where you accept the provider-specific image terms. The default cache
+budget is 100 GB (`IMAGE_CACHE_MAX_BYTES`), with cleanup evicting
+least-recently-used cached objects down to 85 GB
+(`IMAGE_CACHE_EVICT_TARGET_BYTES`). See [docs/image-pipeline.md](docs/image-pipeline.md)
+for the delivery modes and cover smoke checklist.
+
+The worker also drains DB-backed provider ingest jobs. Tune the polling cadence
+and batch size with `WORKER_PROVIDER_INGEST_INTERVAL_SECONDS` and
+`WORKER_PROVIDER_INGEST_BATCH_SIZE`; jobs left in `running` longer than
+`WORKER_PROVIDER_INGEST_STALE_AFTER_SECONDS` are requeued automatically. Admin
+operators can inspect queue health, filter by status/provider/error text, retry
+failed jobs, and run due queued jobs manually.
+
+Core API errors include a stable `code` field next to `detail`. Auth endpoints
+and admin provider-triggering endpoints also have in-process rate limits:
+
+```env
+AUTH_RATE_LIMIT_REQUESTS=20
+AUTH_RATE_LIMIT_WINDOW_SECONDS=60
+ADMIN_PROVIDER_RATE_LIMIT_REQUESTS=60
+ADMIN_PROVIDER_RATE_LIMIT_WINDOW_SECONDS=60
+```
 
 Admin metadata endpoints:
 
+- `GET /metadata/media-types` - shared media type catalog, provider defaults, and physical format metadata
 - `POST /admin/providers/search` - provider search, admin auth required
 - `POST /admin/providers/ingest` - fetch, normalize, and upsert provider metadata, admin auth required
+- `GET /admin/providers/ingest/jobs` - list DB-backed provider ingest jobs, optionally filtered by `status`, `provider`, and `q`
+- `GET /admin/providers/ingest/jobs/summary` - inspect queued/running/failed/done counts, due jobs, stale running jobs, and recent failures
+- `POST /admin/providers/ingest/jobs/run-pending` - run queued provider ingest jobs, admin auth required
+- `GET /admin/audit/logs` - inspect persistent admin audit events for metadata corrections, duplicate actions, proposal decisions, and ingest queue actions
 
 ---
 
@@ -205,6 +255,8 @@ Multi-device sync lives in a separate self-hosted service:
 
 - `collectarr-sync`: user-hosted personal database bridge
 - app clients can point mobile, desktop, and web builds at that service
+- Settings can keep the service version or queue a local retry when sync
+  rejects a stale local change
 - the central metadata server remains stateless with respect to personal libraries
 
 See [docs/sync.md](docs/sync.md) for the boundary and service shape.
@@ -230,6 +282,7 @@ Collectarr uses **semantic-release** with Conventional Commits. Releases are man
 - Breaking changes: use `!` or a `BREAKING CHANGE:` footer
 - Release notes are grouped in the pylrcget style: Features, Fixes, Refactors, CI & Build, Docs, Tests, Breaking Changes, and Other Changes
 - Initial release assets include source, Docker/OpenAPI metadata, and Flutter web artifacts
+- Pre-merge and post-release validation live in [docs/release-checklist.md](docs/release-checklist.md)
 
 ---
 

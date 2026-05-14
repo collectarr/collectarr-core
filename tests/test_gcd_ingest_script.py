@@ -58,7 +58,7 @@ def test_issue_queries_build_single_and_range():
 
 @pytest.mark.asyncio
 async def test_ingest_gcd_dry_run_searches_without_writing(monkeypatch, capsys):
-    async def fake_search(self, query):
+    async def fake_search(self, query, kind=None):
         assert query == "Batman #12"
         return [
             ProviderSearchResult(

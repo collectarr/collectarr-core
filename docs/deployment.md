@@ -25,6 +25,45 @@ Back up:
 - MinIO bucket data
 - `.env` secrets outside the repository.
 
+## Backup And Restore
+
+Keep backups for Core, image storage, and personal sync separately. The central
+Core backup is not a substitute for `collectarr-sync` because Core intentionally
+does not store private shelves.
+
+PostgreSQL logical backup:
+
+```powershell
+docker compose exec postgres pg_dump -U collectarr collectarr > collectarr-core.sql
+```
+
+PostgreSQL restore into a stopped or fresh stack:
+
+```powershell
+Get-Content .\collectarr-core.sql | docker compose exec -T postgres psql -U collectarr collectarr
+docker compose exec api alembic upgrade head
+```
+
+MinIO backup for the default local bucket:
+
+```powershell
+docker compose cp minio:/data/collectarr-images ./collectarr-images-backup
+```
+
+MinIO restore:
+
+```powershell
+docker compose cp ./collectarr-images-backup/. minio:/data/collectarr-images
+```
+
+Personal sync backup and restore recipes live in [sync.md](sync.md). Back up
+the sync SQLite file, any `-wal`/`-shm` sidecars, and the `SYNC_API_KEY` used by
+the user's devices.
+
+Before upgrades, take backups, run migrations explicitly, then check `/health`.
+If a restore causes stale-client conflicts, Flutter Settings can keep the
+service version or queue the local version for the next sync.
+
 ## Corporate Networks Without Docker Hub
 
 The Compose stack references public base/service images for PostgreSQL, Redis,
@@ -96,6 +135,7 @@ The default Compose stack is tuned for local development:
 - API and sync access logs are disabled to avoid writing one Docker log line for every health/status request.
 - Docker JSON logs are rotated at `10m` with three retained files per service.
 - The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when catalog tables changed.
+- The same worker drains DB-backed provider ingest jobs every `WORKER_PROVIDER_INGEST_INTERVAL_SECONDS` seconds, processing up to `WORKER_PROVIDER_INGEST_BATCH_SIZE` jobs at a time and requeueing stale `running` jobs after `WORKER_PROVIDER_INGEST_STALE_AFTER_SECONDS`. Admin queue endpoints expose health counts and filters for status/provider/error text so failures remain inspectable after restarts.
 - Public provider image URLs are stored as URLs by default, without copying covers into MinIO.
 - Object storage bucket setup is cached per process, so repeated image uploads do not rewrite MinIO bucket policy each time.
 
@@ -106,9 +146,24 @@ For a lower-write development stack, keep this in `.env`:
 ```env
 MIRROR_PROVIDER_IMAGES=false
 WORKER_INDEX_INTERVAL_SECONDS=3600
+WORKER_PROVIDER_INGEST_INTERVAL_SECONDS=60
 ```
 
-With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views. Mirrored covers are tracked in `image_cache_entries` and cleaned as a least-recently-used cache. Defaults keep up to 100 GB and evict down to 85 GB; tune `IMAGE_CACHE_MAX_BYTES`, `IMAGE_CACHE_EVICT_TARGET_BYTES`, and `IMAGE_CACHE_CLEANUP_BATCH_SIZE` for your storage.
+With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Core only mirrors providers marked image-mirroring safe unless `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is also set; use that override only when your deployment accepts the provider-specific image terms. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views. Mirrored covers are tracked in `image_cache_entries` and cleaned as a least-recently-used cache. Defaults keep up to 100 GB and evict down to 85 GB; tune `IMAGE_CACHE_MAX_BYTES`, `IMAGE_CACHE_EVICT_TARGET_BYTES`, and `IMAGE_CACHE_CLEANUP_BATCH_SIZE` for your storage.
+
+Auth endpoints and admin provider-triggering endpoints use a lightweight
+in-process rate limiter by default. Tune the request/window pairs if you expose
+Core beyond a trusted LAN:
+
+```env
+AUTH_RATE_LIMIT_REQUESTS=20
+AUTH_RATE_LIMIT_WINDOW_SECONDS=60
+ADMIN_PROVIDER_RATE_LIMIT_REQUESTS=60
+ADMIN_PROVIDER_RATE_LIMIT_WINDOW_SECONDS=60
+```
+
+For multi-replica deployments, put equivalent limits at the reverse proxy or
+replace the in-process limiter with a shared Redis-backed implementation.
 
 ## Readiness
 

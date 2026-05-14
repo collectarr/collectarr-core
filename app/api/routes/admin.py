@@ -1,9 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentAdmin, DbSession
+from app.core.rate_limit import admin_provider_rate_limit
 from app.schemas.admin import (
+    AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -18,6 +20,7 @@ from app.schemas.admin import (
     ProviderIngestJobCreateRequest,
     ProviderIngestJobResponse,
     ProviderIngestJobRunResponse,
+    ProviderIngestJobSummaryResponse,
     ProviderIngestRequest,
     ProviderIngestRetryRequest,
     ProviderIngestResponse,
@@ -61,7 +64,7 @@ async def catalog_item_update(
     db: DbSession,
     user: CurrentAdmin,
 ) -> ItemResponse:
-    return await AdminMetadataService(db).update_catalog_item(item_id, payload, kind)
+    return await AdminMetadataService(db, user).update_catalog_item(item_id, payload, kind)
 
 
 @router.get("/search/status", response_model=AdminSearchStatusResponse)
@@ -79,6 +82,17 @@ async def search_history(db: DbSession, user: CurrentAdmin) -> list[AdminSearchH
     return AdminMetadataService(db).search_history()
 
 
+@router.get("/audit/logs", response_model=list[AdminAuditLogResponse])
+async def audit_logs(
+    db: DbSession,
+    user: CurrentAdmin,
+    action: str | None = Query(default=None, min_length=1, max_length=100),
+    entity_type: str | None = Query(default=None, min_length=1, max_length=64),
+    limit: int = Query(default=25, ge=1, le=100),
+) -> list[AdminAuditLogResponse]:
+    return await AdminMetadataService(db, user).audit_logs(action, entity_type, limit)
+
+
 @router.get("/duplicates", response_model=list[AdminDuplicateCandidateResponse])
 async def duplicate_candidates(
     db: DbSession,
@@ -94,7 +108,7 @@ async def ignore_duplicate_candidate(
     db: DbSession,
     user: CurrentAdmin,
 ) -> AdminDuplicateActionResponse:
-    return await AdminMetadataService(db).ignore_duplicate_candidate(payload)
+    return await AdminMetadataService(db, user).ignore_duplicate_candidate(payload)
 
 
 @router.post("/duplicates/merge", response_model=AdminDuplicateActionResponse)
@@ -103,15 +117,20 @@ async def merge_duplicate_candidate(
     db: DbSession,
     user: CurrentAdmin,
 ) -> AdminDuplicateActionResponse:
-    return await AdminMetadataService(db).merge_duplicate_candidate(payload)
+    return await AdminMetadataService(db, user).merge_duplicate_candidate(payload)
 
 
-@router.post("/providers/search")
+@router.post("/providers/search", dependencies=[Depends(admin_provider_rate_limit)])
 async def provider_search(payload: ProviderSearchRequest, db: DbSession, user: CurrentAdmin):
     return await AdminMetadataService(db).provider_search(payload)
 
 
-@router.post("/providers/ingest", response_model=ProviderIngestResponse, status_code=201)
+@router.post(
+    "/providers/ingest",
+    response_model=ProviderIngestResponse,
+    status_code=201,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
 async def provider_ingest(
     payload: ProviderIngestRequest, db: DbSession, user: CurrentAdmin
 ) -> ProviderIngestResponse:
@@ -123,45 +142,75 @@ async def provider_ingest_jobs(
     db: DbSession,
     user: CurrentAdmin,
     status: str | None = Query(default=None, pattern="^(queued|running|done|failed)$"),
+    provider: ExternalProvider | None = Query(default=None),
+    q: str | None = Query(default=None, min_length=1, max_length=255),
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[ProviderIngestJobResponse]:
-    return await AdminMetadataService(db).ingest_jobs(status, limit)
+    return await AdminMetadataService(db).ingest_jobs(status, limit, provider, q)
 
 
-@router.post("/providers/ingest/jobs", response_model=ProviderIngestJobResponse, status_code=201)
+@router.get(
+    "/providers/ingest/jobs/summary",
+    response_model=ProviderIngestJobSummaryResponse,
+)
+async def provider_ingest_jobs_summary(
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ProviderIngestJobSummaryResponse:
+    return await AdminMetadataService(db).ingest_job_summary()
+
+
+@router.post(
+    "/providers/ingest/jobs",
+    response_model=ProviderIngestJobResponse,
+    status_code=201,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
 async def provider_ingest_job_create(
     payload: ProviderIngestJobCreateRequest,
     db: DbSession,
     user: CurrentAdmin,
 ) -> ProviderIngestJobResponse:
-    return await AdminMetadataService(db).create_ingest_job(payload)
+    return await AdminMetadataService(db, user).create_ingest_job(payload)
 
 
-@router.post("/providers/ingest/jobs/run-pending", response_model=ProviderIngestJobRunResponse)
+@router.post(
+    "/providers/ingest/jobs/run-pending",
+    response_model=ProviderIngestJobRunResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
 async def provider_ingest_jobs_run_pending(
     db: DbSession,
     user: CurrentAdmin,
     limit: int = Query(default=5, ge=1, le=25),
 ) -> ProviderIngestJobRunResponse:
-    return await AdminMetadataService(db).run_pending_ingest_jobs(limit)
+    return await AdminMetadataService(db, user).run_pending_ingest_jobs(limit)
 
 
-@router.post("/providers/ingest/jobs/{job_id}/run", response_model=ProviderIngestJobResponse)
+@router.post(
+    "/providers/ingest/jobs/{job_id}/run",
+    response_model=ProviderIngestJobResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
 async def provider_ingest_job_run(
     job_id: UUID,
     db: DbSession,
     user: CurrentAdmin,
 ) -> ProviderIngestJobResponse:
-    return await AdminMetadataService(db).run_ingest_job(job_id)
+    return await AdminMetadataService(db, user).run_ingest_job(job_id)
 
 
-@router.post("/providers/ingest/jobs/{job_id}/retry", response_model=ProviderIngestJobResponse)
+@router.post(
+    "/providers/ingest/jobs/{job_id}/retry",
+    response_model=ProviderIngestJobResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
 async def provider_ingest_job_retry(
     job_id: UUID,
     db: DbSession,
     user: CurrentAdmin,
 ) -> ProviderIngestJobResponse:
-    return await AdminMetadataService(db).retry_ingest_job(job_id)
+    return await AdminMetadataService(db, user).retry_ingest_job(job_id)
 
 
 @router.get("/providers/ingest/history", response_model=list[ProviderIngestHistoryEntry])
@@ -172,13 +221,17 @@ async def provider_ingest_history(
     return AdminMetadataService(db).ingest_history()
 
 
-@router.post("/providers/ingest/retry", response_model=ProviderIngestResponse)
+@router.post(
+    "/providers/ingest/retry",
+    response_model=ProviderIngestResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
 async def provider_ingest_retry(
     payload: ProviderIngestRetryRequest,
     db: DbSession,
     user: CurrentAdmin,
 ) -> ProviderIngestResponse:
-    return await AdminMetadataService(db).retry_ingest(payload)
+    return await AdminMetadataService(db, user).retry_ingest(payload)
 
 
 @router.get("/metadata/proposals", response_model=list[MetadataProposalAdminResponse])
@@ -202,18 +255,20 @@ async def metadata_proposals_summary(
 @router.post(
     "/metadata/proposals/{proposal_id}/approve",
     response_model=ProviderIngestResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
 )
 async def approve_metadata_proposal(
     proposal_id: UUID,
     db: DbSession,
     user: CurrentAdmin,
 ) -> ProviderIngestResponse:
-    return await AdminMetadataService(db).approve_proposal(proposal_id)
+    return await AdminMetadataService(db, user).approve_proposal(proposal_id)
 
 
 @router.post(
     "/metadata/proposals/{proposal_id}/approve-provider",
     response_model=ProviderIngestResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
 )
 async def approve_metadata_proposal_with_provider_item(
     proposal_id: UUID,
@@ -221,7 +276,7 @@ async def approve_metadata_proposal_with_provider_item(
     db: DbSession,
     user: CurrentAdmin,
 ) -> ProviderIngestResponse:
-    return await AdminMetadataService(db).approve_proposal_with_provider_item(
+    return await AdminMetadataService(db, user).approve_proposal_with_provider_item(
         proposal_id,
         payload,
     )
@@ -236,4 +291,4 @@ async def reject_metadata_proposal(
     db: DbSession,
     user: CurrentAdmin,
 ) -> MetadataProposalAdminResponse:
-    return await AdminMetadataService(db).reject_proposal(proposal_id)
+    return await AdminMetadataService(db, user).reject_proposal(proposal_id)

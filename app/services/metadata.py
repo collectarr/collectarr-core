@@ -1,8 +1,10 @@
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
+from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import MetadataProposal
 from app.providers.registry import ProviderRegistry
@@ -28,7 +30,11 @@ class MetadataService:
     async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse:
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Item not found",
+            )
         return item_response_from_model(item)
 
     async def search(
@@ -89,7 +95,11 @@ class MetadataService:
     async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:
         item = await self.metadata.find_item_by_barcode(barcode, kind)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Barcode not found")
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="barcode_not_found",
+                detail="Barcode not found",
+            )
 
         cover_url = None
         thumbnail_url = None
@@ -109,21 +119,24 @@ class MetadataService:
     ) -> list[ProviderSearchResultResponse]:
         provider = self.providers.maybe_get(provider_name)
         if provider is None:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_not_configured",
                 detail=f"Provider '{provider_name.value}' is not configured",
             )
         if not provider.capabilities.supports_search:
-            raise HTTPException(
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_search_unsupported",
                 detail=f"Provider '{provider_name.value}' does not support search",
             )
-        if kind is not None and provider.capabilities.kind != kind:
-            raise HTTPException(
+        if kind is not None and not provider.capabilities.supports_kind(kind):
+            raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_kind_unsupported",
                 detail=(f"Provider '{provider_name.value}' does not support kind '{kind.value}'"),
             )
-        results = await provider.search(query)
+        results = await provider.search(query, kind)
         return [ProviderSearchResultResponse(**result.__dict__) for result in results]
 
     async def create_proposal(self, payload: MetadataProposalCreate) -> MetadataProposalResponse:
@@ -151,6 +164,12 @@ class MetadataService:
         for edition in item.editions:
             publisher = publisher or edition.publisher
             barcode = barcode or edition.upc or edition.isbn
+            physical_format = self._physical_format_label(
+                edition.metadata_json,
+                fallback_format=edition.format,
+                kind=item.kind,
+            )
+            variant_name = variant_name or physical_format
             if edition.release_date is not None and release_date is None:
                 release_date = edition.release_date
                 release_year = edition.release_date.year
@@ -179,3 +198,19 @@ class MetadataService:
             barcode=barcode,
             variant=variant_name,
         )
+
+    def _physical_format_label(
+        self,
+        metadata: dict | None,
+        *,
+        fallback_format: str | None,
+        kind: ItemKind,
+    ) -> str | None:
+        config = None
+        if isinstance(metadata, dict):
+            normalized = metadata.get("normalized")
+            if isinstance(normalized, dict) and normalized.get("physical_format"):
+                config = physical_format_for_id(str(normalized["physical_format"]))
+        if config is None and fallback_format and is_video_item_kind(kind):
+            config = physical_format_for_id(fallback_format)
+        return config.label if config else None

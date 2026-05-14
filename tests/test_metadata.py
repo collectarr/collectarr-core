@@ -10,6 +10,31 @@ from tests.helpers import seed_comic
 
 
 @pytest.mark.asyncio
+async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
+    response = await client.get("/metadata/media-types")
+
+    assert response.status_code == 200
+    rows = {item["kind"]: item for item in response.json()}
+    assert rows["comic"]["default_provider"] == "gcd"
+    assert rows["comic"]["providers"] == ["gcd", "comicvine"]
+    assert rows["manga"]["default_provider"] == "anilist"
+    assert rows["manga"]["providers"] == ["anilist", "comicvine"]
+    assert rows["anime"]["default_provider"] == "anilist"
+    assert rows["anime"]["providers"] == ["anilist", "tmdb"]
+    assert rows["movie"]["providers"] == ["tmdb"]
+    assert [format["id"] for format in rows["movie"]["physical_formats"]] == [
+        "dvd",
+        "blu-ray",
+        "4k-uhd",
+        "vhs",
+        "laserdisc",
+        "digital",
+    ]
+    assert rows["bluray"]["is_top_level"] is False
+    assert rows["bluray"]["legacy_of"] == "movie"
+
+
+@pytest.mark.asyncio
 async def test_search_falls_back_to_postgres(client, monkeypatch):
     async def unavailable_search(self, query, kind=None, **kwargs):
         return None
@@ -30,7 +55,11 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
     assert detail.status_code == 200
     assert detail.json()["title"] == "The Amazing Spider-Man"
 
-    generic_detail = await client.get(f"/metadata/comics/{item_id}")
+    singular_alias_detail = await client.get(f"/comic/{item_id}")
+    assert singular_alias_detail.status_code == 200
+    assert singular_alias_detail.json()["title"] == "The Amazing Spider-Man"
+
+    generic_detail = await client.get(f"/metadata/comic/{item_id}")
     assert generic_detail.status_code == 200
     assert generic_detail.json()["title"] == "The Amazing Spider-Man"
 

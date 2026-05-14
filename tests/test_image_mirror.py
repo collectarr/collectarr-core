@@ -22,38 +22,63 @@ def test_image_mirror_builds_stable_cover_key():
         provider="comicvine",
         provider_item_id="4000-12345",
         source_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
-        content_type="image/jpeg",
     )
 
     assert key.startswith("covers/comicvine/4000-12345/")
-    assert key.endswith(".jpg")
+    assert key.endswith(".webp")
 
 
-def test_image_mirror_builds_stable_thumbnail_key():
+def test_image_mirror_creates_bounded_webp_cover():
     mirror = ImageMirror(storage=None)
+    source = BytesIO()
+    Image.new("RGB", (900, 1400), color=(20, 80, 140)).save(source, format="PNG")
 
-    key = mirror._thumbnail_key(
-        provider="comicvine",
-        provider_item_id="4000-12345",
-        source_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
-    )
+    cover = mirror._normalized_cover_bytes(source.getvalue())
 
-    assert key.startswith("thumbnails/comicvine/4000-12345/")
-    assert key.endswith(".jpg")
+    with Image.open(BytesIO(cover)) as image:
+        assert image.format == "WEBP"
+        assert max(image.size) <= mirror.settings.provider_image_max_long_edge
 
 
-def test_image_mirror_creates_bounded_jpeg_thumbnail():
+def test_image_mirror_does_not_upscale_small_covers():
+    mirror = ImageMirror(storage=None)
+    source = BytesIO()
+    Image.new("RGB", (200, 300), color=(20, 80, 140)).save(source, format="PNG")
+
+    cover = mirror._normalized_cover_bytes(source.getvalue())
+
+    with Image.open(BytesIO(cover)) as image:
+        assert image.size == (200, 300)
+
+
+@pytest.mark.asyncio
+async def test_image_mirror_stores_single_normalized_webp_cover(monkeypatch):
     storage = FakeStorage()
     mirror = ImageMirror(storage=storage)
     source = BytesIO()
     Image.new("RGB", (900, 1400), color=(20, 80, 140)).save(source, format="PNG")
 
-    thumbnail = mirror._thumbnail_bytes(source.getvalue())
+    async def fake_download_image(source_url: str) -> bytes:
+        assert source_url == "https://example.test/cover.png"
+        return source.getvalue()
 
-    with Image.open(BytesIO(thumbnail)) as image:
-        assert image.format == "JPEG"
-        assert image.width <= mirror.settings.thumbnail_max_width
-        assert image.height <= mirror.settings.thumbnail_max_width * 2
+    monkeypatch.setattr(mirror, "_download_image", fake_download_image)
+
+    result = await mirror.mirror_cover_best_effort(
+        "https://example.test/cover.png",
+        "comicvine",
+        "4000-12345",
+    )
+
+    assert result is not None
+    assert result.content_type == "image/webp"
+    assert result.thumbnail_key is None
+    assert result.thumbnail_url is None
+    assert len(storage.objects) == 1
+    stored_body, stored_content_type = next(iter(storage.objects.values()))
+    assert stored_content_type == "image/webp"
+    with Image.open(BytesIO(stored_body)) as image:
+        assert image.format == "WEBP"
 
 
 def test_image_mirror_rejects_non_image_bytes():

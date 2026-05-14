@@ -110,8 +110,7 @@ def gcd_issue_raw() -> dict:
                 "letters": "Richard Starkings",
                 "editing": "None",
                 "characters": (
-                    "Batman [Bruce Wayne]; Dick Grayson; Alfred Pennyworth; "
-                    "Two-Face [Harvey Dent]"
+                    "Batman [Bruce Wayne]; Dick Grayson; Alfred Pennyworth; Two-Face [Harvey Dent]"
                 ),
                 "synopsis": "Two-Face seeks revenge.",
             },
@@ -187,12 +186,8 @@ async def test_gcd_provider_normalizes_issue_payload():
     assert ("Mark Chiarello", "editing") in [
         (credit.name, credit.role) for credit in normalized.creators
     ]
-    assert ("Jeph Loeb", "script") in [
-        (credit.name, credit.role) for credit in normalized.creators
-    ]
-    assert ("Tim Sale", "pencils") in [
-        (credit.name, credit.role) for credit in normalized.creators
-    ]
+    assert ("Jeph Loeb", "script") in [(credit.name, credit.role) for credit in normalized.creators]
+    assert ("Tim Sale", "pencils") in [(credit.name, credit.role) for credit in normalized.creators]
     assert "Batman [Bruce Wayne]" in [credit.name for credit in normalized.characters]
     assert (
         normalized.cover_image_url
@@ -248,7 +243,7 @@ async def test_gcd_provider_search_uses_issue_query(monkeypatch):
                     "price": "2.95 USD",
                     "page_count": "36.000",
                     "variant_of": None,
-                }
+                },
             ]
         }
 
@@ -526,7 +521,9 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
     issues = {"2663120": primary_issue, "2665653": variant_issue}
 
     async def fake_get_item(self, provider_item_id):
-        return ProviderItem(provider="gcd", provider_item_id=provider_item_id, raw=issues[provider_item_id])
+        return ProviderItem(
+            provider="gcd", provider_item_id=provider_item_id, raw=issues[provider_item_id]
+        )
 
     async def fake_index_documents(self, documents):
         return True
@@ -576,13 +573,9 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
     async def fake_mirror_cover(self, source_url, provider, provider_item_id):
         assert source_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
         return MirroredImage(
-            key="covers/comicvine/4000-12345/cover.jpg",
-            url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg",
-            content_type="image/jpeg",
-            thumbnail_key="thumbnails/comicvine/4000-12345/cover.jpg",
-            thumbnail_url=(
-                "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
-            ),
+            key="covers/comicvine/4000-12345/cover.webp",
+            url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp",
+            content_type="image/webp",
         )
 
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
@@ -600,17 +593,12 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
     variant = body["item"]["editions"][0]["variants"][0]
     assert (
         variant["cover_image_url"]
-        == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.jpg"
+        == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp"
     )
-    assert (
-        variant["thumbnail_image_url"]
-        == "http://localhost:9000/collectarr-images/thumbnails/comicvine/4000-12345/cover.jpg"
-    )
+    assert variant["thumbnail_image_url"] is None
 
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(Variant.cover_image_key)) == (
-            "covers/comicvine/4000-12345/cover.jpg"
+            "covers/comicvine/4000-12345/cover.webp"
         )
-        assert await db.scalar(select(Variant.thumbnail_image_key)) == (
-            "thumbnails/comicvine/4000-12345/cover.jpg"
-        )
+        assert await db.scalar(select(Variant.thumbnail_image_key)) is None

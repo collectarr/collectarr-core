@@ -1,9 +1,8 @@
 import hashlib
+import logging
 from io import BytesIO
-import mimetypes
 import re
 from dataclasses import dataclass
-from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 import httpx
@@ -20,6 +19,8 @@ _SUPPORTED_IMAGE_TYPES = {
     "image/webp",
     "image/gif",
 }
+_NORMALIZED_COVER_CONTENT_TYPE = "image/webp"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -42,26 +43,26 @@ class ImageMirror:
         if not source_url:
             return None
         try:
-            image_bytes, content_type = await self._download_image(source_url)
-            key = self._cover_key(provider, provider_item_id, source_url, content_type)
-            public_url = self.storage.put_object(key, image_bytes, content_type)
-            thumbnail_key, thumbnail_url = self._mirror_thumbnail_best_effort(
-                image_bytes,
+            image_bytes = await self._download_image(source_url)
+            cover_bytes = self._normalized_cover_bytes(image_bytes)
+            key = self._cover_key(provider, provider_item_id, source_url)
+            public_url = self.storage.put_object(key, cover_bytes, _NORMALIZED_COVER_CONTENT_TYPE)
+        except Exception:
+            logger.warning(
+                "Failed to mirror provider cover %s for %s:%s",
+                source_url,
                 provider,
                 provider_item_id,
-                source_url,
+                exc_info=True,
             )
-        except Exception:
             return None
         return MirroredImage(
             key=key,
             url=public_url,
-            content_type=content_type,
-            thumbnail_key=thumbnail_key,
-            thumbnail_url=thumbnail_url,
+            content_type=_NORMALIZED_COVER_CONTENT_TYPE,
         )
 
-    async def _download_image(self, source_url: str) -> tuple[bytes, str]:
+    async def _download_image(self, source_url: str) -> bytes:
         parsed = urlparse(source_url)
         if parsed.scheme not in {"http", "https"}:
             raise ValueError("Unsupported image URL scheme")
@@ -85,47 +86,47 @@ class ImageMirror:
 
         downloaded = bytes(image_bytes)
         self._validate_image_bytes(downloaded)
-        return downloaded, content_type
+        return downloaded
 
-    def _cover_key(
-        self, provider: str, provider_item_id: str, source_url: str, content_type: str
-    ) -> str:
-        extension = self._extension(source_url, content_type)
-        digest = hashlib.sha256(source_url.encode("utf-8")).hexdigest()[:16]
+    def _cover_key(self, provider: str, provider_item_id: str, source_url: str) -> str:
+        cache_identity = "|".join(
+            [
+                source_url,
+                _NORMALIZED_COVER_CONTENT_TYPE,
+                str(self.settings.provider_image_max_long_edge),
+                str(self.settings.provider_image_quality),
+            ]
+        )
+        digest = hashlib.sha256(cache_identity.encode("utf-8")).hexdigest()[:16]
         provider_segment = self._safe_segment(provider)
         item_segment = self._safe_segment(provider_item_id)
-        return f"covers/{provider_segment}/{item_segment}/{digest}{extension}"
+        return f"covers/{provider_segment}/{item_segment}/{digest}.webp"
 
-    def _mirror_thumbnail_best_effort(
-        self, image_bytes: bytes, provider: str, provider_item_id: str, source_url: str
-    ) -> tuple[str | None, str | None]:
-        try:
-            thumbnail_bytes = self._thumbnail_bytes(image_bytes)
-            key = self._thumbnail_key(provider, provider_item_id, source_url)
-            public_url = self.storage.put_object(key, thumbnail_bytes, "image/jpeg")
-        except Exception:
-            return None, None
-        return key, public_url
-
-    def _thumbnail_key(self, provider: str, provider_item_id: str, source_url: str) -> str:
-        digest = hashlib.sha256(source_url.encode("utf-8")).hexdigest()[:16]
-        provider_segment = self._safe_segment(provider)
-        item_segment = self._safe_segment(provider_item_id)
-        return f"thumbnails/{provider_segment}/{item_segment}/{digest}.jpg"
-
-    def _thumbnail_bytes(self, image_bytes: bytes) -> bytes:
+    def _normalized_cover_bytes(self, image_bytes: bytes) -> bytes:
         with Image.open(BytesIO(image_bytes)) as image:
             image = ImageOps.exif_transpose(image)
-            image.thumbnail(
-                (self.settings.thumbnail_max_width, self.settings.thumbnail_max_width * 2)
-            )
-            if image.mode not in {"RGB", "L"}:
-                image = image.convert("RGB")
+            max_edge = self.settings.provider_image_max_long_edge
+            image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
+            image = self._rgb_image(image)
             output = BytesIO()
             image.save(
-                output, format="JPEG", quality=self.settings.thumbnail_quality, optimize=True
+                output,
+                format="WEBP",
+                quality=self.settings.provider_image_quality,
+                method=6,
             )
             return output.getvalue()
+
+    def _rgb_image(self, image: Image.Image) -> Image.Image:
+        if image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info):
+            rgba = image.convert("RGBA")
+            # Covers are normalized to a solid background so every client can render one asset.
+            background = Image.new("RGB", rgba.size, (255, 255, 255))
+            background.paste(rgba, mask=rgba.getchannel("A"))
+            return background
+        if image.mode != "RGB":
+            return image.convert("RGB")
+        return image
 
     def _validate_image_bytes(self, image_bytes: bytes) -> None:
         if not image_bytes:
@@ -140,12 +141,6 @@ class ImageMirror:
                 image.verify()
         except UnidentifiedImageError as exc:
             raise ValueError("Downloaded content is not a valid image") from exc
-
-    def _extension(self, source_url: str, content_type: str) -> str:
-        suffix = PurePosixPath(urlparse(source_url).path).suffix.lower()
-        if suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
-            return suffix
-        return mimetypes.guess_extension(content_type) or ".jpg"
 
     def _safe_segment(self, value: str) -> str:
         cleaned = _SAFE_SEGMENT_RE.sub("-", value.strip()).strip("-._")

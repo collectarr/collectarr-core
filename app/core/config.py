@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
     max_image_pixels: int = 40_000_000
-    thumbnail_max_width: int = 360
-    thumbnail_quality: int = 82
+    provider_image_max_long_edge: int = Field(default=1280, ge=64)
+    provider_image_quality: int = Field(default=82, ge=1, le=100)
     worker_index_interval_seconds: int = Field(default=900, ge=5)
 
     comicvine_api_key: str | None = None
@@ -48,7 +48,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_production_secret(self) -> "Settings":
-        if self.environment not in {"development", "test"} and self.secret_key == "change-me-in-production":
+        if (
+            self.environment not in {"development", "test"}
+            and self.secret_key == "change-me-in-production"
+        ):
             raise ValueError("SECRET_KEY must be set outside development/test")
         return self
 

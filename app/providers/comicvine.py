@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from dataclasses import dataclass
 from datetime import date
 from html import unescape
 from typing import Any, Mapping
@@ -23,6 +24,13 @@ _TAG_RE = re.compile(r"<[^>]+>")
 _RESOURCE_ID_RE = re.compile(r"/(issue|volume)/(\d+-\d+)/?")
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ComicVineIssueCover:
+    provider_item_id: str
+    image_url: str
+    site_detail_url: str | None = None
 
 
 class ComicVineProvider:
@@ -134,6 +142,61 @@ class ComicVineProvider:
             )
 
         return ProviderItem(provider=self.name, provider_item_id=canonical_id, raw=raw)
+
+    async def find_issue_cover(
+        self,
+        *,
+        series_title: str,
+        issue_number: str,
+        start_year: int | None = None,
+    ) -> ComicVineIssueCover | None:
+        normalized_series = " ".join(series_title.split())
+        normalized_issue = " ".join(issue_number.split())
+        if not normalized_series or not normalized_issue or not self._is_configured:
+            return None
+
+        volume = await self._find_volume(normalized_series, start_year)
+        if volume is None:
+            return None
+
+        volume_id = self._numeric_resource_id(volume, "volume")
+        if volume_id is None:
+            return None
+
+        payload = await self._request(
+            "issues/",
+            {
+                "filter": f"volume:{volume_id},issue_number:{normalized_issue}",
+                "limit": 5,
+                "field_list": ",".join(
+                    [
+                        "id",
+                        "api_detail_url",
+                        "site_detail_url",
+                        "issue_number",
+                        "image",
+                    ]
+                ),
+            },
+        )
+        issues = payload.get("results") or []
+        if not isinstance(issues, list):
+            return None
+
+        for issue in issues:
+            if not isinstance(issue, Mapping):
+                continue
+            if str(issue.get("issue_number") or "").strip() != normalized_issue:
+                continue
+            image_url = self._image_url(issue.get("image"))
+            provider_item_id = self._resource_id(issue, "issue")
+            if image_url and provider_item_id:
+                return ComicVineIssueCover(
+                    provider_item_id=provider_item_id,
+                    image_url=image_url,
+                    site_detail_url=self._optional_text(issue.get("site_detail_url")),
+                )
+        return None
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
         provider_item_id = self._resource_id(data, "issue") or str(data.get("id") or "")
@@ -305,6 +368,49 @@ class ComicVineProvider:
         prefix = "4000" if resource == "issue" else "4050"
         raw_id_text = str(raw_id)
         return raw_id_text if "-" in raw_id_text else f"{prefix}-{raw_id_text}"
+
+    async def _find_volume(
+        self, series_title: str, start_year: int | None
+    ) -> Mapping[str, Any] | None:
+        payload = await self._request(
+            "search/",
+            {
+                "query": series_title,
+                "resources": "volume",
+                "limit": 10,
+                "field_list": "id,api_detail_url,name,start_year,site_detail_url",
+            },
+        )
+        results = payload.get("results") or []
+        if not isinstance(results, list):
+            return None
+
+        volumes = [result for result in results if isinstance(result, Mapping)]
+        exact = [
+            volume
+            for volume in volumes
+            if self._normalize_title(volume.get("name")) == self._normalize_title(series_title)
+        ]
+        if start_year is not None:
+            year_match = [
+                volume
+                for volume in exact
+                if self._int_value(volume.get("start_year")) == start_year
+            ]
+            if year_match:
+                return year_match[0]
+        if exact:
+            return exact[0]
+        return volumes[0] if volumes else None
+
+    def _numeric_resource_id(self, data: Mapping[str, Any], resource: str) -> str | None:
+        resource_id = self._resource_id(data, resource)
+        if not resource_id:
+            return None
+        return resource_id.split("-", 1)[-1]
+
+    def _normalize_title(self, value: Any) -> str:
+        return " ".join(str(value or "").casefold().split())
 
     def _clean_text(self, value: Any) -> str | None:
         if value is None:

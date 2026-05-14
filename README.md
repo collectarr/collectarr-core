@@ -49,6 +49,7 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Admin ingest upserts provider issues into canonical series, volume, item, edition, variant, and release records
 - IGDB and TMDb providers are scaffolded for future game and Blu-ray metadata
 - Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true` only when you want to copy public provider covers into MinIO/S3
+- If GCD cover URLs are blocked by a browser or network, run `python -m app.scripts.enrich_comicvine_covers --replace-gcd-covers` with `COMICVINE_API_KEY` set to replace those cover references with ComicVine image URLs
 
 ---
 

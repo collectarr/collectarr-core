@@ -1,5 +1,5 @@
+from datetime import date, datetime
 from uuid import UUID
-from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -44,6 +44,61 @@ class ProviderIngestResponse(BaseModel):
     item: ItemResponse
 
 
+class ProviderIngestHistoryEntry(BaseModel):
+    id: int
+    timestamp: datetime
+    provider: ExternalProvider
+    provider_item_id: str
+    status: str
+    attempts: int
+    item_id: UUID | None = None
+    error: str | None = None
+
+
+class ProviderIngestRetryRequest(BaseModel):
+    history_id: int
+
+
+class ProviderIngestJobCreateRequest(BaseModel):
+    provider: ExternalProvider
+    provider_item_id: str = Field(min_length=1, max_length=255)
+    max_attempts: int = Field(default=3, ge=1, le=10)
+
+
+class ProviderIngestJobResponse(BaseModel):
+    id: UUID
+    provider: ExternalProvider
+    provider_item_id: str
+    status: str
+    attempts: int
+    max_attempts: int
+    next_run_at: datetime | None = None
+    item_id: UUID | None = None
+    last_error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProviderIngestJobRunResponse(BaseModel):
+    processed: int
+    jobs: list[ProviderIngestJobResponse]
+
+
+class AdminMetadataCorrectionRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    item_number: str | None = Field(default=None, max_length=64)
+    synopsis: str | None = None
+    page_count: int | None = Field(default=None, ge=0)
+    publisher: str | None = Field(default=None, max_length=255)
+    release_date: date | None = None
+    variant_name: str | None = Field(default=None, max_length=255)
+    barcode: str | None = Field(default=None, max_length=32)
+    cover_image_url: str | None = Field(default=None, max_length=1024)
+    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+
+
 class AdminCatalogSummaryResponse(BaseModel):
     items: int
     series: int
@@ -58,6 +113,8 @@ class AdminCatalogSummaryResponse(BaseModel):
     missing_cover_items: int
     missing_provider_link_items: int
     duplicate_candidate_groups: int
+    provider_ingest_successes: int = 0
+    provider_ingest_failures: int = 0
 
 
 class AdminSearchStatusResponse(BaseModel):
@@ -89,6 +146,9 @@ class AdminDuplicateCandidateResponse(BaseModel):
     item_number: str | None
     count: int
     item_ids: list[UUID]
+    reason: str = "same title and item number"
+    has_provider_conflicts: bool = False
+    has_cover_conflicts: bool = False
 
 
 class AdminDuplicateIgnoreRequest(BaseModel):

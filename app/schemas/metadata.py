@@ -127,7 +127,7 @@ class ProviderSearchResultResponse(BaseModel):
 
 
 class MetadataProposalCreate(BaseModel):
-    provider: ExternalProvider = ExternalProvider.comicvine
+    provider: ExternalProvider
     provider_item_id: str | None = Field(default=None, max_length=255)
     query: str = Field(min_length=1, max_length=255)
     title: str | None = Field(default=None, max_length=255)
@@ -151,6 +151,7 @@ def item_response_from_model(item: Any) -> ItemResponse:
     edition = _primary_edition(item)
     variant = _primary_variant(item)
     source = _source_metadata(edition)
+    normalized = _normalized_metadata(edition)
     volume = getattr(item, "volume", None)
     series = getattr(volume, "series", None) if volume is not None else None
     base.update(
@@ -165,9 +166,12 @@ def item_response_from_model(item: Any) -> ItemResponse:
             "store_date": _date_value(source.get("store_date")),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
-            "creators": _credits(source.get("person_credits")),
-            "characters": _credits(source.get("character_credits")),
-            "story_arcs": _credits(source.get("story_arc_credits")),
+            "creators": _credits(source.get("person_credits"))
+            or _credits(normalized.get("creators")),
+            "characters": _credits(source.get("character_credits"))
+            or _credits(normalized.get("characters")),
+            "story_arcs": _credits(source.get("story_arc_credits"))
+            or _credits(normalized.get("story_arcs")),
             "provider_links": _provider_links(item),
         }
     )
@@ -194,6 +198,12 @@ def _source_metadata(edition: Any | None) -> dict[str, Any]:
     metadata = getattr(edition, "metadata_json", None) or {}
     source = metadata.get("source") if isinstance(metadata, dict) else None
     return source if isinstance(source, dict) else {}
+
+
+def _normalized_metadata(edition: Any | None) -> dict[str, Any]:
+    metadata = getattr(edition, "metadata_json", None) or {}
+    normalized = metadata.get("normalized") if isinstance(metadata, dict) else None
+    return normalized if isinstance(normalized, dict) else {}
 
 
 def _publisher(item: Any) -> str | None:
@@ -236,6 +246,9 @@ def _credits(values: Any) -> list[MetadataCredit]:
         return []
     credits: list[MetadataCredit] = []
     for value in values:
+        if isinstance(value, str):
+            credits.append(MetadataCredit(name=value))
+            continue
         if not isinstance(value, dict):
             continue
         name = value.get("name")

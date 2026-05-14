@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     image_cache_evict_target_bytes: int = Field(default=85_000_000_000, ge=0)
     image_cache_cleanup_batch_size: int = Field(default=250, ge=1)
     worker_index_interval_seconds: int = Field(default=900, ge=5)
+    provider_ingest_retry_attempts: int = Field(default=1, ge=0, le=5)
 
     comicvine_api_key: str | None = None
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"

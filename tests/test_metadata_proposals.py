@@ -54,7 +54,7 @@ async def test_provider_search_rejects_provider_for_wrong_kind(client):
 
 
 @pytest.mark.asyncio
-async def test_provider_search_rejects_unimplemented_provider(client):
+async def test_provider_search_returns_planned_provider_stub(client):
     token = await register_and_login(client)
 
     response = await client.get(
@@ -63,8 +63,11 @@ async def test_provider_search_rejects_unimplemented_provider(client):
         params={"q": "naruto"},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"] == "Provider 'anilist' is not configured"
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["provider"] == "anilist"
+    assert body[0]["provider_item_id"] == "stub-manga-naruto"
+    assert body[0]["kind"] == "manga"
 
 
 @pytest.mark.asyncio
@@ -94,3 +97,19 @@ async def test_metadata_proposal_is_saved_without_user_collection_data(client):
         assert proposal is not None
         assert proposal.query == "missing spider-man issue"
         assert proposal.title == "The Amazing Spider-Man #1 The Spider Strikes"
+
+
+@pytest.mark.asyncio
+async def test_metadata_proposal_requires_explicit_provider(client):
+    token = await register_and_login(client)
+
+    response = await client.post(
+        "/metadata/proposals",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "query": "missing metadata",
+            "title": "No provider fallback",
+        },
+    )
+
+    assert response.status_code == 422

@@ -9,17 +9,24 @@ from app.schemas.admin import (
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
+    AdminMetadataCorrectionRequest,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
     MetadataProposalAdminResponse,
     MetadataProposalSummaryResponse,
+    ProviderIngestJobCreateRequest,
+    ProviderIngestJobResponse,
+    ProviderIngestJobRunResponse,
     ProviderIngestRequest,
+    ProviderIngestRetryRequest,
     ProviderIngestResponse,
+    ProviderIngestHistoryEntry,
     ProviderSearchRequest,
     ProviderStatusResponse,
 )
-from app.models.base import ExternalProvider
+from app.models.base import ExternalProvider, ItemKind
+from app.schemas.metadata import ItemResponse
 from app.services.admin import AdminMetadataService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -33,6 +40,28 @@ async def providers(db: DbSession, user: CurrentAdmin) -> list[ProviderStatusRes
 @router.get("/catalog/summary", response_model=AdminCatalogSummaryResponse)
 async def catalog_summary(db: DbSession, user: CurrentAdmin) -> AdminCatalogSummaryResponse:
     return await AdminMetadataService(db).catalog_summary()
+
+
+@router.get("/catalog/items", response_model=list[ItemResponse])
+async def catalog_items(
+    db: DbSession,
+    user: CurrentAdmin,
+    q: str | None = Query(default=None, min_length=1, max_length=255),
+    kind: ItemKind | None = None,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> list[ItemResponse]:
+    return await AdminMetadataService(db).catalog_items(q, kind, limit)
+
+
+@router.patch("/catalog/items/{kind}/{item_id}", response_model=ItemResponse)
+async def catalog_item_update(
+    kind: ItemKind,
+    item_id: UUID,
+    payload: AdminMetadataCorrectionRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ItemResponse:
+    return await AdminMetadataService(db).update_catalog_item(item_id, payload, kind)
 
 
 @router.get("/search/status", response_model=AdminSearchStatusResponse)
@@ -87,6 +116,69 @@ async def provider_ingest(
     payload: ProviderIngestRequest, db: DbSession, user: CurrentAdmin
 ) -> ProviderIngestResponse:
     return await AdminMetadataService(db).ingest(payload)
+
+
+@router.get("/providers/ingest/jobs", response_model=list[ProviderIngestJobResponse])
+async def provider_ingest_jobs(
+    db: DbSession,
+    user: CurrentAdmin,
+    status: str | None = Query(default=None, pattern="^(queued|running|done|failed)$"),
+    limit: int = Query(default=25, ge=1, le=100),
+) -> list[ProviderIngestJobResponse]:
+    return await AdminMetadataService(db).ingest_jobs(status, limit)
+
+
+@router.post("/providers/ingest/jobs", response_model=ProviderIngestJobResponse, status_code=201)
+async def provider_ingest_job_create(
+    payload: ProviderIngestJobCreateRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ProviderIngestJobResponse:
+    return await AdminMetadataService(db).create_ingest_job(payload)
+
+
+@router.post("/providers/ingest/jobs/run-pending", response_model=ProviderIngestJobRunResponse)
+async def provider_ingest_jobs_run_pending(
+    db: DbSession,
+    user: CurrentAdmin,
+    limit: int = Query(default=5, ge=1, le=25),
+) -> ProviderIngestJobRunResponse:
+    return await AdminMetadataService(db).run_pending_ingest_jobs(limit)
+
+
+@router.post("/providers/ingest/jobs/{job_id}/run", response_model=ProviderIngestJobResponse)
+async def provider_ingest_job_run(
+    job_id: UUID,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ProviderIngestJobResponse:
+    return await AdminMetadataService(db).run_ingest_job(job_id)
+
+
+@router.post("/providers/ingest/jobs/{job_id}/retry", response_model=ProviderIngestJobResponse)
+async def provider_ingest_job_retry(
+    job_id: UUID,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ProviderIngestJobResponse:
+    return await AdminMetadataService(db).retry_ingest_job(job_id)
+
+
+@router.get("/providers/ingest/history", response_model=list[ProviderIngestHistoryEntry])
+async def provider_ingest_history(
+    db: DbSession,
+    user: CurrentAdmin,
+) -> list[ProviderIngestHistoryEntry]:
+    return AdminMetadataService(db).ingest_history()
+
+
+@router.post("/providers/ingest/retry", response_model=ProviderIngestResponse)
+async def provider_ingest_retry(
+    payload: ProviderIngestRetryRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ProviderIngestResponse:
+    return await AdminMetadataService(db).retry_ingest(payload)
 
 
 @router.get("/metadata/proposals", response_model=list[MetadataProposalAdminResponse])

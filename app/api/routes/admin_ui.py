@@ -307,7 +307,7 @@ _ADMIN_UI_HTML = """
         <div class="panel stack">
           <h2>Barcode lookup</h2>
           <label>Barcode <input id="barcode" placeholder="75960604716100111"></label>
-          <button id="barcodeButton" type="button">Lookup comic</button>
+          <button id="barcodeButton" type="button">Lookup barcode</button>
         </div>
         <div class="panel stack">
           <h2>Providers</h2>
@@ -351,15 +351,12 @@ _ADMIN_UI_HTML = """
             <h2>Provider ingest</h2>
             <label>Provider
               <select id="provider">
-                <option value="gcd">GCD</option>
-                <option value="comicvine">ComicVine</option>
-                <option value="igdb">IGDB</option>
-                <option value="tmdb">TMDb</option>
+                <option value="">Load providers...</option>
               </select>
             </label>
             <div class="row">
               <label style="flex: 1 1 220px">Provider query
-                <input id="providerQuery" placeholder="Batman #1">
+                <input id="providerQuery" placeholder="Search provider metadata">
               </label>
               <button id="providerButton" type="button">Search provider</button>
             </div>
@@ -383,13 +380,6 @@ _ADMIN_UI_HTML = """
               <label>Provider
                 <select id="proposalProvider">
                   <option value="">All providers</option>
-                  <option value="gcd">GCD</option>
-                  <option value="comicvine">ComicVine</option>
-                  <option value="igdb">IGDB</option>
-                  <option value="tmdb">TMDb</option>
-                  <option value="anilist">AniList</option>
-                  <option value="openlibrary">OpenLibrary</option>
-                  <option value="bgg">BoardGameGeek</option>
                 </select>
               </label>
               <label>Search proposals
@@ -417,6 +407,7 @@ _ADMIN_UI_HTML = """
       const tokenKey = "collectarr.admin.token";
       const state = {
         token: localStorage.getItem(tokenKey) || "",
+        providers: [],
         proposals: [],
         activeProposalId: "",
         activeProposalTitle: "",
@@ -542,11 +533,14 @@ _ADMIN_UI_HTML = """
           const providerId = item.provider_item_id || item.id || "";
           const title = escapeHtml(item.title || "Untitled");
           const safeProviderId = escapeHtml(providerId);
-          const actionLabel = state.activeProposalId ? "Approve proposal" : "Ingest";
+          const canIngest = selectedProviderSupportsIngest();
+          const actionLabel = canIngest
+            ? (state.activeProposalId ? "Approve proposal" : "Ingest")
+            : "Search only";
           card.innerHTML = `
             <h3>${title}</h3>
             <p class="muted">${safeProviderId}</p>
-            <button type="button" class="primary">${actionLabel}</button>
+            <button type="button" class="primary" ${canIngest ? "" : "disabled"}>${actionLabel}</button>
           `;
           card.querySelector("button").addEventListener("click", () => {
             if (state.activeProposalId) {
@@ -584,6 +578,40 @@ _ADMIN_UI_HTML = """
           `;
           target.appendChild(card);
         }
+      }
+
+      function renderProviderOptions(items) {
+        state.providers = items;
+        const providerSelect = $("provider");
+        const selectedProvider = providerSelect.value;
+        const searchable = items.filter((item) => item.supports_search);
+        providerSelect.innerHTML = searchable.length
+          ? searchable.map((item) => (
+              `<option value="${escapeHtml(item.name)}">${escapeHtml(item.display_name || item.name)}</option>`
+            )).join("")
+          : '<option value="">No searchable providers</option>';
+        providerSelect.value = searchable.some((item) => item.name === selectedProvider)
+          ? selectedProvider
+          : searchable[0]?.name || "";
+
+        const proposalProviderSelect = $("proposalProvider");
+        const selectedProposalProvider = proposalProviderSelect.value;
+        proposalProviderSelect.innerHTML = '<option value="">All providers</option>'
+          + items.map((item) => (
+              `<option value="${escapeHtml(item.name)}">${escapeHtml(item.display_name || item.name)}</option>`
+            )).join("");
+        if (items.some((item) => item.name === selectedProposalProvider)) {
+          proposalProviderSelect.value = selectedProposalProvider;
+        }
+      }
+
+      function selectedProviderStatus() {
+        const provider = $("provider").value;
+        return state.providers.find((item) => item.name === provider);
+      }
+
+      function selectedProviderSupportsIngest() {
+        return selectedProviderStatus()?.supports_ingest === true;
       }
 
       function renderProposals(items) {
@@ -697,7 +725,7 @@ _ADMIN_UI_HTML = """
         setBusy(button, true);
         try {
           const query = encodeURIComponent($("catalogQuery").value);
-          const data = await request(`/search?q=${query}&kind=comic`);
+          const data = await request(`/search?q=${query}`);
           renderCatalogResults($("catalogResults"), data);
           setStatus(`Found ${data.length} catalog items.`, "ok");
           setResponse(data);
@@ -713,7 +741,7 @@ _ADMIN_UI_HTML = """
         setBusy(button, true);
         try {
           const barcode = encodeURIComponent($("barcode").value);
-          const data = await request(`/barcode/${barcode}?kind=comic`);
+          const data = await request(`/barcode/${barcode}`);
           renderCatalogResults($("catalogResults"), [data]);
           setStatus("Barcode match found.", "ok");
           setResponse(data);
@@ -728,11 +756,15 @@ _ADMIN_UI_HTML = """
         const button = $("providerButton");
         setBusy(button, true);
         try {
+          const provider = $("provider").value;
+          if (!provider) {
+            throw new Error("Select a provider first.");
+          }
           const data = await request("/admin/providers/search", {
             method: "POST",
             headers: headers(true),
             body: JSON.stringify({
-              provider: $("provider").value,
+              provider,
               query: $("providerQuery").value,
             }),
           });
@@ -760,6 +792,7 @@ _ADMIN_UI_HTML = """
             headers: headers(true),
           });
           renderProviderStatuses(data);
+          renderProviderOptions(data);
           setMetric("providerMetric", data.filter((item) => item.is_configured).length);
           setStatus("Provider status loaded.", "ok");
           setResponse(data);
@@ -788,11 +821,18 @@ _ADMIN_UI_HTML = """
 
       async function ingestProviderItem(providerItemId) {
         try {
+          const provider = $("provider").value;
+          if (!provider) {
+            throw new Error("Select a provider first.");
+          }
+          if (!selectedProviderSupportsIngest()) {
+            throw new Error("Selected provider does not support catalog ingest yet.");
+          }
           const data = await request("/admin/providers/ingest", {
             method: "POST",
             headers: headers(true),
             body: JSON.stringify({
-              provider: $("provider").value,
+              provider,
               provider_item_id: providerItemId,
             }),
           });
@@ -831,7 +871,10 @@ _ADMIN_UI_HTML = """
       function searchProviderForProposal(item) {
         state.activeProposalId = item.id;
         state.activeProposalTitle = item.title || item.query || item.id;
-        $("provider").value = item.provider || "gcd";
+        const provider = item.provider || $("provider").value;
+        if (provider) {
+          $("provider").value = provider;
+        }
         $("providerQuery").value = item.query || item.title || "";
         setStatus("Provider search prepared from proposal.", "ok");
         logEvent("Prepared provider search from metadata proposal.");
@@ -840,11 +883,18 @@ _ADMIN_UI_HTML = """
 
       async function approveProposalWithProviderItem(id, providerItemId) {
         try {
+          const provider = $("provider").value;
+          if (!provider) {
+            throw new Error("Select a provider first.");
+          }
+          if (!selectedProviderSupportsIngest()) {
+            throw new Error("Selected provider does not support catalog ingest yet.");
+          }
           const data = await request(`/admin/metadata/proposals/${id}/approve-provider`, {
             method: "POST",
             headers: headers(true),
             body: JSON.stringify({
-              provider: $("provider").value,
+              provider,
               provider_item_id: providerItemId,
             }),
           });

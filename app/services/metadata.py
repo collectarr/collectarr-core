@@ -113,6 +113,11 @@ class MetadataService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Provider '{provider_name.value}' is not configured",
             )
+        if not provider.capabilities.supports_search:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Provider '{provider_name.value}' does not support search",
+            )
         if kind is not None and provider.capabilities.kind != kind:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

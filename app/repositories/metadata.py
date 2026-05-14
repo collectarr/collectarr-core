@@ -39,7 +39,11 @@ class MetadataRepository:
     ) -> list[Item]:
         stmt = (
             select(Item)
-            .options(selectinload(Item.editions).selectinload(Edition.variants))
+            .options(
+                selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.editions).selectinload(Edition.releases),
+            )
             .join(Item.volume, isouter=True)
             .join(Volume.series, isouter=True)
             .join(Item.editions, isouter=True)

@@ -295,6 +295,25 @@ class ImageCacheEntry(UuidMixin, TimestampMixin, Base):
     last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "provider_ingest_jobs"
+    __table_args__ = (
+        Index("ix_provider_ingest_jobs_status_next_run", "status", "next_run_at"),
+        Index("ix_provider_ingest_jobs_provider_item", "provider", "provider_item_id"),
+    )
+
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+
 class MetadataProposal(UuidMixin, TimestampMixin, Base):
     __tablename__ = "metadata_proposals"
     __table_args__ = (Index("ix_metadata_proposals_status_provider", "status", "provider"),)

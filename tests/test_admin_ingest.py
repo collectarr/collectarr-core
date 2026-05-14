@@ -1,6 +1,8 @@
 from datetime import date
+from uuid import UUID
 
 import pytest
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
 
 from app.core.config import get_settings
@@ -17,6 +19,7 @@ from app.models.canonical import (
     MetadataProposal,
     Organization,
     Person,
+    ProviderIngestJob,
     Release,
     Series,
     Tag,
@@ -194,6 +197,7 @@ async def test_gcd_provider_normalizes_issue_payload():
     assert ("Jeph Loeb", "script") in [(credit.name, credit.role) for credit in normalized.creators]
     assert ("Tim Sale", "pencils") in [(credit.name, credit.role) for credit in normalized.creators]
     assert "Batman [Bruce Wayne]" in [credit.name for credit in normalized.characters]
+    assert [credit.name for credit in normalized.story_arcs] == ["Revenge"]
     assert (
         normalized.cover_image_url
         == "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg"
@@ -303,7 +307,7 @@ async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_admin_provider_search_rejects_unconfigured_provider(client, monkeypatch):
+async def test_admin_provider_search_returns_planned_provider_stub(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 
     response = await client.post(
@@ -312,8 +316,24 @@ async def test_admin_provider_search_rejects_unconfigured_provider(client, monke
         json={"provider": "anilist", "query": "naruto"},
     )
 
+    assert response.status_code == 200
+    assert response.json()[0]["provider"] == "anilist"
+    assert response.json()[0]["provider_item_id"] == "stub-manga-naruto"
+    assert response.json()[0]["kind"] == "manga"
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_ingest_rejects_search_only_provider(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "anilist", "provider_item_id": "stub-manga-naruto"},
+    )
+
     assert response.status_code == 400
-    assert response.json()["detail"] == "Provider 'anilist' is not configured"
+    assert response.json()["detail"] == "Provider 'anilist' does not support catalog ingest yet"
 
 
 @pytest.mark.asyncio
@@ -428,6 +448,9 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert duplicate_body[0]["item_number"] == "1"
     assert duplicate_body[0]["count"] == 2
     assert len(duplicate_body[0]["item_ids"]) == 2
+    assert duplicate_body[0]["reason"] == "same title and item number"
+    assert duplicate_body[0]["has_provider_conflicts"] is False
+    assert duplicate_body[0]["has_cover_conflicts"] is False
 
     ignore = await client.post(
         "/admin/duplicates/ignore",
@@ -646,6 +669,162 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_admin_catalog_browser_and_correction_update_item(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.comic, title="Absolute Batman")
+        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
+        item = Item(
+            kind=ItemKind.comic,
+            title="Absolute Batman",
+            item_number="1",
+            sort_key="absolute-batman-000001",
+            volume=volume,
+            page_count=48,
+        )
+        edition = Edition(
+            item=item,
+            title="Standard Edition",
+            publisher="DC Comics",
+            release_date=date(2024, 10, 9),
+        )
+        variant = Variant(
+            edition=edition,
+            name="Cover A",
+            barcode="76194138584600111",
+            cover_image_url="https://cdn.example/old.jpg",
+            is_primary=True,
+        )
+        db.add_all([series, volume, item, edition, variant])
+        await db.flush()
+        item_id = str(item.id)
+        await db.commit()
+
+    search = await client.get(
+        "/admin/catalog/items",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": "Absolute", "kind": "comic"},
+    )
+
+    assert search.status_code == 200
+    assert search.json()[0]["id"] == item_id
+    assert search.json()[0]["title"] == "Absolute Batman"
+
+    updated = await client.patch(
+        f"/admin/catalog/items/comic/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Absolute Batman Deluxe",
+            "item_number": "1A",
+            "publisher": "DC Black Label",
+            "release_date": "2024-10-16",
+            "variant_name": "Foil Cover",
+            "barcode": "76194138584600121",
+            "cover_image_url": "https://cdn.example/new.jpg",
+            "page_count": 52,
+        },
+    )
+
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["title"] == "Absolute Batman Deluxe"
+    assert body["item_number"] == "1A"
+    assert body["publisher"] == "DC Black Label"
+    assert body["page_count"] == 52
+    assert body["editions"][0]["release_date"] == "2024-10-16"
+    assert body["editions"][0]["variants"][0]["name"] == "Foil Cover"
+    assert body["editions"][0]["variants"][0]["barcode"] == "76194138584600121"
+    assert body["editions"][0]["variants"][0]["cover_image_url"] == "https://cdn.example/new.jpg"
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_ingest_persistent_job_queue(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "provider_ingest_retry_attempts", 0)
+    calls = 0
+
+    async def fake_get_item(self, provider_item_id):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Provider is warming up",
+            )
+        raw = comicvine_issue_raw()
+        raw["id"] = 92001
+        raw["api_detail_url"] = "https://comicvine.gamespot.com/api/issue/4000-92001/"
+        raw["site_detail_url"] = "https://comicvine.gamespot.com/job-issue/4000-92001/"
+        raw["volume"] = {
+            **raw["volume"],
+            "id": 99201,
+            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-99201/",
+        }
+        return ProviderItem(provider="comicvine", provider_item_id="4000-92001", raw=raw)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    created = await client.post(
+        "/admin/providers/ingest/jobs",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "provider": "comicvine",
+            "provider_item_id": "job-123",
+            "max_attempts": 2,
+        },
+    )
+
+    assert created.status_code == 201
+    job_id = created.json()["id"]
+    assert created.json()["status"] == "queued"
+
+    first_run = await client.post(
+        f"/admin/providers/ingest/jobs/{job_id}/run",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert first_run.status_code == 200
+    assert first_run.json()["status"] == "queued"
+    assert first_run.json()["attempts"] == 1
+    assert first_run.json()["last_error"] == "Provider is warming up"
+    assert first_run.json()["next_run_at"] is not None
+
+    retried = await client.post(
+        f"/admin/providers/ingest/jobs/{job_id}/retry",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert retried.status_code == 200
+    assert retried.json()["status"] == "done"
+    assert retried.json()["attempts"] == 2
+    assert retried.json()["item_id"] is not None
+
+    jobs = await client.get(
+        "/admin/providers/ingest/jobs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"status": "done"},
+    )
+
+    assert jobs.status_code == 200
+    assert jobs.json()[0]["id"] == job_id
+
+    async with AsyncSessionLocal() as db:
+        persisted = await db.get(ProviderIngestJob, UUID(job_id))
+        assert persisted is not None
+        assert persisted.status == "done"
+
+
+@pytest.mark.asyncio
 async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     indexed_documents = []
@@ -776,6 +955,134 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_admin_provider_ingest_records_retry_history(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    calls = 0
+
+    async def fake_get_item(self, provider_item_id):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="ComicVine temporarily unavailable",
+            )
+        raw = comicvine_issue_raw()
+        raw["id"] = 90001
+        raw["api_detail_url"] = "https://comicvine.gamespot.com/api/issue/4000-90001/"
+        raw["site_detail_url"] = "https://comicvine.gamespot.com/retry-issue/4000-90001/"
+        raw["volume"] = {
+            **raw["volume"],
+            "id": 99001,
+            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-99001/",
+        }
+        return ProviderItem(provider="comicvine", provider_item_id="4000-90001", raw=raw)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "comicvine", "provider_item_id": "temporary-issue"},
+    )
+
+    assert response.status_code == 201
+    assert calls == 2
+
+    history = await client.get(
+        "/admin/providers/ingest/history",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert history.status_code == 200
+    entry = history.json()[0]
+    assert entry["provider"] == "comicvine"
+    assert entry["provider_item_id"] == "temporary-issue"
+    assert entry["status"] == "created"
+    assert entry["attempts"] == 2
+    assert entry["item_id"] == response.json()["item_id"]
+    assert entry["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_ingest_failed_history_can_be_retried(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "provider_ingest_retry_attempts", 0)
+
+    async def fail_get_item(self, provider_item_id):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Provider is down",
+        )
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fail_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    failed = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "comicvine", "provider_item_id": "retry-me"},
+    )
+
+    assert failed.status_code == 502
+
+    history = await client.get(
+        "/admin/providers/ingest/history",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    failed_entry = history.json()[0]
+    assert failed_entry["status"] == "failed"
+    assert failed_entry["attempts"] == 1
+    assert failed_entry["error"] == "Provider is down"
+
+    async def successful_get_item(self, provider_item_id):
+        raw = comicvine_issue_raw()
+        raw["id"] = 91001
+        raw["api_detail_url"] = "https://comicvine.gamespot.com/api/issue/4000-91001/"
+        raw["site_detail_url"] = "https://comicvine.gamespot.com/retried-issue/4000-91001/"
+        raw["volume"] = {
+            **raw["volume"],
+            "id": 99101,
+            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-99101/",
+        }
+        return ProviderItem(provider="comicvine", provider_item_id="4000-91001", raw=raw)
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", successful_get_item)
+
+    retried = await client.post(
+        "/admin/providers/ingest/retry",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"history_id": failed_entry["id"]},
+    )
+
+    assert retried.status_code == 200
+    assert retried.json()["created"] is True
+
+    retried_history = await client.get(
+        "/admin/providers/ingest/history",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert retried_history.json()[0]["status"] == "created"
+    assert retried_history.json()[0]["provider_item_id"] == "retry-me"
+
+
+@pytest.mark.asyncio
 async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     indexed_documents = []
@@ -812,6 +1119,7 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
     assert body["item"]["barcode"] == "76194122054301211"
     assert body["item"]["cover_price_cents"] == 295
     assert body["item"]["currency"] == "USD"
+    assert body["item"]["story_arcs"][0]["name"] == "Revenge"
     assert body["item"]["provider_links"][0]["provider"] == "gcd"
     assert body["item"]["provider_links"][0]["provider_item_id"] == "256114"
     variant = body["item"]["editions"][0]["variants"][0]

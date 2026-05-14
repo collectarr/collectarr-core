@@ -4,17 +4,28 @@ from app.providers.base import MetadataProvider
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.igdb import IGDBProvider
+from app.providers.planned import (
+    AniListProvider,
+    BGGProvider,
+    MusicBrainzProvider,
+    OpenLibraryProvider,
+)
 from app.providers.tmdb import TMDbProvider
 
 
 class ProviderRegistry:
     def __init__(self) -> None:
-        self._providers: dict[str, MetadataProvider] = {
-            "comicvine": ComicVineProvider(),
-            "gcd": GCDProvider(),
-            "igdb": IGDBProvider(),
-            "tmdb": TMDbProvider(),
-        }
+        providers: list[MetadataProvider] = [
+            ComicVineProvider(),
+            GCDProvider(),
+            IGDBProvider(),
+            TMDbProvider(),
+            AniListProvider(),
+            OpenLibraryProvider(),
+            BGGProvider(),
+            MusicBrainzProvider(),
+        ]
+        self._providers = {provider.name: provider for provider in providers}
 
     def get(self, name: str | ExternalProvider) -> MetadataProvider:
         provider_name = self._provider_name(name)

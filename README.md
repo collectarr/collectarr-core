@@ -47,7 +47,8 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - ComicVine provider supports live issue search/fetch when `COMICVINE_API_KEY` is set
 - Provider status reports compliance metadata such as attribution, redistribution, user-key, and non-commercial flags
 - Admin ingest upserts provider issues into canonical series, volume, item, edition, variant, and release records
-- IGDB and TMDb providers are scaffolded for future game and Blu-ray metadata
+- IGDB, TMDb, AniList, OpenLibrary, BGG, and MusicBrainz providers are
+  scaffolded as search-only planned providers until live normalization is built
 - Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true` only when you want to copy public provider covers into MinIO/S3 as one normalized WebP cover per source image, tracked in a bounded LRU cache
 - If GCD cover URLs are blocked by a browser or network, run `python -m app.scripts.enrich_comicvine_covers --replace-gcd-covers` with `COMICVINE_API_KEY` set to replace those cover references with ComicVine image URLs
 
@@ -71,6 +72,8 @@ The Flutter app keeps client models separate from backend database models:
 - `core/db`: Drift local database
 - `features/comics`: first MVP feature
 - `features/collection`: local-only ownership and wishlist state
+- `features/library`: reusable media type configs, workspace adapters, and
+  local collection behavior
 - `features/games` and `features/bluray`: expansion placeholders
 - `state`: Riverpod providers
 - `ui`: shared UI components
@@ -82,13 +85,14 @@ The Flutter app keeps client models separate from backend database models:
 | Type | MVP Status | Provider |
 |------|------------|----------|
 | Comics | Active MVP | GCD + ComicVine |
+| Manga | Scaffolded | AniList |
+| Books | Scaffolded | OpenLibrary |
 | Games | Scaffolded | IGDB |
+| Movies | Scaffolded | TMDb |
 | Blu-rays | Scaffolded | TMDb |
-| Manga | Schema-ready | Future provider |
 | Anime | Schema-ready | AniList |
-| Movies / TV | Schema-ready | TMDb |
+| TV | Schema-ready | TMDb |
 | Board games | Schema-ready | BGG |
-| Books | Schema-ready | OpenLibrary |
 | Music | Schema-ready | MusicBrainz |
 
 ---
@@ -204,6 +208,11 @@ Multi-device sync lives in a separate self-hosted service:
 - the central metadata server remains stateless with respect to personal libraries
 
 See [docs/sync.md](docs/sync.md) for the boundary and service shape.
+
+Import/export format decisions live in [docs/import-export.md](docs/import-export.md).
+
+Barcode scanner release smoke tests live in
+[docs/barcode-smoke-tests.md](docs/barcode-smoke-tests.md).
 
 ---
 

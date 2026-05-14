@@ -11,6 +11,7 @@ class MediaTypeConfig:
     route_segments: tuple[str, ...]
     default_provider: ExternalProvider | None = None
     providers: tuple[ExternalProvider, ...] = ()
+    item_number_sort_padding: int | None = None
 
     @property
     def primary_route_segment(self) -> str:
@@ -25,6 +26,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("comics", "comic"),
         default_provider=ExternalProvider.gcd,
         providers=(ExternalProvider.gcd, ExternalProvider.comicvine),
+        item_number_sort_padding=6,
     ),
     MediaTypeConfig(
         kind=ItemKind.manga,

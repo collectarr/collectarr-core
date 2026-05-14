@@ -127,6 +127,7 @@ class GCDProvider:
             cover_image_url=self._optional_text(data.get("cover")),
             creators=self._credits(data.get("story_set"), issue_editing=data.get("editing")),
             characters=self._characters(data.get("story_set")),
+            story_arcs=self._story_arcs(data.get("story_set")),
             provider_ids={self.name: issue_id} if issue_id else {},
             volume_provider_ids={self.name: series_id} if series_id else {},
         )
@@ -306,6 +307,26 @@ class GCDProvider:
                 seen.add(key)
                 characters.append(NormalizedCredit(name=name))
         return characters
+
+    def _story_arcs(self, story_set: Any) -> list[NormalizedCredit]:
+        if not isinstance(story_set, list):
+            return []
+        arcs: list[NormalizedCredit] = []
+        seen: set[str] = set()
+        for story in story_set:
+            if not isinstance(story, Mapping):
+                continue
+            if story.get("type") != "comic story":
+                continue
+            title = self._optional_text(story.get("title"))
+            if title is None:
+                continue
+            key = title.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            arcs.append(NormalizedCredit(name=title))
+        return arcs
 
     def _split_credit_names(self, value: Any, *, role: str | None = None) -> list[str]:
         text = self._optional_text(value)

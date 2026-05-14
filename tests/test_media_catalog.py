@@ -33,4 +33,7 @@ def test_provider_registry_can_filter_and_pick_media_defaults():
     assert registry.default_for_kind(ItemKind.comic).name == "gcd"
     assert registry.default_for_kind(ItemKind.game).name == "igdb"
     assert registry.default_for_kind(ItemKind.bluray).name == "tmdb"
-    assert registry.default_for_kind(ItemKind.book) is None
+    assert registry.default_for_kind(ItemKind.book).name == "openlibrary"
+    assert registry.default_for_kind(ItemKind.manga).name == "anilist"
+    assert registry.default_for_kind(ItemKind.boardgame).name == "bgg"
+    assert registry.default_for_kind(ItemKind.music).name == "musicbrainz"

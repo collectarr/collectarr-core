@@ -46,4 +46,10 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     assert providers["gcd"]["status"] == "live"
     assert providers["gcd"]["license_name"] == "CC BY-SA 4.0"
     assert providers["igdb"]["status"] == "stub"
+    assert providers["igdb"]["supports_ingest"] is False
     assert providers["tmdb"]["status"] == "stub"
+    assert providers["tmdb"]["supports_ingest"] is False
+    assert providers["anilist"]["kind"] == "manga"
+    assert providers["openlibrary"]["kind"] == "book"
+    assert providers["bgg"]["kind"] == "boardgame"
+    assert providers["musicbrainz"]["kind"] == "music"

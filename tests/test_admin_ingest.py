@@ -5,13 +5,16 @@ from sqlalchemy import func, select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
+from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    Edition,
     EntityOrganization,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
     ImageCacheEntry,
     Item,
+    MetadataProposal,
     Organization,
     Person,
     Release,
@@ -24,6 +27,7 @@ from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.search.client import SearchClient
+from app.services import admin as admin_service
 from app.storage.images import MirroredImage, ImageMirror
 
 
@@ -310,6 +314,321 @@ async def test_admin_provider_search_rejects_unconfigured_provider(client, monke
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Provider 'anilist' is not configured"
+
+
+@pytest.mark.asyncio
+async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.comic, title="Absolute Batman")
+        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
+        primary = Item(
+            kind=ItemKind.comic,
+            title="Absolute Batman",
+            item_number="1",
+            sort_key="absolute-batman-000001",
+            volume=volume,
+        )
+        duplicate = Item(
+            kind=ItemKind.comic,
+            title="Absolute Batman",
+            item_number="1",
+            sort_key="absolute-batman-000001-duplicate",
+            volume=volume,
+        )
+        primary_edition = Edition(
+            item=primary,
+            title="Standard Edition",
+            publisher="DC Comics",
+            release_date=date(2024, 10, 9),
+        )
+        duplicate_edition = Edition(item=duplicate, title="Standard Edition")
+        primary_variant = Variant(
+            edition=primary_edition,
+            name="Cover A",
+            cover_image_url="https://cdn.example/cover.jpg",
+            is_primary=True,
+        )
+        duplicate_variant = Variant(
+            edition=duplicate_edition,
+            name="Cover A",
+            is_primary=True,
+        )
+        proposal = MetadataProposal(
+            provider=ExternalProvider.gcd,
+            query="Absolute Batman #1",
+            status="pending",
+        )
+        db.add_all(
+            [
+                series,
+                volume,
+                primary,
+                duplicate,
+                primary_edition,
+                duplicate_edition,
+                primary_variant,
+                duplicate_variant,
+                proposal,
+            ]
+        )
+        await db.flush()
+        db.add(
+            ExternalProviderId(
+                provider=ExternalProvider.gcd,
+                provider_item_id="2663120",
+                entity_type="item",
+                entity_id=primary.id,
+            )
+        )
+        await db.commit()
+
+    summary = await client.get(
+        "/admin/catalog/summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert summary.status_code == 200
+    body = summary.json()
+    assert body["items"] == 2
+    assert body["series"] == 1
+    assert body["volumes"] == 1
+    assert body["editions"] == 2
+    assert body["variants"] == 2
+    assert body["provider_links"] == 1
+    assert body["pending_proposals"] == 1
+    assert body["missing_cover_items"] == 1
+    assert body["missing_provider_link_items"] == 1
+    assert body["duplicate_candidate_groups"] == 1
+
+    duplicates = await client.get(
+        "/admin/duplicates",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert duplicates.status_code == 200
+    duplicate_body = duplicates.json()
+    assert duplicate_body[0]["kind"] == "comic"
+    assert duplicate_body[0]["title"] == "Absolute Batman"
+    assert duplicate_body[0]["item_number"] == "1"
+    assert duplicate_body[0]["count"] == 2
+    assert len(duplicate_body[0]["item_ids"]) == 2
+
+    ignore = await client.post(
+        "/admin/duplicates/ignore",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"item_ids": duplicate_body[0]["item_ids"]},
+    )
+
+    assert ignore.status_code == 200
+    assert ignore.json() == {"ok": True, "affected_items": 2, "item": None}
+
+    ignored_duplicates = await client.get(
+        "/admin/duplicates",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert ignored_duplicates.status_code == 200
+    assert ignored_duplicates.json() == []
+
+    ignored_summary = await client.get(
+        "/admin/catalog/summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert ignored_summary.status_code == 200
+    assert ignored_summary.json()["duplicate_candidate_groups"] == 0
+
+
+@pytest.mark.asyncio
+async def test_admin_search_status_reports_meilisearch_index(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    class FakeIndex:
+        def get_stats(self):
+            return {"numberOfDocuments": 42}
+
+    class FakeMeiliClient:
+        def health(self):
+            return {"status": "available"}
+
+        def index(self, name):
+            assert name == "items"
+            return FakeIndex()
+
+    class FakeSearchClient:
+        index_name = "items"
+
+        def __init__(self):
+            self.client = FakeMeiliClient()
+
+    monkeypatch.setattr(admin_service, "SearchClient", FakeSearchClient)
+
+    response = await client.get(
+        "/admin/search/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "index_name": "items",
+        "document_count": 42,
+        "is_empty": False,
+        "error": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_admin_search_reindex_replaces_index_documents(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    state = {"configured": False, "documents": []}
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.comic, title="Absolute Batman")
+        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
+        item = Item(
+            kind=ItemKind.comic,
+            title="Absolute Batman",
+            item_number="1",
+            sort_key="absolute-batman-000001",
+            volume=volume,
+        )
+        edition = Edition(
+            item=item,
+            title="Standard Edition",
+            publisher="DC Comics",
+            release_date=date(2024, 10, 9),
+        )
+        variant = Variant(
+            edition=edition,
+            name="Cover A",
+            barcode="76194138584600111",
+            is_primary=True,
+        )
+        db.add_all([series, volume, item, edition, variant])
+        await db.commit()
+
+    class FakeSearchClient:
+        index_name = "items"
+
+        async def configure(self):
+            state["configured"] = True
+
+        async def replace_documents(self, documents):
+            state["documents"] = documents
+
+    monkeypatch.setattr(admin_service, "SearchClient", FakeSearchClient)
+
+    response = await client.post(
+        "/admin/search/reindex",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "index_name": "items",
+        "indexed_documents": 1,
+        "error": None,
+    }
+    assert state["configured"] is True
+    assert state["documents"][0]["title"] == "Absolute Batman"
+    assert state["documents"][0]["barcodes"] == ["76194138584600111"]
+
+    history = await client.get(
+        "/admin/search/history",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert history.status_code == 200
+    assert history.json()[0]["ok"] is True
+    assert history.json()[0]["index_name"] == "items"
+    assert history.json()[0]["indexed_documents"] == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.comic, title="Absolute Batman")
+        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
+        target = Item(
+            kind=ItemKind.comic,
+            title="Absolute Batman",
+            item_number="1",
+            sort_key="absolute-batman-000001",
+            volume=volume,
+        )
+        source = Item(
+            kind=ItemKind.comic,
+            title="Absolute Batman",
+            item_number="1",
+            sort_key="absolute-batman-000001-duplicate",
+            volume=volume,
+        )
+        target_edition = Edition(item=target, title="Standard Edition", publisher="DC Comics")
+        source_edition = Edition(item=source, title="Variant Edition", publisher="DC Comics")
+        target_variant = Variant(edition=target_edition, name="Cover A", is_primary=True)
+        source_variant = Variant(
+            edition=source_edition,
+            name="Variant Cover",
+            barcode="76194138584600121",
+            is_primary=True,
+        )
+        db.add_all(
+            [
+                series,
+                volume,
+                target,
+                source,
+                target_edition,
+                source_edition,
+                target_variant,
+                source_variant,
+            ]
+        )
+        await db.flush()
+        target_id = str(target.id)
+        source_id = str(source.id)
+        db.add(
+            ExternalProviderId(
+                provider=ExternalProvider.gcd,
+                provider_item_id="2665653",
+                entity_type="item",
+                entity_id=source.id,
+            )
+        )
+        await db.commit()
+
+    response = await client.post(
+        "/admin/duplicates/merge",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target_item_id": target_id, "source_item_ids": [source_id]},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is True
+    assert body["affected_items"] == 1
+    assert body["item"]["id"] == target_id
+    assert len(body["item"]["editions"]) == 2
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(func.count()).select_from(Item)) == 1
+        assert await db.scalar(select(func.count()).select_from(Edition)) == 2
+        provider_link = await db.scalar(select(ExternalProviderId))
+        assert str(provider_link.entity_id) == target_id
+
+    duplicates = await client.get(
+        "/admin/duplicates",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert duplicates.status_code == 200
+    assert duplicates.json() == []
 
 
 @pytest.mark.asyncio

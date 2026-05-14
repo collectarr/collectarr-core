@@ -52,6 +52,12 @@ class SearchClient:
             return
         self.client.index(self.index_name).add_documents(documents, primary_key="id")
 
+    async def replace_documents(self, documents: list[dict[str, Any]]) -> None:
+        index = self.client.index(self.index_name)
+        index.delete_all_documents()
+        if documents:
+            index.add_documents(documents, primary_key="id")
+
     async def index_documents_best_effort(self, documents: list[dict[str, Any]]) -> bool:
         try:
             await self.configure()

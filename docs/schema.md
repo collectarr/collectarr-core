@@ -42,6 +42,8 @@ The central catalog also has generic relationship tables:
 - `tags`: genres, characters, arcs, franchises, themes.
 - `entity_tags`: tag assignments.
 - `image_assets`: cover/poster/banner/background image refs in object storage.
+- `image_cache_entries`: mirrored provider cover cache index, including source URL, object key,
+  size, dimensions, content hash, and last access time for LRU cleanup.
 - `external_provider_ids`: provider mappings such as GCD, ComicVine, IGDB, TMDb, AniList, BGG,
   OpenLibrary, MusicBrainz.
 

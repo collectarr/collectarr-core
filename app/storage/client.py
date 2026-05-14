@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import ClassVar
 
 import boto3
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class ObjectStorage:
     _ensured_buckets: set[tuple[str, str, bool]] = set()
+    _shared: ClassVar["ObjectStorage | None"] = None
 
     def __init__(self) -> None:
         settings = get_settings()
@@ -56,6 +58,33 @@ class ObjectStorage:
             CacheControl="public, max-age=31536000, immutable",
         )
         return self.public_object_url(key)
+
+    def delete_object(self, key: str) -> None:
+        self.ensure_bucket()
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+
+    def delete_objects(self, keys: list[str]) -> None:
+        if not keys:
+            return
+        self.ensure_bucket()
+        for start in range(0, len(keys), 1000):
+            chunk = keys[start : start + 1000]
+            response = self.client.delete_objects(
+                Bucket=self.bucket,
+                Delete={
+                    "Objects": [{"Key": key} for key in chunk],
+                    "Quiet": True,
+                },
+            )
+            errors = response.get("Errors", [])
+            if errors:
+                raise RuntimeError(f"Failed to delete {len(errors)} cached image objects")
+
+    @classmethod
+    def shared(cls) -> "ObjectStorage":
+        if cls._shared is None:
+            cls._shared = cls()
+        return cls._shared
 
     def _ensure_public_read_policy(self) -> None:
         policy = {

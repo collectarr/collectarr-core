@@ -108,7 +108,7 @@ MIRROR_PROVIDER_IMAGES=false
 WORKER_INDEX_INTERVAL_SECONDS=3600
 ```
 
-With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views.
+With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views. Mirrored covers are tracked in `image_cache_entries` and cleaned as a least-recently-used cache. Defaults keep up to 100 GB and evict down to 85 GB; tune `IMAGE_CACHE_MAX_BYTES`, `IMAGE_CACHE_EVICT_TARGET_BYTES`, and `IMAGE_CACHE_CLEANUP_BATCH_SIZE` for your storage.
 
 ## Readiness
 

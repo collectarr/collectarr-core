@@ -39,6 +39,7 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "tags",
             "entity_tags",
             "image_assets",
+            "image_cache_entries",
         }.issubset(tables)
 
         enum_values = {
@@ -56,9 +57,17 @@ async def test_generalized_catalog_schema_exists(migrated_database):
                 )
             ).all()
         }
-        assert {"comic", "manga", "anime", "movie", "tv", "game", "boardgame", "book", "music"}.issubset(
-            enum_values
-        )
+        assert {
+            "comic",
+            "manga",
+            "anime",
+            "movie",
+            "tv",
+            "game",
+            "boardgame",
+            "book",
+            "music",
+        }.issubset(enum_values)
 
         provider_values = {
             row[0]

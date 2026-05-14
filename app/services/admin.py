@@ -37,6 +37,7 @@ from app.schemas.admin import (
 from app.schemas.metadata import item_response_from_model
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
+from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
 
@@ -223,6 +224,8 @@ class AdminMetadataService:
         )
         self.db.add_all([item, edition, variant, release])
         await self.db.flush()
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         await self._add_provider_links(payload.provider, normalized.provider_ids, "item", item.id)
         if volume:
             await self._add_provider_links(

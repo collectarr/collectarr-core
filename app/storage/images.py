@@ -1,8 +1,8 @@
 import hashlib
 import logging
-from io import BytesIO
 import re
 from dataclasses import dataclass
+from io import BytesIO
 from urllib.parse import urlparse
 
 import httpx
@@ -28,8 +28,30 @@ class MirroredImage:
     key: str
     url: str
     content_type: str
+    source_url: str
+    provider: str
+    provider_item_id: str
+    size_bytes: int
+    width: int
+    height: int
+    content_hash: str
     thumbnail_key: str | None = None
     thumbnail_url: str | None = None
+
+
+@dataclass(frozen=True)
+class NormalizedCover:
+    body: bytes
+    width: int
+    height: int
+
+    @property
+    def size_bytes(self) -> int:
+        return len(self.body)
+
+    @property
+    def content_hash(self) -> str:
+        return hashlib.sha256(self.body).hexdigest()
 
 
 class ImageMirror:
@@ -44,9 +66,9 @@ class ImageMirror:
             return None
         try:
             image_bytes = await self._download_image(source_url)
-            cover_bytes = self._normalized_cover_bytes(image_bytes)
+            cover = self._normalized_cover(image_bytes)
             key = self._cover_key(provider, provider_item_id, source_url)
-            public_url = self.storage.put_object(key, cover_bytes, _NORMALIZED_COVER_CONTENT_TYPE)
+            public_url = self.storage.put_object(key, cover.body, _NORMALIZED_COVER_CONTENT_TYPE)
         except Exception:
             logger.warning(
                 "Failed to mirror provider cover %s for %s:%s",
@@ -60,6 +82,13 @@ class ImageMirror:
             key=key,
             url=public_url,
             content_type=_NORMALIZED_COVER_CONTENT_TYPE,
+            source_url=source_url,
+            provider=provider,
+            provider_item_id=provider_item_id,
+            size_bytes=cover.size_bytes,
+            width=cover.width,
+            height=cover.height,
+            content_hash=cover.content_hash,
         )
 
     async def _download_image(self, source_url: str) -> bytes:
@@ -103,11 +132,15 @@ class ImageMirror:
         return f"covers/{provider_segment}/{item_segment}/{digest}.webp"
 
     def _normalized_cover_bytes(self, image_bytes: bytes) -> bytes:
+        return self._normalized_cover(image_bytes).body
+
+    def _normalized_cover(self, image_bytes: bytes) -> NormalizedCover:
         with Image.open(BytesIO(image_bytes)) as image:
             image = ImageOps.exif_transpose(image)
             max_edge = self.settings.provider_image_max_long_edge
             image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
             image = self._rgb_image(image)
+            width, height = image.size
             output = BytesIO()
             image.save(
                 output,
@@ -115,7 +148,7 @@ class ImageMirror:
                 quality=self.settings.provider_image_quality,
                 method=6,
             )
-            return output.getvalue()
+            return NormalizedCover(body=output.getvalue(), width=width, height=height)
 
     def _rgb_image(self, image: Image.Image) -> Image.Image:
         if image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info):

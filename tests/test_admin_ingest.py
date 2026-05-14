@@ -10,6 +10,7 @@ from app.models.canonical import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
+    ImageCacheEntry,
     Item,
     Organization,
     Person,
@@ -576,6 +577,13 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
             key="covers/comicvine/4000-12345/cover.webp",
             url="http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp",
             content_type="image/webp",
+            source_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+            provider=provider,
+            provider_item_id=provider_item_id,
+            size_bytes=12345,
+            width=823,
+            height=1280,
+            content_hash="abc123",
         )
 
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
@@ -602,3 +610,20 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
             "covers/comicvine/4000-12345/cover.webp"
         )
         assert await db.scalar(select(Variant.thumbnail_image_key)) is None
+        cache_entry = await db.scalar(select(ImageCacheEntry))
+        assert cache_entry is not None
+        assert cache_entry.object_key == "covers/comicvine/4000-12345/cover.webp"
+        assert cache_entry.provider == "comicvine"
+        assert cache_entry.provider_item_id == "4000-12345"
+        assert (
+            cache_entry.source_url
+            == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+        )
+        assert cache_entry.public_url == (
+            "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp"
+        )
+        assert cache_entry.size_bytes == 12345
+        assert cache_entry.width == 823
+        assert cache_entry.height == 1280
+        assert cache_entry.content_hash == "abc123"
+        assert cache_entry.access_count == 1

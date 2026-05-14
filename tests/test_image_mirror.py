@@ -72,6 +72,13 @@ async def test_image_mirror_stores_single_normalized_webp_cover(monkeypatch):
 
     assert result is not None
     assert result.content_type == "image/webp"
+    assert result.source_url == "https://example.test/cover.png"
+    assert result.provider == "comicvine"
+    assert result.provider_item_id == "4000-12345"
+    assert result.size_bytes > 0
+    assert result.width < 900
+    assert result.height == mirror.settings.provider_image_max_long_edge
+    assert len(result.content_hash) == 64
     assert result.thumbnail_key is None
     assert result.thumbnail_url is None
     assert len(storage.objects) == 1

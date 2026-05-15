@@ -34,6 +34,9 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Runtime media library switcher for comics, manga, anime, movies, TV, games,
   books, board games, and music, backed by `/metadata/media-types` with an
   offline fallback
+- Shared CLZ-style library workspace shell for catalog-defined libraries,
+  including reusable toolbar chrome, search, view controls, utility menu,
+  sidebar buckets, grids/lists/cards, and inspector layout
 - CSV / CLZ import-export wizard for quick local backup and matched-row import,
   with the Shelf screen retaining the deeper manual resolution flow
 - The central metadata server does not store personal collection or wishlist records
@@ -102,8 +105,8 @@ The Flutter app keeps client models separate from backend database models:
 - `core/db`: Drift local database
 - `features/comics`: first MVP feature
 - `features/collection`: local-only ownership and wishlist state
-- `features/library`: reusable media type configs, workspace adapters, and
-  local collection behavior
+- `features/library`: reusable media type configs, workspace adapters, shared
+  workspace chrome, and local collection behavior
 - `features/games`: expansion placeholder
 - `state`: Riverpod providers
 - `ui`: shared UI components
@@ -114,16 +117,16 @@ The Flutter app keeps client models separate from backend database models:
 
 | Type | MVP Status | Provider |
 |------|------------|----------|
-| Comics | Active MVP | GCD + ComicVine |
-| Manga | Provider-ready | AniList + ComicVine |
-| Books | Provider-ready | OpenLibrary |
-| Games | Provider-ready | IGDB |
-| Movies | Provider-ready | TMDb |
+| Comics | Active MVP, richest UX | GCD + ComicVine |
+| Manga | Provider-ready, generic workspace | AniList + ComicVine |
+| Books | Provider-ready, generic workspace | OpenLibrary |
+| Games | Provider-ready, generic workspace | IGDB |
+| Movies | Provider-ready, generic workspace | TMDb |
 | Physical video | Edition/variant format | DVD, Blu-ray, 4K UHD, VHS, LaserDisc, digital |
-| Anime | Provider-ready | AniList + TMDb |
-| TV | Provider-ready | TMDb |
-| Board games | Provider-ready | BGG |
-| Music | Provider-ready | MusicBrainz |
+| Anime | Provider-ready, generic workspace | AniList + TMDb |
+| TV | Provider-ready, generic workspace | TMDb |
+| Board games | Provider-ready, generic workspace | BGG |
+| Music | Provider-ready, generic workspace | MusicBrainz |
 
 ---
 
@@ -281,6 +284,15 @@ Barcode scanner release smoke tests live in
 ## 🗺 Roadmap
 
 See [docs/implementation-plan.md](docs/implementation-plan.md) for the current phase plan, completed work, and next PR sequence.
+
+Current near-term focus:
+
+- merge the stacked shared-library workspace PRs in order
+- continue splitting `GenericLibraryPage` into projection, toolbar, workspace,
+  and action modules
+- finish responsive library navigation polish for top overflow and left rail
+- complete provider-backed add/search/detail flows for non-comics libraries
+- run the full Core + Sync + Flutter smoke once the frontend stack lands
 
 ---
 

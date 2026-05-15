@@ -287,9 +287,7 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the current p
 
 Current near-term focus:
 
-- merge the stacked shared-library workspace PRs in order
-- continue splitting `GenericLibraryPage` into projection, toolbar, workspace,
-  and action modules
+- finish and merge the active generic library workspace split PR
 - finish responsive library navigation polish for top overflow and left rail
 - complete provider-backed add/search/detail flows for non-comics libraries
 - run the full Core + Sync + Flutter smoke once the frontend stack lands

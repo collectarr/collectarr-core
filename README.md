@@ -31,6 +31,11 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 
 - Owned items, wishlist, purchase dates, prices, condition, grading, and notes are stored in the Flutter app's local Drift database
 - Edition-aware and variant-aware local ownership records
+- Runtime media library switcher for comics, manga, anime, movies, TV, games,
+  books, board games, and music, backed by `/metadata/media-types` with an
+  offline fallback
+- CSV / CLZ import-export wizard for quick local backup and matched-row import,
+  with the Shelf screen retaining the deeper manual resolution flow
 - The central metadata server does not store personal collection or wishlist records
 
 ### 🔄 Offline-First Sync
@@ -39,6 +44,8 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - The central server is metadata-only and does not expose personal `/collection` or `/sync` APIs
 - Multi-device personal sync is reserved for a separate self-hosted `collectarr-sync` service
 - The sync service is opt-in, user-owned infrastructure
+- Conflict review shows local rejected payloads beside the service payload that
+  won, so users can choose Keep service or queue a Keep local retry
 
 ### 🧩 Provider Plugins
 
@@ -55,6 +62,9 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Provider status reports compliance metadata such as attribution, redistribution, user-key, and non-commercial flags
 - Admin ingest upserts provider records into canonical series, volume, item,
   edition, variant, and release records
+- Admin catalog detail surfaces provider links, edition/variant cover status,
+  item audit history, ingest job timelines, retry/backoff state, and cover URL
+  inspection/replacement tools
 - DVD, Blu-ray, 4K UHD, VHS, LaserDisc, and digital video are modeled as
   physical/digital formats on movie and TV editions/variants, not as top-level
   media types

@@ -88,9 +88,15 @@ async def audit_logs(
     user: CurrentAdmin,
     action: str | None = Query(default=None, min_length=1, max_length=100),
     entity_type: str | None = Query(default=None, min_length=1, max_length=64),
+    entity_id: UUID | None = Query(default=None),
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[AdminAuditLogResponse]:
-    return await AdminMetadataService(db, user).audit_logs(action, entity_type, limit)
+    return await AdminMetadataService(db, user).audit_logs(
+        action,
+        entity_type,
+        entity_id,
+        limit,
+    )
 
 
 @router.get("/duplicates", response_model=list[AdminDuplicateCandidateResponse])

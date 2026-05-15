@@ -54,6 +54,15 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     assert body[0]["details_json"]["fields"] == ["title"]
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
 
+    item_logs = await client.get(
+        "/admin/audit/logs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"entity_type": "item", "entity_id": item_id},
+    )
+
+    assert item_logs.status_code == 200
+    assert [row["id"] for row in item_logs.json()] == [body[0]["id"]]
+
 
 @pytest.mark.asyncio
 async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypatch):

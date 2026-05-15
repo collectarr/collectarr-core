@@ -197,6 +197,7 @@ class AdminMetadataService:
         self,
         action: str | None = None,
         entity_type: str | None = None,
+        entity_id: UUID | None = None,
         limit: int = 25,
     ) -> list[AdminAuditLogResponse]:
         stmt = select(AdminAuditLog).order_by(
@@ -207,6 +208,8 @@ class AdminMetadataService:
             stmt = stmt.where(AdminAuditLog.action == action)
         if entity_type:
             stmt = stmt.where(AdminAuditLog.entity_type == entity_type)
+        if entity_id:
+            stmt = stmt.where(AdminAuditLog.entity_id == entity_id)
         result = await self.db.execute(stmt.limit(limit))
         return [AdminAuditLogResponse.model_validate(row) for row in result.scalars()]
 
@@ -276,6 +279,10 @@ class AdminMetadataService:
                 variant.barcode = payload.barcode
             if "cover_image_url" in update_data:
                 variant.cover_image_url = payload.cover_image_url
+                variant.metadata_json = self._metadata_with_cover(
+                    variant.metadata_json,
+                    payload.cover_image_url,
+                )
             if "thumbnail_image_url" in update_data:
                 variant.thumbnail_image_url = payload.thumbnail_image_url
             if physical_format is not None:
@@ -368,6 +375,18 @@ class AdminMetadataService:
                 "physical_format_variant_type": physical_format.variant_type,
             }
         )
+        metadata["normalized"] = normalized
+        return metadata
+
+    def _metadata_with_cover(
+        self,
+        metadata_json: dict[str, Any] | None,
+        source_url: str | None,
+    ) -> dict[str, Any]:
+        metadata = dict(metadata_json or {})
+        normalized_source = metadata.get("normalized")
+        normalized = dict(normalized_source) if isinstance(normalized_source, dict) else {}
+        normalized.update(self._cover_metadata(source_url, None))
         metadata["normalized"] = normalized
         return metadata
 

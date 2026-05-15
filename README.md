@@ -37,8 +37,15 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Shared CLZ-style library workspace shell for catalog-defined libraries,
   including reusable toolbar chrome, search, view controls, utility menu,
   sidebar buckets, grids/lists/cards, and inspector layout
+- Generic Add flows can search Core, search the configured live provider for
+  manga/books/games/movies/TV/anime/board games/music, save provider candidates
+  as local drafts, queue Core ingest jobs with visible job feedback, and submit
+  metadata proposals for Core review
+- Non-comics libraries use media-aware field labels for add/detail/table/edit
+  flows, such as video `Format / Edition`, book `ISBN / Barcode`, and game
+  `Platform / Edition`
 - CSV / CLZ import-export wizard for quick local backup and matched-row import,
-  with the Shelf screen retaining the deeper manual resolution flow
+  with media type-aware CSV matching and CLZ-friendly headers
 - The central metadata server does not store personal collection or wishlist records
 
 ### 🔄 Offline-First Sync
@@ -287,9 +294,9 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the current p
 
 Current near-term focus:
 
-- finish and merge the active generic library workspace split PR
+- continue provider-backed add/search/detail flows for non-comics libraries
+- turn provider candidates into stronger canonical ingest/review workflows
 - finish responsive library navigation polish for top overflow and left rail
-- complete provider-backed add/search/detail flows for non-comics libraries
 - run the full Core + Sync + Flutter smoke once the frontend stack lands
 
 ---

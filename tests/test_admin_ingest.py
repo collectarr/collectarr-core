@@ -502,9 +502,12 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
 async def test_admin_search_status_reports_meilisearch_index(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 
+    class FakeIndexStats:
+        number_of_documents = 42
+
     class FakeIndex:
         def get_stats(self):
-            return {"numberOfDocuments": 42}
+            return FakeIndexStats()
 
     class FakeMeiliClient:
         def health(self):
@@ -533,6 +536,49 @@ async def test_admin_search_status_reports_meilisearch_index(client, monkeypatch
         "index_name": "items",
         "document_count": 42,
         "is_empty": False,
+        "error": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_admin_search_status_preserves_empty_meilisearch_index(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    class FakeIndexStats:
+        def model_dump(self, by_alias=False):
+            return {"numberOfDocuments": 0}
+
+    class FakeIndex:
+        def get_stats(self):
+            return FakeIndexStats()
+
+    class FakeMeiliClient:
+        def health(self):
+            return {"status": "available"}
+
+        def index(self, name):
+            assert name == "items"
+            return FakeIndex()
+
+    class FakeSearchClient:
+        index_name = "items"
+
+        def __init__(self):
+            self.client = FakeMeiliClient()
+
+    monkeypatch.setattr(admin_service, "SearchClient", FakeSearchClient)
+
+    response = await client.get(
+        "/admin/search/status",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "ok": True,
+        "index_name": "items",
+        "document_count": 0,
+        "is_empty": True,
         "error": None,
     }
 

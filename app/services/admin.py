@@ -82,6 +82,28 @@ _INGEST_HISTORY_SEQUENCE = 0
 logger = logging.getLogger(__name__)
 
 
+def _meili_document_count(stats: Any) -> int | None:
+    if isinstance(stats, dict):
+        value = stats.get("numberOfDocuments")
+        if value is None:
+            value = stats.get("number_of_documents")
+    else:
+        value = getattr(stats, "number_of_documents", None)
+        if value is None:
+            value = getattr(stats, "numberOfDocuments", None)
+        if value is None and hasattr(stats, "model_dump"):
+            dumped = stats.model_dump(by_alias=True)
+            value = dumped.get("numberOfDocuments")
+            if value is None:
+                value = dumped.get("number_of_documents")
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except ValueError:
+            return None
+    return value if isinstance(value, int) else None
+
+
 class AdminMetadataService:
     def __init__(self, db: AsyncSession, actor: User | None = None) -> None:
         self.db = db
@@ -144,6 +166,7 @@ class AdminMetadataService:
             client = SearchClient()
             client.client.health()
             stats = client.client.index(client.index_name).get_stats()
+            document_count = _meili_document_count(stats)
         except Exception as exc:
             logger.warning("admin_search_status_failed error=%s", exc)
             return AdminSearchStatusResponse(
@@ -151,14 +174,6 @@ class AdminMetadataService:
                 index_name=SearchClient.index_name,
                 error=str(exc),
             )
-        document_count = stats.get("numberOfDocuments")
-        if isinstance(document_count, str):
-            try:
-                document_count = int(document_count)
-            except ValueError:
-                document_count = None
-        if not isinstance(document_count, int):
-            document_count = None
         return AdminSearchStatusResponse(
             ok=True,
             index_name=client.index_name,

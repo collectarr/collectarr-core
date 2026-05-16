@@ -25,6 +25,20 @@ from app.providers.base import (
 _TAG_RE = re.compile(r"<[^>]+>")
 _RESOURCE_ID_RE = re.compile(r"/(issue|volume)/(\d+-\d+)/?")
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+_COVER_LIST_HEADER_RE = re.compile(
+    r"^Cover\s+Name\s+Creator\(s\)\s+Sidebar\s+Location\s+",
+    re.IGNORECASE,
+)
+_COVER_LIST_MARKER = "list of covers and their creators:"
+_COVER_ROW_RE = re.compile(
+    r"\b(?P<code>Reg|Sub|RI|Var|RE|2nd|3rd)\s+"
+    r"(?P<body>.*?)(?=\s+\b(?:Reg|Sub|RI|Var|RE|2nd|3rd)\s+|$)",
+    re.IGNORECASE,
+)
+_COVER_LOCATION_RE = re.compile(
+    r"\s+(?P<location>Missing|\d+(?:-\d+)?)\s*$",
+    re.IGNORECASE,
+)
 _VARIANT_STOP_WORDS = {
     "a",
     "an",
@@ -40,6 +54,7 @@ _VARIANT_STOP_WORDS = {
 _DISTINCTIVE_VARIANT_TERMS = {
     "black",
     "blank",
+    "exclusive",
     "foil",
     "incentive",
     "nycc",
@@ -49,6 +64,15 @@ _DISTINCTIVE_VARIANT_TERMS = {
     "virgin",
     "white",
 }
+_GENERIC_VARIANT_MATCH_TERMS = {
+    "art",
+    "boom",
+    "regular",
+    "retailer",
+    "studios",
+    "subscription",
+    "web",
+}
 logger = logging.getLogger(__name__)
 
 
@@ -57,6 +81,19 @@ class ComicVineIssueCover:
     provider_item_id: str
     image_url: str
     site_detail_url: str | None = None
+
+
+@dataclass(frozen=True)
+class ComicVineCoverListEntry:
+    label: str
+    start_location: int | None
+    end_location: int | None
+    missing: bool = False
+
+    def contains_location(self, location: int) -> bool:
+        if self.start_location is None:
+            return False
+        return self.start_location <= location <= (self.end_location or self.start_location)
 
 
 class ComicVineProvider:
@@ -124,6 +161,7 @@ class ComicVineProvider:
         if not isinstance(results, list):
             return []
 
+        results = self._sort_search_results(results, normalized_query)
         normalized_results = []
         for result in results:
             if not isinstance(result, Mapping):
@@ -435,6 +473,49 @@ class ComicVineProvider:
             image_url=self._image_url(result.get("image")),
         )
 
+    def _sort_search_results(self, results: list[Any], query: str) -> list[Any]:
+        return sorted(
+            results,
+            key=lambda result: (
+                self._search_title_rank(result, query),
+                self._search_collected_volume_rank(result),
+                self._issue_sort_value(
+                    result.get("issue_number") if isinstance(result, Mapping) else None
+                ),
+                self._normalize_title(result.get("name") if isinstance(result, Mapping) else ""),
+            ),
+        )
+
+    def _search_title_rank(self, result: Any, query: str) -> int:
+        if not isinstance(result, Mapping):
+            return 9
+        query_key = self._normalize_title(query)
+        volume = result.get("volume") if isinstance(result.get("volume"), Mapping) else {}
+        volume_key = self._normalize_title(volume.get("name"))
+        issue_key = self._normalize_title(result.get("name"))
+        if volume_key == query_key:
+            return 0
+        if issue_key == query_key:
+            return 1
+        if volume_key.startswith(query_key) or issue_key.startswith(query_key):
+            return 2
+        return 3
+
+    def _search_collected_volume_rank(self, result: Any) -> int:
+        if not isinstance(result, Mapping):
+            return 1
+        name = self._normalize_title(result.get("name"))
+        return 1 if " volume " in f" {name} " else 0
+
+    def _issue_sort_value(self, value: Any) -> tuple[int, float, str]:
+        text = str(value or "").strip()
+        if not text:
+            return 1, 0, ""
+        match = re.match(r"(?P<number>\d+(?:\.\d+)?)", text)
+        if not match:
+            return 1, 0, text.casefold()
+        return 0, float(match.group("number")), text.casefold()
+
     def _issue_resource_id(self, provider_item_id: str) -> str:
         _, resource_id = self._kind_and_resource_id(provider_item_id)
         if re.fullmatch(r"\d+-\d+", resource_id):
@@ -565,7 +646,18 @@ class ComicVineProvider:
         if not required_terms:
             return True
         haystack_text, haystack_terms = haystack
-        return all(term in haystack_terms or term in haystack_text for term in required_terms)
+        if all(term in haystack_terms or term in haystack_text for term in required_terms):
+            return True
+
+        specific_terms = hint_terms - _DISTINCTIVE_VARIANT_TERMS - _GENERIC_VARIANT_MATCH_TERMS
+        if not specific_terms:
+            return False
+        matched_specific_terms = [
+            term
+            for term in specific_terms
+            if term in haystack_terms or term in haystack_text
+        ]
+        return len(matched_specific_terms) >= min(2, len(specific_terms))
 
     def _variant_haystack_terms(self, source: Any) -> tuple[str, set[str]]:
         if isinstance(source, Mapping):
@@ -574,6 +666,7 @@ class ComicVineProvider:
                 source.get("deck"),
                 source.get("description"),
                 source.get("site_detail_url"),
+                source.get("cover_list_entry"),
                 source.get("caption"),
                 source.get("image_tags"),
                 source.get("url"),
@@ -627,33 +720,35 @@ class ComicVineProvider:
 
     def _issue_image_candidates(self, issue: Mapping[str, Any]) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
+        cover_list = self._cover_list_entries(issue)
         primary_url = self._image_url(issue.get("image"))
         if primary_url:
+            primary_entry = self._cover_list_entry_for_location(cover_list, 1)
             candidates.append(
                 {
                     "url": primary_url,
-                    "haystack": issue,
+                    "haystack": self._image_candidate_haystack(
+                        issue,
+                        primary_url,
+                        primary_entry,
+                    ),
                     "priority": 1,
                 }
             )
-        for image in self._associated_images(issue):
+        for image_index, image in enumerate(self._associated_images(issue)):
             image_url = self._associated_image_url(image)
             if not image_url:
                 continue
-            haystack = {
-                "name": issue.get("name"),
-                "deck": issue.get("deck"),
-                "description": issue.get("description"),
-                "site_detail_url": issue.get("site_detail_url"),
-                "caption": image.get("caption"),
-                "image_tags": image.get("image_tags"),
-                "url": image_url,
-                "original_url": image.get("original_url"),
-            }
+            cover_entry = self._cover_list_entry_for_location(cover_list, image_index + 2)
             candidates.append(
                 {
                     "url": image_url,
-                    "haystack": haystack,
+                    "haystack": self._image_candidate_haystack(
+                        issue,
+                        image_url,
+                        cover_entry,
+                        image=image,
+                    ),
                     "priority": 0,
                 }
             )
@@ -668,17 +763,19 @@ class ComicVineProvider:
             return []
         primary_urls = self._image_urls(data.get("image"))
         provider_item_id = self._resource_id(data, "issue") or str(data.get("id") or "") or None
+        cover_list = self._cover_list_entries(data)
         covers: list[NormalizedVariantCover] = []
         seen = set(primary_urls)
-        for image in associated_images:
+        for image_index, image in enumerate(associated_images):
             image_url = self._associated_image_url(image)
             if not image_url or image_url in seen:
                 continue
             seen.add(image_url)
+            cover_entry = self._cover_list_entry_for_location(cover_list, image_index + 2)
             cover_index = len(covers) + 1
             covers.append(
                 NormalizedVariantCover(
-                    name=self._associated_variant_name(image, cover_index),
+                    name=self._associated_variant_name(image, cover_index, cover_entry),
                     cover_image_url=image_url,
                     provider_item_id=provider_item_id,
                     source_id=self._optional_text(image.get("id")),
@@ -708,11 +805,92 @@ class ComicVineProvider:
                 return str(image_url)
         return None
 
-    def _associated_variant_name(self, image: Mapping[str, Any], index: int) -> str:
+    def _associated_variant_name(
+        self,
+        image: Mapping[str, Any],
+        index: int,
+        cover_entry: ComicVineCoverListEntry | None = None,
+    ) -> str:
         caption = self._clean_text(image.get("caption"))
         if caption and caption.casefold() not in {"all images", "cover"}:
             return caption[:255]
+        if cover_entry is not None and cover_entry.label:
+            return cover_entry.label[:255]
         return f"Variant cover {index}"
+
+    def _image_candidate_haystack(
+        self,
+        issue: Mapping[str, Any],
+        image_url: str,
+        cover_entry: ComicVineCoverListEntry | None,
+        *,
+        image: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        haystack = {
+            "name": issue.get("name"),
+            "site_detail_url": issue.get("site_detail_url"),
+            "cover_list_entry": cover_entry.label if cover_entry else None,
+            "caption": image.get("caption") if image else None,
+            "image_tags": image.get("image_tags") if image else None,
+            "url": image_url,
+            "original_url": image.get("original_url") if image else image_url,
+        }
+        if cover_entry is None:
+            haystack["deck"] = issue.get("deck")
+            haystack["description"] = issue.get("description")
+        return haystack
+
+    def _cover_list_entries(self, data: Mapping[str, Any]) -> list[ComicVineCoverListEntry]:
+        text = self._clean_text(data.get("description") or data.get("deck")) or ""
+        marker_index = text.casefold().find(_COVER_LIST_MARKER)
+        if marker_index < 0:
+            return []
+        table = text[marker_index + len(_COVER_LIST_MARKER) :].strip()
+        table = _COVER_LIST_HEADER_RE.sub("", table).strip()
+        entries: list[ComicVineCoverListEntry] = []
+        for match in _COVER_ROW_RE.finditer(table):
+            label, start, end, missing = self._parse_cover_list_row(match.group("body"))
+            if not label:
+                continue
+            entries.append(
+                ComicVineCoverListEntry(
+                    label=label,
+                    start_location=start,
+                    end_location=end,
+                    missing=missing,
+                )
+            )
+        return entries
+
+    def _parse_cover_list_row(
+        self,
+        body: str,
+    ) -> tuple[str | None, int | None, int | None, bool]:
+        cleaned = " ".join(body.split())
+        if not cleaned:
+            return None, None, None, False
+        location_match = _COVER_LOCATION_RE.search(cleaned)
+        if not location_match:
+            return cleaned[:255], None, None, False
+
+        location = location_match.group("location")
+        label = cleaned[: location_match.start()].strip()
+        if location.casefold() == "missing":
+            return label[:255] or None, None, None, True
+        if "-" in location:
+            start_text, end_text = location.split("-", 1)
+            return label[:255] or None, int(start_text), int(end_text), False
+        return label[:255] or None, int(location), int(location), False
+
+    def _cover_list_entry_for_location(
+        self,
+        entries: list[ComicVineCoverListEntry],
+        location: int,
+    ) -> ComicVineCoverListEntry | None:
+        for entry in entries:
+            if entry.contains_location(location):
+                return entry
+        return None
 
     def _date(self, value: Any) -> date | None:
         if not value:

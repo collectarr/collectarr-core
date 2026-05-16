@@ -518,7 +518,10 @@ class MetadataService:
         target_kind = kind or ItemKind.comic
         if target_kind not in {ItemKind.comic, ItemKind.manga}:
             return []
-        for series_title, issue_number in GCDProvider()._query_candidates(query)[:3]:
+        plan = GCDProvider()._query_plan(query)
+        if plan.is_series_search:
+            return []
+        for series_title, issue_number in plan.candidates[:3]:
             try:
                 cover = await provider.find_issue_cover(
                     series_title=series_title,

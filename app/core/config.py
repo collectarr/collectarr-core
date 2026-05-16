@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     gcd_base_url: str = "https://www.comics.org/api"
     gcd_timeout_seconds: float = 20.0
     gcd_search_limit: int = 20
+    gcd_series_search_issue_span: int = Field(default=4, ge=1, le=25)
     gcd_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
     openlibrary_base_url: str = "https://openlibrary.org"

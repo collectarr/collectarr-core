@@ -67,6 +67,28 @@ class ImageCache:
         await self.evict_if_needed(protected_keys={image.key})
         return entry
 
+    async def cached_provider_cover(
+        self,
+        *,
+        provider: str,
+        source_url: str,
+    ) -> ImageCacheEntry | None:
+        entry = await self.db.scalar(
+            select(ImageCacheEntry)
+            .where(
+                ImageCacheEntry.provider == provider,
+                ImageCacheEntry.source_url == source_url,
+            )
+            .order_by(ImageCacheEntry.updated_at.desc())
+            .limit(1)
+        )
+        if entry is None:
+            return None
+        entry.access_count += 1
+        entry.last_accessed_at = datetime.now(UTC)
+        await self.db.flush()
+        return entry
+
     async def total_size_bytes(self) -> int:
         total = await self.db.scalar(select(func.coalesce(func.sum(ImageCacheEntry.size_bytes), 0)))
         return int(total or 0)

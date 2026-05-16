@@ -52,7 +52,7 @@ class MetadataProvider(Protocol):
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem: ...
 ```
 
-GCD is the default legal-clean comics seed candidate because it provides CC BY-SA bibliographic issue metadata without an API key. Its provider searches issue-style queries such as `Batman #12`, normalizes issue detail into canonical metadata, and preserves source provenance.
+GCD is the default legal-clean comics seed candidate because it provides CC BY-SA bibliographic issue metadata without an API key. Its provider searches issue-style queries such as `Batman #12`, falls back to issue `#1` for series-only queries such as `Absolute Batman`, normalizes issue detail into canonical metadata, and preserves source provenance.
 
 ComicVine remains an optional personal/non-commercial enrichment provider for
 comics and manga entries. Its issue ingest path stores provider IDs for the
@@ -138,4 +138,9 @@ Images are stored as references, not backend filesystem files. For public provid
 
 ## Scaling
 
-The API is stateless. State lives in PostgreSQL, Redis, Meilisearch, and MinIO. API and worker containers can scale independently.
+The API is stateless. Durable state lives in PostgreSQL, Meilisearch, and MinIO.
+Redis carries shared ephemeral state: rate-limit windows, provider search
+cache, and provider cooldown/backoff. If Redis is unavailable in local
+development, Core falls back to process-local state; in multi-replica
+deployments, configure Redis so provider protections are shared across all API
+processes. API and worker containers can scale independently.

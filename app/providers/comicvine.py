@@ -15,6 +15,7 @@ from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
+    NormalizedVariantCover,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,
@@ -24,6 +25,30 @@ from app.providers.base import (
 _TAG_RE = re.compile(r"<[^>]+>")
 _RESOURCE_ID_RE = re.compile(r"/(issue|volume)/(\d+-\d+)/?")
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+_VARIANT_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "by",
+    "cover",
+    "edition",
+    "for",
+    "of",
+    "the",
+    "variant",
+}
+_DISTINCTIVE_VARIANT_TERMS = {
+    "black",
+    "blank",
+    "foil",
+    "incentive",
+    "nycc",
+    "ratio",
+    "printing",
+    "sketch",
+    "virgin",
+    "white",
+}
 logger = logging.getLogger(__name__)
 
 
@@ -144,6 +169,7 @@ class ComicVineProvider:
                         "character_credits",
                         "story_arc_credits",
                         "image",
+                        "associated_images",
                         "volume",
                     ]
                 )
@@ -171,6 +197,8 @@ class ComicVineProvider:
         series_title: str,
         issue_number: str,
         start_year: int | None = None,
+        variant_hint: str | None = None,
+        require_variant_match: bool = False,
     ) -> ComicVineIssueCover | None:
         normalized_series = " ".join(series_title.split())
         normalized_issue = " ".join(issue_number.split())
@@ -195,8 +223,12 @@ class ComicVineProvider:
                         "id",
                         "api_detail_url",
                         "site_detail_url",
+                        "name",
                         "issue_number",
+                        "deck",
+                        "description",
                         "image",
+                        "associated_images",
                     ]
                 ),
             },
@@ -205,20 +237,45 @@ class ComicVineProvider:
         if not isinstance(issues, list):
             return None
 
-        for issue in issues:
+        candidates: list[tuple[int, int, int, int, str, str, str | None]] = []
+        for index, issue in enumerate(issues):
             if not isinstance(issue, Mapping):
                 continue
             if str(issue.get("issue_number") or "").strip() != normalized_issue:
                 continue
-            image_url = self._image_url(issue.get("image"))
             provider_item_id = self._resource_id(issue, "issue")
-            if image_url and provider_item_id:
-                return ComicVineIssueCover(
-                    provider_item_id=provider_item_id,
-                    image_url=image_url,
-                    site_detail_url=self._optional_text(issue.get("site_detail_url")),
+            if not provider_item_id:
+                continue
+            for image_index, image_candidate in enumerate(self._issue_image_candidates(issue)):
+                image_url = image_candidate["url"]
+                image_haystack = image_candidate["haystack"]
+                variant_score = self._variant_cover_score(image_haystack, variant_hint)
+                if require_variant_match:
+                    haystack_terms = self._variant_haystack_terms(image_haystack)
+                    if not self._has_required_variant_terms(variant_hint, haystack_terms):
+                        continue
+                    if variant_score < self._min_variant_cover_score(variant_hint):
+                        continue
+                candidates.append(
+                    (
+                        variant_score,
+                        image_candidate["priority"],
+                        -index,
+                        -image_index,
+                        provider_item_id,
+                        image_url,
+                        self._optional_text(issue.get("site_detail_url")),
+                    )
                 )
-        return None
+        if not candidates:
+            return None
+
+        _, _, _, _, provider_item_id, image_url, site_detail_url = max(candidates)
+        return ComicVineIssueCover(
+            provider_item_id=provider_item_id,
+            image_url=image_url,
+            site_detail_url=site_detail_url,
+        )
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
         kind = self._kind_from_raw(data)
@@ -250,6 +307,7 @@ class ComicVineProvider:
             publisher=self._publisher(volume),
             release_date=self._date(data.get("cover_date") or data.get("store_date")),
             cover_image_url=self._image_url(data.get("image")),
+            variant_covers=self._associated_variant_covers(data),
             creators=self._credits(data.get("person_credits"), default_role="Creator"),
             characters=self._credits(data.get("character_credits")),
             story_arcs=self._credits(data.get("story_arc_credits")),
@@ -479,6 +537,61 @@ class ComicVineProvider:
     def _normalize_title(self, value: Any) -> str:
         return " ".join(str(value or "").casefold().split())
 
+    def _variant_cover_score(self, haystack_source: Any, variant_hint: str | None) -> int:
+        hint_terms = self._variant_terms(variant_hint)
+        if not hint_terms:
+            return 0
+        haystack, haystack_terms = self._variant_haystack_terms(haystack_source)
+        score = 0
+        normalized_hint = " ".join(hint_terms)
+        if normalized_hint and normalized_hint in haystack:
+            score += 100
+        for term in hint_terms:
+            if term in haystack_terms or term in haystack:
+                score += 1
+        return score
+
+    def _min_variant_cover_score(self, variant_hint: str | None) -> int:
+        hint_terms = set(self._variant_terms(variant_hint))
+        if not hint_terms:
+            return 0
+        return min(2, len(hint_terms))
+
+    def _has_required_variant_terms(
+        self, variant_hint: str | None, haystack: tuple[str, set[str]]
+    ) -> bool:
+        hint_terms = set(self._variant_terms(variant_hint))
+        required_terms = hint_terms & _DISTINCTIVE_VARIANT_TERMS
+        if not required_terms:
+            return True
+        haystack_text, haystack_terms = haystack
+        return all(term in haystack_terms or term in haystack_text for term in required_terms)
+
+    def _variant_haystack_terms(self, source: Any) -> tuple[str, set[str]]:
+        if isinstance(source, Mapping):
+            haystack_values = [
+                source.get("name"),
+                source.get("deck"),
+                source.get("description"),
+                source.get("site_detail_url"),
+                source.get("caption"),
+                source.get("image_tags"),
+                source.get("url"),
+                source.get("original_url"),
+            ]
+            haystack = self._normalize_title(
+                " ".join(self._clean_text(value) or "" for value in haystack_values)
+            )
+        else:
+            haystack = self._normalize_title(self._clean_text(source) or "")
+        return haystack, set(self._variant_terms(haystack))
+
+    def _variant_terms(self, value: Any) -> list[str]:
+        normalized = _SLUG_RE.sub(" ", str(value or "").casefold())
+        return [
+            term for term in normalized.split() if len(term) > 1 and term not in _VARIANT_STOP_WORDS
+        ]
+
     def _clean_text(self, value: Any) -> str | None:
         if value is None:
             return None
@@ -494,6 +607,112 @@ class ComicVineProvider:
             if image_url:
                 return str(image_url)
         return None
+
+    def _image_urls(self, value: Any) -> set[str]:
+        if not isinstance(value, Mapping):
+            return set()
+        urls = set()
+        for key in (
+            "super_url",
+            "screen_url",
+            "medium_url",
+            "small_url",
+            "thumb_url",
+            "original_url",
+        ):
+            image_url = value.get(key)
+            if image_url:
+                urls.add(str(image_url))
+        return urls
+
+    def _issue_image_candidates(self, issue: Mapping[str, Any]) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+        primary_url = self._image_url(issue.get("image"))
+        if primary_url:
+            candidates.append(
+                {
+                    "url": primary_url,
+                    "haystack": issue,
+                    "priority": 1,
+                }
+            )
+        for image in self._associated_images(issue):
+            image_url = self._associated_image_url(image)
+            if not image_url:
+                continue
+            haystack = {
+                "name": issue.get("name"),
+                "deck": issue.get("deck"),
+                "description": issue.get("description"),
+                "site_detail_url": issue.get("site_detail_url"),
+                "caption": image.get("caption"),
+                "image_tags": image.get("image_tags"),
+                "url": image_url,
+                "original_url": image.get("original_url"),
+            }
+            candidates.append(
+                {
+                    "url": image_url,
+                    "haystack": haystack,
+                    "priority": 0,
+                }
+            )
+        return candidates
+
+    def _associated_variant_covers(
+        self,
+        data: Mapping[str, Any],
+    ) -> list[NormalizedVariantCover]:
+        associated_images = self._associated_images(data)
+        if not associated_images:
+            return []
+        primary_urls = self._image_urls(data.get("image"))
+        provider_item_id = self._resource_id(data, "issue") or str(data.get("id") or "") or None
+        covers: list[NormalizedVariantCover] = []
+        seen = set(primary_urls)
+        for image in associated_images:
+            image_url = self._associated_image_url(image)
+            if not image_url or image_url in seen:
+                continue
+            seen.add(image_url)
+            cover_index = len(covers) + 1
+            covers.append(
+                NormalizedVariantCover(
+                    name=self._associated_variant_name(image, cover_index),
+                    cover_image_url=image_url,
+                    provider_item_id=provider_item_id,
+                    source_id=self._optional_text(image.get("id")),
+                    caption=self._optional_text(image.get("caption")),
+                )
+            )
+        return covers
+
+    def _associated_images(self, data: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+        images = data.get("associated_images")
+        if not isinstance(images, list):
+            return []
+        return [image for image in images if isinstance(image, Mapping)]
+
+    def _associated_image_url(self, image: Mapping[str, Any]) -> str | None:
+        for key in (
+            "original_url",
+            "super_url",
+            "screen_large_url",
+            "screen_url",
+            "medium_url",
+            "small_url",
+            "thumb_url",
+        ):
+            image_url = image.get(key)
+            if image_url:
+                return str(image_url)
+        return None
+
+    def _associated_variant_name(self, image: Mapping[str, Any], index: int) -> str:
+        caption = self._clean_text(image.get("caption"))
+        if caption and caption.casefold() not in {"all images", "cover"}:
+            return caption[:255]
+        return f"Variant cover {index}"
 
     def _date(self, value: Any) -> date | None:
         if not value:

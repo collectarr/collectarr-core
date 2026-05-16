@@ -1,12 +1,21 @@
+import logging
+import re
+import asyncio
+from dataclasses import replace
+from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
+from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import MetadataProposal
+from app.providers.base import MetadataProvider, ProviderSearchResult
+from app.providers.comicvine import ComicVineProvider
+from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
@@ -18,14 +27,24 @@ from app.schemas.metadata import (
     item_response_from_model,
 )
 from app.search.client import SearchClient
+from app.services.provider_search_state import ProviderSearchState
+from app.storage.image_cache import ImageCache
+from app.storage.images import ImageMirror
+
+logger = logging.getLogger(__name__)
+
+_UPSTREAM_HTTP_STATUS_RE = re.compile(r"\bHTTP\s+(?P<status>\d{3})\b")
+_PROVIDER_INTERNAL_RETRY_NAMES = {ExternalProvider.bgg.value, ExternalProvider.comicvine.value}
 
 
 class MetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+        self.settings = get_settings()
         self.metadata = MetadataRepository(db)
         self.search_client = SearchClient()
         self.providers = ProviderRegistry()
+        self.provider_search_state = ProviderSearchState(self.settings)
 
     async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse:
         item = await self.metadata.get_item(item_id, kind)
@@ -64,7 +83,7 @@ class MetadataService:
             barcode=barcode,
             limit=limit,
         )
-        if meili_results is not None:
+        if meili_results is not None and not barcode:
             return [SearchResult(**result) for result in meili_results]
 
         items = await self.metadata.search_items(
@@ -79,17 +98,22 @@ class MetadataService:
         )
         results: list[SearchResult] = []
         for item in items:
-            cover_url = None
-            thumbnail_url = None
-            for edition in item.editions:
-                primary = next(
-                    (variant for variant in edition.variants if variant.is_primary), None
+            preferred_variant = self._preferred_variant(
+                item,
+                query=query,
+                barcode=barcode,
+            )
+            cover_url, thumbnail_url = self._variant_cover(
+                preferred_variant or self._primary_variant(item)
+            )
+            results.append(
+                self._search_result(
+                    item,
+                    cover_url,
+                    thumbnail_url,
+                    preferred_variant=preferred_variant,
                 )
-                if primary:
-                    cover_url = primary.cover_image_url
-                    thumbnail_url = primary.thumbnail_image_url
-                    break
-            results.append(self._search_result(item, cover_url, thumbnail_url))
+            )
         return results
 
     async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:
@@ -101,15 +125,16 @@ class MetadataService:
                 detail="Barcode not found",
             )
 
-        cover_url = None
-        thumbnail_url = None
-        for edition in item.editions:
-            primary = next((variant for variant in edition.variants if variant.is_primary), None)
-            if primary:
-                cover_url = primary.cover_image_url
-                thumbnail_url = primary.thumbnail_image_url
-                break
-        return self._search_result(item, cover_url, thumbnail_url)
+        preferred_variant = self._preferred_variant(item, barcode=barcode)
+        cover_url, thumbnail_url = self._variant_cover(
+            preferred_variant or self._primary_variant(item)
+        )
+        return self._search_result(
+            item,
+            cover_url,
+            thumbnail_url,
+            preferred_variant=preferred_variant,
+        )
 
     async def search_provider(
         self,
@@ -136,8 +161,411 @@ class MetadataService:
                 code="provider_kind_unsupported",
                 detail=(f"Provider '{provider_name.value}' does not support kind '{kind.value}'"),
             )
-        results = await provider.search(query, kind)
+        cache_key = self._provider_search_cache_key(provider_name, query, kind)
+        results = await self._cached_provider_search_results(cache_key)
+        if results is None:
+            try:
+                results = await self._search_provider_live(provider_name, provider, query, kind)
+            except ApiHTTPException as exc:
+                fallback_results = await self._search_provider_fallback(
+                    provider_name,
+                    query,
+                    kind,
+                    exc,
+                )
+                if fallback_results is None:
+                    raise
+                results = fallback_results
+            await self._store_provider_search_results(cache_key, results)
+        results = await self._with_stable_provider_image_urls(results)
         return [ProviderSearchResultResponse(**result.__dict__) for result in results]
+
+    async def search_default_provider(
+        self,
+        query: str,
+        kind: ItemKind,
+    ) -> list[ProviderSearchResultResponse]:
+        provider = self.providers.default_for_kind(kind)
+        if provider is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_not_configured",
+                detail=f"No metadata provider is configured for kind '{kind.value}'",
+            )
+        return await self.search_provider(ExternalProvider(provider.name), query, kind)
+
+    async def _search_provider_live(
+        self,
+        provider_name: ExternalProvider,
+        provider: MetadataProvider,
+        query: str,
+        kind: ItemKind | None,
+    ) -> list[ProviderSearchResult]:
+        await self._raise_if_provider_on_backoff(provider_name)
+        attempts = self._provider_search_attempts(provider_name)
+        last_error: ApiHTTPException | None = None
+        for attempt in range(attempts):
+            try:
+                return await provider.search(query, kind)
+            except ApiHTTPException as exc:
+                last_error = exc
+                if self._should_backoff_provider_search(exc):
+                    await self._record_provider_search_backoff(provider_name, exc)
+                if attempt >= attempts - 1 or not self._should_retry_provider_search(exc):
+                    raise
+                await asyncio.sleep(self._provider_search_retry_delay(exc, attempt))
+        raise last_error or ApiHTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="provider_search_failed",
+            detail=f"Provider '{provider_name.value}' search failed",
+        )
+
+    def _provider_search_attempts(self, provider_name: ExternalProvider) -> int:
+        if provider_name.value in _PROVIDER_INTERNAL_RETRY_NAMES:
+            return 1
+        return max(1, self.settings.provider_search_retry_attempts + 1)
+
+    def _provider_search_cache_key(
+        self,
+        provider_name: ExternalProvider,
+        query: str,
+        kind: ItemKind | None,
+    ) -> tuple[str, str, str]:
+        normalized_query = " ".join(query.split()).casefold()
+        return provider_name.value, kind.value if kind else "*", normalized_query
+
+    async def _cached_provider_search_results(
+        self,
+        key: tuple[str, str, str],
+    ) -> list[ProviderSearchResult] | None:
+        return await self.provider_search_state.cached(key)
+
+    async def _store_provider_search_results(
+        self,
+        key: tuple[str, str, str],
+        results: list[ProviderSearchResult],
+    ) -> None:
+        await self.provider_search_state.store(key, results)
+
+    async def _raise_if_provider_on_backoff(self, provider_name: ExternalProvider) -> None:
+        await self.provider_search_state.raise_if_backoff(provider_name)
+
+    async def _record_provider_search_backoff(
+        self,
+        provider_name: ExternalProvider,
+        exc: ApiHTTPException,
+    ) -> None:
+        seconds = (
+            self._provider_search_retry_after(exc) or self.settings.provider_search_backoff_seconds
+        )
+        if seconds <= 0:
+            return
+        provider = self.providers.maybe_get(provider_name)
+        provider_label = provider.capabilities.display_name if provider else provider_name.value
+        await self.provider_search_state.record_backoff(
+            provider_name,
+            seconds=seconds,
+            provider_label=provider_label,
+            reason=self._provider_search_error_reason(exc),
+        )
+
+    def _should_retry_provider_search(self, exc: ApiHTTPException) -> bool:
+        return self._provider_search_status(exc) in {401, 429, 500, 502, 503, 504}
+
+    def _should_backoff_provider_search(self, exc: ApiHTTPException) -> bool:
+        return self._provider_search_status(exc) in {401, 429, 500, 502, 503, 504}
+
+    def _provider_search_retry_delay(self, exc: ApiHTTPException, attempt: int) -> float:
+        retry_after = self._provider_search_retry_after(exc)
+        if retry_after is not None:
+            return min(float(retry_after), 3.0)
+        base = self.settings.provider_search_retry_base_delay_seconds
+        return min(base * (2**attempt), 3.0)
+
+    def _provider_search_retry_after(self, exc: ApiHTTPException) -> int | None:
+        retry_after = (exc.headers or {}).get("Retry-After")
+        if retry_after is None:
+            return None
+        try:
+            value = int(float(retry_after))
+        except ValueError:
+            return None
+        return value if value > 0 else None
+
+    def _provider_search_status(self, exc: ApiHTTPException) -> int:
+        detail = exc.detail
+        if isinstance(detail, str):
+            match = _UPSTREAM_HTTP_STATUS_RE.search(detail)
+            if match:
+                return int(match.group("status"))
+        return exc.status_code
+
+    def _provider_search_error_reason(self, exc: ApiHTTPException) -> str:
+        upstream_status = self._provider_search_status(exc)
+        if upstream_status != exc.status_code:
+            return f"HTTP {upstream_status}"
+        return f"HTTP {exc.status_code}"
+
+    async def mirror_provider_image_url(
+        self,
+        source_url: str | None,
+        *,
+        provider_name: str | ExternalProvider,
+        provider_item_id: str | None,
+    ) -> str | None:
+        if not self._can_mirror_provider_image(provider_name, source_url):
+            return None
+        provider_value = self._provider_value(provider_name)
+        provider_item_id = provider_item_id or "unknown"
+        cache = ImageCache(self.db)
+        try:
+            cached = await cache.cached_provider_cover(
+                provider=provider_value,
+                source_url=source_url or "",
+            )
+            if cached is not None:
+                await self.db.commit()
+                return cached.public_url
+
+            mirrored = await ImageMirror().mirror_cover_best_effort(
+                source_url,
+                provider_value,
+                provider_item_id,
+            )
+            if mirrored is None:
+                return None
+            await cache.record_mirrored_cover(mirrored)
+            await self.db.commit()
+            return mirrored.url
+        except Exception:
+            await self.db.rollback()
+            logger.warning(
+                "provider_image_mirror_failed provider=%s provider_item_id=%s source=%s",
+                provider_value,
+                provider_item_id,
+                source_url,
+                exc_info=True,
+            )
+            return None
+
+    async def mirror_provider_image_bytes(
+        self,
+        image_bytes: bytes | None,
+        *,
+        source_url: str | None,
+        provider_name: str | ExternalProvider,
+        provider_item_id: str | None,
+    ) -> str | None:
+        if not image_bytes or not self._can_mirror_provider_image(provider_name, source_url):
+            return None
+        provider_value = self._provider_value(provider_name)
+        provider_item_id = provider_item_id or "unknown"
+        cache = ImageCache(self.db)
+        try:
+            cached = await cache.cached_provider_cover(
+                provider=provider_value,
+                source_url=source_url or "",
+            )
+            if cached is not None:
+                await self.db.commit()
+                return cached.public_url
+
+            mirrored = await ImageMirror().mirror_cover_bytes_best_effort(
+                image_bytes,
+                source_url=source_url,
+                provider=provider_value,
+                provider_item_id=provider_item_id,
+            )
+            if mirrored is None:
+                return None
+            await cache.record_mirrored_cover(mirrored)
+            await self.db.commit()
+            return mirrored.url
+        except Exception:
+            await self.db.rollback()
+            logger.warning(
+                "provider_image_mirror_failed provider=%s provider_item_id=%s source=%s",
+                provider_value,
+                provider_item_id,
+                source_url,
+                exc_info=True,
+            )
+            return None
+
+    async def _with_stable_provider_image_urls(
+        self,
+        results: list[ProviderSearchResult],
+    ) -> list[ProviderSearchResult]:
+        stable_results: list[ProviderSearchResult] = []
+        for result in results:
+            mirrored_url = await self.mirror_provider_image_url(
+                result.image_url,
+                provider_name=result.provider,
+                provider_item_id=result.provider_item_id,
+            )
+            stable_results.append(
+                replace(result, image_url=mirrored_url) if mirrored_url else result
+            )
+        return stable_results
+
+    def _can_mirror_provider_image(
+        self,
+        provider_name: str | ExternalProvider,
+        source_url: str | None,
+    ) -> bool:
+        if not self.settings.mirror_provider_images:
+            return False
+        if not self._is_external_image_url(source_url):
+            return False
+        provider = self._provider_for_name(provider_name)
+        if provider is None:
+            return False
+        if self.settings.mirror_provider_images_allow_restricted:
+            return True
+        return provider.capabilities.allows_image_mirroring
+
+    def _provider_for_name(
+        self,
+        provider_name: str | ExternalProvider,
+    ) -> MetadataProvider | None:
+        try:
+            provider_enum = (
+                provider_name
+                if isinstance(provider_name, ExternalProvider)
+                else ExternalProvider(str(provider_name))
+            )
+        except ValueError:
+            return None
+        return self.providers.maybe_get(provider_enum)
+
+    def _provider_value(self, provider_name: str | ExternalProvider) -> str:
+        return (
+            provider_name.value
+            if isinstance(provider_name, ExternalProvider)
+            else str(provider_name)
+        )
+
+    def _is_external_image_url(self, value: str | None) -> bool:
+        if not value:
+            return False
+        parsed = urlparse(value)
+        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+    async def _search_provider_fallback(
+        self,
+        provider_name: ExternalProvider,
+        query: str,
+        kind: ItemKind | None,
+        original_error: ApiHTTPException,
+    ):
+        if not self.settings.provider_search_comicvine_fallback_enabled:
+            return None
+        if provider_name != ExternalProvider.gcd:
+            return None
+        if not self._should_backoff_provider_search(original_error):
+            return None
+        fallback = self.providers.maybe_get(ExternalProvider.comicvine)
+        if fallback is None or not fallback.is_configured:
+            return None
+        if kind is not None and not fallback.capabilities.supports_kind(kind):
+            return None
+        if isinstance(fallback, ComicVineProvider):
+            exact_results = await self._search_gcd_comicvine_exact_fallback(
+                fallback,
+                query,
+                kind,
+                requested_provider=provider_name,
+            )
+            if exact_results:
+                return exact_results
+        try:
+            results = await fallback.search(query, kind)
+        except Exception:
+            logger.warning(
+                "provider_search_fallback_failed provider=%s fallback=%s code=%s",
+                provider_name.value,
+                fallback.name,
+                original_error.code,
+                exc_info=True,
+            )
+            return None
+        if not results:
+            return None
+        results = [
+            self._with_provider_fallback_notice(
+                result,
+                requested_provider=provider_name,
+                fallback_provider=ExternalProvider.comicvine,
+            )
+            for result in results
+        ]
+        logger.info(
+            "provider_search_fallback_used provider=%s fallback=%s code=%s",
+            provider_name.value,
+            fallback.name,
+            original_error.code,
+        )
+        return results
+
+    async def _search_gcd_comicvine_exact_fallback(
+        self,
+        provider: ComicVineProvider,
+        query: str,
+        kind: ItemKind | None,
+        *,
+        requested_provider: ExternalProvider,
+    ) -> list[ProviderSearchResult]:
+        target_kind = kind or ItemKind.comic
+        if target_kind not in {ItemKind.comic, ItemKind.manga}:
+            return []
+        for series_title, issue_number in GCDProvider()._query_candidates(query)[:3]:
+            try:
+                cover = await provider.find_issue_cover(
+                    series_title=series_title,
+                    issue_number=issue_number,
+                )
+            except Exception:
+                logger.warning(
+                    "provider_search_exact_cover_fallback_failed series=%s issue=%s",
+                    series_title,
+                    issue_number,
+                    exc_info=True,
+                )
+                continue
+            if cover is None:
+                continue
+            return [
+                self._with_provider_fallback_notice(
+                    ProviderSearchResult(
+                        provider=provider.name,
+                        provider_item_id=cover.provider_item_id,
+                        title=f"{series_title.title()} #{issue_number}",
+                        kind=target_kind,
+                        image_url=cover.image_url,
+                    ),
+                    requested_provider=requested_provider,
+                    fallback_provider=ExternalProvider.comicvine,
+                )
+            ]
+        return []
+
+    def _with_provider_fallback_notice(
+        self,
+        result: ProviderSearchResult,
+        *,
+        requested_provider: ExternalProvider,
+        fallback_provider: ExternalProvider,
+    ) -> ProviderSearchResult:
+        notice = (
+            f"{self._provider_display_name(fallback_provider)} fallback while "
+            f"{self._provider_display_name(requested_provider)} is unavailable."
+        )
+        summary = notice if not result.summary else f"{notice} {result.summary}"
+        return replace(result, summary=summary)
+
+    def _provider_display_name(self, provider_name: ExternalProvider) -> str:
+        provider = self.providers.maybe_get(provider_name)
+        return provider.capabilities.display_name if provider else provider_name.value
 
     async def create_proposal(self, payload: MetadataProposalCreate) -> MetadataProposalResponse:
         proposal = MetadataProposal(
@@ -154,34 +582,65 @@ class MetadataService:
         return MetadataProposalResponse.model_validate(proposal)
 
     def _search_result(
-        self, item, cover_url: str | None, thumbnail_url: str | None
+        self,
+        item,
+        cover_url: str | None,
+        thumbnail_url: str | None,
+        *,
+        preferred_variant=None,
     ) -> SearchResult:
         publisher = None
         release_date = None
         release_year = None
         barcode = None
-        variant_name = None
+        edition_title = None
+        physical_format_id = None
+        physical_format_label = None
+        variant_name = getattr(preferred_variant, "name", None)
+        if preferred_variant is not None:
+            barcode = preferred_variant.barcode or preferred_variant.isbn or preferred_variant.sku
+            preferred_format = self._physical_format(
+                preferred_variant.metadata_json,
+                fallback_format=preferred_variant.variant_type,
+                kind=item.kind,
+            )
+            if preferred_format is not None:
+                physical_format_id = preferred_format.id
+                physical_format_label = preferred_format.label
         for edition in item.editions:
+            edition_title = edition_title or edition.title
             publisher = publisher or edition.publisher
             barcode = barcode or edition.upc or edition.isbn
-            physical_format = self._physical_format_label(
+            physical_format = self._physical_format(
                 edition.metadata_json,
                 fallback_format=edition.format,
                 kind=item.kind,
             )
-            variant_name = variant_name or physical_format
+            if physical_format is not None:
+                physical_format_id = physical_format_id or physical_format.id
+                physical_format_label = physical_format_label or physical_format.label
+                variant_name = variant_name or physical_format.label
             if edition.release_date is not None and release_date is None:
                 release_date = edition.release_date
                 release_year = edition.release_date.year
             primary = next((variant for variant in edition.variants if variant.is_primary), None)
             if primary is not None and variant_name is None:
                 variant_name = primary.name
-                barcode = barcode or primary.barcode or primary.isbn
+                barcode = barcode or primary.barcode or primary.isbn or primary.sku
+                primary_format = self._physical_format(
+                    primary.metadata_json,
+                    fallback_format=primary.variant_type,
+                    kind=item.kind,
+                )
+                if primary_format is not None:
+                    physical_format_id = physical_format_id or primary_format.id
+                    physical_format_label = physical_format_label or primary_format.label
             if (
                 publisher is not None
                 and release_date is not None
                 and barcode is not None
                 and variant_name is not None
+                and (not is_video_item_kind(item.kind) or physical_format_label is not None)
             ):
                 break
         return SearchResult(
@@ -192,6 +651,9 @@ class MetadataService:
             synopsis=item.synopsis,
             cover_image_url=cover_url,
             thumbnail_image_url=thumbnail_url,
+            edition_title=edition_title,
+            physical_format=physical_format_id,
+            physical_format_label=physical_format_label,
             publisher=publisher,
             release_date=release_date,
             release_year=release_year,
@@ -199,13 +661,65 @@ class MetadataService:
             variant=variant_name,
         )
 
-    def _physical_format_label(
+    def _preferred_variant(
+        self,
+        item,
+        *,
+        query: str | None = None,
+        barcode: str | None = None,
+    ):
+        normalized_barcode = self._normalized_barcode(barcode)
+        normalized_query = " ".join(query.split()).casefold() if query else None
+        if not normalized_barcode and not normalized_query:
+            return None
+        for edition in item.editions:
+            for variant in edition.variants:
+                if normalized_barcode and normalized_barcode in {
+                    self._normalized_barcode(variant.barcode),
+                    self._normalized_barcode(variant.isbn),
+                    self._normalized_barcode(variant.sku),
+                }:
+                    return variant
+                if normalized_query:
+                    values = [
+                        variant.name,
+                        variant.variant_type,
+                        variant.barcode,
+                        variant.isbn,
+                        variant.sku,
+                        variant.platform,
+                    ]
+                    if any(value and normalized_query in str(value).casefold() for value in values):
+                        return variant
+        return None
+
+    def _primary_variant(self, item):
+        for edition in item.editions:
+            primary = next((variant for variant in edition.variants if variant.is_primary), None)
+            if primary is not None:
+                return primary
+            if edition.variants:
+                return edition.variants[0]
+        return None
+
+    def _variant_cover(self, variant) -> tuple[str | None, str | None]:
+        if variant is None:
+            return None, None
+        return variant.cover_image_url, variant.thumbnail_image_url
+
+    def _normalized_barcode(self, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().replace("-", "").replace(" ", "").replace(".", "")
+        return normalized or None
+
+    def _physical_format(
         self,
         metadata: dict | None,
         *,
         fallback_format: str | None,
         kind: ItemKind,
-    ) -> str | None:
+    ):
         config = None
         if isinstance(metadata, dict):
             normalized = metadata.get("normalized")
@@ -213,4 +727,4 @@ class MetadataService:
                 config = physical_format_for_id(str(normalized["physical_format"]))
         if config is None and fallback_format and is_video_item_kind(kind):
             config = physical_format_for_id(fallback_format)
-        return config.label if config else None
+        return config

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import Select, extract, or_, select
+from sqlalchemy import Select, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -92,20 +92,21 @@ class MetadataRepository:
                 or_(Volume.start_year == year, extract("year", Edition.release_date) == year)
             )
         if barcode:
-            normalized = barcode.strip().replace("-", "").replace(" ", "")
+            normalized = self._normalized_barcode_value(barcode)
             stmt = stmt.where(
                 or_(
-                    Edition.upc == normalized,
-                    Edition.isbn == normalized,
-                    Variant.barcode == normalized,
-                    Variant.isbn == normalized,
+                    self._normalized_barcode_expr(Edition.upc) == normalized,
+                    self._normalized_barcode_expr(Edition.isbn) == normalized,
+                    self._normalized_barcode_expr(Variant.barcode) == normalized,
+                    self._normalized_barcode_expr(Variant.isbn) == normalized,
+                    self._normalized_barcode_expr(Variant.sku) == normalized,
                 )
             )
         result = await self.db.execute(stmt)
         return list(result.scalars().unique())
 
     async def find_item_by_barcode(self, barcode: str, kind: ItemKind | None = None) -> Item | None:
-        normalized = barcode.strip().replace("-", "").replace(" ", "")
+        normalized = self._normalized_barcode_value(barcode)
         if not normalized:
             return None
 
@@ -115,10 +116,11 @@ class MetadataRepository:
             .join(Edition.variants, isouter=True)
             .where(
                 or_(
-                    Edition.upc == normalized,
-                    Edition.isbn == normalized,
-                    Variant.barcode == normalized,
-                    Variant.isbn == normalized,
+                    self._normalized_barcode_expr(Edition.upc) == normalized,
+                    self._normalized_barcode_expr(Edition.isbn) == normalized,
+                    self._normalized_barcode_expr(Variant.barcode) == normalized,
+                    self._normalized_barcode_expr(Variant.isbn) == normalized,
+                    self._normalized_barcode_expr(Variant.sku) == normalized,
                 )
             )
             .limit(1)
@@ -127,6 +129,12 @@ class MetadataRepository:
             stmt = stmt.where(Item.kind == kind)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    def _normalized_barcode_expr(self, column):
+        return func.replace(func.replace(func.replace(column, "-", ""), " ", ""), ".", "")
+
+    def _normalized_barcode_value(self, value: str) -> str:
+        return value.strip().replace("-", "").replace(" ", "").replace(".", "")
 
     async def validate_refs(
         self, item_id: UUID, edition_id: UUID | None, variant_id: UUID | None

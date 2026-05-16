@@ -66,12 +66,39 @@ class ImageMirror:
             return None
         try:
             image_bytes = await self._download_image(source_url)
+        except Exception:
+            logger.warning(
+                "Failed to mirror provider cover %s for %s:%s",
+                source_url,
+                provider,
+                provider_item_id,
+                exc_info=True,
+            )
+            return None
+        return await self.mirror_cover_bytes_best_effort(
+            image_bytes,
+            source_url=source_url,
+            provider=provider,
+            provider_item_id=provider_item_id,
+        )
+
+    async def mirror_cover_bytes_best_effort(
+        self,
+        image_bytes: bytes | None,
+        *,
+        source_url: str | None,
+        provider: str,
+        provider_item_id: str,
+    ) -> MirroredImage | None:
+        if not image_bytes or not source_url:
+            return None
+        try:
             cover = self._normalized_cover(image_bytes)
             key = self._cover_key(provider, provider_item_id, source_url)
             public_url = self.storage.put_object(key, cover.body, _NORMALIZED_COVER_CONTENT_TYPE)
         except Exception:
             logger.warning(
-                "Failed to mirror provider cover %s for %s:%s",
+                "Failed to mirror provider cover bytes %s for %s:%s",
                 source_url,
                 provider,
                 provider_item_id,

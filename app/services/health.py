@@ -1,10 +1,10 @@
 from typing import Any
 
-import redis.asyncio as redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.redis import redis_client
 from app.search.client import SearchClient
 from app.storage.client import ObjectStorage
 
@@ -32,18 +32,20 @@ class HealthService:
             return {"ok": False, "error": str(exc)}
 
     async def _redis(self) -> dict[str, Any]:
-        client = redis.from_url(self.settings.redis_url)
+        if not self.settings.redis_url:
+            return {"ok": True, "skipped": True}
         try:
-            await client.ping()
+            async with redis_client() as client:
+                if client is None:
+                    return {"ok": True, "skipped": True}
+                await client.ping()
             return {"ok": True}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
-        finally:
-            await client.aclose()
 
     async def _meilisearch(self) -> dict[str, Any]:
         try:
-            SearchClient().client.health()
+            await SearchClient().health()
             return {"ok": True}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
@@ -54,4 +56,3 @@ class HealthService:
             return {"ok": True}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
-

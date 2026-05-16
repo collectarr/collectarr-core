@@ -20,10 +20,12 @@ class Settings(BaseSettings):
     bootstrap_admin_emails: set[str] = Field(default_factory=set)
 
     database_url: str = "postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr"
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str | None = "redis://localhost:6379/0"
+    redis_timeout_seconds: float = Field(default=0.5, ge=0.05)
 
     meili_url: str = "http://localhost:7700"
     meili_master_key: str = "collectarr-dev-key"
+    meili_timeout_seconds: float = Field(default=5.0, ge=0.1)
 
     s3_endpoint_url: str = "http://localhost:9000"
     s3_access_key_id: str = "minioadmin"
@@ -46,6 +48,14 @@ class Settings(BaseSettings):
     worker_provider_ingest_batch_size: int = Field(default=5, ge=1, le=100)
     worker_provider_ingest_stale_after_seconds: int = Field(default=1800, ge=60)
     provider_ingest_retry_attempts: int = Field(default=1, ge=0, le=5)
+    provider_search_rate_limit_requests: int = Field(default=30, ge=0)
+    provider_search_rate_limit_window_seconds: int = Field(default=60, ge=0)
+    provider_search_cache_ttl_seconds: int = Field(default=6 * 60 * 60, ge=0)
+    provider_search_cache_max_entries: int = Field(default=2048, ge=0)
+    provider_search_retry_attempts: int = Field(default=1, ge=0, le=3)
+    provider_search_retry_base_delay_seconds: float = Field(default=0.35, ge=0)
+    provider_search_backoff_seconds: int = Field(default=5 * 60, ge=0)
+    provider_search_comicvine_fallback_enabled: bool = True
     auth_rate_limit_requests: int = Field(default=20, ge=0)
     auth_rate_limit_window_seconds: int = Field(default=60, ge=0)
     admin_provider_rate_limit_requests: int = Field(default=60, ge=0)

@@ -109,7 +109,7 @@ it as a development baseline rather than a hardened production manifest.
 The API and worker are stateless containers. Scale them separately from storage:
 
 - PostgreSQL for source-of-truth metadata and operational data
-- Redis for cache/queues
+- Redis for shared rate limits, provider search cache, and provider cooldowns
 - Meilisearch for derived search indexes
 - S3-compatible storage for images
 - optional CDN in front of image URLs.
@@ -149,7 +149,7 @@ WORKER_INDEX_INTERVAL_SECONDS=3600
 WORKER_PROVIDER_INGEST_INTERVAL_SECONDS=60
 ```
 
-With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Core only mirrors providers marked image-mirroring safe unless `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is also set; use that override only when your deployment accepts the provider-specific image terms. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views. Mirrored covers are tracked in `image_cache_entries` and cleaned as a least-recently-used cache. Defaults keep up to 100 GB and evict down to 85 GB; tune `IMAGE_CACHE_MAX_BYTES`, `IMAGE_CACHE_EVICT_TARGET_BYTES`, and `IMAGE_CACHE_CLEANUP_BATCH_SIZE` for your storage.
+With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Core only mirrors providers marked image-mirroring safe unless `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is also set; use that override only when your deployment accepts the provider-specific image terms. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views. Provider ingest, external provider search results, and the GCD cover proxy all use the same cache policy. Mirrored covers are tracked in `image_cache_entries` and cleaned as a least-recently-used cache. Defaults keep up to 100 GB and evict down to 85 GB; tune `IMAGE_CACHE_MAX_BYTES`, `IMAGE_CACHE_EVICT_TARGET_BYTES`, and `IMAGE_CACHE_CLEANUP_BATCH_SIZE` for your storage.
 
 Auth endpoints and admin provider-triggering endpoints use a lightweight
 in-process rate limiter by default. Tune the request/window pairs if you expose
@@ -160,10 +160,17 @@ AUTH_RATE_LIMIT_REQUESTS=20
 AUTH_RATE_LIMIT_WINDOW_SECONDS=60
 ADMIN_PROVIDER_RATE_LIMIT_REQUESTS=60
 ADMIN_PROVIDER_RATE_LIMIT_WINDOW_SECONDS=60
+PROVIDER_SEARCH_RATE_LIMIT_REQUESTS=30
+PROVIDER_SEARCH_RATE_LIMIT_WINDOW_SECONDS=60
+PROVIDER_SEARCH_CACHE_TTL_SECONDS=21600
+PROVIDER_SEARCH_BACKOFF_SECONDS=300
 ```
 
-For multi-replica deployments, put equivalent limits at the reverse proxy or
-replace the in-process limiter with a shared Redis-backed implementation.
+When `REDIS_URL` is set, Core stores rate-limit windows, provider search cache,
+and provider cooldown/backoff state in Redis so multiple API replicas share the
+same protection. If Redis is unavailable or `REDIS_URL` is empty, Core falls
+back to in-process state so local development can continue, but limits and
+cooldowns are then per API process.
 
 ## Readiness
 

@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("start", "stop", "migrate", "seed", "test-backend", "test-flutter", "check")]
+    [ValidateSet("start", "stop", "migrate", "seed", "test-backend", "test-flutter", "check", "smoke-web")]
     [string]$Command
 )
 
@@ -40,5 +40,8 @@ switch ($Command) {
             python -m ruff check .
             python -m compileall app alembic tests
         } finally { Pop-Location }
+    }
+    "smoke-web" {
+        & "$Root\scripts\dev-smoke-web.ps1"
     }
 }

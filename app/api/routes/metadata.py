@@ -1,12 +1,15 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.responses import RedirectResponse
 
 from app.api.deps import CurrentUser, DbSession
 from app.catalog.media_types import MediaTypeConfig, media_type_for_route, media_types
 from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.errors import ApiHTTPException
+from app.core.rate_limit import provider_search_rate_limit
 from app.models.base import ExternalProvider, ItemKind
+from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.schemas.metadata import (
     ItemResponse,
     MediaTypeResponse,
@@ -60,8 +63,23 @@ async def lookup_barcode(
 
 
 @router.get(
+    "/metadata/providers/search",
+    response_model=list[ProviderSearchResultResponse],
+    dependencies=[Depends(provider_search_rate_limit)],
+)
+async def default_provider_search(
+    db: DbSession,
+    _user: CurrentUser,
+    q: str = Query(min_length=1),
+    kind: ItemKind = Query(...),
+) -> list[ProviderSearchResultResponse]:
+    return await MetadataService(db).search_default_provider(q, kind)
+
+
+@router.get(
     "/metadata/providers/{provider}/search",
     response_model=list[ProviderSearchResultResponse],
+    dependencies=[Depends(provider_search_rate_limit)],
 )
 async def provider_search(
     provider: ExternalProvider,
@@ -71,6 +89,64 @@ async def provider_search(
     kind: ItemKind | None = None,
 ) -> list[ProviderSearchResultResponse]:
     return await MetadataService(db).search_provider(provider, q, kind)
+
+
+@router.get("/metadata/providers/gcd/images/{provider_item_id}")
+async def gcd_provider_image(
+    provider_item_id: str,
+    db: DbSession,
+    series: str | None = Query(default=None, min_length=1, max_length=255),
+    issue: str | None = Query(default=None, min_length=1, max_length=64),
+    year: int | None = Query(default=None, ge=1800, le=2200),
+    variant: str | None = Query(default=None, min_length=1, max_length=255),
+) -> Response:
+    cover = await GCDProvider().get_cover_image(
+        provider_item_id,
+        fallback=GCDCoverFallback(
+            series_title=series,
+            issue_number=issue,
+            start_year=year,
+            variant_hint=variant,
+        ),
+    )
+    mirrored_url = await _mirror_gcd_cover_if_enabled(db, provider_item_id, cover)
+    if mirrored_url is not None:
+        return RedirectResponse(
+            mirrored_url,
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    if cover.redirect_url is not None:
+        return RedirectResponse(
+            cover.redirect_url,
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    return Response(
+        content=cover.content or b"",
+        media_type=cover.media_type or "application/octet-stream",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+async def _mirror_gcd_cover_if_enabled(
+    db,
+    provider_item_id: str,
+    cover: GCDCoverImage,
+) -> str | None:
+    service = MetadataService(db)
+    if cover.content is not None:
+        return await service.mirror_provider_image_bytes(
+            cover.content,
+            source_url=cover.source_url,
+            provider_name=ExternalProvider.gcd,
+            provider_item_id=provider_item_id,
+        )
+    return await service.mirror_provider_image_url(
+        cover.redirect_url,
+        provider_name=ExternalProvider.gcd,
+        provider_item_id=provider_item_id,
+    )
 
 
 @router.post(

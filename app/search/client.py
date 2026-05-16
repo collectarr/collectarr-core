@@ -1,9 +1,15 @@
-from typing import Any
+import asyncio
+import logging
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import meilisearch
 
 from app.core.config import get_settings
 from app.models.base import ItemKind
+
+logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 class SearchClient:
@@ -12,6 +18,7 @@ class SearchClient:
     def __init__(self) -> None:
         settings = get_settings()
         self.client = meilisearch.Client(settings.meili_url, settings.meili_master_key)
+        self.timeout_seconds = settings.meili_timeout_seconds
 
     async def search(
         self,
@@ -42,21 +49,32 @@ class SearchClient:
             search_query = " ".join(
                 part for part in (query, series, issue_number) if part and part.strip()
             )
-            result = self.client.index(self.index_name).search(search_query, options)
+            result = await self._run(
+                lambda: self.client.index(self.index_name).search(search_query, options)
+            )
         except Exception:
+            logger.warning("meilisearch_search_failed", exc_info=True)
             return None
         return result.get("hits", [])
 
     async def index_documents(self, documents: list[dict[str, Any]]) -> None:
         if not documents:
             return
-        self.client.index(self.index_name).add_documents(documents, primary_key="id")
+        await self._run(
+            lambda: self.client.index(self.index_name).add_documents(
+                documents,
+                primary_key="id",
+            )
+        )
 
     async def replace_documents(self, documents: list[dict[str, Any]]) -> None:
-        index = self.client.index(self.index_name)
-        index.delete_all_documents()
-        if documents:
-            index.add_documents(documents, primary_key="id")
+        def replace() -> None:
+            index = self.client.index(self.index_name)
+            index.delete_all_documents()
+            if documents:
+                index.add_documents(documents, primary_key="id")
+
+        await self._run(replace)
 
     async def index_documents_best_effort(self, documents: list[dict[str, Any]]) -> bool:
         try:
@@ -67,56 +85,70 @@ class SearchClient:
         return True
 
     async def configure(self) -> None:
-        index = self.client.index(self.index_name)
-        index.update_filterable_attributes(
-            [
-                "kind",
-                "publisher",
-                "region",
-                "release_year",
-                "barcodes",
-                "series_title",
-            ]
+        def configure() -> None:
+            index = self.client.index(self.index_name)
+            index.update_filterable_attributes(
+                [
+                    "kind",
+                    "publisher",
+                    "region",
+                    "release_year",
+                    "barcodes",
+                    "series_title",
+                ]
+            )
+            index.update_searchable_attributes(
+                [
+                    "title",
+                    "item_number",
+                    "series_title",
+                    "volume_name",
+                    "publisher",
+                    "variant",
+                    "variant_names",
+                    "barcodes",
+                    "creators",
+                    "characters",
+                    "story_arcs",
+                ]
+            )
+            index.update_displayed_attributes(
+                [
+                    "id",
+                    "kind",
+                    "title",
+                    "item_number",
+                    "cover_image_url",
+                    "thumbnail_image_url",
+                    "publisher",
+                    "release_date",
+                    "region",
+                    "release_year",
+                    "barcode",
+                    "barcodes",
+                    "variant",
+                    "variant_names",
+                    "series_title",
+                    "volume_name",
+                    "creators",
+                    "characters",
+                    "story_arcs",
+                ]
+            )
+            index.update_sortable_attributes(
+                ["title", "item_number", "release_year", "publisher"]
+            )
+
+        await self._run(configure)
+
+    async def health(self) -> Any:
+        return await self._run(self.client.health)
+
+    async def _run(self, operation: Callable[[], T]) -> T:
+        return await asyncio.wait_for(
+            asyncio.to_thread(operation),
+            timeout=self.timeout_seconds,
         )
-        index.update_searchable_attributes(
-            [
-                "title",
-                "item_number",
-                "series_title",
-                "volume_name",
-                "publisher",
-                "variant",
-                "variant_names",
-                "barcodes",
-                "creators",
-                "characters",
-                "story_arcs",
-            ]
-        )
-        index.update_displayed_attributes(
-            [
-                "id",
-                "kind",
-                "title",
-                "item_number",
-                "cover_image_url",
-                "thumbnail_image_url",
-                "publisher",
-                "release_date",
-                "region",
-                "release_year",
-                "barcode",
-                "barcodes",
-                "variant",
-                "variant_names",
-                "series_title",
-                "volume_name",
-                "creators",
-                "characters",
-                "story_arcs",
-            ]
-        )
-        index.update_sortable_attributes(["title", "item_number", "release_year", "publisher"])
 
 
 def _meili_string(value: str) -> str:

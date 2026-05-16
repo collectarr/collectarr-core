@@ -75,6 +75,26 @@ async def test_image_cache_records_and_touches_mirrored_cover():
 
 
 @pytest.mark.asyncio
+async def test_image_cache_touches_cached_provider_cover():
+    now = datetime.now(UTC)
+    async with AsyncSessionLocal() as db:
+        db.add(cache_entry("cached", 30, now - timedelta(days=1)))
+        await db.commit()
+
+        cache = ImageCache(db)
+        entry = await cache.cached_provider_cover(
+            provider="comicvine",
+            source_url="https://example.test/cached.jpg",
+        )
+        await db.commit()
+
+        assert entry is not None
+        assert entry.public_url == "http://storage.test/cached"
+        assert entry.access_count == 2
+        assert entry.last_accessed_at > now
+
+
+@pytest.mark.asyncio
 async def test_image_cache_evicts_oldest_entries_until_target(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "image_cache_max_bytes", 100)

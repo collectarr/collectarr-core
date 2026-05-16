@@ -41,7 +41,12 @@ from app.models.canonical import (
     Volume,
 )
 from app.models.user import User
-from app.providers.base import MetadataProvider, NormalizedCredit, NormalizedItem
+from app.providers.base import (
+    MetadataProvider,
+    NormalizedCredit,
+    NormalizedItem,
+    NormalizedVariantCover,
+)
 from app.providers.comicvine import ComicVineProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
@@ -1117,6 +1122,14 @@ class AdminMetadataService:
             },
             is_primary=True,
         )
+        additional_variants, additional_mirrored_covers = await self._comicvine_associated_variants(
+            provider=provider,
+            provider_name=payload.provider,
+            provider_item_id=provider_item.provider_item_id,
+            normalized=normalized,
+            edition=edition,
+            primary_cover_url=normalized.cover_image_url,
+        )
         release = Release(
             edition=edition,
             region="US",
@@ -1135,10 +1148,12 @@ class AdminMetadataService:
                 },
             },
         )
-        self.db.add_all([item, edition, variant, release])
+        self.db.add_all([item, edition, variant, *additional_variants, release])
         await self.db.flush()
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        for mirrored_variant_cover in additional_mirrored_covers:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_variant_cover)
         await self._add_provider_links(payload.provider, normalized.provider_ids, "item", item.id)
         if volume:
             await self._add_provider_links(
@@ -1168,6 +1183,74 @@ class AdminMetadataService:
         if not candidate:
             return None
         return physical_format_for_id(candidate)
+
+    async def _comicvine_associated_variants(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        normalized: NormalizedItem,
+        edition: Edition,
+        primary_cover_url: str | None,
+    ) -> tuple[list[Variant], list[Any]]:
+        if not normalized.variant_covers:
+            return [], []
+
+        variants: list[Variant] = []
+        mirrored_covers: list[Any] = []
+        seen_cover_urls = {primary_cover_url} if primary_cover_url else set()
+        for cover in normalized.variant_covers:
+            if not cover.cover_image_url or cover.cover_image_url in seen_cover_urls:
+                continue
+            seen_cover_urls.add(cover.cover_image_url)
+
+            mirrored_cover = None
+            if self._should_mirror_provider_images(provider):
+                mirrored_cover = await ImageMirror().mirror_cover_best_effort(
+                    cover.cover_image_url,
+                    provider_name.value,
+                    provider_item_id,
+                )
+            if mirrored_cover is not None:
+                mirrored_covers.append(mirrored_cover)
+
+            cover_metadata = self._cover_metadata(cover.cover_image_url, mirrored_cover)
+            variants.append(
+                Variant(
+                    edition=edition,
+                    name=self._variant_cover_name(cover, len(variants) + 1),
+                    variant_type="variant",
+                    cover_image_key=mirrored_cover.key if mirrored_cover else None,
+                    cover_image_url=(
+                        mirrored_cover.url if mirrored_cover else cover.cover_image_url
+                    ),
+                    thumbnail_image_key=(mirrored_cover.thumbnail_key if mirrored_cover else None),
+                    thumbnail_image_url=(
+                        mirrored_cover.thumbnail_url
+                        if mirrored_cover
+                        else cover.thumbnail_image_url
+                    ),
+                    description=cover.caption,
+                    metadata_json={
+                        "provider": provider_name.value,
+                        "provider_item_id": cover.provider_item_id or provider_item_id,
+                        "normalized": {
+                            "name": self._variant_cover_name(cover, len(variants) + 1),
+                            "variant_type": "variant",
+                            "associated_image_id": cover.source_id,
+                            "caption": cover.caption,
+                            **cover_metadata,
+                        },
+                    },
+                    is_primary=False,
+                )
+            )
+        return variants, mirrored_covers
+
+    def _variant_cover_name(self, cover: NormalizedVariantCover, index: int) -> str:
+        name = cover.name.strip() if cover.name else ""
+        return name[:255] if name else f"Variant cover {index}"
 
     def _cover_metadata(
         self,
@@ -1206,6 +1289,8 @@ class AdminMetadataService:
             ItemKind.comic,
             ItemKind.manga,
         }:
+            return normalized
+        if normalized.variant_type == "variant":
             return normalized
         issue_number = normalized.item_number
         series_title = normalized.series_title or normalized.title

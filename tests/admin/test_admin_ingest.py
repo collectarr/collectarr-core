@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select, update
 
 from app.core.config import get_settings
+from app.core.errors import ApiHTTPException
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
@@ -27,8 +28,8 @@ from app.models.canonical import (
     Volume,
 )
 from app.providers.base import ProviderItem
-from app.providers.comicvine import ComicVineProvider
-from app.providers.gcd import GCDProvider
+from app.providers.comicvine import ComicVineIssueCover, ComicVineProvider
+from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.search.client import SearchClient
 from app.services import admin as admin_service
 from app.storage.images import MirroredImage, ImageMirror
@@ -177,6 +178,42 @@ async def test_comicvine_provider_normalizes_issue_payload():
 
 
 @pytest.mark.asyncio
+async def test_comicvine_provider_normalizes_associated_cover_variants():
+    raw = comicvine_issue_raw()
+    raw["associated_images"] = [
+        {
+            "id": 4767296,
+            "original_url": "https://comicvine.gamespot.com/a/uploads/original/variant-a.jpg",
+            "caption": None,
+            "image_tags": "All Images",
+        },
+        {
+            "id": 4767295,
+            "original_url": "https://comicvine.gamespot.com/a/uploads/original/variant-b.jpg",
+            "caption": "Subscription cover",
+            "image_tags": "All Images",
+        },
+        {
+            "id": 4767000,
+            "original_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+            "caption": "Duplicate primary",
+            "image_tags": "All Images",
+        },
+    ]
+
+    normalized = await ComicVineProvider().normalize(raw)
+
+    assert len(normalized.variant_covers) == 2
+    assert normalized.variant_covers[0].name == "Variant cover 1"
+    assert normalized.variant_covers[0].source_id == "4767296"
+    assert (
+        normalized.variant_covers[0].cover_image_url
+        == "https://comicvine.gamespot.com/a/uploads/original/variant-a.jpg"
+    )
+    assert normalized.variant_covers[1].name == "Subscription cover"
+
+
+@pytest.mark.asyncio
 async def test_comicvine_provider_can_tag_results_as_manga():
     raw = comicvine_issue_raw()
     raw["media_type"] = "manga"
@@ -217,7 +254,7 @@ async def test_gcd_provider_normalizes_issue_payload():
     assert [credit.name for credit in normalized.story_arcs] == ["Revenge"]
     assert (
         normalized.cover_image_url
-        == "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg"
+        == "/metadata/providers/gcd/images/256114?series=Batman%3A+Dark+Victory&issue=12&year=1999"
     )
     assert normalized.synopsis == "Two-Face seeks revenge."
 
@@ -242,7 +279,7 @@ async def test_gcd_provider_normalizes_variant_issue_payload():
     assert normalized.volume_provider_ids == {"gcd": "216143"}
     assert (
         normalized.cover_image_url
-        == "https://files1.comics.org//img/gcd/covers_by_id/1791/w400/1791589.jpg"
+        == "/metadata/providers/gcd/images/2665653?series=Absolute+Batman&issue=1&year=2024&variant=Jim+Lee+%26+Scott+Williams+Cardstock+Variant+Cover"
     )
 
 
@@ -282,13 +319,223 @@ async def test_gcd_provider_search_uses_issue_query(monkeypatch):
     assert results[0].provider_item_id == "256114"
     assert results[0].title == "Batman: Dark Victory (1999 series) #12"
     assert results[0].summary == "November 2000 · 2.95 USD · 36 pages"
+    assert (
+        results[0].image_url
+        == "/metadata/providers/gcd/images/256114?series=Batman%3A+Dark+Victory&issue=12&year=1999"
+    )
 
 
 @pytest.mark.asyncio
-async def test_gcd_provider_search_requires_issue_number():
-    results = await GCDProvider().search("Batman")
+async def test_gcd_provider_search_defaults_series_only_queries_to_issue_one(monkeypatch):
+    async def fake_request(self, path):
+        assert path == "series/name/Absolute%20Batman/issue/1/"
+        return {
+            "results": [
+                {
+                    "api_url": "https://www.comics.org/api/issue/3377500/",
+                    "series_name": "Absolute Batman (2024 series)",
+                    "descriptor": "1",
+                    "publication_date": "October 2024",
+                    "price": "4.99 USD",
+                    "page_count": "32.000",
+                    "variant_of": None,
+                    "cover": "https://files1.comics.org/img/gcd/covers/cover.jpg",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(GCDProvider, "_request", fake_request)
+
+    results = await GCDProvider().search(" Absolute Batman cover ")
+
+    assert len(results) == 1
+    assert results[0].provider_item_id == "3377500"
+    assert results[0].title == "Absolute Batman (2024 series) #1"
+    assert (
+        results[0].image_url
+        == "/metadata/providers/gcd/images/3377500?series=Absolute+Batman&issue=1&year=2024"
+    )
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_cover_image_downloads_issue_cover(monkeypatch):
+    async def fake_request(self, path):
+        assert path == "issue/3377500/"
+        return {"cover": "https://files1.comics.org/img/gcd/covers/cover.jpg"}
+
+    async def fake_download_cover_image(self, cover_url, issue_id):
+        assert cover_url == "https://files1.comics.org/img/gcd/covers/cover.jpg"
+        assert issue_id == "3377500"
+        return b"cover-bytes", "image/jpeg"
+
+    monkeypatch.setattr(GCDProvider, "_request", fake_request)
+    monkeypatch.setattr(GCDProvider, "_download_cover_image", fake_download_cover_image)
+
+    image = await GCDProvider().get_cover_image("3377500")
+
+    assert image.content == b"cover-bytes"
+    assert image.media_type == "image/jpeg"
+    assert image.redirect_url is None
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_cover_image_route_is_public(client, monkeypatch):
+    async def fake_get_cover_image(self, provider_item_id, fallback=None):
+        assert provider_item_id == "3377500"
+        assert fallback == GCDCoverFallback(
+            series_title="Absolute Batman",
+            issue_number="1",
+            start_year=2024,
+            variant_hint="Jim Lee",
+        )
+        return GCDCoverImage.inline(b"cover-bytes", "image/jpeg")
+
+    monkeypatch.setattr(GCDProvider, "get_cover_image", fake_get_cover_image)
+
+    response = await client.get(
+        "/metadata/providers/gcd/images/3377500",
+        params={
+            "series": "Absolute Batman",
+            "issue": "1",
+            "year": 2024,
+            "variant": "Jim Lee",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "public, max-age=86400"
+    assert response.content == b"cover-bytes"
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_cover_image_falls_back_to_comicvine(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_request(self, path):
+        raise ApiHTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="gcd_http_error",
+            detail="GCD returned HTTP 429",
+        )
+
+    async def fake_find_issue_cover(self, **kwargs):
+        assert kwargs == {
+            "series_title": "Absolute Batman",
+            "issue_number": "1",
+            "start_year": 2024,
+            "variant_hint": "Jim Lee",
+            "require_variant_match": False,
+        }
+        return ComicVineIssueCover(
+            provider_item_id="4000-1073108",
+            image_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+        )
+
+    monkeypatch.setattr(GCDProvider, "_request", fake_request)
+    monkeypatch.setattr(ComicVineProvider, "find_issue_cover", fake_find_issue_cover)
+
+    image = await GCDProvider().get_cover_image(
+        "3377500",
+        fallback=GCDCoverFallback(
+            series_title="Absolute Batman",
+            issue_number="1",
+            start_year=2024,
+            variant_hint="Jim Lee",
+        ),
+    )
+
+    assert image.content is None
+    assert image.media_type is None
+    assert image.redirect_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_cover_image_returns_not_found_for_missing_exact_variant(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_request(self, path):
+        raise ApiHTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="gcd_http_error",
+            detail="GCD returned HTTP 401",
+        )
+
+    async def fake_find_issue_cover(self, **kwargs):
+        assert kwargs["require_variant_match"] is True
+        return None
+
+    monkeypatch.setattr(GCDProvider, "_request", fake_request)
+    monkeypatch.setattr(ComicVineProvider, "find_issue_cover", fake_find_issue_cover)
+
+    with pytest.raises(ApiHTTPException) as exc_info:
+        await GCDProvider().get_cover_image(
+            "2665653",
+            fallback=GCDCoverFallback(
+                series_title="Absolute Batman",
+                issue_number="1",
+                start_year=2024,
+                variant_hint="Jim Lee & Scott Williams Cardstock Variant Cover",
+            ),
+        )
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc_info.value.code == "provider_variant_cover_not_found"
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_search_ignores_barcode_like_queries():
+    results = await GCDProvider().search("76194138584600111")
 
     assert results == []
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_search_route_falls_back_to_comicvine(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+    token = await admin_token(client, monkeypatch)
+
+    async def fail_gcd_search(self, query, kind=None):
+        raise ApiHTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="gcd_http_error",
+            detail="GCD returned HTTP 429",
+        )
+
+    async def fake_find_issue_cover(self, **kwargs):
+        assert kwargs == {
+            "series_title": "Absolute Batman",
+            "issue_number": "1",
+        }
+        return ComicVineIssueCover(
+            provider_item_id="4000-1073108",
+            image_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+        )
+
+    async def fail_comicvine_search(self, query, kind=None):
+        raise AssertionError("Exact ComicVine cover fallback should run first")
+
+    monkeypatch.setattr(GCDProvider, "search", fail_gcd_search)
+    monkeypatch.setattr(ComicVineProvider, "find_issue_cover", fake_find_issue_cover)
+    monkeypatch.setattr(ComicVineProvider, "search", fail_comicvine_search)
+
+    response = await client.get(
+        "/metadata/providers/gcd/search",
+        params={"q": "Absolute Batman", "kind": "comic"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["provider"] == "comicvine"
+    assert body[0]["title"] == "Absolute Batman #1"
+    assert body[0]["summary"].startswith(
+        "Comic Vine fallback while Grand Comics Database is unavailable."
+    )
+    assert body[0]["image_url"] == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
 
 
 @pytest.mark.asyncio
@@ -1215,6 +1462,81 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_admin_ingest_populates_comicvine_associated_cover_variants(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    raw = comicvine_issue_raw()
+    raw["id"] = 498453
+    raw["api_detail_url"] = "https://comicvine.gamespot.com/api/issue/4000-498453/"
+    raw["site_detail_url"] = "https://comicvine.gamespot.com/over-the-garden-wall-1/4000-498453/"
+    raw["volume"] = {
+        **raw["volume"],
+        "id": 100090,
+        "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-100090/",
+        "name": "Over The Garden Wall",
+        "publisher": {"name": "BOOM! Studios"},
+    }
+    raw["associated_images"] = [
+        {
+            "id": 4767296,
+            "original_url": "https://comicvine.gamespot.com/a/uploads/original/variant-a.jpg",
+            "caption": None,
+            "image_tags": "All Images",
+        },
+        {
+            "id": 4767295,
+            "original_url": "https://comicvine.gamespot.com/a/uploads/original/variant-b.jpg",
+            "caption": "Subscription cover",
+            "image_tags": "All Images",
+        },
+    ]
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="comicvine", provider_item_id="4000-498453", raw=raw)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("Provider images should not be mirrored by default")
+
+    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "comicvine", "provider_item_id": "4000-498453"},
+    )
+
+    assert response.status_code == 201
+    variants = response.json()["item"]["editions"][0]["variants"]
+    assert [variant["name"] for variant in variants] == [
+        "Cover A",
+        "Variant cover 1",
+        "Subscription cover",
+    ]
+    assert variants[0]["is_primary"] is True
+    assert variants[1]["is_primary"] is False
+    assert (
+        variants[1]["cover_image_url"]
+        == "https://comicvine.gamespot.com/a/uploads/original/variant-a.jpg"
+    )
+    assert (
+        variants[2]["cover_image_url"]
+        == "https://comicvine.gamespot.com/a/uploads/original/variant-b.jpg"
+    )
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(func.count()).select_from(Variant)) == 3
+        variant_rows = await db.scalars(select(Variant))
+        assert {
+            row.metadata_json["normalized"].get("associated_image_id") for row in variant_rows
+        } == {None, "4767296", "4767295"}
+
+
+@pytest.mark.asyncio
 async def test_admin_provider_ingest_records_retry_history(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     calls = 0
@@ -1387,10 +1709,11 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
     assert variant["barcode"] == "76194122054301211"
     assert variant["cover_price_cents"] == 295
     assert variant["currency"] == "USD"
-    assert (
-        variant["cover_image_url"]
-        == "https://files1.comics.org//img/gcd/covers_by_id/237/w400/237538.jpg"
+    expected_cover_url = (
+        "/metadata/providers/gcd/images/256114"
+        "?series=Batman%3A+Dark+Victory&issue=12&year=1999"
     )
+    assert variant["cover_image_url"] == expected_cover_url
     assert indexed_documents[0]["barcode"] == "76194122054301211"
     assert indexed_documents[0]["barcodes"] == ["76194122054301211"]
     assert indexed_documents[0]["variant"] == "Cover A"
@@ -1456,6 +1779,41 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
             )
         )
         assert list(provider_ids) == ["216143", "2663120", "2665653"]
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_does_not_apply_standard_cover_to_gcd_variant(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+    variant_issue = gcd_variant_issue_raw()
+    variant_issue["cover"] = None
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="gcd", provider_item_id=provider_item_id, raw=variant_issue)
+
+    async def fail_find_issue_cover(self, **kwargs):
+        raise AssertionError("Variant issues should not receive standard issue cover fallback")
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(GCDProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(ComicVineProvider, "find_issue_cover", fail_find_issue_cover)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "gcd", "provider_item_id": "2665653"},
+    )
+
+    assert response.status_code == 201
+    variant = response.json()["item"]["editions"][0]["variants"][0]
+    assert variant["name"] == "Jim Lee & Scott Williams Cardstock Variant Cover"
+    assert variant["variant_type"] == "variant"
+    assert variant["cover_image_url"] is None
+    assert variant["metadata_json"]["normalized"]["cover_status"] == "missing"
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,10 @@
+import logging
 import re
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
-from urllib.parse import quote
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 from fastapi import status
@@ -26,9 +28,55 @@ _ISSUE_QUERY_RE = re.compile(
     r"^(?P<series>.+?)\s*(?:#|issue\s+|no\.?\s*)?\s*(?P<issue>\d+[A-Za-z0-9./-]*)$",
     re.IGNORECASE,
 )
+_TRAILING_VARIANT_HINT_RE = re.compile(
+    r"\s+(?:variant|variants?|cover|covers?|cover\s+[a-z]|standard|regular|main|foil|virgin|"
+    r"incentive|ratio)\s*$",
+    re.IGNORECASE,
+)
 _PRICE_RE = re.compile(r"(?P<amount>\d+(?:[.,]\d+)?)\s*(?P<currency>[A-Z]{3})")
 _EDITOR_SUFFIX_RE = re.compile(r"\s+\((?:editor|editors?)\)$", re.IGNORECASE)
 _EMPTY_CREDIT_VALUES = {"", "?", "none", "[none]", "n/a"}
+_ALLOWED_COVER_HOSTS = {"files1.comics.org", "www.comics.org"}
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class GCDCoverFallback:
+    series_title: str | None = None
+    issue_number: str | None = None
+    start_year: int | None = None
+    variant_hint: str | None = None
+
+    def merge(self, other: "GCDCoverFallback") -> "GCDCoverFallback":
+        return GCDCoverFallback(
+            series_title=self.series_title or other.series_title,
+            issue_number=self.issue_number or other.issue_number,
+            start_year=self.start_year or other.start_year,
+            variant_hint=self.variant_hint or other.variant_hint,
+        )
+
+
+@dataclass(frozen=True)
+class GCDCoverImage:
+    content: bytes | None = None
+    media_type: str | None = None
+    redirect_url: str | None = None
+    source_url: str | None = None
+
+    @classmethod
+    def inline(
+        cls,
+        content: bytes,
+        media_type: str,
+        *,
+        source_url: str | None = None,
+    ) -> "GCDCoverImage":
+        return cls(content=content, media_type=media_type, source_url=source_url)
+
+    @classmethod
+    def redirect(cls, url: str) -> "GCDCoverImage":
+        return cls(redirect_url=url, source_url=url)
 
 
 class GCDProvider:
@@ -64,26 +112,35 @@ class GCDProvider:
         query: str,
         kind: ItemKind | None = None,
     ) -> list[ProviderSearchResult]:
-        parsed = self._parse_issue_query(query)
-        if parsed is None:
+        candidates = self._query_candidates(query)
+        if not candidates:
             return []
 
-        series_name, issue_number = parsed
-        path = f"series/name/{quote(series_name, safe='')}/issue/{quote(issue_number, safe='')}/"
-        payload = await self._request(path)
-        results = payload.get("results") or []
-        if not isinstance(results, list):
-            return []
+        for series_name, issue_number in candidates:
+            path = (
+                f"series/name/{quote(series_name, safe='')}/issue/{quote(issue_number, safe='')}/"
+            )
+            payload = await self._request(path)
+            results = payload.get("results") or []
+            if not isinstance(results, list):
+                continue
 
-        issue_results = [result for result in results if isinstance(result, Mapping)]
-        issue_results.sort(key=lambda result: self._series_rank(result, series_name))
+            issue_results = [result for result in results if isinstance(result, Mapping)]
+            issue_results.sort(key=lambda result: self._series_rank(result, series_name))
 
-        normalized_results: list[ProviderSearchResult] = []
-        for result in issue_results[: self.settings.gcd_search_limit]:
-            search_result = self._search_result(result)
-            if search_result.provider_item_id:
+            normalized_results: list[ProviderSearchResult] = []
+            seen: set[str] = set()
+            for result in issue_results[: self.settings.gcd_search_limit]:
+                search_result = self._search_result(result)
+                if not search_result.provider_item_id:
+                    continue
+                if search_result.provider_item_id in seen:
+                    continue
+                seen.add(search_result.provider_item_id)
                 normalized_results.append(search_result)
-        return normalized_results
+            if normalized_results:
+                return normalized_results
+        return []
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
         issue_id = self._issue_id(provider_item_id)
@@ -102,6 +159,58 @@ class GCDProvider:
             )
         return ProviderItem(provider=self.name, provider_item_id=issue_id, raw=payload)
 
+    async def get_cover_image(
+        self,
+        provider_item_id: str,
+        fallback: GCDCoverFallback | None = None,
+    ) -> GCDCoverImage:
+        issue_id = self._issue_id(provider_item_id)
+        if issue_id is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="gcd_invalid_issue_id",
+                detail="Invalid GCD issue id",
+            )
+        fallback = fallback or GCDCoverFallback()
+        last_error: ApiHTTPException | None = None
+        try:
+            item = await self.get_item(issue_id)
+            fallback = fallback.merge(await self._cover_fallback_from_item(item.raw))
+            cover_url = self._optional_text(item.raw.get("cover"))
+            if cover_url is not None:
+                try:
+                    content, media_type = await self._download_cover_image(cover_url, issue_id)
+                    return GCDCoverImage.inline(content, media_type, source_url=cover_url)
+                except ApiHTTPException as exc:
+                    last_error = exc
+            else:
+                last_error = ApiHTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    code="gcd_cover_not_found",
+                    detail="GCD issue does not include a cover image",
+                )
+        except ApiHTTPException as exc:
+            last_error = exc
+
+        fallback_cover = await self._comicvine_cover_fallback(fallback)
+        if fallback_cover is not None:
+            return fallback_cover
+
+        if self._requires_variant_cover_match(fallback.variant_hint):
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="provider_variant_cover_not_found",
+                detail="No exact variant cover image was available",
+            )
+
+        if last_error is not None:
+            raise last_error
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="provider_cover_not_found",
+            detail="No provider cover image was available",
+        )
+
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
         issue_id = self._issue_id(data.get("api_url") or data.get("id"))
         series_url = self._optional_text(data.get("series"))
@@ -114,6 +223,14 @@ class GCDProvider:
         issue_title = self._optional_text(data.get("title"))
         release_date = self._date(data.get("on_sale_date")) or self._date(data.get("key_date"))
         cover_price_cents, currency = self._price(data.get("price"))
+        cover_image_url = self._normalized_cover_image_url(
+            data,
+            issue_id=issue_id,
+            series_title=series_title,
+            issue_number=issue_number,
+            start_year=volume_start_year,
+            variant_hint=variant_name or self._variant_name_from_descriptor(data),
+        )
 
         return NormalizedItem(
             kind=ItemKind.comic,
@@ -134,7 +251,7 @@ class GCDProvider:
             currency=currency,
             variant_name=variant_name or self._variant_name_from_descriptor(data),
             variant_type="variant" if data.get("variant_of") else None,
-            cover_image_url=self._optional_text(data.get("cover")),
+            cover_image_url=cover_image_url,
             creators=self._credits(data.get("story_set"), issue_editing=data.get("editing")),
             characters=self._characters(data.get("story_set")),
             story_arcs=self._story_arcs(data.get("story_set")),
@@ -176,8 +293,12 @@ class GCDProvider:
     def _search_result(self, result: Mapping[str, Any]) -> ProviderSearchResult:
         issue_id = self._issue_id(result.get("api_url"))
         series_name = self._optional_text(result.get("series_name")) or "Unknown GCD issue"
+        series_title = self._series_title(series_name)
+        start_year = self._series_start_year(series_name)
         descriptor = self._optional_text(result.get("descriptor"))
         title = f"{series_name} #{descriptor}" if descriptor else series_name
+        issue_number = self._descriptor_number(result) or descriptor
+        variant_hint = self._variant_name_from_descriptor(result)
         summary_parts = [
             self._optional_text(result.get("publication_date")),
             self._optional_text(result.get("price")),
@@ -190,8 +311,175 @@ class GCDProvider:
             title=title,
             kind=ItemKind.comic,
             summary=" · ".join(part for part in summary_parts if part),
-            image_url=self._optional_text(result.get("cover")),
+            image_url=self._cover_proxy_url(
+                issue_id,
+                series_title=series_title,
+                issue_number=issue_number,
+                start_year=start_year,
+                variant_hint=variant_hint,
+            )
+            or self._optional_text(result.get("cover")),
         )
+
+    async def _download_cover_image(self, cover_url: str, issue_id: str) -> tuple[bytes, str]:
+        parsed = urlparse(cover_url)
+        if parsed.scheme not in {"http", "https"} or parsed.hostname not in _ALLOWED_COVER_HOSTS:
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_cover_url_untrusted",
+                detail="GCD returned an unsupported cover image URL",
+            )
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.settings.gcd_timeout_seconds,
+                headers={
+                    "User-Agent": self.settings.gcd_user_agent,
+                    "Accept": "image/*",
+                    "Referer": f"https://www.comics.org/issue/{issue_id}/",
+                },
+                follow_redirects=True,
+            ) as client:
+                response = await client.get(cover_url)
+                response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.info(
+                "gcd_cover_download_failed issue_id=%s status=%s",
+                issue_id,
+                exc.response.status_code,
+            )
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_cover_download_failed",
+                detail=f"GCD cover download returned HTTP {exc.response.status_code}",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_cover_download_failed",
+                detail="GCD cover download failed",
+            ) from exc
+        media_type = response.headers.get("content-type", "image/jpeg").split(";", 1)[0]
+        if not media_type.startswith("image/"):
+            raise ApiHTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="gcd_cover_invalid_content_type",
+                detail="GCD cover response was not an image",
+            )
+        return response.content, media_type
+
+    async def _cover_fallback_from_item(self, data: Mapping[str, Any]) -> GCDCoverFallback:
+        normalized = await self.normalize(data)
+        return GCDCoverFallback(
+            series_title=normalized.series_title or normalized.title,
+            issue_number=normalized.item_number,
+            start_year=normalized.volume_start_year,
+            variant_hint=normalized.variant_name,
+        )
+
+    async def _comicvine_cover_fallback(
+        self,
+        fallback: GCDCoverFallback,
+    ) -> GCDCoverImage | None:
+        if not fallback.series_title or not fallback.issue_number:
+            return None
+
+        from app.providers.comicvine import ComicVineProvider
+
+        provider = ComicVineProvider()
+        if not provider.is_configured:
+            return None
+        try:
+            cover = await provider.find_issue_cover(
+                series_title=fallback.series_title,
+                issue_number=fallback.issue_number,
+                start_year=fallback.start_year,
+                variant_hint=fallback.variant_hint,
+                require_variant_match=self._requires_variant_cover_match(fallback.variant_hint),
+            )
+        except Exception:
+            logger.warning(
+                "comicvine_cover_fallback_lookup_failed series=%s issue=%s",
+                fallback.series_title,
+                fallback.issue_number,
+                exc_info=True,
+            )
+            return None
+        if cover is None:
+            return None
+        return GCDCoverImage.redirect(cover.image_url)
+
+    def _requires_variant_cover_match(self, variant_hint: str | None) -> bool:
+        terms = {term.casefold() for term in self._variant_terms(variant_hint)}
+        return bool(
+            terms
+            & {
+                "variant",
+                "virgin",
+                "foil",
+                "exclusive",
+                "incentive",
+                "ratio",
+                "printing",
+                "cardstock",
+                "blank",
+                "nycc",
+            }
+        )
+
+    def _variant_terms(self, value: Any) -> list[str]:
+        normalized = re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold())
+        stop_words = {"a", "an", "and", "by", "cover", "edition", "of", "the"}
+        return [term for term in normalized.split() if len(term) > 1 and term not in stop_words]
+
+    def _normalized_cover_image_url(
+        self,
+        data: Mapping[str, Any],
+        *,
+        issue_id: str | None,
+        series_title: str,
+        issue_number: str | None,
+        start_year: int | None,
+        variant_hint: str | None,
+    ) -> str | None:
+        cover_url = self._optional_text(data.get("cover"))
+        if cover_url is None and data.get("variant_of"):
+            return None
+        return (
+            self._cover_proxy_url(
+                issue_id,
+                series_title=series_title,
+                issue_number=issue_number,
+                start_year=start_year,
+                variant_hint=variant_hint,
+            )
+            or cover_url
+        )
+
+    def _cover_proxy_url(
+        self,
+        issue_id: str | None,
+        *,
+        series_title: str | None = None,
+        issue_number: str | None = None,
+        start_year: int | None = None,
+        variant_hint: str | None = None,
+    ) -> str | None:
+        if issue_id is None:
+            return None
+        query = urlencode(
+            {
+                key: value
+                for key, value in {
+                    "series": series_title,
+                    "issue": issue_number,
+                    "year": start_year,
+                    "variant": variant_hint,
+                }.items()
+                if value
+            }
+        )
+        path = f"/metadata/providers/gcd/images/{quote(issue_id, safe='')}"
+        return f"{path}?{query}" if query else path
 
     def _series_rank(self, result: Mapping[str, Any], query: str) -> tuple[int, str]:
         series_name = self._optional_text(result.get("series_name")) or ""
@@ -224,7 +512,69 @@ class GCDProvider:
         issue = match.group("issue").strip()
         if not series or not issue:
             return None
+        if not any(char.isalpha() for char in series):
+            return None
         return series, issue
+
+    def _query_candidates(self, query: str) -> list[tuple[str, str]]:
+        normalized_query = self._searchable_query(query)
+        if not normalized_query:
+            return []
+        if not any(char.isalpha() for char in normalized_query):
+            return []
+
+        parsed = self._parse_issue_query(normalized_query)
+        if parsed is None:
+            series_name = normalized_query
+            issue_number = "1"
+        else:
+            series_name, issue_number = parsed
+
+        candidates: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for series_candidate in self._series_aliases(series_name):
+            key = (series_candidate.casefold(), issue_number.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append((series_candidate, issue_number))
+        return candidates
+
+    def _searchable_query(self, query: str) -> str:
+        normalized_query = " ".join(query.split())
+        previous = None
+        while previous != normalized_query:
+            previous = normalized_query
+            normalized_query = _TRAILING_VARIANT_HINT_RE.sub("", normalized_query).strip()
+        return normalized_query
+
+    def _series_aliases(self, series_name: str) -> list[str]:
+        normalized = " ".join(series_name.split())
+        aliases = [normalized]
+        without_leading_the = re.sub(r"^the\s+", "", normalized, flags=re.IGNORECASE).strip()
+        if without_leading_the and without_leading_the != normalized:
+            aliases.append(without_leading_the)
+        elif normalized:
+            aliases.append(f"The {normalized}")
+
+        if "&" in normalized:
+            aliases.append(normalized.replace("&", "and"))
+        if " and " in normalized.casefold():
+            aliases.append(re.sub(r"\band\b", "&", normalized, flags=re.IGNORECASE))
+
+        punctuation_spaced = re.sub(r"[-:]+", " ", normalized).strip()
+        if punctuation_spaced:
+            aliases.append(" ".join(punctuation_spaced.split()))
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for alias in aliases:
+            key = self._normalized_title_key(alias)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            deduped.append(alias)
+        return deduped[:5]
 
     def _issue_id(self, value: Any) -> str | None:
         if value is None:

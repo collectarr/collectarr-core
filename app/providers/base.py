@@ -57,6 +57,16 @@ class NormalizedCredit:
 
 
 @dataclass(frozen=True)
+class NormalizedVariantCover:
+    name: str
+    cover_image_url: str
+    thumbnail_image_url: str | None = None
+    provider_item_id: str | None = None
+    source_id: str | None = None
+    caption: str | None = None
+
+
+@dataclass(frozen=True)
 class NormalizedItem:
     kind: ItemKind
     title: str
@@ -85,6 +95,7 @@ class NormalizedItem:
     story_arcs: list[NormalizedCredit] = field(default_factory=list)
     provider_ids: dict[str, str] = field(default_factory=dict)
     volume_provider_ids: dict[str, str] = field(default_factory=dict)
+    variant_covers: list[NormalizedVariantCover] = field(default_factory=list)
 
 
 class MetadataProvider(Protocol):

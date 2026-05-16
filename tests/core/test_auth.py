@@ -21,6 +21,33 @@ async def test_register_and_login(client):
 
 
 @pytest.mark.asyncio
+async def test_current_user_returns_profile(client):
+    response = await client.post(
+        "/auth/register",
+        json={"email": "user@example.com", "password": "password123"},
+    )
+    assert response.status_code == 201
+    token = response.json()["access_token"]
+
+    current = await client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert current.status_code == 200
+    assert current.json()["email"] == "user@example.com"
+    assert current.json()["is_admin"] is False
+
+
+@pytest.mark.asyncio
+async def test_current_user_requires_bearer_token(client):
+    response = await client.get("/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "missing_bearer_token"
+
+
+@pytest.mark.asyncio
 async def test_bootstrap_admin_email_registers_admin(client, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "bootstrap_admin_emails", {"admin@example.com"})

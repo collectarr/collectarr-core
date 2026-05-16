@@ -115,6 +115,9 @@ class SearchResult(BaseModel):
     synopsis: str | None = None
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
+    edition_title: str | None = None
+    physical_format: str | None = None
+    physical_format_label: str | None = None
     publisher: str | None = None
     release_date: date | None = None
     release_year: int | None = None

@@ -15,6 +15,7 @@ from sqlalchemy.engine.url import make_url
 
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("REDIS_URL", "")
 os.environ.setdefault(
     "DATABASE_URL", "postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr_test"
 )
@@ -22,6 +23,7 @@ os.environ.setdefault(
 from app.db.session import AsyncSessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.rate_limit import reset_rate_limits  # noqa: E402
+from app.services.provider_search_state import reset_provider_search_state  # noqa: E402
 
 
 async def _ensure_test_database(database_url: str) -> None:
@@ -84,29 +86,8 @@ def _is_safe_test_database(url) -> bool:
 
 
 async def _reset_public_schema_objects(connection: asyncpg.Connection) -> None:
-    tables = await connection.fetch(
-        """
-        select tablename
-        from pg_tables
-        where schemaname = 'public'
-        """
-    )
-    for table in tables:
-        quoted_table = '"' + table["tablename"].replace('"', '""') + '"'
-        await connection.execute(f"drop table if exists public.{quoted_table} cascade")
-
-    enum_types = await connection.fetch(
-        """
-        select typname
-        from pg_type
-        join pg_namespace on pg_namespace.oid = pg_type.typnamespace
-        where pg_namespace.nspname = 'public'
-          and pg_type.typtype = 'e'
-        """
-    )
-    for enum_type in enum_types:
-        quoted_type = '"' + enum_type["typname"].replace('"', '""') + '"'
-        await connection.execute(f"drop type if exists public.{quoted_type} cascade")
+    await connection.execute("drop schema if exists public cascade")
+    await connection.execute("create schema public")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -127,6 +108,7 @@ def migrated_database() -> None:
 @pytest_asyncio.fixture(autouse=True)
 async def clean_database() -> AsyncIterator[None]:
     reset_rate_limits()
+    reset_provider_search_state()
     async with AsyncSessionLocal() as db:
         await db.execute(
             text(
@@ -144,6 +126,7 @@ async def clean_database() -> AsyncIterator[None]:
         await db.commit()
     yield
     reset_rate_limits()
+    reset_provider_search_state()
 
 
 @pytest_asyncio.fixture

@@ -1,18 +1,36 @@
 from collections import deque
 from collections.abc import Callable
+import hashlib
+import logging
 from threading import RLock
-from time import monotonic
+from time import monotonic, time
+from uuid import uuid4
 
 from fastapi import Request, status
 
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
+from app.core.redis import redis_client
+
+
+logger = logging.getLogger(__name__)
 
 
 _BUCKETS: dict[tuple[str, str], deque[float]] = {}
 _BUCKETS_LOCK = RLock()
 _CLEANUP_EVERY_REQUESTS = 128
 _REQUEST_COUNT = 0
+_REDIS_RATE_LIMIT_SCRIPT = """
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
+local count = redis.call('ZCARD', KEYS[1])
+if count >= tonumber(ARGV[3]) then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  return {0, oldest[2] or ARGV[2]}
+end
+redis.call('ZADD', KEYS[1], ARGV[2], ARGV[4])
+redis.call('EXPIRE', KEYS[1], ARGV[5])
+return {1, 0}
+"""
 
 
 def reset_rate_limits() -> None:
@@ -32,6 +50,7 @@ def cleanup_rate_limits() -> None:
     max_window_seconds = max(
         settings.auth_rate_limit_window_seconds,
         settings.admin_provider_rate_limit_window_seconds,
+        settings.provider_search_rate_limit_window_seconds,
     )
     _cleanup_expired(monotonic(), max_window_seconds)
 
@@ -56,6 +75,16 @@ async def admin_provider_rate_limit(request: Request) -> None:
     )
 
 
+async def provider_search_rate_limit(request: Request) -> None:
+    settings = get_settings()
+    await _check_rate_limit(
+        request,
+        bucket="provider_search",
+        limit=settings.provider_search_rate_limit_requests,
+        window_seconds=settings.provider_search_rate_limit_window_seconds,
+    )
+
+
 async def _check_rate_limit(
     request: Request,
     *,
@@ -68,12 +97,78 @@ async def _check_rate_limit(
         return
 
     key = key_func(request) if key_func else _client_key(request)
+    if await _check_rate_limit_redis(
+        bucket=bucket,
+        key=key,
+        limit=limit,
+        window_seconds=window_seconds,
+    ):
+        return
+
+    _check_rate_limit_memory(
+        bucket=bucket,
+        key=key,
+        limit=limit,
+        window_seconds=window_seconds,
+    )
+
+
+async def _check_rate_limit_redis(
+    *,
+    bucket: str,
+    key: str,
+    limit: int,
+    window_seconds: int,
+) -> bool:
+    now_ms = int(time() * 1000)
+    window_ms = window_seconds * 1000
+    redis_key = _redis_rate_limit_key(bucket, key)
+    try:
+        async with redis_client() as client:
+            if client is None:
+                return False
+            allowed, oldest_score = await client.eval(
+                _REDIS_RATE_LIMIT_SCRIPT,
+                1,
+                redis_key,
+                now_ms - window_ms,
+                now_ms,
+                limit,
+                f"{now_ms}:{uuid4().hex}",
+                window_seconds,
+            )
+    except ApiHTTPException:
+        raise
+    except Exception:
+        logger.warning("Redis rate limit unavailable; using in-memory fallback", exc_info=True)
+        return False
+
+    if int(allowed) == 1:
+        return True
+
+    retry_after = _redis_retry_after_seconds(now_ms, window_ms, oldest_score)
+    raise ApiHTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        code=f"{bucket}_rate_limited",
+        detail="Too many requests",
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+def _check_rate_limit_memory(
+    *,
+    bucket: str,
+    key: str,
+    limit: int,
+    window_seconds: int,
+) -> None:
     now = monotonic()
     settings = get_settings()
     cleanup_window_seconds = max(
         window_seconds,
         settings.auth_rate_limit_window_seconds,
         settings.admin_provider_rate_limit_window_seconds,
+        settings.provider_search_rate_limit_window_seconds,
     )
     with _BUCKETS_LOCK:
         global _REQUEST_COUNT
@@ -94,6 +189,19 @@ async def _check_rate_limit(
             )
 
         entries.append(now)
+
+
+def _redis_rate_limit_key(bucket: str, key: str) -> str:
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return f"collectarr:rate:{bucket}:{digest}"
+
+
+def _redis_retry_after_seconds(now_ms: int, window_ms: int, oldest_score) -> int:
+    try:
+        oldest_ms = int(float(oldest_score))
+    except (TypeError, ValueError):
+        oldest_ms = now_ms
+    return max(1, int((window_ms - (now_ms - oldest_ms)) / 1000))
 
 
 def _cleanup_expired(now: float, window_seconds: int) -> None:

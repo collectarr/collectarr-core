@@ -1,5 +1,9 @@
 # Collectarr
 
+<p align="center">
+  <img src="docs/assets/collectarr-icon.svg" alt="Collectarr app icon" width="96" height="96">
+</p>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![GitHub Release](https://img.shields.io/github/v/release/saitatter/collectarr)
 [![Issues](https://img.shields.io/github/issues/saitatter/collectarr)](https://github.com/saitatter/collectarr/issues)
@@ -13,6 +17,9 @@
 Collectarr is a centralized collector metadata hub with variant-aware catalog records, offline-first local libraries, and plugin-based metadata providers. The central server stores shared metadata only. Personal collection data stays on the user's device, with an optional `collectarr-sync` service for people who want to sync their own devices.
 
 For quick handoff context in new chats, see [docs/context.md](docs/context.md).
+
+Branding source assets live in [docs/assets](docs/assets); generated app icons
+are checked in for Flutter web, Android, and Windows.
 
 ---
 
@@ -40,12 +47,17 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Generic Add flows can search Core, search the configured live provider for
   manga/books/games/movies/TV/anime/board games/music, save provider candidates
   as local drafts, queue Core ingest jobs with visible job feedback, and submit
-  metadata proposals for Core review
+  metadata proposals for Core review. Core barcode misses automatically fall
+  through to provider search when a library has configured providers.
 - Non-comics libraries use media-aware field labels for add/detail/table/edit
   flows, such as video `Format / Edition`, book `ISBN / Barcode`, and game
   `Platform / Edition`
 - CSV / CLZ import-export wizard for quick local backup and matched-row import,
-  with media type-aware CSV matching and CLZ-friendly headers
+  with media type-aware CSV matching, CLZ-friendly headers, edition titles,
+  physical format fields, and barcode matching scoped by media type
+- Local catalog snapshots preserve edition title, normalized physical format,
+  physical format label, barcode/UPC/ISBN, and variant display data so synced
+  clients can browse physical releases without rehydrating from Core
 - The central metadata server does not store personal collection or wishlist records
 
 ### 🔄 Offline-First Sync
@@ -84,12 +96,22 @@ For quick handoff context in new chats, see [docs/context.md](docs/context.md).
 - Admin catalog corrections can set a normalized video `physical_format`
   (`dvd`, `blu-ray`, `4k-uhd`, `vhs`, `laserdisc`, or `digital`) without a
   schema migration; the value is stored in edition/variant metadata and exposed
-  in metadata responses
+  in metadata responses and Flutter local snapshots
+- Search and barcode lookup normalize UPC/ISBN/barcode punctuation and can match
+  variant SKU values for game/video-style physical editions.
 - Provider image URLs are preferred by default; set `MIRROR_PROVIDER_IMAGES=true`
   only when you want Core to copy provider covers into MinIO/S3 as one
   normalized WebP cover per source image, tracked in a bounded LRU cache. Core
-  only mirrors providers explicitly marked image-mirroring safe unless
-  `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is also set.
+  can apply that to provider ingest, external provider search results, and the
+  GCD cover proxy. Core only mirrors providers explicitly marked
+  image-mirroring safe unless `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is
+  also set.
+- Provider search is guarded by a dedicated Core rate limit, short-lived
+  provider/kind/query caching, and provider cooldown after 401/429/5xx upstream
+  errors. When `REDIS_URL` is set, those guardrails are shared across API
+  processes; otherwise they fall back to local in-memory state. GCD can use
+  ComicVine as a controlled fallback when enabled, and the Flutter add flow
+  labels those fallback results clearly.
 - If GCD cover URLs are blocked by a browser or network, run `python -m app.scripts.enrich_comicvine_covers --replace-gcd-covers` with `COMICVINE_API_KEY` set to replace those cover references with ComicVine image URLs
 
 ---
@@ -159,7 +181,18 @@ docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --fro
 docker compose exec api python -m app.scripts.ingest_gcd --provider-item-id 256114 --skip-existing
 ```
 
-To bootstrap an admin account, set `BOOTSTRAP_ADMIN_EMAILS=["you@example.com"]` before registering that email.
+To bootstrap an admin account, set `BOOTSTRAP_ADMIN_EMAILS=["you@example.com"]`
+before registering that email. Existing accounts can be promoted or demoted from
+the Core container:
+
+```powershell
+docker compose exec api python -m app.commands.set_admin you@example.com true
+docker compose exec api python -m app.commands.set_admin you@example.com false
+```
+
+The Flutter Admin tab is shown only after signing in with an admin account. If
+permissions are changed while a device is already signed in, refresh them from
+Settings > Account or sign in again.
 
 GCD live comics metadata works without a key. Optional ComicVine enrichment requires a personal
 non-commercial API key:
@@ -205,6 +238,7 @@ Common commands:
 .\tools\dev.ps1 migrate
 .\tools\dev.ps1 seed
 .\tools\dev.ps1 test-backend
+.\tools\dev.ps1 smoke-web
 ```
 
 Optional personal sync service:
@@ -220,6 +254,16 @@ Reset the local pre-release development stack when schemas drift:
 ```powershell
 .\scripts\dev-reset-stack.ps1 -WithSync
 ```
+
+To automate the local Core + Sync + Flutter web smoke loop:
+
+```powershell
+.\scripts\dev-smoke-web.ps1 -WebPort 8083
+```
+
+The smoke script starts the sync profile, applies migrations, seeds dev comics,
+adds the selected web origin to local CORS, builds Flutter web with local Core
+and Sync URLs, serves `frontend/build/web`, and checks the health endpoints.
 
 Low-write development settings for SSDs:
 
@@ -245,14 +289,18 @@ and batch size with `WORKER_PROVIDER_INGEST_INTERVAL_SECONDS` and
 operators can inspect queue health, filter by status/provider/error text, retry
 failed jobs, and run due queued jobs manually.
 
-Core API errors include a stable `code` field next to `detail`. Auth endpoints
-and admin provider-triggering endpoints also have in-process rate limits:
+Core API errors include a stable `code` field next to `detail`. Auth endpoints,
+provider search, and admin provider-triggering endpoints also have rate limits.
+When `REDIS_URL` is configured those limits are shared through Redis; otherwise
+Core falls back to in-process limits:
 
 ```env
 AUTH_RATE_LIMIT_REQUESTS=20
 AUTH_RATE_LIMIT_WINDOW_SECONDS=60
 ADMIN_PROVIDER_RATE_LIMIT_REQUESTS=60
 ADMIN_PROVIDER_RATE_LIMIT_WINDOW_SECONDS=60
+PROVIDER_SEARCH_RATE_LIMIT_REQUESTS=30
+PROVIDER_SEARCH_RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
 Admin metadata endpoints:
@@ -286,6 +334,11 @@ Import/export format decisions live in [docs/import-export.md](docs/import-expor
 Barcode scanner release smoke tests live in
 [docs/barcode-smoke-tests.md](docs/barcode-smoke-tests.md).
 
+Backend tests are grouped by ownership under `backend/tests/admin`,
+`backend/tests/providers`, `backend/tests/metadata`, `backend/tests/storage`,
+`backend/tests/core`, and `backend/tests/scripts`; shared fixtures stay in
+`backend/tests/conftest.py` and `backend/tests/helpers.py`.
+
 ---
 
 ## 🗺 Roadmap
@@ -294,10 +347,13 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the current p
 
 Current near-term focus:
 
-- continue provider-backed add/search/detail flows for non-comics libraries
-- turn provider candidates into stronger canonical ingest/review workflows
-- finish responsive library navigation polish for top overflow and left rail
-- run the full Core + Sync + Flutter smoke once the frontend stack lands
+- merge the admin/provider UI slice and run a full Core + Sync + Flutter smoke
+- verify the provider candidate -> admin ingest/proposal -> Core search hit ->
+  local add workflow against real providers
+- verify GCD/ComicVine comics variant covers plus one generic provider flow for
+  manga/books/games/video/music/board games as credentials allow
+- continue richer media-specific edit/import templates after the current
+  catalog snapshot fields
 
 ---
 

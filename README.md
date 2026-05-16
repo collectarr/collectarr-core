@@ -291,7 +291,10 @@ The local helper scripts auto-detect Docker Desktop failures and fall back to
 usable on corporate machines where Docker Hub/Desktop sign-in is blocked.
 After a Core database reset, any already-open Flutter browser session may hold
 an old metadata auth token; the app clears that stale session on the next
-metadata 401 and asks for a fresh sign-in.
+metadata 401 and asks for a fresh sign-in. If the browser was pointed at an
+old local metadata or sync URL, open
+`http://localhost:8083/?resetConnection=1` to clear only the saved connection
+endpoints and return to the build defaults.
 
 Low-write development settings for SSDs:
 

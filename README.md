@@ -289,6 +289,9 @@ want to clear the local MinIO image cache as well.
 The local helper scripts auto-detect Docker Desktop failures and fall back to
 `wsl docker` when a WSL Docker Engine is available, which keeps the dev loop
 usable on corporate machines where Docker Hub/Desktop sign-in is blocked.
+After a Core database reset, any already-open Flutter browser session may hold
+an old metadata auth token; the app clears that stale session on the next
+metadata 401 and asks for a fresh sign-in.
 
 Low-write development settings for SSDs:
 

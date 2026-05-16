@@ -239,6 +239,8 @@ Common commands:
 .\tools\dev.ps1 seed
 .\tools\dev.ps1 test-backend
 .\tools\dev.ps1 smoke-web
+.\tools\dev.ps1 smoke-providers
+.\tools\dev.ps1 reset-pipeline
 ```
 
 Optional personal sync service:
@@ -264,6 +266,29 @@ To automate the local Core + Sync + Flutter web smoke loop:
 The smoke script starts the sync profile, applies migrations, seeds dev comics,
 adds the selected web origin to local CORS, builds Flutter web with local Core
 and Sync URLs, serves `frontend/build/web`, and checks the health endpoints.
+
+For a fully clean pre-release smoke pass, including Docker volumes, Flutter web
+build output, provider search, a GCD-backed ingest job, and sync snapshot
+roundtrip:
+
+```powershell
+.\scripts\dev-reset-pipeline.ps1 -Force -WebPort 8083
+```
+
+Useful narrower cleanup and smoke helpers:
+
+```powershell
+.\scripts\dev-clean-state.ps1 -CoreDb -SearchIndex -Sync -FlutterBuild -Logs -Force
+.\scripts\dev-smoke-providers.ps1
+```
+
+`dev-clean-state.ps1` is scoped to local development volumes and repo-local
+generated folders. It never removes Docker images. Use `-Images` only when you
+want to clear the local MinIO image cache as well.
+
+The local helper scripts auto-detect Docker Desktop failures and fall back to
+`wsl docker` when a WSL Docker Engine is available, which keeps the dev loop
+usable on corporate machines where Docker Hub/Desktop sign-in is blocked.
 
 Low-write development settings for SSDs:
 

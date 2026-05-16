@@ -7,7 +7,8 @@ param(
   [switch]$SkipMigrate,
   [switch]$SkipSeed,
   [switch]$SkipBuild,
-  [switch]$SkipSmoke
+  [switch]$SkipSmoke,
+  [switch]$UseWslDocker
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +25,30 @@ Set-Location $repoRoot
 
 if (-not (Test-Path $envPath)) {
   Copy-Item $envExamplePath $envPath
+}
+
+$script:UseWslDockerResolved = $UseWslDocker.IsPresent
+if (-not $script:UseWslDockerResolved) {
+  & docker version --format "{{.Server.Version}}" *> $null
+  if ($LASTEXITCODE -ne 0) {
+    & wsl docker version --format "{{.Server.Version}}" *> $null
+    if ($LASTEXITCODE -eq 0) {
+      $script:UseWslDockerResolved = $true
+      Write-Host "Using WSL Docker Engine." -ForegroundColor Cyan
+    }
+  }
+}
+
+function Invoke-Docker {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Arguments
+  )
+  if ($script:UseWslDockerResolved) {
+    & wsl docker @Arguments
+  } else {
+    & docker @Arguments
+  }
 }
 
 function Update-CorsOrigins {
@@ -81,7 +106,8 @@ function Invoke-Compose {
     [string[]]$Arguments
   )
 
-  & docker @("compose", "--profile", "sync") @Arguments
+  $composeArgs = @("compose", "--profile", "sync") + $Arguments
+  Invoke-Docker @composeArgs
   if ($LASTEXITCODE -ne 0) {
     throw "docker compose $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
   }
@@ -104,13 +130,14 @@ function Test-Endpoint {
 Update-CorsOrigins -Path $envPath -Origins @($webOriginLocalhost, $webOriginLoopback)
 
 if (-not $SkipDocker) {
-  Invoke-Compose up --build -d postgres redis meilisearch minio api worker sync
+  Invoke-Compose @("up", "--build", "-d", "postgres", "redis", "meilisearch", "minio", "api", "sync")
   if (-not $SkipMigrate) {
-    Invoke-Compose exec -T api alembic upgrade head
+    Invoke-Compose @("exec", "-T", "api", "alembic", "upgrade", "head")
   }
   if (-not $SkipSeed) {
-    Invoke-Compose exec -T api python -m app.scripts.seed_comics
+    Invoke-Compose @("exec", "-T", "api", "python", "-m", "app.scripts.seed_comics")
   }
+  Invoke-Compose @("up", "--build", "-d", "worker")
 }
 
 if (-not $SkipBuild) {

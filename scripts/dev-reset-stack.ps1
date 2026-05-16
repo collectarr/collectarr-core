@@ -2,6 +2,7 @@ param(
   [switch]$WithSync,
   [switch]$KeepImages,
   [switch]$KeepSearchIndex,
+  [switch]$UseWslDocker,
   [switch]$Force
 )
 
@@ -12,6 +13,41 @@ Set-Location $repoRoot
 
 if (-not (Test-Path "docker-compose.yml")) {
   throw "Run this script from the Collectarr repository."
+}
+
+$script:UseWslDockerResolved = $UseWslDocker.IsPresent
+if (-not $script:UseWslDockerResolved) {
+  & docker version --format "{{.Server.Version}}" *> $null
+  if ($LASTEXITCODE -ne 0) {
+    & wsl docker version --format "{{.Server.Version}}" *> $null
+    if ($LASTEXITCODE -eq 0) {
+      $script:UseWslDockerResolved = $true
+      Write-Host "Using WSL Docker Engine." -ForegroundColor Cyan
+    }
+  }
+}
+
+function Invoke-Docker {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Arguments
+  )
+  if ($script:UseWslDockerResolved) {
+    & wsl docker @Arguments
+  } else {
+    & docker @Arguments
+  }
+}
+
+function Invoke-DockerText {
+  param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Arguments
+  )
+  if ($script:UseWslDockerResolved) {
+    return (& wsl docker @Arguments)
+  }
+  return (& docker @Arguments)
 }
 
 if (-not $Force) {
@@ -35,13 +71,14 @@ function Invoke-Compose {
     [string[]]$Arguments
   )
 
-  & docker @("compose") @composeProfileArgs @Arguments
+  $composeArgs = @("compose") + $composeProfileArgs + $Arguments
+  Invoke-Docker @composeArgs
   if ($LASTEXITCODE -ne 0) {
     throw "docker compose $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
   }
 }
 
-Invoke-Compose down
+Invoke-Compose @("down")
 
 $volumes = @("collectarr_postgres_data")
 if (-not $KeepSearchIndex) {
@@ -55,9 +92,9 @@ if ($WithSync) {
 }
 
 foreach ($volume in $volumes) {
-  $existing = docker volume ls --quiet --filter "name=^$volume$"
+  $existing = Invoke-DockerText @("volume", "ls", "--quiet", "--filter", "name=^$volume$")
   if ($existing) {
-    docker volume rm $volume | Out-Host
+    Invoke-Docker @("volume", "rm", $volume) | Out-Host
   }
 }
 
@@ -65,10 +102,10 @@ if (-not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"
 }
 
-Invoke-Compose up --build -d postgres redis meilisearch minio
-Invoke-Compose run --rm api alembic upgrade head
-Invoke-Compose run --rm api python -m app.scripts.seed_comics
-Invoke-Compose up --build -d
+Invoke-Compose @("up", "--build", "-d", "postgres", "redis", "meilisearch", "minio")
+Invoke-Compose @("run", "--rm", "api", "alembic", "upgrade", "head")
+Invoke-Compose @("run", "--rm", "api", "python", "-m", "app.scripts.seed_comics")
+Invoke-Compose @("up", "--build", "-d")
 
 Write-Host "Collectarr dev stack reset complete." -ForegroundColor Green
 Write-Host "API:  http://localhost:8010"

@@ -144,15 +144,61 @@ App consumes:
 2. Create the GitHub organization and the three repositories.
 3. Copy repository-level metadata: license, security policy, issue templates,
    pull request templates, and basic branch protection.
-4. Split history with `git filter-repo` or `git subtree split`:
+4. Split history with `git filter-repo` in throwaway clones so each target
+   repo keeps history for its owned root files, docs, scripts, and source
+   directory. `git subtree split --prefix=...` is only enough when the target
+   repo should contain one directory and nothing else.
 
    ```powershell
-   git subtree split --prefix=backend -b split/collectarr-core-backend
+   git clone . ../collectarr-core-split
+   cd ../collectarr-core-split
+   git filter-repo `
+     --path backend/ `
+     --path docs/architecture.md `
+     --path docs/schema.md `
+     --path docs/image-pipeline.md `
+     --path docs/deployment.md `
+     --path docker-compose.yml `
+     --path .env.example `
+     --path scripts/ `
+     --path tools/dev.ps1 `
+     --path LICENSE `
+     --path README.md `
+     --path-rename backend/:
+   ```
+
+   ```powershell
+   git clone . ../collectarr-sync-split
+   cd ../collectarr-sync-split
+   git filter-repo `
+     --path sync_service/ `
+     --path docs/sync.md `
+     --path LICENSE `
+     --path-rename sync_service/:
+   ```
+
+   ```powershell
+   git clone . ../collectarr-app-split
+   cd ../collectarr-app-split
+   git filter-repo `
+     --path frontend/ `
+     --path docs/import-export.md `
+     --path docs/barcode-smoke-tests.md `
+     --path docs/assets/ `
+     --path LICENSE `
+     --path-rename frontend/:
+   ```
+
+   If a quick directory-only split is acceptable for a throwaway first pass,
+   keep branch names aligned with the target repositories:
+
+   ```powershell
+   git subtree split --prefix=backend -b split/collectarr-core
    git subtree split --prefix=sync_service -b split/collectarr-sync
    git subtree split --prefix=frontend -b split/collectarr-app
    ```
 
-5. Add the selected docs/scripts/assets to each repo after the history split.
+5. Rewrite repo-local README files and CI paths after the history split.
 6. Rebuild CI in each repository:
    - Core: ruff, backend tests, compose config, Docker image build
    - Sync: sync tests, package build, Docker image build

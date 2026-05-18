@@ -73,6 +73,11 @@ async def test_default_provider_search_uses_kind_catalog_default(client, monkeyp
                 title="Absolute Batman #1",
                 kind=ItemKind.comic,
                 image_url=None,
+                series_title="Absolute Batman",
+                issue_number="1",
+                volume_start_year=2024,
+                variant_name="Nick Dragotta Cover",
+                is_variant=False,
             )
         ]
 
@@ -88,6 +93,11 @@ async def test_default_provider_search_uses_kind_catalog_default(client, monkeyp
     body = response.json()
     assert body[0]["provider"] == "gcd"
     assert body[0]["provider_item_id"] == "2663120"
+    assert body[0]["series_title"] == "Absolute Batman"
+    assert body[0]["issue_number"] == "1"
+    assert body[0]["volume_start_year"] == 2024
+    assert body[0]["variant_name"] == "Nick Dragotta Cover"
+    assert body[0]["is_variant"] is False
 
 
 @pytest.mark.asyncio
@@ -104,6 +114,9 @@ async def test_default_provider_search_builds_comic_issue_query(client, monkeypa
                 title="Absolute Batman #1",
                 kind=ItemKind.comic,
                 image_url=None,
+                series_title="Absolute Batman",
+                issue_number="1",
+                volume_start_year=2024,
             )
         ]
 

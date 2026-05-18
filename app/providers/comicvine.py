@@ -479,6 +479,9 @@ class ComicVineProvider:
             kind=target_kind,
             summary=self._clean_text(result.get("deck") or result.get("description")),
             image_url=self._image_url(result.get("image")),
+            series_title=volume_name or None,
+            issue_number=issue_number or None,
+            is_variant=False,
         )
 
     async def _search_result_detail(
@@ -556,6 +559,10 @@ class ComicVineProvider:
                     kind=kind,
                     summary="ComicVine associated cover variant.",
                     image_url=cover.cover_image_url,
+                    series_title=volume_name or None,
+                    issue_number=issue_number or None,
+                    variant_name=cover.name,
+                    is_variant=True,
                 )
             )
         return variants

@@ -152,9 +152,7 @@ class GCDProvider:
                 issue_results = [
                     result
                     for result in issue_results
-                    if self._series_start_year(
-                        self._optional_text(result.get("series_name")) or ""
-                    )
+                    if self._series_start_year(self._optional_text(result.get("series_name")) or "")
                     == active_year_hint
                 ]
             issue_results.sort(
@@ -358,6 +356,11 @@ class GCDProvider:
                 variant_hint=variant_hint,
             )
             or self._optional_text(result.get("cover")),
+            series_title=series_title,
+            issue_number=issue_number,
+            volume_start_year=start_year,
+            variant_name=variant_hint,
+            is_variant=bool(result.get("variant_of")),
         )
 
     async def _download_cover_image(self, cover_url: str, issue_id: str) -> tuple[bytes, str]:
@@ -581,8 +584,7 @@ class GCDProvider:
         if parsed is None:
             series_name = normalized_query
             issue_numbers = [
-                str(issue)
-                for issue in range(1, self.settings.gcd_series_search_issue_span + 1)
+                str(issue) for issue in range(1, self.settings.gcd_series_search_issue_span + 1)
             ]
             is_series_search = True
         else:

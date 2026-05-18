@@ -39,6 +39,11 @@ class ProviderSearchResult:
     kind: ItemKind
     summary: str | None = None
     image_url: str | None = None
+    series_title: str | None = None
+    issue_number: str | None = None
+    volume_start_year: int | None = None
+    variant_name: str | None = None
+    is_variant: bool | None = None
 
 
 @dataclass(frozen=True)

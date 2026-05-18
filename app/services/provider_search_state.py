@@ -165,11 +165,7 @@ class ProviderSearchState:
             payload = json.loads(raw)
             if not isinstance(payload, list):
                 return None
-            return [
-                self._result_from_payload(item)
-                for item in payload
-                if isinstance(item, dict)
-            ]
+            return [self._result_from_payload(item) for item in payload if isinstance(item, dict)]
         except (KeyError, TypeError, ValueError):
             logger.warning("Invalid Redis provider search cache payload", exc_info=True)
             return None
@@ -274,7 +270,7 @@ class ProviderSearchState:
     def _redis_backoff_key(self, provider_name: ExternalProvider) -> str:
         return f"{_PROVIDER_SEARCH_BACKOFF_PREFIX}:{provider_name.value}"
 
-    def _result_payload(self, result: ProviderSearchResult) -> dict[str, str | None]:
+    def _result_payload(self, result: ProviderSearchResult) -> dict[str, object]:
         return {
             "provider": result.provider,
             "provider_item_id": result.provider_item_id,
@@ -282,6 +278,11 @@ class ProviderSearchState:
             "kind": result.kind.value,
             "summary": result.summary,
             "image_url": result.image_url,
+            "series_title": result.series_title,
+            "issue_number": result.issue_number,
+            "volume_start_year": result.volume_start_year,
+            "variant_name": result.variant_name,
+            "is_variant": result.is_variant,
         }
 
     def _result_from_payload(self, payload: dict) -> ProviderSearchResult:
@@ -292,6 +293,11 @@ class ProviderSearchState:
             kind=ItemKind(str(payload["kind"])),
             summary=self._optional_text(payload.get("summary")),
             image_url=self._optional_text(payload.get("image_url")),
+            series_title=self._optional_text(payload.get("series_title")),
+            issue_number=self._optional_text(payload.get("issue_number")),
+            volume_start_year=self._optional_int(payload.get("volume_start_year")),
+            variant_name=self._optional_text(payload.get("variant_name")),
+            is_variant=self._optional_bool(payload.get("is_variant")),
         )
 
     def _optional_text(self, value) -> str | None:
@@ -299,3 +305,18 @@ class ProviderSearchState:
             return None
         text = str(value)
         return text or None
+
+    def _optional_int(self, value) -> int | None:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _optional_bool(self, value) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if value is None or value == "":
+            return None
+        return str(value).strip().lower() in {"1", "true", "yes"}

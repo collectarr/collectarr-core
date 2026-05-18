@@ -52,6 +52,29 @@ class MetadataProvider(Protocol):
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem: ...
 ```
 
+## Repository Boundaries
+
+Collectarr should split into three product repositories once the current
+pre-release monorepo is frozen for migration:
+
+- `collectarr-core`: metadata API, canonical catalog, provider plugins,
+  provider ingest worker, search indexing, image cache, admin identity, audit
+  logs, migrations, and the Core Admin Console.
+- `collectarr-sync`: optional personal sync service, sync protocol, device
+  pairing, conflict handling, tombstones, and sync storage.
+- `collectarr-app`: Flutter client, local Drift database, local catalog
+  snapshots, import/export, barcode UX, sync client, and user-facing library UI.
+
+Core owns the operational admin frontend. The Core Admin Console should become
+a Grafana-like control plane for server health, worker/queue status, provider
+health, catalog coverage, missing covers/provider IDs, ingest failures, audit
+history, admin accounts, and destructive metadata operations. The Flutter app
+can show whether the connected account has admin permissions, but the
+server-operator console belongs with Core.
+
+See [repository-split.md](repository-split.md) for the split sequence and file
+ownership map.
+
 GCD is the default legal-clean comics seed candidate because it provides CC BY-SA bibliographic issue metadata without an API key. Its provider searches issue-style queries such as `Batman #12`, falls back to issue `#1` for series-only queries such as `Absolute Batman`, normalizes issue detail into canonical metadata, and preserves source provenance.
 
 ComicVine remains an optional personal/non-commercial enrichment provider for

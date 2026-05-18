@@ -736,14 +736,7 @@ class ComicVineProvider:
         haystack_text, haystack_terms = haystack
         if all(term in haystack_terms or term in haystack_text for term in required_terms):
             return True
-
-        specific_terms = hint_terms - _DISTINCTIVE_VARIANT_TERMS - _GENERIC_VARIANT_MATCH_TERMS
-        if not specific_terms:
-            return False
-        matched_specific_terms = [
-            term for term in specific_terms if term in haystack_terms or term in haystack_text
-        ]
-        return len(matched_specific_terms) >= min(2, len(specific_terms))
+        return False
 
     def _variant_haystack_terms(self, source: Any) -> tuple[str, set[str]]:
         if isinstance(source, Mapping):

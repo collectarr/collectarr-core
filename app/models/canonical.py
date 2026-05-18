@@ -17,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, ExternalProvider, ItemKind, TimestampMixin, UuidMixin
+from app.models.base import Base, ExternalProvider, ItemKind, SeriesRelationType, TimestampMixin, UuidMixin
 
 
 class Franchise(UuidMixin, TimestampMixin, Base):
@@ -344,3 +344,34 @@ class MetadataProposal(UuidMixin, TimestampMixin, Base):
     summary: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+
+
+class SeriesRelation(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "series_relations"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_series_id",
+            "target_series_id",
+            "relation_type",
+            name="uq_series_relations_source_target_type",
+        ),
+    )
+
+    source_series_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
+    )
+    target_series_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
+    )
+    relation_type: Mapped[SeriesRelationType] = mapped_column(
+        Enum(SeriesRelationType, name="series_relation_type"), nullable=False, index=True
+    )
+    ordinal: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    source_series: Mapped[Series] = relationship(
+        foreign_keys=[source_series_id],
+    )
+    target_series: Mapped[Series] = relationship(
+        foreign_keys=[target_series_id],
+    )

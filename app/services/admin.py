@@ -19,7 +19,7 @@ from app.catalog.physical_formats import (
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.catalog.media_types import media_type_for_kind
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
     AdminAuditLog,
     Edition,
@@ -36,6 +36,7 @@ from app.models.canonical import (
     ProviderIngestJob,
     Release,
     Series,
+    SeriesRelation,
     Tag,
     Variant,
     Volume,
@@ -45,6 +46,7 @@ from app.providers.base import (
     MetadataProvider,
     NormalizedCredit,
     NormalizedItem,
+    NormalizedRelation,
     NormalizedVariantCover,
 )
 from app.providers.comicvine import ComicVineProvider
@@ -1163,6 +1165,8 @@ class AdminMetadataService:
         await self._link_people(item.id, normalized.creators)
         await self._link_tags(item.id, "character", normalized.characters)
         await self._link_tags(item.id, "story_arc", normalized.story_arcs)
+        if volume:
+            await self._link_relations(volume.series, normalized.relations)
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -1578,6 +1582,43 @@ class AdminMetadataService:
             if exists:
                 continue
             self.db.add(EntityTag(entity_type="item", entity_id=item_id, tag_id=tag.id))
+
+    async def _link_relations(
+        self,
+        source_series: Series,
+        relations: list[NormalizedRelation],
+    ) -> None:
+        for rel in relations:
+            try:
+                relation_type = SeriesRelationType(rel.relation_type)
+            except ValueError:
+                continue
+            target_kind = rel.kind or source_series.kind
+            target_series = await self._get_or_create_series(target_kind, rel.title)
+            if target_series.id == source_series.id:
+                continue
+            existing = await self.db.scalar(
+                select(SeriesRelation.id).where(
+                    SeriesRelation.source_series_id == source_series.id,
+                    SeriesRelation.target_series_id == target_series.id,
+                    SeriesRelation.relation_type == relation_type,
+                )
+            )
+            if existing:
+                continue
+            self.db.add(
+                SeriesRelation(
+                    source_series_id=source_series.id,
+                    target_series_id=target_series.id,
+                    relation_type=relation_type,
+                    metadata_json={
+                        "provider": rel.provider,
+                        "provider_id": rel.provider_id,
+                        "start_year": rel.start_year,
+                        "image_url": rel.image_url,
+                    },
+                )
+            )
 
     async def _get_or_create_organization(self, name: str, organization_type: str) -> Organization:
         result = await self.db.execute(

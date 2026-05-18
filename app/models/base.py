@@ -51,3 +51,16 @@ class ExternalProvider(str, enum.Enum):
     musicbrainz = "musicbrainz"
     openlibrary = "openlibrary"
     tmdb = "tmdb"
+
+
+class SeriesRelationType(str, enum.Enum):
+    sequel = "sequel"
+    prequel = "prequel"
+    side_story = "side_story"
+    spin_off = "spin_off"
+    parent = "parent"
+    adaptation = "adaptation"
+    alternative = "alternative"
+    summary = "summary"
+    compilation = "compilation"
+    other = "other"

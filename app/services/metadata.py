@@ -6,13 +6,15 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import MetadataProposal
+from app.models.canonical import MetadataProposal, SeriesRelation
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
@@ -24,6 +26,7 @@ from app.schemas.metadata import (
     MetadataProposalResponse,
     ProviderSearchResultResponse,
     SearchResult,
+    SeriesRelationResponse,
     item_response_from_model,
 )
 from app.search.client import SearchClient
@@ -877,3 +880,26 @@ class MetadataService:
         if config is None and fallback_format and is_video_item_kind(kind):
             config = physical_format_for_id(fallback_format)
         return config
+
+    async def get_series_relations(self, series_id: UUID) -> list[SeriesRelationResponse]:
+        result = await self.db.execute(
+            select(SeriesRelation)
+            .where(SeriesRelation.source_series_id == series_id)
+            .options(selectinload(SeriesRelation.target_series))
+        )
+        relations = result.scalars().all()
+        return [
+            SeriesRelationResponse(
+                id=rel.id,
+                relation_type=rel.relation_type,
+                target_series_id=rel.target_series_id,
+                target_series_title=rel.target_series.title,
+                target_series_kind=rel.target_series.kind,
+                ordinal=rel.ordinal,
+                image_url=(rel.metadata_json or {}).get("image_url"),
+                start_year=(rel.metadata_json or {}).get("start_year"),
+                provider=(rel.metadata_json or {}).get("provider"),
+                provider_id=(rel.metadata_json or {}).get("provider_id"),
+            )
+            for rel in relations
+        ]

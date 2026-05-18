@@ -10,6 +10,7 @@ from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
+    NormalizedRelation,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,
@@ -99,7 +100,7 @@ class TMDbProvider:
         payload = await self._request(
             f"{self._tmdb_type(kind)}/{tmdb_id}",
             {
-                "append_to_response": "credits,external_ids",
+                "append_to_response": "credits,external_ids,recommendations",
                 "language": self.settings.tmdb_language,
             },
         )
@@ -141,6 +142,7 @@ class TMDbProvider:
             story_arcs=[NormalizedCredit(name=name, role="Genre") for name in genres],
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            relations=self._relations(data, kind),
         )
 
     async def _request(
@@ -317,6 +319,57 @@ class TMDbProvider:
                     )
                 )
         return characters
+
+    def _relations(self, data: Mapping[str, Any], kind: ItemKind) -> list[NormalizedRelation]:
+        relations: list[NormalizedRelation] = []
+        collection = data.get("belongs_to_collection")
+        if isinstance(collection, Mapping):
+            name = self._optional_text(collection.get("name"))
+            if name:
+                poster = self._optional_text(collection.get("poster_path"))
+                relations.append(
+                    NormalizedRelation(
+                        relation_type="compilation",
+                        title=name,
+                        provider=self.name,
+                        provider_id=None,
+                        kind=kind,
+                        start_year=None,
+                        image_url=(
+                            f"{self.settings.tmdb_image_base_url.rstrip('/')}/w500/{poster.lstrip('/')}"
+                            if poster
+                            else None
+                        ),
+                    )
+                )
+        recommendations = data.get("recommendations")
+        if isinstance(recommendations, Mapping):
+            results = recommendations.get("results")
+            if isinstance(results, list):
+                for entry in results[:5]:
+                    if not isinstance(entry, Mapping):
+                        continue
+                    title = self._title(entry, kind)
+                    tmdb_id = self._id(entry.get("id"))
+                    release_date = self._date(
+                        entry.get("release_date")
+                        if kind == ItemKind.movie
+                        else entry.get("first_air_date")
+                    )
+                    relations.append(
+                        NormalizedRelation(
+                            relation_type="other",
+                            title=title,
+                            provider=self.name,
+                            provider_id=(
+                                self._provider_item_id(kind, tmdb_id) if tmdb_id else None
+                            ),
+                            kind=kind,
+                            start_year=release_date.year if release_date else None,
+                            image_url=self._poster_url(entry),
+                        )
+                    )
+        return relations
 
     def _first_company(self, value: Any) -> str | None:
         names = self._names(value)

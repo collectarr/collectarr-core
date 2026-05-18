@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
 class VariantResponse(BaseModel):
@@ -88,6 +88,7 @@ class ItemResponse(BaseModel):
     runtime_minutes: int | None
     page_count: int | None
     metadata_json: dict[str, Any] | None
+    series_id: UUID | None = None
     series_title: str | None = None
     volume_name: str | None = None
     volume_number: int | None = None
@@ -138,6 +139,8 @@ class ProviderSearchResultResponse(BaseModel):
     volume_start_year: int | None = None
     variant_name: str | None = None
     is_variant: bool | None = None
+    issue_count: int | None = None
+    publisher: str | None = None
 
 
 class PhysicalFormatResponse(BaseModel):
@@ -188,6 +191,19 @@ class MetadataProposalResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SeriesRelationResponse(BaseModel):
+    id: UUID
+    relation_type: SeriesRelationType
+    target_series_id: UUID
+    target_series_title: str
+    target_series_kind: ItemKind
+    ordinal: int | None = None
+    image_url: str | None = None
+    start_year: int | None = None
+    provider: str | None = None
+    provider_id: str | None = None
+
+
 def item_response_from_model(item: Any) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
     _enrich_physical_formats(base, item)
@@ -199,6 +215,7 @@ def item_response_from_model(item: Any) -> ItemResponse:
     series = getattr(volume, "series", None) if volume is not None else None
     base.update(
         {
+            "series_id": str(getattr(series, "id", None)) if series else None,
             "series_title": getattr(series, "title", None),
             "volume_name": getattr(volume, "name", None),
             "volume_number": getattr(volume, "volume_number", None),

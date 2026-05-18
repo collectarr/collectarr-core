@@ -45,6 +45,8 @@ class ProviderSearchResult:
     volume_start_year: int | None = None
     variant_name: str | None = None
     is_variant: bool | None = None
+    issue_count: int | None = None
+    publisher: str | None = None
 
 
 @dataclass(frozen=True)
@@ -70,6 +72,17 @@ class NormalizedVariantCover:
     provider_item_id: str | None = None
     source_id: str | None = None
     caption: str | None = None
+
+
+@dataclass(frozen=True)
+class NormalizedRelation:
+    relation_type: str
+    title: str
+    provider: str | None = None
+    provider_id: str | None = None
+    kind: ItemKind | None = None
+    start_year: int | None = None
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +115,7 @@ class NormalizedItem:
     provider_ids: dict[str, str] = field(default_factory=dict)
     volume_provider_ids: dict[str, str] = field(default_factory=dict)
     variant_covers: list[NormalizedVariantCover] = field(default_factory=list)
+    relations: list[NormalizedRelation] = field(default_factory=list)
 
 
 class MetadataProvider(Protocol):

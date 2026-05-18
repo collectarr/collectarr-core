@@ -139,8 +139,12 @@ class MetadataService:
     async def search_provider(
         self,
         provider_name: ExternalProvider,
-        query: str,
+        query: str | None,
         kind: ItemKind | None = None,
+        *,
+        series: str | None = None,
+        issue_number: str | None = None,
+        year: int | None = None,
     ) -> list[ProviderSearchResultResponse]:
         provider = self.providers.maybe_get(provider_name)
         if provider is None:
@@ -161,16 +165,34 @@ class MetadataService:
                 code="provider_kind_unsupported",
                 detail=(f"Provider '{provider_name.value}' does not support kind '{kind.value}'"),
             )
-        cache_key = self._provider_search_cache_key(provider_name, query, kind)
+        provider_query = self._provider_search_query(
+            query,
+            kind,
+            series=series,
+            issue_number=issue_number,
+            year=year,
+        )
+        if not provider_query:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_query_required",
+                detail="Provider search requires a query, series title, barcode, or issue context.",
+            )
+        cache_key = self._provider_search_cache_key(provider_name, provider_query, kind)
         results = await self._cached_provider_search_results(cache_key)
         should_refresh_cache = False
         if results is None:
             try:
-                results = await self._search_provider_live(provider_name, provider, query, kind)
+                results = await self._search_provider_live(
+                    provider_name,
+                    provider,
+                    provider_query,
+                    kind,
+                )
             except ApiHTTPException as exc:
                 fallback_results = await self._search_provider_fallback(
                     provider_name,
-                    query,
+                    provider_query,
                     kind,
                     exc,
                 )
@@ -180,7 +202,7 @@ class MetadataService:
             should_refresh_cache = True
         enriched_results = await self._with_provider_search_enrichment(
             provider_name,
-            query,
+            provider_query,
             kind,
             results,
         )
@@ -194,8 +216,12 @@ class MetadataService:
 
     async def search_default_provider(
         self,
-        query: str,
+        query: str | None,
         kind: ItemKind,
+        *,
+        series: str | None = None,
+        issue_number: str | None = None,
+        year: int | None = None,
     ) -> list[ProviderSearchResultResponse]:
         provider = self.providers.default_for_kind(kind)
         if provider is None:
@@ -204,7 +230,14 @@ class MetadataService:
                 code="provider_not_configured",
                 detail=f"No metadata provider is configured for kind '{kind.value}'",
             )
-        return await self.search_provider(ExternalProvider(provider.name), query, kind)
+        return await self.search_provider(
+            ExternalProvider(provider.name),
+            query,
+            kind,
+            series=series,
+            issue_number=issue_number,
+            year=year,
+        )
 
     async def _search_provider_live(
         self,
@@ -245,6 +278,38 @@ class MetadataService:
     ) -> tuple[str, str, str]:
         normalized_query = " ".join(query.split()).casefold()
         return provider_name.value, kind.value if kind else "*", normalized_query
+
+    def _provider_search_query(
+        self,
+        query: str | None,
+        kind: ItemKind | None,
+        *,
+        series: str | None,
+        issue_number: str | None,
+        year: int | None,
+    ) -> str:
+        base_query = self._clean_provider_query_part(query)
+        if kind == ItemKind.comic:
+            series_query = self._clean_provider_query_part(series)
+            issue_query = self._clean_issue_number(issue_number)
+            if series_query or issue_query:
+                parts = [series_query or base_query]
+                if issue_query:
+                    parts.append(f"#{issue_query}")
+                provider_query = " ".join(part for part in parts if part)
+            else:
+                provider_query = base_query
+            if year is not None and provider_query and str(year) not in provider_query:
+                provider_query = f"{provider_query} ({year})"
+            return self._clean_provider_query_part(provider_query)
+        return base_query
+
+    def _clean_provider_query_part(self, value: str | None) -> str:
+        return " ".join(str(value or "").split())
+
+    def _clean_issue_number(self, value: str | None) -> str:
+        text = self._clean_provider_query_part(value)
+        return re.sub(r"^#+\s*", "", text)
 
     async def _cached_provider_search_results(
         self,

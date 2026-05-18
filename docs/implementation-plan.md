@@ -19,6 +19,9 @@ Console. It must not store personal library data.
   metadata proposals, catalog details, cover inspection, and audit history.
 - Image handling supports external provider URLs, generated fallbacks, optional
   MinIO/S3 mirroring, and cache accounting.
+- Provider search endpoints accept structured comic context (`series`,
+  `issue_number`, `year`) so clients can ask for Add Series/Add Issue flows
+  without encoding provider-specific query semantics.
 
 ## MVP Priorities
 

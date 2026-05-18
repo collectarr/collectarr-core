@@ -82,10 +82,19 @@ async def lookup_barcode(
 async def default_provider_search(
     db: DbSession,
     _user: CurrentUser,
-    q: str = Query(min_length=1),
+    q: str | None = Query(default=None, min_length=1),
     kind: ItemKind = Query(...),
+    series: str | None = Query(default=None, min_length=1, max_length=255),
+    issue_number: str | None = Query(default=None, min_length=1, max_length=64),
+    year: int | None = Query(default=None, ge=1800, le=2200),
 ) -> list[ProviderSearchResultResponse]:
-    return await MetadataService(db).search_default_provider(q, kind)
+    return await MetadataService(db).search_default_provider(
+        q,
+        kind,
+        series=series,
+        issue_number=issue_number,
+        year=year,
+    )
 
 
 @router.get(
@@ -97,10 +106,20 @@ async def provider_search(
     provider: ExternalProvider,
     db: DbSession,
     _user: CurrentUser,
-    q: str = Query(min_length=1),
+    q: str | None = Query(default=None, min_length=1),
     kind: ItemKind | None = None,
+    series: str | None = Query(default=None, min_length=1, max_length=255),
+    issue_number: str | None = Query(default=None, min_length=1, max_length=64),
+    year: int | None = Query(default=None, ge=1800, le=2200),
 ) -> list[ProviderSearchResultResponse]:
-    return await MetadataService(db).search_provider(provider, q, kind)
+    return await MetadataService(db).search_provider(
+        provider,
+        q,
+        kind,
+        series=series,
+        issue_number=issue_number,
+        year=year,
+    )
 
 
 @router.get("/metadata/providers/gcd/images/{provider_item_id}")

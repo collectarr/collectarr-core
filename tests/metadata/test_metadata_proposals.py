@@ -91,6 +91,53 @@ async def test_default_provider_search_uses_kind_catalog_default(client, monkeyp
 
 
 @pytest.mark.asyncio
+async def test_default_provider_search_builds_comic_issue_query(client, monkeypatch):
+    token = await register_and_login(client)
+
+    async def fake_search(self, query, kind=None):
+        assert query == "Absolute Batman #1 (2024)"
+        assert kind == ItemKind.comic
+        return [
+            ProviderSearchResult(
+                provider=self.name,
+                provider_item_id="2663120",
+                title="Absolute Batman #1",
+                kind=ItemKind.comic,
+                image_url=None,
+            )
+        ]
+
+    monkeypatch.setattr(GCDProvider, "search", fake_search)
+
+    response = await client.get(
+        "/metadata/providers/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "kind": "comic",
+            "series": "Absolute Batman",
+            "issue_number": "1",
+            "year": 2024,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["provider_item_id"] == "2663120"
+
+
+@pytest.mark.asyncio
+async def test_provider_search_requires_query_or_structured_context(client):
+    token = await register_and_login(client)
+
+    response = await client.get(
+        "/metadata/providers/comicvine/search",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "provider_query_required"
+
+
+@pytest.mark.asyncio
 async def test_provider_search_uses_query_cache(client, monkeypatch):
     token = await register_and_login(client)
     calls = 0

@@ -131,6 +131,21 @@ The backend is a FastAPI modular monolith:
 - `search`: Meilisearch integration
 - `storage`: MinIO/S3 object storage
 
+Long term, Collectarr is intended to live under one organization as three
+repositories:
+
+- `collectarr-core`: metadata API, catalog, providers, image cache, worker,
+  migrations, admin identity, audit logs, and the Core Admin Console
+- `collectarr-sync`: optional personal sync service, sync protocol, conflict
+  handling, device identity, and sync storage
+- `collectarr-app`: Flutter client, local Drift database, import/export,
+  barcode UX, sync client, and user-facing library UI
+
+The Core Admin Console belongs to `collectarr-core`. It should evolve into a
+Grafana-like operations frontend for server health, provider ingest, catalog
+coverage, missing covers/provider IDs, image cache state, audit history, and
+admin account management. See [docs/repository-split.md](docs/repository-split.md).
+
 The Flutter app keeps client models separate from backend database models:
 
 - `core/api`: REST client

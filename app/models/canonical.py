@@ -364,7 +364,9 @@ class SeriesRelation(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
     )
     relation_type: Mapped[SeriesRelationType] = mapped_column(
-        Enum(SeriesRelationType, name="series_relation_type"), nullable=False, index=True
+        Enum(SeriesRelationType, name="series_relation_type", create_type=False),
+        nullable=False,
+        index=True,
     )
     ordinal: Mapped[int | None] = mapped_column(Integer)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

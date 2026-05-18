@@ -118,7 +118,7 @@ async def clean_database() -> AsyncIterator[None]:
                   provider_ingest_jobs,
                   entity_tags, entity_persons, entity_organizations, tags, persons, organizations,
                   releases, variants, editions, external_provider_ids,
-                  items, volumes, series, franchises
+                  series_relations, items, volumes, series, franchises
                 restart identity cascade
                 """
             )

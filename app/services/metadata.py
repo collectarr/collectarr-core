@@ -687,6 +687,7 @@ class MetadataService:
                         title=f"{series_title.title()} #{issue_number}",
                         kind=target_kind,
                         image_url=cover.image_url,
+                        candidate_type="issue",
                         series_title=series_title.title(),
                         issue_number=issue_number,
                         is_variant=False,

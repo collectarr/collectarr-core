@@ -132,6 +132,7 @@ class ProviderSearchResultResponse(BaseModel):
     kind: ItemKind
     summary: str | None = None
     image_url: str | None = None
+    candidate_type: str | None = None
     series_title: str | None = None
     issue_number: str | None = None
     volume_start_year: int | None = None

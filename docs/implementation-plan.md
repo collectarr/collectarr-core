@@ -22,9 +22,9 @@ Console. It must not store personal library data.
 - Provider search endpoints accept structured comic context (`series`,
   `issue_number`, `year`) so clients can ask for Add Series/Add Issue flows
   without encoding provider-specific query semantics.
-- Provider search results expose optional comic identity fields (`series_title`,
-  `issue_number`, `volume_start_year`, `variant_name`, `is_variant`) for
-  provider-backed issue/variant grouping.
+- Provider search results expose optional typed comic identity fields
+  (`candidate_type`, `series_title`, `issue_number`, `volume_start_year`,
+  `variant_name`, `is_variant`) for provider-backed issue/variant grouping.
 
 ## MVP Priorities
 

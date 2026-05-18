@@ -356,6 +356,7 @@ class GCDProvider:
                 variant_hint=variant_hint,
             )
             or self._optional_text(result.get("cover")),
+            candidate_type="variant" if result.get("variant_of") else "issue",
             series_title=series_title,
             issue_number=issue_number,
             volume_start_year=start_year,

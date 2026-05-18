@@ -1,42 +1,23 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
     [ValidateSet("start", "stop", "migrate", "seed", "test-backend", "test-flutter", "check", "smoke-web", "smoke-providers", "reset-pipeline", "clean-state")]
-    [string]$Command
+    [string]$Command,
+    [switch]$UseWslDocker
 )
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
-$script:UseWslDockerResolved = $false
-& docker version --format "{{.Server.Version}}" *> $null
-if ($LASTEXITCODE -ne 0) {
-    & wsl docker version --format "{{.Server.Version}}" *> $null
-    if ($LASTEXITCODE -eq 0) {
-        $script:UseWslDockerResolved = $true
-        Write-Host "Using WSL Docker Engine." -ForegroundColor Cyan
-    }
-}
-
-function Invoke-Docker {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Arguments
-    )
-    if ($script:UseWslDockerResolved) {
-        & wsl docker @Arguments
-    } else {
-        & docker @Arguments
-    }
-}
+. (Join-Path $Root "scripts\lib-dev.ps1")
+Initialize-CollectarrDocker -UseWslDocker:$UseWslDocker
 
 function Invoke-Compose {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
         [string[]]$Arguments
     )
-    $composeArgs = @("compose") + $Arguments
-    Invoke-Docker @composeArgs
+    Invoke-ComposeChecked -Arguments $Arguments
 }
 
 switch ($Command) {
@@ -74,15 +55,15 @@ switch ($Command) {
         } finally { Pop-Location }
     }
     "smoke-web" {
-        & "$Root\scripts\dev-smoke-web.ps1"
+        & "$Root\scripts\dev-smoke-web.ps1" -UseWslDocker:$UseWslDocker
     }
     "smoke-providers" {
-        & "$Root\scripts\dev-smoke-providers.ps1"
+        & "$Root\scripts\dev-smoke-providers.ps1" -UseWslDocker:$UseWslDocker
     }
     "reset-pipeline" {
-        & "$Root\scripts\dev-reset-pipeline.ps1" -Force
+        & "$Root\scripts\dev-reset-pipeline.ps1" -Force -UseWslDocker:$UseWslDocker
     }
     "clean-state" {
-        & "$Root\scripts\dev-clean-state.ps1" -All -Force
+        & "$Root\scripts\dev-clean-state.ps1" -All -Force -UseWslDocker:$UseWslDocker
     }
 }

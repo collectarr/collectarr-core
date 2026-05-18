@@ -21,84 +21,14 @@ $logDir = Join-Path $repoRoot ".dev\logs"
 $webOriginLocalhost = "http://localhost:$WebPort"
 $webOriginLoopback = "http://127.0.0.1:$WebPort"
 
+. (Join-Path $PSScriptRoot "lib-dev.ps1")
 Set-Location $repoRoot
 
 if (-not (Test-Path $envPath)) {
   Copy-Item $envExamplePath $envPath
 }
 
-$script:UseWslDockerResolved = $UseWslDocker.IsPresent
-if (-not $script:UseWslDockerResolved) {
-  & docker version --format "{{.Server.Version}}" *> $null
-  if ($LASTEXITCODE -ne 0) {
-    & wsl docker version --format "{{.Server.Version}}" *> $null
-    if ($LASTEXITCODE -eq 0) {
-      $script:UseWslDockerResolved = $true
-      Write-Host "Using WSL Docker Engine." -ForegroundColor Cyan
-    }
-  }
-}
-
-function Invoke-Docker {
-  param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$Arguments
-  )
-  if ($script:UseWslDockerResolved) {
-    & wsl docker @Arguments
-  } else {
-    & docker @Arguments
-  }
-}
-
-function Update-CorsOrigins {
-  param(
-    [Parameter(Mandatory = $true)]
-    [string]$Path,
-    [Parameter(Mandatory = $true)]
-    [string[]]$Origins
-  )
-
-  $lines = @(Get-Content -LiteralPath $Path)
-  $index = -1
-  for ($i = 0; $i -lt $lines.Count; $i++) {
-    if ($lines[$i] -like "CORS_ORIGINS=*") {
-      $index = $i
-      break
-    }
-  }
-
-  $current = @()
-  if ($index -ge 0) {
-    $raw = $lines[$index].Substring("CORS_ORIGINS=".Length)
-    try {
-      $parsed = $raw | ConvertFrom-Json
-      if ($parsed -is [array]) {
-        $current = @($parsed)
-      } elseif ($parsed) {
-        $current = @([string]$parsed)
-      }
-    } catch {
-      $current = @()
-    }
-  }
-
-  $next = New-Object System.Collections.Generic.List[string]
-  foreach ($origin in @($current + $Origins)) {
-    $value = [string]$origin
-    if ($value -and -not $next.Contains($value)) {
-      $next.Add($value)
-    }
-  }
-  $encoded = $next.ToArray() | ConvertTo-Json -Compress
-
-  if ($index -ge 0) {
-    $lines[$index] = "CORS_ORIGINS=$encoded"
-  } else {
-    $lines += "CORS_ORIGINS=$encoded"
-  }
-  Set-Content -LiteralPath $Path -Value $lines
-}
+Initialize-CollectarrDocker -UseWslDocker:$UseWslDocker
 
 function Invoke-Compose {
   param(
@@ -106,11 +36,7 @@ function Invoke-Compose {
     [string[]]$Arguments
   )
 
-  $composeArgs = @("compose", "--profile", "sync") + $Arguments
-  Invoke-Docker @composeArgs
-  if ($LASTEXITCODE -ne 0) {
-    throw "docker compose $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
-  }
+  Invoke-ComposeChecked -PrefixArguments @("--profile", "sync") -Arguments $Arguments
 }
 
 function Test-Endpoint {

@@ -14,46 +14,14 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "lib-dev.ps1")
 Set-Location $repoRoot
 
 if (-not (Test-Path "docker-compose.yml")) {
   throw "Run this script from the Collectarr repository."
 }
 
-$script:UseWslDockerResolved = $UseWslDocker.IsPresent
-if (-not $script:UseWslDockerResolved) {
-  & docker version --format "{{.Server.Version}}" *> $null
-  if ($LASTEXITCODE -ne 0) {
-    & wsl docker version --format "{{.Server.Version}}" *> $null
-    if ($LASTEXITCODE -eq 0) {
-      $script:UseWslDockerResolved = $true
-      Write-Host "Using WSL Docker Engine." -ForegroundColor Cyan
-    }
-  }
-}
-
-function Invoke-Docker {
-  param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$Arguments
-  )
-  if ($script:UseWslDockerResolved) {
-    & wsl docker @Arguments
-  } else {
-    & docker @Arguments
-  }
-}
-
-function Invoke-DockerText {
-  param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$Arguments
-  )
-  if ($script:UseWslDockerResolved) {
-    return (& wsl docker @Arguments)
-  }
-  return (& docker @Arguments)
-}
+Initialize-CollectarrDocker -UseWslDocker:$UseWslDocker
 
 if ($All) {
   $CoreDb = $true

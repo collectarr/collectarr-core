@@ -15,48 +15,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "lib-dev.ps1")
 Set-Location $repoRoot
 
-$script:UseWslDockerResolved = $UseWslDocker.IsPresent
-if (-not $script:UseWslDockerResolved) {
-  & docker version --format "{{.Server.Version}}" *> $null
-  if ($LASTEXITCODE -ne 0) {
-    & wsl docker version --format "{{.Server.Version}}" *> $null
-    if ($LASTEXITCODE -eq 0) {
-      $script:UseWslDockerResolved = $true
-      Write-Host "Using WSL Docker Engine." -ForegroundColor Cyan
-    }
-  }
-}
-
-function Invoke-Docker {
-  param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$Arguments
-  )
-  if ($script:UseWslDockerResolved) {
-    & wsl docker @Arguments
-  } else {
-    & docker @Arguments
-  }
-}
-
-function Read-DotEnv {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  $values = @{}
-  if (-not (Test-Path -LiteralPath $Path)) {
-    return $values
-  }
-  foreach ($line in Get-Content -LiteralPath $Path) {
-    $trimmed = $line.Trim()
-    if (-not $trimmed -or $trimmed.StartsWith("#") -or -not $trimmed.Contains("=")) {
-      continue
-    }
-    $parts = $trimmed.Split("=", 2)
-    $values[$parts[0].Trim()] = $parts[1].Trim().Trim('"').Trim("'")
-  }
-  return $values
-}
+Initialize-CollectarrDocker -UseWslDocker:$UseWslDocker
 
 function Get-HttpStatusCode {
   param([Parameter(Mandatory = $true)]$ErrorRecord)
@@ -109,6 +71,28 @@ function Get-ApiUrl {
 function Get-SyncUrl {
   param([Parameter(Mandatory = $true)][string]$Path)
   return "$($SyncBaseUrl.TrimEnd('/'))$Path"
+}
+
+function Wait-CoreSearchResult {
+  param(
+    [Parameter(Mandatory = $true)][string]$Query,
+    [Parameter(Mandatory = $true)][string]$Kind,
+    [int]$TimeoutSeconds = 45,
+    [int]$PollIntervalSeconds = 2
+  )
+
+  $encodedQuery = [System.Uri]::EscapeDataString($Query)
+  $encodedKind = [System.Uri]::EscapeDataString($Kind)
+  $url = Get-ApiUrl "/search?q=$encodedQuery&kind=$encodedKind&limit=5"
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  do {
+    $rows = @(Invoke-Json -Url $url)
+    if ($rows.Count -gt 0) {
+      return $rows
+    }
+    Start-Sleep -Seconds $PollIntervalSeconds
+  } while ((Get-Date) -lt $deadline)
+  return @()
 }
 
 function Get-AdminEmailFromEnv {
@@ -299,9 +283,7 @@ if (-not $SkipIngestFlow) {
     $done = @($runJobs | Where-Object { $_.status -eq "done" })
     if ($done.Count -gt 0) {
       Add-SmokeResult -Results $results -Name "Provider ingest job run" -Status "pass" -Detail "$($done[0].item_id)"
-      Start-Sleep -Seconds 2
-      $searchQuery = [System.Uri]::EscapeDataString($firstGcdCandidate.title)
-      $searchRows = @(Invoke-Json -Url (Get-ApiUrl "/search?q=$searchQuery&kind=comic&limit=5"))
+      $searchRows = @(Wait-CoreSearchResult -Query $firstGcdCandidate.title -Kind "comic")
       if ($searchRows.Count -gt 0) {
         Add-SmokeResult -Results $results -Name "Core search after ingest" -Status "pass" -Detail "$($searchRows[0].title)"
       } else {

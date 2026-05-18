@@ -27,7 +27,7 @@ from app.models.canonical import (
     Variant,
     Volume,
 )
-from app.providers.base import ProviderItem
+from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.comicvine import ComicVineIssueCover, ComicVineProvider
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.search.client import SearchClient
@@ -72,6 +72,58 @@ def comicvine_issue_raw() -> dict:
             "publisher": {"name": "Marvel"},
         },
     }
+
+
+def comicvine_over_the_garden_wall_raw() -> dict:
+    raw = comicvine_issue_raw()
+    raw.update(
+        {
+            "id": 498453,
+            "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-498453/",
+            "site_detail_url": "https://comicvine.gamespot.com/over-the-garden-wall-1/4000-498453/",
+            "name": "",
+            "issue_number": "1",
+            "description": (
+                "List of covers and their creators: Cover Name Creator(s) Sidebar Location "
+                "Reg Regular Cover A Jim Campbell 1 "
+                "Reg Regular Cover B Carey Pietsch 2 "
+                "Sub Subscription Cover Steve Wolfhard 3 "
+                "RI 1:10 BOOM! Studios 10 Years Incentive Variant Cover Jeffrey Brown 4-6 "
+                "Var 1:20 Variant Cover Michael DiMotta 7 "
+                "RE Larry's Comics Exclusive Variant Cover Rachel Dukes Missing"
+            ),
+            "image": {"super_url": "https://comicvine.gamespot.com/a/uploads/scale_large/01.jpg"},
+            "associated_images": [
+                {
+                    "id": 4767296,
+                    "original_url": "https://comicvine.gamespot.com/a/uploads/original/01b.jpg",
+                    "image_tags": "All Images",
+                },
+                {
+                    "id": 4767295,
+                    "original_url": "https://comicvine.gamespot.com/a/uploads/original/01-sub.jpg",
+                    "image_tags": "All Images",
+                },
+                {
+                    "id": 4767294,
+                    "original_url": "https://comicvine.gamespot.com/a/uploads/original/01-boom.jpg",
+                    "image_tags": "All Images",
+                },
+                {
+                    "id": 4767290,
+                    "original_url": "https://comicvine.gamespot.com/a/uploads/original/01-variant.jpg",
+                    "image_tags": "All Images",
+                },
+            ],
+            "volume": {
+                "id": 82602,
+                "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-82602/",
+                "name": "Over the Garden Wall",
+                "publisher": {"name": "BOOM! Studios"},
+            },
+        }
+    )
+    return raw
 
 
 def gcd_issue_raw() -> dict:
@@ -214,6 +266,94 @@ async def test_comicvine_provider_normalizes_associated_cover_variants():
 
 
 @pytest.mark.asyncio
+async def test_comicvine_provider_names_associated_covers_from_cover_list():
+    normalized = await ComicVineProvider().normalize(comicvine_over_the_garden_wall_raw())
+
+    assert [cover.name for cover in normalized.variant_covers] == [
+        "Regular Cover B Carey Pietsch",
+        "Subscription Cover Steve Wolfhard",
+        "1:10 BOOM! Studios 10 Years Incentive Variant Cover Jeffrey Brown",
+        "1:10 BOOM! Studios 10 Years Incentive Variant Cover Jeffrey Brown",
+    ]
+    assert [cover.cover_image_url.rsplit("/", 1)[-1] for cover in normalized.variant_covers] == [
+        "01b.jpg",
+        "01-sub.jpg",
+        "01-boom.jpg",
+        "01-variant.jpg",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_comicvine_provider_finds_variant_cover_from_cover_list(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_find_volume(self, series_title, start_year):
+        return {
+            "id": 82602,
+            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-82602/",
+            "name": "Over the Garden Wall",
+            "start_year": 2015,
+        }
+
+    async def fake_request(self, path, params):
+        assert path == "issues/"
+        assert params["filter"] == "volume:82602,issue_number:1"
+        return {"results": [comicvine_over_the_garden_wall_raw()]}
+
+    monkeypatch.setattr(ComicVineProvider, "_find_volume", fake_find_volume)
+    monkeypatch.setattr(ComicVineProvider, "_request", fake_request)
+
+    cover = await ComicVineProvider().find_issue_cover(
+        series_title="Over the Garden Wall",
+        issue_number="1",
+        start_year=2015,
+        variant_hint="Carey Pietsch Cover",
+        require_variant_match=True,
+    )
+
+    assert cover is not None
+    assert cover.provider_item_id == "4000-498453"
+    assert cover.image_url.endswith("/01b.jpg")
+
+    missing_cover = await ComicVineProvider().find_issue_cover(
+        series_title="Over the Garden Wall",
+        issue_number="1",
+        start_year=2015,
+        variant_hint="BOOM! Studios Exclusive Cover Jordan Crane",
+        require_variant_match=True,
+    )
+
+    assert missing_cover is None
+
+
+@pytest.mark.asyncio
+async def test_comicvine_provider_search_expands_associated_cover_variants(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_request(self, path, params):
+        if path == "search/":
+            return {"results": [comicvine_over_the_garden_wall_raw()]}
+        assert path == "issue/4000-498453/"
+        return {"results": comicvine_over_the_garden_wall_raw()}
+
+    monkeypatch.setattr(ComicVineProvider, "_request", fake_request)
+
+    results = await ComicVineProvider().search("Over the Garden Wall", ItemKind.comic)
+
+    assert [result.provider_item_id for result in results] == [
+        "4000-498453",
+        "4000-498453:cover:4767296",
+        "4000-498453:cover:4767295",
+        "4000-498453:cover:4767294",
+        "4000-498453:cover:4767290",
+    ]
+    assert results[1].title == "Over the Garden Wall #1 [Regular Cover B Carey Pietsch]"
+    assert results[1].image_url.endswith("/01b.jpg")
+
+
+@pytest.mark.asyncio
 async def test_comicvine_provider_can_tag_results_as_manga():
     raw = comicvine_issue_raw()
     raw["media_type"] = "manga"
@@ -227,6 +367,32 @@ async def test_comicvine_provider_can_tag_results_as_manga():
     assert normalized.edition_format == "Manga Issue"
     assert normalized.provider_ids == {"comicvine": "manga:4000-12345"}
     assert normalized.volume_provider_ids == {"comicvine": "manga:4050-6789"}
+
+
+def test_comicvine_provider_sorts_exact_series_results_by_issue_number():
+    provider = ComicVineProvider()
+    rows = [
+        {
+            "name": "",
+            "issue_number": "2",
+            "volume": {"name": "Over the Garden Wall"},
+        },
+        {
+            "name": "",
+            "issue_number": "1",
+            "volume": {"name": "Over the Garden Wall"},
+        },
+        {
+            "name": "Volume One",
+            "issue_number": "1",
+            "volume": {"name": "Over The Garden Wall"},
+        },
+    ]
+
+    sorted_rows = provider._sort_search_results(rows, "over the garden wall")
+
+    assert [row["issue_number"] for row in sorted_rows] == ["1", "2", "1"]
+    assert sorted_rows[-1]["name"] == "Volume One"
 
 
 @pytest.mark.asyncio
@@ -326,15 +492,23 @@ async def test_gcd_provider_search_uses_issue_query(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_gcd_provider_search_defaults_series_only_queries_to_issue_one(monkeypatch):
+async def test_gcd_provider_search_spans_series_only_queries(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "gcd_series_search_issue_span", 2)
+    requested_paths = []
+
     async def fake_request(self, path):
-        assert path == "series/name/Absolute%20Batman/issue/1/"
+        requested_paths.append(path)
+        issue_id = "3377500" if path.endswith("/issue/1/") else "3377501"
+        issue_number = "1" if path.endswith("/issue/1/") else "2"
+        if not path.startswith("series/name/Absolute%20Batman/"):
+            return {"results": []}
         return {
             "results": [
                 {
-                    "api_url": "https://www.comics.org/api/issue/3377500/",
+                    "api_url": f"https://www.comics.org/api/issue/{issue_id}/",
                     "series_name": "Absolute Batman (2024 series)",
-                    "descriptor": "1",
+                    "descriptor": issue_number,
                     "publication_date": "October 2024",
                     "price": "4.99 USD",
                     "page_count": "32.000",
@@ -348,13 +522,59 @@ async def test_gcd_provider_search_defaults_series_only_queries_to_issue_one(mon
 
     results = await GCDProvider().search(" Absolute Batman cover ")
 
-    assert len(results) == 1
+    assert len(results) == 2
     assert results[0].provider_item_id == "3377500"
     assert results[0].title == "Absolute Batman (2024 series) #1"
     assert (
         results[0].image_url
         == "/metadata/providers/gcd/images/3377500?series=Absolute+Batman&issue=1&year=2024"
     )
+    assert results[1].provider_item_id == "3377501"
+    assert results[1].title == "Absolute Batman (2024 series) #2"
+    assert requested_paths == [
+        "series/name/Absolute%20Batman/issue/1/",
+        "series/name/Absolute%20Batman/issue/2/",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_search_uses_series_year_hint(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "gcd_series_search_issue_span", 1)
+
+    async def fake_request(self, path):
+        if path != "series/name/Over%20the%20Garden%20Wall/issue/1/":
+            return {"results": []}
+        return {
+            "results": [
+                {
+                    "api_url": "https://www.comics.org/api/issue/1460468/",
+                    "series_name": "Over the Garden Wall (2015 series)",
+                    "descriptor": "1",
+                    "publication_date": "August 2015",
+                    "price": "3.99 USD",
+                    "page_count": "28.000",
+                    "variant_of": None,
+                },
+                {
+                    "api_url": "https://www.comics.org/api/issue/1775516/",
+                    "series_name": "Over the Garden Wall (2017 series)",
+                    "descriptor": "1",
+                    "publication_date": "February 2017",
+                    "price": "14.99 USD",
+                    "page_count": "120.000",
+                    "variant_of": None,
+                },
+            ]
+        }
+
+    monkeypatch.setattr(GCDProvider, "_request", fake_request)
+
+    results = await GCDProvider().search("Over the Garden Wall 2015")
+
+    assert len(results) == 1
+    assert results[0].provider_item_id == "1460468"
+    assert results[0].title == "Over the Garden Wall (2015 series) #1"
 
 
 @pytest.mark.asyncio
@@ -426,7 +646,7 @@ async def test_gcd_provider_cover_image_falls_back_to_comicvine(monkeypatch):
             "issue_number": "1",
             "start_year": 2024,
             "variant_hint": "Jim Lee",
-            "require_variant_match": False,
+            "require_variant_match": True,
         }
         return ComicVineIssueCover(
             provider_item_id="4000-1073108",
@@ -524,7 +744,7 @@ async def test_gcd_provider_search_route_falls_back_to_comicvine(client, monkeyp
 
     response = await client.get(
         "/metadata/providers/gcd/search",
-        params={"q": "Absolute Batman", "kind": "comic"},
+        params={"q": "Absolute Batman #1", "kind": "comic"},
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -536,6 +756,87 @@ async def test_gcd_provider_search_route_falls_back_to_comicvine(client, monkeyp
         "Comic Vine fallback while Grand Comics Database is unavailable."
     )
     assert body[0]["image_url"] == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_series_search_fallback_uses_comicvine_search(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+    token = await admin_token(client, monkeypatch)
+
+    async def fail_gcd_search(self, query, kind=None):
+        raise ApiHTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="gcd_http_error",
+            detail="GCD returned HTTP 429",
+        )
+
+    async def fail_find_issue_cover(self, **kwargs):
+        raise AssertionError("Series fallback should use ComicVine search")
+
+    async def fake_comicvine_search(self, query, kind=None):
+        return [ComicVineProvider()._search_result(comicvine_over_the_garden_wall_raw())]
+
+    monkeypatch.setattr(GCDProvider, "search", fail_gcd_search)
+    monkeypatch.setattr(ComicVineProvider, "find_issue_cover", fail_find_issue_cover)
+    monkeypatch.setattr(ComicVineProvider, "search", fake_comicvine_search)
+
+    response = await client.get(
+        "/metadata/providers/gcd/search",
+        params={"q": "Over the Garden Wall", "kind": "comic"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["provider"] == "comicvine"
+    assert body[0]["provider_item_id"] == "4000-498453"
+    assert body[0]["summary"].startswith(
+        "Comic Vine fallback while Grand Comics Database is unavailable."
+    )
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_series_search_enriches_with_comicvine_variants(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_gcd_search(self, query, kind=None):
+        return [
+            ProviderSearchResult(
+                provider="gcd",
+                provider_item_id="148725",
+                title="Over the Garden Wall (2015 series) #1",
+                kind=ItemKind.comic,
+            )
+        ]
+
+    async def fake_comicvine_search(self, query, kind=None):
+        return [
+            ProviderSearchResult(
+                provider="comicvine",
+                provider_item_id="4000-498453:cover:4767296",
+                title="Over the Garden Wall #1 [Regular Cover B Carey Pietsch]",
+                kind=ItemKind.comic,
+                image_url="https://comicvine.gamespot.com/a/uploads/original/01b.jpg",
+            )
+        ]
+
+    monkeypatch.setattr(GCDProvider, "search", fake_gcd_search)
+    monkeypatch.setattr(ComicVineProvider, "search", fake_comicvine_search)
+
+    response = await client.get(
+        "/metadata/providers/gcd/search",
+        params={"q": "Over the Garden Wall", "kind": "comic"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["provider"] for item in body] == ["gcd", "comicvine"]
+    assert body[1]["provider_item_id"] == "4000-498453:cover:4767296"
+    assert body[1]["image_url"].endswith("/01b.jpg")
 
 
 @pytest.mark.asyncio
@@ -1710,8 +2011,7 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
     assert variant["cover_price_cents"] == 295
     assert variant["currency"] == "USD"
     expected_cover_url = (
-        "/metadata/providers/gcd/images/256114"
-        "?series=Batman%3A+Dark+Victory&issue=12&year=1999"
+        "/metadata/providers/gcd/images/256114?series=Batman%3A+Dark+Victory&issue=12&year=1999"
     )
     assert variant["cover_image_url"] == expected_cover_url
     assert indexed_documents[0]["barcode"] == "76194122054301211"

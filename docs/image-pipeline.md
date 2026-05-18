@@ -26,9 +26,11 @@ Provider searches are explicit user actions from Flutter. Core rate-limits those
 requests, caches provider search responses by provider/kind/query for a few
 hours, and places providers on a short cooldown when upstream returns
 401/429/5xx. Redis stores those guardrails when `REDIS_URL` is configured, with
-in-memory fallback for local development. GCD can fall back to ComicVine only
-when the fallback setting is enabled and GCD is unavailable; fallback results
-are labeled in the response and UI.
+in-memory fallback for local development. GCD can use ComicVine only when the
+fallback setting is enabled: exact issue queries use ComicVine when GCD is
+unavailable, while series-style GCD searches can merge ComicVine associated
+cover candidates so variant covers appear without exposing provider routing to
+the client.
 
 ## Client Fallback
 

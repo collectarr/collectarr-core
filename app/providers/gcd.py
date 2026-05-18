@@ -28,6 +28,7 @@ _ISSUE_QUERY_RE = re.compile(
     r"^(?P<series>.+?)\s*(?:#|issue\s+|no\.?\s*)?\s*(?P<issue>\d+[A-Za-z0-9./-]*)$",
     re.IGNORECASE,
 )
+_YEAR_HINT_RE = re.compile(r"\b(?P<year>18\d{2}|19\d{2}|20\d{2}|21\d{2}|2200)\b")
 _TRAILING_VARIANT_HINT_RE = re.compile(
     r"\s+(?:variant|variants?|cover|covers?|cover\s+[a-z]|standard|regular|main|foil|virgin|"
     r"incentive|ratio)\s*$",
@@ -79,6 +80,13 @@ class GCDCoverImage:
         return cls(redirect_url=url, source_url=url)
 
 
+@dataclass(frozen=True)
+class GCDQueryPlan:
+    candidates: list[tuple[str, str]]
+    year_hint: int | None = None
+    is_series_search: bool = False
+
+
 class GCDProvider:
     name = "gcd"
     capabilities = ProviderCapabilities(
@@ -112,11 +120,22 @@ class GCDProvider:
         query: str,
         kind: ItemKind | None = None,
     ) -> list[ProviderSearchResult]:
-        candidates = self._query_candidates(query)
-        if not candidates:
+        plan = self._query_plan(query)
+        if not plan.candidates:
             return []
 
-        for series_name, issue_number in candidates:
+        normalized_results: list[ProviderSearchResult] = []
+        seen: set[str] = set()
+        active_year_hint = plan.year_hint
+        active_series_alias: str | None = None
+        for series_name, issue_number in plan.candidates:
+            series_alias_key = series_name.casefold()
+            if (
+                plan.is_series_search
+                and active_series_alias is not None
+                and series_alias_key != active_series_alias
+            ):
+                continue
             path = (
                 f"series/name/{quote(series_name, safe='')}/issue/{quote(issue_number, safe='')}/"
             )
@@ -126,10 +145,28 @@ class GCDProvider:
                 continue
 
             issue_results = [result for result in results if isinstance(result, Mapping)]
-            issue_results.sort(key=lambda result: self._series_rank(result, series_name))
+            if active_year_hint is None and plan.is_series_search:
+                issue_results.sort(key=lambda result: self._series_rank(result, series_name))
+                active_year_hint = self._first_result_start_year(issue_results)
+            if active_year_hint is not None:
+                issue_results = [
+                    result
+                    for result in issue_results
+                    if self._series_start_year(
+                        self._optional_text(result.get("series_name")) or ""
+                    )
+                    == active_year_hint
+                ]
+            issue_results.sort(
+                key=lambda result: self._series_rank(
+                    result,
+                    series_name,
+                    year_hint=active_year_hint,
+                )
+            )
+            if issue_results and plan.is_series_search and active_series_alias is None:
+                active_series_alias = series_alias_key
 
-            normalized_results: list[ProviderSearchResult] = []
-            seen: set[str] = set()
             for result in issue_results[: self.settings.gcd_search_limit]:
                 search_result = self._search_result(result)
                 if not search_result.provider_item_id:
@@ -138,9 +175,11 @@ class GCDProvider:
                     continue
                 seen.add(search_result.provider_item_id)
                 normalized_results.append(search_result)
-            if normalized_results:
+                if len(normalized_results) >= self.settings.gcd_search_limit:
+                    return normalized_results
+            if normalized_results and not plan.is_series_search:
                 return normalized_results
-        return []
+        return normalized_results
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
         issue_id = self._issue_id(provider_item_id)
@@ -394,7 +433,7 @@ class GCDProvider:
                 issue_number=fallback.issue_number,
                 start_year=fallback.start_year,
                 variant_hint=fallback.variant_hint,
-                require_variant_match=self._requires_variant_cover_match(fallback.variant_hint),
+                require_variant_match=bool(fallback.variant_hint),
             )
         except Exception:
             logger.warning(
@@ -481,8 +520,16 @@ class GCDProvider:
         path = f"/metadata/providers/gcd/images/{quote(issue_id, safe='')}"
         return f"{path}?{query}" if query else path
 
-    def _series_rank(self, result: Mapping[str, Any], query: str) -> tuple[int, str]:
+    def _series_rank(
+        self,
+        result: Mapping[str, Any],
+        query: str,
+        *,
+        year_hint: int | None = None,
+    ) -> tuple[int, int, str]:
         series_name = self._optional_text(result.get("series_name")) or ""
+        start_year = self._series_start_year(series_name)
+        year_rank = 0 if year_hint is None or start_year == year_hint else 1
         series_key = self._normalized_title_key(self._series_title(series_name))
         query_key = self._normalized_title_key(query)
         if series_key == query_key:
@@ -495,7 +542,7 @@ class GCDProvider:
             rank = 3
         else:
             rank = 4
-        return rank, series_key
+        return year_rank, rank, series_key
 
     def _normalized_title_key(self, value: str) -> str:
         normalized = "".join(char.lower() if char.isalnum() else " " for char in value)
@@ -517,28 +564,58 @@ class GCDProvider:
         return series, issue
 
     def _query_candidates(self, query: str) -> list[tuple[str, str]]:
+        return self._query_plan(query).candidates
+
+    def _query_plan(self, query: str) -> GCDQueryPlan:
         normalized_query = self._searchable_query(query)
         if not normalized_query:
-            return []
+            return GCDQueryPlan([])
         if not any(char.isalpha() for char in normalized_query):
-            return []
+            return GCDQueryPlan([])
+
+        year_hint, normalized_query = self._extract_year_hint(normalized_query)
+        if not normalized_query or not any(char.isalpha() for char in normalized_query):
+            return GCDQueryPlan([])
 
         parsed = self._parse_issue_query(normalized_query)
         if parsed is None:
             series_name = normalized_query
-            issue_number = "1"
+            issue_numbers = [
+                str(issue)
+                for issue in range(1, self.settings.gcd_series_search_issue_span + 1)
+            ]
+            is_series_search = True
         else:
             series_name, issue_number = parsed
+            issue_numbers = [issue_number]
+            is_series_search = False
 
         candidates: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
-        for series_candidate in self._series_aliases(series_name):
-            key = (series_candidate.casefold(), issue_number.casefold())
-            if key in seen:
-                continue
-            seen.add(key)
-            candidates.append((series_candidate, issue_number))
-        return candidates
+        for issue_number in issue_numbers:
+            for series_candidate in self._series_aliases(series_name):
+                key = (series_candidate.casefold(), issue_number.casefold())
+                if key in seen:
+                    continue
+                seen.add(key)
+                candidates.append((series_candidate, issue_number))
+        return GCDQueryPlan(
+            candidates,
+            year_hint=year_hint,
+            is_series_search=is_series_search,
+        )
+
+    def _extract_year_hint(self, query: str) -> tuple[int | None, str]:
+        matches = list(_YEAR_HINT_RE.finditer(query))
+        if not matches:
+            return None, query
+        match = matches[-1]
+        prefix = query[: match.start()]
+        if re.search(r"(#|issue\s+|no\.?\s*)$", prefix, re.IGNORECASE):
+            return None, query
+        year = int(match.group("year"))
+        without_year = f"{query[: match.start()]} {query[match.end() :]}".strip()
+        return year, " ".join(without_year.split())
 
     def _searchable_query(self, query: str) -> str:
         normalized_query = " ".join(query.split())
@@ -603,6 +680,14 @@ class GCDProvider:
             return int(match.group("year"))
         except ValueError:
             return None
+
+    def _first_result_start_year(self, results: list[Mapping[str, Any]]) -> int | None:
+        for result in results:
+            series_name = self._optional_text(result.get("series_name")) or ""
+            start_year = self._series_start_year(series_name)
+            if start_year is not None:
+                return start_year
+        return None
 
     def _descriptor_number(self, data: Mapping[str, Any]) -> str | None:
         descriptor = self._optional_text(data.get("descriptor"))

@@ -57,10 +57,13 @@ GCD is the default legal-clean comics seed candidate because it provides CC BY-S
 ComicVine remains an optional personal/non-commercial enrichment provider for
 comics and manga entries. Its issue ingest path stores provider IDs for the
 item and volume, normalizes issue payloads into canonical metadata, and creates
-the first edition, primary cover variant, and US release record. Manga IDs use
-a `manga:` provider prefix while existing comics IDs remain unprefixed. If no
-`COMICVINE_API_KEY` is configured, the provider returns stub data so local
-development still works without secrets.
+the first edition, primary cover variant, associated variant covers, and US
+release record. ComicVine search can also expand issue `associated_images` into
+provider candidates, and GCD series searches can merge those candidates as
+controlled variant-cover enrichment. Manga IDs use a `manga:` provider prefix
+while existing comics IDs remain unprefixed. If no `COMICVINE_API_KEY` is
+configured, the provider returns stub data so local development still works
+without secrets.
 
 OpenLibrary is the first live non-comics provider. It searches Open Library
 works, prefers edition OLIDs for ingest, normalizes book metadata into the same

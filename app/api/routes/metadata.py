@@ -25,6 +25,7 @@ from app.schemas.metadata import (
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
     SearchResult,
+    SeriesRelationResponse,
 )
 from app.services.metadata import MetadataService
 
@@ -237,3 +238,12 @@ def _physical_format_response(config: PhysicalFormatConfig) -> PhysicalFormatRes
         variant_type=config.variant_type,
         aliases=list(config.aliases),
     )
+
+
+@router.get("/series/{series_id}/relations", response_model=list[SeriesRelationResponse])
+async def get_series_relations(
+    series_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[SeriesRelationResponse]:
+    return await MetadataService(db).get_series_relations(series_id)

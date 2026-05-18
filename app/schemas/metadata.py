@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
 class VariantResponse(BaseModel):
@@ -138,6 +138,8 @@ class ProviderSearchResultResponse(BaseModel):
     volume_start_year: int | None = None
     variant_name: str | None = None
     is_variant: bool | None = None
+    issue_count: int | None = None
+    publisher: str | None = None
 
 
 class PhysicalFormatResponse(BaseModel):
@@ -186,6 +188,19 @@ class MetadataProposalResponse(BaseModel):
     status: str
 
     model_config = {"from_attributes": True}
+
+
+class SeriesRelationResponse(BaseModel):
+    id: UUID
+    relation_type: SeriesRelationType
+    target_series_id: UUID
+    target_series_title: str
+    target_series_kind: ItemKind
+    ordinal: int | None = None
+    image_url: str | None = None
+    start_year: int | None = None
+    provider: str | None = None
+    provider_id: str | None = None
 
 
 def item_response_from_model(item: Any) -> ItemResponse:

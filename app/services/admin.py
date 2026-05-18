@@ -1022,7 +1022,7 @@ class AdminMetadataService:
             normalized.cover_image_url,
             mirrored_cover,
         )
-        volume = await self._upsert_volume(
+        volume, series = await self._upsert_volume(
             normalized.kind,
             normalized.series_title,
             normalized.volume_name,
@@ -1166,7 +1166,7 @@ class AdminMetadataService:
         await self._link_tags(item.id, "character", normalized.characters)
         await self._link_tags(item.id, "story_arc", normalized.story_arcs)
         if volume:
-            await self._link_relations(volume.series, normalized.relations)
+            await self._link_relations(series, normalized.relations)
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -1459,9 +1459,9 @@ class AdminMetadataService:
         series_title: str | None,
         volume_name: str | None,
         volume_start_year: int | None,
-    ) -> Volume | None:
+    ) -> tuple[Volume | None, Series | None]:
         if not series_title and not volume_name:
-            return None
+            return None, None
 
         title = series_title or volume_name or "Unknown Series"
         series = await self._get_or_create_series(kind, title)
@@ -1476,7 +1476,7 @@ class AdminMetadataService:
             await self.db.flush()
         elif volume.start_year is None and volume_start_year:
             volume.start_year = volume_start_year
-        return volume
+        return volume, series
 
     async def _get_or_create_series(self, kind: ItemKind, title: str) -> Series:
         result = await self.db.execute(

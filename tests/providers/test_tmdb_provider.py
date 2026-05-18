@@ -130,7 +130,7 @@ async def test_tmdb_provider_fetches_and_normalizes_movie(monkeypatch):
 
     async def fake_request(self, path, params=None):
         assert path == "movie/603"
-        assert params["append_to_response"] == "credits,external_ids"
+        assert params["append_to_response"] == "credits,external_ids,recommendations"
         return _movie_raw()
 
     monkeypatch.setattr(TMDbProvider, "_request", fake_request)

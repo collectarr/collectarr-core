@@ -12,6 +12,7 @@ from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
+    NormalizedRelation,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,
@@ -55,6 +56,27 @@ staff(perPage: 10) {
         full
       }
       siteUrl
+    }
+  }
+}
+relations {
+  edges {
+    relationType
+    node {
+      id
+      type
+      format
+      title {
+        romaji
+        english
+        native
+      }
+      startDate {
+        year
+      }
+      coverImage {
+        medium
+      }
     }
   }
 }
@@ -197,6 +219,7 @@ class AniListProvider:
             story_arcs=[NormalizedCredit(name=genre) for genre in genres],
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            relations=self._relations(data.get("relations"), kind),
         )
 
     async def _graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
@@ -332,6 +355,72 @@ class AniListProvider:
                 )
             )
         return credits
+
+    _ANILIST_RELATION_MAP: dict[str, str] = {
+        "SEQUEL": "sequel",
+        "PREQUEL": "prequel",
+        "SIDE_STORY": "side_story",
+        "PARENT": "parent",
+        "SPIN_OFF": "spin_off",
+        "ADAPTATION": "adaptation",
+        "ALTERNATIVE": "alternative",
+        "SUMMARY": "summary",
+        "COMPILATION": "compilation",
+        "CHARACTER": "other",
+        "OTHER": "other",
+    }
+
+    def _relations(
+        self,
+        value: Any,
+        parent_kind: ItemKind,
+    ) -> list[NormalizedRelation]:
+        if not isinstance(value, Mapping):
+            return []
+        edges = value.get("edges")
+        if not isinstance(edges, list):
+            return []
+        relations: list[NormalizedRelation] = []
+        for edge in edges:
+            if not isinstance(edge, Mapping):
+                continue
+            relation_type_raw = self._optional_text(edge.get("relationType"))
+            if not relation_type_raw:
+                continue
+            relation_type = self._ANILIST_RELATION_MAP.get(relation_type_raw, "other")
+            node = edge.get("node") if isinstance(edge.get("node"), Mapping) else {}
+            title = self._title(node)
+            if not title:
+                continue
+            anilist_id = self._id(node.get("id"))
+            node_type = str(node.get("type") or "").upper()
+            if node_type == "ANIME":
+                node_kind = ItemKind.anime
+            elif node_type == "MANGA":
+                node_kind = ItemKind.manga
+            else:
+                node_kind = parent_kind
+            start_date = (
+                node.get("startDate") if isinstance(node.get("startDate"), Mapping) else {}
+            )
+            start_year = self._int(start_date.get("year")) if start_date else None
+            cover = node.get("coverImage") if isinstance(node.get("coverImage"), Mapping) else {}
+            image_url = self._optional_text(cover.get("medium"))
+            provider_id = (
+                self._provider_item_id(node_kind, anilist_id) if anilist_id else None
+            )
+            relations.append(
+                NormalizedRelation(
+                    relation_type=relation_type,
+                    title=title,
+                    provider=self.name,
+                    provider_id=provider_id,
+                    kind=node_kind,
+                    start_year=start_year,
+                    image_url=image_url,
+                )
+            )
+        return relations
 
     def _date(self, value: Any) -> date | None:
         if not isinstance(value, Mapping):

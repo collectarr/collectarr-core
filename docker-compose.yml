@@ -9,7 +9,7 @@ x-logging: &default-logging
 services:
   api:
     build:
-      context: ./backend
+      context: .
       args:
         PYTHON_BASE_IMAGE: ${API_PYTHON_BASE_IMAGE:-python:3.14-slim}
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --no-access-log
@@ -17,7 +17,7 @@ services:
     ports:
       - "8010:8000"
     volumes:
-      - ./backend:/app
+      - .:/app
     logging: *default-logging
     depends_on:
       postgres:
@@ -31,13 +31,13 @@ services:
 
   worker:
     build:
-      context: ./backend
+      context: .
       args:
         PYTHON_BASE_IMAGE: ${API_PYTHON_BASE_IMAGE:-python:3.14-slim}
     command: python -m app.worker.main
     env_file: .env
     volumes:
-      - ./backend:/app
+      - .:/app
     logging: *default-logging
     depends_on:
       postgres:
@@ -111,25 +111,7 @@ services:
       - minio_data:/data
     logging: *default-logging
 
-  sync:
-    build:
-      context: ./sync_service
-      args:
-        PYTHON_BASE_IMAGE: ${SYNC_PYTHON_BASE_IMAGE:-python:3.12-slim}
-    command: uvicorn collectarr_sync.main:app --host 0.0.0.0 --port 8020 --no-access-log
-    env_file: .env
-    environment:
-      SYNC_DATABASE_PATH: /data/collectarr-sync.db
-    ports:
-      - "8020:8020"
-    volumes:
-      - sync_data:/data
-    profiles:
-      - sync
-    logging: *default-logging
-
 volumes:
   postgres_data:
   meili_data:
   minio_data:
-  sync_data:

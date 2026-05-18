@@ -3,8 +3,6 @@ param(
   [switch]$CoreDb,
   [switch]$SearchIndex,
   [switch]$Images,
-  [switch]$Sync,
-  [switch]$FlutterBuild,
   [switch]$Logs,
   [switch]$StopStack,
   [switch]$UseWslDocker,
@@ -27,14 +25,12 @@ if ($All) {
   $CoreDb = $true
   $SearchIndex = $true
   $Images = $true
-  $Sync = $true
-  $FlutterBuild = $true
   $Logs = $true
   $StopStack = $true
 }
 
-if (-not ($CoreDb -or $SearchIndex -or $Images -or $Sync -or $FlutterBuild -or $Logs)) {
-  Write-Host "Nothing selected. Use -CoreDb, -SearchIndex, -Images, -Sync, -FlutterBuild, -Logs, or -All." -ForegroundColor Yellow
+if (-not ($CoreDb -or $SearchIndex -or $Images -or $Logs)) {
+  Write-Host "Nothing selected. Use -CoreDb, -SearchIndex, -Images, -Logs, or -All." -ForegroundColor Yellow
   exit 0
 }
 
@@ -72,38 +68,10 @@ function Remove-DirectoryIfPresent {
   }
 }
 
-function Stop-RepoWebServers {
-  $buildPath = Assert-WithinRepo "frontend\build\web"
-  $buildPathAlt = $buildPath.Replace("\", "/")
-  $relativePath = "frontend\build\web"
-  $relativePathAlt = "frontend/build/web"
-  $legacyPorts = 8081..8085 | ForEach-Object { "http.server $_" }
-  $processes = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-    Where-Object {
-      $commandLine = $_.CommandLine
-      $commandLine -and
-      $commandLine.Contains("http.server") -and
-      (
-        $commandLine.Contains($buildPath) -or
-        $commandLine.Contains($buildPathAlt) -or
-        $commandLine.Contains($relativePath) -or
-        $commandLine.Contains($relativePathAlt) -or
-        ($legacyPorts | Where-Object { $commandLine.Contains($_) })
-      )
-    }
-  foreach ($process in $processes) {
-    Write-Host "Stopping Flutter web static server PID $($process.ProcessId)" -ForegroundColor Yellow
-    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
-    Wait-Process -Id $process.ProcessId -Timeout 5 -ErrorAction SilentlyContinue
-  }
-}
-
 $selected = @()
 if ($CoreDb) { $selected += "Postgres volume" }
 if ($SearchIndex) { $selected += "Meilisearch volume" }
 if ($Images) { $selected += "MinIO image volume" }
-if ($Sync) { $selected += "Sync SQLite volume" }
-if ($FlutterBuild) { $selected += "Flutter web build" }
 if ($Logs) { $selected += ".dev logs" }
 
 if (-not $Force) {
@@ -115,8 +83,8 @@ if (-not $Force) {
   }
 }
 
-if ($StopStack -or $CoreDb -or $SearchIndex -or $Images -or $Sync) {
-  Invoke-Docker @("compose", "--profile", "sync", "down")
+if ($StopStack -or $CoreDb -or $SearchIndex -or $Images) {
+  Invoke-Docker @("compose", "down")
   if ($LASTEXITCODE -ne 0) {
     throw "docker compose down failed with exit code $LASTEXITCODE"
   }
@@ -126,7 +94,6 @@ $volumes = @()
 if ($CoreDb) { $volumes += "collectarr_postgres_data" }
 if ($SearchIndex) { $volumes += "collectarr_meili_data" }
 if ($Images) { $volumes += "collectarr_minio_data" }
-if ($Sync) { $volumes += "collectarr_sync_data" }
 
 foreach ($volume in $volumes) {
   $existing = Invoke-DockerText @("volume", "ls", "--quiet", "--filter", "name=^$volume$")
@@ -137,11 +104,6 @@ foreach ($volume in $volumes) {
       throw "docker volume rm $volume failed with exit code $LASTEXITCODE"
     }
   }
-}
-
-if ($FlutterBuild) {
-  Stop-RepoWebServers
-  Remove-DirectoryIfPresent "frontend\build\web"
 }
 
 if ($Logs) {

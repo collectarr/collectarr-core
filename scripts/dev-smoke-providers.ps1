@@ -1,12 +1,9 @@
 param(
   [string]$ApiBaseUrl = "http://localhost:8010",
-  [string]$SyncBaseUrl = "http://localhost:8020",
-  [string]$SyncKey = "collectarr-sync-dev-key",
   [string]$AdminEmail = "",
   [string]$AdminPassword = "password123",
   [switch]$SkipProviderSearch,
   [switch]$SkipIngestFlow,
-  [switch]$SkipSyncSmoke,
   [switch]$SkipAdminPromote,
   [switch]$UseWslDocker,
   [string]$ReportPath = ""
@@ -66,11 +63,6 @@ function Invoke-Json {
 function Get-ApiUrl {
   param([Parameter(Mandatory = $true)][string]$Path)
   return "$($ApiBaseUrl.TrimEnd('/'))$Path"
-}
-
-function Get-SyncUrl {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  return "$($SyncBaseUrl.TrimEnd('/'))$Path"
 }
 
 function Wait-CoreSearchResult {
@@ -297,51 +289,10 @@ if (-not $SkipIngestFlow) {
   }
 }
 
-if (-not $SkipSyncSmoke) {
-  $headers = @{ "X-Collectarr-Sync-Key" = $SyncKey }
-  Invoke-Json -Url (Get-SyncUrl "/health") | Out-Null
-  $changedAt = (Get-Date).ToUniversalTime().ToString("o")
-  $entityId = "smoke-snapshot-$([guid]::NewGuid().ToString('N'))"
-  $push = Invoke-Json -Method Post -Url (Get-SyncUrl "/sync/push") -Headers $headers -Body @{
-    device_id = "dev-smoke"
-    changes = @(
-      @{
-        entity_type = "library_item_snapshot"
-        entity_id = $entityId
-        action = "upsert"
-        client_changed_at = $changedAt
-        payload = @{
-          snapshot_version = 1
-          kind = "movie"
-          title = "Smoke Physical Edition"
-          edition_title = "4K test"
-          physical_format = "4k-uhd"
-          physical_format_label = "4K UHD"
-          barcode = "883929087129"
-          variant = "4K UHD"
-        }
-      }
-    )
-  }
-  if (@($push.accepted).Count -ne 1) {
-    Add-SmokeResult -Results $results -Name "Sync push snapshot" -Status "fail" -Detail "accepted=$(@($push.accepted).Count)"
-  } else {
-    Add-SmokeResult -Results $results -Name "Sync push snapshot" -Status "pass" -Detail $entityId
-  }
-  $pull = Invoke-Json -Method Post -Url (Get-SyncUrl "/sync/pull") -Headers $headers -Body @{}
-  $match = @($pull.entities | Where-Object { $_.entity_id -eq $entityId })
-  if ($match.Count -eq 1) {
-    Add-SmokeResult -Results $results -Name "Sync pull snapshot" -Status "pass" -Detail $match[0].payload.physical_format_label
-  } else {
-    Add-SmokeResult -Results $results -Name "Sync pull snapshot" -Status "fail" -Detail "snapshot not returned"
-  }
-}
-
 $failed = @($results | Where-Object { $_.status -eq "fail" })
 $report = [ordered]@{
   generated_at = (Get-Date).ToUniversalTime().ToString("o")
   api_base_url = $ApiBaseUrl
-  sync_base_url = $SyncBaseUrl
   results = $results
 }
 

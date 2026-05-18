@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("start", "stop", "migrate", "seed", "test-backend", "test-flutter", "check", "smoke-web", "smoke-providers", "reset-pipeline", "clean-state")]
+    [ValidateSet("start", "stop", "migrate", "seed", "test", "check", "smoke-providers", "reset-stack", "clean-state")]
     [string]$Command,
     [switch]$UseWslDocker
 )
@@ -33,35 +33,19 @@ switch ($Command) {
     "seed" {
         Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_comics")
     }
-    "test-backend" {
-        Push-Location "$Root\backend"
-        try { python -m pytest } finally { Pop-Location }
-    }
-    "test-flutter" {
-        Push-Location "$Root\frontend"
-        try {
-            flutter pub get
-            dart run build_runner build --delete-conflicting-outputs
-            flutter analyze
-            flutter test
-        } finally { Pop-Location }
+    "test" {
+        python -m pytest
     }
     "check" {
         Invoke-Compose @("config", "--quiet")
-        Push-Location "$Root\backend"
-        try {
-            python -m ruff check .
-            python -m compileall app alembic tests
-        } finally { Pop-Location }
-    }
-    "smoke-web" {
-        & "$Root\scripts\dev-smoke-web.ps1" -UseWslDocker:$UseWslDocker
+        python -m ruff check .
+        python -m compileall app alembic tests
     }
     "smoke-providers" {
         & "$Root\scripts\dev-smoke-providers.ps1" -UseWslDocker:$UseWslDocker
     }
-    "reset-pipeline" {
-        & "$Root\scripts\dev-reset-pipeline.ps1" -Force -UseWslDocker:$UseWslDocker
+    "reset-stack" {
+        & "$Root\scripts\dev-reset-stack.ps1" -Force -UseWslDocker:$UseWslDocker
     }
     "clean-state" {
         & "$Root\scripts\dev-clean-state.ps1" -All -Force -UseWslDocker:$UseWslDocker

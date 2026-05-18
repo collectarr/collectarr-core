@@ -1,5 +1,4 @@
 param(
-  [switch]$WithSync,
   [switch]$KeepImages,
   [switch]$KeepSearchIndex,
   [switch]$UseWslDocker,
@@ -28,18 +27,13 @@ if (-not $Force) {
   }
 }
 
-$composeProfileArgs = @()
-if ($WithSync) {
-  $composeProfileArgs = @("--profile", "sync")
-}
-
 function Invoke-Compose {
   param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Arguments
   )
 
-  Invoke-ComposeChecked -PrefixArguments $composeProfileArgs -Arguments $Arguments
+  Invoke-ComposeChecked -Arguments $Arguments
 }
 
 Invoke-Compose @("down")
@@ -50,9 +44,6 @@ if (-not $KeepSearchIndex) {
 }
 if (-not $KeepImages) {
   $volumes += "collectarr_minio_data"
-}
-if ($WithSync) {
-  $volumes += "collectarr_sync_data"
 }
 
 foreach ($volume in $volumes) {
@@ -76,4 +67,3 @@ Invoke-Compose @("up", "--build", "-d")
 
 Write-Host "Collectarr dev stack reset complete." -ForegroundColor Green
 Write-Host "API:  http://localhost:8010"
-Write-Host "Sync: http://localhost:8020 (when -WithSync is used)"

@@ -38,7 +38,9 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     response = await client.get("/admin/providers", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
-    providers = {item["name"]: item for item in response.json()}
+    body = response.json()
+    assert body["contract_version"] == 1
+    providers = {item["name"]: item for item in body["providers"]}
     assert providers["comicvine"]["kind"] == "comic"
     assert providers["comicvine"]["status"] == "stub"
     assert providers["comicvine"]["supported_kinds"] == ["comic", "manga"]

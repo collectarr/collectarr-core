@@ -29,6 +29,11 @@ class ProviderStatusResponse(BaseModel):
     message: str
 
 
+class ProviderStatusListResponse(BaseModel):
+    contract_version: int
+    providers: list[ProviderStatusResponse]
+
+
 class ProviderIngestRequest(BaseModel):
     provider: ExternalProvider
     provider_item_id: str = Field(min_length=1, max_length=255)

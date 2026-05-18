@@ -492,6 +492,10 @@ _ADMIN_UI_HTML = """
         return data;
       }
 
+      function providerStatusItems(data) {
+        return Array.isArray(data) ? data : (data?.providers || []);
+      }
+
       function renderCatalogResults(target, items) {
         target.innerHTML = "";
         if (!items.length) {
@@ -791,9 +795,10 @@ _ADMIN_UI_HTML = """
           const data = await request("/admin/providers", {
             headers: headers(true),
           });
-          renderProviderStatuses(data);
-          renderProviderOptions(data);
-          setMetric("providerMetric", data.filter((item) => item.is_configured).length);
+          const providers = providerStatusItems(data);
+          renderProviderStatuses(providers);
+          renderProviderOptions(providers);
+          setMetric("providerMetric", providers.filter((item) => item.is_configured).length);
           setStatus("Provider status loaded.", "ok");
           setResponse(data);
           logEvent("Provider status refreshed.");

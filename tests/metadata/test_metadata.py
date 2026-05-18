@@ -16,9 +16,14 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     response = await client.get("/metadata/media-types")
 
     assert response.status_code == 200
-    rows = {item["kind"]: item for item in response.json()}
+    body = response.json()
+    assert body["contract_version"] == 1
+    assert body["snapshot_schema_version"] == 1
+    assert body["default_kind"] == "comic"
+    rows = {item["kind"]: item for item in body["media_types"]}
     assert rows["comic"]["default_provider"] == "gcd"
     assert rows["comic"]["providers"] == ["gcd", "comicvine"]
+    assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
     assert rows["manga"]["default_provider"] == "anilist"
     assert rows["manga"]["providers"] == ["anilist", "comicvine"]
     assert rows["anime"]["default_provider"] == "anilist"

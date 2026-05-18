@@ -26,7 +26,7 @@ from app.schemas.admin import (
     ProviderIngestResponse,
     ProviderIngestHistoryEntry,
     ProviderSearchRequest,
-    ProviderStatusResponse,
+    ProviderStatusListResponse,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.schemas.metadata import ItemResponse
@@ -35,9 +35,12 @@ from app.services.admin import AdminMetadataService
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/providers", response_model=list[ProviderStatusResponse])
-async def providers(db: DbSession, user: CurrentAdmin) -> list[ProviderStatusResponse]:
-    return await AdminMetadataService(db).provider_statuses()
+@router.get("/providers", response_model=ProviderStatusListResponse)
+async def providers(db: DbSession, user: CurrentAdmin) -> ProviderStatusListResponse:
+    return ProviderStatusListResponse(
+        contract_version=1,
+        providers=await AdminMetadataService(db).provider_statuses(),
+    )
 
 
 @router.get("/catalog/summary", response_model=AdminCatalogSummaryResponse)

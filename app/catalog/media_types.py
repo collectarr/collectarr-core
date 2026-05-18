@@ -4,6 +4,11 @@ from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_fo
 from app.models.base import ExternalProvider, ItemKind
 
 
+MEDIA_CATALOG_CONTRACT_VERSION = 1
+CATALOG_SNAPSHOT_SCHEMA_VERSION = 1
+DEFAULT_PROVIDER_SEARCH_POLICY = "core_miss_then_configured_providers"
+
+
 @dataclass(frozen=True)
 class MediaTypeConfig:
     kind: ItemKind
@@ -16,6 +21,7 @@ class MediaTypeConfig:
     is_top_level: bool = True
     legacy_of: ItemKind | None = None
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
+    provider_search_policy: str = DEFAULT_PROVIDER_SEARCH_POLICY
 
     @property
     def primary_route_segment(self) -> str:

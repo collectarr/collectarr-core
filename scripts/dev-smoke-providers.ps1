@@ -195,10 +195,18 @@ try {
 $me = Invoke-Json -Url (Get-ApiUrl "/auth/me") -Token $token
 Add-SmokeResult -Results $results -Name "Auth/admin session" -Status "pass" -Detail "$($me.email)"
 
-$mediaTypes = Invoke-Json -Url (Get-ApiUrl "/metadata/media-types")
+$mediaCatalog = Invoke-Json -Url (Get-ApiUrl "/metadata/media-types")
+$mediaTypes = @($mediaCatalog.media_types)
+if ($mediaTypes.Count -eq 0 -and $mediaCatalog -is [array]) {
+  $mediaTypes = @($mediaCatalog)
+}
 Add-SmokeResult -Results $results -Name "Media catalog" -Status "pass" -Detail "$($mediaTypes.Count) media types"
 
-$providerStatuses = Invoke-Json -Url (Get-ApiUrl "/admin/providers") -Token $token
+$providerStatusResponse = Invoke-Json -Url (Get-ApiUrl "/admin/providers") -Token $token
+$providerStatuses = @($providerStatusResponse.providers)
+if ($providerStatuses.Count -eq 0 -and $providerStatusResponse -is [array]) {
+  $providerStatuses = @($providerStatusResponse)
+}
 $statusByProvider = @{}
 foreach ($status in $providerStatuses) {
   $statusByProvider[$status.name] = $status

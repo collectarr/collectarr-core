@@ -4,7 +4,13 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.api.deps import CurrentUser, DbSession
-from app.catalog.media_types import MediaTypeConfig, media_type_for_route, media_types
+from app.catalog.media_types import (
+    CATALOG_SNAPSHOT_SCHEMA_VERSION,
+    MEDIA_CATALOG_CONTRACT_VERSION,
+    MediaTypeConfig,
+    media_type_for_route,
+    media_types,
+)
 from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import provider_search_rate_limit
@@ -12,6 +18,7 @@ from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.schemas.metadata import (
     ItemResponse,
+    MediaCatalogResponse,
     MediaTypeResponse,
     MetadataProposalCreate,
     MetadataProposalResponse,
@@ -24,9 +31,14 @@ from app.services.metadata import MetadataService
 router = APIRouter(tags=["metadata"])
 
 
-@router.get("/metadata/media-types", response_model=list[MediaTypeResponse])
-async def media_type_catalog() -> list[MediaTypeResponse]:
-    return [_media_type_response(config) for config in media_types]
+@router.get("/metadata/media-types", response_model=MediaCatalogResponse)
+async def media_type_catalog() -> MediaCatalogResponse:
+    return MediaCatalogResponse(
+        contract_version=MEDIA_CATALOG_CONTRACT_VERSION,
+        snapshot_schema_version=CATALOG_SNAPSHOT_SCHEMA_VERSION,
+        default_kind=ItemKind.comic,
+        media_types=[_media_type_response(config) for config in media_types],
+    )
 
 
 @router.get("/search", response_model=list[SearchResult])
@@ -191,6 +203,7 @@ def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
         route_segments=list(config.route_segments),
         default_provider=config.default_provider,
         providers=list(config.providers),
+        provider_search_policy=config.provider_search_policy,
         is_top_level=config.is_top_level,
         legacy_of=config.legacy_of,
         physical_formats=[_physical_format_response(row) for row in config.physical_formats],

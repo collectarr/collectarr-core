@@ -27,7 +27,7 @@ from app.models.canonical import (
     Variant,
     Volume,
 )
-from app.providers.base import ProviderItem
+from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.comicvine import ComicVineIssueCover, ComicVineProvider
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.search.client import SearchClient
@@ -275,9 +275,7 @@ async def test_comicvine_provider_names_associated_covers_from_cover_list():
         "1:10 BOOM! Studios 10 Years Incentive Variant Cover Jeffrey Brown",
         "1:10 BOOM! Studios 10 Years Incentive Variant Cover Jeffrey Brown",
     ]
-    assert [
-        cover.cover_image_url.rsplit("/", 1)[-1] for cover in normalized.variant_covers
-    ] == [
+    assert [cover.cover_image_url.rsplit("/", 1)[-1] for cover in normalized.variant_covers] == [
         "01b.jpg",
         "01-sub.jpg",
         "01-boom.jpg",
@@ -327,6 +325,32 @@ async def test_comicvine_provider_finds_variant_cover_from_cover_list(monkeypatc
     )
 
     assert missing_cover is None
+
+
+@pytest.mark.asyncio
+async def test_comicvine_provider_search_expands_associated_cover_variants(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_request(self, path, params):
+        if path == "search/":
+            return {"results": [comicvine_over_the_garden_wall_raw()]}
+        assert path == "issue/4000-498453/"
+        return {"results": comicvine_over_the_garden_wall_raw()}
+
+    monkeypatch.setattr(ComicVineProvider, "_request", fake_request)
+
+    results = await ComicVineProvider().search("Over the Garden Wall", ItemKind.comic)
+
+    assert [result.provider_item_id for result in results] == [
+        "4000-498453",
+        "4000-498453:cover:4767296",
+        "4000-498453:cover:4767295",
+        "4000-498453:cover:4767294",
+        "4000-498453:cover:4767290",
+    ]
+    assert results[1].title == "Over the Garden Wall #1 [Regular Cover B Carey Pietsch]"
+    assert results[1].image_url.endswith("/01b.jpg")
 
 
 @pytest.mark.asyncio
@@ -770,6 +794,49 @@ async def test_gcd_provider_series_search_fallback_uses_comicvine_search(client,
     assert body[0]["summary"].startswith(
         "Comic Vine fallback while Grand Comics Database is unavailable."
     )
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_series_search_enriches_with_comicvine_variants(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_gcd_search(self, query, kind=None):
+        return [
+            ProviderSearchResult(
+                provider="gcd",
+                provider_item_id="148725",
+                title="Over the Garden Wall (2015 series) #1",
+                kind=ItemKind.comic,
+            )
+        ]
+
+    async def fake_comicvine_search(self, query, kind=None):
+        return [
+            ProviderSearchResult(
+                provider="comicvine",
+                provider_item_id="4000-498453:cover:4767296",
+                title="Over the Garden Wall #1 [Regular Cover B Carey Pietsch]",
+                kind=ItemKind.comic,
+                image_url="https://comicvine.gamespot.com/a/uploads/original/01b.jpg",
+            )
+        ]
+
+    monkeypatch.setattr(GCDProvider, "search", fake_gcd_search)
+    monkeypatch.setattr(ComicVineProvider, "search", fake_comicvine_search)
+
+    response = await client.get(
+        "/metadata/providers/gcd/search",
+        params={"q": "Over the Garden Wall", "kind": "comic"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["provider"] for item in body] == ["gcd", "comicvine"]
+    assert body[1]["provider_item_id"] == "4000-498453:cover:4767296"
+    assert body[1]["image_url"].endswith("/01b.jpg")
 
 
 @pytest.mark.asyncio
@@ -1944,8 +2011,7 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
     assert variant["cover_price_cents"] == 295
     assert variant["currency"] == "USD"
     expected_cover_url = (
-        "/metadata/providers/gcd/images/256114"
-        "?series=Batman%3A+Dark+Victory&issue=12&year=1999"
+        "/metadata/providers/gcd/images/256114?series=Batman%3A+Dark+Victory&issue=12&year=1999"
     )
     assert variant["cover_image_url"] == expected_cover_url
     assert indexed_documents[0]["barcode"] == "76194122054301211"

@@ -163,12 +163,20 @@ class ComicVineProvider:
 
         results = self._sort_search_results(results, normalized_query)
         normalized_results = []
+        variant_detail_requests = 0
         for result in results:
             if not isinstance(result, Mapping):
                 continue
             search_result = self._search_result(result, target_kind)
             if search_result.provider_item_id:
                 normalized_results.append(search_result)
+            if variant_detail_requests >= self.settings.comicvine_search_variant_detail_limit:
+                continue
+            variant_detail_requests += 1
+            detail = await self._search_result_detail(result, target_kind)
+            if detail is None:
+                continue
+            normalized_results.extend(self._variant_search_results(detail, target_kind))
         return normalized_results
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
@@ -473,6 +481,85 @@ class ComicVineProvider:
             image_url=self._image_url(result.get("image")),
         )
 
+    async def _search_result_detail(
+        self,
+        result: Mapping[str, Any],
+        kind: ItemKind,
+    ) -> Mapping[str, Any] | None:
+        resource_id = self._resource_id(result, "issue")
+        if not resource_id:
+            return None
+        try:
+            payload = await self._request(
+                f"issue/{self._issue_resource_id(resource_id)}/",
+                {
+                    "field_list": ",".join(
+                        [
+                            "id",
+                            "api_detail_url",
+                            "site_detail_url",
+                            "name",
+                            "issue_number",
+                            "deck",
+                            "description",
+                            "image",
+                            "associated_images",
+                            "volume",
+                        ]
+                    )
+                },
+            )
+        except Exception:
+            logger.warning(
+                "comicvine_search_variant_detail_failed issue=%s",
+                resource_id,
+                exc_info=True,
+            )
+            return None
+        raw = payload.get("results") or {}
+        if not isinstance(raw, Mapping):
+            return None
+        detail = dict(raw)
+        detail["media_type"] = kind.value
+        return detail
+
+    def _variant_search_results(
+        self,
+        detail: Mapping[str, Any],
+        kind: ItemKind,
+    ) -> list[ProviderSearchResult]:
+        provider_item_id = self._provider_item_id(
+            kind,
+            self._resource_id(detail, "issue") or str(detail.get("id") or ""),
+        )
+        if not provider_item_id:
+            return []
+        volume = detail.get("volume") if isinstance(detail.get("volume"), Mapping) else {}
+        volume_name = str(volume.get("name") or "").strip()
+        issue_name = str(detail.get("name") or "").strip()
+        issue_number = str(detail.get("issue_number") or "").strip()
+        title_base = " ".join(
+            part
+            for part in [volume_name or issue_name, f"#{issue_number}" if issue_number else ""]
+            if part
+        ).strip()
+        if not title_base:
+            title_base = "Unknown ComicVine issue"
+        variants: list[ProviderSearchResult] = []
+        for index, cover in enumerate(self._associated_variant_covers(detail), start=1):
+            source_id = cover.source_id or self._slug(cover.name) or str(index)
+            variants.append(
+                ProviderSearchResult(
+                    provider=self.name,
+                    provider_item_id=f"{provider_item_id}:cover:{source_id}",
+                    title=f"{title_base} [{cover.name}]",
+                    kind=kind,
+                    summary="ComicVine associated cover variant.",
+                    image_url=cover.cover_image_url,
+                )
+            )
+        return variants
+
     def _sort_search_results(self, results: list[Any], query: str) -> list[Any]:
         return sorted(
             results,
@@ -518,6 +605,7 @@ class ComicVineProvider:
 
     def _issue_resource_id(self, provider_item_id: str) -> str:
         _, resource_id = self._kind_and_resource_id(provider_item_id)
+        resource_id = resource_id.split(":cover:", 1)[0]
         if re.fullmatch(r"\d+-\d+", resource_id):
             return resource_id
         if resource_id.isdigit():
@@ -653,9 +741,7 @@ class ComicVineProvider:
         if not specific_terms:
             return False
         matched_specific_terms = [
-            term
-            for term in specific_terms
-            if term in haystack_terms or term in haystack_text
+            term for term in specific_terms if term in haystack_terms or term in haystack_text
         ]
         return len(matched_specific_terms) >= min(2, len(specific_terms))
 

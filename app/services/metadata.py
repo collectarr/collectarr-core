@@ -163,6 +163,7 @@ class MetadataService:
             )
         cache_key = self._provider_search_cache_key(provider_name, query, kind)
         results = await self._cached_provider_search_results(cache_key)
+        should_refresh_cache = False
         if results is None:
             try:
                 results = await self._search_provider_live(provider_name, provider, query, kind)
@@ -176,6 +177,17 @@ class MetadataService:
                 if fallback_results is None:
                     raise
                 results = fallback_results
+            should_refresh_cache = True
+        enriched_results = await self._with_provider_search_enrichment(
+            provider_name,
+            query,
+            kind,
+            results,
+        )
+        if enriched_results is not results:
+            results = enriched_results
+            should_refresh_cache = True
+        if should_refresh_cache:
             await self._store_provider_search_results(cache_key, results)
         results = await self._with_stable_provider_image_urls(results)
         return [ProviderSearchResultResponse(**result.__dict__) for result in results]
@@ -506,6 +518,71 @@ class MetadataService:
             original_error.code,
         )
         return results
+
+    async def _with_provider_search_enrichment(
+        self,
+        provider_name: ExternalProvider,
+        query: str,
+        kind: ItemKind | None,
+        results: list[ProviderSearchResult],
+    ) -> list[ProviderSearchResult]:
+        if not self.settings.provider_search_comicvine_fallback_enabled:
+            return results
+        if provider_name != ExternalProvider.gcd or not results:
+            return results
+        target_kind = kind or ItemKind.comic
+        if target_kind not in {ItemKind.comic, ItemKind.manga}:
+            return results
+        if any(result.provider == ExternalProvider.comicvine.value for result in results):
+            return results
+
+        fallback = self.providers.maybe_get(ExternalProvider.comicvine)
+        if (
+            fallback is None
+            or not fallback.is_configured
+            or not fallback.capabilities.supports_kind(target_kind)
+        ):
+            return results
+
+        plan = GCDProvider()._query_plan(query)
+        if not plan.is_series_search:
+            return results
+
+        cache_key = self._provider_search_cache_key(
+            ExternalProvider.comicvine,
+            query,
+            target_kind,
+        )
+        fallback_results = await self._cached_provider_search_results(cache_key)
+        if fallback_results is None:
+            try:
+                fallback_results = await self._search_provider_live(
+                    ExternalProvider.comicvine,
+                    fallback,
+                    query,
+                    target_kind,
+                )
+            except Exception:
+                logger.warning(
+                    "provider_search_enrichment_failed provider=%s fallback=%s",
+                    provider_name.value,
+                    fallback.name,
+                    exc_info=True,
+                )
+                return results
+            await self._store_provider_search_results(cache_key, fallback_results)
+        if not fallback_results:
+            return results
+
+        seen = {(result.provider, result.provider_item_id) for result in results}
+        enriched = list(results)
+        for result in fallback_results:
+            key = (result.provider, result.provider_item_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            enriched.append(result)
+        return enriched
 
     async def _search_gcd_comicvine_exact_fallback(
         self,

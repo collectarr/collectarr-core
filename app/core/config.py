@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     comicvine_timeout_seconds: float = 20.0
     comicvine_retry_attempts: int = 2
     comicvine_search_limit: int = 20
+    comicvine_search_variant_detail_limit: int = Field(default=5, ge=0, le=20)
     comicvine_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
     gcd_base_url: str = "https://www.comics.org/api"

@@ -74,6 +74,9 @@ are checked in for Flutter web, Android, and Windows.
 - Provider abstraction for search, item fetch, and normalization
 - GCD provider supports issue search/fetch without an API key for CC BY-SA bibliographic comics metadata
 - ComicVine provider supports live comics and manga issue search/fetch when `COMICVINE_API_KEY` is set
+- ComicVine search expands issue `associated_images` into variant cover
+  candidates, and GCD series searches can merge those ComicVine cover
+  candidates as controlled enrichment when the key is configured
 - AniList provider supports live public anime and manga search/fetch without OAuth
 - OpenLibrary provider supports live book search/fetch without an API key
 - BoardGameGeek provider supports live board game search/fetch when `BGG_API_TOKEN` is set
@@ -110,8 +113,8 @@ are checked in for Flutter web, Android, and Windows.
   provider/kind/query caching, and provider cooldown after 401/429/5xx upstream
   errors. When `REDIS_URL` is set, those guardrails are shared across API
   processes; otherwise they fall back to local in-memory state. GCD can use
-  ComicVine as a controlled fallback when enabled, and the Flutter add flow
-  labels those fallback results clearly.
+  ComicVine as controlled fallback/enrichment when enabled, and the Flutter add
+  flow labels those provider results clearly.
 - If GCD cover URLs are blocked by a browser or network, run `python -m app.scripts.enrich_comicvine_covers --replace-gcd-covers` with `COMICVINE_API_KEY` set to replace those cover references with ComicVine image URLs
 
 ---

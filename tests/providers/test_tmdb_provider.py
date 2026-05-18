@@ -241,3 +241,86 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert creator == "Lana Wachowski"
     assert "Keanu Reeves" in tags
     assert "Science Fiction" in tags
+
+
+@pytest.mark.asyncio
+async def test_tmdb_provider_get_seasons(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "tmdb_api_read_access_token", "token")
+
+    async def fake_request(self, path, params=None):
+        if path == "tv/1399":
+            return {
+                "id": 1399,
+                "seasons": [
+                    {
+                        "season_number": 1,
+                        "name": "Season 1",
+                        "overview": "The first season.",
+                        "air_date": "2011-04-17",
+                        "episode_count": 10,
+                        "poster_path": "/season1.jpg",
+                    },
+                    {
+                        "season_number": 2,
+                        "name": "Season 2",
+                        "overview": "The second season.",
+                        "air_date": "2012-04-01",
+                        "episode_count": 10,
+                        "poster_path": "/season2.jpg",
+                    },
+                ],
+            }
+        if path == "tv/1399/season/1":
+            return {
+                "episodes": [
+                    {
+                        "episode_number": 1,
+                        "name": "Winter Is Coming",
+                        "overview": "Ned Stark is called south.",
+                        "air_date": "2011-04-17",
+                        "runtime": 62,
+                        "still_path": "/ep1.jpg",
+                    },
+                    {
+                        "episode_number": 2,
+                        "name": "The Kingsroad",
+                        "overview": "The party heads south.",
+                        "air_date": "2011-04-24",
+                        "runtime": 56,
+                        "still_path": "/ep2.jpg",
+                    },
+                ],
+            }
+        if path == "tv/1399/season/2":
+            return {
+                "episodes": [
+                    {
+                        "episode_number": 1,
+                        "name": "The North Remembers",
+                        "overview": "Tyrion arrives at court.",
+                        "air_date": "2012-04-01",
+                        "runtime": 53,
+                        "still_path": "/ep3.jpg",
+                    },
+                ],
+            }
+        raise AssertionError(f"Unexpected path: {path}")
+
+    monkeypatch.setattr(TMDbProvider, "_request", fake_request)
+
+    seasons = await TMDbProvider().get_seasons("tv:1399")
+
+    assert len(seasons) == 2
+    assert seasons[0].season_number == 1
+    assert seasons[0].title == "Season 1"
+    assert seasons[0].overview == "The first season."
+    assert seasons[0].episode_count == 10
+    assert seasons[0].poster_url == "https://image.tmdb.org/t/p/w500/season1.jpg"
+    assert len(seasons[0].episodes) == 2
+    assert seasons[0].episodes[0].episode_number == 1
+    assert seasons[0].episodes[0].title == "Winter Is Coming"
+    assert seasons[0].episodes[0].runtime_minutes == 62
+    assert seasons[0].episodes[0].still_url == "https://image.tmdb.org/t/p/w500/ep1.jpg"
+    assert seasons[1].season_number == 2
+    assert len(seasons[1].episodes) == 1

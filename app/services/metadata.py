@@ -25,6 +25,7 @@ from app.schemas.metadata import (
     MetadataProposalCreate,
     MetadataProposalResponse,
     ProviderSearchResultResponse,
+    SeasonResponse,
     SearchResult,
     SeriesRelationResponse,
     item_response_from_model,
@@ -902,4 +903,47 @@ class MetadataService:
                 provider_id=(rel.metadata_json or {}).get("provider_id"),
             )
             for rel in relations
+        ]
+
+    async def get_provider_seasons(
+        self, provider_name: ExternalProvider, provider_item_id: str
+    ) -> list[SeasonResponse]:
+        from app.providers.base import NormalizedSeason
+        from app.schemas.metadata import EpisodeResponse
+
+        provider = self.providers.maybe_get(provider_name)
+        if provider is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_not_configured",
+                detail=f"Provider '{provider_name.value}' is not configured",
+            )
+        if not hasattr(provider, "get_seasons"):
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_seasons_unsupported",
+                detail=f"Provider '{provider_name.value}' does not support seasons",
+            )
+        seasons: list[NormalizedSeason] = await provider.get_seasons(provider_item_id)
+        return [
+            SeasonResponse(
+                season_number=s.season_number,
+                title=s.title,
+                overview=s.overview,
+                air_date=s.air_date,
+                episode_count=s.episode_count,
+                poster_url=s.poster_url,
+                episodes=[
+                    EpisodeResponse(
+                        episode_number=ep.episode_number,
+                        title=ep.title,
+                        overview=ep.overview,
+                        air_date=ep.air_date,
+                        runtime_minutes=ep.runtime_minutes,
+                        still_url=ep.still_url,
+                    )
+                    for ep in s.episodes
+                ],
+            )
+            for s in seasons
         ]

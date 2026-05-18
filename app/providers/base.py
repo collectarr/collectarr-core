@@ -86,6 +86,27 @@ class NormalizedRelation:
 
 
 @dataclass(frozen=True)
+class NormalizedEpisode:
+    episode_number: int
+    title: str
+    overview: str | None = None
+    air_date: date | None = None
+    runtime_minutes: int | None = None
+    still_url: str | None = None
+
+
+@dataclass(frozen=True)
+class NormalizedSeason:
+    season_number: int
+    title: str
+    overview: str | None = None
+    air_date: date | None = None
+    episode_count: int | None = None
+    poster_url: str | None = None
+    episodes: list[NormalizedEpisode] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class NormalizedItem:
     kind: ItemKind
     title: str

@@ -47,6 +47,7 @@ from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,
+    NormalizedSeason,
     NormalizedVariantCover,
 )
 from app.providers.comicvine import ComicVineProvider
@@ -1167,6 +1168,10 @@ class AdminMetadataService:
         await self._link_tags(item.id, "story_arc", normalized.story_arcs)
         if volume:
             await self._link_relations(series, normalized.relations)
+        if series and hasattr(provider, "get_seasons"):
+            await self._ingest_seasons(
+                provider, provider_item.provider_item_id, series, normalized.kind
+            )
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -1619,6 +1624,69 @@ class AdminMetadataService:
                     },
                 )
             )
+
+    async def _ingest_seasons(
+        self,
+        provider: MetadataProvider,
+        provider_item_id: str,
+        series: Series,
+        kind: ItemKind,
+    ) -> None:
+        if kind not in (ItemKind.tv, ItemKind.anime):
+            return
+        if not hasattr(provider, "get_seasons"):
+            return
+        try:
+            seasons: list[NormalizedSeason] = await provider.get_seasons(provider_item_id)
+        except Exception:
+            logger.warning("Failed to fetch seasons for %s", provider_item_id, exc_info=True)
+            return
+        for season in seasons:
+            volume_name = season.title or f"Season {season.season_number}"
+            result = await self.db.execute(
+                select(Volume).where(
+                    Volume.series_id == series.id,
+                    Volume.name == volume_name,
+                )
+            )
+            volume = result.scalar_one_or_none()
+            if volume is None:
+                volume = Volume(
+                    series=series,
+                    name=volume_name,
+                    volume_number=season.season_number,
+                    start_year=season.air_date.year if season.air_date else None,
+                )
+                self.db.add(volume)
+                await self.db.flush()
+            for ep in season.episodes:
+                existing_ep = await self.db.scalar(
+                    select(Item.id).where(
+                        Item.volume_id == volume.id,
+                        Item.season_number == season.season_number,
+                        Item.episode_number == ep.episode_number,
+                    )
+                )
+                if existing_ep:
+                    continue
+                item = Item(
+                    volume=volume,
+                    kind=kind,
+                    title=ep.title,
+                    item_number=str(ep.episode_number),
+                    sort_key=self._sort_key(kind, ep.title, str(ep.episode_number)),
+                    synopsis=ep.overview,
+                    season_number=season.season_number,
+                    episode_number=ep.episode_number,
+                    runtime_minutes=ep.runtime_minutes,
+                    metadata_json={
+                        "season_title": season.title,
+                        "air_date": ep.air_date.isoformat() if ep.air_date else None,
+                        "still_url": ep.still_url,
+                    },
+                )
+                self.db.add(item)
+        await self.db.flush()
 
     async def _get_or_create_organization(self, name: str, organization_type: str) -> Organization:
         result = await self.db.execute(

@@ -9,8 +9,10 @@ from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
+    NormalizedEpisode,
     NormalizedItem,
     NormalizedRelation,
+    NormalizedSeason,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,
@@ -425,3 +427,65 @@ class TMDbProvider:
         return "-".join(
             "".join(char.lower() if char.isalnum() else " " for char in value).split()
         )
+
+    async def get_seasons(self, provider_item_id: str) -> list[NormalizedSeason]:
+        kind, tmdb_id = self._provider_id(provider_item_id)
+        if tmdb_id is None or kind not in (ItemKind.tv, ItemKind.anime):
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="tmdb_invalid_id",
+                detail="Invalid TMDb id or unsupported kind for seasons",
+            )
+        show = await self._request(
+            f"tv/{tmdb_id}",
+            {"language": "en-US"},
+        )
+        raw_seasons = show.get("seasons") or []
+        if not isinstance(raw_seasons, list):
+            return []
+
+        seasons: list[NormalizedSeason] = []
+        for raw in raw_seasons:
+            if not isinstance(raw, Mapping):
+                continue
+            season_number = raw.get("season_number")
+            if season_number is None:
+                continue
+            season_detail = await self._request(
+                f"tv/{tmdb_id}/season/{season_number}",
+                {"language": "en-US"},
+            )
+            episodes: list[NormalizedEpisode] = []
+            for ep in season_detail.get("episodes") or []:
+                if not isinstance(ep, Mapping):
+                    continue
+                ep_num = ep.get("episode_number")
+                ep_title = self._optional_text(ep.get("name")) or f"Episode {ep_num}"
+                episodes.append(
+                    NormalizedEpisode(
+                        episode_number=ep_num,
+                        title=ep_title,
+                        overview=self._optional_text(ep.get("overview")),
+                        air_date=self._date(ep.get("air_date")),
+                        runtime_minutes=ep.get("runtime"),
+                        still_url=self._image_url(ep.get("still_path")),
+                    )
+                )
+            seasons.append(
+                NormalizedSeason(
+                    season_number=season_number,
+                    title=self._optional_text(raw.get("name")) or f"Season {season_number}",
+                    overview=self._optional_text(raw.get("overview")),
+                    air_date=self._date(raw.get("air_date")),
+                    episode_count=raw.get("episode_count"),
+                    poster_url=self._image_url(raw.get("poster_path")),
+                    episodes=episodes,
+                )
+            )
+        return seasons
+
+    def _image_url(self, path: Any) -> str | None:
+        text = self._optional_text(path)
+        if not text:
+            return None
+        return f"{self.settings.tmdb_image_base_url.rstrip('/')}/w500/{text.lstrip('/')}"

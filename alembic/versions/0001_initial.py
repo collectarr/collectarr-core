@@ -26,7 +26,7 @@ def upgrade() -> None:
     )
     external_provider = postgresql.ENUM(
         "anilist", "bgg", "comicvine", "gcd", "igdb",
-        "musicbrainz", "openlibrary", "tmdb",
+        "mangadex", "musicbrainz", "openlibrary", "tmdb",
         name="external_provider",
     )
     series_relation_type = postgresql.ENUM(

@@ -44,7 +44,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Manga",
         route_segments=("manga",),
         default_provider=ExternalProvider.anilist,
-        providers=(ExternalProvider.anilist, ExternalProvider.comicvine),
+        providers=(ExternalProvider.anilist, ExternalProvider.mangadex, ExternalProvider.comicvine),
     ),
     MediaTypeConfig(
         kind=ItemKind.anime,

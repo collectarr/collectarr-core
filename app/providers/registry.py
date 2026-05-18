@@ -6,6 +6,7 @@ from app.providers.bgg import BGGProvider
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.igdb import IGDBProvider
+from app.providers.mangadex import MangaDexProvider
 from app.providers.musicbrainz import MusicBrainzProvider
 from app.providers.openlibrary import OpenLibraryProvider
 from app.providers.tmdb import TMDbProvider
@@ -19,6 +20,7 @@ class ProviderRegistry:
             IGDBProvider(),
             TMDbProvider(),
             AniListProvider(),
+            MangaDexProvider(),
             OpenLibraryProvider(),
             BGGProvider(),
             MusicBrainzProvider(),

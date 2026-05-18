@@ -13,6 +13,7 @@ from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,
+    NormalizedSeason,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,
@@ -462,3 +463,38 @@ class AniListProvider:
             return None
         text = str(value).strip()
         return text or None
+
+    async def get_volumes(self, provider_item_id: str) -> list[NormalizedSeason]:
+        """Seed volumes from AniList volume count. No per-chapter data available."""
+        kind, anilist_id = self._kind_and_media_id(provider_item_id)
+        if anilist_id is None or kind != ItemKind.manga:
+            return []
+        payload = await self._graphql(
+            """
+            query ($id: Int) {
+              Media(id: $id, type: MANGA) {
+                volumes
+                chapters
+              }
+            }
+            """,
+            {"id": anilist_id},
+        )
+        media = (payload.get("data") or {}).get("Media")
+        if not isinstance(media, Mapping):
+            return []
+        volume_count = self._int(media.get("volumes"))
+        if not volume_count:
+            return []
+        return [
+            NormalizedSeason(
+                season_number=i,
+                title=f"Volume {i}",
+                overview=None,
+                air_date=None,
+                episode_count=None,
+                poster_url=None,
+                episodes=[],
+            )
+            for i in range(1, volume_count + 1)
+        ]

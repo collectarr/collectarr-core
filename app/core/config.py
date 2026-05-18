@@ -117,6 +117,12 @@ class Settings(BaseSettings):
     tmdb_language: str = "en-US"
     tmdb_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
+    mangadex_base_url: str = "https://api.mangadex.org"
+    mangadex_timeout_seconds: float = 20.0
+    mangadex_search_limit: int = 20
+    mangadex_feed_limit: int = 500
+    mangadex_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     @model_validator(mode="after")

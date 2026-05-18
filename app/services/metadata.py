@@ -947,3 +947,46 @@ class MetadataService:
             )
             for s in seasons
         ]
+
+    async def get_provider_volumes(
+        self, provider_name: ExternalProvider, provider_item_id: str
+    ) -> list[SeasonResponse]:
+        from app.providers.base import NormalizedSeason
+        from app.schemas.metadata import EpisodeResponse
+
+        provider = self.providers.maybe_get(provider_name)
+        if provider is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_not_configured",
+                detail=f"Provider '{provider_name.value}' is not configured",
+            )
+        if not hasattr(provider, "get_volumes"):
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_volumes_unsupported",
+                detail=f"Provider '{provider_name.value}' does not support volumes",
+            )
+        volumes: list[NormalizedSeason] = await provider.get_volumes(provider_item_id)
+        return [
+            SeasonResponse(
+                season_number=v.season_number,
+                title=v.title,
+                overview=v.overview,
+                air_date=v.air_date,
+                episode_count=v.episode_count,
+                poster_url=v.poster_url,
+                episodes=[
+                    EpisodeResponse(
+                        episode_number=ep.episode_number,
+                        title=ep.title,
+                        overview=ep.overview,
+                        air_date=ep.air_date,
+                        runtime_minutes=ep.runtime_minutes,
+                        still_url=ep.still_url,
+                    )
+                    for ep in v.episodes
+                ],
+            )
+            for v in volumes
+        ]

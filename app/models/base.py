@@ -48,6 +48,7 @@ class ExternalProvider(str, enum.Enum):
     comicvine = "comicvine"
     gcd = "gcd"
     igdb = "igdb"
+    mangadex = "mangadex"
     musicbrainz = "musicbrainz"
     openlibrary = "openlibrary"
     tmdb = "tmdb"

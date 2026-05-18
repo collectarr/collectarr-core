@@ -88,6 +88,7 @@ class ItemResponse(BaseModel):
     runtime_minutes: int | None
     page_count: int | None
     metadata_json: dict[str, Any] | None
+    series_id: UUID | None = None
     series_title: str | None = None
     volume_name: str | None = None
     volume_number: int | None = None
@@ -214,6 +215,7 @@ def item_response_from_model(item: Any) -> ItemResponse:
     series = getattr(volume, "series", None) if volume is not None else None
     base.update(
         {
+            "series_id": str(getattr(series, "id", None)) if series else None,
             "series_title": getattr(series, "title", None),
             "volume_name": getattr(volume, "name", None),
             "volume_number": getattr(volume, "volume_number", None),

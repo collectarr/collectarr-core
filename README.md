@@ -27,6 +27,18 @@ python -m ruff check .
 python -m pytest
 ```
 
+Helper commands:
+
+```powershell
+.\tools\dev.ps1 start
+.\tools\dev.ps1 migrate
+.\tools\dev.ps1 seed
+.\tools\dev.ps1 test
+.\tools\dev.ps1 check
+.\tools\dev.ps1 smoke-providers
+.\tools\dev.ps1 reset-stack
+```
+
 ## Local URLs
 
 - API: http://localhost:8010
@@ -53,3 +65,23 @@ Related repositories:
 
 - `collectarr/collectarr-app`: Flutter local-library client
 - `collectarr/collectarr-sync`: optional personal sync service
+
+## Current Focus
+
+See [docs/implementation-plan.md](docs/implementation-plan.md) for the active
+Core roadmap.
+
+Near-term Core work:
+
+- harden provider search/ingest for comics, manga, books, games, movies, TV,
+  anime, board games, and music
+- improve GCD + ComicVine comics coverage, including series aliases, issue
+  matching, variants, barcode/UPC, credits, publishers, release dates, and
+  missing cover handling
+- mature image delivery: external URL by default, optional MinIO/S3 mirror,
+  generated fallback covers, and cache health visibility
+- grow the Core Admin Console into the operator surface for provider health,
+  ingest queues, catalog coverage, duplicates, metadata proposals, image
+  inspection, audit history, and admin accounts
+- publish stable API/media catalog/snapshot contracts for `collectarr-app` and
+  `collectarr-sync`

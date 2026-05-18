@@ -54,8 +54,7 @@ class MetadataProvider(Protocol):
 
 ## Repository Boundaries
 
-Collectarr should split into three product repositories once the current
-pre-release monorepo is frozen for migration:
+Collectarr is split into three product repositories:
 
 - `collectarr-core`: metadata API, canonical catalog, provider plugins,
   provider ingest worker, search indexing, image cache, admin identity, audit
@@ -72,7 +71,7 @@ history, admin accounts, and destructive metadata operations. The Flutter app
 can show whether the connected account has admin permissions, but the
 server-operator console belongs with Core.
 
-See [repository-split.md](repository-split.md) for the split sequence and file
+See [repository-split.md](repository-split.md) for the current split status and
 ownership map.
 
 GCD is the default legal-clean comics seed candidate because it provides CC BY-SA bibliographic issue metadata without an API key. Its provider searches issue-style queries such as `Batman #12`, falls back to issue `#1` for series-only queries such as `Absolute Batman`, normalizes issue detail into canonical metadata, and preserves source provenance.

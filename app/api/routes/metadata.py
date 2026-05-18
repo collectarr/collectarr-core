@@ -24,6 +24,7 @@ from app.schemas.metadata import (
     MetadataProposalResponse,
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
+    SeasonResponse,
     SearchResult,
     SeriesRelationResponse,
 )
@@ -247,3 +248,16 @@ async def get_series_relations(
     _user: CurrentUser,
 ) -> list[SeriesRelationResponse]:
     return await MetadataService(db).get_series_relations(series_id)
+
+
+@router.get(
+    "/providers/{provider}/seasons/{provider_item_id:path}",
+    response_model=list[SeasonResponse],
+)
+async def get_provider_seasons(
+    provider: ExternalProvider,
+    provider_item_id: str,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[SeasonResponse]:
+    return await MetadataService(db).get_provider_seasons(provider, provider_item_id)

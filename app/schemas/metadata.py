@@ -204,6 +204,25 @@ class SeriesRelationResponse(BaseModel):
     provider_id: str | None = None
 
 
+class EpisodeResponse(BaseModel):
+    episode_number: int
+    title: str
+    overview: str | None = None
+    air_date: date | None = None
+    runtime_minutes: int | None = None
+    still_url: str | None = None
+
+
+class SeasonResponse(BaseModel):
+    season_number: int
+    title: str
+    overview: str | None = None
+    air_date: date | None = None
+    episode_count: int | None = None
+    poster_url: str | None = None
+    episodes: list[EpisodeResponse] = Field(default_factory=list)
+
+
 def item_response_from_model(item: Any) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
     _enrich_physical_formats(base, item)

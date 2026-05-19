@@ -284,6 +284,8 @@ class ProviderSearchState:
             "volume_start_year": result.volume_start_year,
             "variant_name": result.variant_name,
             "is_variant": result.is_variant,
+            "issue_count": result.issue_count,
+            "publisher": result.publisher,
         }
 
     def _result_from_payload(self, payload: dict) -> ProviderSearchResult:
@@ -300,6 +302,8 @@ class ProviderSearchState:
             volume_start_year=self._optional_int(payload.get("volume_start_year")),
             variant_name=self._optional_text(payload.get("variant_name")),
             is_variant=self._optional_bool(payload.get("is_variant")),
+            issue_count=self._optional_int(payload.get("issue_count")),
+            publisher=self._optional_text(payload.get("publisher")),
         )
 
     def _optional_text(self, value) -> str | None:

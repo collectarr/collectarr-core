@@ -128,6 +128,7 @@ class GCDProvider:
         seen: set[str] = set()
         active_year_hint = plan.year_hint
         active_series_alias: str | None = None
+        series_candidate_emitted = False
         for series_name, issue_number in plan.candidates:
             series_alias_key = series_name.casefold()
             if (
@@ -164,6 +165,19 @@ class GCDProvider:
             )
             if issue_results and plan.is_series_search and active_series_alias is None:
                 active_series_alias = series_alias_key
+
+            if (
+                plan.is_series_search
+                and not series_candidate_emitted
+                and issue_results
+            ):
+                series_result = self._series_candidate(
+                    issue_results[0],
+                    issue_count=payload.get("count"),
+                )
+                if series_result is not None:
+                    normalized_results.insert(0, series_result)
+                    series_candidate_emitted = True
 
             for result in issue_results[: self.settings.gcd_search_limit]:
                 search_result = self._search_result(result)
@@ -362,6 +376,49 @@ class GCDProvider:
             volume_start_year=start_year,
             variant_name=variant_hint,
             is_variant=bool(result.get("variant_of")),
+        )
+
+    def _series_candidate(
+        self,
+        representative_issue: Mapping[str, Any],
+        *,
+        issue_count: Any = None,
+    ) -> ProviderSearchResult | None:
+        series_url = self._optional_text(representative_issue.get("series"))
+        series_id = self._series_id(series_url)
+        if not series_id:
+            return None
+        series_name = (
+            self._optional_text(representative_issue.get("series_name")) or "Unknown series"
+        )
+        series_title = self._series_title(series_name)
+        start_year = self._series_start_year(series_name)
+        publisher = self._publisher(representative_issue)
+        count = int(issue_count) if issue_count is not None and str(issue_count).isdigit() else None
+        first_issue_id = self._issue_id(representative_issue.get("api_url"))
+        summary_parts = [
+            publisher,
+            f"{start_year} series" if start_year else None,
+            f"{count} issues" if count else None,
+        ]
+        return ProviderSearchResult(
+            provider=self.name,
+            provider_item_id=f"series-{series_id}",
+            title=series_title,
+            kind=ItemKind.comic,
+            summary=" · ".join(part for part in summary_parts if part),
+            image_url=self._cover_proxy_url(
+                first_issue_id,
+                series_title=series_title,
+                issue_number="1",
+                start_year=start_year,
+            ),
+            candidate_type="series",
+            series_title=series_title,
+            volume_start_year=start_year,
+            is_variant=False,
+            issue_count=count,
+            publisher=publisher,
         )
 
     async def _download_cover_image(self, cover_url: str, issue_id: str) -> tuple[bytes, str]:

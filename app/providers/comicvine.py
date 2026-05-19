@@ -137,6 +137,16 @@ class ComicVineProvider:
                 )
             ]
 
+        is_series_query = not re.search(
+            r"#\s*\d|issue\s+\d|no\.?\s*\d",
+            normalized_query,
+            re.IGNORECASE,
+        )
+
+        series_candidate: ProviderSearchResult | None = None
+        if is_series_query:
+            series_candidate = await self._series_candidate(normalized_query, target_kind)
+
         payload = await self._request(
             "search/",
             {
@@ -159,10 +169,12 @@ class ComicVineProvider:
         )
         results = payload.get("results") or []
         if not isinstance(results, list):
-            return []
+            return [series_candidate] if series_candidate else []
 
         results = self._sort_search_results(results, normalized_query)
-        normalized_results = []
+        normalized_results: list[ProviderSearchResult] = []
+        if series_candidate is not None:
+            normalized_results.append(series_candidate)
         variant_detail_requests = 0
         for result in results:
             if not isinstance(result, Mapping):
@@ -485,6 +497,57 @@ class ComicVineProvider:
             is_variant=False,
         )
 
+    async def _series_candidate(
+        self,
+        query: str,
+        kind: ItemKind,
+    ) -> ProviderSearchResult | None:
+        try:
+            volume = await self._find_volume(query, start_year=None)
+        except Exception:
+            logger.warning(
+                "comicvine_series_candidate_failed query=%s",
+                query,
+                exc_info=True,
+            )
+            return None
+        if volume is None:
+            return None
+        volume_name = str(volume.get("name") or "").strip()
+        if not volume_name:
+            return None
+        resource_id = self._resource_id(volume, "volume")
+        if not resource_id:
+            return None
+        start_year = self._int_value(volume.get("start_year"))
+        issue_count = self._int_value(volume.get("count_of_issues"))
+        publisher_data = volume.get("publisher")
+        publisher = (
+            str(publisher_data.get("name") or "").strip()
+            if isinstance(publisher_data, Mapping)
+            else None
+        )
+        image_url = self._image_url(volume.get("image"))
+        summary_parts = [
+            publisher,
+            f"{start_year} series" if start_year else None,
+            f"{issue_count} issues" if issue_count else None,
+        ]
+        return ProviderSearchResult(
+            provider=self.name,
+            provider_item_id=self._provider_item_id(kind, f"series-{resource_id}"),
+            title=volume_name,
+            kind=kind,
+            summary=" · ".join(part for part in summary_parts if part),
+            image_url=image_url,
+            candidate_type="series",
+            series_title=volume_name,
+            volume_start_year=start_year,
+            is_variant=False,
+            issue_count=issue_count,
+            publisher=publisher,
+        )
+
     async def _search_result_detail(
         self,
         result: Mapping[str, Any],
@@ -681,7 +744,7 @@ class ComicVineProvider:
                 "query": series_title,
                 "resources": "volume",
                 "limit": 10,
-                "field_list": "id,api_detail_url,name,start_year,site_detail_url",
+                "field_list": "id,api_detail_url,name,start_year,site_detail_url,count_of_issues,publisher,image",
             },
         )
         results = payload.get("results") or []

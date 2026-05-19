@@ -990,3 +990,162 @@ class MetadataService:
             )
             for v in volumes
         ]
+
+    async def get_item_volumes(self, item_id: UUID) -> list[SeasonResponse]:
+        """Look up provider links for an item and return volumes from the first
+        manga-capable provider (MangaDex, then AniList)."""
+        from app.models.canonical import ExternalProviderId
+        from app.providers.base import NormalizedSeason
+        from app.schemas.metadata import EpisodeResponse
+
+        _VOLUME_PROVIDERS = [ExternalProvider.mangadex, ExternalProvider.anilist]
+
+        rows = (
+            await self.db.execute(
+                select(ExternalProviderId).where(
+                    ExternalProviderId.entity_type == "item",
+                    ExternalProviderId.entity_id == item_id,
+                )
+            )
+        ).scalars().all()
+
+        provider_map = {row.provider: row.provider_item_id for row in rows}
+        if ExternalProvider.mangadex not in provider_map:
+            fallback_id = await self._resolve_mangadex_volume_provider_id(item_id)
+            if fallback_id:
+                provider_map[ExternalProvider.mangadex] = fallback_id
+
+        for prov_enum in _VOLUME_PROVIDERS:
+            pid = provider_map.get(prov_enum)
+            if pid is None:
+                continue
+            provider = self.providers.maybe_get(prov_enum)
+            if provider is None or not hasattr(provider, "get_volumes"):
+                continue
+            volumes: list[NormalizedSeason] = await provider.get_volumes(pid)
+            return [
+                SeasonResponse(
+                    season_number=v.season_number,
+                    title=v.title,
+                    overview=v.overview,
+                    air_date=v.air_date,
+                    episode_count=v.episode_count,
+                    poster_url=v.poster_url,
+                    episodes=[
+                        EpisodeResponse(
+                            episode_number=ep.episode_number,
+                            title=ep.title,
+                            overview=ep.overview,
+                            air_date=ep.air_date,
+                            runtime_minutes=ep.runtime_minutes,
+                            still_url=ep.still_url,
+                        )
+                        for ep in v.episodes
+                    ],
+                )
+                for v in volumes
+            ]
+
+        return []
+
+    async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
+        item = await self.metadata.get_item(item_id)
+        if item is None or item.kind != ItemKind.manga:
+            return None
+        provider = self.providers.maybe_get(ExternalProvider.mangadex)
+        if provider is None or not provider.capabilities.supports_search:
+            return None
+
+        query = self._manga_volume_lookup_query(item)
+        if not query:
+            return None
+
+        try:
+            results = await self._search_provider_live(
+                ExternalProvider.mangadex,
+                provider,
+                query,
+                ItemKind.manga,
+            )
+        except ApiHTTPException:
+            logger.debug(
+                "mangadex_volume_lookup_failed item_id=%s query=%s",
+                item_id,
+                query,
+                exc_info=True,
+            )
+            return None
+        candidate = self._best_mangadex_volume_candidate(item, results)
+        return candidate.provider_item_id if candidate else None
+
+    def _manga_volume_lookup_query(self, item) -> str:
+        series_title = getattr(getattr(item.volume, "series", None), "title", None)
+        title = series_title or item.title
+        if not title:
+            return ""
+        cleaned = re.sub(r"\s+#?\d+(?:[./-]\d+)?$", "", str(title)).strip()
+        return cleaned or str(title).strip()
+
+    def _best_mangadex_volume_candidate(
+        self,
+        item,
+        results: list[ProviderSearchResult],
+    ) -> ProviderSearchResult | None:
+        series_title = getattr(getattr(item.volume, "series", None), "title", None)
+        volume_name = getattr(item.volume, "name", None)
+        targets = {
+            text
+            for text in (
+                self._normalized_title(item.title),
+                self._normalized_title(series_title),
+                self._normalized_title(volume_name),
+            )
+            if text
+        }
+        best: ProviderSearchResult | None = None
+        best_score = 0
+        for index, result in enumerate(results[:10]):
+            if result.kind != ItemKind.manga or not result.provider_item_id:
+                continue
+            score = self._manga_title_match_score(targets, result)
+            if score <= 0:
+                continue
+            ranked_score = score * 100 - index
+            if ranked_score > best_score:
+                best_score = ranked_score
+                best = result
+        return best
+
+    def _manga_title_match_score(
+        self,
+        targets: set[str],
+        result: ProviderSearchResult,
+    ) -> int:
+        title = self._normalized_title(result.series_title or result.title)
+        if not title:
+            return 0
+        if title in targets:
+            return 4
+        if any(
+            len(target) >= 4
+            and len(title) >= 4
+            and (title.startswith(target) or target.startswith(title))
+            for target in targets
+        ):
+            return 3
+        if any(
+            len(target) >= 6
+            and len(title) >= 6
+            and (title in target or target in title)
+            for target in targets
+        ):
+            return 2
+        return 0
+
+    def _normalized_title(self, value: str | None) -> str:
+        if not value:
+            return ""
+        text = re.sub(r"\s+", " ", str(value)).casefold().strip()
+        text = re.sub(r"\((?:19|20)\d{2}\)", "", text)
+        text = re.sub(r"[^0-9a-z\s]", " ", text)
+        return re.sub(r"\s+", " ", text).strip()

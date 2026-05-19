@@ -274,3 +274,15 @@ async def get_provider_volumes(
     _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_provider_volumes(provider, provider_item_id)
+
+
+@router.get(
+    "/metadata/items/{item_id}/volumes",
+    response_model=list[SeasonResponse],
+)
+async def get_item_volumes(
+    item_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[SeasonResponse]:
+    return await MetadataService(db).get_item_volumes(item_id)

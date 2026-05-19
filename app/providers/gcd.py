@@ -12,6 +12,7 @@ from fastapi import status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
+from app.providers.normalize import normalize_title, title_aliases
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -606,8 +607,7 @@ class GCDProvider:
         return year_rank, rank, series_key
 
     def _normalized_title_key(self, value: str) -> str:
-        normalized = "".join(char.lower() if char.isalnum() else " " for char in value)
-        return " ".join(normalized.split())
+        return normalize_title(value)
 
     def _parse_issue_query(self, query: str) -> tuple[str, str] | None:
         normalized_query = " ".join(query.split())
@@ -686,32 +686,7 @@ class GCDProvider:
         return normalized_query
 
     def _series_aliases(self, series_name: str) -> list[str]:
-        normalized = " ".join(series_name.split())
-        aliases = [normalized]
-        without_leading_the = re.sub(r"^the\s+", "", normalized, flags=re.IGNORECASE).strip()
-        if without_leading_the and without_leading_the != normalized:
-            aliases.append(without_leading_the)
-        elif normalized:
-            aliases.append(f"The {normalized}")
-
-        if "&" in normalized:
-            aliases.append(normalized.replace("&", "and"))
-        if " and " in normalized.casefold():
-            aliases.append(re.sub(r"\band\b", "&", normalized, flags=re.IGNORECASE))
-
-        punctuation_spaced = re.sub(r"[-:]+", " ", normalized).strip()
-        if punctuation_spaced:
-            aliases.append(" ".join(punctuation_spaced.split()))
-
-        deduped: list[str] = []
-        seen: set[str] = set()
-        for alias in aliases:
-            key = self._normalized_title_key(alias)
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            deduped.append(alias)
-        return deduped[:5]
+        return title_aliases(series_name)
 
     def _issue_id(self, value: Any) -> str | None:
         if value is None:

@@ -62,10 +62,10 @@ def test_media_catalog_maps_route_segments_and_default_providers():
     assert comics.default_provider == ExternalProvider.gcd
     assert comics.providers == (ExternalProvider.gcd, ExternalProvider.comicvine)
     assert manga is not None
-    assert manga.default_provider == ExternalProvider.anilist
+    assert manga.default_provider == ExternalProvider.mangadex
     assert manga.providers == (
-        ExternalProvider.anilist,
         ExternalProvider.mangadex,
+        ExternalProvider.anilist,
         ExternalProvider.comicvine,
     )
     assert anime is not None
@@ -97,6 +97,6 @@ def test_provider_registry_can_filter_and_pick_media_defaults():
     assert registry.default_for_kind(ItemKind.anime).name == "anilist"
     assert registry.default_for_kind(ItemKind.bluray) is None
     assert registry.default_for_kind(ItemKind.book).name == "openlibrary"
-    assert registry.default_for_kind(ItemKind.manga).name == "anilist"
+    assert registry.default_for_kind(ItemKind.manga).name == "mangadex"
     assert registry.default_for_kind(ItemKind.boardgame).name == "bgg"
     assert registry.default_for_kind(ItemKind.music).name == "musicbrainz"

@@ -5,10 +5,11 @@ import pytest
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Edition, Item, Variant
+from app.models.canonical import Edition, Item, Series, Variant, Volume
+from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
 from app.search.documents import item_search_document
-from tests.helpers import seed_comic
+from tests.helpers import register_and_login, seed_comic
 
 
 @pytest.mark.asyncio
@@ -24,8 +25,8 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     assert rows["comic"]["default_provider"] == "gcd"
     assert rows["comic"]["providers"] == ["gcd", "comicvine"]
     assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
-    assert rows["manga"]["default_provider"] == "anilist"
-    assert rows["manga"]["providers"] == ["anilist", "mangadex", "comicvine"]
+    assert rows["manga"]["default_provider"] == "mangadex"
+    assert rows["manga"]["providers"] == ["mangadex", "anilist", "comicvine"]
     assert rows["anime"]["default_provider"] == "anilist"
     assert rows["anime"]["providers"] == ["anilist", "tmdb"]
     assert rows["movie"]["providers"] == ["tmdb"]
@@ -259,3 +260,66 @@ async def test_search_document_keeps_synopsis_out_of_index():
     assert document["release_date"] == "1963-03-01"
     assert document["release_year"] == 1963
     assert document["variant"] == "Cover A"
+
+
+@pytest.mark.asyncio
+async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatch):
+    async def fake_search(self, query, kind=None):
+        assert query == "One Piece"
+        assert kind == ItemKind.manga
+        return [
+            ProviderSearchResult(
+                provider="mangadex",
+                provider_item_id="mangadex-one-piece",
+                title="One Piece",
+                kind=ItemKind.manga,
+            )
+        ]
+
+    async def fake_get_volumes(self, provider_item_id):
+        assert provider_item_id == "mangadex-one-piece"
+        return [
+            NormalizedSeason(
+                season_number=1,
+                title="Volume 1",
+                episode_count=1,
+                episodes=[
+                    NormalizedEpisode(
+                        episode_number=1,
+                        title="Romance Dawn",
+                        runtime_minutes=53,
+                    )
+                ],
+            )
+        ]
+
+    monkeypatch.setattr("app.providers.mangadex.MangaDexProvider.search", fake_search)
+    monkeypatch.setattr("app.providers.mangadex.MangaDexProvider.get_volumes", fake_get_volumes)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.manga, title="One Piece")
+        volume = Volume(
+            series=series,
+            name="One Piece (1997)",
+            volume_number=1,
+            start_year=1997,
+        )
+        item = Item(kind=ItemKind.manga, title="One Piece", volume=volume)
+        edition = Edition(item=item, title="Tankobon", format="Manga")
+        variant = Variant(edition=edition, name="Standard", is_primary=True)
+        db.add_all([series, volume, item, edition, variant])
+        await db.commit()
+        item_id = str(item.id)
+
+    token = await register_and_login(client)
+    response = await client.get(
+        f"/metadata/items/{item_id}/volumes",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["title"] == "Volume 1"
+    assert body[0]["episode_count"] == 1
+    assert body[0]["episodes"][0]["title"] == "Romance Dawn"

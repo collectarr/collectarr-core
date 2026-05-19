@@ -12,6 +12,7 @@ from fastapi import status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
+from app.providers.normalize import issue_sort_key, normalize_title, title_aliases
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -666,14 +667,8 @@ class ComicVineProvider:
         name = self._normalize_title(result.get("name"))
         return 1 if " volume " in f" {name} " else 0
 
-    def _issue_sort_value(self, value: Any) -> tuple[int, float, str]:
-        text = str(value or "").strip()
-        if not text:
-            return 1, 0, ""
-        match = re.match(r"(?P<number>\d+(?:\.\d+)?)", text)
-        if not match:
-            return 1, 0, text.casefold()
-        return 0, float(match.group("number")), text.casefold()
+    def _issue_sort_value(self, value: Any) -> tuple[int, float, str, str]:
+        return issue_sort_key(str(value or ""))
 
     def _issue_resource_id(self, provider_item_id: str) -> str:
         _, resource_id = self._kind_and_resource_id(provider_item_id)
@@ -738,24 +733,37 @@ class ComicVineProvider:
     async def _find_volume(
         self, series_title: str, start_year: int | None
     ) -> Mapping[str, Any] | None:
-        payload = await self._request(
-            "search/",
-            {
-                "query": series_title,
-                "resources": "volume",
-                "limit": 10,
-                "field_list": "id,api_detail_url,name,start_year,site_detail_url,count_of_issues,publisher,image",
-            },
-        )
-        results = payload.get("results") or []
-        if not isinstance(results, list):
-            return None
+        aliases = title_aliases(series_title)
+        all_volumes: list[Mapping[str, Any]] = []
+        seen_ids: set[str] = set()
 
-        volumes = [result for result in results if isinstance(result, Mapping)]
+        for alias in aliases:
+            payload = await self._request(
+                "search/",
+                {
+                    "query": alias,
+                    "resources": "volume",
+                    "limit": 10,
+                    "field_list": "id,api_detail_url,name,start_year,site_detail_url,count_of_issues,publisher,image",
+                },
+            )
+            results = payload.get("results") or []
+            if not isinstance(results, list):
+                continue
+            for result in results:
+                if not isinstance(result, Mapping):
+                    continue
+                vid = str(result.get("id", ""))
+                if vid in seen_ids:
+                    continue
+                seen_ids.add(vid)
+                all_volumes.append(result)
+
+        title_key = self._normalize_title(series_title)
         exact = [
             volume
-            for volume in volumes
-            if self._normalize_title(volume.get("name")) == self._normalize_title(series_title)
+            for volume in all_volumes
+            if self._normalize_title(volume.get("name")) == title_key
         ]
         if start_year is not None:
             year_match = [
@@ -767,7 +775,7 @@ class ComicVineProvider:
                 return year_match[0]
         if exact:
             return exact[0]
-        return volumes[0] if volumes else None
+        return all_volumes[0] if all_volumes else None
 
     def _numeric_resource_id(self, data: Mapping[str, Any], resource: str) -> str | None:
         resource_id = self._resource_id(data, resource)
@@ -776,7 +784,7 @@ class ComicVineProvider:
         return resource_id.split("-", 1)[-1]
 
     def _normalize_title(self, value: Any) -> str:
-        return " ".join(str(value or "").casefold().split())
+        return normalize_title(str(value or ""))
 
     def _variant_cover_score(self, haystack_source: Any, variant_hint: str | None) -> int:
         hint_terms = self._variant_terms(variant_hint)

@@ -19,6 +19,14 @@ os.environ.setdefault("REDIS_URL", "")
 os.environ.setdefault(
     "DATABASE_URL", "postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr_test"
 )
+# Keep provider tests deterministic even when local .env includes live keys.
+os.environ["COMICVINE_API_KEY"] = ""
+os.environ["TMDB_API_READ_ACCESS_TOKEN"] = ""
+os.environ["TMDB_API_KEY"] = ""
+os.environ["IGDB_CLIENT_ID"] = ""
+os.environ["IGDB_CLIENT_SECRET"] = ""
+os.environ["IGDB_ACCESS_TOKEN"] = ""
+os.environ["BGG_API_TOKEN"] = ""
 
 from app.db.session import AsyncSessionLocal  # noqa: E402
 from app.main import app  # noqa: E402

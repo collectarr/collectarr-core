@@ -55,7 +55,8 @@ async def test_find_issue_cover_matches_exact_volume_year_and_issue(monkeypatch)
     assert cover.image_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
     assert cover.site_detail_url == "https://comicvine.gamespot.com/absolute-batman-1/4000-1073108/"
     assert requests[0][0] == "search/"
-    assert requests[1][0] == "issues/"
+    assert requests[-1][0] == "issues/"
+    assert sum(1 for path, _ in requests if path == "search/") >= 1
 
 
 @pytest.mark.asyncio

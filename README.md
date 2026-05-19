@@ -1,14 +1,30 @@
 # Collectarr Core
 
 Collectarr Core is the shared metadata and operations server for Collectarr.
-
-It owns the canonical catalog, provider integrations, provider ingest jobs,
-search indexing, image references/cache, admin identity, audit logs, and the
-Core Admin Console.
+It owns the canonical catalog, provider integrations, ingest jobs, search
+indexing, image references/cache, admin identity, audit logs, and the Core Admin
+Console.
 
 Core stores shared metadata only. Personal collection data such as owned items,
 wishlist entries, purchase prices, grades, notes, shelves, and progress belongs
 in `collectarr-app` and can optionally sync through `collectarr-sync`.
+
+## What It Does
+
+- Serves the canonical media catalog API used by Collectarr clients.
+- Models series, volumes, items, editions, variants, releases, people,
+  organizations, tags, provider IDs, proposals, and audit history.
+- Searches and ingests metadata from GCD, ComicVine, AniList, MangaDex,
+  OpenLibrary, BGG, MusicBrainz, IGDB, and TMDb.
+- Supports comics-first provider search with structured series, issue, variant,
+  barcode, publisher, release date, and cover metadata.
+- Surfaces real provider candidates for comic series and issues, including
+  GCD/ComicVine series candidates that App can select as whole-series rows.
+- Exposes manga provider support through AniList and MangaDex, including
+  MangaDex volume/chapter data through the metadata volumes API.
+- Provides optional Meilisearch indexing and optional MinIO/S3 cover mirroring.
+- Provides the Core Admin Console for provider health, ingest queues, catalog
+  coverage, search status, metadata proposals, image inspection, and audit logs.
 
 ## Development
 
@@ -19,7 +35,7 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
-Run tests locally:
+Run checks locally:
 
 ```powershell
 python -m pip install -e .[dev]
@@ -47,19 +63,19 @@ Helper commands:
 - Meilisearch: http://localhost:7700
 - MinIO console: http://localhost:9001
 
+## Release Policy
+
+Release publishing is manual-only. The `Release` GitHub Actions workflow uses
+`workflow_dispatch`; pushing to `main` should run CI, not publish a GitHub
+Release or tag. Publish only after explicitly running the release workflow and
+reviewing the generated version and notes.
+
 ## Repository Boundary
 
-This repository contains:
-
-- FastAPI metadata API
-- SQLAlchemy/Alembic catalog schema
-- provider plugins for GCD, ComicVine, AniList, OpenLibrary, BGG, MusicBrainz,
-  IGDB, and TMDb
-- provider search cache/rate limit/backoff logic
-- DB-backed provider ingest queue and worker
-- Meilisearch indexing
-- MinIO/S3 image cache support
-- admin API and Core Admin Console
+This repository contains the FastAPI metadata API, SQLAlchemy/Alembic catalog
+schema, provider plugins, provider search cache/rate limit/backoff logic,
+DB-backed provider ingest queue, Meilisearch integration, MinIO/S3 image cache
+support, admin API, and Core Admin Console.
 
 Related repositories:
 
@@ -73,15 +89,11 @@ Core roadmap.
 
 Near-term Core work:
 
-- harden provider search/ingest for comics, manga, books, games, movies, TV,
-  anime, board games, and music
-- improve GCD + ComicVine comics coverage, including series aliases, issue
-  matching, variants, barcode/UPC, credits, publishers, release dates, and
-  missing cover handling
+- harden provider normalization and smoke fixtures across all live providers
+- improve GCD + ComicVine series/issue matching, variants, barcode/UPC,
+  credits, publishers, release dates, and cover fallbacks
+- continue MangaDex volume/chapter support and App-facing volume contracts
 - mature image delivery: external URL by default, optional MinIO/S3 mirror,
   generated fallback covers, and cache health visibility
-- grow the Core Admin Console into the operator surface for provider health,
-  ingest queues, catalog coverage, duplicates, metadata proposals, image
-  inspection, audit history, and admin accounts
 - publish stable API/media catalog/snapshot contracts for `collectarr-app` and
   `collectarr-sync`

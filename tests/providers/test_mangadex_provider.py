@@ -1,6 +1,5 @@
 import pytest
 
-from app.core.config import get_settings
 from app.models.base import ItemKind
 from app.providers.mangadex import MangaDexProvider
 

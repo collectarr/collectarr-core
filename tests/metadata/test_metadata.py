@@ -25,7 +25,7 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     assert rows["comic"]["providers"] == ["gcd", "comicvine"]
     assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
     assert rows["manga"]["default_provider"] == "anilist"
-    assert rows["manga"]["providers"] == ["anilist", "comicvine"]
+    assert rows["manga"]["providers"] == ["anilist", "mangadex", "comicvine"]
     assert rows["anime"]["default_provider"] == "anilist"
     assert rows["anime"]["providers"] == ["anilist", "tmdb"]
     assert rows["movie"]["providers"] == ["tmdb"]

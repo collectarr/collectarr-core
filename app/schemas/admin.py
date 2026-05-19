@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ExternalProvider, ItemKind, UserRole
 from app.schemas.metadata import ItemResponse
 
 
@@ -218,3 +218,36 @@ class MetadataProposalAdminResponse(BaseModel):
     status: str
 
     model_config = {"from_attributes": True}
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    email: str
+    display_name: str | None
+    is_active: bool
+    is_admin: bool
+    role: UserRole
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class UserUpdateRequest(BaseModel):
+    role: UserRole | None = None
+    is_active: bool | None = None
+    display_name: str | None = None
+
+
+class ImageCacheStatsResponse(BaseModel):
+    total_entries: int
+    total_size_bytes: int
+    max_size_bytes: int
+    usage_percent: float
+    mirroring_enabled: bool
+    providers: dict[str, int] = Field(default_factory=dict, description="Entry count per provider")
+
+
+class ImageCachePurgeResponse(BaseModel):
+    deleted_entries: int
+    freed_bytes: int

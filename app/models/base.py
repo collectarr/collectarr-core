@@ -65,3 +65,9 @@ class SeriesRelationType(str, enum.Enum):
     summary = "summary"
     compilation = "compilation"
     other = "other"
+
+
+class UserRole(str, enum.Enum):
+    viewer = "viewer"
+    editor = "editor"
+    admin = "admin"

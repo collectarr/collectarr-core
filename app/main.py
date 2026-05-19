@@ -11,7 +11,19 @@ from app.services.health import HealthService
 settings = get_settings()
 configure_logging(settings.environment)
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+API_VERSION = "0.1.0"
+
+app = FastAPI(
+    title=settings.app_name,
+    version=API_VERSION,
+    description="Collectarr metadata and library backend API",
+    openapi_tags=[
+        {"name": "system", "description": "Health and diagnostics"},
+        {"name": "auth", "description": "Authentication and registration"},
+        {"name": "metadata", "description": "Catalog metadata and library operations"},
+        {"name": "admin", "description": "Administration and provider management"},
+    ],
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

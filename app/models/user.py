@@ -1,7 +1,7 @@
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin, UuidMixin
+from app.models.base import Base, TimestampMixin, UserRole, UuidMixin
 
 
 class User(UuidMixin, TimestampMixin, Base):
@@ -12,3 +12,9 @@ class User(UuidMixin, TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role"),
+        nullable=False,
+        default=UserRole.viewer,
+        server_default="viewer",
+    )

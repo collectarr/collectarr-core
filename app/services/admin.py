@@ -2144,3 +2144,123 @@ class AdminMetadataService:
         if isinstance(error, HTTPException):
             return str(error.detail)
         return str(error)
+
+    # ------------------------------------------------------------------
+    # User management
+    # ------------------------------------------------------------------
+
+    async def list_users(self) -> list:
+        from app.schemas.admin import UserResponse
+
+        result = await self.db.execute(
+            select(User).order_by(User.created_at.desc())
+        )
+        return [UserResponse.model_validate(u) for u in result.scalars()]
+
+    async def get_user(self, user_id: UUID) -> Any:
+        from app.schemas.admin import UserResponse
+
+        user = await self.db.get(User, user_id)
+        if user is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="user_not_found",
+                detail="User not found",
+            )
+        return UserResponse.model_validate(user)
+
+    async def update_user(self, user_id: UUID, payload: Any) -> Any:
+        from app.models.base import UserRole
+        from app.schemas.admin import UserResponse
+
+        user = await self.db.get(User, user_id)
+        if user is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="user_not_found",
+                detail="User not found",
+            )
+        if payload.role is not None:
+            user.role = payload.role
+            user.is_admin = payload.role == UserRole.admin
+        if payload.is_active is not None:
+            user.is_active = payload.is_active
+        if payload.display_name is not None:
+            user.display_name = payload.display_name
+        await self.db.commit()
+        await self.db.refresh(user)
+        self._record_admin_audit(
+            "update_user",
+            "user",
+            entity_id=user.id,
+            details=payload.model_dump(exclude_none=True),
+        )
+        await self.db.commit()
+        return UserResponse.model_validate(user)
+
+    async def image_cache_stats(self) -> Any:
+        from sqlalchemy import func, select
+
+        from app.core.config import get_settings
+        from app.models.canonical import ImageCacheEntry
+        from app.schemas.admin import ImageCacheStatsResponse
+
+        settings = get_settings()
+        total_entries = await self.db.scalar(
+            select(func.count()).select_from(ImageCacheEntry)
+        ) or 0
+        total_size = await self.db.scalar(
+            select(func.coalesce(func.sum(ImageCacheEntry.size_bytes), 0))
+        ) or 0
+        max_bytes = settings.image_cache_max_bytes
+        usage_pct = (total_size / max_bytes * 100) if max_bytes > 0 else 0.0
+
+        rows = await self.db.execute(
+            select(ImageCacheEntry.provider, func.count())
+            .group_by(ImageCacheEntry.provider)
+        )
+        providers = {row[0]: row[1] for row in rows}
+
+        return ImageCacheStatsResponse(
+            total_entries=int(total_entries),
+            total_size_bytes=int(total_size),
+            max_size_bytes=max_bytes,
+            usage_percent=round(usage_pct, 1),
+            mirroring_enabled=settings.mirror_provider_images,
+            providers=providers,
+        )
+
+    async def purge_image_cache(self, provider: str | None = None) -> Any:
+        from sqlalchemy import delete, func, select
+
+        from app.models.canonical import ImageCacheEntry
+        from app.schemas.admin import ImageCachePurgeResponse
+        from app.storage.client import ObjectStorage
+
+        query = select(ImageCacheEntry)
+        if provider:
+            query = query.where(ImageCacheEntry.provider == provider)
+        entries = list((await self.db.scalars(query)).all())
+        if not entries:
+            return ImageCachePurgeResponse(deleted_entries=0, freed_bytes=0)
+
+        keys = [e.object_key for e in entries]
+        freed = sum(e.size_bytes for e in entries)
+        try:
+            storage = ObjectStorage.shared()
+            storage.delete_objects(keys)
+        except Exception:
+            logger.warning("Failed to delete objects from storage during purge", exc_info=True)
+
+        del_stmt = delete(ImageCacheEntry)
+        if provider:
+            del_stmt = del_stmt.where(ImageCacheEntry.provider == provider)
+        await self.db.execute(del_stmt)
+
+        self._record_admin_audit(
+            "purge_image_cache",
+            "image_cache",
+            details={"provider": provider, "deleted": len(entries), "freed_bytes": freed},
+        )
+        await self.db.commit()
+        return ImageCachePurgeResponse(deleted_entries=len(entries), freed_bytes=freed)

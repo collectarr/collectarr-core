@@ -27,6 +27,10 @@ from app.schemas.admin import (
     ProviderIngestHistoryEntry,
     ProviderSearchRequest,
     ProviderStatusListResponse,
+    ImageCacheStatsResponse,
+    ImageCachePurgeResponse,
+    UserResponse,
+    UserUpdateRequest,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.schemas.metadata import ItemResponse
@@ -301,3 +305,45 @@ async def reject_metadata_proposal(
     user: CurrentAdmin,
 ) -> MetadataProposalAdminResponse:
     return await AdminMetadataService(db, user).reject_proposal(proposal_id)
+
+
+# ---------------------------------------------------------------------------
+# User management
+# ---------------------------------------------------------------------------
+
+
+@router.get("/users", response_model=list[UserResponse])
+async def list_users(db: DbSession, user: CurrentAdmin) -> list[UserResponse]:
+    return await AdminMetadataService(db, user).list_users()
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(user_id: UUID, db: DbSession, user: CurrentAdmin) -> UserResponse:
+    return await AdminMetadataService(db, user).get_user(user_id)
+
+
+@router.patch("/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: UUID,
+    payload: UserUpdateRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> UserResponse:
+    return await AdminMetadataService(db, user).update_user(user_id, payload)
+
+
+@router.get("/image-cache/stats", response_model=ImageCacheStatsResponse)
+async def image_cache_stats(
+    db: DbSession,
+    user: CurrentAdmin,
+) -> ImageCacheStatsResponse:
+    return await AdminMetadataService(db, user).image_cache_stats()
+
+
+@router.post("/image-cache/purge", response_model=ImageCachePurgeResponse)
+async def purge_image_cache(
+    db: DbSession,
+    user: CurrentAdmin,
+    provider: str | None = Query(None, description="Purge only entries for this provider"),
+) -> ImageCachePurgeResponse:
+    return await AdminMetadataService(db, user).purge_image_cache(provider=provider)

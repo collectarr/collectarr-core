@@ -3,6 +3,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from enum import Enum as PythonEnum
 import logging
+import re
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +23,8 @@ from app.catalog.media_types import media_type_for_kind
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
     AdminAuditLog,
+    Character,
+    CharacterAppearance,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -37,6 +40,8 @@ from app.models.canonical import (
     Release,
     Series,
     SeriesRelation,
+    StoryArc,
+    StoryArcItem,
     Tag,
     Variant,
     Volume,
@@ -1164,6 +1169,9 @@ class AdminMetadataService:
             )
         await self._link_publisher(item.id, normalized.publisher)
         await self._link_people(item.id, normalized.creators)
+        await self._link_characters(item.id, payload.provider, normalized.characters)
+        await self._link_story_arcs(item.id, payload.provider, normalized.story_arcs)
+        # Transitional dual-write for compatibility with existing tag-based consumers.
         await self._link_tags(item.id, "character", normalized.characters)
         await self._link_tags(item.id, "story_arc", normalized.story_arcs)
         if volume:
@@ -1578,6 +1586,94 @@ class AdminMetadataService:
                 )
             )
 
+    async def _link_story_arcs(
+        self,
+        item_id: UUID,
+        provider: ExternalProvider,
+        credits: list[NormalizedCredit],
+    ) -> None:
+        seen_names: set[str] = set()
+        for index, credit in enumerate(credits, start=1):
+            name = credit.name.strip()
+            if not name:
+                continue
+            key = name.casefold()
+            if key in seen_names:
+                continue
+            seen_names.add(key)
+
+            story_arc = await self._get_or_create_story_arc(name, credit)
+            existing = await self.db.scalar(
+                select(StoryArcItem.id).where(
+                    StoryArcItem.story_arc_id == story_arc.id,
+                    StoryArcItem.item_id == item_id,
+                )
+            )
+            if not existing:
+                self.db.add(
+                    StoryArcItem(
+                        story_arc_id=story_arc.id,
+                        item_id=item_id,
+                        ordinal=index,
+                    )
+                )
+
+            provider_item_id = self._comicvine_credit_provider_id(credit, resource="story_arc")
+            if provider == ExternalProvider.comicvine and provider_item_id:
+                await self._add_provider_links(
+                    provider,
+                    {provider.value: provider_item_id},
+                    "story_arc",
+                    story_arc.id,
+                )
+
+    async def _link_characters(
+        self,
+        item_id: UUID,
+        provider: ExternalProvider,
+        credits: list[NormalizedCredit],
+    ) -> None:
+        seen_names: set[str] = set()
+        for credit in credits:
+            name = credit.name.strip()
+            if not name:
+                continue
+            key = name.casefold()
+            if key in seen_names:
+                continue
+            seen_names.add(key)
+
+            character = await self._get_or_create_character(name, credit)
+            role = self._character_appearance_role(credit.role)
+            existing = await self.db.scalar(
+                select(CharacterAppearance).where(
+                    CharacterAppearance.character_id == character.id,
+                    CharacterAppearance.item_id == item_id,
+                )
+            )
+            if existing:
+                if self._character_role_rank(role) > self._character_role_rank(existing.role):
+                    existing.role = role
+            else:
+                self.db.add(
+                    CharacterAppearance(
+                        character_id=character.id,
+                        item_id=item_id,
+                        role=role,
+                    )
+                )
+            if character.first_appearance_item_id is None:
+                character.first_appearance_item_id = item_id
+
+            provider_item_id = self._comicvine_credit_provider_id(credit, resource="character")
+            if provider == ExternalProvider.comicvine and provider_item_id:
+                await self._add_provider_links(
+                    provider,
+                    {provider.value: provider_item_id},
+                    "character",
+                    character.id,
+                )
+
     async def _link_tags(self, item_id: UUID, kind: str, credits: list[NormalizedCredit]) -> None:
         for credit in credits:
             tag = await self._get_or_create_tag(kind, credit.name)
@@ -1772,6 +1868,63 @@ class AdminMetadataService:
             await self.db.flush()
         return person
 
+    async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:
+        result = await self.db.execute(
+            select(StoryArc).where(
+                StoryArc.name == name,
+                StoryArc.publisher.is_(None),
+            )
+        )
+        story_arc = result.scalar_one_or_none()
+        if story_arc is None:
+            story_arc = StoryArc(
+                name=name,
+                metadata_json={
+                    "api_detail_url": credit.api_detail_url,
+                    "site_detail_url": credit.site_detail_url,
+                },
+            )
+            self.db.add(story_arc)
+            await self.db.flush()
+            return story_arc
+        metadata = dict(story_arc.metadata_json or {})
+        updated = False
+        if not metadata.get("api_detail_url") and credit.api_detail_url:
+            metadata["api_detail_url"] = credit.api_detail_url
+            updated = True
+        if not metadata.get("site_detail_url") and credit.site_detail_url:
+            metadata["site_detail_url"] = credit.site_detail_url
+            updated = True
+        if updated:
+            story_arc.metadata_json = metadata
+        return story_arc
+
+    async def _get_or_create_character(self, name: str, credit: NormalizedCredit) -> Character:
+        result = await self.db.execute(select(Character).where(Character.name == name))
+        character = result.scalar_one_or_none()
+        if character is None:
+            character = Character(
+                name=name,
+                metadata_json={
+                    "api_detail_url": credit.api_detail_url,
+                    "site_detail_url": credit.site_detail_url,
+                },
+            )
+            self.db.add(character)
+            await self.db.flush()
+            return character
+        metadata = dict(character.metadata_json or {})
+        updated = False
+        if not metadata.get("api_detail_url") and credit.api_detail_url:
+            metadata["api_detail_url"] = credit.api_detail_url
+            updated = True
+        if not metadata.get("site_detail_url") and credit.site_detail_url:
+            metadata["site_detail_url"] = credit.site_detail_url
+            updated = True
+        if updated:
+            character.metadata_json = metadata
+        return character
+
     async def _get_or_create_tag(self, kind: str, name: str) -> Tag:
         result = await self.db.execute(select(Tag).where(Tag.kind == kind, Tag.name == name))
         tag = result.scalar_one_or_none()
@@ -1780,6 +1933,39 @@ class AdminMetadataService:
             self.db.add(tag)
             await self.db.flush()
         return tag
+
+    def _character_appearance_role(self, source_role: str | None) -> str:
+        normalized = (source_role or "").strip().casefold()
+        if "cameo" in normalized or "guest" in normalized:
+            return "cameo"
+        if "support" in normalized:
+            return "supporting"
+        if "main" in normalized or "lead" in normalized or "protagonist" in normalized:
+            return "main"
+        return "main"
+
+    def _character_role_rank(self, role: str) -> int:
+        if role == "main":
+            return 3
+        if role == "supporting":
+            return 2
+        if role == "cameo":
+            return 1
+        return 0
+
+    def _comicvine_credit_provider_id(
+        self,
+        credit: NormalizedCredit,
+        *,
+        resource: str,
+    ) -> str | None:
+        for url in (credit.api_detail_url, credit.site_detail_url):
+            if not url:
+                continue
+            match = re.search(rf"/{resource}/(?P<id>\d+-\d+)(?:/|$)", url)
+            if match:
+                return match.group("id")
+        return None
 
     def _sort_key(self, kind: ItemKind, title: str, item_number: str | None) -> str:
         media_type = media_type_for_kind(kind)
@@ -1931,6 +2117,8 @@ class AdminMetadataService:
 
         await self._move_organization_links(source_item_id, target_item_id)
         await self._move_person_links(source_item_id, target_item_id)
+        await self._move_story_arc_links(source_item_id, target_item_id)
+        await self._move_character_appearance_links(source_item_id, target_item_id)
         await self._move_tag_links(source_item_id, target_item_id)
 
         await self.db.execute(
@@ -1983,6 +2171,44 @@ class AdminMetadataService:
                 await self.db.delete(link)
             else:
                 link.entity_id = target_item_id
+
+    async def _move_story_arc_links(self, source_item_id: UUID, target_item_id: UUID) -> None:
+        links = await self.db.scalars(
+            select(StoryArcItem).where(StoryArcItem.item_id == source_item_id)
+        )
+        for link in links:
+            exists = await self.db.scalar(
+                select(StoryArcItem.id).where(
+                    StoryArcItem.story_arc_id == link.story_arc_id,
+                    StoryArcItem.item_id == target_item_id,
+                )
+            )
+            if exists:
+                await self.db.delete(link)
+            else:
+                link.item_id = target_item_id
+
+    async def _move_character_appearance_links(
+        self,
+        source_item_id: UUID,
+        target_item_id: UUID,
+    ) -> None:
+        links = await self.db.scalars(
+            select(CharacterAppearance).where(CharacterAppearance.item_id == source_item_id)
+        )
+        for link in links:
+            existing = await self.db.scalar(
+                select(CharacterAppearance).where(
+                    CharacterAppearance.character_id == link.character_id,
+                    CharacterAppearance.item_id == target_item_id,
+                )
+            )
+            if existing:
+                if self._character_role_rank(link.role) > self._character_role_rank(existing.role):
+                    existing.role = link.role
+                await self.db.delete(link)
+            else:
+                link.item_id = target_item_id
 
     async def _move_tag_links(self, source_item_id: UUID, target_item_id: UUID) -> None:
         links = await self.db.scalars(
@@ -2231,7 +2457,7 @@ class AdminMetadataService:
         )
 
     async def purge_image_cache(self, provider: str | None = None) -> Any:
-        from sqlalchemy import delete, func, select
+        from sqlalchemy import delete, select
 
         from app.models.canonical import ImageCacheEntry
         from app.schemas.admin import ImageCachePurgeResponse

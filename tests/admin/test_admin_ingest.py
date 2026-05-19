@@ -10,6 +10,8 @@ from app.core.errors import ApiHTTPException
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    Character,
+    CharacterAppearance,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -23,6 +25,8 @@ from app.models.canonical import (
     ProviderIngestJob,
     Release,
     Series,
+    StoryArc,
+    StoryArcItem,
     Tag,
     Variant,
     Volume,
@@ -1742,6 +1746,10 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 1
         assert await db.scalar(select(func.count()).select_from(Person)) == 2
         assert await db.scalar(select(func.count()).select_from(EntityPerson)) == 2
+        assert await db.scalar(select(func.count()).select_from(Character)) == 1
+        assert await db.scalar(select(func.count()).select_from(CharacterAppearance)) == 1
+        assert await db.scalar(select(func.count()).select_from(StoryArc)) == 1
+        assert await db.scalar(select(func.count()).select_from(StoryArcItem)) == 1
         assert await db.scalar(select(func.count()).select_from(Tag)) == 2
         assert await db.scalar(select(func.count()).select_from(EntityTag)) == 2
         provider_ids = await db.scalars(

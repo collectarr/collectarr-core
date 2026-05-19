@@ -231,6 +231,73 @@ class EntityPerson(UuidMixin, TimestampMixin, Base):
     person: Mapped[Person] = relationship()
 
 
+class StoryArc(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "story_arcs"
+    __table_args__ = (
+        UniqueConstraint("name", "publisher", name="uq_story_arcs_name_publisher"),
+    )
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    publisher: Mapped[str | None] = mapped_column(String(255), index=True)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class StoryArcItem(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "story_arc_items"
+    __table_args__ = (
+        UniqueConstraint("story_arc_id", "item_id", name="uq_story_arc_item"),
+        Index("ix_story_arc_items_story_arc", "story_arc_id"),
+        Index("ix_story_arc_items_item", "item_id"),
+    )
+
+    story_arc_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("story_arcs.id", ondelete="CASCADE"), nullable=False
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False
+    )
+    ordinal: Mapped[int | None] = mapped_column(Integer)
+
+    story_arc: Mapped[StoryArc] = relationship()
+    item: Mapped[Item] = relationship()
+
+
+class Character(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "characters"
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    aliases: Mapped[list[str] | None] = mapped_column(JSONB)
+    description: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    first_appearance_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
+    )
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class CharacterAppearance(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "character_appearances"
+    __table_args__ = (
+        UniqueConstraint("character_id", "item_id", name="uq_character_appearance"),
+        Index("ix_character_appearances_character", "character_id"),
+        Index("ix_character_appearances_item", "item_id"),
+    )
+
+    character_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+
+    character: Mapped[Character] = relationship()
+    item: Mapped[Item] = relationship()
+
+
 class Tag(UuidMixin, TimestampMixin, Base):
     __tablename__ = "tags"
     __table_args__ = (UniqueConstraint("kind", "name", name="uq_tags_kind_name"),)

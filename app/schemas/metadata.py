@@ -223,6 +223,50 @@ class SeasonResponse(BaseModel):
     episodes: list[EpisodeResponse] = Field(default_factory=list)
 
 
+class StoryArcResponse(BaseModel):
+    id: UUID
+    name: str
+    description: str | None = None
+    publisher: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    item_count: int = 0
+
+
+class StoryArcItemResponse(BaseModel):
+    story_arc_id: UUID
+    item_id: UUID
+    ordinal: int | None = None
+    kind: ItemKind
+    title: str
+    item_number: str | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    cover_image_url: str | None = None
+
+
+class CharacterResponse(BaseModel):
+    id: UUID
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+    description: str | None = None
+    image_url: str | None = None
+    first_appearance_item_id: UUID | None = None
+    appearance_count: int = 0
+
+
+class CharacterAppearanceResponse(BaseModel):
+    character_id: UUID
+    item_id: UUID
+    role: str
+    kind: ItemKind
+    title: str
+    item_number: str | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    cover_image_url: str | None = None
+
+
 def item_response_from_model(item: Any) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
     _enrich_physical_formats(base, item)

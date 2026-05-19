@@ -5,7 +5,17 @@ import pytest
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Edition, Item, Series, Variant, Volume
+from app.models.canonical import (
+    Character,
+    CharacterAppearance,
+    Edition,
+    Item,
+    Series,
+    StoryArc,
+    StoryArcItem,
+    Variant,
+    Volume,
+)
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
 from app.search.documents import item_search_document
@@ -323,3 +333,72 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
     assert body[0]["title"] == "Volume 1"
     assert body[0]["episode_count"] == 1
     assert body[0]["episodes"][0]["title"] == "Romance Dawn"
+
+
+@pytest.mark.asyncio
+async def test_story_arc_and_character_browse_endpoints(client):
+    item_id, _, _ = await seed_comic()
+    item_uuid = UUID(item_id)
+
+    async with AsyncSessionLocal() as db:
+        story_arc = StoryArc(name="The Night Gwen Stacy Died", publisher="Marvel")
+        character = Character(name="Spider-Man")
+        db.add_all([story_arc, character])
+        await db.flush()
+        db.add_all(
+            [
+                StoryArcItem(story_arc_id=story_arc.id, item_id=item_uuid, ordinal=1),
+                CharacterAppearance(character_id=character.id, item_id=item_uuid, role="main"),
+            ]
+        )
+        await db.commit()
+        story_arc_id = str(story_arc.id)
+        character_id = str(character.id)
+
+    token = await register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    arcs_response = await client.get(
+        "/story-arcs",
+        params={"q": "gwen"},
+        headers=headers,
+    )
+    assert arcs_response.status_code == 200
+    arcs_body = arcs_response.json()
+    assert len(arcs_body) == 1
+    assert arcs_body[0]["id"] == story_arc_id
+    assert arcs_body[0]["name"] == "The Night Gwen Stacy Died"
+    assert arcs_body[0]["item_count"] == 1
+
+    arc_items_response = await client.get(
+        f"/story-arcs/{story_arc_id}/items",
+        headers=headers,
+    )
+    assert arc_items_response.status_code == 200
+    arc_items_body = arc_items_response.json()
+    assert len(arc_items_body) == 1
+    assert arc_items_body[0]["item_id"] == item_id
+    assert arc_items_body[0]["ordinal"] == 1
+    assert arc_items_body[0]["series_title"] == "The Amazing Spider-Man"
+
+    characters_response = await client.get(
+        "/characters",
+        params={"q": "spider"},
+        headers=headers,
+    )
+    assert characters_response.status_code == 200
+    characters_body = characters_response.json()
+    assert len(characters_body) == 1
+    assert characters_body[0]["id"] == character_id
+    assert characters_body[0]["name"] == "Spider-Man"
+    assert characters_body[0]["appearance_count"] == 1
+
+    appearances_response = await client.get(
+        f"/characters/{character_id}/appearances",
+        headers=headers,
+    )
+    assert appearances_response.status_code == 200
+    appearances_body = appearances_response.json()
+    assert len(appearances_body) == 1
+    assert appearances_body[0]["item_id"] == item_id
+    assert appearances_body[0]["role"] == "main"

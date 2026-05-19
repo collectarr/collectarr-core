@@ -1,6 +1,8 @@
 from app.models.base import Base, ExternalProvider, ItemKind
 from app.models.canonical import (
     AdminAuditLog,
+    Character,
+    CharacterAppearance,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -16,6 +18,8 @@ from app.models.canonical import (
     ProviderIngestJob,
     Release,
     Series,
+    StoryArc,
+    StoryArcItem,
     Tag,
     Variant,
     Volume,
@@ -25,6 +29,8 @@ from app.models.user import User
 __all__ = [
     "Base",
     "AdminAuditLog",
+    "Character",
+    "CharacterAppearance",
     "Edition",
     "EntityOrganization",
     "EntityPerson",
@@ -42,6 +48,8 @@ __all__ = [
     "ProviderIngestJob",
     "Release",
     "Series",
+    "StoryArc",
+    "StoryArcItem",
     "Tag",
     "User",
     "Variant",

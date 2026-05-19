@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,19 +14,33 @@ from app.catalog.physical_formats import is_video_item_kind, physical_format_for
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import MetadataProposal, SeriesRelation
+from app.models.canonical import (
+    Character,
+    CharacterAppearance,
+    Edition,
+    Item,
+    MetadataProposal,
+    SeriesRelation,
+    StoryArc,
+    StoryArcItem,
+    Volume,
+)
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
+    CharacterAppearanceResponse,
+    CharacterResponse,
     ItemResponse,
     MetadataProposalCreate,
     MetadataProposalResponse,
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    StoryArcItemResponse,
+    StoryArcResponse,
     SeriesRelationResponse,
     item_response_from_model,
 )
@@ -1048,6 +1062,170 @@ class MetadataService:
 
         return []
 
+    async def search_story_arcs(
+        self,
+        *,
+        q: str | None = None,
+        limit: int = 25,
+    ) -> list[StoryArcResponse]:
+        count_expr = func.count(StoryArcItem.id)
+        stmt = (
+            select(StoryArc, count_expr.label("item_count"))
+            .outerjoin(StoryArcItem, StoryArcItem.story_arc_id == StoryArc.id)
+            .group_by(StoryArc.id)
+            .order_by(count_expr.desc(), StoryArc.name.asc())
+            .limit(limit)
+        )
+        if q:
+            pattern = f"%{q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    StoryArc.name.ilike(pattern),
+                    StoryArc.description.ilike(pattern),
+                    StoryArc.publisher.ilike(pattern),
+                )
+            )
+        rows = (await self.db.execute(stmt)).all()
+        return [
+            StoryArcResponse(
+                id=arc.id,
+                name=arc.name,
+                description=arc.description,
+                publisher=arc.publisher,
+                start_date=arc.start_date,
+                end_date=arc.end_date,
+                item_count=int(item_count or 0),
+            )
+            for arc, item_count in rows
+        ]
+
+    async def get_story_arc_items(self, story_arc_id: UUID) -> list[StoryArcItemResponse]:
+        arc = await self.db.get(StoryArc, story_arc_id)
+        if arc is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="story_arc_not_found",
+                detail="Story arc not found",
+            )
+        links = list(
+            (
+                await self.db.execute(
+                    select(StoryArcItem)
+                    .where(StoryArcItem.story_arc_id == story_arc_id)
+                    .options(
+                        selectinload(StoryArcItem.item)
+                        .selectinload(Item.volume)
+                        .selectinload(Volume.series),
+                        selectinload(StoryArcItem.item)
+                        .selectinload(Item.editions)
+                        .selectinload(Edition.variants),
+                    )
+                    .order_by(
+                        StoryArcItem.ordinal.asc().nullslast(),
+                        StoryArcItem.created_at.asc(),
+                    )
+                )
+            ).scalars()
+        )
+        return [
+            StoryArcItemResponse(
+                story_arc_id=story_arc_id,
+                item_id=link.item.id,
+                ordinal=link.ordinal,
+                kind=link.item.kind,
+                title=link.item.title,
+                item_number=link.item.item_number,
+                series_title=getattr(getattr(link.item.volume, "series", None), "title", None),
+                volume_name=getattr(link.item.volume, "name", None),
+                cover_image_url=self._item_primary_cover_url(link.item),
+            )
+            for link in links
+            if link.item is not None
+        ]
+
+    async def search_characters(
+        self,
+        *,
+        q: str | None = None,
+        limit: int = 25,
+    ) -> list[CharacterResponse]:
+        count_expr = func.count(CharacterAppearance.id)
+        stmt = (
+            select(Character, count_expr.label("appearance_count"))
+            .outerjoin(CharacterAppearance, CharacterAppearance.character_id == Character.id)
+            .group_by(Character.id)
+            .order_by(count_expr.desc(), Character.name.asc())
+            .limit(limit)
+        )
+        if q:
+            pattern = f"%{q.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Character.name.ilike(pattern),
+                    Character.description.ilike(pattern),
+                )
+            )
+        rows = (await self.db.execute(stmt)).all()
+        return [
+            CharacterResponse(
+                id=character.id,
+                name=character.name,
+                aliases=[str(alias) for alias in (character.aliases or []) if alias],
+                description=character.description,
+                image_url=character.image_url,
+                first_appearance_item_id=character.first_appearance_item_id,
+                appearance_count=int(appearance_count or 0),
+            )
+            for character, appearance_count in rows
+        ]
+
+    async def get_character_appearances(
+        self,
+        character_id: UUID,
+    ) -> list[CharacterAppearanceResponse]:
+        character = await self.db.get(Character, character_id)
+        if character is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="character_not_found",
+                detail="Character not found",
+            )
+        links = list(
+            (
+                await self.db.execute(
+                    select(CharacterAppearance)
+                    .where(CharacterAppearance.character_id == character_id)
+                    .options(
+                        selectinload(CharacterAppearance.item)
+                        .selectinload(Item.volume)
+                        .selectinload(Volume.series),
+                        selectinload(CharacterAppearance.item)
+                        .selectinload(Item.editions)
+                        .selectinload(Edition.variants),
+                    )
+                    .order_by(
+                        CharacterAppearance.role.asc(),
+                        CharacterAppearance.created_at.asc(),
+                    )
+                )
+            ).scalars()
+        )
+        return [
+            CharacterAppearanceResponse(
+                character_id=character_id,
+                item_id=link.item.id,
+                role=link.role,
+                kind=link.item.kind,
+                title=link.item.title,
+                item_number=link.item.item_number,
+                series_title=getattr(getattr(link.item.volume, "series", None), "title", None),
+                volume_name=getattr(link.item.volume, "name", None),
+                cover_image_url=self._item_primary_cover_url(link.item),
+            )
+            for link in links
+            if link.item is not None
+        ]
+
     async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
         item = await self.metadata.get_item(item_id)
         if item is None or item.kind != ItemKind.manga:
@@ -1149,3 +1327,13 @@ class MetadataService:
         text = re.sub(r"\((?:19|20)\d{2}\)", "", text)
         text = re.sub(r"[^0-9a-z\s]", " ", text)
         return re.sub(r"\s+", " ", text).strip()
+
+    def _item_primary_cover_url(self, item: Item) -> str | None:
+        for edition in item.editions or []:
+            variants = list(edition.variants or [])
+            primary = next((variant for variant in variants if variant.is_primary), None)
+            if primary and primary.cover_image_url:
+                return primary.cover_image_url
+            if variants and variants[0].cover_image_url:
+                return variants[0].cover_image_url
+        return None

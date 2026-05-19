@@ -17,6 +17,8 @@ from app.core.rate_limit import provider_search_rate_limit
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.schemas.metadata import (
+    CharacterAppearanceResponse,
+    CharacterResponse,
     ItemResponse,
     MediaCatalogResponse,
     MediaTypeResponse,
@@ -26,6 +28,8 @@ from app.schemas.metadata import (
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    StoryArcItemResponse,
+    StoryArcResponse,
     SeriesRelationResponse,
 )
 from app.services.metadata import MetadataService
@@ -286,3 +290,53 @@ async def get_item_volumes(
     _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_item_volumes(item_id)
+
+
+@router.get(
+    "/story-arcs",
+    response_model=list[StoryArcResponse],
+)
+async def search_story_arcs(
+    db: DbSession,
+    _user: CurrentUser,
+    q: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=25, ge=1, le=200),
+) -> list[StoryArcResponse]:
+    return await MetadataService(db).search_story_arcs(q=q, limit=limit)
+
+
+@router.get(
+    "/story-arcs/{story_arc_id}/items",
+    response_model=list[StoryArcItemResponse],
+)
+async def get_story_arc_items(
+    story_arc_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[StoryArcItemResponse]:
+    return await MetadataService(db).get_story_arc_items(story_arc_id)
+
+
+@router.get(
+    "/characters",
+    response_model=list[CharacterResponse],
+)
+async def search_characters(
+    db: DbSession,
+    _user: CurrentUser,
+    q: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=25, ge=1, le=200),
+) -> list[CharacterResponse]:
+    return await MetadataService(db).search_characters(q=q, limit=limit)
+
+
+@router.get(
+    "/characters/{character_id}/appearances",
+    response_model=list[CharacterAppearanceResponse],
+)
+async def get_character_appearances(
+    character_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[CharacterAppearanceResponse]:
+    return await MetadataService(db).get_character_appearances(character_id)

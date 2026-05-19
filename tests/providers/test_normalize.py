@@ -1,7 +1,5 @@
 """Tests for shared provider normalization utilities."""
 
-import pytest
-
 from app.providers.normalize import issue_sort_key, normalize_title, title_aliases
 
 

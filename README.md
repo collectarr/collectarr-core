@@ -1,32 +1,22 @@
-# Collectarr Core
+# 🎯 Collectarr Core
 
-Collectarr Core is the shared metadata and operations server for Collectarr.
-It owns the canonical catalog, provider integrations, ingest jobs, search
-indexing, image references/cache, admin identity, audit logs, and the Core Admin
-Console.
+> The shared metadata engine behind Collectarr — canonical catalog, provider integrations, image delivery, and admin console.
 
-Core stores shared metadata only. Personal collection data such as owned items,
-wishlist entries, purchase prices, grades, notes, shelves, and progress belongs
-in `collectarr-app` and can optionally sync through `collectarr-sync`.
+Core owns the shared catalog and provider infrastructure. Personal collection data (owned items, wishlists, grades, notes) lives in `collectarr-app` and optionally syncs through `collectarr-sync`.
 
-## What It Does
+## ✨ Features
 
-- Serves the canonical media catalog API used by Collectarr clients.
-- Models series, volumes, items, editions, variants, releases, people,
-  organizations, tags, provider IDs, proposals, and audit history.
-- Searches and ingests metadata from GCD, ComicVine, AniList, MangaDex,
-  OpenLibrary, BGG, MusicBrainz, IGDB, and TMDb.
-- Supports comics-first provider search with structured series, issue, variant,
-  barcode, publisher, release date, and cover metadata.
-- Surfaces real provider candidates for comic series and issues, including
-  GCD/ComicVine series candidates that App can select as whole-series rows.
-- Exposes manga provider support through AniList and MangaDex, including
-  MangaDex volume/chapter data through the metadata volumes API.
-- Provides optional Meilisearch indexing and optional MinIO/S3 cover mirroring.
-- Provides the Core Admin Console for provider health, ingest queues, catalog
-  coverage, search status, metadata proposals, image inspection, and audit logs.
+- 📚 **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, and tags
+- 🔌 **9 metadata providers** — GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
+- 🔍 **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
+- 🖼️ **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, WebP normalization, LRU cache with budget tracking
+- 🔎 **Full-text search** — optional Meilisearch indexing for instant catalog queries
+- 🛠️ **Admin Console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
+- 📋 **Ingest job queue** — DB-backed provider ingest with automatic worker processing, retry, and status tracking
+- 👤 **Role-based access** — viewer / editor / admin roles with audit trail
+- 📄 **OpenAPI docs** — auto-generated schema at `/docs` with versioned export
 
-## Development
+## 🚀 Quick Start
 
 ```powershell
 Copy-Item .env.example .env
@@ -35,7 +25,7 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
-Run checks locally:
+## 🧪 Development
 
 ```powershell
 python -m pip install -e .[dev]
@@ -46,54 +36,37 @@ python -m pytest
 Helper commands:
 
 ```powershell
-.\tools\dev.ps1 start
-.\tools\dev.ps1 migrate
-.\tools\dev.ps1 seed
-.\tools\dev.ps1 test
-.\tools\dev.ps1 check
-.\tools\dev.ps1 smoke-providers
-.\tools\dev.ps1 reset-stack
+.\tools\dev.ps1 start          # Start Docker stack
+.\tools\dev.ps1 migrate        # Run Alembic migrations
+.\tools\dev.ps1 seed           # Seed sample comics data
+.\tools\dev.ps1 test           # Run test suite
+.\tools\dev.ps1 check          # Lint + type check
+.\tools\dev.ps1 smoke-providers # Smoke test all providers
+.\tools\dev.ps1 reset-stack    # Clean reset of all containers
 ```
 
-## Local URLs
+## 🌐 Local URLs
 
-- API: http://localhost:8010
-- API docs: http://localhost:8010/docs
-- Core Admin Console: http://localhost:8010/admin/ui
-- Meilisearch: http://localhost:7700
-- MinIO console: http://localhost:9001
+| Service | URL |
+|---------|-----|
+| API | http://localhost:8010 |
+| API docs (Swagger) | http://localhost:8010/docs |
+| Admin Console | http://localhost:8010/admin/ui |
+| Meilisearch | http://localhost:7700 |
+| MinIO console | http://localhost:9001 |
 
-## Release Policy
+## 📦 Release Policy
 
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
-`workflow_dispatch`; pushing to `main` should run CI, not publish a GitHub
-Release or tag. Publish only after explicitly running the release workflow and
-reviewing the generated version and notes.
+`workflow_dispatch`; pushing to `main` runs CI only — no auto-publish.
 
-## Repository Boundary
+## 🗂️ Related Repos
 
-This repository contains the FastAPI metadata API, SQLAlchemy/Alembic catalog
-schema, provider plugins, provider search cache/rate limit/backoff logic,
-DB-backed provider ingest queue, Meilisearch integration, MinIO/S3 image cache
-support, admin API, and Core Admin Console.
+| Repo | Purpose |
+|------|---------|
+| `collectarr/collectarr-app` | 📱 Flutter client (web, Windows, Android) |
+| `collectarr/collectarr-sync` | 🔄 Optional personal sync service |
 
-Related repositories:
+## 🗺️ Roadmap
 
-- `collectarr/collectarr-app`: Flutter local-library client
-- `collectarr/collectarr-sync`: optional personal sync service
-
-## Current Focus
-
-See [docs/implementation-plan.md](docs/implementation-plan.md) for the active
-Core roadmap.
-
-Near-term Core work:
-
-- harden provider normalization and smoke fixtures across all live providers
-- improve GCD + ComicVine series/issue matching, variants, barcode/UPC,
-  credits, publishers, release dates, and cover fallbacks
-- continue MangaDex volume/chapter support and App-facing volume contracts
-- mature image delivery: external URL by default, optional MinIO/S3 mirror,
-  generated fallback covers, and cache health visibility
-- publish stable API/media catalog/snapshot contracts for `collectarr-app` and
-  `collectarr-sync`
+See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.

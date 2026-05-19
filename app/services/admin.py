@@ -1172,6 +1172,10 @@ class AdminMetadataService:
             await self._ingest_seasons(
                 provider, provider_item.provider_item_id, series, normalized.kind
             )
+        if series and hasattr(provider, "get_volumes"):
+            await self._ingest_volumes(
+                provider, provider_item.provider_item_id, series, normalized.kind
+            )
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -1683,6 +1687,63 @@ class AdminMetadataService:
                         "season_title": season.title,
                         "air_date": ep.air_date.isoformat() if ep.air_date else None,
                         "still_url": ep.still_url,
+                    },
+                )
+                self.db.add(item)
+        await self.db.flush()
+
+    async def _ingest_volumes(
+        self,
+        provider: MetadataProvider,
+        provider_item_id: str,
+        series: Series,
+        kind: ItemKind,
+    ) -> None:
+        if kind != ItemKind.manga:
+            return
+        try:
+            volumes: list[NormalizedSeason] = await provider.get_volumes(provider_item_id)
+        except Exception:
+            logger.warning("Failed to fetch volumes for %s", provider_item_id, exc_info=True)
+            return
+        for vol in volumes:
+            volume_name = vol.title or f"Volume {vol.season_number}"
+            result = await self.db.execute(
+                select(Volume).where(
+                    Volume.series_id == series.id,
+                    Volume.name == volume_name,
+                )
+            )
+            volume = result.scalar_one_or_none()
+            if volume is None:
+                volume = Volume(
+                    series=series,
+                    name=volume_name,
+                    volume_number=vol.season_number,
+                    start_year=vol.air_date.year if vol.air_date else None,
+                )
+                self.db.add(volume)
+                await self.db.flush()
+            for ch in vol.episodes:
+                existing_ch = await self.db.scalar(
+                    select(Item.id).where(
+                        Item.volume_id == volume.id,
+                        Item.item_number == str(ch.episode_number),
+                    )
+                )
+                if existing_ch:
+                    continue
+                item = Item(
+                    volume=volume,
+                    kind=kind,
+                    title=ch.title,
+                    item_number=str(ch.episode_number),
+                    sort_key=self._sort_key(kind, ch.title, str(ch.episode_number)),
+                    synopsis=ch.overview,
+                    page_count=ch.runtime_minutes,
+                    metadata_json={
+                        "volume_title": vol.title,
+                        "air_date": ch.air_date.isoformat() if ch.air_date else None,
                     },
                 )
                 self.db.add(item)

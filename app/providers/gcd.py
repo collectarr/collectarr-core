@@ -357,6 +357,8 @@ class GCDProvider:
             self._page_summary(result.get("page_count")),
             "variant" if result.get("variant_of") else None,
         ]
+        character_preview = self._preview_names(self._characters(result.get("story_set")))
+        story_arc_preview = self._preview_names(self._story_arcs(result.get("story_set")))
         return ProviderSearchResult(
             provider=self.name,
             provider_item_id=issue_id or "",
@@ -377,6 +379,8 @@ class GCDProvider:
             volume_start_year=start_year,
             variant_name=variant_hint,
             is_variant=bool(result.get("variant_of")),
+            character_preview=character_preview,
+            story_arc_preview=story_arc_preview,
         )
 
     def _series_candidate(
@@ -402,6 +406,8 @@ class GCDProvider:
             f"{start_year} series" if start_year else None,
             f"{count} issues" if count else None,
         ]
+        character_preview = self._preview_names(self._characters(representative_issue.get("story_set")))
+        story_arc_preview = self._preview_names(self._story_arcs(representative_issue.get("story_set")))
         return ProviderSearchResult(
             provider=self.name,
             provider_item_id=f"series-{series_id}",
@@ -420,6 +426,8 @@ class GCDProvider:
             is_variant=False,
             issue_count=count,
             publisher=publisher,
+            character_preview=character_preview,
+            story_arc_preview=story_arc_preview,
         )
 
     async def _download_cover_image(self, cover_url: str, issue_id: str) -> tuple[bytes, str]:
@@ -818,6 +826,22 @@ class GCDProvider:
             seen.add(key)
             arcs.append(NormalizedCredit(name=title))
         return arcs
+
+    def _preview_names(self, credits: list[NormalizedCredit]) -> list[str]:
+        names: list[str] = []
+        seen: set[str] = set()
+        for credit in credits:
+            name = credit.name.strip()
+            if not name:
+                continue
+            key = name.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(name)
+            if len(names) >= 3:
+                break
+        return names
 
     def _split_credit_names(self, value: Any, *, role: str | None = None) -> list[str]:
         text = self._optional_text(value)

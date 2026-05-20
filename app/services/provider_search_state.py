@@ -286,6 +286,8 @@ class ProviderSearchState:
             "is_variant": result.is_variant,
             "issue_count": result.issue_count,
             "publisher": result.publisher,
+            "character_preview": result.character_preview,
+            "story_arc_preview": result.story_arc_preview,
         }
 
     def _result_from_payload(self, payload: dict) -> ProviderSearchResult:
@@ -304,6 +306,8 @@ class ProviderSearchState:
             is_variant=self._optional_bool(payload.get("is_variant")),
             issue_count=self._optional_int(payload.get("issue_count")),
             publisher=self._optional_text(payload.get("publisher")),
+            character_preview=self._optional_text_list(payload.get("character_preview")),
+            story_arc_preview=self._optional_text_list(payload.get("story_arc_preview")),
         )
 
     def _optional_text(self, value) -> str | None:
@@ -326,3 +330,15 @@ class ProviderSearchState:
         if value is None or value == "":
             return None
         return str(value).strip().lower() in {"1", "true", "yes"}
+
+    def _optional_text_list(self, value) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        result: list[str] = []
+        for item in value:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                result.append(text)
+        return result

@@ -162,6 +162,8 @@ class ComicVineProvider:
                         "issue_number",
                         "deck",
                         "description",
+                        "character_credits",
+                        "story_arc_credits",
                         "image",
                         "volume",
                     ]
@@ -485,6 +487,8 @@ class ComicVineProvider:
         ]
         title = " ".join(title_parts) or issue_name or volume_name or "Unknown ComicVine issue"
         resource_id = self._resource_id(result, "issue") or str(result.get("id") or "")
+        character_preview = self._preview_names(self._credits(result.get("character_credits")))
+        story_arc_preview = self._preview_names(self._credits(result.get("story_arc_credits")))
         return ProviderSearchResult(
             provider=self.name,
             provider_item_id=self._provider_item_id(target_kind, resource_id),
@@ -496,6 +500,8 @@ class ComicVineProvider:
             series_title=volume_name or None,
             issue_number=issue_number or None,
             is_variant=False,
+            character_preview=character_preview,
+            story_arc_preview=story_arc_preview,
         )
 
     async def _series_candidate(
@@ -570,6 +576,8 @@ class ComicVineProvider:
                             "issue_number",
                             "deck",
                             "description",
+                            "character_credits",
+                            "story_arc_credits",
                             "image",
                             "associated_images",
                             "volume",
@@ -614,6 +622,8 @@ class ComicVineProvider:
         if not title_base:
             title_base = "Unknown ComicVine issue"
         variants: list[ProviderSearchResult] = []
+        character_preview = self._preview_names(self._credits(detail.get("character_credits")))
+        story_arc_preview = self._preview_names(self._credits(detail.get("story_arc_credits")))
         for index, cover in enumerate(self._associated_variant_covers(detail), start=1):
             source_id = cover.source_id or self._slug(cover.name) or str(index)
             variants.append(
@@ -629,6 +639,8 @@ class ComicVineProvider:
                     issue_number=issue_number or None,
                     variant_name=cover.name,
                     is_variant=True,
+                    character_preview=character_preview,
+                    story_arc_preview=story_arc_preview,
                 )
             )
         return variants
@@ -1097,6 +1109,22 @@ class ComicVineProvider:
                 )
             )
         return credits
+
+    def _preview_names(self, credits: list[NormalizedCredit]) -> list[str]:
+        names: list[str] = []
+        seen: set[str] = set()
+        for credit in credits:
+            name = credit.name.strip()
+            if not name:
+                continue
+            key = name.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(name)
+            if len(names) >= 3:
+                break
+        return names
 
     def _int_value(self, value: Any) -> int | None:
         if value is None or value == "":

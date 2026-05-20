@@ -141,6 +141,8 @@ class ProviderSearchResultResponse(BaseModel):
     is_variant: bool | None = None
     issue_count: int | None = None
     publisher: str | None = None
+    character_preview: list[str] = Field(default_factory=list)
+    story_arc_preview: list[str] = Field(default_factory=list)
 
 
 class PhysicalFormatResponse(BaseModel):

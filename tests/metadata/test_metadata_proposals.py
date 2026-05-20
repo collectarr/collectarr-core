@@ -57,6 +57,53 @@ async def test_provider_search_returns_comicvine_results(client, monkeypatch):
     assert body[0]["provider"] == "comicvine"
     assert body[0]["provider_item_id"] == "4000-12345"
     assert body[0]["title"] == "The Amazing Spider-Man #1 The Spider Strikes"
+    assert body[0]["character_preview"] == ["Spider-Man"]
+    assert body[0]["story_arc_preview"] == ["The Spider Strikes"]
+
+
+@pytest.mark.asyncio
+async def test_provider_search_series_inherits_credit_preview_from_issue_results(
+    client, monkeypatch
+):
+    token = await register_and_login(client)
+
+    async def fake_search(self, query, kind=None):
+        assert query == "absolute batman"
+        return [
+            ProviderSearchResult(
+                provider=self.name,
+                provider_item_id="series-4050-1111",
+                title="Absolute Batman",
+                kind=ItemKind.comic,
+                candidate_type="series",
+                series_title="Absolute Batman",
+            ),
+            ProviderSearchResult(
+                provider=self.name,
+                provider_item_id="4000-1111",
+                title="Absolute Batman #1",
+                kind=ItemKind.comic,
+                candidate_type="issue",
+                series_title="Absolute Batman",
+                issue_number="1",
+                character_preview=["Batman"],
+                story_arc_preview=["Absolute Power"],
+            ),
+        ]
+
+    monkeypatch.setattr(ComicVineProvider, "search", fake_search)
+
+    response = await client.get(
+        "/metadata/providers/comicvine/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": "absolute batman", "kind": "comic"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["candidate_type"] == "series"
+    assert body[0]["character_preview"] == ["Batman"]
+    assert body[0]["story_arc_preview"] == ["Absolute Power"]
 
 
 @pytest.mark.asyncio

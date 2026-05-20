@@ -227,6 +227,13 @@ class MetadataService:
         if enriched_results is not results:
             results = enriched_results
             should_refresh_cache = True
+        preview_results = await self._with_provider_search_credit_previews(
+            provider_name,
+            results,
+        )
+        if preview_results is not results:
+            results = preview_results
+            should_refresh_cache = True
         if should_refresh_cache:
             await self._store_provider_search_results(cache_key, results)
         results = await self._with_stable_provider_image_urls(results)
@@ -715,6 +722,91 @@ class MetadataService:
                 )
             ]
         return []
+
+    async def _with_provider_search_credit_previews(
+        self,
+        _provider_name: ExternalProvider,
+        results: list[ProviderSearchResult],
+    ) -> list[ProviderSearchResult]:
+        if not results:
+            return results
+
+        series_preview: dict[str, tuple[list[str], list[str]]] = {}
+        for result in results:
+            if result.candidate_type not in {"issue", "variant"}:
+                continue
+            if not result.character_preview and not result.story_arc_preview:
+                continue
+            series_key = self._preview_series_key(result.series_title or result.title)
+            if not series_key:
+                continue
+            merged = self._merge_preview_lists(
+                series_preview.get(series_key),
+                result.character_preview,
+                result.story_arc_preview,
+            )
+            if merged is not None:
+                series_preview[series_key] = merged
+
+        if not series_preview:
+            return results
+
+        changed = False
+        final_results: list[ProviderSearchResult] = []
+        for result in results:
+            if (
+                result.candidate_type == "series"
+                and not result.character_preview
+                and not result.story_arc_preview
+            ):
+                series_key = self._preview_series_key(result.series_title or result.title)
+                series_data = series_preview.get(series_key or "")
+                if series_data is not None:
+                    chars, arcs = series_data
+                    result = replace(
+                        result,
+                        character_preview=chars,
+                        story_arc_preview=arcs,
+                    )
+                    changed = True
+            final_results.append(result)
+
+        return final_results if changed else results
+
+    def _preview_series_key(self, value: str | None) -> str:
+        if not value:
+            return ""
+        return re.sub(r"\s+", " ", value).strip().casefold()
+
+    def _merge_preview_lists(
+        self,
+        existing: tuple[list[str], list[str]] | None,
+        characters: list[str],
+        arcs: list[str],
+    ) -> tuple[list[str], list[str]] | None:
+        if not characters and not arcs and existing is None:
+            return None
+        existing_characters = list(existing[0]) if existing else []
+        existing_arcs = list(existing[1]) if existing else []
+        merged_characters = self._merge_names(existing_characters, characters)
+        merged_arcs = self._merge_names(existing_arcs, arcs)
+        return merged_characters, merged_arcs
+
+    def _merge_names(self, base: list[str], extra: list[str]) -> list[str]:
+        merged = list(base)
+        seen = {name.casefold() for name in merged}
+        for name in extra:
+            text = str(name or "").strip()
+            if not text:
+                continue
+            key = text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(text)
+            if len(merged) >= 3:
+                break
+        return merged[:3]
 
     def _with_provider_fallback_notice(
         self,

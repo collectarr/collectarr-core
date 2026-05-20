@@ -43,7 +43,7 @@
 
 ### 🎯 Provider Quality
 - [x] Deeper GCD + ComicVine matching: credits, story arcs, publisher imprints
-- [ ] Barcode/UPC → provider item resolution for all media types
+- [x] Barcode/UPC → provider item resolution for all media types
 - [ ] Provider-specific enrichment for music (MusicBrainz releases) and games (IGDB platforms/editions)
 - [ ] Scheduled catalog refresh for stale provider data
 

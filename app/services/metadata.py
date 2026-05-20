@@ -202,6 +202,36 @@ class MetadataService:
             preferred_variant=preferred_variant,
         )
 
+    async def barcode_provider_search(
+        self,
+        barcode: str,
+        kind: ItemKind | None = None,
+    ) -> list[ProviderSearchResult]:
+        """Search external providers for a barcode/UPC/ISBN."""
+        if kind is not None:
+            providers = self.providers.for_kind(kind)
+        else:
+            providers = self.providers.all()
+
+        for provider in providers:
+            if not provider.is_configured:
+                continue
+            if not hasattr(provider, "search_by_barcode"):
+                continue
+            try:
+                results = await provider.search_by_barcode(barcode, kind)
+            except Exception:
+                logger.warning(
+                    "barcode_provider_search_failed provider=%s barcode=%s",
+                    provider.name,
+                    barcode,
+                    exc_info=True,
+                )
+                continue
+            if results:
+                return results[:3]
+        return []
+
     async def search_provider(
         self,
         provider_name: ExternalProvider,

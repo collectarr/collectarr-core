@@ -72,6 +72,16 @@ class MusicBrainzProvider:
             return []
         return [self._search_result(release) for release in releases if isinstance(release, Mapping)]
 
+    async def search_by_barcode(
+        self,
+        barcode: str,
+        kind: ItemKind | None = None,
+    ) -> list[ProviderSearchResult]:
+        normalized = barcode.strip()
+        if not normalized:
+            return []
+        return await self.search(f"barcode:{normalized}", kind)
+
     async def get_item(self, provider_item_id: str) -> ProviderItem:
         if not _MBID_RE.fullmatch(provider_item_id):
             raise ApiHTTPException(

@@ -88,6 +88,40 @@ async def lookup_barcode(
 
 
 @router.get(
+    "/barcode/{barcode}/providers",
+    response_model=list[ProviderSearchResultResponse],
+)
+async def barcode_provider_search(
+    barcode: str,
+    db: DbSession,
+    _user: CurrentUser,
+    kind: ItemKind | None = None,
+) -> list[ProviderSearchResultResponse]:
+    results = await MetadataService(db).barcode_provider_search(barcode, kind)
+    return [
+        ProviderSearchResultResponse(
+            provider=ExternalProvider(r.provider),
+            provider_item_id=r.provider_item_id,
+            title=r.title,
+            kind=r.kind,
+            summary=r.summary,
+            image_url=r.image_url,
+            candidate_type=r.candidate_type,
+            series_title=r.series_title,
+            issue_number=r.issue_number,
+            volume_start_year=r.volume_start_year,
+            variant_name=r.variant_name,
+            is_variant=r.is_variant,
+            issue_count=r.issue_count,
+            publisher=r.publisher,
+            character_preview=r.character_preview,
+            story_arc_preview=r.story_arc_preview,
+        )
+        for r in results
+    ]
+
+
+@router.get(
     "/metadata/providers/search",
     response_model=list[ProviderSearchResultResponse],
     dependencies=[Depends(provider_search_rate_limit)],

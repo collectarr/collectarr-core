@@ -93,6 +93,16 @@ class OpenLibraryProvider:
                 results.append(result)
         return results
 
+    async def search_by_barcode(
+        self,
+        barcode: str,
+        kind: ItemKind | None = None,
+    ) -> list[ProviderSearchResult]:
+        normalized = barcode.strip().replace("-", "")
+        if not normalized:
+            return []
+        return await self.search(f"isbn:{normalized}", kind)
+
     async def get_item(self, provider_item_id: str) -> ProviderItem:
         provider_id = self._provider_id(provider_item_id)
         if provider_id is None:

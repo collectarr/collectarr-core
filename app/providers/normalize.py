@@ -65,6 +65,27 @@ def title_aliases(title: str) -> list[str]:
     return deduped[:5]
 
 
+def preview_names(credits: list) -> list[str]:
+    """Return up to 3 unique display names from *credits* (case-insensitive dedup).
+
+    Each element must have a ``.name`` attribute (e.g. ``NormalizedCredit``).
+    """
+    names: list[str] = []
+    seen: set[str] = set()
+    for credit in credits:
+        name = credit.name.strip()
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        names.append(name)
+        if len(names) >= 3:
+            break
+    return names
+
+
 def issue_sort_key(value: str | None) -> tuple[int, float, str, str]:
     """Return a sort key for an issue number that correctly orders numeric,
     decimal, and alphanumeric suffixes (e.g. 1, 1A, 1B, 2, 10, 10.1).

@@ -1876,12 +1876,9 @@ class AdminMetadataService:
 
     async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:
         result = await self.db.execute(
-            select(StoryArc).where(
-                StoryArc.name == name,
-                StoryArc.publisher.is_(None),
-            )
+            select(StoryArc).where(StoryArc.name == name)
         )
-        story_arc = result.scalar_one_or_none()
+        story_arc = result.scalars().first()
         if story_arc is None:
             story_arc = StoryArc(
                 name=name,

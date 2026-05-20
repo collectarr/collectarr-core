@@ -12,7 +12,7 @@ from fastapi import status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.providers.normalize import issue_sort_key, normalize_title, title_aliases
+from app.providers.normalize import issue_sort_key, normalize_title, preview_names, title_aliases
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -1220,20 +1220,7 @@ class ComicVineProvider:
         return credits
 
     def _preview_names(self, credits: list[NormalizedCredit]) -> list[str]:
-        names: list[str] = []
-        seen: set[str] = set()
-        for credit in credits:
-            name = credit.name.strip()
-            if not name:
-                continue
-            key = name.casefold()
-            if key in seen:
-                continue
-            seen.add(key)
-            names.append(name)
-            if len(names) >= 3:
-                break
-        return names
+        return preview_names(credits)
 
     def _int_value(self, value: Any) -> int | None:
         if value is None or value == "":

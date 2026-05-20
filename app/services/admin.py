@@ -56,6 +56,7 @@ from app.providers.base import (
     NormalizedVariantCover,
 )
 from app.providers.comicvine import ComicVineCharacterDetail, ComicVineProvider
+from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
@@ -1081,6 +1082,7 @@ class AdminMetadataService:
                         physical_format.variant_type if physical_format else None
                     ),
                     "publisher": normalized.publisher,
+                    "imprint": normalized.imprint,
                     "release_date": (
                         normalized.release_date.isoformat() if normalized.release_date else None
                     ),
@@ -1169,6 +1171,7 @@ class AdminMetadataService:
                 payload.provider, normalized.volume_provider_ids, "volume", volume.id
             )
         await self._link_publisher(item.id, normalized.publisher)
+        await self._link_imprint(item.id, normalized.imprint, normalized.publisher)
         await self._link_people(item.id, normalized.creators)
         await self._link_characters(item.id, payload.provider, normalized.characters)
         await self._link_story_arcs(item.id, payload.provider, normalized.story_arcs)
@@ -1564,6 +1567,37 @@ class AdminMetadataService:
             )
         )
 
+    async def _link_imprint(
+        self, item_id: UUID, imprint: str | None, publisher: str | None
+    ) -> None:
+        if not imprint:
+            return
+        organization = await self._get_or_create_organization(imprint, "imprint")
+        # Store the parent publisher in the imprint's metadata for reference.
+        if publisher:
+            metadata = dict(organization.metadata_json or {})
+            if metadata.get("parent_publisher") != publisher:
+                metadata["parent_publisher"] = publisher
+                organization.metadata_json = metadata
+        exists = await self.db.scalar(
+            select(EntityOrganization.id).where(
+                EntityOrganization.entity_type == "item",
+                EntityOrganization.entity_id == item_id,
+                EntityOrganization.organization_id == organization.id,
+                EntityOrganization.role == "imprint",
+            )
+        )
+        if exists:
+            return
+        self.db.add(
+            EntityOrganization(
+                entity_type="item",
+                entity_id=item_id,
+                organization_id=organization.id,
+                role="imprint",
+            )
+        )
+
     async def _link_people(self, item_id: UUID, credits: list[NormalizedCredit]) -> None:
         for credit in credits:
             person = await self._get_or_create_person(credit.name)
@@ -1866,19 +1900,34 @@ class AdminMetadataService:
         return organization
 
     async def _get_or_create_person(self, name: str) -> Person:
-        result = await self.db.execute(select(Person).where(Person.name == name))
+        canonical = normalize_person_name(name)
+        display_name = canonical or name
+        # Try exact match first, then normalized match.
+        result = await self.db.execute(select(Person).where(Person.name == display_name))
         person = result.scalar_one_or_none()
+        if person is None and display_name != name:
+            result = await self.db.execute(select(Person).where(Person.name == name))
+            person = result.scalar_one_or_none()
         if person is None:
-            person = Person(name=name)
+            person = Person(name=display_name)
             self.db.add(person)
             await self.db.flush()
         return person
 
     async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:
+        # Try exact name first, then fall back to normalized title match.
         result = await self.db.execute(
             select(StoryArc).where(StoryArc.name == name)
         )
         story_arc = result.scalars().first()
+        if story_arc is None:
+            normalized = normalize_arc_title(name)
+            if normalized:
+                all_arcs = (await self.db.execute(select(StoryArc))).scalars().all()
+                for candidate in all_arcs:
+                    if normalize_arc_title(candidate.name) == normalized:
+                        story_arc = candidate
+                        break
         if story_arc is None:
             story_arc = StoryArc(
                 name=name,

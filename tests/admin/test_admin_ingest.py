@@ -425,11 +425,11 @@ async def test_gcd_provider_normalizes_issue_payload():
     assert normalized.provider_ids == {"gcd": "256114"}
     assert normalized.volume_provider_ids == {"gcd": "6139"}
     assert normalized.volume_start_year == 1999
-    assert ("Mark Chiarello", "editing") in [
+    assert ("Mark Chiarello", "editor") in [
         (credit.name, credit.role) for credit in normalized.creators
     ]
-    assert ("Jeph Loeb", "script") in [(credit.name, credit.role) for credit in normalized.creators]
-    assert ("Tim Sale", "pencils") in [(credit.name, credit.role) for credit in normalized.creators]
+    assert ("Jeph Loeb", "writer") in [(credit.name, credit.role) for credit in normalized.creators]
+    assert ("Tim Sale", "penciller") in [(credit.name, credit.role) for credit in normalized.creators]
     assert "Batman [Bruce Wayne]" in [credit.name for credit in normalized.characters]
     assert [credit.name for credit in normalized.story_arcs] == ["Revenge"]
     assert (
@@ -437,6 +437,17 @@ async def test_gcd_provider_normalizes_issue_payload():
         == "/metadata/providers/gcd/images/256114?series=Batman%3A+Dark+Victory&issue=12&year=1999"
     )
     assert normalized.synopsis == "Two-Face seeks revenge."
+    assert normalized.imprint is None
+
+
+@pytest.mark.asyncio
+async def test_gcd_provider_extracts_imprint_when_publishers_differ():
+    raw = gcd_issue_raw()
+    raw["indicia_publisher"] = "Vertigo"
+    raw["publisher"] = "DC Comics"
+    normalized = await GCDProvider().normalize(raw)
+    assert normalized.publisher == "DC Comics"
+    assert normalized.imprint == "Vertigo"
 
 
 @pytest.mark.asyncio
@@ -2066,6 +2077,57 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
             )
         )
         assert list(provider_ids) == ["256114", "6139"]
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_gcd_publisher_imprint(client, monkeypatch):
+    """When GCD indicia_publisher differs from publisher, store the imprint."""
+    token = await admin_token(client, monkeypatch)
+
+    raw = gcd_issue_raw()
+    raw["indicia_publisher"] = "Vertigo"
+    raw["publisher"] = "DC Comics"
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="gcd", provider_item_id="256114", raw=raw)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(GCDProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", lambda *a, **kw: None)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "gcd", "provider_item_id": "256114"},
+    )
+    assert response.status_code == 201
+
+    async with AsyncSessionLocal() as db:
+        publisher = await db.scalar(
+            select(Organization).where(
+                Organization.name == "DC Comics", Organization.type == "publisher"
+            )
+        )
+        assert publisher is not None
+
+        imprint = await db.scalar(
+            select(Organization).where(
+                Organization.name == "Vertigo", Organization.type == "imprint"
+            )
+        )
+        assert imprint is not None
+        assert imprint.metadata_json["parent_publisher"] == "DC Comics"
+
+        imprint_link = await db.scalar(
+            select(EntityOrganization).where(
+                EntityOrganization.organization_id == imprint.id,
+                EntityOrganization.role == "imprint",
+            )
+        )
+        assert imprint_link is not None
 
 
 @pytest.mark.asyncio

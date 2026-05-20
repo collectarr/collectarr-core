@@ -13,6 +13,28 @@ _ISSUE_NUM_RE = re.compile(
     r"^(?P<number>\d+(?:\.\d+)?)\s*(?P<suffix>[A-Za-z]*)$"
 )
 
+# Person-name normalization
+_EDITOR_TITLE_RE = re.compile(
+    r"\s*\("
+    r"(?:editor|ed\.?|group\s+editor|executive\s+editor|associate\s+editor|assistant\s+editor)"
+    r"\)\s*$",
+    flags=re.IGNORECASE,
+)
+_NAME_SUFFIX_RE = re.compile(
+    r",?\s+(?:Jr\.?|Sr\.?|III|II|IV|Esq\.?)\s*$",
+    flags=re.IGNORECASE,
+)
+
+# GCD role → canonical role mapping
+_GCD_ROLE_MAP: dict[str, str] = {
+    "script": "writer",
+    "pencils": "penciller",
+    "inks": "inker",
+    "colors": "colorist",
+    "letters": "letterer",
+    "editing": "editor",
+}
+
 
 def normalize_title(value: str | None) -> str:
     """Normalize a title for comparison: strip accents, casefold, collapse
@@ -84,6 +106,53 @@ def preview_names(credits: list) -> list[str]:
         if len(names) >= 3:
             break
     return names
+
+
+def normalize_person_name(name: str) -> str:
+    """Normalize a person name for cross-provider deduplication.
+
+    Strips editor titles in parentheses, common suffixes (Jr., Sr., etc.),
+    handles ``Last, First`` → ``First Last`` reordering, and collapses
+    whitespace.
+    """
+    text = name.strip()
+    if not text:
+        return ""
+    text = _EDITOR_TITLE_RE.sub("", text).strip()
+    text = _NAME_SUFFIX_RE.sub("", text).strip()
+    # "Last, First" → "First Last"
+    parts = text.split(",", 1)
+    if len(parts) == 2 and parts[1].strip():
+        text = f"{parts[1].strip()} {parts[0].strip()}"
+    return " ".join(text.split())
+
+
+def canonical_credit_role(role: str | None) -> str | None:
+    """Map a provider-specific credit role to a canonical name.
+
+    GCD uses field names (``script``, ``pencils``, etc.) while ComicVine uses
+    descriptive roles (``Writer``, ``Artist``).  This maps GCD-style names to
+    canonical equivalents; unknown roles are returned as-is.
+    """
+    if not role or not role.strip():
+        return None
+    key = role.strip().casefold()
+    return _GCD_ROLE_MAP.get(key, role.strip())
+
+
+def normalize_arc_title(title: str) -> str:
+    """Normalize a story-arc title for cross-provider matching.
+
+    Strips trailing ``Part N`` / ``Chapter N`` markers and applies the same
+    normalization as :func:`normalize_title`.
+    """
+    text = re.sub(
+        r",?\s+(?:Part|Chapter|Pt\.?|Ch\.?)\s+\w+\s*$",
+        "",
+        title.strip(),
+        flags=re.IGNORECASE,
+    )
+    return normalize_title(text)
 
 
 def issue_sort_key(value: str | None) -> tuple[int, float, str, str]:

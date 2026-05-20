@@ -124,6 +124,7 @@ class NormalizedItem:
     edition_format: str | None = None
     physical_format: str | None = None
     publisher: str | None = None
+    imprint: str | None = None
     release_date: date | None = None
     isbn: str | None = None
     barcode: str | None = None

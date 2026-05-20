@@ -1,6 +1,13 @@
 """Tests for shared provider normalization utilities."""
 
-from app.providers.normalize import issue_sort_key, normalize_title, title_aliases
+from app.providers.normalize import (
+    canonical_credit_role,
+    issue_sort_key,
+    normalize_arc_title,
+    normalize_person_name,
+    normalize_title,
+    title_aliases,
+)
 
 
 class TestNormalizeTitle:
@@ -83,3 +90,68 @@ class TestIssueSortKey:
         assert sorted_values[2] == "1B"
         assert sorted_values[3] == "2"
         assert sorted_values[4] == "10"
+
+
+class TestNormalizePersonName:
+    def test_basic(self):
+        assert normalize_person_name("Stan Lee") == "Stan Lee"
+
+    def test_extra_whitespace(self):
+        assert normalize_person_name("  Stan   Lee  ") == "Stan Lee"
+
+    def test_last_comma_first(self):
+        assert normalize_person_name("Lee, Stan") == "Stan Lee"
+
+    def test_editor_title(self):
+        assert normalize_person_name("Mark Chiarello (editor)") == "Mark Chiarello"
+        assert normalize_person_name("Bob Smith (group editor)") == "Bob Smith"
+        assert normalize_person_name("Jane Doe (Ed.)") == "Jane Doe"
+
+    def test_suffix_jr(self):
+        assert normalize_person_name("Robert Downey Jr.") == "Robert Downey"
+        assert normalize_person_name("Robert Downey, Jr") == "Robert Downey"
+
+    def test_suffix_iii(self):
+        assert normalize_person_name("Henry Ford III") == "Henry Ford"
+
+    def test_empty(self):
+        assert normalize_person_name("") == ""
+        assert normalize_person_name("  ") == ""
+
+
+class TestCanonicalCreditRole:
+    def test_gcd_roles(self):
+        assert canonical_credit_role("script") == "writer"
+        assert canonical_credit_role("pencils") == "penciller"
+        assert canonical_credit_role("inks") == "inker"
+        assert canonical_credit_role("colors") == "colorist"
+        assert canonical_credit_role("letters") == "letterer"
+        assert canonical_credit_role("editing") == "editor"
+
+    def test_passthrough(self):
+        assert canonical_credit_role("Writer") == "Writer"
+        assert canonical_credit_role("Artist") == "Artist"
+
+    def test_none(self):
+        assert canonical_credit_role(None) is None
+
+    def test_empty(self):
+        assert canonical_credit_role("") is None
+        assert canonical_credit_role("  ") is None
+
+
+class TestNormalizeArcTitle:
+    def test_basic(self):
+        assert normalize_arc_title("The Spider Strikes") == normalize_title("The Spider Strikes")
+
+    def test_strip_part_suffix(self):
+        assert normalize_arc_title("Dark Victory Part 12") == normalize_arc_title("Dark Victory")
+
+    def test_strip_chapter_suffix(self):
+        assert normalize_arc_title("Hush Chapter 3") == normalize_arc_title("Hush")
+
+    def test_strip_pt_suffix(self):
+        assert normalize_arc_title("Siege Pt. 4") == normalize_arc_title("Siege")
+
+    def test_no_suffix(self):
+        assert normalize_arc_title("Knightfall") == normalize_title("Knightfall")

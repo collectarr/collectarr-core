@@ -12,7 +12,12 @@ from fastapi import status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.providers.normalize import normalize_title, preview_names, title_aliases
+from app.providers.normalize import (
+    canonical_credit_role,
+    normalize_title,
+    preview_names,
+    title_aliases,
+)
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -275,6 +280,7 @@ class GCDProvider:
         issue_title = self._optional_text(data.get("title"))
         release_date = self._date(data.get("on_sale_date")) or self._date(data.get("key_date"))
         cover_price_cents, currency = self._price(data.get("price"))
+        publisher, imprint = self._publisher_and_imprint(data)
         cover_image_url = self._normalized_cover_image_url(
             data,
             issue_id=issue_id,
@@ -295,7 +301,8 @@ class GCDProvider:
             page_count=self._int_decimal(data.get("page_count")),
             edition_title=issue_title or "Standard Edition",
             edition_format="Single Issue",
-            publisher=self._publisher(data),
+            publisher=publisher,
+            imprint=imprint,
             release_date=release_date,
             isbn=self._optional_text(data.get("isbn")),
             barcode=self._optional_text(data.get("barcode")),
@@ -764,12 +771,34 @@ class GCDProvider:
             or self._optional_text(data.get("publisher_name"))
         )
 
+    def _publisher_and_imprint(
+        self, data: Mapping[str, Any]
+    ) -> tuple[str | None, str | None]:
+        """Return ``(publisher, imprint)`` from GCD issue data.
+
+        GCD exposes ``indicia_publisher`` (often the imprint label printed
+        inside the comic) and ``publisher`` / ``publisher_name`` (the parent
+        company).  When they differ the indicia value is treated as an imprint.
+        """
+        indicia = self._optional_text(data.get("indicia_publisher"))
+        parent = (
+            self._optional_text(data.get("publisher"))
+            or self._optional_text(data.get("publisher_name"))
+        )
+        publisher = indicia or parent
+        imprint: str | None = None
+        if indicia and parent and indicia.casefold() != parent.casefold():
+            imprint = indicia
+            publisher = parent
+        return publisher, imprint
+
     def _credits(self, story_set: Any, *, issue_editing: Any = None) -> list[NormalizedCredit]:
         credits: list[NormalizedCredit] = []
         seen: set[tuple[str, str]] = set()
+        canonical_editing = canonical_credit_role("editing") or "editor"
         for name in self._split_credit_names(issue_editing, role="editing"):
-            seen.add((name.casefold(), "editing"))
-            credits.append(NormalizedCredit(name=name, role="editing"))
+            seen.add((name.casefold(), canonical_editing))
+            credits.append(NormalizedCredit(name=name, role=canonical_editing))
         if not isinstance(story_set, list):
             return credits
         for story in story_set:
@@ -783,12 +812,13 @@ class GCDProvider:
                 ("letters", "letters"),
                 ("editing", "editing"),
             ):
+                canonical_role = canonical_credit_role(role) or role
                 for name in self._split_credit_names(story.get(field), role=role):
-                    key = (name.casefold(), role)
+                    key = (name.casefold(), canonical_role)
                     if key in seen:
                         continue
                     seen.add(key)
-                    credits.append(NormalizedCredit(name=name, role=role))
+                    credits.append(NormalizedCredit(name=name, role=canonical_role))
         return credits
 
     def _characters(self, story_set: Any) -> list[NormalizedCredit]:

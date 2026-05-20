@@ -10,12 +10,7 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = 60 * 24 * 7
     cors_origins: list[str] = Field(
-        default_factory=lambda: [
-            "http://localhost:8080",
-            "http://127.0.0.1:8080",
-            "http://localhost:8081",
-            "http://127.0.0.1:8081",
-        ]
+        default_factory=lambda: ["*"]
     )
     bootstrap_admin_emails: set[str] = Field(default_factory=set)
 

@@ -48,10 +48,10 @@
 - [x] Scheduled catalog refresh for stale provider data
 
 ### 🛡️ Operations
-- [ ] HTTPS + secrets rotation documentation
-- [ ] Metrics/exporters for provider health and ingest throughput
-- [ ] GHCR/private-registry image flow docs
-- [ ] Backup/restore runbook for PostgreSQL + MinIO
+- [x] HTTPS + secrets rotation documentation
+- [x] Metrics/exporters for provider health and ingest throughput
+- [x] GHCR/private-registry image flow docs
+- [x] Backup/restore runbook for PostgreSQL + MinIO
 
 ### 🧩 Post-MVP
 - [ ] Rich duplicate/merge tooling with confidence scoring

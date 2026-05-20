@@ -5,6 +5,7 @@ from app.schemas.admin import ProviderIngestJobRunResponse
 from app.worker.main import (
     catalog_fingerprint,
     index_changed_catalog,
+    refresh_stale_catalog_items,
     run_pending_provider_ingest_jobs_best_effort,
 )
 from tests.helpers import seed_comic
@@ -73,3 +74,18 @@ async def test_run_pending_provider_ingest_jobs_best_effort_swallows_errors(monk
     result = await run_pending_provider_ingest_jobs_best_effort(5)
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_refresh_stale_catalog_items_swallows_errors(monkeypatch):
+    async def fail_refresh(self, limit):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(
+        "app.services.admin.AdminMetadataService.refresh_stale_items",
+        fail_refresh,
+    )
+
+    result = await refresh_stale_catalog_items(5)
+
+    assert result == 0

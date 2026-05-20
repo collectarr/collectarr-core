@@ -140,6 +140,11 @@ class NormalizedItem:
     volume_provider_ids: dict[str, str] = field(default_factory=dict)
     variant_covers: list[NormalizedVariantCover] = field(default_factory=list)
     relations: list[NormalizedRelation] = field(default_factory=list)
+    track_count: int | None = None
+    catalog_number: str | None = None
+    country: str | None = None
+    release_status: str | None = None
+    platforms: list[str] = field(default_factory=list)
 
 
 class MetadataProvider(Protocol):

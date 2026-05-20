@@ -2330,3 +2330,58 @@ async def test_admin_ingest_skips_restricted_provider_cover_mirroring(client, mo
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(Variant.cover_image_key)) is None
         assert await db.scalar(select(ImageCacheEntry)) is None
+
+
+@pytest.mark.asyncio
+async def test_refresh_stale_items_updates_metadata_from_provider(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="gcd", provider_item_id="256114", raw=gcd_issue_raw())
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(GCDProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "gcd", "provider_item_id": "256114"},
+    )
+    assert response.status_code == 201
+    item_id = response.json()["item"]["id"]
+
+    # Age the provider link past the staleness window
+    settings = get_settings()
+    monkeypatch.setattr(settings, "worker_catalog_refresh_stale_days", 0)
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            update(ExternalProviderId)
+            .where(ExternalProviderId.entity_type == "item")
+            .values(updated_at=datetime.now(UTC) - timedelta(days=1))
+        )
+        await db.commit()
+
+    # Provide an updated title from the provider
+    updated_raw = gcd_issue_raw()
+    updated_raw["series_name"] = "Amazing Spider-Man (Remastered)"
+
+    async def fake_get_item_refreshed(self, provider_item_id):
+        return ProviderItem(provider="gcd", provider_item_id="256114", raw=updated_raw)
+
+    monkeypatch.setattr(GCDProvider, "get_item", fake_get_item_refreshed)
+
+    from app.services.admin import AdminMetadataService
+
+    async with AsyncSessionLocal() as db:
+        refreshed = await AdminMetadataService(db).refresh_stale_items(10)
+
+    assert refreshed == 1
+
+    async with AsyncSessionLocal() as db:
+        item = await db.get(Item, UUID(item_id))
+        assert item is not None
+        assert "Remastered" in item.title
+        assert item.metadata_json.get("last_refresh") is not None

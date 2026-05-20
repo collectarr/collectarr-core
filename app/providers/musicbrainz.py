@@ -104,6 +104,8 @@ class MusicBrainzProvider:
         release_group = data.get("release-group") if isinstance(data.get("release-group"), Mapping) else {}
         release_date = self._date(data.get("date"))
         artist_names = self._artist_names(data.get("artist-credit"))
+        track_count, medium_formats = self._media_details(data.get("media"))
+        catalog_number = self._catalog_number(data)
 
         return NormalizedItem(
             kind=ItemKind.music,
@@ -114,6 +116,7 @@ class MusicBrainzProvider:
             volume_start_year=release_date.year if release_date else None,
             edition_title=title,
             edition_format=self._edition_format(data, release_group),
+            physical_format=medium_formats[0] if medium_formats else None,
             publisher=self._publisher(data),
             release_date=release_date,
             barcode=self._optional_text(data.get("barcode")),
@@ -123,6 +126,10 @@ class MusicBrainzProvider:
             volume_provider_ids=(
                 {self.name: str(release_group.get("id"))} if release_group.get("id") else {}
             ),
+            track_count=track_count,
+            catalog_number=catalog_number,
+            country=self._optional_text(data.get("country")),
+            release_status=self._optional_text(data.get("status")),
         )
 
     async def _request(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -213,6 +220,35 @@ class MusicBrainzProvider:
                 if medium_format:
                     return medium_format
         return primary_type or "Music Release"
+
+    def _media_details(self, media: Any) -> tuple[int | None, list[str]]:
+        """Return (total_track_count, list_of_distinct_medium_formats)."""
+        if not isinstance(media, list) or not media:
+            return None, []
+        total_tracks = 0
+        formats: list[str] = []
+        for medium in media:
+            if not isinstance(medium, Mapping):
+                continue
+            count = medium.get("track-count")
+            if isinstance(count, int) and count > 0:
+                total_tracks += count
+            fmt = self._optional_text(medium.get("format"))
+            if fmt and fmt not in formats:
+                formats.append(fmt)
+        return total_tracks or None, formats
+
+    def _catalog_number(self, data: Mapping[str, Any]) -> str | None:
+        labels = data.get("label-info")
+        if not isinstance(labels, list):
+            return None
+        for entry in labels:
+            if not isinstance(entry, Mapping):
+                continue
+            cat = self._optional_text(entry.get("catalog-number"))
+            if cat:
+                return cat
+        return None
 
     def _cover_url(self, data: Mapping[str, Any]) -> str | None:
         archive = data.get("cover-art-archive")

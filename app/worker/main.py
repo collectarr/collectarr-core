@@ -127,21 +127,39 @@ async def run_pending_provider_ingest_jobs_best_effort(
     return result
 
 
+async def refresh_stale_catalog_items(limit: int) -> int:
+    try:
+        async with AsyncSessionLocal() as db:
+            refreshed = await AdminMetadataService(db).refresh_stale_items(limit)
+    except Exception as exc:
+        logger.exception("worker_catalog_refresh_failed limit=%s error=%s", limit, exc)
+        return 0
+
+    if refreshed:
+        logger.info("worker_catalog_refresh_finished refreshed=%s", refreshed)
+    return refreshed
+
+
 async def main() -> None:
     settings = get_settings()
     search = SearchClient()
     logger.info(
         "worker_starting index_interval_seconds=%s provider_ingest_interval_seconds=%s "
-        "provider_ingest_batch_size=%s",
+        "provider_ingest_batch_size=%s catalog_refresh_interval_seconds=%s "
+        "catalog_refresh_stale_days=%s catalog_refresh_batch_size=%s",
         settings.worker_index_interval_seconds,
         settings.worker_provider_ingest_interval_seconds,
         settings.worker_provider_ingest_batch_size,
+        settings.worker_catalog_refresh_interval_seconds,
+        settings.worker_catalog_refresh_stale_days,
+        settings.worker_catalog_refresh_batch_size,
     )
     await search.configure()
     ObjectStorage().ensure_bucket()
     last_fingerprint: CatalogFingerprint | None = None
     next_index_run_at = 0.0
     next_ingest_run_at = 0.0
+    next_refresh_run_at = 0.0
 
     while True:
         now = monotonic()
@@ -156,7 +174,12 @@ async def main() -> None:
             )
             next_ingest_run_at = monotonic() + settings.worker_provider_ingest_interval_seconds
 
-        sleep_until = min(next_index_run_at, next_ingest_run_at)
+        now = monotonic()
+        if now >= next_refresh_run_at:
+            await refresh_stale_catalog_items(settings.worker_catalog_refresh_batch_size)
+            next_refresh_run_at = monotonic() + settings.worker_catalog_refresh_interval_seconds
+
+        sleep_until = min(next_index_run_at, next_ingest_run_at, next_refresh_run_at)
         await asyncio.sleep(max(1.0, sleep_until - monotonic()))
 
 

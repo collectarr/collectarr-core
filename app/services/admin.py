@@ -913,6 +913,70 @@ class AdminMetadataService:
     def ingest_history(self) -> list[ProviderIngestHistoryEntry]:
         return list(_INGEST_HISTORY)
 
+    async def refresh_stale_items(self, limit: int = 10) -> int:
+        """Re-fetch provider data for items not updated within the staleness window."""
+        stale_days = self.settings.worker_catalog_refresh_stale_days
+        cutoff = datetime.now(UTC) - timedelta(days=stale_days)
+        result = await self.db.execute(
+            select(ExternalProviderId)
+            .where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.updated_at < cutoff,
+            )
+            .order_by(ExternalProviderId.updated_at.asc())
+            .limit(limit)
+        )
+        provider_ids = result.scalars().all()
+        refreshed = 0
+        for pid in provider_ids:
+            try:
+                await self._refresh_item_from_provider(pid)
+                refreshed += 1
+            except Exception:
+                logger.exception(
+                    "catalog_refresh_failed provider=%s provider_item_id=%s entity_id=%s",
+                    pid.provider.value,
+                    pid.provider_item_id,
+                    pid.entity_id,
+                )
+        if refreshed:
+            await self.db.commit()
+        return refreshed
+
+    async def _refresh_item_from_provider(self, pid: ExternalProviderId) -> None:
+        registry = ProviderRegistry()
+        provider_name = pid.provider
+        provider = registry.get(provider_name)
+        if provider is None or not provider.is_configured:
+            pid.updated_at = datetime.now(UTC)
+            return
+
+        provider_item = await provider.get_item(pid.provider_item_id)
+        normalized = await provider.normalize(
+            dict(provider_item.raw) | {"id": provider_item.provider_item_id}
+        )
+
+        item = await self.db.get(Item, pid.entity_id)
+        if item is None:
+            return
+
+        item.title = normalized.title
+        item.synopsis = normalized.synopsis
+        item.runtime_minutes = normalized.runtime_minutes
+        item.page_count = normalized.page_count
+        metadata = dict(item.metadata_json or {})
+        metadata["source"] = provider_item.raw
+        metadata["last_refresh"] = datetime.now(UTC).isoformat()
+        item.metadata_json = metadata
+
+        pid.updated_at = datetime.now(UTC)
+        logger.info(
+            "catalog_refresh_ok provider=%s provider_item_id=%s item_id=%s",
+            pid.provider.value,
+            pid.provider_item_id,
+            pid.entity_id,
+        )
+
     async def retry_ingest(self, payload: ProviderIngestRetryRequest) -> ProviderIngestResponse:
         entry = next(
             (entry for entry in _INGEST_HISTORY if entry.id == payload.history_id),
@@ -1093,6 +1157,11 @@ class AdminMetadataService:
                     ],
                     "characters": [credit.name for credit in normalized.characters],
                     "story_arcs": [credit.name for credit in normalized.story_arcs],
+                    "track_count": normalized.track_count,
+                    "catalog_number": normalized.catalog_number,
+                    "country": normalized.country,
+                    "release_status": normalized.release_status,
+                    "platforms": normalized.platforms or None,
                     **cover_metadata,
                 },
                 "source": provider_item.raw,

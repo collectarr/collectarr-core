@@ -103,7 +103,8 @@ class IGDBProvider:
                 [
                     "fields id,name,summary,storyline,first_release_date,cover.url,genres.name,"
                     "involved_companies.company.name,involved_companies.developer,"
-                    "involved_companies.publisher,platforms.name;",
+                    "involved_companies.publisher,platforms.name,"
+                    "game_modes.name,age_ratings.rating,age_ratings.category;",
                     f"where id = {igdb_id};",
                     "limit 1;",
                 ]
@@ -145,6 +146,7 @@ class IGDBProvider:
             story_arcs=[NormalizedCredit(name=name) for name in genres],
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            platforms=platforms,
         )
 
     async def _request(self, endpoint: str, body: str) -> list[dict[str, Any]]:

@@ -40,8 +40,16 @@ def _release_raw() -> dict:
                 "artist": {"id": "561d854a-6a28-4aa7-8c99-323e6ce46c2a", "name": "Miles Davis"},
             }
         ],
-        "label-info": [{"label": {"id": "7b5b5f7b", "name": "Columbia"}}],
-        "media": [{"format": "CD"}],
+        "label-info": [
+            {
+                "catalog-number": "CK 64935",
+                "label": {"id": "7b5b5f7b", "name": "Columbia"},
+            }
+        ],
+        "media": [
+            {"format": "CD", "track-count": 5},
+            {"format": "CD", "track-count": 6},
+        ],
         "release-group": {"id": GROUP_ID, "primary-type": "Album", "title": "Kind of Blue"},
         "cover-art-archive": {"artwork": True, "front": True},
     }
@@ -89,6 +97,11 @@ async def test_musicbrainz_provider_fetches_release_and_normalizes(monkeypatch):
     assert normalized.creators[0].name == "Miles Davis"
     assert normalized.provider_ids == {"musicbrainz": RELEASE_ID}
     assert normalized.volume_provider_ids == {"musicbrainz": GROUP_ID}
+    assert normalized.track_count == 11
+    assert normalized.catalog_number == "CK 64935"
+    assert normalized.country == "US"
+    assert normalized.release_status == "Official"
+    assert normalized.physical_format == "CD"
 
 
 @pytest.mark.asyncio

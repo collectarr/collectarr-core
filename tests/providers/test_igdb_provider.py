@@ -29,7 +29,7 @@ def _game_raw() -> dict:
         "first_release_date": 1488499200,
         "cover": {"url": "//images.igdb.com/igdb/image/upload/t_thumb/co1r7f.jpg"},
         "genres": [{"name": "Adventure"}],
-        "platforms": [{"name": "Nintendo Switch"}],
+        "platforms": [{"name": "Nintendo Switch"}, {"name": "Wii U"}],
         "involved_companies": [
             {"developer": True, "publisher": False, "company": {"name": "Nintendo EPD"}},
             {"developer": False, "publisher": True, "company": {"name": "Nintendo"}},
@@ -65,7 +65,7 @@ async def test_igdb_provider_search_normalizes_games(monkeypatch):
     assert results[0].provider_item_id == "1020"
     assert results[0].kind == ItemKind.game
     assert results[0].title == "The Legend of Zelda: Breath of the Wild"
-    assert results[0].summary == "2017-03-03 · Nintendo Switch"
+    assert results[0].summary == "2017-03-03 · Nintendo Switch, Wii U"
     assert results[0].image_url == "https://images.igdb.com/igdb/image/upload/t_cover_big/co1r7f.jpg"
 
 
@@ -94,6 +94,7 @@ async def test_igdb_provider_fetches_game_and_normalizes(monkeypatch):
     assert normalized.creators[0].name == "Nintendo EPD"
     assert normalized.story_arcs[0].name == "Adventure"
     assert normalized.provider_ids == {"igdb": "1020"}
+    assert normalized.platforms == ["Nintendo Switch", "Wii U"]
 
 
 @pytest.mark.asyncio

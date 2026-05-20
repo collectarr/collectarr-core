@@ -55,7 +55,7 @@ from app.providers.base import (
     NormalizedSeason,
     NormalizedVariantCover,
 )
-from app.providers.comicvine import ComicVineProvider
+from app.providers.comicvine import ComicVineCharacterDetail, ComicVineProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
@@ -124,6 +124,7 @@ class AdminMetadataService:
         self.actor_email = actor.email if actor else None
         self.providers = ProviderRegistry()
         self.settings = get_settings()
+        self._comicvine_character_details: dict[str, ComicVineCharacterDetail | None] = {}
 
     async def provider_statuses(self) -> list[ProviderStatusResponse]:
         statuses: list[ProviderStatusResponse] = []
@@ -1662,8 +1663,6 @@ class AdminMetadataService:
                         role=role,
                     )
                 )
-            if character.first_appearance_item_id is None:
-                character.first_appearance_item_id = item_id
 
             provider_item_id = self._comicvine_credit_provider_id(credit, resource="character")
             if provider == ExternalProvider.comicvine and provider_item_id:
@@ -1673,6 +1672,13 @@ class AdminMetadataService:
                     "character",
                     character.id,
                 )
+                await self._enrich_comicvine_character(
+                    character,
+                    provider_item_id,
+                    current_item_id=item_id,
+                )
+            if character.first_appearance_item_id is None:
+                character.first_appearance_item_id = item_id
 
     async def _link_tags(self, item_id: UUID, kind: str, credits: list[NormalizedCredit]) -> None:
         for credit in credits:
@@ -1924,6 +1930,116 @@ class AdminMetadataService:
         if updated:
             character.metadata_json = metadata
         return character
+
+    async def _enrich_comicvine_character(
+        self,
+        character: Character,
+        provider_item_id: str,
+        *,
+        current_item_id: UUID,
+    ) -> None:
+        if (
+            character.description
+            and character.image_url
+            and character.aliases
+            and character.first_appearance_item_id
+        ):
+            return
+        detail = await self._comicvine_character_detail(provider_item_id)
+        if detail is None:
+            return
+
+        if not character.description and detail.description:
+            character.description = detail.description
+        if not character.image_url and detail.image_url:
+            character.image_url = detail.image_url
+        character.aliases = self._merge_aliases(
+            character.aliases or [],
+            detail.aliases,
+            primary_name=character.name,
+        )
+        metadata = dict(character.metadata_json or {})
+        metadata.setdefault("api_detail_url", detail.api_detail_url)
+        metadata.setdefault("site_detail_url", detail.site_detail_url)
+        metadata["comicvine_character_id"] = detail.provider_item_id
+        if detail.first_appeared_in_issue_id:
+            metadata["comicvine_first_appeared_in_issue_id"] = detail.first_appeared_in_issue_id
+            first_item_id = await self._local_item_id_for_provider_id(
+                ExternalProvider.comicvine,
+                detail.first_appeared_in_issue_id,
+            )
+            if first_item_id is not None:
+                character.first_appearance_item_id = first_item_id
+            elif detail.first_appeared_in_issue_id == await self._provider_id_for_item(
+                ExternalProvider.comicvine,
+                current_item_id,
+            ):
+                character.first_appearance_item_id = current_item_id
+        character.metadata_json = {
+            key: value for key, value in metadata.items() if value is not None
+        }
+
+    async def _comicvine_character_detail(
+        self,
+        provider_item_id: str,
+    ) -> ComicVineCharacterDetail | None:
+        if provider_item_id in self._comicvine_character_details:
+            return self._comicvine_character_details[provider_item_id]
+        provider = self.providers.maybe_get(ExternalProvider.comicvine)
+        if not isinstance(provider, ComicVineProvider):
+            self._comicvine_character_details[provider_item_id] = None
+            return None
+        try:
+            detail = await provider.get_character_detail(provider_item_id)
+        except ApiHTTPException:
+            logger.info("ComicVine character enrichment failed for %s", provider_item_id)
+            detail = None
+        self._comicvine_character_details[provider_item_id] = detail
+        return detail
+
+    async def _local_item_id_for_provider_id(
+        self,
+        provider: ExternalProvider,
+        provider_item_id: str,
+    ) -> UUID | None:
+        return await self.db.scalar(
+            select(ExternalProviderId.entity_id).where(
+                ExternalProviderId.provider == provider,
+                ExternalProviderId.provider_item_id == provider_item_id,
+                ExternalProviderId.entity_type == "item",
+            )
+        )
+
+    async def _provider_id_for_item(
+        self,
+        provider: ExternalProvider,
+        item_id: UUID,
+    ) -> str | None:
+        return await self.db.scalar(
+            select(ExternalProviderId.provider_item_id).where(
+                ExternalProviderId.provider == provider,
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id == item_id,
+            )
+        )
+
+    def _merge_aliases(
+        self,
+        existing: list[str],
+        incoming: list[str],
+        *,
+        primary_name: str,
+    ) -> list[str]:
+        aliases: list[str] = []
+        seen = {primary_name.casefold()}
+        for value in [*existing, *incoming]:
+            text = " ".join(str(value or "").split()).strip()
+            key = text.casefold()
+            if not text or key in seen:
+                continue
+            aliases.append(text)
+            seen.add(key)
+        return aliases
 
     async def _get_or_create_tag(self, kind: str, name: str) -> Tag:
         result = await self.db.execute(select(Tag).where(Tag.kind == kind, Tag.name == name))

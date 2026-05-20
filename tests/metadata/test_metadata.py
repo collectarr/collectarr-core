@@ -342,7 +342,12 @@ async def test_story_arc_and_character_browse_endpoints(client):
 
     async with AsyncSessionLocal() as db:
         story_arc = StoryArc(name="The Night Gwen Stacy Died", publisher="Marvel")
-        character = Character(name="Spider-Man")
+        character = Character(
+            name="Spider-Man",
+            aliases=["Peter Parker"],
+            description="Friendly neighborhood hero.",
+            image_url="https://example.test/spider-man.jpg",
+        )
         db.add_all([story_arc, character])
         await db.flush()
         db.add_all(
@@ -381,6 +386,26 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert arc_items_body[0]["ordinal"] == 1
     assert arc_items_body[0]["series_title"] == "The Amazing Spider-Man"
 
+    arc_facets_response = await client.get(
+        "/story-arcs/facets",
+        params={"item_ids": item_id},
+        headers=headers,
+    )
+    assert arc_facets_response.status_code == 200
+    arc_facets_body = arc_facets_response.json()
+    assert arc_facets_body == [
+        {
+            "id": story_arc_id,
+            "name": "The Night Gwen Stacy Died",
+            "description": None,
+            "publisher": "Marvel",
+            "start_date": None,
+            "end_date": None,
+            "item_count": 1,
+            "item_ids": [item_id],
+        }
+    ]
+
     characters_response = await client.get(
         "/characters",
         params={"q": "spider"},
@@ -402,3 +427,49 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert len(appearances_body) == 1
     assert appearances_body[0]["item_id"] == item_id
     assert appearances_body[0]["role"] == "main"
+
+    character_facets_response = await client.get(
+        "/characters/facets",
+        params={"item_ids": item_id},
+        headers=headers,
+    )
+    assert character_facets_response.status_code == 200
+    character_facets_body = character_facets_response.json()
+    assert character_facets_body == [
+        {
+            "id": character_id,
+            "name": "Spider-Man",
+            "aliases": ["Peter Parker"],
+            "image_url": "https://example.test/spider-man.jpg",
+            "item_count": 1,
+            "item_ids": [item_id],
+            "role_counts": {"main": 1},
+        }
+    ]
+
+    detail_response = await client.get(f"/comics/{item_id}", headers=headers)
+    assert detail_response.status_code == 200
+    detail_body = detail_response.json()
+    assert detail_body["characters"] == [
+        {
+            "name": "Spider-Man",
+            "role": "main",
+            "api_detail_url": None,
+            "site_detail_url": None,
+            "aliases": ["Peter Parker"],
+            "description": "Friendly neighborhood hero.",
+            "image_url": "https://example.test/spider-man.jpg",
+            "first_appearance_item_id": None,
+        }
+    ]
+    assert detail_body["story_arcs"] == [
+        {
+            "name": "The Night Gwen Stacy Died",
+            "role": None,
+            "api_detail_url": None,
+            "site_detail_url": None,
+            "description": None,
+            "ordinal": 1,
+            "publisher": "Marvel",
+        }
+    ]

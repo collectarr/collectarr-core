@@ -21,6 +21,7 @@ from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.providers.mangadex import MangaDexProvider
 from app.schemas.metadata import (
     CharacterAppearanceResponse,
+    CharacterFacetResponse,
     CharacterResponse,
     ItemResponse,
     MediaCatalogResponse,
@@ -31,6 +32,7 @@ from app.schemas.metadata import (
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
@@ -38,6 +40,25 @@ from app.schemas.metadata import (
 from app.services.metadata import MetadataService
 
 router = APIRouter(tags=["metadata"])
+
+
+def _parse_item_ids(value: str | None) -> list[UUID]:
+    if value is None or not value.strip():
+        return []
+    item_ids: list[UUID] = []
+    for raw in value.split(","):
+        text = raw.strip()
+        if not text:
+            continue
+        try:
+            item_ids.append(UUID(text))
+        except ValueError as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="invalid_item_ids",
+                detail="item_ids must be a comma-separated list of UUIDs",
+            ) from exc
+    return list(dict.fromkeys(item_ids))
 
 
 @router.get("/metadata/media-types", response_model=MediaCatalogResponse)
@@ -277,6 +298,30 @@ async def create_metadata_proposal(
     _user: CurrentUser,
 ) -> MetadataProposalResponse:
     return await MetadataService(db).create_proposal(payload)
+
+
+@router.get(
+    "/story-arcs/facets",
+    response_model=list[StoryArcFacetResponse],
+)
+async def get_story_arc_facets(
+    db: DbSession,
+    _user: CurrentUser,
+    item_ids: str | None = Query(default=None),
+) -> list[StoryArcFacetResponse]:
+    return await MetadataService(db).get_story_arc_facets(_parse_item_ids(item_ids))
+
+
+@router.get(
+    "/characters/facets",
+    response_model=list[CharacterFacetResponse],
+)
+async def get_character_facets(
+    db: DbSession,
+    _user: CurrentUser,
+    item_ids: str | None = Query(default=None),
+) -> list[CharacterFacetResponse]:
+    return await MetadataService(db).get_character_facets(_parse_item_ids(item_ids))
 
 
 @router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse)

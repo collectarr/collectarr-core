@@ -5,6 +5,46 @@ from app.providers.comicvine import ComicVineProvider
 
 
 @pytest.mark.asyncio
+async def test_get_character_detail_enriches_aliases_image_and_first_issue(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_request(self, path, params):
+        assert path == "character/4005-1443/"
+        assert "aliases" in params["field_list"]
+        assert "first_appeared_in_issue" in params["field_list"]
+        return {
+            "results": {
+                "id": 1443,
+                "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-1443/",
+                "site_detail_url": "https://comicvine.gamespot.com/spider-man/4005-1443/",
+                "name": "Spider-Man",
+                "aliases": "Peter Parker\nSpidey",
+                "description": "<p>Friendly neighborhood hero.</p>",
+                "image": {
+                    "medium_url": "https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg"
+                },
+                "first_appeared_in_issue": {
+                    "id": 12345,
+                    "api_detail_url": ("https://comicvine.gamespot.com/api/issue/4000-12345/"),
+                },
+            }
+        }
+
+    monkeypatch.setattr(ComicVineProvider, "_request", fake_request)
+
+    detail = await ComicVineProvider().get_character_detail("4005-1443")
+
+    assert detail is not None
+    assert detail.provider_item_id == "4005-1443"
+    assert detail.name == "Spider-Man"
+    assert detail.aliases == ["Peter Parker", "Spidey"]
+    assert detail.description == "Friendly neighborhood hero."
+    assert detail.image_url == "https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg"
+    assert detail.first_appeared_in_issue_id == "4000-12345"
+
+
+@pytest.mark.asyncio
 async def test_find_issue_cover_matches_exact_volume_year_and_issue(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "comicvine_api_key", "test-key")

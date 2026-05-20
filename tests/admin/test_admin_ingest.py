@@ -32,7 +32,11 @@ from app.models.canonical import (
     Volume,
 )
 from app.providers.base import ProviderItem, ProviderSearchResult
-from app.providers.comicvine import ComicVineIssueCover, ComicVineProvider
+from app.providers.comicvine import (
+    ComicVineCharacterDetail,
+    ComicVineIssueCover,
+    ComicVineProvider,
+)
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.search.client import SearchClient
 from app.services import admin as admin_service
@@ -66,7 +70,13 @@ def comicvine_issue_raw() -> dict:
             {"name": "Stan Lee", "role": "Writer"},
             {"name": "Steve Ditko", "role": "Artist"},
         ],
-        "character_credits": [{"name": "Spider-Man"}],
+        "character_credits": [
+            {
+                "name": "Spider-Man",
+                "api_detail_url": "https://comicvine.gamespot.com/api/character/4005-1443/",
+                "site_detail_url": "https://comicvine.gamespot.com/spider-man/4005-1443/",
+            }
+        ],
         "story_arc_credits": [{"name": "The Spider Strikes"}],
         "image": {"super_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"},
         "volume": {
@@ -1646,6 +1656,19 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             provider="comicvine", provider_item_id="4000-12345", raw=comicvine_issue_raw()
         )
 
+    async def fake_get_character_detail(self, provider_item_id):
+        assert provider_item_id == "4005-1443"
+        return ComicVineCharacterDetail(
+            provider_item_id="4005-1443",
+            name="Spider-Man",
+            aliases=["Peter Parker", "Spidey"],
+            description="Friendly neighborhood hero.",
+            image_url="https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg",
+            first_appeared_in_issue_id="4000-12345",
+            api_detail_url="https://comicvine.gamespot.com/api/character/4005-1443/",
+            site_detail_url="https://comicvine.gamespot.com/spider-man/4005-1443/",
+        )
+
     async def fake_index_documents(self, documents):
         indexed_documents.extend(documents)
         return True
@@ -1654,6 +1677,7 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         raise AssertionError("Provider images should not be mirrored by default")
 
     monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(ComicVineProvider, "get_character_detail", fake_get_character_detail)
     monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
     monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
 
@@ -1757,7 +1781,16 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
                 ExternalProviderId.provider_item_id
             )
         )
-        assert list(provider_ids) == ["4000-12345", "4050-6789"]
+        assert list(provider_ids) == ["4000-12345", "4005-1443", "4050-6789"]
+        character = await db.scalar(select(Character).where(Character.name == "Spider-Man"))
+        assert character is not None
+        assert character.aliases == ["Peter Parker", "Spidey"]
+        assert character.description == "Friendly neighborhood hero."
+        assert (
+            character.image_url
+            == "https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg"
+        )
+        assert character.first_appearance_item_id == UUID(body["item_id"])
         publisher = await db.scalar(select(Organization.name))
         assert publisher == "Marvel"
         roles = await db.scalars(select(EntityPerson.role).order_by(EntityPerson.role))

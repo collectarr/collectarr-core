@@ -47,6 +47,8 @@ class MetadataCredit(BaseModel):
     api_detail_url: str | None = None
     site_detail_url: str | None = None
 
+    model_config = {"extra": "allow"}
+
 
 class ProviderLink(BaseModel):
     provider: ExternalProvider
@@ -235,6 +237,17 @@ class StoryArcResponse(BaseModel):
     item_count: int = 0
 
 
+class StoryArcFacetResponse(BaseModel):
+    id: UUID
+    name: str
+    description: str | None = None
+    publisher: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    item_count: int = 0
+    item_ids: list[UUID] = Field(default_factory=list)
+
+
 class StoryArcItemResponse(BaseModel):
     story_arc_id: UUID
     item_id: UUID
@@ -255,6 +268,16 @@ class CharacterResponse(BaseModel):
     image_url: str | None = None
     first_appearance_item_id: UUID | None = None
     appearance_count: int = 0
+
+
+class CharacterFacetResponse(BaseModel):
+    id: UUID
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+    image_url: str | None = None
+    item_count: int = 0
+    item_ids: list[UUID] = Field(default_factory=list)
+    role_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class CharacterAppearanceResponse(BaseModel):

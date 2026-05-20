@@ -115,6 +115,12 @@ class Settings(BaseSettings):
     tmdb_language: str = "en-US"
     tmdb_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
 
+    hardcover_api_key: str | None = None
+    hardcover_graphql_url: str = "https://api.hardcover.app/v1/graphql"
+    hardcover_timeout_seconds: float = 30.0
+    hardcover_search_limit: int = 20
+    hardcover_user_agent: str = "Collectarr/0.1 (+https://github.com/saitatter/collectarr)"
+
     mangadex_base_url: str = "https://api.mangadex.org"
     mangadex_timeout_seconds: float = 20.0
     mangadex_search_limit: int = 20

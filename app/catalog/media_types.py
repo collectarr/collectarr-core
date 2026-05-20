@@ -44,7 +44,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Manga",
         route_segments=("manga",),
         default_provider=ExternalProvider.mangadex,
-        providers=(ExternalProvider.mangadex, ExternalProvider.anilist, ExternalProvider.comicvine),
+        providers=(ExternalProvider.mangadex, ExternalProvider.hardcover, ExternalProvider.anilist, ExternalProvider.comicvine),
     ),
     MediaTypeConfig(
         kind=ItemKind.anime,
@@ -94,7 +94,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Books",
         route_segments=("books", "book"),
         default_provider=ExternalProvider.openlibrary,
-        providers=(ExternalProvider.openlibrary,),
+        providers=(ExternalProvider.openlibrary, ExternalProvider.hardcover),
     ),
     MediaTypeConfig(
         kind=ItemKind.music,

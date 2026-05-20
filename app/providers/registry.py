@@ -5,6 +5,7 @@ from app.providers.base import MetadataProvider
 from app.providers.bgg import BGGProvider
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
+from app.providers.hardcover import HardcoverProvider
 from app.providers.igdb import IGDBProvider
 from app.providers.mangadex import MangaDexProvider
 from app.providers.musicbrainz import MusicBrainzProvider
@@ -17,6 +18,7 @@ class ProviderRegistry:
         providers: list[MetadataProvider] = [
             ComicVineProvider(),
             GCDProvider(),
+            HardcoverProvider(),
             IGDBProvider(),
             TMDbProvider(),
             AniListProvider(),

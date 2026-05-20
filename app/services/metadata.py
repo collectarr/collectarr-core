@@ -1370,7 +1370,7 @@ class MetadataService:
             CharacterResponse(
                 id=character.id,
                 name=character.name,
-                aliases=[str(alias) for alias in (character.aliases or []) if alias],
+                aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
                 description=character.description,
                 image_url=character.image_url,
                 first_appearance_item_id=character.first_appearance_item_id,

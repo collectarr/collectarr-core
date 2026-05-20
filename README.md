@@ -6,10 +6,11 @@ Core owns the shared catalog and provider infrastructure. Personal collection da
 
 ## ✨ Features
 
-- 📚 **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, and tags
+- 📚 **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and tags
 - 🔌 **9 metadata providers** — GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
 - 🔍 **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
-- 🖼️ **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, WebP normalization, LRU cache with budget tracking
+- 🧩 **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
+- 🖼️ **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking
 - 🔎 **Full-text search** — optional Meilisearch indexing for instant catalog queries
 - 🛠️ **Admin Console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
 - 📋 **Ingest job queue** — DB-backed provider ingest with automatic worker processing, retry, and status tracking

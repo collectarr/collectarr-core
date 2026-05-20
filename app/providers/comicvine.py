@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from html import unescape
 from typing import Any, Mapping
@@ -12,7 +12,7 @@ from fastapi import status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.providers.normalize import issue_sort_key, normalize_title, title_aliases
+from app.providers.normalize import issue_sort_key, normalize_title, preview_names, title_aliases
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -81,6 +81,18 @@ logger = logging.getLogger(__name__)
 class ComicVineIssueCover:
     provider_item_id: str
     image_url: str
+    site_detail_url: str | None = None
+
+
+@dataclass(frozen=True)
+class ComicVineCharacterDetail:
+    provider_item_id: str
+    name: str | None = None
+    aliases: list[str] = field(default_factory=list)
+    description: str | None = None
+    image_url: str | None = None
+    first_appeared_in_issue_id: str | None = None
+    api_detail_url: str | None = None
     site_detail_url: str | None = None
 
 
@@ -250,6 +262,60 @@ class ComicVineProvider:
             provider=self.name,
             provider_item_id=self._provider_item_id(target_kind, canonical_id),
             raw=raw,
+        )
+
+    async def get_character_detail(
+        self,
+        provider_item_id: str,
+    ) -> ComicVineCharacterDetail | None:
+        if not self._is_configured:
+            return None
+
+        canonical_id = self._character_resource_id(provider_item_id)
+        if not canonical_id:
+            return None
+
+        payload = await self._request(
+            f"character/{canonical_id}/",
+            {
+                "field_list": ",".join(
+                    [
+                        "id",
+                        "api_detail_url",
+                        "site_detail_url",
+                        "name",
+                        "aliases",
+                        "deck",
+                        "description",
+                        "image",
+                        "first_appeared_in_issue",
+                    ]
+                )
+            },
+        )
+        raw = payload.get("results") or {}
+        if not isinstance(raw, Mapping):
+            return None
+
+        first_issue = (
+            raw.get("first_appeared_in_issue")
+            if isinstance(raw.get("first_appeared_in_issue"), Mapping)
+            else {}
+        )
+        first_issue_id = (
+            self._resource_id(first_issue, "issue") if isinstance(first_issue, Mapping) else None
+        )
+        return ComicVineCharacterDetail(
+            provider_item_id=self._character_resource_id(
+                self._resource_id_for_detail(raw, canonical_id)
+            ),
+            name=self._optional_text(raw.get("name")),
+            aliases=self._aliases(raw.get("aliases")),
+            description=self._clean_text(raw.get("description") or raw.get("deck")),
+            image_url=self._image_url(raw.get("image")),
+            first_appeared_in_issue_id=first_issue_id,
+            api_detail_url=self._optional_text(raw.get("api_detail_url")),
+            site_detail_url=self._optional_text(raw.get("site_detail_url")),
         )
 
     async def find_issue_cover(
@@ -691,6 +757,33 @@ class ComicVineProvider:
             return f"4000-{resource_id}"
         return resource_id
 
+    def _character_resource_id(self, provider_item_id: str | None) -> str:
+        text = str(provider_item_id or "").strip()
+        if not text:
+            return ""
+        text = text.removeprefix("character:")
+        if re.fullmatch(r"\d+-\d+", text):
+            return text
+        if text.isdigit():
+            return f"4005-{text}"
+        match = re.search(r"/character/(?P<id>\d+-\d+)(?:/|$)", text)
+        return match.group("id") if match else text
+
+    def _resource_id_for_detail(
+        self,
+        data: Mapping[str, Any],
+        fallback: str,
+    ) -> str:
+        api_detail_url = str(data.get("api_detail_url") or "")
+        match = re.search(r"/character/(?P<id>\d+-\d+)(?:/|$)", api_detail_url)
+        if match:
+            return match.group("id")
+        raw_id = data.get("id")
+        if raw_id is None:
+            return fallback
+        raw_id_text = str(raw_id)
+        return raw_id_text if "-" in raw_id_text else f"4005-{raw_id_text}"
+
     def _target_kind(self, kind: ItemKind | None) -> ItemKind:
         return kind if kind in self.capabilities.supported_kinds else ItemKind.comic
 
@@ -862,6 +955,22 @@ class ComicVineProvider:
         cleaned = _TAG_RE.sub(" ", unescape(str(value)))
         cleaned = " ".join(cleaned.split())
         return cleaned or None
+
+    def _aliases(self, value: Any) -> list[str]:
+        if isinstance(value, list):
+            raw_aliases = [str(alias) for alias in value]
+        else:
+            raw_aliases = re.split(r"[\n;]", str(value or ""))
+        aliases: list[str] = []
+        seen: set[str] = set()
+        for alias in raw_aliases:
+            text = " ".join(alias.split()).strip()
+            key = text.casefold()
+            if not text or key in seen:
+                continue
+            aliases.append(text)
+            seen.add(key)
+        return aliases
 
     def _image_url(self, value: Any) -> str | None:
         if not isinstance(value, Mapping):
@@ -1111,20 +1220,7 @@ class ComicVineProvider:
         return credits
 
     def _preview_names(self, credits: list[NormalizedCredit]) -> list[str]:
-        names: list[str] = []
-        seen: set[str] = set()
-        for credit in credits:
-            name = credit.name.strip()
-            if not name:
-                continue
-            key = name.casefold()
-            if key in seen:
-                continue
-            seen.add(key)
-            names.append(name)
-            if len(names) >= 3:
-                break
-        return names
+        return preview_names(credits)
 
     def _int_value(self, value: Any) -> int | None:
         if value is None or value == "":

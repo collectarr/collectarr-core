@@ -32,13 +32,16 @@ from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
     CharacterAppearanceResponse,
+    CharacterFacetResponse,
     CharacterResponse,
     ItemResponse,
+    MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
@@ -72,7 +75,52 @@ class MetadataService:
                 code="metadata_item_not_found",
                 detail="Item not found",
             )
-        return item_response_from_model(item)
+        response = item_response_from_model(item)
+        await self._enrich_item_metadata_facets(response, item.id)
+        return response
+
+    async def _enrich_item_metadata_facets(self, response: ItemResponse, item_id: UUID) -> None:
+        character_rows = (
+            await self.db.execute(
+                select(CharacterAppearance, Character)
+                .join(Character, Character.id == CharacterAppearance.character_id)
+                .where(CharacterAppearance.item_id == item_id)
+                .order_by(CharacterAppearance.role.asc(), Character.name.asc())
+            )
+        ).all()
+        if character_rows:
+            response.characters = [
+                MetadataCredit(
+                    name=character.name,
+                    role=appearance.role,
+                    aliases=[
+                        str(alias) for alias in (character.aliases or []) if str(alias).strip()
+                    ],
+                    description=character.description,
+                    image_url=character.image_url,
+                    first_appearance_item_id=character.first_appearance_item_id,
+                )
+                for appearance, character in character_rows
+            ]
+
+        arc_rows = (
+            await self.db.execute(
+                select(StoryArcItem, StoryArc)
+                .join(StoryArc, StoryArc.id == StoryArcItem.story_arc_id)
+                .where(StoryArcItem.item_id == item_id)
+                .order_by(StoryArcItem.ordinal.asc().nullslast(), StoryArc.name.asc())
+            )
+        ).all()
+        if arc_rows:
+            response.story_arcs = [
+                MetadataCredit(
+                    name=arc.name,
+                    description=arc.description,
+                    ordinal=link.ordinal,
+                    publisher=arc.publisher,
+                )
+                for link, arc in arc_rows
+            ]
 
     async def search(
         self,
@@ -1107,13 +1155,17 @@ class MetadataService:
         _VOLUME_PROVIDERS = [ExternalProvider.mangadex, ExternalProvider.anilist]
 
         rows = (
-            await self.db.execute(
-                select(ExternalProviderId).where(
-                    ExternalProviderId.entity_type == "item",
-                    ExternalProviderId.entity_id == item_id,
+            (
+                await self.db.execute(
+                    select(ExternalProviderId).where(
+                        ExternalProviderId.entity_type == "item",
+                        ExternalProviderId.entity_id == item_id,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         provider_map = {row.provider: row.provider_item_id for row in rows}
         if ExternalProvider.mangadex not in provider_map:
@@ -1235,6 +1287,62 @@ class MetadataService:
             if link.item is not None
         ]
 
+    async def get_story_arc_facets(
+        self,
+        item_ids: list[UUID],
+    ) -> list[StoryArcFacetResponse]:
+        ordered_item_ids = list(dict.fromkeys(item_ids))
+        if not ordered_item_ids:
+            return []
+
+        item_order = {item_id: index for index, item_id in enumerate(ordered_item_ids)}
+        rows = (
+            await self.db.execute(
+                select(StoryArc, StoryArcItem.item_id)
+                .join(StoryArcItem, StoryArcItem.story_arc_id == StoryArc.id)
+                .where(StoryArcItem.item_id.in_(ordered_item_ids))
+            )
+        ).all()
+        grouped: dict[UUID, dict[str, object]] = {}
+        for arc, item_id in rows:
+            bucket = grouped.setdefault(
+                arc.id,
+                {
+                    "arc": arc,
+                    "item_ids": set(),
+                },
+            )
+            cast_item_ids = bucket["item_ids"]
+            if isinstance(cast_item_ids, set):
+                cast_item_ids.add(item_id)
+
+        facets: list[StoryArcFacetResponse] = []
+        for bucket in grouped.values():
+            arc = bucket["arc"]
+            if not isinstance(arc, StoryArc):
+                continue
+            raw_item_ids = bucket["item_ids"]
+            if not isinstance(raw_item_ids, set):
+                continue
+            facet_item_ids = sorted(
+                raw_item_ids,
+                key=lambda item_id: item_order.get(item_id, len(item_order)),
+            )
+            facets.append(
+                StoryArcFacetResponse(
+                    id=arc.id,
+                    name=arc.name,
+                    description=arc.description,
+                    publisher=arc.publisher,
+                    start_date=arc.start_date,
+                    end_date=arc.end_date,
+                    item_count=len(facet_item_ids),
+                    item_ids=facet_item_ids,
+                )
+            )
+        facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
+        return facets
+
     async def search_characters(
         self,
         *,
@@ -1262,7 +1370,7 @@ class MetadataService:
             CharacterResponse(
                 id=character.id,
                 name=character.name,
-                aliases=[str(alias) for alias in (character.aliases or []) if alias],
+                aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
                 description=character.description,
                 image_url=character.image_url,
                 first_appearance_item_id=character.first_appearance_item_id,
@@ -1317,6 +1425,72 @@ class MetadataService:
             for link in links
             if link.item is not None
         ]
+
+    async def get_character_facets(
+        self,
+        item_ids: list[UUID],
+    ) -> list[CharacterFacetResponse]:
+        ordered_item_ids = list(dict.fromkeys(item_ids))
+        if not ordered_item_ids:
+            return []
+
+        item_order = {item_id: index for index, item_id in enumerate(ordered_item_ids)}
+        rows = (
+            await self.db.execute(
+                select(Character, CharacterAppearance.item_id, CharacterAppearance.role)
+                .join(
+                    CharacterAppearance,
+                    CharacterAppearance.character_id == Character.id,
+                )
+                .where(CharacterAppearance.item_id.in_(ordered_item_ids))
+            )
+        ).all()
+        grouped: dict[UUID, dict[str, object]] = {}
+        for character, item_id, role in rows:
+            bucket = grouped.setdefault(
+                character.id,
+                {
+                    "character": character,
+                    "item_ids": set(),
+                    "role_counts": {},
+                },
+            )
+            cast_item_ids = bucket["item_ids"]
+            if isinstance(cast_item_ids, set):
+                cast_item_ids.add(item_id)
+            cast_role_counts = bucket["role_counts"]
+            if isinstance(cast_role_counts, dict):
+                role_key = str(role or "main")
+                cast_role_counts[role_key] = int(cast_role_counts.get(role_key, 0)) + 1
+
+        facets: list[CharacterFacetResponse] = []
+        for bucket in grouped.values():
+            character = bucket["character"]
+            if not isinstance(character, Character):
+                continue
+            raw_item_ids = bucket["item_ids"]
+            raw_role_counts = bucket["role_counts"]
+            if not isinstance(raw_item_ids, set) or not isinstance(raw_role_counts, dict):
+                continue
+            facet_item_ids = sorted(
+                raw_item_ids,
+                key=lambda item_id: item_order.get(item_id, len(item_order)),
+            )
+            facets.append(
+                CharacterFacetResponse(
+                    id=character.id,
+                    name=character.name,
+                    aliases=[
+                        str(alias) for alias in (character.aliases or []) if str(alias).strip()
+                    ],
+                    image_url=character.image_url,
+                    item_count=len(facet_item_ids),
+                    item_ids=facet_item_ids,
+                    role_counts={str(role): int(count) for role, count in raw_role_counts.items()},
+                )
+            )
+        facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
+        return facets
 
     async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
         item = await self.metadata.get_item(item_id)
@@ -1404,9 +1578,7 @@ class MetadataService:
         ):
             return 3
         if any(
-            len(target) >= 6
-            and len(title) >= 6
-            and (title in target or target in title)
+            len(target) >= 6 and len(title) >= 6 and (title in target or target in title)
             for target in targets
         ):
             return 2

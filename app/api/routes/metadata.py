@@ -1,5 +1,6 @@
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 
@@ -12,12 +13,15 @@ from app.catalog.media_types import (
     media_types,
 )
 from app.catalog.physical_formats import PhysicalFormatConfig
+from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import provider_search_rate_limit
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
+from app.providers.mangadex import MangaDexProvider
 from app.schemas.metadata import (
     CharacterAppearanceResponse,
+    CharacterFacetResponse,
     CharacterResponse,
     ItemResponse,
     MediaCatalogResponse,
@@ -28,6 +32,7 @@ from app.schemas.metadata import (
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
@@ -35,6 +40,25 @@ from app.schemas.metadata import (
 from app.services.metadata import MetadataService
 
 router = APIRouter(tags=["metadata"])
+
+
+def _parse_item_ids(value: str | None) -> list[UUID]:
+    if value is None or not value.strip():
+        return []
+    item_ids: list[UUID] = []
+    for raw in value.split(","):
+        text = raw.strip()
+        if not text:
+            continue
+        try:
+            item_ids.append(UUID(text))
+        except ValueError as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="invalid_item_ids",
+                detail="item_ids must be a comma-separated list of UUIDs",
+            ) from exc
+    return list(dict.fromkeys(item_ids))
 
 
 @router.get("/metadata/media-types", response_model=MediaCatalogResponse)
@@ -166,6 +190,36 @@ async def gcd_provider_image(
     )
 
 
+@router.get("/metadata/providers/mangadex/images/{provider_item_id}")
+async def mangadex_provider_image(
+    provider_item_id: str,
+    db: DbSession,
+) -> Response:
+    provider = MangaDexProvider()
+    provider_item = await provider.get_item(provider_item_id)
+    normalized = await provider.normalize(provider_item.raw)
+    cover_url = normalized.cover_image_url
+    if not cover_url:
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="mangadex_cover_not_found",
+            detail="MangaDex cover image not found",
+        )
+    mirrored_url = await _mirror_mangadex_cover_if_enabled(db, provider_item_id, cover_url)
+    if mirrored_url is not None:
+        return RedirectResponse(
+            mirrored_url,
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+    media_type, content = await _download_mangadex_cover(cover_url)
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
 async def _mirror_gcd_cover_if_enabled(
     db,
     provider_item_id: str,
@@ -186,6 +240,53 @@ async def _mirror_gcd_cover_if_enabled(
     )
 
 
+async def _mirror_mangadex_cover_if_enabled(
+    db,
+    provider_item_id: str,
+    cover_url: str,
+) -> str | None:
+    return await MetadataService(db).mirror_provider_image_url(
+        cover_url,
+        provider_name=ExternalProvider.mangadex,
+        provider_item_id=provider_item_id,
+    )
+
+
+async def _download_mangadex_cover(url: str) -> tuple[str, bytes]:
+    settings = get_settings()
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=settings.image_download_timeout_seconds,
+        ) as client:
+            response = await client.get(
+                url,
+                headers={
+                    "User-Agent": settings.mangadex_user_agent,
+                    "Referer": "https://mangadex.org/",
+                    "Accept": "image/*",
+                },
+            )
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise ApiHTTPException(
+            status_code=exc.response.status_code,
+            code="mangadex_cover_unavailable",
+            detail=f"MangaDex cover request failed: HTTP {exc.response.status_code}",
+        ) from exc
+    except httpx.RequestError as exc:
+        raise ApiHTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="mangadex_cover_unavailable",
+            detail=f"MangaDex cover request failed: {exc}",
+        ) from exc
+
+    media_type = response.headers.get("content-type", "application/octet-stream")
+    if ";" in media_type:
+        media_type = media_type.split(";", 1)[0].strip()
+    return media_type or "application/octet-stream", response.content
+
+
 @router.post(
     "/metadata/proposals",
     response_model=MetadataProposalResponse,
@@ -197,6 +298,30 @@ async def create_metadata_proposal(
     _user: CurrentUser,
 ) -> MetadataProposalResponse:
     return await MetadataService(db).create_proposal(payload)
+
+
+@router.get(
+    "/story-arcs/facets",
+    response_model=list[StoryArcFacetResponse],
+)
+async def get_story_arc_facets(
+    db: DbSession,
+    _user: CurrentUser,
+    item_ids: str | None = Query(default=None),
+) -> list[StoryArcFacetResponse]:
+    return await MetadataService(db).get_story_arc_facets(_parse_item_ids(item_ids))
+
+
+@router.get(
+    "/characters/facets",
+    response_model=list[CharacterFacetResponse],
+)
+async def get_character_facets(
+    db: DbSession,
+    _user: CurrentUser,
+    item_ids: str | None = Query(default=None),
+) -> list[CharacterFacetResponse]:
+    return await MetadataService(db).get_character_facets(_parse_item_ids(item_ids))
 
 
 @router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse)

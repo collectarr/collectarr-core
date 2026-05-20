@@ -280,6 +280,10 @@ class CharacterFacetResponse(BaseModel):
     role_counts: dict[str, int] = Field(default_factory=dict)
 
 
+class FacetItemIdsRequest(BaseModel):
+    item_ids: list[UUID] = Field(default_factory=list)
+
+
 class CharacterAppearanceResponse(BaseModel):
     character_id: UUID
     item_id: UUID

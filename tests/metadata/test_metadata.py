@@ -386,9 +386,9 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert arc_items_body[0]["ordinal"] == 1
     assert arc_items_body[0]["series_title"] == "The Amazing Spider-Man"
 
-    arc_facets_response = await client.get(
+    arc_facets_response = await client.post(
         "/story-arcs/facets",
-        params={"item_ids": item_id},
+        json={"item_ids": [item_id]},
         headers=headers,
     )
     assert arc_facets_response.status_code == 200
@@ -428,9 +428,9 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert appearances_body[0]["item_id"] == item_id
     assert appearances_body[0]["role"] == "main"
 
-    character_facets_response = await client.get(
+    character_facets_response = await client.post(
         "/characters/facets",
-        params={"item_ids": item_id},
+        json={"item_ids": [item_id]},
         headers=headers,
     )
     assert character_facets_response.status_code == 200

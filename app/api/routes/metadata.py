@@ -19,10 +19,17 @@ from app.core.rate_limit import provider_search_rate_limit
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.providers.mangadex import MangaDexProvider
+from app.schemas.admin import (
+    ProviderIngestRequest as ProviderPreviewRequest,
+    ProviderPreviewResponse,
+)
 from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    CreatorCreditResponse,
+    CreatorFacetResponse,
+    CreatorResponse,
     FacetItemIdsRequest,
     ItemResponse,
     MediaCatalogResponse,
@@ -167,6 +174,21 @@ async def provider_search(
         issue_number=issue_number,
         year=year,
     )
+
+
+@router.post(
+    "/metadata/providers/preview",
+    response_model=ProviderPreviewResponse,
+    dependencies=[Depends(provider_search_rate_limit)],
+)
+async def provider_preview(
+    payload: ProviderPreviewRequest,
+    db: DbSession,
+    _user: CurrentUser,
+) -> ProviderPreviewResponse:
+    from app.services.admin import AdminMetadataService
+
+    return await AdminMetadataService(db).preview(payload)
 
 
 @router.get("/metadata/providers/gcd/images/{provider_item_id}")
@@ -341,6 +363,18 @@ async def get_character_facets(
     return await MetadataService(db).get_character_facets(body.item_ids)
 
 
+@router.post(
+    "/creators/facets",
+    response_model=list[CreatorFacetResponse],
+)
+async def get_creator_facets(
+    db: DbSession,
+    _user: CurrentUser,
+    body: FacetItemIdsRequest,
+) -> list[CreatorFacetResponse]:
+    return await MetadataService(db).get_creator_facets(body.item_ids)
+
+
 @router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse)
 async def get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> ItemResponse:
     return await _get_metadata_item(media_type, item_id, db)
@@ -457,6 +491,31 @@ async def get_story_arc_items(
     _user: CurrentUser,
 ) -> list[StoryArcItemResponse]:
     return await MetadataService(db).get_story_arc_items(story_arc_id)
+
+
+@router.get(
+    "/creators",
+    response_model=list[CreatorResponse],
+)
+async def search_creators(
+    db: DbSession,
+    _user: CurrentUser,
+    q: str | None = Query(default=None, min_length=1),
+    limit: int = Query(default=25, ge=1, le=200),
+) -> list[CreatorResponse]:
+    return await MetadataService(db).search_creators(q=q, limit=limit)
+
+
+@router.get(
+    "/creators/{creator_id}/credits",
+    response_model=list[CreatorCreditResponse],
+)
+async def get_creator_credits(
+    creator_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[CreatorCreditResponse]:
+    return await MetadataService(db).get_creator_credits(creator_id)
 
 
 @router.get(

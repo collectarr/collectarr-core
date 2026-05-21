@@ -1322,7 +1322,7 @@ class AdminMetadataService:
             )
         await self._link_publisher(item.id, normalized.publisher)
         await self._link_imprint(item.id, normalized.imprint, normalized.publisher)
-        await self._link_people(item.id, normalized.creators)
+        await self._link_people(item.id, payload.provider, normalized.creators)
         await self._link_characters(item.id, payload.provider, normalized.characters)
         await self._link_story_arcs(item.id, payload.provider, normalized.story_arcs)
         # Transitional dual-write for compatibility with existing tag-based consumers.
@@ -1748,9 +1748,14 @@ class AdminMetadataService:
             )
         )
 
-    async def _link_people(self, item_id: UUID, credits: list[NormalizedCredit]) -> None:
+    async def _link_people(
+        self,
+        item_id: UUID,
+        provider: ExternalProvider,
+        credits: list[NormalizedCredit],
+    ) -> None:
         for credit in credits:
-            person = await self._get_or_create_person(credit.name)
+            person = await self._get_or_create_person(credit.name, credit)
             role = credit.role or "creator"
             exists = await self.db.scalar(
                 select(EntityPerson.id).where(
@@ -1770,6 +1775,14 @@ class AdminMetadataService:
                     role=role,
                 )
             )
+            provider_item_id = self._comicvine_credit_provider_id(credit, resource="person")
+            if provider == ExternalProvider.comicvine and provider_item_id:
+                await self._add_provider_links(
+                    provider,
+                    {provider.value: provider_item_id},
+                    "person",
+                    person.id,
+                )
 
     async def _link_story_arcs(
         self,
@@ -2049,7 +2062,7 @@ class AdminMetadataService:
             await self.db.flush()
         return organization
 
-    async def _get_or_create_person(self, name: str) -> Person:
+    async def _get_or_create_person(self, name: str, credit: NormalizedCredit) -> Person:
         canonical = normalize_person_name(name)
         display_name = canonical or name
         # Try exact match first, then normalized match.
@@ -2059,9 +2072,26 @@ class AdminMetadataService:
             result = await self.db.execute(select(Person).where(Person.name == name))
             person = result.scalar_one_or_none()
         if person is None:
-            person = Person(name=display_name)
+            person = Person(
+                name=display_name,
+                metadata_json={
+                    "api_detail_url": credit.api_detail_url,
+                    "site_detail_url": credit.site_detail_url,
+                },
+            )
             self.db.add(person)
             await self.db.flush()
+            return person
+        metadata = dict(person.metadata_json or {})
+        updated = False
+        if not metadata.get("api_detail_url") and credit.api_detail_url:
+            metadata["api_detail_url"] = credit.api_detail_url
+            updated = True
+        if not metadata.get("site_detail_url") and credit.site_detail_url:
+            metadata["site_detail_url"] = credit.site_detail_url
+            updated = True
+        if updated:
+            person.metadata_json = metadata
         return person
 
     async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:

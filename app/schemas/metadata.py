@@ -277,6 +277,38 @@ class StoryArcItemResponse(BaseModel):
     cover_image_url: str | None = None
 
 
+class CreatorResponse(BaseModel):
+    id: UUID
+    name: str
+    description: str | None = None
+    image_url: str | None = None
+    api_detail_url: str | None = None
+    site_detail_url: str | None = None
+    item_count: int = 0
+
+
+class CreatorFacetResponse(BaseModel):
+    id: UUID
+    name: str
+    description: str | None = None
+    image_url: str | None = None
+    item_count: int = 0
+    item_ids: list[UUID] = Field(default_factory=list)
+    role_counts: dict[str, int] = Field(default_factory=dict)
+
+
+class CreatorCreditResponse(BaseModel):
+    creator_id: UUID
+    item_id: UUID
+    role: str
+    kind: ItemKind
+    title: str
+    item_number: str | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    cover_image_url: str | None = None
+
+
 class CharacterResponse(BaseModel):
     id: UUID
     name: str

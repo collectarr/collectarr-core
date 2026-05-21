@@ -18,8 +18,10 @@ from app.models.canonical import (
     Character,
     CharacterAppearance,
     Edition,
+    EntityPerson,
     Item,
     MetadataProposal,
+    Person,
     SeriesRelation,
     StoryArc,
     StoryArcItem,
@@ -34,6 +36,9 @@ from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    CreatorCreditResponse,
+    CreatorFacetResponse,
+    CreatorResponse,
     ItemResponse,
     MetadataCredit,
     MetadataProposalCreate,
@@ -58,6 +63,16 @@ _UPSTREAM_HTTP_STATUS_RE = re.compile(r"\bHTTP\s+(?P<status>\d{3})\b")
 _PROVIDER_INTERNAL_RETRY_NAMES = {ExternalProvider.bgg.value, ExternalProvider.comicvine.value}
 
 
+def _metadata_text(metadata: dict[str, object] | None, key: str) -> str | None:
+    if not isinstance(metadata, dict):
+        return None
+    value = metadata.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 class MetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -80,6 +95,28 @@ class MetadataService:
         return response
 
     async def _enrich_item_metadata_facets(self, response: ItemResponse, item_id: UUID) -> None:
+        creator_rows = (
+            await self.db.execute(
+                select(EntityPerson, Person)
+                .join(Person, Person.id == EntityPerson.person_id)
+                .where(
+                    EntityPerson.entity_type == "item",
+                    EntityPerson.entity_id == item_id,
+                )
+                .order_by(EntityPerson.role.asc(), Person.name.asc())
+            )
+        ).all()
+        if creator_rows:
+            response.creators = [
+                MetadataCredit(
+                    name=person.name,
+                    role=link.role,
+                    api_detail_url=_metadata_text(person.metadata_json, "api_detail_url"),
+                    site_detail_url=_metadata_text(person.metadata_json, "site_detail_url"),
+                )
+                for link, person in creator_rows
+            ]
+
         character_rows = (
             await self.db.execute(
                 select(CharacterAppearance, Character)
@@ -1342,6 +1379,98 @@ class MetadataService:
             for arc, item_count in rows
         ]
 
+    async def search_creators(
+        self,
+        *,
+        q: str | None = None,
+        limit: int = 25,
+    ) -> list[CreatorResponse]:
+        count_expr = func.count(EntityPerson.id)
+        stmt = (
+            select(Person, count_expr.label("item_count"))
+            .join(EntityPerson, EntityPerson.person_id == Person.id)
+            .where(EntityPerson.entity_type == "item")
+            .group_by(Person.id)
+            .order_by(count_expr.desc(), Person.name.asc())
+            .limit(limit)
+        )
+        if q:
+            pattern = f"%{q.strip()}%"
+            stmt = stmt.where(Person.name.ilike(pattern))
+        rows = (await self.db.execute(stmt)).all()
+        return [
+            CreatorResponse(
+                id=person.id,
+                name=person.name,
+                description=_metadata_text(person.metadata_json, "description"),
+                image_url=_metadata_text(person.metadata_json, "image_url"),
+                api_detail_url=_metadata_text(person.metadata_json, "api_detail_url"),
+                site_detail_url=_metadata_text(person.metadata_json, "site_detail_url"),
+                item_count=int(item_count or 0),
+            )
+            for person, item_count in rows
+        ]
+
+    async def get_creator_credits(
+        self,
+        creator_id: UUID,
+    ) -> list[CreatorCreditResponse]:
+        creator = await self.db.get(Person, creator_id)
+        if creator is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="creator_not_found",
+                detail="Creator not found",
+            )
+        links = list(
+            (
+                await self.db.execute(
+                    select(EntityPerson)
+                    .where(
+                        EntityPerson.person_id == creator_id,
+                        EntityPerson.entity_type == "item",
+                    )
+                    .order_by(EntityPerson.role.asc(), EntityPerson.created_at.asc())
+                )
+            ).scalars()
+        )
+        if not links:
+            return []
+
+        item_ids = [link.entity_id for link in links]
+        items = {
+            item.id: item
+            for item in (
+                await self.db.execute(
+                    select(Item)
+                    .where(Item.id.in_(item_ids))
+                    .options(
+                        selectinload(Item.volume).selectinload(Volume.series),
+                        selectinload(Item.editions).selectinload(Edition.variants),
+                    )
+                )
+            ).scalars()
+        }
+        results: list[CreatorCreditResponse] = []
+        for link in links:
+            item = items.get(link.entity_id)
+            if item is None:
+                continue
+            results.append(
+                CreatorCreditResponse(
+                    creator_id=creator_id,
+                    item_id=item.id,
+                    role=link.role,
+                    kind=item.kind,
+                    title=item.title,
+                    item_number=item.item_number,
+                    series_title=getattr(getattr(item.volume, "series", None), "title", None),
+                    volume_name=getattr(item.volume, "name", None),
+                    cover_image_url=self._item_primary_cover_url(item),
+                )
+            )
+        return results
+
     async def get_story_arc_items(self, story_arc_id: UUID) -> list[StoryArcItemResponse]:
         arc = await self.db.get(StoryArc, story_arc_id)
         if arc is None:
@@ -1437,6 +1566,69 @@ class MetadataService:
                     end_date=arc.end_date,
                     item_count=len(facet_item_ids),
                     item_ids=facet_item_ids,
+                )
+            )
+        facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
+        return facets
+
+    async def get_creator_facets(
+        self,
+        item_ids: list[UUID],
+    ) -> list[CreatorFacetResponse]:
+        ordered_item_ids = list(dict.fromkeys(item_ids))
+        if not ordered_item_ids:
+            return []
+
+        item_order = {item_id: index for index, item_id in enumerate(ordered_item_ids)}
+        rows = (
+            await self.db.execute(
+                select(Person, EntityPerson.entity_id, EntityPerson.role)
+                .join(EntityPerson, EntityPerson.person_id == Person.id)
+                .where(
+                    EntityPerson.entity_type == "item",
+                    EntityPerson.entity_id.in_(ordered_item_ids),
+                )
+            )
+        ).all()
+        grouped: dict[UUID, dict[str, object]] = {}
+        for person, item_id, role in rows:
+            bucket = grouped.setdefault(
+                person.id,
+                {
+                    "person": person,
+                    "item_ids": set(),
+                    "role_counts": {},
+                },
+            )
+            cast_item_ids = bucket["item_ids"]
+            if isinstance(cast_item_ids, set):
+                cast_item_ids.add(item_id)
+            cast_role_counts = bucket["role_counts"]
+            if isinstance(cast_role_counts, dict):
+                cast_role_counts[role] = int(cast_role_counts.get(role, 0)) + 1
+
+        facets: list[CreatorFacetResponse] = []
+        for bucket in grouped.values():
+            person = bucket["person"]
+            if not isinstance(person, Person):
+                continue
+            raw_item_ids = bucket["item_ids"]
+            if not isinstance(raw_item_ids, set):
+                continue
+            facet_item_ids = sorted(
+                raw_item_ids,
+                key=lambda item_id: item_order.get(item_id, len(item_order)),
+            )
+            role_counts = bucket["role_counts"]
+            facets.append(
+                CreatorFacetResponse(
+                    id=person.id,
+                    name=person.name,
+                    description=_metadata_text(person.metadata_json, "description"),
+                    image_url=_metadata_text(person.metadata_json, "image_url"),
+                    item_count=len(facet_item_ids),
+                    item_ids=facet_item_ids,
+                    role_counts=role_counts if isinstance(role_counts, dict) else {},
                 )
             )
         facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))

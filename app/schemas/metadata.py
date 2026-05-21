@@ -212,6 +212,32 @@ class MetadataProposalResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SeriesResponse(BaseModel):
+    id: UUID
+    kind: ItemKind
+    title: str
+    description: str | None = None
+    original_title: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str | None = None
+    language: str | None = None
+    country: str | None = None
+    volume_count: int = 0
+    item_count: int = 0
+
+
+class SeriesItemResponse(BaseModel):
+    series_id: UUID
+    item_id: UUID
+    kind: ItemKind
+    title: str
+    item_number: str | None = None
+    volume_name: str | None = None
+    volume_number: int | None = None
+    cover_image_url: str | None = None
+
+
 class SeriesRelationResponse(BaseModel):
     id: UUID
     relation_type: SeriesRelationType

@@ -40,6 +40,8 @@ from app.schemas.metadata import (
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    SeriesItemResponse,
+    SeriesResponse,
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
@@ -428,6 +430,27 @@ async def get_series_relations(
     _user: CurrentUser,
 ) -> list[SeriesRelationResponse]:
     return await MetadataService(db).get_series_relations(series_id)
+
+
+@router.get("/series/{series_id}", response_model=SeriesResponse)
+async def get_series(
+    series_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> SeriesResponse:
+    return await MetadataService(db).get_series(series_id)
+
+
+@router.get(
+    "/series/{series_id}/items",
+    response_model=list[SeriesItemResponse],
+)
+async def get_series_items(
+    series_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[SeriesItemResponse]:
+    return await MetadataService(db).get_series_items(series_id)
 
 
 @router.get(

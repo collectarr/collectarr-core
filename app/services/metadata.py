@@ -22,6 +22,7 @@ from app.models.canonical import (
     Item,
     MetadataProposal,
     Person,
+    Series,
     SeriesRelation,
     StoryArc,
     StoryArcItem,
@@ -46,6 +47,8 @@ from app.schemas.metadata import (
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
+    SeriesItemResponse,
+    SeriesResponse,
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
@@ -1193,6 +1196,85 @@ class MetadataService:
                 provider_id=(rel.metadata_json or {}).get("provider_id"),
             )
             for rel in relations
+        ]
+
+    async def get_series(self, series_id: UUID) -> SeriesResponse:
+        series = await self.db.get(Series, series_id)
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="series_not_found",
+                detail="Series not found",
+            )
+        volume_count = int(
+            await self.db.scalar(
+                select(func.count()).select_from(Volume).where(Volume.series_id == series_id)
+            )
+            or 0
+        )
+        item_count = int(
+            await self.db.scalar(
+                select(func.count())
+                .select_from(Item)
+                .join(Volume, Volume.id == Item.volume_id)
+                .where(Volume.series_id == series_id)
+            )
+            or 0
+        )
+        return SeriesResponse(
+            id=series.id,
+            kind=series.kind,
+            title=series.title,
+            description=series.description,
+            original_title=series.original_title,
+            start_date=series.start_date,
+            end_date=series.end_date,
+            status=series.status,
+            language=series.language,
+            country=series.country,
+            volume_count=volume_count,
+            item_count=item_count,
+        )
+
+    async def get_series_items(self, series_id: UUID) -> list[SeriesItemResponse]:
+        series = await self.db.get(Series, series_id)
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="series_not_found",
+                detail="Series not found",
+            )
+        items = list(
+            (
+                await self.db.execute(
+                    select(Item)
+                    .join(Volume, Volume.id == Item.volume_id)
+                    .where(Volume.series_id == series_id)
+                    .options(
+                        selectinload(Item.volume),
+                        selectinload(Item.editions).selectinload(Edition.variants),
+                    )
+                    .order_by(
+                        Volume.start_year.asc().nullslast(),
+                        Volume.volume_number.asc().nullslast(),
+                        Item.sort_key.asc().nullslast(),
+                        Item.title.asc(),
+                    )
+                )
+            ).scalars()
+        )
+        return [
+            SeriesItemResponse(
+                series_id=series_id,
+                item_id=item.id,
+                kind=item.kind,
+                title=item.title,
+                item_number=item.item_number,
+                volume_name=getattr(item.volume, "name", None),
+                volume_number=getattr(item.volume, "volume_number", None),
+                cover_image_url=self._item_primary_cover_url(item),
+            )
+            for item in items
         ]
 
     async def get_provider_seasons(

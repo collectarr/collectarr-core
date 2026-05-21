@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import DbSession
-from app.api.routes import admin, admin_ui, auth, metadata
+from app.api.routes import admin, admin_ui, auth, images, metadata
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -37,6 +37,7 @@ register_exception_handlers(app)
 app.include_router(admin.router)
 app.include_router(admin_ui.router)
 app.include_router(auth.router)
+app.include_router(images.router)
 app.include_router(metadata.router)
 
 

@@ -51,6 +51,7 @@ def cleanup_rate_limits() -> None:
         settings.auth_rate_limit_window_seconds,
         settings.admin_provider_rate_limit_window_seconds,
         settings.provider_search_rate_limit_window_seconds,
+        settings.image_upload_rate_limit_window_seconds,
     )
     _cleanup_expired(monotonic(), max_window_seconds)
 
@@ -82,6 +83,16 @@ async def provider_search_rate_limit(request: Request) -> None:
         bucket="provider_search",
         limit=settings.provider_search_rate_limit_requests,
         window_seconds=settings.provider_search_rate_limit_window_seconds,
+    )
+
+
+async def image_upload_rate_limit(request: Request) -> None:
+    settings = get_settings()
+    await _check_rate_limit(
+        request,
+        bucket="image_upload",
+        limit=settings.image_upload_rate_limit_requests,
+        window_seconds=settings.image_upload_rate_limit_window_seconds,
     )
 
 
@@ -169,6 +180,7 @@ def _check_rate_limit_memory(
         settings.auth_rate_limit_window_seconds,
         settings.admin_provider_rate_limit_window_seconds,
         settings.provider_search_rate_limit_window_seconds,
+        settings.image_upload_rate_limit_window_seconds,
     )
     with _BUCKETS_LOCK:
         global _REQUEST_COUNT

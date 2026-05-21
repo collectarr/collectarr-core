@@ -21,6 +21,18 @@ class ImageCache:
         self.settings = get_settings()
 
     async def record_mirrored_cover(self, image: MirroredImage) -> ImageCacheEntry:
+        # Content-hash dedup: reuse existing entry if same bytes were already stored.
+        existing = await self.db.scalar(
+            select(ImageCacheEntry)
+            .where(ImageCacheEntry.content_hash == image.content_hash)
+            .limit(1)
+        )
+        if existing is not None:
+            existing.access_count += 1
+            existing.last_accessed_at = datetime.now(UTC)
+            await self.db.flush()
+            return existing
+
         now = datetime.now(UTC)
         values = {
             "provider": image.provider,

@@ -59,6 +59,14 @@ class ObjectStorage:
         )
         return self.public_object_url(key)
 
+    def get_object(self, key: str) -> tuple[bytes, str]:
+        """Read an object from S3.  Returns ``(body, content_type)``."""
+        self.ensure_bucket()
+        response = self.client.get_object(Bucket=self.bucket, Key=key)
+        body = response["Body"].read()
+        content_type = response.get("ContentType", "application/octet-stream")
+        return body, content_type
+
     def delete_object(self, key: str) -> None:
         self.ensure_bucket()
         self.client.delete_object(Bucket=self.bucket, Key=key)

@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     max_image_pixels: int = 40_000_000
     provider_image_max_long_edge: int = Field(default=1280, ge=64)
     provider_image_quality: int = Field(default=82, ge=1, le=100)
-    image_cache_max_bytes: int = Field(default=100_000_000_000, ge=0)
-    image_cache_evict_target_bytes: int = Field(default=85_000_000_000, ge=0)
+    image_cache_max_bytes: int = Field(default=0, ge=0)
+    image_cache_evict_target_bytes: int = Field(default=0, ge=0)
     image_cache_cleanup_batch_size: int = Field(default=250, ge=1)
     worker_index_interval_seconds: int = Field(default=900, ge=5)
     worker_provider_ingest_interval_seconds: int = Field(default=30, ge=5)
@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     auth_rate_limit_window_seconds: int = Field(default=60, ge=0)
     admin_provider_rate_limit_requests: int = Field(default=60, ge=0)
     admin_provider_rate_limit_window_seconds: int = Field(default=60, ge=0)
+    image_upload_rate_limit_requests: int = Field(default=30, ge=0)
+    image_upload_rate_limit_window_seconds: int = Field(default=60, ge=0)
+    image_max_per_entity: int = Field(default=20, ge=1)
 
     comicvine_api_key: str | None = None
     comicvine_base_url: str = "https://comicvine.gamespot.com/api"
@@ -136,7 +139,10 @@ class Settings(BaseSettings):
             and self.secret_key == "change-me-in-production"
         ):
             raise ValueError("SECRET_KEY must be set outside development/test")
-        if self.image_cache_evict_target_bytes > self.image_cache_max_bytes:
+        if (
+            self.image_cache_max_bytes > 0
+            and self.image_cache_evict_target_bytes > self.image_cache_max_bytes
+        ):
             raise ValueError("IMAGE_CACHE_EVICT_TARGET_BYTES must be <= IMAGE_CACHE_MAX_BYTES")
         return self
 

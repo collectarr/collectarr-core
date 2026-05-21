@@ -39,4 +39,4 @@ UNION ALL SELECT 'external_provider_ids', pg_size_pretty(COALESCE(avg(pg_column_
 UNION ALL SELECT 'organizations', pg_size_pretty(COALESCE(avg(pg_column_size(organizations.*))::bigint, 0)) FROM organizations;
 
 -- DB total
-SELECT pg_size_pretty(pg_database_size('collectarr')) AS db_total;
+SELECT pg_size_pretty(pg_database_size(current_database())) AS db_total;

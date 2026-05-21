@@ -98,10 +98,13 @@ class ProviderPreviewResponse(BaseModel):
     page_count: int | None = None
     runtime_minutes: int | None = None
     track_count: int | None = None
+    catalog_number: str | None = None
     creators: list[ProviderPreviewCredit] = Field(default_factory=list)
     characters: list[str] = Field(default_factory=list)
     story_arcs: list[str] = Field(default_factory=list)
+    platforms: list[str] = Field(default_factory=list)
     genres: list[str] = Field(default_factory=list)
+    release_status: str | None = None
     tracks: list[ProviderPreviewTrack] = Field(default_factory=list)
 
 

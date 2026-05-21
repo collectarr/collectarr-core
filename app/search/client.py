@@ -107,6 +107,8 @@ class SearchClient:
                     "variant",
                     "variant_names",
                     "barcodes",
+                    "catalog_number",
+                    "platforms",
                     "creators",
                     "characters",
                     "story_arcs",
@@ -126,13 +128,16 @@ class SearchClient:
                     "release_year",
                     "barcode",
                     "barcodes",
+                    "catalog_number",
                     "variant",
                     "variant_names",
                     "series_title",
                     "volume_name",
+                    "platforms",
                     "creators",
                     "characters",
                     "story_arcs",
+                    "release_status",
                 ]
             )
             index.update_sortable_attributes(

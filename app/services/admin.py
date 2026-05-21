@@ -1061,13 +1061,16 @@ class AdminMetadataService:
             page_count=normalized.page_count,
             runtime_minutes=normalized.runtime_minutes,
             track_count=normalized.track_count,
+            catalog_number=normalized.catalog_number,
             creators=[
                 ProviderPreviewCredit(name=c.name, role=c.role)
                 for c in normalized.creators
             ],
             characters=[c.name for c in normalized.characters],
             story_arcs=[c.name for c in normalized.story_arcs],
+            platforms=normalized.platforms,
             genres=normalized.genres,
+            release_status=normalized.release_status,
             tracks=[
                 ProviderPreviewTrack(
                     position=t.position,

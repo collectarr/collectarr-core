@@ -10,6 +10,7 @@ Core owns the shared catalog and provider infrastructure. Personal collection da
 - **9 metadata providers** — GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
 - **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
 - **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
+- **Typed metadata projection** — item, search, and admin preview responses expose normalized fields such as platforms, catalog numbers, and release status
 - **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking
 - **Full-text search** — optional Meilisearch indexing for instant catalog queries
 - **Admin console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
@@ -45,6 +46,21 @@ Helper commands:
 .\tools\dev.ps1 smoke-providers # Smoke test all providers
 .\tools\dev.ps1 reset-stack    # Clean reset of all containers
 ```
+
+## Extending Metadata For New Libraries
+
+Core is the canonical source of cross-library metadata. When a provider exposes a
+new field, wire it through the normalized metadata contract first and only then
+project it into the client.
+
+1. Normalize the field in the provider ingest pipeline.
+2. Expose it through the public schemas used by the app: item responses, search results, and admin/provider previews.
+3. Add it to Meilisearch documents and display attributes when it should participate in search or search previews.
+4. Keep field names stable so `collectarr-app` can cache and render the same canonical shape offline.
+
+This keeps provider growth and future library additions predictable: new kinds
+can share the same catalog/search/admin contract instead of inventing parallel
+app-only fields.
 
 ## Local URLs
 

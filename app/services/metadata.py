@@ -1028,14 +1028,17 @@ class MetadataService:
         )
         track_count: int | None = None
         tracks: list[dict] | None = None
+        catalog_number: str | None = None
         creators: list[dict] | None = None
         characters: list[str] | None = None
         story_arcs: list[str] | None = None
+        platforms: list[str] | None = None
         genres: list[str] | None = None
         page_count: int | None = getattr(item, "page_count", None)
         cover_price_cents: int | None = None
         item_currency: str | None = None
         country: str | None = None
+        release_status: str | None = None
         language: str | None = None
         age_rating: str | None = None
         imprint_val: str | None = None
@@ -1047,6 +1050,8 @@ class MetadataService:
                 norm = md.get("normalized", md)
                 if item.kind == ItemKind.music:
                     track_count = track_count or norm.get("track_count")
+                    catalog_number = catalog_number or norm.get("catalog_number")
+                    release_status = release_status or norm.get("release_status")
                     raw_tracks = norm.get("tracks")
                     if isinstance(raw_tracks, list) and raw_tracks and tracks is None:
                         tracks = raw_tracks
@@ -1059,6 +1064,13 @@ class MetadataService:
                 raw_arcs = norm.get("story_arcs")
                 if isinstance(raw_arcs, list) and raw_arcs and story_arcs is None:
                     story_arcs = raw_arcs
+                raw_platforms = norm.get("platforms")
+                if isinstance(raw_platforms, list) and raw_platforms and platforms is None:
+                    platforms = [
+                        str(value).strip()
+                        for value in raw_platforms
+                        if str(value).strip()
+                    ]
                 raw_genres = norm.get("genres")
                 if isinstance(raw_genres, list) and raw_genres and genres is None:
                     genres = raw_genres
@@ -1092,14 +1104,17 @@ class MetadataService:
             volume_name=volume_name,
             track_count=track_count,
             tracks=tracks,
+            catalog_number=catalog_number,
             creators=creators,
             characters=characters,
             story_arcs=story_arcs,
+            platforms=platforms,
             genres=genres,
             page_count=page_count,
             cover_price_cents=cover_price_cents,
             currency=item_currency,
             country=country,
+            release_status=release_status,
             language=language,
             age_rating=age_rating,
             imprint=imprint_val,

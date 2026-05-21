@@ -101,9 +101,12 @@ class ItemResponse(BaseModel):
     store_date: date | None = None
     cover_price_cents: int | None = None
     currency: str | None = None
+    catalog_number: str | None = None
     creators: list[MetadataCredit] = []
     characters: list[MetadataCredit] = []
     story_arcs: list[MetadataCredit] = []
+    platforms: list[str] = []
+    release_status: str | None = None
     provider_links: list[ProviderLink] = []
     editions: list[EditionResponse] = []
 
@@ -130,14 +133,17 @@ class SearchResult(BaseModel):
     volume_name: str | None = None
     track_count: int | None = None
     tracks: list[dict[str, Any]] | None = None
+    catalog_number: str | None = None
     creators: list[dict[str, Any]] | None = None
     characters: list[str] | None = None
     story_arcs: list[str] | None = None
+    platforms: list[str] | None = None
     genres: list[str] | None = None
     page_count: int | None = None
     cover_price_cents: int | None = None
     currency: str | None = None
     country: str | None = None
+    release_status: str | None = None
     language: str | None = None
     age_rating: str | None = None
     imprint: str | None = None
@@ -393,12 +399,15 @@ def item_response_from_model(item: Any) -> ItemResponse:
             "store_date": _date_value(source.get("store_date")),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
+            "catalog_number": _optional_text(normalized.get("catalog_number")),
             "creators": _credits(source.get("person_credits"))
             or _credits(normalized.get("creators")),
             "characters": _credits(source.get("character_credits"))
             or _credits(normalized.get("characters")),
             "story_arcs": _credits(source.get("story_arc_credits"))
             or _credits(normalized.get("story_arcs")),
+            "platforms": _string_list(normalized.get("platforms")),
+            "release_status": _optional_text(normalized.get("release_status")),
             "provider_links": _provider_links(item),
         }
     )
@@ -561,6 +570,17 @@ def _credits(values: Any) -> list[MetadataCredit]:
             )
         )
     return credits
+
+
+def _string_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    result: list[str] = []
+    for value in values:
+        text = _optional_text(value)
+        if text and text not in result:
+            result.append(text)
+    return result
 
 
 def _provider_links(item: Any) -> list[ProviderLink]:

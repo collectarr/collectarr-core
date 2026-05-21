@@ -16,6 +16,9 @@ def item_search_document(item: Item) -> dict[str, Any]:
     creators: list[str] = []
     characters: list[str] = []
     story_arcs: list[str] = []
+    platforms: list[str] = []
+    catalog_number = None
+    release_status = None
     variant = None
     variant_names: list[str] = []
     series_title = item.volume.series.title if item.volume and item.volume.series else None
@@ -41,9 +44,13 @@ def item_search_document(item: Item) -> dict[str, Any]:
             _append_unique(barcodes, _normalized_barcode(edition.isbn))
             barcode = barcode or _normalized_barcode(edition.isbn)
         source = _source_metadata(edition.metadata_json)
+        normalized = _normalized_metadata(edition.metadata_json)
+        catalog_number = catalog_number or _optional_text(normalized.get("catalog_number"))
+        release_status = release_status or _optional_text(normalized.get("release_status"))
         creators.extend(_credit_names(source.get("person_credits")))
         characters.extend(_credit_names(source.get("character_credits")))
         story_arcs.extend(_credit_names(source.get("story_arc_credits")))
+        platforms.extend(_string_list(normalized.get("platforms")))
         primary = next((row for row in edition.variants if row.is_primary), None)
         for variant_row in edition.variants:
             _append_unique(variant_names, variant_row.name)
@@ -77,9 +84,12 @@ def item_search_document(item: Item) -> dict[str, Any]:
         "variant_names": variant_names,
         "series_title": series_title,
         "volume_name": volume_name,
+        "catalog_number": catalog_number,
         "creators": _unique(creators),
         "characters": _unique(characters),
         "story_arcs": _unique(story_arcs),
+        "platforms": _unique(platforms),
+        "release_status": release_status,
     }
 
 
@@ -88,6 +98,13 @@ def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     source = metadata.get("source")
     return source if isinstance(source, dict) else {}
+
+
+def _normalized_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(metadata, dict):
+        return {}
+    normalized = metadata.get("normalized")
+    return normalized if isinstance(normalized, dict) else {}
 
 
 def _physical_format_label(
@@ -117,6 +134,24 @@ def _credit_names(values: Any) -> list[str]:
         if name:
             names.append(str(name))
     return names
+
+
+def _string_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    names: list[str] = []
+    for value in values:
+        text = str(value).strip() if value is not None else ""
+        if text:
+            names.append(text)
+    return names
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _append_unique(values: list[str], value: str | None) -> None:

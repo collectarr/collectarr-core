@@ -397,7 +397,7 @@ async def get_series_relations(
 
 
 @router.get(
-    "/providers/{provider}/seasons/{provider_item_id:path}",
+    "/metadata/providers/{provider}/seasons/{provider_item_id:path}",
     response_model=list[SeasonResponse],
 )
 async def get_provider_seasons(
@@ -410,7 +410,7 @@ async def get_provider_seasons(
 
 
 @router.get(
-    "/providers/{provider}/volumes/{provider_item_id:path}",
+    "/metadata/providers/{provider}/volumes/{provider_item_id:path}",
     response_model=list[SeasonResponse],
 )
 async def get_provider_volumes(

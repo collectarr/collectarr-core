@@ -279,7 +279,12 @@ class AniListProvider:
         provider_item_id = self._provider_item_id(target_kind, anilist_id) if anilist_id else ""
         start_date = item.get("startDate") if isinstance(item.get("startDate"), Mapping) else {}
         year = self._optional_text(start_date.get("year"))
+        title_map = item.get("title") if isinstance(item.get("title"), Mapping) else {}
+        romaji = self._optional_text(title_map.get("romaji"))
+        english = self._optional_text(title_map.get("english"))
+        alt_title = romaji if (english and romaji and romaji != english) else None
         summary_parts = [
+            alt_title,
             self._optional_text(item.get("format")),
             self._optional_text(item.get("status")),
             year,

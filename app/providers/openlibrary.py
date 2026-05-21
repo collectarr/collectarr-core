@@ -157,6 +157,22 @@ class OpenLibraryProvider:
             (edition or {}).get("publish_date") or (search_doc or {}).get("first_publish_year")
         )
 
+        subjects = (work or {}).get("subjects")
+        ol_genres = [str(s) for s in subjects if isinstance(s, str)][:20] if isinstance(subjects, list) else []
+
+        ol_langs = (edition or {}).get("languages")
+        ol_language = None
+        if isinstance(ol_langs, list) and ol_langs:
+            lang_key = ol_langs[0].get("key", "") if isinstance(ol_langs[0], Mapping) else str(ol_langs[0])
+            ol_language = lang_key.rsplit("/", 1)[-1] if "/" in lang_key else lang_key or None
+
+        ol_subtitle = self._optional_text((edition or {}).get("subtitle"))
+
+        ol_series_list = (edition or {}).get("series") or (work or {}).get("series")
+        ol_series_group = None
+        if isinstance(ol_series_list, list) and ol_series_list:
+            ol_series_group = str(ol_series_list[0]) if not isinstance(ol_series_list[0], Mapping) else ol_series_list[0].get("name")
+
         return NormalizedItem(
             kind=ItemKind.book,
             title=title,
@@ -177,6 +193,10 @@ class OpenLibraryProvider:
             barcode=isbn,
             cover_image_url=self._cover_url(edition or search_doc or {}, isbn),
             creators=self._authors(search_doc or {}),
+            genres=ol_genres,
+            language=ol_language,
+            subtitle=ol_subtitle,
+            series_group=ol_series_group,
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: work_id} if work_id else {},
         )

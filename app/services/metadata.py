@@ -980,6 +980,58 @@ class MetadataService:
                 and (not is_video_item_kind(item.kind) or physical_format_label is not None)
             ):
                 break
+        series_title = getattr(item, "series_title", None) or (
+            item.series.title if hasattr(item, "series") and item.series else None
+        )
+        volume_name = getattr(item, "volume_name", None) or (
+            item.volume.name if hasattr(item, "volume") and item.volume else None
+        )
+        track_count: int | None = None
+        tracks: list[dict] | None = None
+        creators: list[dict] | None = None
+        characters: list[str] | None = None
+        story_arcs: list[str] | None = None
+        genres: list[str] | None = None
+        page_count: int | None = getattr(item, "page_count", None)
+        cover_price_cents: int | None = None
+        item_currency: str | None = None
+        country: str | None = None
+        language: str | None = None
+        age_rating: str | None = None
+        imprint_val: str | None = None
+        subtitle: str | None = None
+        series_group: str | None = None
+        for edition in item.editions:
+            md = getattr(edition, "metadata_json", None)
+            if isinstance(md, dict):
+                norm = md.get("normalized", md)
+                if item.kind == ItemKind.music:
+                    track_count = track_count or norm.get("track_count")
+                    raw_tracks = norm.get("tracks")
+                    if isinstance(raw_tracks, list) and raw_tracks and tracks is None:
+                        tracks = raw_tracks
+                raw_creators = norm.get("creators")
+                if isinstance(raw_creators, list) and raw_creators and creators is None:
+                    creators = raw_creators
+                raw_characters = norm.get("characters")
+                if isinstance(raw_characters, list) and raw_characters and characters is None:
+                    characters = raw_characters
+                raw_arcs = norm.get("story_arcs")
+                if isinstance(raw_arcs, list) and raw_arcs and story_arcs is None:
+                    story_arcs = raw_arcs
+                raw_genres = norm.get("genres")
+                if isinstance(raw_genres, list) and raw_genres and genres is None:
+                    genres = raw_genres
+                country = country or norm.get("country")
+                language = language or norm.get("language")
+                age_rating = age_rating or norm.get("age_rating")
+                imprint_val = imprint_val or norm.get("imprint")
+                subtitle = subtitle or norm.get("subtitle")
+                series_group = series_group or norm.get("series_group")
+            primary = next((v for v in edition.variants if v.is_primary), None)
+            if primary is not None:
+                cover_price_cents = cover_price_cents or primary.cover_price_cents
+                item_currency = item_currency or primary.currency
         return SearchResult(
             id=item.id,
             kind=item.kind,
@@ -996,6 +1048,23 @@ class MetadataService:
             release_year=release_year,
             barcode=barcode,
             variant=variant_name,
+            series_title=series_title,
+            volume_name=volume_name,
+            track_count=track_count,
+            tracks=tracks,
+            creators=creators,
+            characters=characters,
+            story_arcs=story_arcs,
+            genres=genres,
+            page_count=page_count,
+            cover_price_cents=cover_price_cents,
+            currency=item_currency,
+            country=country,
+            language=language,
+            age_rating=age_rating,
+            imprint=imprint_val,
+            subtitle=subtitle,
+            series_group=series_group,
         )
 
     def _preferred_variant(

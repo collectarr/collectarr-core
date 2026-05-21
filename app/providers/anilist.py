@@ -217,7 +217,7 @@ class AniListProvider:
             release_date=start_date,
             cover_image_url=self._cover_url(data),
             creators=self._staff(data.get("staff")),
-            story_arcs=[NormalizedCredit(name=genre) for genre in genres],
+            genres=genres,
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             relations=self._relations(data.get("relations"), kind),

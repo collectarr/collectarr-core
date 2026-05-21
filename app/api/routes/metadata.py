@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentAdmin, CurrentUser, DbSession
 from app.catalog.media_types import (
     CATALOG_SNAPSHOT_SCHEMA_VERSION,
     MEDIA_CATALOG_CONTRACT_VERSION,
@@ -94,7 +94,7 @@ async def lookup_barcode(
 async def barcode_provider_search(
     barcode: str,
     db: DbSession,
-    _user: CurrentUser,
+    _user: CurrentAdmin,
     kind: ItemKind | None = None,
 ) -> list[ProviderSearchResultResponse]:
     results = await MetadataService(db).barcode_provider_search(barcode, kind)
@@ -128,7 +128,7 @@ async def barcode_provider_search(
 )
 async def default_provider_search(
     db: DbSession,
-    _user: CurrentUser,
+    _user: CurrentAdmin,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind = Query(...),
     series: str | None = Query(default=None, min_length=1, max_length=255),
@@ -152,7 +152,7 @@ async def default_provider_search(
 async def provider_search(
     provider: ExternalProvider,
     db: DbSession,
-    _user: CurrentUser,
+    _user: CurrentAdmin,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind | None = None,
     series: str | None = Query(default=None, min_length=1, max_length=255),

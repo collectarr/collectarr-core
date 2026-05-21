@@ -102,6 +102,25 @@ async def test_musicbrainz_provider_fetches_release_and_normalizes(monkeypatch):
     assert normalized.country == "US"
     assert normalized.release_status == "Official"
     assert normalized.physical_format == "CD"
+    assert normalized.cover_image_url is not None
+    assert normalized.cover_image_url.endswith(f"/release/{RELEASE_ID}/front-500")
+
+
+@pytest.mark.asyncio
+async def test_musicbrainz_cover_falls_back_to_release_group(monkeypatch):
+    """When the release has no front cover, fall back to release-group cover."""
+    raw = _release_raw()
+    raw["cover-art-archive"] = {"artwork": False, "front": False}
+
+    async def fake_request(self, path, params):
+        return raw
+
+    monkeypatch.setattr(MusicBrainzProvider, "_request", fake_request)
+
+    item = await MusicBrainzProvider().get_item(RELEASE_ID)
+    normalized = await MusicBrainzProvider().normalize(item.raw)
+    assert normalized.cover_image_url is not None
+    assert normalized.cover_image_url.endswith(f"/release-group/{GROUP_ID}/front-500")
 
 
 @pytest.mark.asyncio

@@ -51,6 +51,60 @@ class ProviderIngestResponse(BaseModel):
     item: ItemResponse
 
 
+class ProviderPreviewCredit(BaseModel):
+    name: str
+    role: str | None = None
+
+
+class ProviderPreviewTrack(BaseModel):
+    position: int | None = None
+    title: str
+    duration_seconds: int | None = None
+    artist: str | None = None
+    disc_number: int | None = None
+
+
+class ProviderPreviewResponse(BaseModel):
+    """Normalized provider data returned WITHOUT creating anything in the DB."""
+
+    provider: str
+    provider_item_id: str
+    kind: ItemKind
+    title: str
+    item_number: str | None = None
+    synopsis: str | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    volume_number: int | None = None
+    volume_start_year: int | None = None
+    publisher: str | None = None
+    imprint: str | None = None
+    edition_title: str | None = None
+    edition_format: str | None = None
+    physical_format: str | None = None
+    physical_format_label: str | None = None
+    release_date: date | None = None
+    barcode: str | None = None
+    isbn: str | None = None
+    variant_name: str | None = None
+    cover_image_url: str | None = None
+    cover_price_cents: int | None = None
+    currency: str | None = None
+    country: str | None = None
+    language: str | None = None
+    age_rating: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
+    page_count: int | None = None
+    runtime_minutes: int | None = None
+    track_count: int | None = None
+    creators: list[ProviderPreviewCredit] = Field(default_factory=list)
+    characters: list[str] = Field(default_factory=list)
+    story_arcs: list[str] = Field(default_factory=list)
+    genres: list[str] = Field(default_factory=list)
+    tracks: list[ProviderPreviewTrack] = Field(default_factory=list)
+
+
 class ProviderIngestHistoryEntry(BaseModel):
     id: int
     timestamp: datetime

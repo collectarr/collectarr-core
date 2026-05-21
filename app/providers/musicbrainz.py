@@ -11,6 +11,7 @@ from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
+    NormalizedTrack,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,
@@ -32,6 +33,7 @@ class MusicBrainzProvider:
         requires_user_key=False,
         non_commercial_only=False,
         allows_redistribution=True,
+        allows_image_mirroring=True,
         requires_attribution=True,
         license_name="MusicBrainz Data Licenses",
         terms_url="https://musicbrainz.org/doc/MusicBrainz_Database",
@@ -104,7 +106,7 @@ class MusicBrainzProvider:
         release_group = data.get("release-group") if isinstance(data.get("release-group"), Mapping) else {}
         release_date = self._date(data.get("date"))
         artist_names = self._artist_names(data.get("artist-credit"))
-        track_count, medium_formats = self._media_details(data.get("media"))
+        track_count, medium_formats, tracks = self._media_details(data.get("media"))
         catalog_number = self._catalog_number(data)
 
         return NormalizedItem(
@@ -127,9 +129,15 @@ class MusicBrainzProvider:
                 {self.name: str(release_group.get("id"))} if release_group.get("id") else {}
             ),
             track_count=track_count,
+            tracks=tracks,
             catalog_number=catalog_number,
             country=self._optional_text(data.get("country")),
             release_status=self._optional_text(data.get("status")),
+            language=self._optional_text(
+                (data.get("text-representation") or {}).get("language")
+                if isinstance(data.get("text-representation"), Mapping)
+                else None
+            ),
         )
 
     async def _request(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -221,13 +229,16 @@ class MusicBrainzProvider:
                     return medium_format
         return primary_type or "Music Release"
 
-    def _media_details(self, media: Any) -> tuple[int | None, list[str]]:
-        """Return (total_track_count, list_of_distinct_medium_formats)."""
+    def _media_details(
+        self, media: Any,
+    ) -> tuple[int | None, list[str], list[NormalizedTrack]]:
+        """Return (total_track_count, list_of_distinct_medium_formats, tracks)."""
         if not isinstance(media, list) or not media:
-            return None, []
+            return None, [], []
         total_tracks = 0
         formats: list[str] = []
-        for medium in media:
+        tracks: list[NormalizedTrack] = []
+        for disc_index, medium in enumerate(media, start=1):
             if not isinstance(medium, Mapping):
                 continue
             count = medium.get("track-count")
@@ -236,7 +247,38 @@ class MusicBrainzProvider:
             fmt = self._optional_text(medium.get("format"))
             if fmt and fmt not in formats:
                 formats.append(fmt)
-        return total_tracks or None, formats
+            raw_tracks = medium.get("tracks")
+            if not isinstance(raw_tracks, list):
+                continue
+            for raw_track in raw_tracks:
+                if not isinstance(raw_track, Mapping):
+                    continue
+                position = raw_track.get("position")
+                if not isinstance(position, int):
+                    continue
+                title = self._optional_text(raw_track.get("title")) or "Untitled"
+                length_ms = raw_track.get("length")
+                duration_seconds = (
+                    int(length_ms) // 1000
+                    if isinstance(length_ms, (int, float)) and length_ms > 0
+                    else None
+                )
+                artist_credit = raw_track.get("artist-credit")
+                artist = (
+                    ", ".join(self._artist_names(artist_credit))
+                    if isinstance(artist_credit, list)
+                    else None
+                )
+                tracks.append(
+                    NormalizedTrack(
+                        position=position,
+                        title=title,
+                        duration_seconds=duration_seconds,
+                        artist=artist,
+                        disc_number=disc_index if len(media) > 1 else None,
+                    )
+                )
+        return total_tracks or None, formats, tracks
 
     def _catalog_number(self, data: Mapping[str, Any]) -> str | None:
         labels = data.get("label-info")
@@ -252,12 +294,16 @@ class MusicBrainzProvider:
 
     def _cover_url(self, data: Mapping[str, Any]) -> str | None:
         archive = data.get("cover-art-archive")
-        if not isinstance(archive, Mapping) or archive.get("front") is not True:
-            return None
-        release_id = self._optional_text(data.get("id"))
-        if not release_id:
-            return None
-        return f"{self.settings.cover_art_archive_base_url.rstrip('/')}/release/{release_id}/front-500"
+        if isinstance(archive, Mapping) and archive.get("front") is True:
+            release_id = self._optional_text(data.get("id"))
+            if release_id:
+                return f"{self.settings.cover_art_archive_base_url.rstrip('/')}/release/{release_id}/front-500"
+        # Fallback: try the release-group cover when the release itself has none
+        release_group = data.get("release-group") if isinstance(data.get("release-group"), Mapping) else {}
+        rg_id = self._optional_text(release_group.get("id")) if release_group else None
+        if rg_id:
+            return f"{self.settings.cover_art_archive_base_url.rstrip('/')}/release-group/{rg_id}/front-500"
+        return None
 
     def _date(self, value: Any) -> date | None:
         text = self._optional_text(value)

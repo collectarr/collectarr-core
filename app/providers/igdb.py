@@ -143,7 +143,8 @@ class IGDBProvider:
             release_date=release_date,
             cover_image_url=self._cover_url(data),
             creators=[NormalizedCredit(name=name, role="Developer") for name in developers],
-            story_arcs=[NormalizedCredit(name=name) for name in genres],
+            genres=genres,
+            age_rating=self._age_rating(data.get("age_ratings")),
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             platforms=platforms,
@@ -275,6 +276,32 @@ class IGDBProvider:
         if url.startswith("//"):
             url = f"https:{url}"
         return url.replace("/t_thumb/", "/t_cover_big/")
+
+    # IGDB age-rating category 1 = ESRB, 2 = PEGI
+    _ESRB_LABELS: dict[int, str] = {
+        6: "RP",
+        7: "EC",
+        8: "E",
+        9: "E10+",
+        10: "T",
+        11: "M",
+        12: "AO",
+    }
+
+    def _age_rating(self, ratings: Any) -> str | None:
+        if not isinstance(ratings, list):
+            return None
+        for entry in ratings:
+            if isinstance(entry, Mapping) and entry.get("category") == 1:
+                label = self._ESRB_LABELS.get(entry.get("rating", 0))
+                if label:
+                    return f"ESRB {label}"
+        for entry in ratings:
+            if isinstance(entry, Mapping) and entry.get("category") == 2:
+                rating = entry.get("rating")
+                if rating:
+                    return f"PEGI {rating}"
+        return None
 
     def _date(self, value: Any) -> date | None:
         timestamp = self._id(value)

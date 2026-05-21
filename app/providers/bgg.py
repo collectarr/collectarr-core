@@ -127,6 +127,8 @@ class BGGProvider:
         categories = self._link_values(links, "boardgamecategory")
         families = self._link_values(links, "boardgamefamily")
 
+        minage = self._int(data.get("minage"))
+
         return NormalizedItem(
             kind=ItemKind.boardgame,
             title=title,
@@ -141,8 +143,9 @@ class BGGProvider:
             cover_image_url=self._optional_text(data.get("image"))
             or self._optional_text(data.get("thumbnail")),
             creators=[NormalizedCredit(name=name, role="Designer") for name in designers],
-            characters=[NormalizedCredit(name=name) for name in categories],
-            story_arcs=[NormalizedCredit(name=name) for name in families],
+            genres=categories,
+            series_group=families[0] if families else None,
+            age_rating=f"Ages {minage}+" if minage else None,
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
         )

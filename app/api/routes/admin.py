@@ -25,6 +25,7 @@ from app.schemas.admin import (
     ProviderIngestRetryRequest,
     ProviderIngestResponse,
     ProviderIngestHistoryEntry,
+    ProviderPreviewResponse,
     ProviderSearchRequest,
     ProviderStatusListResponse,
     ImageCacheStatsResponse,
@@ -136,6 +137,17 @@ async def merge_duplicate_candidate(
 @router.post("/providers/search", dependencies=[Depends(admin_provider_rate_limit)])
 async def provider_search(payload: ProviderSearchRequest, db: DbSession, user: CurrentAdmin):
     return await AdminMetadataService(db).provider_search(payload)
+
+
+@router.post(
+    "/providers/preview",
+    response_model=ProviderPreviewResponse,
+    dependencies=[Depends(admin_provider_rate_limit)],
+)
+async def provider_preview(
+    payload: ProviderIngestRequest, db: DbSession, user: CurrentAdmin
+) -> ProviderPreviewResponse:
+    return await AdminMetadataService(db).preview(payload)
 
 
 @router.post(

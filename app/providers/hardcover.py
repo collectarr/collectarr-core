@@ -317,7 +317,8 @@ class HardcoverProvider:
             isbn=isbn,
             cover_image_url=cover_url,
             creators=creators,
-            story_arcs=[NormalizedCredit(name=g) for g in genres],
+            genres=genres,
+            subtitle=data.get("subtitle") or None,
             provider_ids=provider_ids,
             volume_provider_ids=provider_ids,
         )

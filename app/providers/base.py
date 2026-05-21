@@ -88,6 +88,15 @@ class NormalizedRelation:
 
 
 @dataclass(frozen=True)
+class NormalizedTrack:
+    position: int
+    title: str
+    duration_seconds: int | None = None
+    artist: str | None = None
+    disc_number: int | None = None
+
+
+@dataclass(frozen=True)
 class NormalizedEpisode:
     episode_number: int
     title: str
@@ -140,11 +149,17 @@ class NormalizedItem:
     volume_provider_ids: dict[str, str] = field(default_factory=dict)
     variant_covers: list[NormalizedVariantCover] = field(default_factory=list)
     relations: list[NormalizedRelation] = field(default_factory=list)
+    tracks: list[NormalizedTrack] = field(default_factory=list)
     track_count: int | None = None
     catalog_number: str | None = None
     country: str | None = None
     release_status: str | None = None
     platforms: list[str] = field(default_factory=list)
+    genres: list[str] = field(default_factory=list)
+    language: str | None = None
+    age_rating: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
 
 
 class MetadataProvider(Protocol):

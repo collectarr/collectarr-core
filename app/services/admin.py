@@ -78,6 +78,9 @@ from app.schemas.admin import (
     ProviderIngestRequest,
     ProviderIngestRetryRequest,
     ProviderIngestResponse,
+    ProviderPreviewCredit,
+    ProviderPreviewResponse,
+    ProviderPreviewTrack,
     MetadataProposalAdminResponse,
     MetadataProposalSummaryResponse,
     ProviderSearchRequest,
@@ -1014,6 +1017,69 @@ class AdminMetadataService:
         await self.db.commit()
         return response
 
+    async def preview(self, payload: ProviderIngestRequest) -> ProviderPreviewResponse:
+        """Fetch and normalize provider data without creating anything in the DB."""
+        provider = self._provider(payload.provider)
+        self._ensure_provider_ingest_supported(provider, payload.provider)
+        provider_item = await provider.get_item(payload.provider_item_id)
+        normalized = await provider.normalize(
+            dict(provider_item.raw) | {"id": provider_item.provider_item_id}
+        )
+        normalized = await self._enrich_missing_comic_cover(normalized)
+        physical_format = self._physical_format_for_normalized(normalized)
+        return ProviderPreviewResponse(
+            provider=payload.provider.value,
+            provider_item_id=provider_item.provider_item_id,
+            kind=normalized.kind,
+            title=normalized.title,
+            item_number=normalized.item_number,
+            synopsis=normalized.synopsis,
+            series_title=normalized.series_title,
+            volume_name=normalized.volume_name,
+            volume_number=normalized.volume_number,
+            volume_start_year=normalized.volume_start_year,
+            publisher=normalized.publisher,
+            imprint=normalized.imprint,
+            edition_title=normalized.edition_title,
+            edition_format=normalized.edition_format,
+            physical_format=physical_format.id if physical_format else None,
+            physical_format_label=physical_format.label if physical_format else None,
+            release_date=normalized.release_date,
+            barcode=normalized.barcode,
+            isbn=normalized.isbn,
+            variant_name=normalized.variant_name or (
+                physical_format.label if physical_format is not None else None
+            ),
+            cover_image_url=normalized.cover_image_url,
+            cover_price_cents=normalized.cover_price_cents,
+            currency=normalized.currency,
+            country=normalized.country,
+            language=normalized.language,
+            age_rating=normalized.age_rating,
+            subtitle=normalized.subtitle,
+            series_group=normalized.series_group,
+            page_count=normalized.page_count,
+            runtime_minutes=normalized.runtime_minutes,
+            track_count=normalized.track_count,
+            creators=[
+                ProviderPreviewCredit(name=c.name, role=c.role)
+                for c in normalized.creators
+            ],
+            characters=[c.name for c in normalized.characters],
+            story_arcs=[c.name for c in normalized.story_arcs],
+            genres=normalized.genres,
+            tracks=[
+                ProviderPreviewTrack(
+                    position=t.position,
+                    title=t.title,
+                    duration_seconds=t.duration_seconds,
+                    artist=t.artist,
+                    disc_number=t.disc_number,
+                )
+                for t in normalized.tracks
+            ],
+        )
+
     async def ingest(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:
         attempts = max(1, self.settings.provider_ingest_retry_attempts + 1)
         last_error: Exception | None = None
@@ -1158,10 +1224,25 @@ class AdminMetadataService:
                     "characters": [credit.name for credit in normalized.characters],
                     "story_arcs": [credit.name for credit in normalized.story_arcs],
                     "track_count": normalized.track_count,
+                    "tracks": [
+                        {
+                            "position": t.position,
+                            "title": t.title,
+                            "duration_seconds": t.duration_seconds,
+                            "artist": t.artist,
+                            "disc_number": t.disc_number,
+                        }
+                        for t in normalized.tracks
+                    ] or None,
                     "catalog_number": normalized.catalog_number,
                     "country": normalized.country,
                     "release_status": normalized.release_status,
                     "platforms": normalized.platforms or None,
+                    "genres": normalized.genres or None,
+                    "language": normalized.language,
+                    "age_rating": normalized.age_rating,
+                    "subtitle": normalized.subtitle,
+                    "series_group": normalized.series_group,
                     **cover_metadata,
                 },
                 "source": provider_item.raw,

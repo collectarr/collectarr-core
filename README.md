@@ -1,23 +1,23 @@
-# 🎯 Collectarr Core
+# Collectarr Core
 
 > The shared metadata engine behind Collectarr — canonical catalog, provider integrations, image delivery, and admin console.
 
 Core owns the shared catalog and provider infrastructure. Personal collection data (owned items, wishlists, grades, notes) lives in `collectarr-app` and optionally syncs through `collectarr-sync`.
 
-## ✨ Features
+## Features
 
-- 📚 **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and tags
-- 🔌 **9 metadata providers** — GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
-- 🔍 **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
-- 🧩 **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
-- 🖼️ **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking
-- 🔎 **Full-text search** — optional Meilisearch indexing for instant catalog queries
-- 🛠️ **Admin Console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
-- 📋 **Ingest job queue** — DB-backed provider ingest with automatic worker processing, retry, and status tracking
-- 👤 **Role-based access** — viewer / editor / admin roles with audit trail
-- 📄 **OpenAPI docs** — auto-generated schema at `/docs` with versioned export
+- **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and tags
+- **9 metadata providers** — GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
+- **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
+- **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
+- **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking
+- **Full-text search** — optional Meilisearch indexing for instant catalog queries
+- **Admin console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
+- **Ingest job queue** — DB-backed provider ingest with automatic worker processing, retry, and status tracking
+- **Role-based access** — viewer / editor / admin roles with audit trail
+- **OpenAPI docs** — auto-generated schema at `/docs` with versioned export
 
-## 🚀 Quick Start
+## Quick Start
 
 ```powershell
 Copy-Item .env.example .env
@@ -26,7 +26,7 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
-## 🧪 Development
+## Development
 
 ```powershell
 python -m pip install -e .[dev]
@@ -46,7 +46,7 @@ Helper commands:
 .\tools\dev.ps1 reset-stack    # Clean reset of all containers
 ```
 
-## 🌐 Local URLs
+## Local URLs
 
 | Service | URL |
 |---------|-----|
@@ -56,18 +56,18 @@ Helper commands:
 | Meilisearch | http://localhost:7700 |
 | MinIO console | http://localhost:9001 |
 
-## 📦 Release Policy
+## Release Policy
 
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 `workflow_dispatch`; pushing to `main` runs CI only — no auto-publish.
 
-## 🗂️ Related Repos
+## Related Repos
 
 | Repo | Purpose |
 |------|---------|
-| `collectarr/collectarr-app` | 📱 Flutter client (web, Windows, Android) |
-| `collectarr/collectarr-sync` | 🔄 Optional personal sync service |
+| `collectarr-app` | Flutter client (web, Windows, Android) |
+| `collectarr-sync` | Optional personal sync service |
 
-## 🗺️ Roadmap
+## Roadmap
 
 See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.

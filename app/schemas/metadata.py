@@ -126,6 +126,23 @@ class SearchResult(BaseModel):
     release_year: int | None = None
     barcode: str | None = None
     variant: str | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    track_count: int | None = None
+    tracks: list[dict[str, Any]] | None = None
+    creators: list[dict[str, Any]] | None = None
+    characters: list[str] | None = None
+    story_arcs: list[str] | None = None
+    genres: list[str] | None = None
+    page_count: int | None = None
+    cover_price_cents: int | None = None
+    currency: str | None = None
+    country: str | None = None
+    language: str | None = None
+    age_rating: str | None = None
+    imprint: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
 
 
 class ProviderSearchResultResponse(BaseModel):

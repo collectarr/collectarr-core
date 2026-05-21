@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import re
@@ -94,12 +95,14 @@ class ImageMirror:
         if not image_bytes or not source_url:
             return None
         try:
-            cover = self._normalized_cover(image_bytes)
+            cover = await asyncio.to_thread(self._normalized_cover, image_bytes)
             # Content-hash dedup: skip upload if identical bytes already stored.
             if existing_content_hash and cover.content_hash == existing_content_hash:
                 return None
             key = self._cover_key(provider, provider_item_id, source_url)
-            public_url = self.storage.put_object(key, cover.body, _NORMALIZED_COVER_CONTENT_TYPE)
+            public_url = await asyncio.to_thread(
+                self.storage.put_object, key, cover.body, _NORMALIZED_COVER_CONTENT_TYPE
+            )
         except Exception:
             logger.warning(
                 "Failed to mirror provider cover bytes %s for %s:%s",

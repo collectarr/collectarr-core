@@ -66,27 +66,22 @@ async def batch_download_images(
     object_keys: list[str] = Body(min_length=1, max_length=50),
 ) -> dict[str, str | None]:
     storage = ObjectStorage.shared()
-    result: dict[str, str | None] = {}
-    seen: set[str] = set()
-    for key in object_keys:
-        if key in seen:
-            continue
-        seen.add(key)
+
+    async def _download(key: str) -> tuple[str, str | None]:
         try:
             body, _ = await asyncio.to_thread(storage.get_object, key)
-            result[key] = base64.b64encode(body).decode("ascii")
+            return key, base64.b64encode(body).decode("ascii")
         except Exception:
-            result[key] = None
-    return result
+            return key, None
+
+    unique_keys = list(dict.fromkeys(object_keys))
+    downloaded = await asyncio.gather(*(_download(k) for k in unique_keys))
+    return dict(downloaded)
 
 
 # ---------------------------------------------------------------------------
 # Multi-image CRUD — ImageAsset per entity
 # ---------------------------------------------------------------------------
-
-
-class _ImageAssetOut(dict):
-    """Lightweight dict subclass so FastAPI serialises it directly."""
 
 
 def _asset_dict(asset: ImageAsset, storage: ObjectStorage) -> dict:
@@ -216,16 +211,18 @@ async def add_entity_image(
 
     # If is_primary, clear other primaries of same type
     if is_primary:
-        result = await db.scalars(
-            select(ImageAsset).where(
+        from sqlalchemy import update
+
+        await db.execute(
+            update(ImageAsset)
+            .where(
                 ImageAsset.entity_type == entity_type,
                 ImageAsset.entity_id == entity_id,
                 ImageAsset.image_type == image_type,
                 ImageAsset.is_primary.is_(True),
             )
+            .values(is_primary=False)
         )
-        for old in result:
-            old.is_primary = False
 
     asset = ImageAsset(
         entity_type=entity_type,
@@ -241,7 +238,6 @@ async def add_entity_image(
     )
     db.add(asset)
     await db.commit()
-    await db.refresh(asset)
     storage = ObjectStorage.shared()
     return _asset_dict(asset, storage)
 

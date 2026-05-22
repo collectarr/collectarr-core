@@ -12,6 +12,13 @@ the safest MVP behavior for licensing, storage, and browser compatibility.
 - `missing`: Core stores no cover URL. Flutter renders a deterministic generated
   cover from the title and issue number.
 
+User-uploaded images follow the same mirroring path, but they first receive a
+synthetic `upload://.../<sha256>` source URL derived from the uploaded bytes.
+That gives the mirror pipeline a stable origin for object-key generation and
+prevents collisions when two uploads target the same entity without an external
+provider URL. `image_assets.source_url` stores that effective source URL, not
+just the original client payload.
+
 Restricted providers stay external unless
 `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is explicitly enabled for a
 deployment that accepts the provider terms.
@@ -31,6 +38,9 @@ fallback setting is enabled: exact issue queries use ComicVine when GCD is
 unavailable, while series-style GCD searches can merge ComicVine associated
 cover candidates so variant covers appear without exposing provider routing to
 the client.
+
+Image mutation endpoints are admin-only. Viewers and editors can consume image
+URLs, but only admins can add, delete, or promote canonical image assets.
 
 ## Client Fallback
 

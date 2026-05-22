@@ -34,6 +34,8 @@
 - Optional MinIO/S3 mirroring with WebP normalization
 - SHA256 dedup, LRU eviction, cache budget tracking
 - Admin visibility: stats endpoint + purge endpoint + UI panel
+- User-uploaded image mirroring uses content-addressed synthetic source URLs to avoid key collisions
+- Canonical image asset mutations are restricted to admins
 
 ### 📄 Contracts
 - OpenAPI auto-generated with tags (system, auth, metadata, admin)
@@ -46,6 +48,7 @@
 - [x] Barcode/UPC → provider item resolution for all media types
 - [x] Provider-specific enrichment for music (MusicBrainz releases) and games (IGDB platforms/editions)
 - [x] Scheduled catalog refresh for stale provider data
+- [x] Preserve provider-native raw IDs through preview/ingest normalization flows
 
 ### 🛡️ Operations
 - [x] HTTPS + secrets rotation documentation

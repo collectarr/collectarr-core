@@ -2,6 +2,7 @@ import base64
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import UserRole
@@ -120,11 +121,13 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     assert len(source_urls) == 2
     assert source_urls[0] != source_urls[1]
     assert mirrored_keys[0] != mirrored_keys[1]
+    assert first.json()["source_url"] == source_urls[0]
+    assert second.json()["source_url"] == source_urls[1]
 
     async with AsyncSessionLocal() as db:
         rows = list(
             await db.scalars(
-                ImageAsset.__table__.select().where(
+                    select(ImageAsset).where(
                     ImageAsset.entity_type == "item",
                     ImageAsset.entity_id == entity_id,
                 )
@@ -132,6 +135,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
         )
 
     assert len(rows) == 2
+    assert {row.source_url for row in rows} == set(source_urls)
 
 
 @pytest.mark.asyncio

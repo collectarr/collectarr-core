@@ -309,7 +309,7 @@ async def add_entity_image(
         entity_id=entity_id,
         image_type=image_type,
         storage_key=mirrored.key,
-        source_url=source_url,
+        source_url=effective_source_url,
         provider=provider_value,
         attribution=attribution,
         width=mirrored.width,

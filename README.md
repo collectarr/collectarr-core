@@ -11,7 +11,7 @@ Core owns the shared catalog and provider infrastructure. Personal collection da
 - **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
 - **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
 - **Typed metadata projection** — item, search, and admin preview responses expose normalized fields such as platforms, catalog numbers, and release status
-- **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking
+- **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking, and content-addressed origins for uploaded images
 - **Full-text search** — optional Meilisearch indexing for instant catalog queries
 - **Admin console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
 - **Ingest job queue** — DB-backed provider ingest with automatic worker processing, retry, and status tracking
@@ -59,6 +59,12 @@ project it into the client.
 2. Expose it through the public schemas used by the app: item responses, search results, and admin/provider previews.
 3. Add it to Meilisearch documents and display attributes when it should participate in search or search previews.
 4. Keep field names stable so `collectarr-app` can cache and render the same canonical shape offline.
+
+When normalizing provider data, preserve the provider-native raw payload exactly
+as returned upstream. If a workflow also needs the canonical provider item id,
+use `ProviderItem.provider_item_id` alongside the raw mapping instead of
+rewriting `raw['id']`, because some providers expose numeric or kind-specific
+raw identifiers that are not interchangeable with the canonical route id.
 
 This keeps provider growth and future library additions predictable: new kinds
 can share the same catalog/search/admin contract instead of inventing parallel

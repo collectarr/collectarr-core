@@ -32,12 +32,14 @@ from app.models.canonical import (
     Volume,
 )
 from app.providers.base import ProviderItem, ProviderSearchResult
+from app.providers.base import NormalizedItem, ProviderCapabilities
 from app.providers.comicvine import (
     ComicVineCharacterDetail,
     ComicVineIssueCover,
     ComicVineProvider,
 )
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
+from app.schemas.admin import ProviderIngestRequest
 from app.search.client import SearchClient
 from app.services import admin as admin_service
 from app.storage.images import MirroredImage, ImageMirror
@@ -2387,3 +2389,58 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
         assert item is not None
         assert "Remastered" in item.title
         assert item.metadata_json.get("last_refresh") is not None
+
+
+@pytest.mark.asyncio
+async def test_admin_preview_preserves_provider_raw_id(monkeypatch):
+    class FakeHardcoverProvider:
+        name = "hardcover"
+        capabilities = ProviderCapabilities(
+            kind=ItemKind.book,
+            display_name="Hardcover",
+            kinds=(ItemKind.book,),
+        )
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def status_message(self) -> str:
+            return "configured"
+
+        async def search(self, query: str, kind: ItemKind | None = None):
+            return []
+
+        async def get_item(self, provider_item_id: str) -> ProviderItem:
+            assert provider_item_id == "book:42"
+            return ProviderItem(
+                provider="hardcover",
+                provider_item_id=provider_item_id,
+                raw={"id": 42, "title": "The Hobbit"},
+            )
+
+        async def normalize(self, data) -> NormalizedItem:
+            assert data["id"] == 42
+            return NormalizedItem(
+                kind=ItemKind.book,
+                title="The Hobbit",
+                edition_format="Hardcover",
+                provider_ids={"hardcover": "book:42"},
+                volume_provider_ids={"hardcover": "book:42"},
+            )
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeHardcoverProvider())
+
+        preview = await service.preview(
+            ProviderIngestRequest(
+                provider=ExternalProvider.hardcover,
+                provider_item_id="book:42",
+            )
+        )
+
+    assert preview.provider == "hardcover"
+    assert preview.provider_item_id == "book:42"
+    assert preview.kind == ItemKind.book

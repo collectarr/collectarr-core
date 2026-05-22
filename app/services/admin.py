@@ -964,9 +964,7 @@ class AdminMetadataService:
             return
 
         provider_item = await provider.get_item(pid.provider_item_id)
-        normalized = await provider.normalize(
-            dict(provider_item.raw) | {"id": provider_item.provider_item_id}
-        )
+        normalized = await provider.normalize(provider_item.raw)
 
         item = await self.db.get(Item, pid.entity_id)
         if item is None:
@@ -1031,9 +1029,7 @@ class AdminMetadataService:
         provider = self._provider(payload.provider)
         self._ensure_provider_ingest_supported(provider, payload.provider)
         provider_item = await provider.get_item(payload.provider_item_id)
-        normalized = await provider.normalize(
-            dict(provider_item.raw) | {"id": provider_item.provider_item_id}
-        )
+        normalized = await provider.normalize(provider_item.raw)
         normalized = await self._enrich_missing_comic_cover(normalized)
         physical_format = self._physical_format_for_normalized(normalized)
         return ProviderPreviewResponse(
@@ -1149,9 +1145,7 @@ class AdminMetadataService:
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
 
-        normalized = await provider.normalize(
-            dict(provider_item.raw) | {"id": provider_item.provider_item_id}
-        )
+        normalized = await provider.normalize(provider_item.raw)
         normalized = await self._enrich_missing_comic_cover(normalized)
         physical_format = self._physical_format_for_normalized(normalized)
         edition_format = physical_format.label if physical_format else normalized.edition_format

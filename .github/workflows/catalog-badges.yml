@@ -1,0 +1,58 @@
+name: Catalog Badges
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  badges:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Generate badge snapshots
+        env:
+          COLLECTARR_BADGES_BASE_URL: ${{ secrets.COLLECTARR_BADGES_BASE_URL }}
+          COLLECTARR_BADGES_TOKEN: ${{ secrets.COLLECTARR_BADGES_TOKEN }}
+          COLLECTARR_BADGES_EMAIL: ${{ secrets.COLLECTARR_BADGES_EMAIL }}
+          COLLECTARR_BADGES_PASSWORD: ${{ secrets.COLLECTARR_BADGES_PASSWORD }}
+        shell: bash
+        run: |
+          args=(--output-dir docs/badges)
+          if [ -n "$COLLECTARR_BADGES_BASE_URL" ]; then
+            args+=(--base-url "$COLLECTARR_BADGES_BASE_URL")
+          else
+            args+=(--placeholder)
+          fi
+          if [ -n "$COLLECTARR_BADGES_TOKEN" ]; then
+            args+=(--token "$COLLECTARR_BADGES_TOKEN")
+          fi
+          if [ -n "$COLLECTARR_BADGES_EMAIL" ]; then
+            args+=(--email "$COLLECTARR_BADGES_EMAIL")
+          fi
+          if [ -n "$COLLECTARR_BADGES_PASSWORD" ]; then
+            args+=(--password "$COLLECTARR_BADGES_PASSWORD")
+          fi
+          python scripts/generate_catalog_badges.py "${args[@]}"
+
+      - name: Commit badge updates
+        shell: bash
+        run: |
+          if git diff --quiet -- docs/badges; then
+            echo "No badge changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/badges
+          git commit -m "docs: refresh catalog badges"
+          git push

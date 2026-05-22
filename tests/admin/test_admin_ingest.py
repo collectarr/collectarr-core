@@ -1021,6 +1021,9 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert summary.status_code == 200
     body = summary.json()
     assert body["items"] == 2
+    assert body["items_by_kind"]["comic"] == 2
+    assert body["items_by_kind"]["manga"] == 0
+    assert body["items_by_kind"]["movie"] == 0
     assert body["series"] == 1
     assert body["volumes"] == 1
     assert body["editions"] == 2

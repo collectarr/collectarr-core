@@ -160,6 +160,7 @@ class AdminMetadataService:
         duplicate_groups = await self._duplicate_group_count()
         return AdminCatalogSummaryResponse(
             items=await self._count(Item),
+            items_by_kind=await self._item_counts_by_kind(),
             series=await self._count(Series),
             volumes=await self._count(Volume),
             editions=await self._count(Edition),
@@ -2328,6 +2329,14 @@ class AdminMetadataService:
 
     async def _count(self, model: type) -> int:
         return int(await self.db.scalar(select(func.count()).select_from(model)) or 0)
+
+    async def _item_counts_by_kind(self) -> dict[str, int]:
+        result = await self.db.execute(select(Item.kind, func.count(Item.id)).group_by(Item.kind))
+        counts = {kind.value: 0 for kind in ItemKind}
+        for kind, count in result.all():
+            key = kind.value if isinstance(kind, ItemKind) else str(kind)
+            counts[key] = int(count)
+        return counts
 
     async def _count_image_assets(self) -> int:
         return await self._count(ImageAsset)

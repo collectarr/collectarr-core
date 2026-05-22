@@ -1,5 +1,17 @@
 # Collectarr Core
 
+![Catalog items](docs/badges/catalog-total.svg)
+![Comics](docs/badges/catalog-comic.svg)
+![Manga](docs/badges/catalog-manga.svg)
+![Anime](docs/badges/catalog-anime.svg)
+![Books](docs/badges/catalog-book.svg)
+![Games](docs/badges/catalog-game.svg)
+![Board Games](docs/badges/catalog-boardgame.svg)
+![Movies](docs/badges/catalog-movie.svg)
+![TV](docs/badges/catalog-tv.svg)
+![Music](docs/badges/catalog-music.svg)
+![Blu-ray](docs/badges/catalog-bluray.svg)
+
 > The shared metadata engine behind Collectarr — canonical catalog, provider integrations, image delivery, and admin console.
 
 Core owns the shared catalog and provider infrastructure. Personal collection data (owned items, wishlists, grades, notes) lives in `collectarr-app` and optionally syncs through `collectarr-sync`.
@@ -85,6 +97,24 @@ app-only fields.
 
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 `workflow_dispatch`; pushing to `main` runs CI only — no auto-publish.
+
+## Catalog Badges
+
+The repo includes snapshot badges for total catalog items and per-kind item
+counts. `.github/workflows/catalog-badges.yml` refreshes them on a daily
+schedule or manual dispatch.
+
+To switch from placeholder badges to live counts, configure:
+
+- `COLLECTARR_BADGES_BASE_URL` — public base URL for the hosted Core server
+- `COLLECTARR_BADGES_TOKEN` — bearer token for `/admin/catalog/summary`
+
+Or, instead of a static token:
+
+- `COLLECTARR_BADGES_EMAIL`
+- `COLLECTARR_BADGES_PASSWORD`
+
+The workflow logs in through `/auth/login` when a bearer token is not provided.
 
 ## Related Repos
 

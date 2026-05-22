@@ -42,6 +42,7 @@ from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.schemas.admin import ProviderIngestRequest
 from app.search.client import SearchClient
 from app.services import admin as admin_service
+from app.services.provider_preview_state import clear_provider_preview_cache
 from app.storage.images import MirroredImage, ImageMirror
 
 
@@ -2433,6 +2434,8 @@ async def test_admin_preview_preserves_provider_raw_id(monkeypatch):
                 volume_provider_ids={"hardcover": "book:42"},
             )
 
+    clear_provider_preview_cache()
+
     async with AsyncSessionLocal() as db:
         service = admin_service.AdminMetadataService(db)
         monkeypatch.setattr(service.providers, "get", lambda _: FakeHardcoverProvider())
@@ -2447,3 +2450,69 @@ async def test_admin_preview_preserves_provider_raw_id(monkeypatch):
     assert preview.provider == "hardcover"
     assert preview.provider_item_id == "book:42"
     assert preview.kind == ItemKind.book
+
+
+@pytest.mark.asyncio
+async def test_admin_preview_cache_reuses_hydrated_preview_for_ingest(monkeypatch):
+    clear_provider_preview_cache()
+    calls = {"get_item": 0, "normalize": 0}
+
+    class FakeOpenLibraryProvider:
+        name = "openlibrary"
+        capabilities = ProviderCapabilities(
+            kind=ItemKind.book,
+            display_name="Open Library",
+            kinds=(ItemKind.book,),
+        )
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def status_message(self) -> str:
+            return "configured"
+
+        async def search(self, query: str, kind: ItemKind | None = None):
+            return []
+
+        async def get_item(self, provider_item_id: str) -> ProviderItem:
+            calls["get_item"] += 1
+            assert provider_item_id == "OL4242M"
+            return ProviderItem(
+                provider="openlibrary",
+                provider_item_id=provider_item_id,
+                raw={"id": 4242, "title": "The Silmarillion"},
+            )
+
+        async def normalize(self, data) -> NormalizedItem:
+            calls["normalize"] += 1
+            assert data["id"] == 4242
+            return NormalizedItem(
+                kind=ItemKind.book,
+                title="The Silmarillion",
+                edition_format="Hardcover",
+                provider_ids={"openlibrary": "OL4242M"},
+                volume_provider_ids={"openlibrary": "OL4242M"},
+            )
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeOpenLibraryProvider())
+
+        preview = await service.preview(
+            ProviderIngestRequest(
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL4242M",
+            )
+        )
+        response = await service.ingest(
+            ProviderIngestRequest(
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL4242M",
+            )
+        )
+
+    assert preview.title == "The Silmarillion"
+    assert response.created is True
+    assert calls == {"get_item": 1, "normalize": 1}

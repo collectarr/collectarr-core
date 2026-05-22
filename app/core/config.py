@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     provider_search_rate_limit_window_seconds: int = Field(default=60, ge=0)
     provider_search_cache_ttl_seconds: int = Field(default=6 * 60 * 60, ge=0)
     provider_search_cache_max_entries: int = Field(default=2048, ge=0)
+    provider_preview_cache_ttl_seconds: int = Field(default=15 * 60, ge=0)
+    provider_preview_cache_max_entries: int = Field(default=256, ge=0)
     provider_search_retry_attempts: int = Field(default=1, ge=0, le=3)
     provider_search_retry_base_delay_seconds: float = Field(default=0.35, ge=0)
     provider_search_backoff_seconds: int = Field(default=5 * 60, ge=0)

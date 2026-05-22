@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select
@@ -257,11 +258,35 @@ async def test_provider_search_uses_redis_query_cache(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_provider_search_mirrors_cover_when_enabled_with_override(client, monkeypatch):
+async def test_provider_search_uses_cached_mirror_when_enabled_with_override(
+    client, monkeypatch
+):
     settings = get_settings()
+    monkeypatch.setattr(settings, "bootstrap_admin_emails", {"test@example.com"})
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
     monkeypatch.setattr(settings, "mirror_provider_images", True)
     monkeypatch.setattr(settings, "mirror_provider_images_allow_restricted", True)
     token = await register_and_login(client)
+    source_url = "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            ImageCacheEntry(
+                provider="comicvine",
+                provider_item_id="4000-12345",
+                source_url=source_url,
+                object_key="covers/comicvine/4000-12345/cover.webp",
+                public_url="http://storage.test/covers/comicvine/4000-12345/cover.webp",
+                mime_type="image/webp",
+                size_bytes=1234,
+                width=400,
+                height=600,
+                content_hash="cached-abc123",
+                access_count=1,
+                last_accessed_at=datetime.now(UTC),
+            )
+        )
+        await db.commit()
 
     async def fake_search(self, query, kind=None):
         return [
@@ -270,29 +295,15 @@ async def test_provider_search_mirrors_cover_when_enabled_with_override(client, 
                 provider_item_id="4000-12345",
                 title="The Amazing Spider-Man #1",
                 kind=ItemKind.comic,
-                image_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
+                image_url=source_url,
             )
         ]
 
-    async def fake_mirror_cover(self, source_url, provider, provider_item_id):
-        assert source_url == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
-        assert provider == "comicvine"
-        assert provider_item_id == "4000-12345"
-        return MirroredImage(
-            key="covers/comicvine/4000-12345/cover.webp",
-            url="http://storage.test/covers/comicvine/4000-12345/cover.webp",
-            content_type="image/webp",
-            source_url=source_url,
-            provider=provider,
-            provider_item_id=provider_item_id,
-            size_bytes=1234,
-            width=400,
-            height=600,
-            content_hash="abc123",
-        )
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("provider search should reuse cached mirrors only")
 
     monkeypatch.setattr(ComicVineProvider, "search", fake_search)
-    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fake_mirror_cover)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
 
     response = await client.get(
         "/metadata/providers/comicvine/search",
@@ -308,10 +319,49 @@ async def test_provider_search_mirrors_cover_when_enabled_with_override(client, 
         cache_entry = await db.scalar(select(ImageCacheEntry))
         assert cache_entry is not None
         assert cache_entry.provider == "comicvine"
-        assert (
-            cache_entry.source_url
-            == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
-        )
+        assert cache_entry.source_url == source_url
+
+
+@pytest.mark.asyncio
+async def test_provider_search_skips_uncached_cover_mirroring_on_hot_path(
+    client, monkeypatch
+):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "bootstrap_admin_emails", {"test@example.com"})
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+    monkeypatch.setattr(settings, "mirror_provider_images", True)
+    monkeypatch.setattr(settings, "mirror_provider_images_allow_restricted", True)
+    token = await register_and_login(client)
+    source_url = "https://comicvine.gamespot.com/a/uploads/scale_large/uncached-hot-path.jpg"
+
+    async def fake_search(self, query, kind=None):
+        return [
+            ProviderSearchResult(
+                provider=self.name,
+                provider_item_id="4000-55555",
+                title="The Amazing Spider-Man #2",
+                kind=ItemKind.comic,
+                image_url=source_url,
+            )
+        ]
+
+    async def fail_mirror_cover(self, source_url, provider, provider_item_id):
+        raise AssertionError("provider search hot path should not mirror uncached covers")
+
+    monkeypatch.setattr(ComicVineProvider, "search", fake_search)
+    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
+
+    response = await client.get(
+        "/metadata/providers/comicvine/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"q": "spider", "kind": "comic"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["image_url"] == source_url
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(ImageCacheEntry)) is None
 
 
 @pytest.mark.asyncio
@@ -319,6 +369,8 @@ async def test_provider_search_keeps_restricted_cover_external_without_override(
     client, monkeypatch
 ):
     settings = get_settings()
+    monkeypatch.setattr(settings, "bootstrap_admin_emails", {"test@example.com"})
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
     monkeypatch.setattr(settings, "mirror_provider_images", True)
     monkeypatch.setattr(settings, "mirror_provider_images_allow_restricted", False)
     token = await register_and_login(client)

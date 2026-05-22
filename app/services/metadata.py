@@ -550,6 +550,7 @@ class MetadataService:
         *,
         provider_name: str | ExternalProvider,
         provider_item_id: str | None,
+        cache_only: bool = False,
     ) -> str | None:
         if not self._can_mirror_provider_image(provider_name, source_url):
             return None
@@ -564,6 +565,9 @@ class MetadataService:
             if cached is not None:
                 await self.db.commit()
                 return cached.public_url
+
+            if cache_only:
+                return None
 
             mirrored = await ImageMirror().mirror_cover_best_effort(
                 source_url,
@@ -640,6 +644,7 @@ class MetadataService:
                 result.image_url,
                 provider_name=result.provider,
                 provider_item_id=result.provider_item_id,
+                cache_only=True,
             )
             stable_results.append(
                 replace(result, image_url=mirrored_url) if mirrored_url else result

@@ -59,6 +59,7 @@ from app.providers.comicvine import ComicVineCharacterDetail, ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
+from app.services.provider_preview_state import HydratedProviderPreview, ProviderPreviewState
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -127,6 +128,7 @@ class AdminMetadataService:
         self.actor_user_id = actor.id if actor else None
         self.actor_email = actor.email if actor else None
         self.providers = ProviderRegistry()
+        self.provider_preview_state = ProviderPreviewState()
         self.settings = get_settings()
         self._comicvine_character_details: dict[str, ComicVineCharacterDetail | None] = {}
 
@@ -1029,9 +1031,9 @@ class AdminMetadataService:
         """Fetch and normalize provider data without creating anything in the DB."""
         provider = self._provider(payload.provider)
         self._ensure_provider_ingest_supported(provider, payload.provider)
-        provider_item = await provider.get_item(payload.provider_item_id)
-        normalized = await provider.normalize(provider_item.raw)
-        normalized = await self._enrich_missing_comic_cover(normalized)
+        hydrated = await self._hydrated_provider_preview(payload, provider=provider)
+        provider_item = hydrated.provider_item
+        normalized = hydrated.normalized
         physical_format = self._physical_format_for_normalized(normalized)
         return ProviderPreviewResponse(
             provider=payload.provider.value,
@@ -1139,15 +1141,15 @@ class AdminMetadataService:
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
 
-        provider_item = await provider.get_item(payload.provider_item_id)
+        hydrated = await self._hydrated_provider_preview(payload, provider=provider)
+        provider_item = hydrated.provider_item
         existing_provider_id = await self._get_provider_id_value(
             payload.provider, provider_item.provider_item_id
         )
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
 
-        normalized = await provider.normalize(provider_item.raw)
-        normalized = await self._enrich_missing_comic_cover(normalized)
+        normalized = hydrated.normalized
         physical_format = self._physical_format_for_normalized(normalized)
         edition_format = physical_format.label if physical_format else normalized.edition_format
         variant_name = normalized.variant_name or (
@@ -1354,6 +1356,32 @@ class AdminMetadataService:
             created=True,
             item=item_response_from_model(loaded_item),
         )
+
+    async def _hydrated_provider_preview(
+        self,
+        payload: ProviderIngestRequest,
+        *,
+        provider: MetadataProvider,
+    ) -> HydratedProviderPreview:
+        cached = self.provider_preview_state.cached(
+            payload.provider.value,
+            payload.provider_item_id,
+        )
+        if cached is not None:
+            return cached
+        provider_item = await provider.get_item(payload.provider_item_id)
+        normalized = await provider.normalize(provider_item.raw)
+        normalized = await self._enrich_missing_comic_cover(normalized)
+        hydrated = HydratedProviderPreview(
+            provider_item=provider_item,
+            normalized=normalized,
+        )
+        self.provider_preview_state.store(
+            payload.provider.value,
+            payload.provider_item_id,
+            hydrated,
+        )
+        return hydrated
 
     def _physical_format_for_normalized(
         self,

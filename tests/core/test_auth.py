@@ -67,7 +67,7 @@ async def test_bootstrap_admin_email_registers_admin(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_current_user_reconciles_legacy_admin_role_flags(client):
+async def test_current_user_dependency_is_read_only_for_legacy_role_flags(client):
     response = await client.post(
         "/auth/register",
         json={"email": "legacy@example.com", "password": "password123"},
@@ -89,4 +89,54 @@ async def test_current_user_reconciles_legacy_admin_role_flags(client):
 
     assert current.status_code == 200
     assert current.json()["is_admin"] is True
-    assert current.json()["role"] == UserRole.admin.value
+    assert current.json()["role"] == UserRole.viewer.value
+
+
+@pytest.mark.asyncio
+async def test_login_reconciles_legacy_admin_role_flags(client):
+    response = await client.post(
+        "/auth/register",
+        json={"email": "legacy-login@example.com", "password": "password123"},
+    )
+    assert response.status_code == 201
+
+    async with AsyncSessionLocal() as db:
+        user = await UserRepository(db).get_by_email("legacy-login@example.com")
+        assert user is not None
+        user.is_admin = True
+        user.role = UserRole.viewer
+        await db.commit()
+
+    login = await client.post(
+        "/auth/login",
+        json={"email": "legacy-login@example.com", "password": "password123"},
+    )
+
+    assert login.status_code == 200
+    assert login.json()["user"]["is_admin"] is True
+    assert login.json()["user"]["role"] == UserRole.admin.value
+
+
+@pytest.mark.asyncio
+async def test_login_does_not_downgrade_editor_role_without_admin_conflict(client):
+    response = await client.post(
+        "/auth/register",
+        json={"email": "editor@example.com", "password": "password123"},
+    )
+    assert response.status_code == 201
+
+    async with AsyncSessionLocal() as db:
+        user = await UserRepository(db).get_by_email("editor@example.com")
+        assert user is not None
+        user.is_admin = False
+        user.role = UserRole.editor
+        await db.commit()
+
+    login = await client.post(
+        "/auth/login",
+        json={"email": "editor@example.com", "password": "password123"},
+    )
+
+    assert login.status_code == 200
+    assert login.json()["user"]["is_admin"] is False
+    assert login.json()["user"]["role"] == UserRole.editor.value

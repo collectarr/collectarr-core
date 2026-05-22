@@ -1,6 +1,6 @@
 import json
 from datetime import date
-from typing import Any, Mapping
+from typing import Any, ClassVar, Mapping
 
 import httpx
 from fastapi import status
@@ -127,6 +127,8 @@ query GetSeriesVolumes($seriesId: Int!) {
 
 
 class HardcoverProvider:
+    _shared_client: ClassVar[httpx.AsyncClient | None] = None
+
     name = "hardcover"
     capabilities = ProviderCapabilities(
         kind=ItemKind.manga,
@@ -147,7 +149,6 @@ class HardcoverProvider:
 
     def __init__(self) -> None:
         self.settings = get_settings()
-        self._client: httpx.AsyncClient | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -160,17 +161,17 @@ class HardcoverProvider:
         return "Hardcover requires an API key. Get one at https://hardcover.app/account/api"
 
     def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
+        if HardcoverProvider._shared_client is None:
+            HardcoverProvider._shared_client = httpx.AsyncClient(
                 timeout=self.settings.hardcover_timeout_seconds,
                 follow_redirects=True,
             )
-        return self._client
+        return HardcoverProvider._shared_client
 
     async def aclose(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        if HardcoverProvider._shared_client is not None:
+            await HardcoverProvider._shared_client.aclose()
+            HardcoverProvider._shared_client = None
 
     async def search(
         self,

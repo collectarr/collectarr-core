@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import Response
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import CurrentUser, DbSession
@@ -45,9 +45,17 @@ _ENTITY_TYPES = {
     },
 )
 async def download_image(
+    db: DbSession,
     user: CurrentUser,
     object_key: str = Query(min_length=1, max_length=512),
 ) -> Response:
+    authorized_keys = await _authorized_image_object_keys(db, [object_key])
+    if object_key not in authorized_keys:
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="image_not_found",
+            detail="Image object not found",
+        )
     try:
         body, content_type = await asyncio.to_thread(
             ObjectStorage.shared().get_object, object_key
@@ -72,19 +80,23 @@ async def download_image(
 
 @router.post("/batch-download")
 async def batch_download_images(
+    db: DbSession,
     user: CurrentUser,
     object_keys: list[str] = Body(min_length=1, max_length=50),
 ) -> dict[str, str | None]:
     storage = ObjectStorage.shared()
+    unique_keys = list(dict.fromkeys(object_keys))
+    authorized_keys = await _authorized_image_object_keys(db, unique_keys)
 
     async def _download(key: str) -> tuple[str, str | None]:
+        if key not in authorized_keys:
+            return key, None
         try:
             body, _ = await asyncio.to_thread(storage.get_object, key)
             return key, base64.b64encode(body).decode("ascii")
         except Exception:
             return key, None
 
-    unique_keys = list(dict.fromkeys(object_keys))
     downloaded = await asyncio.gather(*(_download(k) for k in unique_keys))
     return dict(downloaded)
 
@@ -123,6 +135,37 @@ def _validated_entity_type(entity_type: str) -> str:
         code="invalid_entity_type",
         detail=f"entity_type must be one of {sorted(_ENTITY_TYPES)}",
     )
+
+
+async def _authorized_image_object_keys(db: DbSession, object_keys: list[str]) -> set[str]:
+    normalized = {
+        key.strip()
+        for key in object_keys
+        if key and key.strip() and key.strip().startswith("covers/")
+    }
+    if not normalized:
+        return set()
+
+    authorized: set[str] = set()
+    asset_rows = await db.execute(
+        select(ImageAsset.storage_key, ImageAsset.thumbnail_storage_key).where(
+            or_(
+                ImageAsset.storage_key.in_(normalized),
+                ImageAsset.thumbnail_storage_key.in_(normalized),
+            )
+        )
+    )
+    for storage_key, thumbnail_storage_key in asset_rows:
+        if storage_key in normalized:
+            authorized.add(storage_key)
+        if thumbnail_storage_key in normalized:
+            authorized.add(thumbnail_storage_key)
+
+    cache_rows = await db.scalars(
+        select(ImageCacheEntry.object_key).where(ImageCacheEntry.object_key.in_(normalized))
+    )
+    authorized.update(cache_rows)
+    return authorized
 
 
 @router.get("/entity/{entity_type}/{entity_id}")

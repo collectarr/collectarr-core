@@ -37,8 +37,6 @@ class UserRepository:
         return user
 
     async def reconcile_role_flags(self, user: User) -> bool:
-        expected_is_admin = user.role == UserRole.admin
-        expected_role = UserRole.admin if user.is_admin else UserRole.viewer
         changed = False
 
         if user.role == UserRole.admin and not user.is_admin:
@@ -47,8 +45,8 @@ class UserRepository:
         elif user.is_admin and user.role != UserRole.admin:
             user.role = UserRole.admin
             changed = True
-        elif user.role != expected_role and user.role != UserRole.admin and not expected_is_admin:
-            user.role = expected_role
+        elif not user.is_admin and user.role == UserRole.admin:
+            user.role = UserRole.viewer
             changed = True
 
         return changed

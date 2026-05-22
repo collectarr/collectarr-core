@@ -51,4 +51,7 @@ class AuthService:
                 code="user_inactive",
                 detail="User is inactive",
             )
+        if await self.users.reconcile_role_flags(user):
+            await self.db.commit()
+            await self.db.refresh(user)
         return TokenResponse(access_token=create_access_token(user.id), user=user)

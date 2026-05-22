@@ -41,9 +41,6 @@ async def get_current_user(
             code="user_not_found",
             detail="User not found",
         )
-    if await UserRepository(db).reconcile_role_flags(user):
-        await db.commit()
-        await db.refresh(user)
     return user
 
 

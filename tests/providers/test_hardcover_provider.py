@@ -127,6 +127,7 @@ async def test_hardcover_graphql_reuses_client(monkeypatch):
 
     monkeypatch.setattr("app.providers.hardcover.httpx.AsyncClient", FakeAsyncClient)
 
+    await HardcoverProvider().aclose()
     provider = HardcoverProvider()
     await provider._graphql("query One")
     await provider._graphql("query Two")
@@ -135,4 +136,44 @@ async def test_hardcover_graphql_reuses_client(monkeypatch):
     assert len(created_clients[0].posts) == 2
 
     await provider.aclose()
+    assert created_clients[0].closed is True
+
+
+@pytest.mark.asyncio
+async def test_hardcover_graphql_shares_client_across_provider_instances(monkeypatch):
+    created_clients: list[FakeAsyncClient] = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"data": {}}
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs):
+            self.posts: list[tuple[str, dict, dict]] = []
+            self.closed = False
+            created_clients.append(self)
+
+        async def post(self, url, json=None, headers=None):
+            self.posts.append((url, json or {}, headers or {}))
+            return FakeResponse()
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    monkeypatch.setattr("app.providers.hardcover.httpx.AsyncClient", FakeAsyncClient)
+
+    first = HardcoverProvider()
+    second = HardcoverProvider()
+    await first.aclose()
+
+    await first._graphql("query One")
+    await second._graphql("query Two")
+
+    assert len(created_clients) == 1
+    assert len(created_clients[0].posts) == 2
+
+    await second.aclose()
     assert created_clients[0].closed is True

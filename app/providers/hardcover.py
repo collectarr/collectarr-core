@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from typing import Any, Mapping
 
@@ -146,6 +147,7 @@ class HardcoverProvider:
 
     def __init__(self) -> None:
         self.settings = get_settings()
+        self._client: httpx.AsyncClient | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -156,6 +158,19 @@ class HardcoverProvider:
         if self.is_configured:
             return "Hardcover API key is configured."
         return "Hardcover requires an API key. Get one at https://hardcover.app/account/api"
+
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=self.settings.hardcover_timeout_seconds,
+                follow_redirects=True,
+            )
+        return self._client
+
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     async def search(
         self,
@@ -179,8 +194,6 @@ class HardcoverProvider:
         if not raw_results:
             return []
         if isinstance(raw_results, str):
-            import json
-
             try:
                 results_list = json.loads(raw_results)
             except (json.JSONDecodeError, TypeError):
@@ -213,7 +226,7 @@ class HardcoverProvider:
             hits.append(
                 ProviderSearchResult(
                     provider=self.name,
-                    provider_item_id=str(book_id),
+                    provider_item_id=self._provider_item_id(book_id, result_kind),
                     title=title,
                     kind=result_kind,
                     summary=" · ".join(p for p in summary_parts if p),
@@ -224,7 +237,7 @@ class HardcoverProvider:
         return hits
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
-        book_id = provider_item_id.strip()
+        normalized_kind, book_id = self._parse_provider_item_id(provider_item_id)
         if not book_id:
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -249,8 +262,8 @@ class HardcoverProvider:
             )
         return ProviderItem(
             provider=self.name,
-            provider_item_id=book_id,
-            raw=dict(books[0]),
+            provider_item_id=provider_item_id.strip(),
+            raw={**dict(books[0]), "_collectarr_kind": normalized_kind.value},
         )
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
@@ -299,10 +312,12 @@ class HardcoverProvider:
                 except (ValueError, TypeError):
                     pass
 
-        provider_ids = {self.name: str(book_id)} if book_id else {}
+        normalized_kind = self._normalized_kind(data.get("_collectarr_kind"))
+        provider_id = self._provider_item_id(book_id, normalized_kind) if book_id else None
+        provider_ids = {self.name: provider_id} if provider_id else {}
 
         return NormalizedItem(
-            kind=ItemKind.manga,
+            kind=normalized_kind,
             title=title,
             synopsis=description,
             series_title=series_title,
@@ -310,7 +325,7 @@ class HardcoverProvider:
             volume_number=volume_number,
             volume_start_year=release_date.year if release_date else None,
             edition_title=title,
-            edition_format=edition_format or "Manga",
+            edition_format=edition_format or self._default_format(normalized_kind),
             page_count=page_count,
             publisher=publisher,
             release_date=release_date,
@@ -339,7 +354,8 @@ class HardcoverProvider:
                 return []
         else:
             try:
-                book_id = int(provider_item_id.strip())
+                _, raw_book_id = self._parse_provider_item_id(provider_item_id)
+                book_id = int(raw_book_id)
             except ValueError:
                 return []
             item = await self.get_item(str(book_id))
@@ -390,7 +406,7 @@ class HardcoverProvider:
                     title=book_title,
                     overview=book.get("description"),
                     air_date=release,
-                    runtime_minutes=pages,
+                    page_count=pages,
                     still_url=self._book_image(book),
                 )
             )
@@ -411,6 +427,27 @@ class HardcoverProvider:
             )
         ]
 
+    def _parse_provider_item_id(self, provider_item_id: str) -> tuple[ItemKind, str]:
+        raw = provider_item_id.strip()
+        if not raw:
+            return ItemKind.manga, ""
+        prefix, separator, suffix = raw.partition(":")
+        if separator and prefix in {ItemKind.book.value, ItemKind.manga.value}:
+            return self._normalized_kind(prefix), suffix.strip()
+        return ItemKind.manga, raw
+
+    def _normalized_kind(self, value: Any) -> ItemKind:
+        normalized = str(value or "").strip().lower()
+        if normalized == ItemKind.book.value:
+            return ItemKind.book
+        return ItemKind.manga
+
+    def _provider_item_id(self, book_id: Any, kind: ItemKind) -> str:
+        return f"{kind.value}:{book_id}"
+
+    def _default_format(self, kind: ItemKind) -> str:
+        return "Book" if kind == ItemKind.book else "Manga"
+
     async def _graphql(
         self, query: str, variables: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -424,22 +461,18 @@ class HardcoverProvider:
         if variables:
             payload["variables"] = variables
         try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.hardcover_timeout_seconds,
-                follow_redirects=True,
-            ) as client:
-                response = await client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                result = response.json()
-                if "errors" in result:
-                    errors = result["errors"]
-                    msg = errors[0].get("message", "Unknown") if errors else "Unknown"
-                    raise ApiHTTPException(
-                        status_code=status.HTTP_502_BAD_GATEWAY,
-                        code="hardcover_graphql_error",
-                        detail=f"Hardcover GraphQL error: {msg}",
-                    )
-                return result
+            response = await self._get_client().post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            if "errors" in result:
+                errors = result["errors"]
+                msg = errors[0].get("message", "Unknown") if errors else "Unknown"
+                raise ApiHTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    code="hardcover_graphql_error",
+                    detail=f"Hardcover GraphQL error: {msg}",
+                )
+            return result
         except httpx.HTTPStatusError as exc:
             raise ApiHTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

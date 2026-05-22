@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import CurrentUser, DbSession
@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
 from app.models.canonical import ImageAsset, ImageCacheEntry
+from app.storage.images import ImageMirror
 from app.storage.client import ObjectStorage
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/images", tags=["images"])
 
 _IMAGE_TYPES = {"front_cover", "back_cover", "auxiliary"}
+_ENTITY_TYPES = {
+    "franchise",
+    "series",
+    "volume",
+    "item",
+    "edition",
+    "variant",
+    "release",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +114,17 @@ def _asset_dict(asset: ImageAsset, storage: ObjectStorage) -> dict:
     }
 
 
+def _validated_entity_type(entity_type: str) -> str:
+    normalized = entity_type.strip().lower()
+    if normalized in _ENTITY_TYPES:
+        return normalized
+    raise ApiHTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        code="invalid_entity_type",
+        detail=f"entity_type must be one of {sorted(_ENTITY_TYPES)}",
+    )
+
+
 @router.get("/entity/{entity_type}/{entity_id}")
 async def list_entity_images(
     db: DbSession,
@@ -111,6 +132,7 @@ async def list_entity_images(
     entity_type: str = Path(min_length=1, max_length=64),
     entity_id: UUID = Path(),
 ) -> list[dict]:
+    entity_type = _validated_entity_type(entity_type)
     result = await db.scalars(
         select(ImageAsset)
         .where(
@@ -140,6 +162,7 @@ async def add_entity_image(
     attribution: str | None = Body(default=None),
     is_primary: bool = Body(default=False),
 ) -> dict:
+    entity_type = _validated_entity_type(entity_type)
     if image_type not in _IMAGE_TYPES:
         raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -179,8 +202,6 @@ async def add_entity_image(
             detail=f"Entity already has {existing_count} images (max {settings.image_max_per_entity})",
         )
 
-    from app.storage.images import ImageMirror
-
     mirror = ImageMirror()
     provider_value = provider or "user"
     item_id_str = str(entity_id)
@@ -211,8 +232,6 @@ async def add_entity_image(
 
     # If is_primary, clear other primaries of same type
     if is_primary:
-        from sqlalchemy import update
-
         await db.execute(
             update(ImageAsset)
             .where(

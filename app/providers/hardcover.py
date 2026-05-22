@@ -355,11 +355,15 @@ class HardcoverProvider:
                 return []
         else:
             try:
-                _, raw_book_id = self._parse_provider_item_id(provider_item_id)
+                normalized_kind, raw_book_id = self._parse_provider_item_id(
+                    provider_item_id
+                )
                 book_id = int(raw_book_id)
             except ValueError:
                 return []
-            item = await self.get_item(str(book_id))
+            item = await self.get_item(
+                self._provider_item_id(book_id, normalized_kind)
+            )
             book_series = item.raw.get("book_series") or []
             if not book_series:
                 return []

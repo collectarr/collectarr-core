@@ -101,6 +101,60 @@ async def test_hardcover_get_item_and_normalize_preserves_book_kind(monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_hardcover_get_volumes_preserves_requested_book_kind(monkeypatch):
+    get_item_calls: list[str] = []
+
+    async def fake_get_item(self, provider_item_id):
+        get_item_calls.append(provider_item_id)
+
+        class _ProviderItemStub:
+            raw = {
+                "book_series": [
+                    {
+                        "series": {"id": 9, "name": "Middle-earth"},
+                        "position": 2,
+                    }
+                ]
+            }
+
+        return _ProviderItemStub()
+
+    async def fake_graphql(self, query, variables=None):
+        assert variables == {"seriesId": 9}
+        return {
+            "data": {
+                "series": [
+                    {
+                        "name": "Middle-earth",
+                        "book_series": [
+                            {
+                                "position": 1,
+                                "book": {
+                                    "title": "The Hobbit",
+                                    "description": "Bilbo leaves the Shire.",
+                                    "release_date": "1937-09-21",
+                                    "pages": 310,
+                                    "editions": [],
+                                },
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+
+    monkeypatch.setattr(HardcoverProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(HardcoverProvider, "_graphql", fake_graphql)
+
+    seasons = await HardcoverProvider().get_volumes("book:42")
+
+    assert get_item_calls == ["book:42"]
+    assert len(seasons) == 1
+    assert seasons[0].title == "Middle-earth"
+    assert seasons[0].episodes[0].title == "The Hobbit"
+
+
+@pytest.mark.asyncio
 async def test_hardcover_graphql_reuses_client(monkeypatch):
     created_clients: list[FakeAsyncClient] = []
 

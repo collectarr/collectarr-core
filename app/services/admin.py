@@ -131,33 +131,30 @@ class AdminMetadataService:
         self._comicvine_character_details: dict[str, ComicVineCharacterDetail | None] = {}
 
     async def provider_statuses(self) -> list[ProviderStatusResponse]:
-        statuses: list[ProviderStatusResponse] = []
-        for provider in self.providers.all():
-            capabilities = provider.capabilities
-            statuses.append(
-                ProviderStatusResponse(
-                    name=provider.name,
-                    display_name=capabilities.display_name,
-                    kind=capabilities.kind.value,
-                    supported_kinds=[kind.value for kind in capabilities.supported_kinds],
-                    status="live" if provider.is_configured else "stub",
-                    is_configured=provider.is_configured,
-                    supports_search=capabilities.supports_search,
-                    supports_ingest=capabilities.supports_ingest,
-                    requires_user_key=capabilities.requires_user_key,
-                    non_commercial_only=capabilities.non_commercial_only,
-                    allows_redistribution=capabilities.allows_redistribution,
-                    allows_image_mirroring=capabilities.allows_image_mirroring,
-                    requires_attribution=capabilities.requires_attribution,
-                    license_name=capabilities.license_name,
-                    terms_url=capabilities.terms_url,
-                    attribution_url=capabilities.attribution_url,
-                    rate_limit=capabilities.rate_limit,
-                    cache_policy=capabilities.cache_policy,
-                    message=provider.status_message,
-                )
+        return [
+            ProviderStatusResponse(
+                name=status.name,
+                display_name=status.display_name,
+                kind=status.kind.value,
+                supported_kinds=[kind.value for kind in status.supported_kinds],
+                status="live" if status.is_configured else "stub",
+                is_configured=status.is_configured,
+                supports_search=status.supports_search,
+                supports_ingest=status.supports_ingest,
+                requires_user_key=status.requires_user_key,
+                non_commercial_only=status.non_commercial_only,
+                allows_redistribution=status.allows_redistribution,
+                allows_image_mirroring=status.allows_image_mirroring,
+                requires_attribution=status.requires_attribution,
+                license_name=status.license_name,
+                terms_url=status.terms_url,
+                attribution_url=status.attribution_url,
+                rate_limit=status.rate_limit,
+                cache_policy=status.cache_policy,
+                message=status.status_message,
             )
-        return statuses
+            for status in self.providers.status_entries()
+        ]
 
     async def catalog_summary(self) -> AdminCatalogSummaryResponse:
         duplicate_groups = await self._duplicate_group_count()
@@ -445,6 +442,10 @@ class AdminMetadataService:
             if await self._duplicate_group_is_ignored(ids):
                 continue
             conflicts = await self._duplicate_conflict_flags(ids)
+            duplicate_score, recommended_target_item_id = await self._score_duplicate_candidate(
+                ids,
+                conflicts=conflicts,
+            )
             candidates.append(
                 AdminDuplicateCandidateResponse(
                     kind=kind.value if hasattr(kind, "value") else str(kind),
@@ -455,11 +456,19 @@ class AdminMetadataService:
                     reason="same title and item number",
                     has_provider_conflicts=conflicts["provider"],
                     has_cover_conflicts=conflicts["cover"],
+                    duplicate_score=duplicate_score,
+                    recommended_target_item_id=recommended_target_item_id,
                 )
             )
-            if len(candidates) >= limit:
-                break
-        return candidates
+        candidates.sort(
+            key=lambda candidate: (
+                -candidate.duplicate_score,
+                -candidate.count,
+                candidate.title.lower(),
+                (candidate.item_number or "").lower(),
+            )
+        )
+        return candidates[:limit]
 
     async def ignore_duplicate_candidate(
         self, payload: AdminDuplicateIgnoreRequest
@@ -2377,10 +2386,13 @@ class AdminMetadataService:
             select(Item)
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.editions).selectinload(Edition.releases),
             )
             .where(Item.id.in_(unique_ids))
         )
-        return list(result.scalars().unique())
+        items_by_id = {item.id: item for item in result.scalars().unique()}
+        return [items_by_id[item_id] for item_id in unique_ids if item_id in items_by_id]
 
     def _ensure_same_duplicate_group(self, items: list[Item]) -> None:
         if len(items) < 2:
@@ -2442,6 +2454,108 @@ class AdminMetadataService:
             "provider": has_provider_conflicts,
             "cover": len(cover_signatures) > 1,
         }
+
+    async def _score_duplicate_candidate(
+        self,
+        item_ids: list[UUID],
+        *,
+        conflicts: dict[str, bool],
+    ) -> tuple[int, UUID | None]:
+        items = await self._items_by_ids(item_ids)
+        if len(items) < 2:
+            return 0, None
+        provider_counts = await self._provider_link_counts_by_item(item_ids)
+
+        score = 55
+        if not conflicts["provider"]:
+            score += 12
+        if not conflicts["cover"]:
+            score += 8
+        if provider_counts:
+            score += 6
+        if len(provider_counts) == len(items):
+            score += 4
+        if self._duplicate_items_share_publisher(items):
+            score += 6
+        if self._duplicate_items_share_release_marker(items):
+            score += 5
+
+        recommended_target_item_id = max(
+            items,
+            key=lambda item: self._duplicate_merge_target_score(
+                item,
+                provider_counts.get(item.id, 0),
+            ),
+        ).id
+        return min(score, 99), recommended_target_item_id
+
+    async def _provider_link_counts_by_item(self, item_ids: list[UUID]) -> dict[UUID, int]:
+        result = await self.db.execute(
+            select(ExternalProviderId.entity_id, func.count(ExternalProviderId.id))
+            .where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id.in_(item_ids),
+            )
+            .group_by(ExternalProviderId.entity_id)
+        )
+        return {entity_id: count for entity_id, count in result.all()}
+
+    def _duplicate_merge_target_score(self, item: Item, provider_link_count: int) -> tuple[int, int, int]:
+        edition_count = len(item.editions)
+        variant_count = sum(len(edition.variants) for edition in item.editions)
+        score = provider_link_count * 25
+        if self._item_has_cover(item):
+            score += 14
+        if self._item_has_release_marker(item):
+            score += 8
+        if self._item_has_publisher(item):
+            score += 6
+        score += edition_count * 3
+        score += min(variant_count, 4)
+        return score, provider_link_count, edition_count
+
+    def _duplicate_items_share_publisher(self, items: list[Item]) -> bool:
+        publishers = [self._item_primary_publisher(item) for item in items]
+        return all(publisher is not None for publisher in publishers) and len(set(publishers)) == 1
+
+    def _duplicate_items_share_release_marker(self, items: list[Item]) -> bool:
+        markers = [self._item_release_marker(item) for item in items]
+        return all(marker is not None for marker in markers) and len(set(markers)) == 1
+
+    def _item_has_cover(self, item: Item) -> bool:
+        for edition in item.editions:
+            for variant in edition.variants:
+                if any(
+                    (
+                        variant.cover_image_url,
+                        variant.thumbnail_image_url,
+                        variant.cover_image_key,
+                        variant.thumbnail_image_key,
+                    )
+                ):
+                    return True
+        return False
+
+    def _item_has_release_marker(self, item: Item) -> bool:
+        return self._item_release_marker(item) is not None
+
+    def _item_has_publisher(self, item: Item) -> bool:
+        return self._item_primary_publisher(item) is not None
+
+    def _item_primary_publisher(self, item: Item) -> str | None:
+        for edition in item.editions:
+            if edition.publisher and edition.publisher.strip():
+                return edition.publisher.strip().lower()
+        return None
+
+    def _item_release_marker(self, item: Item) -> str | None:
+        for edition in item.editions:
+            if edition.release_date is not None:
+                return edition.release_date.isoformat()
+            for release in edition.releases:
+                if release.release_date is not None:
+                    return release.release_date.isoformat()
+        return None
 
     def _duplicate_ignore_token(self, item_ids: list[UUID]) -> str:
         return "|".join(sorted(str(item_id) for item_id in item_ids))

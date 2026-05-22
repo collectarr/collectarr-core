@@ -57,4 +57,4 @@
 - [ ] Rich duplicate/merge tooling with confidence scoring
 - [ ] Per-media normalization: music releases, book editions, video physical releases, game platforms
 - [ ] Public deployment hardening and stricter operator roles
-- [ ] DevStack orchestration repo for local full-stack development
+- [x] DevStack orchestration entrypoint for local full-stack development

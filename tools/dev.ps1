@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true, Position = 0)]
     [ValidateSet("start", "stop", "migrate", "seed", "test", "check", "smoke-providers", "reset-stack", "clean-state")]
     [string]$Command,
-    [switch]$UseWslDocker
+    [switch]$UseWslDocker,
+    [switch]$WithSync
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +18,12 @@ function Invoke-Compose {
         [Parameter(ValueFromRemainingArguments = $true)]
         [string[]]$Arguments
     )
-    Invoke-ComposeChecked -Arguments $Arguments
+
+    $prefixArguments = @()
+    if ($WithSync) {
+        $prefixArguments = @("-f", "docker-compose.yml", "-f", "docker-compose.devstack.yml")
+    }
+    Invoke-ComposeChecked -PrefixArguments $prefixArguments -Arguments $Arguments
 }
 
 switch ($Command) {
@@ -45,9 +51,9 @@ switch ($Command) {
         & "$Root\scripts\dev-smoke-providers.ps1" -UseWslDocker:$UseWslDocker
     }
     "reset-stack" {
-        & "$Root\scripts\dev-reset-stack.ps1" -Force -UseWslDocker:$UseWslDocker
+        & "$Root\scripts\dev-reset-stack.ps1" -Force -UseWslDocker:$UseWslDocker -WithSync:$WithSync
     }
     "clean-state" {
-        & "$Root\scripts\dev-clean-state.ps1" -All -Force -UseWslDocker:$UseWslDocker
+        & "$Root\scripts\dev-clean-state.ps1" -All -Force -UseWslDocker:$UseWslDocker -WithSync:$WithSync
     }
 }

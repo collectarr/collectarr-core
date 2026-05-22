@@ -120,6 +120,7 @@ class SearchClient:
                     "kind",
                     "title",
                     "item_number",
+                    "runtime_minutes",
                     "cover_image_url",
                     "thumbnail_image_url",
                     "publisher",

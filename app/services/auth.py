@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.security import create_access_token, hash_password, verify_password
+from app.models.base import UserRole
 from app.repositories.users import UserRepository
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 
@@ -24,11 +25,13 @@ class AuthService:
             )
 
         settings = get_settings()
+        is_bootstrap_admin = email in {admin.lower() for admin in settings.bootstrap_admin_emails}
         user = await self.users.create(
             email=email,
             password_hash=hash_password(payload.password),
             display_name=payload.display_name,
-            is_admin=email in {admin.lower() for admin in settings.bootstrap_admin_emails},
+            is_admin=is_bootstrap_admin,
+            role=UserRole.admin if is_bootstrap_admin else UserRole.viewer,
         )
         await self.db.commit()
         return TokenResponse(access_token=create_access_token(user.id), user=user)

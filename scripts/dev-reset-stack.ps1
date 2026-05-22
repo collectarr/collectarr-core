@@ -1,6 +1,7 @@
 param(
   [switch]$KeepImages,
   [switch]$KeepSearchIndex,
+  [switch]$WithSync,
   [switch]$UseWslDocker,
   [switch]$Force
 )
@@ -33,7 +34,12 @@ function Invoke-Compose {
     [string[]]$Arguments
   )
 
-  Invoke-ComposeChecked -Arguments $Arguments
+  $prefixArguments = @()
+  if ($WithSync) {
+    $prefixArguments = @("-f", "docker-compose.yml", "-f", "docker-compose.devstack.yml")
+  }
+
+  Invoke-ComposeChecked -PrefixArguments $prefixArguments -Arguments $Arguments
 }
 
 Invoke-Compose @("down")
@@ -67,3 +73,6 @@ Invoke-Compose @("up", "--build", "-d")
 
 Write-Host "Collectarr dev stack reset complete." -ForegroundColor Green
 Write-Host "API:  http://localhost:8010"
+if ($WithSync) {
+  Write-Host "Sync: http://localhost:8020"
+}

@@ -102,6 +102,8 @@ class ItemResponse(BaseModel):
     cover_price_cents: int | None = None
     currency: str | None = None
     catalog_number: str | None = None
+    track_count: int | None = None
+    tracks: list[dict[str, Any]] = []
     creators: list[MetadataCredit] = []
     characters: list[MetadataCredit] = []
     story_arcs: list[MetadataCredit] = []
@@ -119,6 +121,7 @@ class SearchResult(BaseModel):
     title: str
     item_number: str | None = None
     synopsis: str | None = None
+    runtime_minutes: int | None = None
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
     edition_title: str | None = None
@@ -263,6 +266,7 @@ class EpisodeResponse(BaseModel):
     overview: str | None = None
     air_date: date | None = None
     runtime_minutes: int | None = None
+    page_count: int | None = None
     still_url: str | None = None
 
 
@@ -400,6 +404,8 @@ def item_response_from_model(item: Any) -> ItemResponse:
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
             "catalog_number": _optional_text(normalized.get("catalog_number")),
+            "track_count": _optional_int(normalized.get("track_count")),
+            "tracks": _tracks(normalized.get("tracks")),
             "creators": _credits(source.get("person_credits"))
             or _credits(normalized.get("creators")),
             "characters": _credits(source.get("character_credits"))
@@ -572,6 +578,33 @@ def _credits(values: Any) -> list[MetadataCredit]:
     return credits
 
 
+def _tracks(values: Any) -> list[dict[str, Any]]:
+    if not isinstance(values, list):
+        return []
+    tracks: list[dict[str, Any]] = []
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        title = _optional_text(value.get("title"))
+        if title is None:
+            continue
+        track: dict[str, Any] = {"title": title}
+        position = _optional_int(value.get("position"))
+        if position is not None:
+            track["position"] = position
+        duration_seconds = _optional_int(value.get("duration_seconds"))
+        if duration_seconds is not None:
+            track["duration_seconds"] = duration_seconds
+        artist = _optional_text(value.get("artist"))
+        if artist is not None:
+            track["artist"] = artist
+        disc_number = _optional_int(value.get("disc_number"))
+        if disc_number is not None:
+            track["disc_number"] = disc_number
+        tracks.append(track)
+    return tracks
+
+
 def _string_list(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
@@ -651,3 +684,14 @@ def _optional_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

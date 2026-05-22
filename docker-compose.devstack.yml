@@ -1,0 +1,19 @@
+services:
+  sync:
+    build:
+      context: ../collectarr-sync
+      args:
+        PYTHON_BASE_IMAGE: ${SYNC_PYTHON_BASE_IMAGE:-python:3.12-slim}
+    command: uvicorn collectarr_sync.main:app --host 0.0.0.0 --port 8020 --reload --no-access-log
+    environment:
+      ENVIRONMENT: development
+      SYNC_API_KEY: ${SYNC_API_KEY:-collectarr-sync-dev-key}
+      SYNC_DATABASE_PATH: /data/collectarr-sync.db
+    ports:
+      - "8020:8020"
+    volumes:
+      - ../collectarr-sync:/app
+      - sync_data:/data
+
+volumes:
+  sync_data:

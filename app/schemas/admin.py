@@ -240,6 +240,8 @@ class AdminDuplicateCandidateResponse(BaseModel):
     reason: str = "same title and item number"
     has_provider_conflicts: bool = False
     has_cover_conflicts: bool = False
+    duplicate_score: int = 0
+    recommended_target_item_id: UUID | None = None
 
 
 class AdminDuplicateIgnoreRequest(BaseModel):

@@ -19,6 +19,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
     platforms: list[str] = []
     catalog_number = None
     release_status = None
+    runtime_minutes = getattr(item, "runtime_minutes", None)
     variant = None
     variant_names: list[str] = []
     series_title = item.volume.series.title if item.volume and item.volume.series else None
@@ -72,6 +73,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
         "kind": item.kind.value,
         "title": item.title,
         "item_number": item.item_number,
+        "runtime_minutes": runtime_minutes,
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
         "publisher": publisher,

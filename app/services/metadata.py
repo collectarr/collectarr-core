@@ -445,10 +445,28 @@ class MetadataService:
             if year is not None and provider_query and str(year) not in provider_query:
                 provider_query = f"{provider_query} ({year})"
             return self._clean_provider_query_part(provider_query)
+        if kind == ItemKind.music:
+            series_query = self._clean_provider_query_part(series)
+            release_query = self._clean_provider_query_part(issue_number)
+            if not release_query:
+                release_query = base_query
+            if not series_query and year is None:
+                return base_query
+            parts: list[str] = []
+            if series_query:
+                parts.append(f'artist:"{self._escape_provider_query_phrase(series_query)}"')
+            if release_query:
+                parts.append(f'release:"{self._escape_provider_query_phrase(release_query)}"')
+            if year is not None:
+                parts.append(f'date:{year}')
+            return " AND ".join(parts)
         return base_query
 
     def _clean_provider_query_part(self, value: str | None) -> str:
         return " ".join(str(value or "").split())
+
+    def _escape_provider_query_phrase(self, value: str) -> str:
+        return value.replace('"', r'\"')
 
     def _clean_issue_number(self, value: str | None) -> str:
         text = self._clean_provider_query_part(value)
@@ -1035,6 +1053,7 @@ class MetadataService:
         platforms: list[str] | None = None
         genres: list[str] | None = None
         page_count: int | None = getattr(item, "page_count", None)
+        runtime_minutes: int | None = getattr(item, "runtime_minutes", None)
         cover_price_cents: int | None = None
         item_currency: str | None = None
         country: str | None = None
@@ -1090,6 +1109,7 @@ class MetadataService:
             title=item.title,
             item_number=item.item_number,
             synopsis=item.synopsis,
+            runtime_minutes=runtime_minutes,
             cover_image_url=cover_url,
             thumbnail_image_url=thumbnail_url,
             edition_title=edition_title,
@@ -1327,6 +1347,7 @@ class MetadataService:
                         overview=ep.overview,
                         air_date=ep.air_date,
                         runtime_minutes=ep.runtime_minutes,
+                        page_count=ep.page_count,
                         still_url=ep.still_url,
                     )
                     for ep in s.episodes
@@ -1370,6 +1391,7 @@ class MetadataService:
                         overview=ep.overview,
                         air_date=ep.air_date,
                         runtime_minutes=ep.runtime_minutes,
+                        page_count=ep.page_count,
                         still_url=ep.still_url,
                     )
                     for ep in v.episodes
@@ -1429,6 +1451,7 @@ class MetadataService:
                             overview=ep.overview,
                             air_date=ep.air_date,
                             runtime_minutes=ep.runtime_minutes,
+                            page_count=ep.page_count,
                             still_url=ep.still_url,
                         )
                         for ep in v.episodes

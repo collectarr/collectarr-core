@@ -5,6 +5,7 @@ param(
   [switch]$Images,
   [switch]$Logs,
   [switch]$StopStack,
+  [switch]$WithSync,
   [switch]$UseWslDocker,
   [switch]$Force
 )
@@ -84,7 +85,12 @@ if (-not $Force) {
 }
 
 if ($StopStack -or $CoreDb -or $SearchIndex -or $Images) {
-  Invoke-Docker @("compose", "down")
+  $composeArgs = @("compose")
+  if ($WithSync) {
+    $composeArgs += @("-f", "docker-compose.yml", "-f", "docker-compose.devstack.yml")
+  }
+  $composeArgs += @("down")
+  Invoke-Docker $composeArgs
   if ($LASTEXITCODE -ne 0) {
     throw "docker compose down failed with exit code $LASTEXITCODE"
   }

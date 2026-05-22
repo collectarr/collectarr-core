@@ -1044,6 +1044,8 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert duplicate_body[0]["reason"] == "same title and item number"
     assert duplicate_body[0]["has_provider_conflicts"] is False
     assert duplicate_body[0]["has_cover_conflicts"] is False
+    assert duplicate_body[0]["duplicate_score"] > 0
+    assert duplicate_body[0]["recommended_target_item_id"] == str(primary.id)
 
     ignore = await client.post(
         "/admin/duplicates/ignore",

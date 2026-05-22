@@ -4,6 +4,7 @@ import sys
 from collections.abc import Sequence
 
 from app.db.session import AsyncSessionLocal
+from app.models.base import UserRole
 from app.repositories.users import UserRepository
 
 
@@ -26,6 +27,7 @@ async def set_admin_status(email: str, is_admin: bool) -> int:
             print(f"No user found for {email.lower()}", file=sys.stderr)
             return 1
         user.is_admin = is_admin
+        user.role = UserRole.admin if is_admin else UserRole.viewer
         await db.commit()
         role = "admin" if is_admin else "standard user"
         print(f"{user.email} is now a {role}")

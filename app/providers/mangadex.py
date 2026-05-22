@@ -193,7 +193,7 @@ class MangaDexProvider:
                 title=display_title,
                 overview=None,
                 air_date=air_date,
-                runtime_minutes=attrs.get("pages"),
+                page_count=attrs.get("pages"),
                 still_url=None,
             )
             volume_map.setdefault(vol, []).append(episode)

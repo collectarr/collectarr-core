@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import ApiHTTPException
 from app.core.security import decode_access_token
 from app.db.session import get_db
+from app.models.base import UserRole
 from app.models.user import User
 from app.repositories.users import UserRepository
 
@@ -40,6 +41,9 @@ async def get_current_user(
             code="user_not_found",
             detail="User not found",
         )
+    if await UserRepository(db).reconcile_role_flags(user):
+        await db.commit()
+        await db.refresh(user)
     return user
 
 
@@ -47,7 +51,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 async def get_current_admin(user: CurrentUser) -> User:
-    if not user.is_admin:
+    if user.role != UserRole.admin and not user.is_admin:
         raise ApiHTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             code="admin_required",

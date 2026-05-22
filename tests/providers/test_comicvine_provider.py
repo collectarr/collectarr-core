@@ -1,6 +1,7 @@
 import pytest
 
 from app.core.config import get_settings
+from app.models.base import ItemKind
 from app.providers.comicvine import ComicVineProvider
 
 
@@ -322,3 +323,43 @@ async def test_find_issue_cover_returns_none_without_key(monkeypatch):
         )
         is None
     )
+
+
+@pytest.mark.asyncio
+async def test_comicvine_get_item_and_normalize_preserves_requested_manga_kind(
+    monkeypatch,
+):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "comicvine_api_key", "test-key")
+
+    async def fake_request(self, path, params):
+        assert path == "issue/4000-12345/"
+        return {
+            "results": {
+                "id": 12345,
+                "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-12345/",
+                "site_detail_url": "https://comicvine.gamespot.com/one-piece-1/4000-12345/",
+                "name": "Romance Dawn",
+                "issue_number": "1",
+                "deck": "The first chapter of One Piece.",
+                "cover_date": "1997-07-22",
+                "number_of_pages": 55,
+                "volume": {
+                    "id": 6789,
+                    "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-6789/",
+                    "name": "One Piece",
+                },
+            }
+        }
+
+    monkeypatch.setattr(ComicVineProvider, "_request", fake_request)
+
+    provider = ComicVineProvider()
+    item = await provider.get_item("manga:4000-12345")
+    normalized = await provider.normalize(item.raw)
+
+    assert item.provider_item_id == "manga:4000-12345"
+    assert normalized.kind == ItemKind.manga
+    assert normalized.page_count == 55
+    assert normalized.provider_ids == {"comicvine": "manga:4000-12345"}
+    assert normalized.volume_provider_ids == {"comicvine": "manga:4050-6789"}

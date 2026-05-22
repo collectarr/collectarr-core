@@ -2,6 +2,7 @@ import pytest
 
 from app.commands.set_admin import set_admin_status
 from app.db.session import AsyncSessionLocal
+from app.models.base import UserRole
 from app.repositories.users import UserRepository
 
 
@@ -17,12 +18,14 @@ async def test_set_admin_status_grants_and_revokes_admin(client):
         user = await UserRepository(db).get_by_email("user@example.com")
         assert user is not None
         assert user.is_admin is True
+        assert user.role == UserRole.admin
 
     assert await set_admin_status("user@example.com", False) == 0
     async with AsyncSessionLocal() as db:
         user = await UserRepository(db).get_by_email("user@example.com")
         assert user is not None
         assert user.is_admin is False
+        assert user.role == UserRole.viewer
 
 
 @pytest.mark.asyncio

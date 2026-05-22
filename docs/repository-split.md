@@ -68,6 +68,8 @@ App consumes:
 For MVP, Core keeps its own local Docker Compose stack because it owns the
 services it depends on: Postgres, Redis, Meilisearch, MinIO, API, and worker.
 
-A separate `collectarr-devstack` repository should be created only when local
-cross-repo orchestration becomes worth maintaining separately, for example when
-we want one command to start Core, Sync, and a built App against pinned versions.
+Cross-repo orchestration now lives as a lightweight overlay on top of that stack:
+`docker-compose.devstack.yml` plus `./tools/dev.ps1 start -WithSync` start Core
+and `collectarr-sync` together for local full-stack development. A separate
+`collectarr-devstack` repository is only needed later if we also want to pin and
+publish a built App as part of the same local orchestration surface.

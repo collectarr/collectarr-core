@@ -7,7 +7,7 @@ Core owns the shared catalog and provider infrastructure. Personal collection da
 ## Features
 
 - **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and tags
-- **9 metadata providers** — GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
+- **10 metadata providers** — GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
 - **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
 - **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
 - **Typed metadata projection** — item, search, and admin preview responses expose normalized fields such as platforms, catalog numbers, and release status
@@ -39,12 +39,14 @@ Helper commands:
 
 ```powershell
 .\tools\dev.ps1 start          # Start Docker stack
+.\tools\dev.ps1 start -WithSync # Start Core + collectarr-sync dev stack
 .\tools\dev.ps1 migrate        # Run Alembic migrations
 .\tools\dev.ps1 seed           # Seed sample comics data
 .\tools\dev.ps1 test           # Run test suite
 .\tools\dev.ps1 check          # Lint + type check
 .\tools\dev.ps1 smoke-providers # Smoke test all providers
 .\tools\dev.ps1 reset-stack    # Clean reset of all containers
+python -m scripts.export_provider_support  # Regenerate docs/provider-support.md from the provider registry
 ```
 
 ## Extending Metadata For New Libraries
@@ -69,6 +71,7 @@ app-only fields.
 | API | http://localhost:8010 |
 | API docs (Swagger) | http://localhost:8010/docs |
 | Admin Console | http://localhost:8010/admin/ui |
+| Sync service | http://localhost:8020 |
 | Meilisearch | http://localhost:7700 |
 | MinIO console | http://localhost:9001 |
 
@@ -83,6 +86,11 @@ Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 |------|---------|
 | `collectarr-app` | Flutter client (web, Windows, Android) |
 | `collectarr-sync` | Optional personal sync service |
+
+## Provider Support
+
+See [docs/provider-support.md](docs/provider-support.md) for the generated
+support matrix derived from the provider registry.
 
 ## Roadmap
 

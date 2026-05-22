@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.models.base import UserRole
+
 
 class RegisterRequest(BaseModel):
     email: EmailStr
@@ -19,6 +21,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     display_name: str | None
     is_admin: bool = False
+    role: UserRole = UserRole.viewer
 
     model_config = {"from_attributes": True}
 

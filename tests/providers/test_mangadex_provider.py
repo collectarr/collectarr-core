@@ -172,13 +172,17 @@ async def test_mangadex_get_volumes(monkeypatch):
     assert len(volumes[0].episodes) == 2
     assert volumes[0].episodes[0].episode_number == 1
     assert volumes[0].episodes[0].title == "Romance Dawn"
+    assert volumes[0].episodes[0].page_count == 53
+    assert volumes[0].episodes[0].runtime_minutes is None
     assert volumes[0].episodes[1].episode_number == 2
     assert volumes[0].episodes[1].title == "That Guy, Straw Hat Luffy"
+    assert volumes[0].episodes[1].page_count == 23
     assert volumes[1].season_number == 2
     assert volumes[1].title == "Volume 2"
     assert len(volumes[1].episodes) == 1
     assert volumes[1].episodes[0].episode_number == 9
     assert volumes[1].episodes[0].title == "Femme Fatale"
+    assert volumes[1].episodes[0].page_count == 19
 
 
 @pytest.mark.asyncio

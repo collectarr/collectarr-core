@@ -1,5 +1,8 @@
 from datetime import date
 from uuid import UUID
+from uuid import uuid4
+
+from types import SimpleNamespace
 
 import pytest
 
@@ -18,7 +21,9 @@ from app.models.canonical import (
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
+from app.schemas.metadata import item_response_from_model
 from app.search.documents import item_search_document
+from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
 
 
@@ -304,7 +309,165 @@ async def test_search_document_keeps_synopsis_out_of_index():
     assert document["barcodes"] == ["75960604716100111"]
     assert document["release_date"] == "1963-03-01"
     assert document["release_year"] == 1963
+    assert document["runtime_minutes"] is None
     assert document["variant"] == "Cover A"
+
+
+def test_item_response_from_model_exposes_normalized_metadata_fields():
+    item = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.game,
+        title="Mass Effect Legendary Edition",
+        item_number=None,
+        sort_key=None,
+        synopsis=None,
+        release_type=None,
+        season_number=None,
+        episode_number=None,
+        runtime_minutes=92,
+        page_count=None,
+        metadata_json=None,
+        volume=SimpleNamespace(
+            id=uuid4(),
+            name="Legendary Edition",
+            volume_number=1,
+            start_year=2021,
+            series=SimpleNamespace(
+                id=uuid4(),
+                title="Mass Effect",
+            ),
+        ),
+        editions=[
+            SimpleNamespace(
+                id=uuid4(),
+                title="Standard",
+                format="Digital",
+                publisher="Electronic Arts",
+                isbn=None,
+                upc="014633742207",
+                language="en",
+                region="WW",
+                release_date=date(2021, 5, 14),
+                metadata_json={
+                    "provider": "igdb",
+                    "provider_item_id": "igdb-123",
+                    "normalized": {
+                        "platforms": ["PC", "Xbox One", "PlayStation 4"],
+                        "catalog_number": "ME-LE-2021",
+                        "release_status": "Released",
+                        "track_count": 2,
+                        "tracks": [
+                            {
+                                "position": 1,
+                                "title": "Main Theme",
+                                "duration_seconds": 180,
+                            },
+                            {
+                                "position": 2,
+                                "title": "Suicide Mission",
+                                "duration_seconds": 215,
+                                "disc_number": 1,
+                            },
+                        ],
+                    },
+                },
+                variants=[
+                    SimpleNamespace(
+                        id=uuid4(),
+                        name="Standard",
+                        variant_type="digital",
+                        sku=None,
+                        barcode=None,
+                        isbn=None,
+                        region=None,
+                        platform=None,
+                        cover_price_cents=None,
+                        currency=None,
+                        cover_image_url=None,
+                        thumbnail_image_url=None,
+                        description=None,
+                        metadata_json=None,
+                        is_primary=True,
+                    )
+                ],
+                releases=[],
+            )
+        ],
+    )
+
+    response = item_response_from_model(item)
+
+    assert response.publisher == "Electronic Arts"
+    assert response.barcode == "014633742207"
+    assert response.catalog_number == "ME-LE-2021"
+    assert response.track_count == 2
+    assert response.tracks == [
+        {"position": 1, "title": "Main Theme", "duration_seconds": 180},
+        {
+            "position": 2,
+            "title": "Suicide Mission",
+            "duration_seconds": 215,
+            "disc_number": 1,
+        },
+    ]
+    assert response.platforms == ["PC", "Xbox One", "PlayStation 4"]
+    assert response.release_status == "Released"
+    assert response.runtime_minutes == 92
+    assert response.series_title == "Mass Effect"
+    assert response.volume_name == "Legendary Edition"
+    assert response.provider_links[0].provider.value == "igdb"
+    assert response.provider_links[0].provider_item_id == "igdb-123"
+
+
+def test_search_result_exposes_runtime_minutes():
+    service = MetadataService.__new__(MetadataService)
+    item = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.movie,
+        title="Blade Runner 2049",
+        item_number=None,
+        synopsis="A young blade runner uncovers a secret.",
+        runtime_minutes=164,
+        page_count=None,
+        editions=[],
+        series=None,
+        volume=None,
+    )
+
+    result = MetadataService._search_result(service, item, None, None)
+
+    assert result.title == "Blade Runner 2049"
+    assert result.runtime_minutes == 164
+
+
+def test_provider_search_query_uses_artist_and_release_for_music():
+    service = MetadataService.__new__(MetadataService)
+
+    result = MetadataService._provider_search_query(
+        service,
+        "Abyss",
+        ItemKind.music,
+        series="Ad Infinitum",
+        issue_number=None,
+        year=2024,
+    )
+
+    assert result == 'artist:"Ad Infinitum" AND release:"Abyss" AND date:2024'
+
+
+def test_provider_search_query_prefers_album_field_for_music():
+    service = MetadataService.__new__(MetadataService)
+
+    result = MetadataService._provider_search_query(
+        service,
+        "Ad Infinitum Abyss Napalm Records",
+        ItemKind.music,
+        series="Ad Infinitum",
+        issue_number="Abyss",
+        year=2024,
+    )
+
+    assert result == 'artist:"Ad Infinitum" AND release:"Abyss" AND date:2024'
 
 
 @pytest.mark.asyncio
@@ -332,7 +495,7 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
                     NormalizedEpisode(
                         episode_number=1,
                         title="Romance Dawn",
-                        runtime_minutes=53,
+                        page_count=53,
                     )
                 ],
             )
@@ -368,6 +531,8 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
     assert body[0]["title"] == "Volume 1"
     assert body[0]["episode_count"] == 1
     assert body[0]["episodes"][0]["title"] == "Romance Dawn"
+    assert body[0]["episodes"][0]["page_count"] == 53
+    assert body[0]["episodes"][0]["runtime_minutes"] is None
 
 
 @pytest.mark.asyncio

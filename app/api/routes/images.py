@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import hashlib
 import logging
 from uuid import UUID
 
@@ -8,7 +9,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentAdmin, CurrentUser, DbSession
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
@@ -137,6 +138,17 @@ def _validated_entity_type(entity_type: str) -> str:
     )
 
 
+def _upload_source_url(
+    *,
+    entity_type: str,
+    entity_id: UUID,
+    image_type: str,
+    image_bytes: bytes,
+) -> str:
+    content_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
+    return f"upload://{entity_type}/{entity_id}/{image_type}/{content_hash}"
+
+
 async def _authorized_image_object_keys(db: DbSession, object_keys: list[str]) -> set[str]:
     normalized = {
         key.strip()
@@ -195,7 +207,7 @@ async def list_entity_images(
 )
 async def add_entity_image(
     db: DbSession,
-    user: CurrentUser,
+    user: CurrentAdmin,
     entity_type: str = Path(min_length=1, max_length=64),
     entity_id: UUID = Path(),
     image_type: str = Body(default="front_cover"),
@@ -248,9 +260,15 @@ async def add_entity_image(
     mirror = ImageMirror()
     provider_value = provider or "user"
     item_id_str = str(entity_id)
+    effective_source_url = source_url or _upload_source_url(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        image_type=image_type,
+        image_bytes=image_bytes,
+    )
     mirrored = await mirror.mirror_cover_bytes_best_effort(
         image_bytes,
-        source_url=source_url or f"upload://{entity_type}/{item_id_str}/{image_type}",
+        source_url=effective_source_url,
         provider=provider_value,
         provider_item_id=item_id_str,
     )
@@ -310,7 +328,7 @@ async def add_entity_image(
 )
 async def delete_image(
     db: DbSession,
-    user: CurrentUser,
+    user: CurrentAdmin,
     image_id: UUID,
 ) -> None:
     asset = await db.get(ImageAsset, image_id)
@@ -329,7 +347,7 @@ async def delete_image(
 @router.patch("/{image_id}/primary")
 async def set_image_primary(
     db: DbSession,
-    user: CurrentUser,
+    user: CurrentAdmin,
     image_id: UUID,
 ) -> dict:
     asset = await db.get(ImageAsset, image_id)

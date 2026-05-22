@@ -4,14 +4,34 @@ from uuid import uuid4
 import pytest
 
 from app.db.session import AsyncSessionLocal
+from app.models.base import UserRole
 from app.models.canonical import ImageAsset
+from app.repositories.users import UserRepository
 
 from tests.helpers import register_and_login
 
 
+async def _register_and_login_admin(client, email: str = "admin@example.com") -> str:
+    response = await client.post(
+        "/auth/register",
+        json={"email": email, "password": "password123", "display_name": "Admin"},
+    )
+    assert response.status_code == 201
+    token = response.json()["access_token"]
+
+    async with AsyncSessionLocal() as db:
+        user = await UserRepository(db).get_by_email(email)
+        assert user is not None
+        user.is_admin = True
+        user.role = UserRole.admin
+        await db.commit()
+
+    return token
+
+
 @pytest.mark.asyncio
 async def test_add_entity_image_rejects_unknown_entity_type(client):
-    token = await register_and_login(client)
+    token = await _register_and_login_admin(client)
 
     response = await client.post(
         f"/images/entity/not-a-real-type/{uuid4()}",
@@ -24,6 +44,121 @@ async def test_add_entity_image_rejects_unknown_entity_type(client):
 
     assert response.status_code == 400
     assert response.json()["code"] == "invalid_entity_type"
+
+
+@pytest.mark.asyncio
+async def test_add_entity_image_requires_admin(client):
+    token = await register_and_login(client)
+
+    response = await client.post(
+        f"/images/entity/item/{uuid4()}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "image_type": "front_cover",
+            "image_data_base64": base64.b64encode(b"fake-image").decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "admin_required"
+
+
+@pytest.mark.asyncio
+async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
+    client,
+    monkeypatch,
+):
+    token = await _register_and_login_admin(client, email="image-admin@example.com")
+    entity_id = uuid4()
+    mirrored_keys: list[str] = []
+    source_urls: list[str] = []
+
+    class FakeStorage:
+        def public_object_url(self, object_key: str) -> str:
+            return f"https://storage.example/{object_key}"
+
+    async def fake_mirror(self, image_bytes, *, source_url, provider, provider_item_id):
+        source_urls.append(source_url)
+        storage_key = f"covers/user/{provider_item_id}/{source_url.rsplit('/', 1)[-1]}.webp"
+        mirrored_keys.append(storage_key)
+
+        class Mirrored:
+            key = storage_key
+            width = 640
+            height = 960
+
+        return Mirrored()
+
+    monkeypatch.setattr(
+        "app.api.routes.images.ObjectStorage.shared",
+        lambda: FakeStorage(),
+    )
+    monkeypatch.setattr(
+        "app.api.routes.images.ImageMirror.mirror_cover_bytes_best_effort",
+        fake_mirror,
+    )
+
+    first = await client.post(
+        f"/images/entity/item/{entity_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "image_type": "front_cover",
+            "image_data_base64": base64.b64encode(b"first-image").decode("ascii"),
+        },
+    )
+    second = await client.post(
+        f"/images/entity/item/{entity_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "image_type": "front_cover",
+            "image_data_base64": base64.b64encode(b"second-image").decode("ascii"),
+        },
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert len(source_urls) == 2
+    assert source_urls[0] != source_urls[1]
+    assert mirrored_keys[0] != mirrored_keys[1]
+
+    async with AsyncSessionLocal() as db:
+        rows = list(
+            await db.scalars(
+                ImageAsset.__table__.select().where(
+                    ImageAsset.entity_type == "item",
+                    ImageAsset.entity_id == entity_id,
+                )
+            )
+        )
+
+    assert len(rows) == 2
+
+
+@pytest.mark.asyncio
+async def test_delete_image_requires_admin(client):
+    token = await register_and_login(client)
+    image_id = uuid4()
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            ImageAsset(
+                id=image_id,
+                entity_type="item",
+                entity_id=uuid4(),
+                image_type="front_cover",
+                storage_key="covers/user/item/front.webp",
+                provider="user",
+            )
+        )
+        await db.commit()
+
+    response = await client.delete(
+        f"/images/{image_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "admin_required"
 
 
 @pytest.mark.asyncio

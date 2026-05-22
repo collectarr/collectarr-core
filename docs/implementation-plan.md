@@ -16,6 +16,8 @@
 - Smoke fixture tests for all 9 providers
 - Structured comic search context (series, issue number, year)
 - Provider candidates with typed comic identity fields (candidate_type, series_title, variant_name, etc.)
+- Short-lived hydrated preview caching avoids repeating upstream fetch/normalize work between preview and ingest
+- Preview/ingest flows preserve provider-native raw IDs while sharing hydrated provider data
 
 ### 📚 Catalog
 - Series → items → editions → variants → releases → people → organizations → tags
@@ -36,6 +38,7 @@
 - Admin visibility: stats endpoint + purge endpoint + UI panel
 - User-uploaded image mirroring uses content-addressed synthetic source URLs to avoid key collisions
 - Canonical image asset mutations are restricted to admins
+- Provider image mirroring can stay off the synchronous search hot path via cache-only reuse when assets are already mirrored
 
 ### 📄 Contracts
 - OpenAPI auto-generated with tags (system, auth, metadata, admin)
@@ -58,6 +61,13 @@
 
 ### 🧩 Post-MVP
 - [ ] Rich duplicate/merge tooling with confidence scoring
+	- Add explainable confidence factors so operators can see why two records were suggested as merge candidates (title aliases, provider IDs, barcode/UPC, release dates, creators, formats).
+	- Start with operator-reviewed merge suggestions and audit trails before any automatic merge behavior.
+	- Cover merge outcomes across canonical entities and provider IDs so ingest, search, and App snapshots keep stable references.
 - [ ] Per-media normalization: music releases, book editions, video physical releases, game platforms
+	- Expand normalization depth where providers already expose richer release structures: music labels/catalog numbers, book ISBN/edition/imprint, video format/runtime/region, and game platform/edition metadata.
+	- Keep the normalized contract stable enough that App can surface new fields without provider-specific branching in UI code.
 - [ ] Public deployment hardening and stricter operator roles
+	- Split operational privileges more finely than viewer/editor/admin where public-hosted deployments need safer ingest, merge, and cache controls.
+	- Tighten production guidance around auth defaults, CORS, rate limits, job isolation, and secrets management for internet-facing operators.
 - [x] DevStack orchestration entrypoint for local full-stack development

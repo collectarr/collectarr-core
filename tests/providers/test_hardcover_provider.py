@@ -156,7 +156,7 @@ async def test_hardcover_get_volumes_preserves_requested_book_kind(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_hardcover_graphql_reuses_client(monkeypatch):
-    created_clients: list[FakeAsyncClient] = []
+    created_clients = []
 
     class FakeResponse:
         def raise_for_status(self) -> None:
@@ -195,7 +195,7 @@ async def test_hardcover_graphql_reuses_client(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_hardcover_graphql_shares_client_across_provider_instances(monkeypatch):
-    created_clients: list[FakeAsyncClient] = []
+    created_clients = []
 
     class FakeResponse:
         def raise_for_status(self) -> None:

@@ -12,7 +12,6 @@ from app.providers.base import (
     NormalizedCredit,
     NormalizedEpisode,
     NormalizedItem,
-    NormalizedRelation,
     NormalizedSeason,
     ProviderCapabilities,
     ProviderItem,

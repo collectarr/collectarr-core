@@ -33,6 +33,27 @@ def mirrored_image(key: str = "covers/comicvine/4000-12345/cover.webp") -> Mirro
     )
 
 
+def mirrored_image_for_source(
+    *,
+    key: str,
+    source_url: str,
+    provider_item_id: str,
+    content_hash: str = "abc123",
+) -> MirroredImage:
+    return MirroredImage(
+        key=key,
+        url=f"http://storage.test/{key}",
+        content_type="image/webp",
+        source_url=source_url,
+        provider="comicvine",
+        provider_item_id=provider_item_id,
+        size_bytes=12345,
+        width=823,
+        height=1280,
+        content_hash=content_hash,
+    )
+
+
 def cache_entry(key: str, size_bytes: int, last_accessed_at: datetime) -> ImageCacheEntry:
     return ImageCacheEntry(
         provider="comicvine",
@@ -92,6 +113,43 @@ async def test_image_cache_touches_cached_provider_cover():
         assert entry.public_url == "http://storage.test/cached"
         assert entry.access_count == 2
         assert entry.last_accessed_at > now
+
+
+@pytest.mark.asyncio
+async def test_image_cache_keeps_distinct_provider_sources_with_same_content_hash():
+    async with AsyncSessionLocal() as db:
+        cache = ImageCache(db)
+        first = await cache.record_mirrored_cover(
+            mirrored_image_for_source(
+                key="covers/comicvine/4000-12345/first.webp",
+                source_url="https://example.test/first.jpg",
+                provider_item_id="4000-12345",
+            )
+        )
+        second = await cache.record_mirrored_cover(
+            mirrored_image_for_source(
+                key="covers/comicvine/4000-67890/second.webp",
+                source_url="https://example.test/second.jpg",
+                provider_item_id="4000-67890",
+            )
+        )
+        await db.commit()
+
+        rows = list(
+            await db.scalars(
+                select(ImageCacheEntry).order_by(ImageCacheEntry.object_key.asc())
+            )
+        )
+
+        assert first.id != second.id
+        assert [row.object_key for row in rows] == [
+            "covers/comicvine/4000-12345/first.webp",
+            "covers/comicvine/4000-67890/second.webp",
+        ]
+        assert [row.source_url for row in rows] == [
+            "https://example.test/first.jpg",
+            "https://example.test/second.jpg",
+        ]
 
 
 @pytest.mark.asyncio

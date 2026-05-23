@@ -7,7 +7,6 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import Response
 from sqlalchemy import func, or_, select, update
-from sqlalchemy.dialects.postgresql import insert
 
 from app.api.deps import CurrentAdmin, CurrentUser, DbSession
 from app.core.config import get_settings

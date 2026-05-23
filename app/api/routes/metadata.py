@@ -24,6 +24,8 @@ from app.schemas.admin import (
     ProviderPreviewResponse,
 )
 from app.schemas.metadata import (
+    BundleReleaseDetailResponse,
+    BundleReleaseSummaryResponse,
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
@@ -375,6 +377,30 @@ async def get_creator_facets(
     body: FacetItemIdsRequest,
 ) -> list[CreatorFacetResponse]:
     return await MetadataService(db).get_creator_facets(body.item_ids)
+
+
+@router.get(
+    "/metadata/items/{item_id}/bundle-releases",
+    response_model=list[BundleReleaseSummaryResponse],
+)
+async def get_item_bundle_releases(
+    item_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[BundleReleaseSummaryResponse]:
+    return await MetadataService(db).get_bundle_releases_for_item(item_id)
+
+
+@router.get(
+    "/metadata/bundle-releases/{bundle_release_id}",
+    response_model=BundleReleaseDetailResponse,
+)
+async def get_bundle_release(
+    bundle_release_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> BundleReleaseDetailResponse:
+    return await MetadataService(db).get_bundle_release(bundle_release_id)
 
 
 @router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse)

@@ -124,6 +124,7 @@ async def clean_database() -> AsyncIterator[None]:
                 truncate table
                   users, admin_audit_logs, metadata_proposals, image_cache_entries, image_assets,
                   provider_ingest_jobs,
+                                    bundle_release_items, bundle_releases,
                   story_arc_items, character_appearances, story_arcs, characters,
                   entity_tags, entity_persons, entity_organizations, tags, persons, organizations,
                   releases, variants, editions, external_provider_ids,

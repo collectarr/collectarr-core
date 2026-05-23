@@ -153,6 +153,86 @@ class Release(UuidMixin, TimestampMixin, Base):
     edition: Mapped[Edition] = relationship(back_populates="releases")
 
 
+class BundleRelease(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "bundle_releases"
+    __table_args__ = (
+        Index("ix_bundle_releases_kind_bundle_type", "kind", "bundle_type"),
+        Index("ix_bundle_releases_series_release_date", "series_id", "release_date"),
+        Index("ix_bundle_releases_format_region", "format", "region"),
+    )
+
+    kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    bundle_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    franchise_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("franchises.id", ondelete="SET NULL"), index=True
+    )
+    series_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("series.id", ondelete="SET NULL"), index=True
+    )
+    volume_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="SET NULL"), index=True
+    )
+    primary_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
+    )
+    format: Mapped[str | None] = mapped_column(String(64), index=True)
+    variant_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    packaging_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    region: Mapped[str | None] = mapped_column(String(32), index=True)
+    language: Mapped[str | None] = mapped_column(String(32), index=True)
+    publisher: Mapped[str | None] = mapped_column(String(255))
+    sku: Mapped[str | None] = mapped_column(String(100), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(32), index=True)
+    release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    cover_image_url: Mapped[str | None] = mapped_column(String(1024))
+    thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
+    thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
+    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    franchise: Mapped[Franchise | None] = relationship()
+    series: Mapped[Series | None] = relationship()
+    volume: Mapped[Volume | None] = relationship()
+    primary_item: Mapped[Item | None] = relationship()
+    items: Mapped[list["BundleReleaseItem"]] = relationship(
+        back_populates="bundle_release", cascade="all, delete-orphan"
+    )
+
+
+class BundleReleaseItem(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "bundle_release_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "bundle_release_id",
+            "item_id",
+            "role",
+            "disc_number",
+            "sequence_number",
+            name="uq_bundle_release_item_membership",
+        ),
+        Index("ix_bundle_release_items_bundle_sequence", "bundle_release_id", "disc_number", "sequence_number"),
+    )
+
+    bundle_release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("bundle_releases.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    sequence_number: Mapped[int | None] = mapped_column(Integer)
+    disc_number: Mapped[int | None] = mapped_column(Integer, index=True)
+    disc_label: Mapped[str | None] = mapped_column(String(255))
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    bundle_release: Mapped[BundleRelease] = relationship(back_populates="items")
+    item: Mapped[Item] = relationship()
+
+
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     __tablename__ = "external_provider_ids"
     __table_args__ = (

@@ -1,6 +1,8 @@
 from app.models.base import Base, ExternalProvider, ItemKind
 from app.models.canonical import (
     AdminAuditLog,
+    BundleRelease,
+    BundleReleaseItem,
     Character,
     CharacterAppearance,
     Edition,
@@ -29,6 +31,8 @@ from app.models.user import User
 __all__ = [
     "Base",
     "AdminAuditLog",
+    "BundleRelease",
+    "BundleReleaseItem",
     "Character",
     "CharacterAppearance",
     "Edition",

@@ -15,9 +15,11 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    BundleRelease,
     Character,
     CharacterAppearance,
     Edition,
+    EntityTag,
     EntityPerson,
     Item,
     MetadataProposal,
@@ -26,6 +28,7 @@ from app.models.canonical import (
     SeriesRelation,
     StoryArc,
     StoryArcItem,
+    Tag,
     Volume,
 )
 from app.providers.base import MetadataProvider, ProviderSearchResult
@@ -37,6 +40,8 @@ from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    BundleReleaseDetailResponse,
+    BundleReleaseSummaryResponse,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
@@ -53,6 +58,8 @@ from app.schemas.metadata import (
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
+    bundle_release_detail_from_model,
+    bundle_release_summary_from_model,
     item_response_from_model,
 )
 from app.search.client import SearchClient
@@ -94,10 +101,37 @@ class MetadataService:
                 detail="Item not found",
             )
         response = item_response_from_model(item)
-        await self._enrich_item_metadata_facets(response, item.id)
+        series_id = getattr(getattr(getattr(item, "volume", None), "series", None), "id", None)
+        await self._enrich_item_metadata_facets(response, item.id, series_id=series_id)
         return response
 
-    async def _enrich_item_metadata_facets(self, response: ItemResponse, item_id: UUID) -> None:
+    async def get_bundle_releases_for_item(self, item_id: UUID) -> list[BundleReleaseSummaryResponse]:
+        item = await self.metadata.get_item(item_id)
+        if item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Item not found",
+            )
+        bundle_releases = await self.metadata.get_bundle_releases_for_item(item_id)
+        return [bundle_release_summary_from_model(bundle) for bundle in bundle_releases]
+
+    async def get_bundle_release(self, bundle_release_id: UUID) -> BundleReleaseDetailResponse:
+        bundle_release = await self.metadata.get_bundle_release(bundle_release_id)
+        if bundle_release is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="bundle_release_not_found",
+                detail="Bundle release not found",
+            )
+        return bundle_release_detail_from_model(bundle_release)
+
+    async def _enrich_item_metadata_facets(
+        self,
+        response: ItemResponse,
+        item_id: UUID,
+        series_id: UUID | None = None,
+    ) -> None:
         creator_rows = (
             await self.db.execute(
                 select(EntityPerson, Person)
@@ -116,6 +150,7 @@ class MetadataService:
                     role=link.role,
                     api_detail_url=_metadata_text(person.metadata_json, "api_detail_url"),
                     site_detail_url=_metadata_text(person.metadata_json, "site_detail_url"),
+                    image_url=_metadata_text(person.metadata_json, "image_url"),
                 )
                 for link, person in creator_rows
             ]
@@ -161,6 +196,20 @@ class MetadataService:
                 )
                 for link, arc in arc_rows
             ]
+        if series_id is not None:
+            response.tags = await self._entity_tags("series", series_id)
+
+    async def _entity_tags(self, entity_type: str, entity_id: UUID) -> list[str]:
+        rows = await self.db.scalars(
+            select(Tag.name)
+            .join(EntityTag, EntityTag.tag_id == Tag.id)
+            .where(
+                EntityTag.entity_type == entity_type,
+                EntityTag.entity_id == entity_id,
+            )
+            .order_by(Tag.name.asc())
+        )
+        return [name for name in rows if isinstance(name, str) and name.strip()]
 
     async def search(
         self,
@@ -1262,6 +1311,7 @@ class MetadataService:
             )
             or 0
         )
+        tags = await self._entity_tags("series", series_id)
         return SeriesResponse(
             id=series.id,
             kind=series.kind,
@@ -1273,6 +1323,7 @@ class MetadataService:
             status=series.status,
             language=series.language,
             country=series.country,
+            tags=tags,
             volume_count=volume_count,
             item_count=item_count,
         )

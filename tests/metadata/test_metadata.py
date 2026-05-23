@@ -5,17 +5,25 @@ from uuid import uuid4
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
 from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseItem,
     Character,
     CharacterAppearance,
     Edition,
+    EntityPerson,
+    EntityTag,
     Item,
+    Person,
     Series,
     StoryArc,
     StoryArcItem,
+    Tag,
     Variant,
     Volume,
 )
@@ -55,6 +63,42 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     ]
     assert rows["bluray"]["is_top_level"] is False
     assert rows["bluray"]["legacy_of"] == "movie"
+
+
+@pytest.mark.asyncio
+async def test_item_detail_and_series_expose_series_tags(client):
+    token = await register_and_login(client)
+    item_id, _, _ = await seed_comic()
+
+    async with AsyncSessionLocal() as db:
+        item = await db.get(Item, UUID(item_id))
+        assert item is not None
+        series_id = await db.scalar(
+            select(Series.id)
+            .join(Volume, Volume.series_id == Series.id)
+            .join(Item, Item.volume_id == Volume.id)
+            .where(Item.id == UUID(item_id))
+        )
+        assert series_id is not None
+        action = Tag(kind="series_tag:comic", name="Street-level")
+        legacy = Tag(kind="series_tag:comic", name="Legacy Hero")
+        db.add_all([action, legacy])
+        await db.flush()
+        db.add_all(
+            [
+                EntityTag(entity_type="series", entity_id=series_id, tag_id=action.id),
+                EntityTag(entity_type="series", entity_id=series_id, tag_id=legacy.id),
+            ]
+        )
+        await db.commit()
+
+    detail_response = await client.get(
+        f"/comics/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["tags"] == ["Legacy Hero", "Street-level"]
+
 
 
 @pytest.mark.asyncio
@@ -167,6 +211,97 @@ async def test_lookup_comic_by_barcode(client, monkeypatch):
     assert response.json()["release_year"] == 1963
     assert response.json()["barcode"] == "75960604716100111"
     assert response.json()["variant"] == "Cover A"
+
+
+@pytest.mark.asyncio
+async def test_item_bundle_release_endpoints(client):
+    token = await register_and_login(client)
+    item_id, _, _ = await seed_comic()
+
+    async with AsyncSessionLocal() as db:
+        item = await db.scalar(
+            select(Item)
+            .options(selectinload(Item.volume).selectinload(Volume.series))
+            .where(Item.id == UUID(item_id))
+        )
+        assert item is not None
+        bundle = BundleRelease(
+            kind=ItemKind.comic,
+            title="The Amazing Spider-Man Starter Box",
+            bundle_type="box_set",
+            primary_item_id=item.id,
+            series_id=item.volume.series.id,
+            volume_id=item.volume.id,
+            format="Paperback",
+            variant_type="physical",
+            packaging_type="box",
+            publisher="Marvel",
+            barcode="9781300000000",
+            release_date=date(2025, 1, 15),
+        )
+        db.add(bundle)
+        await db.flush()
+        db.add(
+            BundleReleaseItem(
+                bundle_release_id=bundle.id,
+                item_id=item.id,
+                role="main",
+                sequence_number=1,
+                quantity=1,
+                is_primary=True,
+            )
+        )
+        await db.commit()
+        bundle_id = bundle.id
+
+    list_response = await client.get(
+        f"/metadata/items/{item_id}/bundle-releases",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert list_response.status_code == 200
+    bundles = list_response.json()
+    assert len(bundles) == 1
+    assert bundles[0]["id"] == str(bundle_id)
+    assert bundles[0]["title"] == "The Amazing Spider-Man Starter Box"
+    assert bundles[0]["content_summary"]["total_items"] == 1
+    assert bundles[0]["primary_item_id"] == item_id
+
+    detail_response = await client.get(
+        f"/metadata/bundle-releases/{bundle_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["id"] == str(bundle_id)
+    assert detail["members"][0]["item_id"] == item_id
+    assert detail["members"][0]["role"] == "main"
+    assert detail["series_title"] == "The Amazing Spider-Man"
+
+
+@pytest.mark.asyncio
+async def test_item_bundle_release_list_returns_404_for_unknown_item(client):
+    token = await register_and_login(client)
+
+    response = await client.get(
+        f"/metadata/items/{uuid4()}/bundle-releases",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_bundle_release_detail_returns_404_for_unknown_bundle(client):
+    token = await register_and_login(client)
+
+    response = await client.get(
+        f"/metadata/bundle-releases/{uuid4()}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -671,5 +806,48 @@ async def test_story_arc_and_character_browse_endpoints(client):
             "description": None,
             "ordinal": 1,
             "publisher": "Marvel",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_item_detail_exposes_creator_image_urls(client):
+    item_id, _, _ = await seed_comic()
+    item_uuid = UUID(item_id)
+
+    async with AsyncSessionLocal() as db:
+        creator = Person(
+            name="J.R.R. Tolkien",
+            metadata_json={
+                "image_url": "https://cdn.example/tolkien.jpg",
+                "site_detail_url": "https://hardcover.app/authors/tolkien",
+            },
+        )
+        db.add(creator)
+        await db.flush()
+        db.add(
+            EntityPerson(
+                entity_type="item",
+                entity_id=item_uuid,
+                person_id=creator.id,
+                role="Author",
+            )
+        )
+        await db.commit()
+
+    token = await register_and_login(client)
+    response = await client.get(
+        f"/comics/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["creators"] == [
+        {
+            "name": "J.R.R. Tolkien",
+            "role": "Author",
+            "api_detail_url": None,
+            "site_detail_url": "https://hardcover.app/authors/tolkien",
+            "image_url": "https://cdn.example/tolkien.jpg",
         }
     ]

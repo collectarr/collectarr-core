@@ -5,12 +5,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.base import ItemKind
-from app.models.canonical import Edition, Item, Series, Variant, Volume
+from app.models.canonical import BundleRelease, BundleReleaseItem, Edition, Item, Series, Variant, Volume
 
 
 class MetadataRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    def _bundle_release_detail_stmt(self) -> Select[tuple[BundleRelease]]:
+        return select(BundleRelease).options(
+            selectinload(BundleRelease.series),
+            selectinload(BundleRelease.volume),
+            selectinload(BundleRelease.primary_item),
+            selectinload(BundleRelease.items)
+            .selectinload(BundleReleaseItem.item)
+            .selectinload(Item.volume)
+            .selectinload(Volume.series),
+        )
 
     def _item_detail_stmt(self) -> Select[tuple[Item]]:
         return select(Item).options(
@@ -23,6 +34,21 @@ class MetadataRepository:
         stmt = self._item_detail_stmt().where(Item.id == item_id)
         if kind:
             stmt = stmt.where(Item.kind == kind)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_bundle_releases_for_item(self, item_id: UUID) -> list[BundleRelease]:
+        stmt = (
+            self._bundle_release_detail_stmt()
+            .join(BundleRelease.items)
+            .where(BundleReleaseItem.item_id == item_id)
+            .order_by(BundleRelease.release_date.desc().nullslast(), BundleRelease.title.asc())
+        )
+        result = await self.db.execute(stmt)
+        return list(result.scalars().unique())
+
+    async def get_bundle_release(self, bundle_release_id: UUID) -> BundleRelease | None:
+        stmt = self._bundle_release_detail_stmt().where(BundleRelease.id == bundle_release_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 

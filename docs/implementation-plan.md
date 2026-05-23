@@ -67,6 +67,7 @@
 - [ ] Per-media normalization: music releases, book editions, video physical releases, game platforms
 	- Expand normalization depth where providers already expose richer release structures: music labels/catalog numbers, book ISBN/edition/imprint, video format/runtime/region, and game platform/edition metadata.
 	- Keep the normalized contract stable enough that App can surface new fields without provider-specific branching in UI code.
+	- Revisit Hardcover series positions before expanding more book/manga normalization depth: the current `volume_number` model is integer-only and cannot represent fractional positions like `1.5` without schema and contract changes.
 - [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
 	- App now owns the local-first prototype: photo import, review/crop/rotate, on-device OCR where supported, safe fallback into normal search, and local reranking of candidates.
 	- Do not assume raw image upload to Core by default; only add a Core-side candidate-ranking path if real device validation shows that local OCR + reranking is not accurate or fast enough.

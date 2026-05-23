@@ -59,7 +59,11 @@ from app.providers.comicvine import ComicVineCharacterDetail, ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
-from app.services.provider_preview_state import HydratedProviderPreview, ProviderPreviewState
+from app.services.provider_preview_state import (
+    HydratedProviderPreview,
+    ProviderPreviewState,
+    clear_provider_preview_cache,
+)
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -554,7 +558,7 @@ class AdminMetadataService:
         self._ensure_same_duplicate_group([target, *sources])
 
         for source in sources:
-            await self._move_item_children(source.id, target.id)
+            await self._move_item_children(source, target)
             await self.db.delete(source)
         self._record_admin_audit(
             action="duplicates.merge",
@@ -1139,10 +1143,12 @@ class AdminMetadataService:
                     attempt,
                     response.item_id,
                 )
+                clear_provider_preview_cache()
                 return response
             except Exception as exc:
                 last_error = exc
                 await self.db.rollback()
+                clear_provider_preview_cache()
                 if attempt >= attempts or not self._is_retryable_ingest_error(exc):
                     self._record_ingest_history(
                         payload=payload,
@@ -1389,13 +1395,15 @@ class AdminMetadataService:
         payload: ProviderIngestRequest,
         *,
         provider: MetadataProvider,
+        use_cache: bool = True,
     ) -> HydratedProviderPreview:
-        cached = self.provider_preview_state.cached(
-            payload.provider.value,
-            payload.provider_item_id,
-        )
-        if cached is not None:
-            return cached
+        if use_cache:
+            cached = self.provider_preview_state.cached(
+                payload.provider.value,
+                payload.provider_item_id,
+            )
+            if cached is not None:
+                return cached
         provider_item = await provider.get_item(payload.provider_item_id)
         normalized = await provider.normalize(provider_item.raw)
         normalized = await self._enrich_missing_comic_cover(normalized)
@@ -1403,11 +1411,12 @@ class AdminMetadataService:
             provider_item=provider_item,
             normalized=normalized,
         )
-        self.provider_preview_state.store(
-            payload.provider.value,
-            payload.provider_item_id,
-            hydrated,
-        )
+        if use_cache:
+            self.provider_preview_state.store(
+                payload.provider.value,
+                payload.provider_item_id,
+                hydrated,
+            )
         return hydrated
 
     def _physical_format_for_normalized(
@@ -2618,33 +2627,35 @@ class AdminMetadataService:
     def _duplicate_ignore_token(self, item_ids: list[UUID]) -> str:
         return "|".join(sorted(str(item_id) for item_id in item_ids))
 
-    async def _move_item_children(self, source_item_id: UUID, target_item_id: UUID) -> None:
-        await self.db.execute(
-            update(Edition).where(Edition.item_id == source_item_id).values(item_id=target_item_id)
+    async def _move_item_children(self, source_item: Item, target_item: Item) -> None:
+        editions = await self.db.scalars(
+            select(Edition).where(Edition.item_id == source_item.id)
         )
+        for edition in editions:
+            edition.item = target_item
 
         await self.db.execute(
             update(ExternalProviderId)
             .where(
                 ExternalProviderId.entity_type == "item",
-                ExternalProviderId.entity_id == source_item_id,
+                ExternalProviderId.entity_id == source_item.id,
             )
-            .values(entity_id=target_item_id)
+            .values(entity_id=target_item.id)
         )
 
-        await self._move_organization_links(source_item_id, target_item_id)
-        await self._move_person_links(source_item_id, target_item_id)
-        await self._move_story_arc_links(source_item_id, target_item_id)
-        await self._move_character_appearance_links(source_item_id, target_item_id)
-        await self._move_tag_links(source_item_id, target_item_id)
+        await self._move_organization_links(source_item.id, target_item.id)
+        await self._move_person_links(source_item.id, target_item.id)
+        await self._move_story_arc_links(source_item.id, target_item.id)
+        await self._move_character_appearance_links(source_item.id, target_item.id)
+        await self._move_tag_links(source_item.id, target_item.id)
 
         await self.db.execute(
             update(ImageAsset)
             .where(
                 ImageAsset.entity_type == "item",
-                ImageAsset.entity_id == source_item_id,
+                ImageAsset.entity_id == source_item.id,
             )
-            .values(entity_id=target_item_id)
+            .values(entity_id=target_item.id)
         )
 
     async def _move_organization_links(self, source_item_id: UUID, target_item_id: UUID) -> None:

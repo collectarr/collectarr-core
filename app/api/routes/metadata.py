@@ -103,7 +103,7 @@ async def lookup_barcode(
 async def barcode_provider_search(
     barcode: str,
     db: DbSession,
-    _user: CurrentAdmin,
+    _user: CurrentUser,
     kind: ItemKind | None = None,
 ) -> list[ProviderSearchResultResponse]:
     results = await MetadataService(db).barcode_provider_search(barcode, kind)
@@ -137,7 +137,7 @@ async def barcode_provider_search(
 )
 async def default_provider_search(
     db: DbSession,
-    _user: CurrentAdmin,
+    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind = Query(...),
     series: str | None = Query(default=None, min_length=1, max_length=255),
@@ -161,7 +161,7 @@ async def default_provider_search(
 async def provider_search(
     provider: ExternalProvider,
     db: DbSession,
-    _user: CurrentAdmin,
+    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind | None = None,
     series: str | None = Query(default=None, min_length=1, max_length=255),

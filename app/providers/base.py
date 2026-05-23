@@ -162,6 +162,15 @@ class NormalizedItem:
     subtitle: str | None = None
     series_group: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.story_arcs or not self.genres:
+            return
+        object.__setattr__(
+            self,
+            "story_arcs",
+            [NormalizedCredit(name=genre) for genre in self.genres if genre],
+        )
+
 
 class MetadataProvider(Protocol):
     name: str

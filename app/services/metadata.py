@@ -1413,7 +1413,7 @@ class MetadataService:
         from app.providers.base import NormalizedSeason
         from app.schemas.metadata import EpisodeResponse
 
-        _VOLUME_PROVIDERS = [ExternalProvider.hardcover, ExternalProvider.anilist, ExternalProvider.mangadex]
+        _VOLUME_PROVIDERS = [ExternalProvider.mangadex, ExternalProvider.anilist]
 
         rows = (
             (

@@ -1752,6 +1752,7 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "kind": "comic",
             "title": "The Amazing Spider-Man",
             "item_number": "1",
+            "runtime_minutes": None,
             "cover_image_url": "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
             "thumbnail_image_url": None,
             "publisher": "Marvel",
@@ -1764,9 +1765,12 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "variant_names": ["Cover A"],
             "series_title": "The Amazing Spider-Man",
             "volume_name": "The Amazing Spider-Man",
+            "catalog_number": None,
             "creators": ["Stan Lee", "Steve Ditko"],
             "characters": ["Spider-Man"],
             "story_arcs": ["The Spider Strikes"],
+            "platforms": [],
+            "release_status": None,
         }
     ]
 

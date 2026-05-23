@@ -46,14 +46,7 @@ def rate_limit_bucket_count() -> int:
 
 
 def cleanup_rate_limits() -> None:
-    settings = get_settings()
-    max_window_seconds = max(
-        settings.auth_rate_limit_window_seconds,
-        settings.admin_provider_rate_limit_window_seconds,
-        settings.provider_search_rate_limit_window_seconds,
-        settings.image_upload_rate_limit_window_seconds,
-    )
-    _cleanup_expired(monotonic(), max_window_seconds)
+    _cleanup_expired(monotonic(), get_settings())
 
 
 async def auth_rate_limit(request: Request) -> None:
@@ -175,18 +168,11 @@ def _check_rate_limit_memory(
 ) -> None:
     now = monotonic()
     settings = get_settings()
-    cleanup_window_seconds = max(
-        window_seconds,
-        settings.auth_rate_limit_window_seconds,
-        settings.admin_provider_rate_limit_window_seconds,
-        settings.provider_search_rate_limit_window_seconds,
-        settings.image_upload_rate_limit_window_seconds,
-    )
     with _BUCKETS_LOCK:
         global _REQUEST_COUNT
         _REQUEST_COUNT += 1
         if _REQUEST_COUNT % _CLEANUP_EVERY_REQUESTS == 0:
-            _cleanup_expired(now, cleanup_window_seconds)
+            _cleanup_expired(now, settings)
 
         entries = _BUCKETS.setdefault((bucket, key), deque())
         _prune(entries, now - window_seconds)
@@ -216,13 +202,31 @@ def _redis_retry_after_seconds(now_ms: int, window_ms: int, oldest_score) -> int
     return max(1, int((window_ms - (now_ms - oldest_ms)) / 1000))
 
 
-def _cleanup_expired(now: float, window_seconds: int) -> None:
-    cutoff = now - window_seconds
+def _cleanup_expired(now: float, settings) -> None:
     with _BUCKETS_LOCK:
         for key, entries in list(_BUCKETS.items()):
+            bucket, _ = key
+            cutoff = now - _bucket_window_seconds(settings, bucket)
             _prune(entries, cutoff)
             if not entries:
                 del _BUCKETS[key]
+
+
+def _bucket_window_seconds(settings, bucket: str) -> int:
+    if bucket == "auth":
+        return settings.auth_rate_limit_window_seconds
+    if bucket == "admin_provider":
+        return settings.admin_provider_rate_limit_window_seconds
+    if bucket == "provider_search":
+        return settings.provider_search_rate_limit_window_seconds
+    if bucket == "image_upload":
+        return settings.image_upload_rate_limit_window_seconds
+    return max(
+        settings.auth_rate_limit_window_seconds,
+        settings.admin_provider_rate_limit_window_seconds,
+        settings.provider_search_rate_limit_window_seconds,
+        settings.image_upload_rate_limit_window_seconds,
+    )
 
 
 def _prune(entries: deque[float], cutoff: float) -> None:

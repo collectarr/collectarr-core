@@ -91,11 +91,21 @@ class ProviderRegistry:
         return [ProviderRegistryStatus.from_provider(provider) for provider in self.all()]
 
     def for_kind(self, kind: ItemKind) -> list[MetadataProvider]:
+        media_type = media_type_for_kind(kind)
+        if media_type is not None and media_type.providers:
+            allowed = {provider_name.value for provider_name in media_type.providers}
+            ordered = [provider for provider in self.all() if provider.name in allowed]
+            if ordered:
+                return ordered
         return [provider for provider in self.all() if provider.capabilities.supports_kind(kind)]
 
     def default_for_kind(self, kind: ItemKind) -> MetadataProvider | None:
         media_type = media_type_for_kind(kind)
         if media_type is not None:
+            if media_type.default_provider is not None:
+                provider = self._providers.get(media_type.default_provider.value)
+                if provider is not None:
+                    return provider
             for provider_name in media_type.providers:
                 provider = self._providers.get(provider_name.value)
                 if provider is not None:

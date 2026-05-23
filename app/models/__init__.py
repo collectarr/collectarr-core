@@ -21,6 +21,7 @@ from app.models.canonical import (
     StoryArc,
     StoryArcItem,
     Tag,
+    TrackingEntry,
     Variant,
     Volume,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "StoryArc",
     "StoryArcItem",
     "Tag",
+    "TrackingEntry",
     "User",
     "Variant",
     "Volume",

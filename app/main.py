@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import DbSession
-from app.api.routes import admin, admin_ui, auth, images, metadata
+from app.api.routes import admin, admin_ui, auth, images, metadata, tracking
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -33,6 +33,7 @@ app = FastAPI(
         {"name": "system", "description": "Health and diagnostics"},
         {"name": "auth", "description": "Authentication and registration"},
         {"name": "metadata", "description": "Catalog metadata and library operations"},
+        {"name": "tracking", "description": "User tracking entries and tracking analytics"},
         {"name": "admin", "description": "Administration and provider management"},
     ],
 )
@@ -50,6 +51,7 @@ app.include_router(admin.router)
 app.include_router(admin_ui.router)
 app.include_router(auth.router)
 app.include_router(images.router)
+app.include_router(tracking.router)
 app.include_router(metadata.router)
 
 

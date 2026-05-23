@@ -184,6 +184,12 @@ _ADMIN_UI_HTML = """
         gap: 8px;
         align-items: end;
       }
+      .tracking-toolbar {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+        gap: 8px;
+        align-items: end;
+      }
       .quick-filters {
         display: flex;
         gap: 6px;
@@ -269,6 +275,10 @@ _ADMIN_UI_HTML = """
         border: 1px solid #303030;
         border-radius: 6px;
       }
+      .facet-list {
+        display: grid;
+        gap: 6px;
+      }
       pre {
         overflow: auto;
         white-space: pre-wrap;
@@ -280,7 +290,7 @@ _ADMIN_UI_HTML = """
       @media (max-width: 780px) {
         main { grid-template-columns: 1fr; }
         aside { border-right: 0; border-bottom: 1px solid var(--line); }
-        .proposal-toolbar, .proposal { grid-template-columns: 1fr; }
+        .proposal-toolbar, .tracking-toolbar, .proposal { grid-template-columns: 1fr; }
         .proposal-body { grid-template-columns: 1fr; }
         .proposal-actions { justify-content: flex-start; }
       }
@@ -336,6 +346,22 @@ _ADMIN_UI_HTML = """
           <div class="metric">
             <span>Last ingest</span>
             <strong id="ingestMetric">-</strong>
+          </div>
+          <div class="metric ok">
+            <span>Tracked entries</span>
+            <strong id="trackingMetric">-</strong>
+          </div>
+          <div class="metric">
+            <span>Tracked users</span>
+            <strong id="trackingUsersMetric">-</strong>
+          </div>
+          <div class="metric">
+            <span>Tracked items</span>
+            <strong id="trackingItemsMetric">-</strong>
+          </div>
+          <div class="metric ok">
+            <span>Avg rating</span>
+            <strong id="trackingRatingMetric">-</strong>
           </div>
         </div>
         <div class="grid">
@@ -395,6 +421,81 @@ _ADMIN_UI_HTML = """
               <div class="log-entry">No admin actions yet.</div>
             </div>
           </div>
+          <div class="panel stack">
+            <h2>Tracking analytics</h2>
+            <div class="tracking-toolbar">
+              <label>Media kind
+                <select id="trackingKindFilter">
+                  <option value="">All kinds</option>
+                  <option value="movie">Movie</option>
+                  <option value="music">Music</option>
+                  <option value="book">Book</option>
+                  <option value="tv">TV</option>
+                  <option value="anime">Anime</option>
+                  <option value="comic">Comic</option>
+                  <option value="manga">Manga</option>
+                  <option value="game">Game</option>
+                  <option value="boardgame">Board game</option>
+                </select>
+              </label>
+              <label>Tracking source
+                <select id="trackingSourceFilter">
+                  <option value="">All sources</option>
+                  <option value="digital">Digital</option>
+                  <option value="streaming">Streaming</option>
+                  <option value="physical">Physical</option>
+                </select>
+              </label>
+              <label>Status
+                <input id="trackingStatusFilter" placeholder="Watching / Completed">
+              </label>
+              <label>Period
+                <select id="trackingPeriodFilter">
+                  <option value="">All time</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="365">Last 365 days</option>
+                </select>
+              </label>
+              <button id="trackingButton" type="button">Load tracking</button>
+            </div>
+            <div class="dashboard">
+              <div class="metric ok">
+                <span>Total entries</span>
+                <strong id="trackingPanelEntriesMetric">-</strong>
+              </div>
+              <div class="metric">
+                <span>Unique users</span>
+                <strong id="trackingPanelUsersMetric">-</strong>
+              </div>
+              <div class="metric">
+                <span>Unique items</span>
+                <strong id="trackingPanelItemsMetric">-</strong>
+              </div>
+              <div class="metric ok">
+                <span>Avg rating</span>
+                <strong id="trackingPanelRatingMetric">-</strong>
+              </div>
+            </div>
+            <div class="grid">
+              <div class="panel stack">
+                <h3>Top tracked items</h3>
+                <div id="trackingTopItems" class="facet-list"></div>
+              </div>
+              <div class="panel stack">
+                <h3>Kind facets</h3>
+                <div id="trackingKindFacets" class="facet-list"></div>
+              </div>
+              <div class="panel stack">
+                <h3>Source facets</h3>
+                <div id="trackingSourceFacets" class="facet-list"></div>
+              </div>
+              <div class="panel stack">
+                <h3>Period facets</h3>
+                <div id="trackingPeriodFacets" class="facet-list"></div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="panel stack">
           <h2>Response</h2>
@@ -429,6 +530,21 @@ _ADMIN_UI_HTML = """
 
       function setMetric(id, value) {
         $(id).textContent = value;
+      }
+
+      function renderFacetList(id, items, label) {
+        const target = $(id);
+        target.innerHTML = "";
+        if (!items?.length) {
+          target.innerHTML = `<p class="muted">No ${label}.</p>`;
+          return;
+        }
+        for (const item of items) {
+          const row = document.createElement("div");
+          row.className = "row";
+          row.innerHTML = `<span class="badge">${escapeHtml(item.kind || item.key || item.period || item.title)}</span><span class="muted">${escapeHtml(item.count)}</span>`;
+          target.appendChild(row);
+        }
       }
 
       function updateProposalQuickFilters(status) {
@@ -824,6 +940,58 @@ _ADMIN_UI_HTML = """
         }
       }
 
+      function trackingQueryParams() {
+        const params = new URLSearchParams();
+        const kind = $("trackingKindFilter").value;
+        const source = $("trackingSourceFilter").value;
+        const status = $("trackingStatusFilter").value.trim();
+        const period = $("trackingPeriodFilter").value;
+        if (kind) params.set("kind", kind);
+        if (source) params.set("source_type", source);
+        if (status) params.set("status", status);
+        if (period) {
+          const since = new Date(Date.now() - Number(period) * 24 * 60 * 60 * 1000);
+          params.set("updated_from", since.toISOString());
+        }
+        return params.toString();
+      }
+
+      async function loadTrackingSummary() {
+        const button = $("trackingButton");
+        if (button) setBusy(button, true);
+        try {
+          const query = trackingQueryParams();
+          const suffix = query ? `?${query}` : "";
+          const [stats, facets] = await Promise.all([
+            request(`/admin/tracking/stats${suffix}`, { headers: headers(true) }),
+            request(`/admin/tracking/facets${suffix}`, { headers: headers(true) }),
+          ]);
+          setMetric("trackingMetric", stats.total_entries);
+          setMetric("trackingUsersMetric", stats.unique_users);
+          setMetric("trackingItemsMetric", stats.unique_items);
+          setMetric("trackingRatingMetric", stats.average_rating == null ? "-" : stats.average_rating.toFixed(1));
+          setMetric("trackingPanelEntriesMetric", stats.total_entries);
+          setMetric("trackingPanelUsersMetric", stats.unique_users);
+          setMetric("trackingPanelItemsMetric", stats.unique_items);
+          setMetric("trackingPanelRatingMetric", stats.average_rating == null ? "-" : stats.average_rating.toFixed(1));
+          renderFacetList("trackingTopItems", stats.top_items, "tracked items");
+          renderFacetList("trackingKindFacets", facets.counts_by_kind, "kind facets");
+          renderFacetList("trackingSourceFacets", facets.counts_by_source_type, "source facets");
+          renderFacetList("trackingPeriodFacets", facets.counts_by_period, "period facets");
+        } catch (error) {
+          setMetric("trackingMetric", "!");
+          setMetric("trackingUsersMetric", "!");
+          setMetric("trackingItemsMetric", "!");
+          setMetric("trackingRatingMetric", "!");
+          setMetric("trackingPanelEntriesMetric", "!");
+          setMetric("trackingPanelUsersMetric", "!");
+          setMetric("trackingPanelItemsMetric", "!");
+          setMetric("trackingPanelRatingMetric", "!");
+        } finally {
+          if (button) setBusy(button, false);
+        }
+      }
+
       async function ingestProviderItem(providerItemId) {
         try {
           const provider = $("provider").value;
@@ -962,12 +1130,17 @@ _ADMIN_UI_HTML = """
       $("providersButton").addEventListener("click", loadProviders);
       $("providerButton").addEventListener("click", providerSearch);
       $("proposalsButton").addEventListener("click", loadProposals);
+      $("trackingButton").addEventListener("click", loadTrackingSummary);
       $("proposalStatus").addEventListener("change", () => {
         updateProposalQuickFilters($("proposalStatus").value);
         loadProposals();
       });
       $("proposalProvider").addEventListener("change", loadProposals);
       $("proposalSearch").addEventListener("input", () => renderProposals(state.proposals));
+      $("trackingKindFilter").addEventListener("change", loadTrackingSummary);
+      $("trackingSourceFilter").addEventListener("change", loadTrackingSummary);
+      $("trackingStatusFilter").addEventListener("change", loadTrackingSummary);
+      $("trackingPeriodFilter").addEventListener("change", loadTrackingSummary);
       document.querySelectorAll("#proposalQuickFilters button").forEach((button) => {
         button.addEventListener("click", () => {
           $("proposalStatus").value = button.dataset.status;
@@ -980,6 +1153,7 @@ _ADMIN_UI_HTML = """
         loadProviders();
         loadProposalSummary();
         loadProposals();
+        loadTrackingSummary();
       }
     </script>
   </body>

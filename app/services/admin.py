@@ -277,7 +277,16 @@ class AdminMetadataService:
             "title": item.title,
             "item_number": item.item_number,
             "synopsis": item.synopsis,
+            "edition_title": None,
             "page_count": item.page_count,
+            "publisher": None,
+            "release_date": None,
+            "imprint": dict(item.metadata_json or {}).get("imprint"),
+            "series_group": dict(item.metadata_json or {}).get("series_group"),
+            "variant_name": None,
+            "barcode": None,
+            "cover_image_url": None,
+            "thumbnail_image_url": None,
         }
         if "title" in update_data and payload.title is not None:
             item.title = payload.title
@@ -297,15 +306,33 @@ class AdminMetadataService:
                 payload.physical_format,
             )
         if edition is not None:
+            before["edition_title"] = edition.title
+            before["publisher"] = edition.publisher
+            before["release_date"] = edition.release_date
+            before["imprint"] = dict(edition.metadata_json or {}).get("imprint")
+            before["series_group"] = dict(edition.metadata_json or {}).get("series_group")
+            if "edition_title" in update_data:
+                edition.title = payload.edition_title
             if "publisher" in update_data:
                 edition.publisher = payload.publisher
             if "release_date" in update_data:
                 edition.release_date = payload.release_date
+            metadata = dict(edition.metadata_json or {})
+            if "imprint" in update_data:
+                metadata["imprint"] = payload.imprint
+            if "series_group" in update_data:
+                metadata["series_group"] = payload.series_group
+            if metadata != dict(edition.metadata_json or {}):
+                edition.metadata_json = metadata
             if physical_format is not None:
                 self._apply_physical_format_to_edition(edition, physical_format)
 
         variant = self._primary_variant_model(item)
         if variant is not None:
+            before["variant_name"] = variant.name
+            before["barcode"] = variant.barcode
+            before["cover_image_url"] = variant.cover_image_url
+            before["thumbnail_image_url"] = variant.thumbnail_image_url
             if "variant_name" in update_data and payload.variant_name is not None:
                 variant.name = payload.variant_name
             if "barcode" in update_data:

@@ -975,6 +975,7 @@ class MetadataService:
             title=payload.title,
             summary=payload.summary,
             image_url=payload.image_url,
+            metadata_payload=payload.metadata_payload,
         )
         self.db.add(proposal)
         await self.db.commit()

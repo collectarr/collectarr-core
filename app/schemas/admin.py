@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -167,9 +168,12 @@ class AdminMetadataCorrectionRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     item_number: str | None = Field(default=None, max_length=64)
     synopsis: str | None = None
+    edition_title: str | None = Field(default=None, max_length=255)
     page_count: int | None = Field(default=None, ge=0)
     publisher: str | None = Field(default=None, max_length=255)
     release_date: date | None = None
+    imprint: str | None = Field(default=None, max_length=255)
+    series_group: str | None = Field(default=None, max_length=255)
     physical_format: str | None = Field(default=None, max_length=64)
     variant_name: str | None = Field(default=None, max_length=255)
     barcode: str | None = Field(default=None, max_length=32)
@@ -275,6 +279,7 @@ class MetadataProposalAdminResponse(BaseModel):
     title: str | None
     summary: str | None
     image_url: str | None
+    metadata_payload: dict[str, Any] | None = None
     status: str
 
     model_config = {"from_attributes": True}

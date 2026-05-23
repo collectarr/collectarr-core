@@ -208,6 +208,7 @@ class MetadataProposalCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     summary: str | None = None
     image_url: str | None = Field(default=None, max_length=1024)
+    metadata_payload: dict[str, Any] | None = None
 
 
 class MetadataProposalResponse(BaseModel):
@@ -216,6 +217,7 @@ class MetadataProposalResponse(BaseModel):
     provider_item_id: str | None
     query: str
     title: str | None
+    metadata_payload: dict[str, Any] | None = None
     status: str
 
     model_config = {"from_attributes": True}

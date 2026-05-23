@@ -410,6 +410,7 @@ class MetadataProposal(UuidMixin, TimestampMixin, Base):
     title: Mapped[str | None] = mapped_column(String(255))
     summary: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
+    metadata_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
 
 

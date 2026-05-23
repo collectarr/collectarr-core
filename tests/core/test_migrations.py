@@ -44,9 +44,9 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "entity_tags",
             "image_assets",
             "image_cache_entries",
-            "tracking_entries",
             "admin_audit_logs",
         }.issubset(tables)
+        assert "tracking_entries" not in tables
 
         enum_values = {
             row[0]

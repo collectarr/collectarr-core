@@ -362,48 +362,6 @@ class ImageCacheEntry(UuidMixin, TimestampMixin, Base):
     last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-class TrackingEntry(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "tracking_entries"
-    __table_args__ = (
-        Index("ix_tracking_entries_user_item", "user_id", "item_id"),
-        Index("ix_tracking_entries_user_status", "user_id", "status"),
-        Index("ix_tracking_entries_owned_item", "owned_item_id"),
-        Index("ix_tracking_entries_updated", "updated_at"),
-    )
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    owned_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    edition_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("editions.id", ondelete="SET NULL"), index=True
-    )
-    variant_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("variants.id", ondelete="SET NULL"), index=True
-    )
-    source_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    status: Mapped[str | None] = mapped_column(String(64), index=True)
-    rating: Mapped[int | None] = mapped_column(Integer)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    progress_current: Mapped[int | None] = mapped_column(Integer)
-    progress_total: Mapped[int | None] = mapped_column(Integer)
-    times_completed: Mapped[int | None] = mapped_column(Integer)
-    notes: Mapped[str | None] = mapped_column(Text)
-    season_number: Mapped[int | None] = mapped_column(Integer)
-    episode_number: Mapped[int | None] = mapped_column(Integer)
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    user: Mapped["User"] = relationship()
-    item: Mapped[Item] = relationship()
-    edition: Mapped[Edition | None] = relationship(foreign_keys=[edition_id])
-    variant: Mapped[Variant | None] = relationship(foreign_keys=[variant_id])
-
-
 class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
     __tablename__ = "provider_ingest_jobs"
     __table_args__ = (

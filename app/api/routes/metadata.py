@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 
-from app.api.deps import CurrentAdmin, CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession
 from app.catalog.media_types import (
     CATALOG_SNAPSHOT_SCHEMA_VERSION,
     MEDIA_CATALOG_CONTRACT_VERSION,

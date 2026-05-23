@@ -38,7 +38,11 @@ from app.models.base import ExternalProvider, ItemKind
 from app.schemas.metadata import ItemResponse, SeriesResponse
 from datetime import datetime
 
-from app.schemas.tracking import AdminTrackingStatsResponse, TrackingFacetsResponse
+from app.schemas.tracking import (
+    AdminTrackingStatsResponse,
+    TrackingFacetsResponse,
+    TrackingSourceType,
+)
 from app.services.admin import AdminMetadataService
 from app.services.tracking import TrackingService
 
@@ -64,7 +68,7 @@ async def tracking_stats(
     user: CurrentAdmin,
     kind: ItemKind | None = None,
     status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
+    source_type: TrackingSourceType | None = None,
     updated_from: datetime | None = None,
     updated_to: datetime | None = None,
     limit: int = Query(default=10, ge=1, le=50),
@@ -85,7 +89,7 @@ async def tracking_facets(
     user: CurrentAdmin,
     kind: ItemKind | None = None,
     status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
+    source_type: TrackingSourceType | None = None,
     updated_from: datetime | None = None,
     updated_to: datetime | None = None,
 ) -> TrackingFacetsResponse:

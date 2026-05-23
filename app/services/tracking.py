@@ -19,11 +19,50 @@ from app.schemas.tracking import (
     TrackingItemStatsResponse,
     TrackingKindCountResponse,
     TrackingPeriodCountResponse,
+    TrackingSourceType,
     TrackingTopItemResponse,
 )
 
 
 class TrackingService:
+    _SOURCE_TYPE_ALIASES: dict[str, tuple[str, ...]] = {
+        TrackingSourceType.physical.value: (
+            "physical",
+            "disc",
+            "cd",
+            "vinyl",
+            "cassette",
+            "blu-ray",
+            "bluray",
+            "dvd",
+            "book",
+            "paperback",
+            "hardcover",
+            "print",
+            "cartridge",
+        ),
+        TrackingSourceType.digital.value: (
+            "digital",
+            "digital-audio",
+            "digital-book",
+            "digital-comic",
+            "digital-game",
+            "ebook",
+            "epub",
+            "kindle",
+            "download",
+            "digital-download",
+            "file",
+            "files",
+        ),
+        TrackingSourceType.streaming.value: (
+            "streaming",
+            "streamed",
+            "stream",
+            "subscription",
+        ),
+    }
+
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
@@ -67,7 +106,7 @@ class TrackingService:
         if payload.source_type is None:
             stmt = stmt.where(TrackingEntry.source_type.is_(None))
         else:
-            stmt = stmt.where(TrackingEntry.source_type == payload.source_type)
+            stmt = stmt.where(TrackingEntry.source_type.in_(self._source_type_values(payload.source_type)))
 
         entry = (await self.db.execute(stmt.order_by(TrackingEntry.updated_at.desc()))).scalars().first()
         if entry is None:
@@ -76,7 +115,7 @@ class TrackingService:
 
         entry.edition_id = payload.edition_id
         entry.variant_id = payload.variant_id
-        entry.source_type = payload.source_type
+        entry.source_type = self._canonical_source_type(payload.source_type)
         entry.status = payload.status
         entry.rating = payload.rating
         entry.started_at = self._to_utc(payload.started_at)
@@ -305,7 +344,7 @@ class TrackingService:
         if status_filter is not None:
             stmt = stmt.where(TrackingEntry.status == status_filter)
         if source_type is not None:
-            stmt = stmt.where(TrackingEntry.source_type == source_type)
+            stmt = stmt.where(TrackingEntry.source_type.in_(self._source_type_values(source_type)))
         if item_id is not None:
             stmt = stmt.where(TrackingEntry.item_id == item_id)
         if updated_from is not None:
@@ -334,7 +373,7 @@ class TrackingService:
         if status_filter is not None:
             stmt = stmt.where(TrackingEntry.status == status_filter)
         if source_type is not None:
-            stmt = stmt.where(TrackingEntry.source_type == source_type)
+            stmt = stmt.where(TrackingEntry.source_type.in_(self._source_type_values(source_type)))
         if updated_from is not None:
             stmt = stmt.where(TrackingEntry.updated_at >= self._to_utc(updated_from))
         if updated_to is not None:
@@ -432,7 +471,16 @@ class TrackingService:
                 .order_by(func.count().desc(), subquery.c.source_type.asc())
             )
         ).all()
-        return [TrackingCountResponse(key=str(key), count=int(count)) for key, count in rows]
+        counts: dict[str, int] = {}
+        for key, count in rows:
+            canonical = self._canonical_source_type(key)
+            if canonical is None:
+                continue
+            counts[canonical.value] = counts.get(canonical.value, 0) + int(count)
+        return [
+            TrackingCountResponse(key=key, count=count)
+            for key, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
 
     async def _count_by_kind(
         self,
@@ -454,7 +502,7 @@ class TrackingService:
         if status_filter is not None:
             stmt = stmt.where(TrackingEntry.status == status_filter)
         if source_type is not None:
-            stmt = stmt.where(TrackingEntry.source_type == source_type)
+            stmt = stmt.where(TrackingEntry.source_type.in_(self._source_type_values(source_type)))
         if updated_from is not None:
             stmt = stmt.where(TrackingEntry.updated_at >= self._to_utc(updated_from))
         if updated_to is not None:
@@ -492,7 +540,7 @@ class TrackingService:
         if status_filter is not None:
             stmt = stmt.where(TrackingEntry.status == status_filter)
         if source_type is not None:
-            stmt = stmt.where(TrackingEntry.source_type == source_type)
+            stmt = stmt.where(TrackingEntry.source_type.in_(self._source_type_values(source_type)))
         if updated_from is not None:
             stmt = stmt.where(TrackingEntry.updated_at >= self._to_utc(updated_from))
         if updated_to is not None:
@@ -531,7 +579,7 @@ class TrackingService:
             kind=item.kind,
             edition_id=entry.edition_id,
             variant_id=entry.variant_id,
-            source_type=entry.source_type,
+            source_type=self._canonical_source_type(entry.source_type),
             status=entry.status,
             rating=entry.rating,
             started_at=entry.started_at,
@@ -553,3 +601,21 @@ class TrackingService:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
+
+    def _canonical_source_type(self, value: str | TrackingSourceType | None) -> TrackingSourceType | None:
+        if value is None:
+            return None
+        normalized = str(value).strip().lower()
+        if not normalized:
+            return None
+        for canonical, aliases in self._SOURCE_TYPE_ALIASES.items():
+            if normalized in aliases:
+                return TrackingSourceType(canonical)
+        return None
+
+    def _source_type_values(self, value: str | TrackingSourceType) -> tuple[str, ...]:
+        canonical = self._canonical_source_type(value)
+        if canonical is None:
+            normalized = str(value).strip().lower()
+            return (normalized,) if normalized else tuple()
+        return self._SOURCE_TYPE_ALIASES[canonical.value]

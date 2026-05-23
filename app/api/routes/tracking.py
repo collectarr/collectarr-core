@@ -11,6 +11,7 @@ from app.schemas.tracking import (
     TrackingEntryUpsertRequest,
     TrackingFacetsResponse,
     TrackingItemStatsResponse,
+    TrackingSourceType,
 )
 from app.services.tracking import TrackingService
 
@@ -23,7 +24,7 @@ async def list_tracking_entries(
     user: CurrentUser,
     kind: ItemKind | None = None,
     status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
+    source_type: TrackingSourceType | None = None,
     item_id: UUID | None = None,
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[TrackingEntryResponse]:
@@ -68,7 +69,7 @@ async def tracking_dashboard(
     user: CurrentUser,
     kind: ItemKind | None = None,
     status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
+    source_type: TrackingSourceType | None = None,
     updated_from: datetime | None = None,
     updated_to: datetime | None = None,
 ) -> TrackingDashboardResponse:
@@ -88,7 +89,7 @@ async def tracking_dashboard_facets(
     user: CurrentUser,
     kind: ItemKind | None = None,
     status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
+    source_type: TrackingSourceType | None = None,
     updated_from: datetime | None = None,
     updated_to: datetime | None = None,
 ) -> TrackingFacetsResponse:

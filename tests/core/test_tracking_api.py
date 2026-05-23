@@ -151,7 +151,7 @@ async def test_tracking_dashboard_and_admin_stats(client):
     await _create_tracking_entry(
         user_id=admin_user_id,
         item_id=movie.id,
-        source_type="digital",
+        source_type="kindle",
         status="Watching",
         rating=7,
     )
@@ -183,6 +183,7 @@ async def test_tracking_dashboard_and_admin_stats(client):
     assert admin_json["unique_users"] == 2
     assert admin_json["unique_items"] == 2
     assert admin_json["average_rating"] == 8.0
+    assert admin_json["counts_by_source_type"] == [{"key": "digital", "count": 2}, {"key": "streaming", "count": 1}]
     assert admin_json["top_items"][0]["title"] == "Blade Runner 2049"
     assert admin_json["top_items"][0]["count"] == 2
 
@@ -211,3 +212,21 @@ async def test_tracking_dashboard_and_admin_stats(client):
     assert admin_facets.status_code == 200
     admin_facets_json = admin_facets.json()
     assert admin_facets_json["counts_by_kind"] == [{"kind": "movie", "count": 2}]
+
+
+@pytest.mark.asyncio
+async def test_tracking_rejects_unknown_source_type(client):
+    token = await _register_user(client, "invalid-source@example.com")
+    item = await _create_item("Arrival", kind=ItemKind.movie)
+
+    created = await client.post(
+        "/tracking/entries",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "item_id": str(item.id),
+            "source_type": "kindle",
+            "status": "Watching",
+        },
+    )
+
+    assert created.status_code == 422

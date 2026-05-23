@@ -1,9 +1,16 @@
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.models.base import ItemKind
+
+
+class TrackingSourceType(StrEnum):
+    physical = "physical"
+    digital = "digital"
+    streaming = "streaming"
 
 
 class TrackingCountResponse(BaseModel):
@@ -25,7 +32,7 @@ class TrackingEntryUpsertRequest(BaseModel):
     item_id: UUID
     edition_id: UUID | None = None
     variant_id: UUID | None = None
-    source_type: str | None = Field(default=None, min_length=1, max_length=64)
+    source_type: TrackingSourceType | None = None
     status: str | None = Field(default=None, min_length=1, max_length=64)
     rating: int | None = Field(default=None, ge=0, le=10)
     started_at: datetime | None = None
@@ -46,7 +53,7 @@ class TrackingEntryResponse(BaseModel):
     kind: ItemKind
     edition_id: UUID | None = None
     variant_id: UUID | None = None
-    source_type: str | None = None
+    source_type: TrackingSourceType | None = None
     status: str | None = None
     rating: int | None = None
     started_at: datetime | None = None

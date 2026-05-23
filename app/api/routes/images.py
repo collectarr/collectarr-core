@@ -94,7 +94,10 @@ async def batch_download_images(
             return key, None
         try:
             body, _ = await asyncio.to_thread(storage.get_object, key)
-            return key, base64.b64encode(body).decode("ascii")
+            encoded = await asyncio.to_thread(
+                lambda: base64.b64encode(body).decode("ascii")
+            )
+            return key, encoded
         except Exception:
             return key, None
 
@@ -138,14 +141,16 @@ def _validated_entity_type(entity_type: str) -> str:
     )
 
 
-def _upload_source_url(
+async def _upload_source_url(
     *,
     entity_type: str,
     entity_id: UUID,
     image_type: str,
     image_bytes: bytes,
 ) -> str:
-    content_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
+    content_hash = (
+        await asyncio.to_thread(lambda: hashlib.sha256(image_bytes).hexdigest())
+    )[:16]
     return f"upload://{entity_type}/{entity_id}/{image_type}/{content_hash}"
 
 
@@ -226,7 +231,7 @@ async def add_entity_image(
         )
 
     try:
-        image_bytes = base64.b64decode(image_data_base64)
+        image_bytes = await asyncio.to_thread(base64.b64decode, image_data_base64)
     except Exception:
         raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -260,7 +265,7 @@ async def add_entity_image(
     mirror = ImageMirror()
     provider_value = provider or "user"
     item_id_str = str(entity_id)
-    effective_source_url = source_url or _upload_source_url(
+    effective_source_url = source_url or await _upload_source_url(
         entity_type=entity_type,
         entity_id=entity_id,
         image_type=image_type,

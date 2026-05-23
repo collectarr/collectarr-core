@@ -67,6 +67,10 @@
 - [ ] Per-media normalization: music releases, book editions, video physical releases, game platforms
 	- Expand normalization depth where providers already expose richer release structures: music labels/catalog numbers, book ISBN/edition/imprint, video format/runtime/region, and game platform/edition metadata.
 	- Keep the normalized contract stable enough that App can surface new fields without provider-specific branching in UI code.
+- [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
+	- App now owns the local-first prototype: photo import, review/crop/rotate, on-device OCR where supported, safe fallback into normal search, and local reranking of candidates.
+	- Do not assume raw image upload to Core by default; only add a Core-side candidate-ranking path if real device validation shows that local OCR + reranking is not accurate or fast enough.
+	- If a Core endpoint is introduced later, keep it opt-in, never auto-ingest from low-confidence matches, and preserve a failure mode where App can fall back to ordinary provider search seeded by extracted hints.
 - [ ] Public deployment hardening and stricter operator roles
 	- Split operational privileges more finely than viewer/editor/admin where public-hosted deployments need safer ingest, merge, and cache controls.
 	- Tighten production guidance around auth defaults, CORS, rate limits, job isolation, and secrets management for internet-facing operators.

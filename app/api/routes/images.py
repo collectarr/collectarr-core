@@ -278,7 +278,7 @@ async def add_entity_image(
     )
     if mirrored is None:
         raise ApiHTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             code="image_processing_failed",
             detail="Image could not be processed",
         )

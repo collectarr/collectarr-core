@@ -14,6 +14,8 @@ from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.normalize import issue_sort_key, normalize_title, preview_names, title_aliases
 from app.providers.base import (
+    NormalizedBundleMember,
+    NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedItem,
     NormalizedVariantCover,
@@ -26,6 +28,14 @@ from app.providers.base import (
 _TAG_RE = re.compile(r"<[^>]+>")
 _RESOURCE_ID_RE = re.compile(r"/(issue|volume)/(\d+-\d+)/?")
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+_COLLECTS_RANGE_RE = re.compile(
+    r"collect(?:s|ing)?\s+(?:issues?\s+)?#?(?P<start>\d+)\s*(?:-|through|to)\s*#?(?P<end>\d+)",
+    re.IGNORECASE,
+)
+_COLLECTED_EDITION_RE = re.compile(
+    r"\b(volume|vol\.?|trade paperback|tpb|hardcover|omnibus|box set)\b",
+    re.IGNORECASE,
+)
 _COVER_LIST_HEADER_RE = re.compile(
     r"^Cover\s+Name\s+Creator\(s\)\s+Sidebar\s+Location\s+",
     re.IGNORECASE,
@@ -419,6 +429,19 @@ class ComicVineProvider:
         issue_number = str(data.get("issue_number") or "").strip() or None
         title = volume_name or issue_name or f"Unknown {kind.value}"
         edition_title = issue_name or "Standard Edition"
+        publisher = self._publisher(volume)
+        release_date = self._date(data.get("cover_date") or data.get("store_date"))
+        cover_image_url = self._image_url(data.get("image"))
+        bundle_release = self._bundle_release(
+            data=data,
+            kind=kind,
+            provider_item_id=provider_item_id or None,
+            volume_name=volume_name,
+            issue_name=issue_name,
+            publisher=publisher,
+            release_date=release_date,
+            cover_image_url=cover_image_url,
+        )
 
         return NormalizedItem(
             kind=kind,
@@ -431,16 +454,97 @@ class ComicVineProvider:
             page_count=self._int_value(data.get("number_of_pages")),
             edition_title=edition_title,
             edition_format="Single Issue" if kind == ItemKind.comic else "Manga Issue",
-            publisher=self._publisher(volume),
-            release_date=self._date(data.get("cover_date") or data.get("store_date")),
-            cover_image_url=self._image_url(data.get("image")),
+            publisher=publisher,
+            release_date=release_date,
+            cover_image_url=cover_image_url,
             variant_covers=self._associated_variant_covers(data),
             creators=self._credits(data.get("person_credits"), default_role="Creator"),
             characters=self._credits(data.get("character_credits")),
             story_arcs=self._credits(data.get("story_arc_credits")),
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: volume_id} if volume_id else {},
+            bundle_release=bundle_release,
         )
+
+    def _bundle_release(
+        self,
+        *,
+        data: Mapping[str, Any],
+        kind: ItemKind,
+        provider_item_id: str | None,
+        volume_name: str | None,
+        issue_name: str,
+        publisher: str | None,
+        release_date: date | None,
+        cover_image_url: str | None,
+    ) -> NormalizedBundleRelease | None:
+        raw_name = issue_name or volume_name or ""
+        description = self._clean_text(data.get("description") or data.get("deck"))
+        if not _COLLECTED_EDITION_RE.search(raw_name) and not _COLLECTED_EDITION_RE.search(
+            description or ""
+        ):
+            return None
+        issue_numbers = self._collected_issue_numbers(description)
+        if len(issue_numbers) < 2:
+            return None
+
+        bundle_title = raw_name or volume_name or "Collected edition"
+        members = [
+            NormalizedBundleMember(
+                item=NormalizedItem(
+                    kind=kind,
+                    title=volume_name or bundle_title,
+                    item_number=issue_number,
+                    synopsis=None,
+                    series_title=volume_name,
+                    volume_name=volume_name,
+                    volume_start_year=release_date.year if release_date else None,
+                    edition_title=f"Issue #{issue_number}",
+                    edition_format="Single Issue" if kind == ItemKind.comic else "Manga Issue",
+                    publisher=publisher,
+                    release_date=release_date,
+                    cover_image_url=cover_image_url,
+                    provider_ids=(
+                        {self.name: f"{provider_item_id}#issue-{issue_number}"}
+                        if provider_item_id
+                        else {}
+                    ),
+                ),
+                role="primary" if index == 0 else "component",
+                sequence_number=index + 1,
+                disc_number=1,
+                disc_label=bundle_title,
+                is_primary=index == 0,
+                metadata={"comicvine_collected_issue_number": issue_number},
+            )
+            for index, issue_number in enumerate(issue_numbers)
+        ]
+
+        return NormalizedBundleRelease(
+            title=bundle_title,
+            bundle_type="tpb",
+            format="Trade Paperback" if kind == ItemKind.comic else "Collected Manga",
+            packaging_type="book",
+            publisher=publisher,
+            release_date=release_date,
+            cover_image_url=cover_image_url,
+            provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            members=members,
+        )
+
+    def _collected_issue_numbers(self, description: str | None) -> list[str]:
+        text = description or ""
+        matches = list(_COLLECTS_RANGE_RE.finditer(text))
+        if not matches:
+            return []
+        numbers: list[str] = []
+        for match in matches:
+            start = self._int_value(match.group("start"))
+            end = self._int_value(match.group("end"))
+            if start is None or end is None or end < start:
+                continue
+            numbers.extend(str(value) for value in range(start, end + 1))
+        return numbers
 
     async def _request(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         request_params = {

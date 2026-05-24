@@ -122,6 +122,17 @@ class EditionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CreateEditionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    format: str | None = None
+    publisher: str | None = None
+    isbn: str | None = None
+    upc: str | None = None
+    language: str | None = None
+    region: str | None = None
+    release_date: date | None = None
+
+
 class ItemResponse(BaseModel):
     id: UUID
     kind: ItemKind

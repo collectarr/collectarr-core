@@ -63,6 +63,24 @@ def _tv_raw() -> dict:
                 {"name": "Emilia Clarke", "character": "Daenerys Targaryen"},
             ],
         },
+        "seasons": [
+            {
+                "season_number": 1,
+                "name": "Season 1",
+                "overview": "The first season.",
+                "air_date": "2011-04-17",
+                "episode_count": 10,
+                "poster_path": "/season-1.jpg",
+            },
+            {
+                "season_number": 2,
+                "name": "Season 2",
+                "overview": "The second season.",
+                "air_date": "2012-04-01",
+                "episode_count": 10,
+                "poster_path": "/season-2.jpg",
+            },
+        ],
     }
 
 
@@ -174,6 +192,32 @@ async def test_tmdb_provider_fetches_and_normalizes_tv(monkeypatch):
     assert normalized.edition_format == "TV Series"
     assert normalized.creators[0].role == "Creator"
     assert normalized.provider_ids == {"tmdb": "tv:1399"}
+
+
+@pytest.mark.asyncio
+async def test_tmdb_provider_emits_season_pack_bundle_for_multi_season_show(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "tmdb_api_read_access_token", "token")
+
+    async def fake_request(self, path, params=None):
+        assert path == "tv/1399"
+        return _tv_raw()
+
+    monkeypatch.setattr(TMDbProvider, "_request", fake_request)
+
+    item = await TMDbProvider().get_item("tv:1399")
+    normalized = await TMDbProvider().normalize(item.raw)
+
+    assert normalized.bundle_release is not None
+    assert normalized.bundle_release.bundle_type == "season_pack"
+    assert normalized.bundle_release.provider_ids == {"tmdb": "tv:1399"}
+    assert [member.item.title for member in normalized.bundle_release.members] == [
+        "Season 1",
+        "Season 2",
+    ]
+    assert normalized.bundle_release.members[0].item.provider_ids == {
+        "tmdb": "tv:1399#season-1"
+    }
 
 
 @pytest.mark.asyncio

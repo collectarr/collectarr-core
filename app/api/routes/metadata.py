@@ -29,9 +29,11 @@ from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    CreateEditionRequest,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
+    EditionResponse,
     FacetItemIdsRequest,
     ItemResponse,
     MediaCatalogResponse,
@@ -515,6 +517,42 @@ async def get_item_volumes(
     _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_item_volumes(item_id)
+
+
+@router.get(
+    "/metadata/items/{item_id}/seasons",
+    response_model=list[SeasonResponse],
+)
+async def get_item_seasons(
+    item_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[SeasonResponse]:
+    return await MetadataService(db).get_item_seasons(item_id)
+
+
+@router.post(
+    "/metadata/items/{item_id}/editions",
+    response_model=EditionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_item_edition(
+    item_id: UUID,
+    payload: CreateEditionRequest,
+    db: DbSession,
+    _user: CurrentUser,
+) -> EditionResponse:
+    return await MetadataService(db).create_edition(
+        item_id,
+        title=payload.title,
+        format=payload.format,
+        publisher=payload.publisher,
+        isbn=payload.isbn,
+        upc=payload.upc,
+        language=payload.language,
+        region=payload.region,
+        release_date=payload.release_date,
+    )
 
 
 @router.get(

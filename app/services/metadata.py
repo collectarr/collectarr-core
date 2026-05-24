@@ -1560,6 +1560,85 @@ class MetadataService:
 
         return []
 
+    async def get_item_seasons(self, item_id: UUID) -> list[SeasonResponse]:
+        """Look up provider links for an item and return seasons from the first
+        TV-capable provider (TMDB)."""
+        from app.models.canonical import ExternalProviderId
+        from app.providers.base import NormalizedSeason
+        from app.schemas.metadata import EpisodeResponse
+
+        _SEASON_PROVIDERS = [ExternalProvider.tmdb]
+
+        rows = (
+            (
+                await self.db.execute(
+                    select(ExternalProviderId).where(
+                        ExternalProviderId.entity_type == "item",
+                        ExternalProviderId.entity_id == item_id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        provider_map = {row.provider: row.provider_item_id for row in rows}
+
+        for prov_enum in _SEASON_PROVIDERS:
+            pid = provider_map.get(prov_enum)
+            if pid is None:
+                continue
+            provider = self.providers.maybe_get(prov_enum)
+            if provider is None or not hasattr(provider, "get_seasons"):
+                continue
+            seasons: list[NormalizedSeason] = await provider.get_seasons(pid)
+            return [
+                SeasonResponse(
+                    season_number=s.season_number,
+                    title=s.title,
+                    overview=s.overview,
+                    air_date=s.air_date,
+                    episode_count=s.episode_count,
+                    poster_url=s.poster_url,
+                    episodes=[
+                        EpisodeResponse(
+                            episode_number=ep.episode_number,
+                            title=ep.title,
+                            overview=ep.overview,
+                            air_date=ep.air_date,
+                            runtime_minutes=ep.runtime_minutes,
+                            page_count=ep.page_count,
+                            still_url=ep.still_url,
+                        )
+                        for ep in s.episodes
+                    ],
+                )
+                for s in seasons
+            ]
+
+        return []
+
+    async def create_edition(
+        self, item_id: UUID, *, title: str, **kwargs: object
+    ) -> "EditionResponse":
+        from app.schemas.metadata import EditionResponse
+
+        item = (
+            await self.db.execute(select(Item).where(Item.id == item_id))
+        ).scalar_one_or_none()
+        if item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="item_not_found",
+                detail="Catalog item not found",
+            )
+        edition = Edition(item_id=item_id, title=title, **kwargs)
+        self.db.add(edition)
+        await self.db.flush()
+        await self.db.refresh(edition, attribute_names=["variants"])
+        await self.db.commit()
+        return EditionResponse.model_validate(edition)
+
     async def search_story_arcs(
         self,
         *,

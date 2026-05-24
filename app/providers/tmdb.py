@@ -8,6 +8,8 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
+    NormalizedBundleMember,
+    NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedEpisode,
     NormalizedItem,
@@ -125,6 +127,13 @@ class TMDbProvider:
         publisher = self._first_company(data.get("production_companies"))
         creators = self._creators(data, kind)
         genres = self._names(data.get("genres"))
+        bundle_release = self._bundle_release(
+            data=data,
+            kind=kind,
+            provider_item_id=provider_item_id or None,
+            title=title,
+            publisher=publisher,
+        )
 
         return NormalizedItem(
             kind=kind,
@@ -147,6 +156,7 @@ class TMDbProvider:
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             relations=self._relations(data, kind),
+            bundle_release=bundle_release,
         )
 
     async def _request(
@@ -374,6 +384,79 @@ class TMDbProvider:
                         )
                     )
         return relations
+
+    def _bundle_release(
+        self,
+        *,
+        data: Mapping[str, Any],
+        kind: ItemKind,
+        provider_item_id: str | None,
+        title: str,
+        publisher: str | None,
+    ) -> NormalizedBundleRelease | None:
+        if kind not in {ItemKind.tv, ItemKind.anime}:
+            return None
+        raw_seasons = data.get("seasons")
+        if not isinstance(raw_seasons, list):
+            return None
+
+        members: list[NormalizedBundleMember] = []
+        for raw_season in raw_seasons:
+            if not isinstance(raw_season, Mapping):
+                continue
+            season_number = self._id(raw_season.get("season_number"))
+            if season_number is None or season_number <= 0:
+                continue
+            season_title = self._optional_text(raw_season.get("name")) or f"Season {season_number}"
+            season_release_date = self._date(raw_season.get("air_date"))
+            season_provider_id = (
+                f"{provider_item_id}#season-{season_number}" if provider_item_id else None
+            )
+            member_item = NormalizedItem(
+                kind=kind,
+                title=season_title,
+                synopsis=self._optional_text(raw_season.get("overview")),
+                series_title=title,
+                volume_name=season_title,
+                volume_number=season_number,
+                volume_start_year=season_release_date.year if season_release_date else None,
+                edition_title=season_title,
+                edition_format="Anime Season" if kind == ItemKind.anime else "TV Season",
+                publisher=publisher,
+                release_date=season_release_date,
+                cover_image_url=self._image_url(raw_season.get("poster_path")),
+                provider_ids={self.name: season_provider_id} if season_provider_id else {},
+            )
+            members.append(
+                NormalizedBundleMember(
+                    item=member_item,
+                    role="primary" if not members else "component",
+                    sequence_number=len(members) + 1,
+                    disc_number=season_number,
+                    disc_label=season_title,
+                    is_primary=not members,
+                    metadata={
+                        "tmdb_season_number": season_number,
+                        "tmdb_episode_count": self._id(raw_season.get("episode_count")),
+                    },
+                )
+            )
+
+        if len(members) < 2:
+            return None
+
+        return NormalizedBundleRelease(
+            title=title,
+            bundle_type="season_pack",
+            format="Anime Season" if kind == ItemKind.anime else "TV Season",
+            packaging_type="digital",
+            language=self._optional_text(data.get("original_language")),
+            publisher=publisher,
+            release_date=self._date(data.get("first_air_date")),
+            cover_image_url=self._poster_url(data),
+            provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            members=members,
+        )
 
     def _first_company(self, value: Any) -> str | None:
         names = self._names(value)

@@ -64,6 +64,7 @@ async def index_once(search: SearchClient | None = None) -> None:
         result = await db.execute(
             select(Item).options(
                 selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.editions).selectinload(Edition.releases),
             )

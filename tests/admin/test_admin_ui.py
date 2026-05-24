@@ -27,8 +27,8 @@ async def test_admin_ui_is_served_without_api_token(client):
     assert "Approved</span>" in response.text
     assert "proposalQuickFilters" in response.text
     assert "Needs provider match" in response.text
-    assert "Tracking analytics" in response.text
-    assert "trackingButton" in response.text
+    assert "Catalog search" in response.text
+    assert "providersButton" in response.text
 
 
 @pytest.mark.asyncio

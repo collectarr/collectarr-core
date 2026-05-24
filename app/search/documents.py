@@ -1,5 +1,8 @@
 from typing import Any
 
+from sqlalchemy import inspect
+from sqlalchemy.orm.attributes import NO_VALUE
+
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.models.canonical import Item
 
@@ -22,6 +25,8 @@ def item_search_document(item: Item) -> dict[str, Any]:
     runtime_minutes = getattr(item, "runtime_minutes", None)
     variant = None
     variant_names: list[str] = []
+    bundle_titles: list[str] = []
+    bundle_release_ids: list[str] = []
     series_title = item.volume.series.title if item.volume and item.volume.series else None
     volume_name = item.volume.name if item.volume else None
 
@@ -68,6 +73,17 @@ def item_search_document(item: Item) -> dict[str, Any]:
         for release in edition.releases:
             release_region = release_region or release.region
 
+    bundle_releases = _loaded_primary_bundle_releases(item)
+    for bundle_release in bundle_releases:
+        _append_unique(bundle_titles, bundle_release.title)
+        _append_unique(bundle_release_ids, str(bundle_release.id))
+        if bundle_release.barcode:
+            _append_unique(barcodes, _normalized_barcode(bundle_release.barcode))
+            barcode = barcode or _normalized_barcode(bundle_release.barcode)
+        if bundle_release.sku:
+            _append_unique(barcodes, _normalized_barcode(bundle_release.sku))
+            barcode = barcode or _normalized_barcode(bundle_release.sku)
+
     return {
         "id": str(item.id),
         "kind": item.kind.value,
@@ -84,6 +100,8 @@ def item_search_document(item: Item) -> dict[str, Any]:
         "barcodes": barcodes,
         "variant": variant,
         "variant_names": variant_names,
+        "bundle_titles": bundle_titles,
+        "bundle_release_ids": bundle_release_ids,
         "series_title": series_title,
         "volume_name": volume_name,
         "catalog_number": catalog_number,
@@ -173,3 +191,10 @@ def _unique(values: list[str]) -> list[str]:
     for value in values:
         _append_unique(unique_values, value)
     return unique_values
+
+
+def _loaded_primary_bundle_releases(item: Item) -> list[Any]:
+    bundle_attr = inspect(item).attrs.primary_bundle_releases.loaded_value
+    if bundle_attr is NO_VALUE or bundle_attr is None:
+        return []
+    return list(bundle_attr)

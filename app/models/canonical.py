@@ -89,6 +89,10 @@ class Item(UuidMixin, TimestampMixin, Base):
 
     volume: Mapped[Volume | None] = relationship(back_populates="items")
     editions: Mapped[list["Edition"]] = relationship(back_populates="item")
+    primary_bundle_releases: Mapped[list["BundleRelease"]] = relationship(
+        back_populates="primary_item",
+        foreign_keys="BundleRelease.primary_item_id",
+    )
 
 
 class Edition(UuidMixin, TimestampMixin, Base):
@@ -109,7 +113,6 @@ class Edition(UuidMixin, TimestampMixin, Base):
 
     item: Mapped[Item] = relationship(back_populates="editions")
     variants: Mapped[list["Variant"]] = relationship(back_populates="edition")
-    releases: Mapped[list["Release"]] = relationship(back_populates="edition")
 
 
 class Variant(UuidMixin, TimestampMixin, Base):
@@ -136,21 +139,6 @@ class Variant(UuidMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     edition: Mapped[Edition] = relationship(back_populates="variants")
-
-
-class Release(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "releases"
-
-    edition_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("editions.id", ondelete="CASCADE"), index=True
-    )
-    region: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    release_date: Mapped[date | None] = mapped_column(Date)
-    publisher: Mapped[str | None] = mapped_column(String(255))
-    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    edition: Mapped[Edition] = relationship(back_populates="releases")
 
 
 class BundleRelease(UuidMixin, TimestampMixin, Base):
@@ -195,7 +183,10 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     franchise: Mapped[Franchise | None] = relationship()
     series: Mapped[Series | None] = relationship()
     volume: Mapped[Volume | None] = relationship()
-    primary_item: Mapped[Item | None] = relationship()
+    primary_item: Mapped[Item | None] = relationship(
+        back_populates="primary_bundle_releases",
+        foreign_keys=[primary_item_id],
+    )
     items: Mapped[list["BundleReleaseItem"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
     )
@@ -246,7 +237,8 @@ class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    raw_url: Mapped[str | None] = mapped_column(String(1024))
+    site_url: Mapped[str | None] = mapped_column(String(1024))
+    api_url: Mapped[str | None] = mapped_column(String(1024))
 
 
 class Organization(UuidMixin, TimestampMixin, Base):

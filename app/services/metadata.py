@@ -21,6 +21,7 @@ from app.models.canonical import (
     Edition,
     EntityTag,
     EntityPerson,
+    ExternalProviderId,
     Item,
     MetadataProposal,
     Person,
@@ -49,6 +50,7 @@ from app.schemas.metadata import (
     MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
+    ProviderLink,
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
@@ -92,6 +94,26 @@ class MetadataService:
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
 
+    async def _provider_links_for_item(self, item_id: UUID) -> list[ProviderLink]:
+        result = await self.db.execute(
+            select(ExternalProviderId)
+            .where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id == item_id,
+            )
+            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
+        )
+        return [
+            ProviderLink(
+                provider=row.provider,
+                entity_type=row.entity_type,
+                provider_item_id=row.provider_item_id,
+                site_url=row.site_url,
+                api_url=row.api_url,
+            )
+            for row in result.scalars()
+        ]
+
     async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse:
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
@@ -100,7 +122,10 @@ class MetadataService:
                 code="metadata_item_not_found",
                 detail="Item not found",
             )
-        response = item_response_from_model(item)
+        response = item_response_from_model(
+            item,
+            extra_provider_links=await self._provider_links_for_item(item.id),
+        )
         series_id = getattr(getattr(getattr(item, "volume", None), "series", None), "id", None)
         await self._enrich_item_metadata_facets(response, item.id, series_id=series_id)
         return response
@@ -1118,6 +1143,8 @@ class MetadataService:
         imprint_val: str | None = None
         subtitle: str | None = None
         series_group: str | None = None
+        bundle_titles: list[str] | None = None
+        bundle_release_ids: list[str] | None = None
         for edition in item.editions:
             md = getattr(edition, "metadata_json", None)
             if isinstance(md, dict):
@@ -1158,6 +1185,18 @@ class MetadataService:
             if primary is not None:
                 cover_price_cents = cover_price_cents or primary.cover_price_cents
                 item_currency = item_currency or primary.currency
+        bundle_releases = sorted(
+            list(getattr(item, "primary_bundle_releases", []) or []),
+            key=lambda bundle: (
+                getattr(bundle, "release_date", None) is None,
+                getattr(bundle, "release_date", None) or date.min,
+                getattr(bundle, "title", ""),
+            ),
+            reverse=True,
+        )
+        if bundle_releases:
+            bundle_titles = [bundle.title for bundle in bundle_releases if getattr(bundle, "title", None)]
+            bundle_release_ids = [str(bundle.id) for bundle in bundle_releases]
         return SearchResult(
             id=item.id,
             kind=item.kind,
@@ -1195,6 +1234,8 @@ class MetadataService:
             imprint=imprint_val,
             subtitle=subtitle,
             series_group=series_group,
+            bundle_titles=bundle_titles,
+            bundle_release_ids=bundle_release_ids,
         )
 
     def _preferred_variant(

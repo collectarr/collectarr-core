@@ -46,6 +46,9 @@ query GetBook($id: Int!) {
     contributions {
       author {
         name
+                image {
+                    url
+                }
       }
       contribution_type
     }
@@ -501,7 +504,18 @@ class HardcoverProvider:
             name = author.get("name") if isinstance(author, Mapping) else None
             if name:
                 role = c.get("contribution_type") or "Author"
-                credits.append(NormalizedCredit(name=name, role=role))
+                image_url = None
+                if isinstance(author, Mapping):
+                    image = author.get("image") or {}
+                    if isinstance(image, Mapping) and image.get("url"):
+                        image_url = str(image.get("url"))
+                credits.append(
+                    NormalizedCredit(
+                        name=name,
+                        role=role,
+                        image_url=image_url,
+                    )
+                )
         return credits
 
     def _tags(self, taggings: Any) -> list[str]:

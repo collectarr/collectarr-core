@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ItemKind
+from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
     BundleReleaseItem,
@@ -29,10 +29,53 @@ from app.models.canonical import (
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
-from app.schemas.metadata import item_response_from_model
+from app.schemas.metadata import ProviderLink, item_response_from_model
 from app.search.documents import item_search_document
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
+
+
+async def _attach_bundle_release(
+    item_id: str,
+    *,
+    title: str = "The Amazing Spider-Man Starter Box",
+    barcode: str = "9781300000000",
+) -> UUID:
+    async with AsyncSessionLocal() as db:
+        item = await db.scalar(
+            select(Item)
+            .options(selectinload(Item.volume).selectinload(Volume.series))
+            .where(Item.id == UUID(item_id))
+        )
+        assert item is not None
+        bundle = BundleRelease(
+            kind=item.kind,
+            title=title,
+            bundle_type="box_set",
+            primary_item_id=item.id,
+            series_id=item.volume.series.id,
+            volume_id=item.volume.id,
+            format="Paperback",
+            variant_type="physical",
+            packaging_type="box",
+            publisher="Marvel",
+            barcode=barcode,
+            release_date=date(2025, 1, 15),
+        )
+        db.add(bundle)
+        await db.flush()
+        db.add(
+            BundleReleaseItem(
+                bundle_release_id=bundle.id,
+                item_id=item.id,
+                role="main",
+                sequence_number=1,
+                quantity=1,
+                is_primary=True,
+            )
+        )
+        await db.commit()
+        return bundle.id
 
 
 @pytest.mark.asyncio
@@ -214,45 +257,47 @@ async def test_lookup_comic_by_barcode(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_search_supports_bundle_release_title(client, monkeypatch):
+    async def unavailable_search(self, query, kind=None, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
+    item_id, _, _ = await seed_comic()
+    await _attach_bundle_release(item_id, title="Spider-Verse Collector Box")
+
+    response = await client.get(
+        "/search",
+        params={"q": "Collector Box", "kind": "comic"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()[0]["id"] == item_id
+    assert response.json()[0]["title"] == "The Amazing Spider-Man"
+    assert response.json()[0]["bundle_titles"] == ["Spider-Verse Collector Box"]
+
+
+@pytest.mark.asyncio
+async def test_lookup_bundle_barcode_returns_primary_item(client, monkeypatch):
+    async def unavailable_search(self, query, kind=None, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
+    item_id, _, _ = await seed_comic()
+    await _attach_bundle_release(item_id, barcode="9781300000000")
+
+    response = await client.get("/barcode/9781300000000", params={"kind": "comic"})
+
+    assert response.status_code == 200
+    assert response.json()["id"] == item_id
+    assert response.json()["title"] == "The Amazing Spider-Man"
+    assert response.json()["bundle_titles"] == ["The Amazing Spider-Man Starter Box"]
+
+
+@pytest.mark.asyncio
 async def test_item_bundle_release_endpoints(client):
     token = await register_and_login(client)
     item_id, _, _ = await seed_comic()
-
-    async with AsyncSessionLocal() as db:
-        item = await db.scalar(
-            select(Item)
-            .options(selectinload(Item.volume).selectinload(Volume.series))
-            .where(Item.id == UUID(item_id))
-        )
-        assert item is not None
-        bundle = BundleRelease(
-            kind=ItemKind.comic,
-            title="The Amazing Spider-Man Starter Box",
-            bundle_type="box_set",
-            primary_item_id=item.id,
-            series_id=item.volume.series.id,
-            volume_id=item.volume.id,
-            format="Paperback",
-            variant_type="physical",
-            packaging_type="box",
-            publisher="Marvel",
-            barcode="9781300000000",
-            release_date=date(2025, 1, 15),
-        )
-        db.add(bundle)
-        await db.flush()
-        db.add(
-            BundleReleaseItem(
-                bundle_release_id=bundle.id,
-                item_id=item.id,
-                role="main",
-                sequence_number=1,
-                quantity=1,
-                is_primary=True,
-            )
-        )
-        await db.commit()
-        bundle_id = bundle.id
+    bundle_id = await _attach_bundle_release(item_id)
 
     list_response = await client.get(
         f"/metadata/items/{item_id}/bundle-releases",
@@ -448,6 +493,26 @@ async def test_search_document_keeps_synopsis_out_of_index():
     assert document["variant"] == "Cover A"
 
 
+@pytest.mark.asyncio
+async def test_search_document_indexes_bundle_release_metadata():
+    item_id, _, _ = await seed_comic()
+    await _attach_bundle_release(
+        item_id,
+        title="Spider-Verse Collector Box",
+        barcode="9781300000000",
+    )
+
+    async with AsyncSessionLocal() as db:
+        item = await MetadataRepository(db).get_item(UUID(item_id), ItemKind.comic)
+
+    assert item is not None
+    document = item_search_document(item)
+
+    assert document["bundle_titles"] == ["Spider-Verse Collector Box"]
+    assert len(document["bundle_release_ids"]) == 1
+    assert "9781300000000" in document["barcodes"]
+
+
 def test_item_response_from_model_exposes_normalized_metadata_fields():
     item = SimpleNamespace(
         id=uuid4(),
@@ -552,6 +617,49 @@ def test_item_response_from_model_exposes_normalized_metadata_fields():
     assert response.volume_name == "Legendary Edition"
     assert response.provider_links[0].provider.value == "igdb"
     assert response.provider_links[0].provider_item_id == "igdb-123"
+
+
+def test_item_response_merges_persisted_provider_link_urls():
+    item = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.game,
+        title="Mass Effect Legendary Edition",
+        item_number=None,
+        sort_key=None,
+        synopsis=None,
+        release_type=None,
+        season_number=None,
+        episode_number=None,
+        runtime_minutes=None,
+        page_count=None,
+        metadata_json=None,
+        volume=None,
+        editions=[],
+        primary_bundle_releases=[],
+    )
+
+    response = item_response_from_model(
+        item,
+        extra_provider_links=[
+            ProviderLink(
+                provider=ExternalProvider.igdb,
+                entity_type="item",
+                provider_item_id="igdb-123",
+                site_url="https://www.igdb.com/games/mass-effect-legendary-edition",
+                api_url="https://api.igdb.com/v4/games/123",
+            )
+        ],
+    )
+
+    assert [link.model_dump(mode="json") for link in response.provider_links] == [
+        {
+            "provider": "igdb",
+            "entity_type": "item",
+            "provider_item_id": "igdb-123",
+            "site_url": "https://www.igdb.com/games/mass-effect-legendary-edition",
+            "api_url": "https://api.igdb.com/v4/games/123",
+        }
+    ]
 
 
 def test_search_result_exposes_runtime_minutes():
@@ -803,6 +911,7 @@ async def test_story_arc_and_character_browse_endpoints(client):
             "role": None,
             "api_detail_url": None,
             "site_detail_url": None,
+            "image_url": None,
             "description": None,
             "ordinal": 1,
             "publisher": "Marvel",

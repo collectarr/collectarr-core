@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.canonical import Edition, Item, Release, Variant, Volume
+from app.models.canonical import Edition, Item, Variant, Volume
 from app.schemas.admin import ProviderIngestJobRunResponse
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
@@ -29,8 +29,6 @@ class CatalogFingerprint:
     edition_updated_at: datetime | None
     variant_count: int
     variant_updated_at: datetime | None
-    release_count: int
-    release_updated_at: datetime | None
 
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
@@ -43,9 +41,6 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     variant_count, variant_updated_at = (
         await db.execute(select(func.count(Variant.id), func.max(Variant.updated_at)))
     ).one()
-    release_count, release_updated_at = (
-        await db.execute(select(func.count(Release.id), func.max(Release.updated_at)))
-    ).one()
     return CatalogFingerprint(
         item_count=int(item_count),
         item_updated_at=item_updated_at,
@@ -53,8 +48,6 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         edition_updated_at=edition_updated_at,
         variant_count=int(variant_count),
         variant_updated_at=variant_updated_at,
-        release_count=int(release_count),
-        release_updated_at=release_updated_at,
     )
 
 
@@ -66,7 +59,6 @@ async def index_once(search: SearchClient | None = None) -> None:
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.editions).selectinload(Edition.releases),
             )
         )
         documents = [item_search_document(item) for item in result.scalars().unique()]
@@ -86,21 +78,19 @@ async def index_changed_catalog(
         await index_once(search)
     except Exception as exc:
         logger.exception(
-            "worker_index_failed items=%s editions=%s variants=%s releases=%s error=%s",
+            "worker_index_failed items=%s editions=%s variants=%s error=%s",
             current_fingerprint.item_count,
             current_fingerprint.edition_count,
             current_fingerprint.variant_count,
-            current_fingerprint.release_count,
             exc,
         )
         return last_fingerprint
 
     logger.info(
-        "worker_index_finished items=%s editions=%s variants=%s releases=%s",
+        "worker_index_finished items=%s editions=%s variants=%s",
         current_fingerprint.item_count,
         current_fingerprint.edition_count,
         current_fingerprint.variant_count,
-        current_fingerprint.release_count,
     )
     return current_fingerprint
 

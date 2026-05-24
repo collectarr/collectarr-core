@@ -38,6 +38,7 @@ class ProviderStatusListResponse(BaseModel):
 class ProviderIngestRequest(BaseModel):
     provider: ExternalProvider
     provider_item_id: str = Field(min_length=1, max_length=255)
+    kind: ItemKind | None = None
 
 
 class ProviderSearchRequest(BaseModel):
@@ -55,6 +56,7 @@ class ProviderIngestResponse(BaseModel):
 class ProviderPreviewCredit(BaseModel):
     name: str
     role: str | None = None
+    image_url: str | None = None
 
 
 class ProviderPreviewTrack(BaseModel):
@@ -170,14 +172,54 @@ class AdminMetadataCorrectionRequest(BaseModel):
     synopsis: str | None = None
     edition_title: str | None = Field(default=None, max_length=255)
     page_count: int | None = Field(default=None, ge=0)
+    runtime_minutes: int | None = Field(default=None, ge=0)
     publisher: str | None = Field(default=None, max_length=255)
     release_date: date | None = None
     imprint: str | None = Field(default=None, max_length=255)
+    subtitle: str | None = Field(default=None, max_length=255)
     series_group: str | None = Field(default=None, max_length=255)
+    country: str | None = Field(default=None, max_length=64)
+    language: str | None = Field(default=None, max_length=32)
+    age_rating: str | None = Field(default=None, max_length=64)
+    catalog_number: str | None = Field(default=None, max_length=100)
+    release_status: str | None = Field(default=None, max_length=64)
     physical_format: str | None = Field(default=None, max_length=64)
     variant_name: str | None = Field(default=None, max_length=255)
     barcode: str | None = Field(default=None, max_length=32)
     cover_image_url: str | None = Field(default=None, max_length=1024)
+    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+
+
+class AdminBundleReleaseMemberUpdateRequest(BaseModel):
+    id: UUID | None = None
+    item_id: UUID | None = None
+    role: str = Field(min_length=1, max_length=32)
+    sequence_number: int | None = Field(default=None, ge=1)
+    disc_number: int | None = Field(default=None, ge=1)
+    disc_label: str | None = Field(default=None, max_length=255)
+    quantity: int = Field(default=1, ge=1)
+    is_primary: bool = False
+
+
+class AdminBundleReleaseCorrectionRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    bundle_type: str | None = Field(default=None, max_length=64)
+    format: str | None = Field(default=None, max_length=64)
+    variant_type: str | None = Field(default=None, max_length=64)
+    packaging_type: str | None = Field(default=None, max_length=64)
+    region: str | None = Field(default=None, max_length=32)
+    language: str | None = Field(default=None, max_length=32)
+    publisher: str | None = Field(default=None, max_length=255)
+    sku: str | None = Field(default=None, max_length=100)
+    barcode: str | None = Field(default=None, max_length=32)
+    release_date: date | None = None
+    cover_image_url: str | None = Field(default=None, max_length=1024)
+    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+    members: list[AdminBundleReleaseMemberUpdateRequest] | None = None
+
+
+class AdminSeriesTagsUpdateRequest(BaseModel):
+    tags: list[str] = Field(default_factory=list)
     thumbnail_image_url: str | None = Field(default=None, max_length=1024)
 
 
@@ -188,7 +230,6 @@ class AdminCatalogSummaryResponse(BaseModel):
     volumes: int
     editions: int
     variants: int
-    releases: int
     provider_links: int
     image_assets: int
     image_cache_entries: int

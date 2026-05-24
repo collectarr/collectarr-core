@@ -27,7 +27,7 @@ class MetadataRepository:
         return select(Item).options(
             selectinload(Item.volume).selectinload(Volume.series),
             selectinload(Item.editions).selectinload(Edition.variants),
-            selectinload(Item.editions).selectinload(Edition.releases),
+            selectinload(Item.primary_bundle_releases),
         )
 
     async def get_item(self, item_id: UUID, kind: ItemKind | None = None) -> Item | None:
@@ -68,12 +68,13 @@ class MetadataRepository:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.editions).selectinload(Edition.releases),
+                selectinload(Item.primary_bundle_releases),
             )
             .join(Item.volume, isouter=True)
             .join(Volume.series, isouter=True)
             .join(Item.editions, isouter=True)
             .join(Edition.variants, isouter=True)
+            .join(BundleRelease, BundleRelease.primary_item_id == Item.id, isouter=True)
             .order_by(Item.sort_key.nullslast(), Item.title)
             .limit(limit)
         )
@@ -93,6 +94,9 @@ class MetadataRepository:
                     Variant.barcode.ilike(pattern),
                     Variant.isbn.ilike(pattern),
                     Variant.platform.ilike(pattern),
+                    BundleRelease.title.ilike(pattern),
+                    BundleRelease.barcode.ilike(pattern),
+                    BundleRelease.sku.ilike(pattern),
                 )
             )
         if kind:
@@ -112,10 +116,19 @@ class MetadataRepository:
                 or_(Item.item_number == normalized, Item.item_number.ilike(f"%{normalized}%"))
             )
         if publisher:
-            stmt = stmt.where(Edition.publisher.ilike(f"%{publisher.strip()}%"))
+            stmt = stmt.where(
+                or_(
+                    Edition.publisher.ilike(f"%{publisher.strip()}%"),
+                    BundleRelease.publisher.ilike(f"%{publisher.strip()}%"),
+                )
+            )
         if year is not None:
             stmt = stmt.where(
-                or_(Volume.start_year == year, extract("year", Edition.release_date) == year)
+                or_(
+                    Volume.start_year == year,
+                    extract("year", Edition.release_date) == year,
+                    extract("year", BundleRelease.release_date) == year,
+                )
             )
         if barcode:
             normalized = self._normalized_barcode_value(barcode)
@@ -126,6 +139,8 @@ class MetadataRepository:
                     self._normalized_barcode_expr(Variant.barcode) == normalized,
                     self._normalized_barcode_expr(Variant.isbn) == normalized,
                     self._normalized_barcode_expr(Variant.sku) == normalized,
+                    self._normalized_barcode_expr(BundleRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(BundleRelease.sku) == normalized,
                 )
             )
         result = await self.db.execute(stmt)
@@ -140,6 +155,7 @@ class MetadataRepository:
             self._item_detail_stmt()
             .join(Item.editions)
             .join(Edition.variants, isouter=True)
+            .join(BundleRelease, BundleRelease.primary_item_id == Item.id, isouter=True)
             .where(
                 or_(
                     self._normalized_barcode_expr(Edition.upc) == normalized,
@@ -147,6 +163,8 @@ class MetadataRepository:
                     self._normalized_barcode_expr(Variant.barcode) == normalized,
                     self._normalized_barcode_expr(Variant.isbn) == normalized,
                     self._normalized_barcode_expr(Variant.sku) == normalized,
+                    self._normalized_barcode_expr(BundleRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(BundleRelease.sku) == normalized,
                 )
             )
             .limit(1)

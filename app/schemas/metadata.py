@@ -30,17 +30,6 @@ class VariantResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ReleaseResponse(BaseModel):
-    id: UUID
-    region: str
-    release_date: date | None
-    publisher: str | None
-    external_ids: dict[str, Any] | None
-    metadata_json: dict[str, Any] | None
-
-    model_config = {"from_attributes": True}
-
-
 class BundleReleaseContentSummaryResponse(BaseModel):
     total_items: int
     primary_count: int
@@ -73,6 +62,7 @@ class BundleReleaseSummaryResponse(BaseModel):
 
 
 class BundleReleaseMemberResponse(BaseModel):
+    id: UUID
     item_id: UUID
     role: str
     sequence_number: int | None = None
@@ -128,7 +118,6 @@ class EditionResponse(BaseModel):
     physical_format_label: str | None = None
     metadata_json: dict[str, Any] | None
     variants: list[VariantResponse] = []
-    releases: list[ReleaseResponse] = []
 
     model_config = {"from_attributes": True}
 
@@ -165,6 +154,13 @@ class ItemResponse(BaseModel):
     story_arcs: list[MetadataCredit] = []
     tags: list[str] = Field(default_factory=list)
     platforms: list[str] = []
+    genres: list[str] = []
+    country: str | None = None
+    language: str | None = None
+    age_rating: str | None = None
+    imprint: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
     release_status: str | None = None
     provider_links: list[ProviderLink] = []
     editions: list[EditionResponse] = []
@@ -209,6 +205,8 @@ class SearchResult(BaseModel):
     imprint: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
+    bundle_titles: list[str] | None = None
+    bundle_release_ids: list[str] | None = None
 
 
 class ProviderSearchResultResponse(BaseModel):
@@ -441,7 +439,9 @@ class CharacterAppearanceResponse(BaseModel):
     cover_image_url: str | None = None
 
 
-def item_response_from_model(item: Any) -> ItemResponse:
+def item_response_from_model(
+    item: Any, extra_provider_links: list[ProviderLink] | None = None
+) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
     _enrich_physical_formats(base, item)
     edition = _primary_edition(item)
@@ -473,8 +473,16 @@ def item_response_from_model(item: Any) -> ItemResponse:
             "story_arcs": _credits(source.get("story_arc_credits"))
             or _credits(normalized.get("story_arcs")),
             "platforms": _string_list(normalized.get("platforms")),
+            "genres": _string_list(normalized.get("genres")),
+            "country": _optional_text(normalized.get("country")),
+            "language": _optional_text(getattr(edition, "language", None))
+            or _optional_text(normalized.get("language")),
+            "age_rating": _optional_text(normalized.get("age_rating")),
+            "imprint": _optional_text(normalized.get("imprint")),
+            "subtitle": _optional_text(normalized.get("subtitle")),
+            "series_group": _optional_text(normalized.get("series_group")),
             "release_status": _optional_text(normalized.get("release_status")),
-            "provider_links": _provider_links(item),
+            "provider_links": _provider_links(item, extra_provider_links=extra_provider_links),
         }
     )
     return ItemResponse(**base)
@@ -535,6 +543,7 @@ def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetail
         external_ids=getattr(bundle_release, "external_ids", None),
         members=[
             BundleReleaseMemberResponse(
+                id=member.id,
                 item_id=member.item_id,
                 role=member.role,
                 sequence_number=getattr(member, "sequence_number", None),
@@ -655,9 +664,6 @@ def _publisher(item: Any) -> str | None:
     for edition in getattr(item, "editions", []) or []:
         if edition.publisher:
             return edition.publisher
-        for release in getattr(edition, "releases", []) or []:
-            if release.publisher:
-                return release.publisher
     return None
 
 
@@ -752,9 +758,21 @@ def _string_list(values: Any) -> list[str]:
     return result
 
 
-def _provider_links(item: Any) -> list[ProviderLink]:
+def _provider_links(
+    item: Any, extra_provider_links: list[ProviderLink] | None = None
+) -> list[ProviderLink]:
     links: list[ProviderLink] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: dict[tuple[str, str, str], ProviderLink] = {}
+    for link in extra_provider_links or []:
+        _append_provider_link(
+            links,
+            seen,
+            provider=link.provider.value,
+            entity_type=link.entity_type,
+            provider_item_id=link.provider_item_id,
+            site_url=link.site_url,
+            api_url=link.api_url,
+        )
     for edition in getattr(item, "editions", []) or []:
         metadata = getattr(edition, "metadata_json", None) or {}
         provider = metadata.get("provider") if isinstance(metadata, dict) else None
@@ -770,25 +788,12 @@ def _provider_links(item: Any) -> list[ProviderLink]:
                 site_url=_optional_text(source.get("site_detail_url")),
                 api_url=_optional_text(source.get("api_detail_url")),
             )
-        for release in getattr(edition, "releases", []) or []:
-            external_ids = getattr(release, "external_ids", None) or {}
-            if not isinstance(external_ids, dict):
-                continue
-            for release_provider, release_id in external_ids.items():
-                if release_id:
-                    _append_provider_link(
-                        links,
-                        seen,
-                        provider=str(release_provider),
-                        entity_type="release",
-                        provider_item_id=str(release_id),
-                    )
     return links
 
 
 def _append_provider_link(
     links: list[ProviderLink],
-    seen: set[tuple[str, str, str]],
+    seen: dict[tuple[str, str, str], ProviderLink],
     *,
     provider: str,
     entity_type: str,
@@ -797,22 +802,26 @@ def _append_provider_link(
     api_url: str | None = None,
 ) -> None:
     key = (provider, entity_type, provider_item_id)
-    if key in seen:
+    existing = seen.get(key)
+    if existing is not None:
+        if existing.site_url is None and site_url is not None:
+            existing.site_url = site_url
+        if existing.api_url is None and api_url is not None:
+            existing.api_url = api_url
         return
     try:
         provider_enum = ExternalProvider(provider)
     except ValueError:
         return
-    seen.add(key)
-    links.append(
-        ProviderLink(
-            provider=provider_enum,
-            entity_type=entity_type,
-            provider_item_id=provider_item_id,
-            site_url=site_url,
-            api_url=api_url,
-        )
+    link = ProviderLink(
+        provider=provider_enum,
+        entity_type=entity_type,
+        provider_item_id=provider_item_id,
+        site_url=site_url,
+        api_url=api_url,
     )
+    seen[key] = link
+    links.append(link)
 
 
 def _optional_text(value: Any) -> str | None:

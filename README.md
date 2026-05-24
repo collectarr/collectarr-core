@@ -14,11 +14,11 @@
 
 > The shared metadata engine behind Collectarr — canonical catalog, provider integrations, image delivery, and admin console.
 
-Core owns the shared catalog and provider infrastructure. Personal collection data (owned items, wishlists, grades, notes) lives in `collectarr-app` and optionally syncs through `collectarr-sync`.
+Core owns the shared catalog and provider infrastructure. Personal collection data (owned items, wishlists, grades, notes, personal tags) lives in `collectarr-app` and optionally syncs through `collectarr-sync`, while shared editorial tags can be attached to catalog series in Core.
 
 ## Features
 
-- **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and tags
+- **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and shared series-level tags
 - **10 metadata providers** — GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
 - **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
 - **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters

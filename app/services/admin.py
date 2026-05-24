@@ -39,7 +39,6 @@ from app.models.canonical import (
     Organization,
     Person,
     ProviderIngestJob,
-    Release,
     Series,
     SeriesRelation,
     StoryArc,
@@ -284,7 +283,6 @@ class AdminMetadataService:
             volumes=await self._count(Volume),
             editions=await self._count(Edition),
             variants=await self._count(Variant),
-            releases=await self._count(Release),
             provider_links=await self._count(ExternalProviderId),
             image_assets=await self._count_image_assets(),
             image_cache_entries=await self._count(ImageCacheEntry),
@@ -396,10 +394,17 @@ class AdminMetadataService:
             "synopsis": item.synopsis,
             "edition_title": None,
             "page_count": item.page_count,
+            "runtime_minutes": item.runtime_minutes,
             "publisher": None,
             "release_date": None,
-            "imprint": dict(item.metadata_json or {}).get("imprint"),
-            "series_group": dict(item.metadata_json or {}).get("series_group"),
+            "imprint": None,
+            "subtitle": None,
+            "series_group": None,
+            "country": None,
+            "language": None,
+            "age_rating": None,
+            "catalog_number": None,
+            "release_status": None,
             "variant_name": None,
             "barcode": None,
             "cover_image_url": None,
@@ -413,6 +418,8 @@ class AdminMetadataService:
             item.synopsis = payload.synopsis
         if "page_count" in update_data:
             item.page_count = payload.page_count
+        if "runtime_minutes" in update_data:
+            item.runtime_minutes = payload.runtime_minutes
         item.sort_key = self._sort_key(item.kind, item.title, item.item_number)
 
         edition = self._primary_edition_model(item)
@@ -423,24 +430,46 @@ class AdminMetadataService:
                 payload.physical_format,
             )
         if edition is not None:
+            edition_metadata = dict(edition.metadata_json or {})
+            normalized_metadata = dict(edition_metadata.get("normalized") or {})
             before["edition_title"] = edition.title
             before["publisher"] = edition.publisher
             before["release_date"] = edition.release_date
-            before["imprint"] = dict(edition.metadata_json or {}).get("imprint")
-            before["series_group"] = dict(edition.metadata_json or {}).get("series_group")
+            before["imprint"] = normalized_metadata.get("imprint")
+            before["subtitle"] = normalized_metadata.get("subtitle")
+            before["series_group"] = normalized_metadata.get("series_group")
+            before["country"] = normalized_metadata.get("country")
+            before["language"] = edition.language or normalized_metadata.get("language")
+            before["age_rating"] = normalized_metadata.get("age_rating")
+            before["catalog_number"] = normalized_metadata.get("catalog_number")
+            before["release_status"] = normalized_metadata.get("release_status")
             if "edition_title" in update_data:
                 edition.title = payload.edition_title
             if "publisher" in update_data:
                 edition.publisher = payload.publisher
             if "release_date" in update_data:
                 edition.release_date = payload.release_date
-            metadata = dict(edition.metadata_json or {})
             if "imprint" in update_data:
-                metadata["imprint"] = payload.imprint
+                normalized_metadata["imprint"] = payload.imprint
             if "series_group" in update_data:
-                metadata["series_group"] = payload.series_group
-            if metadata != dict(edition.metadata_json or {}):
-                edition.metadata_json = metadata
+                normalized_metadata["series_group"] = payload.series_group
+            if "subtitle" in update_data:
+                normalized_metadata["subtitle"] = payload.subtitle
+            if "country" in update_data:
+                normalized_metadata["country"] = payload.country
+            if "language" in update_data:
+                edition.language = payload.language
+                normalized_metadata["language"] = payload.language
+            if "age_rating" in update_data:
+                normalized_metadata["age_rating"] = payload.age_rating
+            if "catalog_number" in update_data:
+                normalized_metadata["catalog_number"] = payload.catalog_number
+            if "release_status" in update_data:
+                normalized_metadata["release_status"] = payload.release_status
+            if normalized_metadata != dict(edition_metadata.get("normalized") or {}):
+                edition_metadata["normalized"] = normalized_metadata
+            if edition_metadata != dict(edition.metadata_json or {}):
+                edition.metadata_json = edition_metadata
             if physical_format is not None:
                 self._apply_physical_format_to_edition(edition, physical_format)
 
@@ -1436,6 +1465,7 @@ class AdminMetadataService:
         """Fetch and normalize provider data without creating anything in the DB."""
         provider = self._provider(payload.provider)
         self._ensure_provider_ingest_supported(provider, payload.provider)
+        self._ensure_provider_kind_supported(provider, payload)
         hydrated = await self._hydrated_provider_preview(payload, provider=provider)
         provider_item = hydrated.provider_item
         normalized = hydrated.normalized
@@ -1548,6 +1578,7 @@ class AdminMetadataService:
     async def _ingest_once(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:
         provider = self._provider(payload.provider)
         self._ensure_provider_ingest_supported(provider, payload.provider)
+        self._ensure_provider_kind_supported(provider, payload)
         existing_provider_id = await self._get_provider_id(payload)
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
@@ -1603,6 +1634,15 @@ class AdminMetadataService:
         provider_item = await provider.get_item(payload.provider_item_id)
         normalized = await provider.normalize(provider_item.raw)
         normalized = await self._enrich_missing_comic_cover(normalized)
+        if payload.kind is not None and normalized.kind != payload.kind:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_kind_mismatch",
+                detail=(
+                    f"Provider item '{payload.provider_item_id}' normalized as "
+                    f"'{normalized.kind.value}', not '{payload.kind.value}'"
+                ),
+            )
         hydrated = HydratedProviderPreview(
             provider_item=provider_item,
             normalized=normalized,
@@ -1614,6 +1654,21 @@ class AdminMetadataService:
                 hydrated,
             )
         return hydrated
+
+    def _ensure_provider_kind_supported(
+        self,
+        provider: MetadataProvider,
+        payload: ProviderIngestRequest,
+    ) -> None:
+        if payload.kind is not None and not provider.capabilities.supports_kind(payload.kind):
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_kind_unsupported",
+                detail=(
+                    f"Provider '{payload.provider.value}' does not support "
+                    f"kind '{payload.kind.value}'"
+                ),
+            )
 
     def _physical_format_for_normalized(
         self,
@@ -2215,25 +2270,7 @@ class AdminMetadataService:
             edition=edition,
             primary_cover_url=normalized.cover_image_url,
         )
-        release = Release(
-            edition=edition,
-            region="US",
-            release_date=normalized.release_date,
-            publisher=normalized.publisher,
-            external_ids=normalized.provider_ids,
-            metadata_json={
-                "provider": provider_name.value,
-                "provider_item_id": provider_item_id,
-                "normalized": {
-                    "release_date": (
-                        normalized.release_date.isoformat() if normalized.release_date else None
-                    ),
-                    "publisher": normalized.publisher,
-                    "external_ids": normalized.provider_ids,
-                },
-            },
-        )
-        self.db.add_all([item, edition, variant, *additional_variants, release])
+        self.db.add_all([item, edition, variant, *additional_variants])
         await self.db.flush()
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
@@ -3108,7 +3145,6 @@ class AdminMetadataService:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.editions).selectinload(Edition.releases),
             )
             .where(Item.id.in_(unique_ids))
         )
@@ -3273,9 +3309,6 @@ class AdminMetadataService:
         for edition in item.editions:
             if edition.release_date is not None:
                 return edition.release_date.isoformat()
-            for release in edition.releases:
-                if release.release_date is not None:
-                    return release.release_date.isoformat()
         return None
 
     def _duplicate_ignore_token(self, item_ids: list[UUID]) -> str:
@@ -3418,7 +3451,6 @@ class AdminMetadataService:
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.editions).selectinload(Edition.releases),
             )
         )
         return [item_search_document(item) for item in result.scalars().unique()]

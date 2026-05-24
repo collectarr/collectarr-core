@@ -7,7 +7,8 @@ Collectarr splits data across three stores:
 - Optional `collectarr-sync`: user-hosted event log for syncing a user's own devices.
 
 The central server must not store owned items, wishlist, reading progress, ratings, prices,
-condition, grading, notes, tags, or personal shelves.
+condition, grading, notes, personal tags, or personal shelves. Shared editorial tags attached
+to catalog series are allowed in Core.
 
 ## Central Catalog
 
@@ -48,7 +49,7 @@ The central catalog also has generic relationship tables:
 - `persons`: creators, writers, artists, directors, actors, authors, musicians.
 - `entity_organizations`: organization roles attached to work/series/release/variant entities.
 - `entity_persons`: person roles attached to work/series/release/variant entities.
-- `tags`: genres, characters, arcs, franchises, themes.
+- `tags`: genres, characters, arcs, franchises, themes, and shared series-level editorial tags.
 - `entity_tags`: tag assignments.
 - `image_assets`: cover/poster/banner/background image refs in object storage.
 - `image_cache_entries`: mirrored provider cover cache index, including source URL, object key,
@@ -63,7 +64,7 @@ Drift tables, but semantically they map to:
 
 - `ownership_status`: owned, wishlist.
 - `tracking_status`: planned, in_progress, completed, paused, dropped, repeating.
-- personal fields: purchase date, purchase price, grade, condition, rating, notes, tags,
+- personal fields: purchase date, purchase price, grade, condition, rating, notes, personal tags,
   storage box, quantity, signed-by, key item, grading company.
 
 The local catalog cache stores denormalized metadata snapshots so the app can show the user's

@@ -1,6 +1,7 @@
 import pytest
 
 from app.models.base import ItemKind
+from app.providers.base import NormalizedCredit
 from app.providers.hardcover import HardcoverProvider
 
 
@@ -38,7 +39,10 @@ def _book_response() -> dict:
                     "release_date": "1937-09-21",
                     "contributions": [
                         {
-                            "author": {"name": "J.R.R. Tolkien"},
+                            "author": {
+                                "name": "J.R.R. Tolkien",
+                                "image": {"url": "https://cdn.example/tolkien.jpg"},
+                            },
                             "contribution_type": "Author",
                         }
                     ],
@@ -98,6 +102,13 @@ async def test_hardcover_get_item_and_normalize_preserves_book_kind(monkeypatch)
     assert normalized.page_count == 310
     assert normalized.provider_ids == {"hardcover": "book:42"}
     assert normalized.volume_provider_ids == {"hardcover": "book:42"}
+    assert normalized.creators == [
+        NormalizedCredit(
+            name="J.R.R. Tolkien",
+            role="Author",
+            image_url="https://cdn.example/tolkien.jpg",
+        )
+    ]
 
 
 @pytest.mark.asyncio

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.deps import CurrentAdmin, DbSession
 from app.core.rate_limit import admin_provider_rate_limit
 from app.schemas.admin import (
+    AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
@@ -35,7 +36,7 @@ from app.schemas.admin import (
     UserUpdateRequest,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.schemas.metadata import ItemResponse, SeriesResponse
+from app.schemas.metadata import BundleReleaseDetailResponse, ItemResponse, SeriesResponse
 from app.services.admin import AdminMetadataService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -84,6 +85,19 @@ async def catalog_series_tags_update(
     user: CurrentAdmin,
 ) -> SeriesResponse:
     return await AdminMetadataService(db, user).update_series_tags(series_id, payload)
+
+
+@router.patch(
+    "/catalog/bundle-releases/{bundle_release_id}",
+    response_model=BundleReleaseDetailResponse,
+)
+async def catalog_bundle_release_update(
+    bundle_release_id: UUID,
+    payload: AdminBundleReleaseCorrectionRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> BundleReleaseDetailResponse:
+    return await AdminMetadataService(db, user).update_bundle_release(bundle_release_id, payload)
 
 
 @router.get("/search/status", response_model=AdminSearchStatusResponse)

@@ -70,8 +70,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
             variant = physical_format or primary.name
             cover_url = cover_url or primary.cover_image_url
             thumbnail_url = thumbnail_url or primary.thumbnail_image_url
-        for release in edition.releases:
-            release_region = release_region or release.region
+        release_region = release_region or edition.region
 
     bundle_releases = _loaded_primary_bundle_releases(item)
     for bundle_release in bundle_releases:

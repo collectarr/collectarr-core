@@ -145,7 +145,6 @@ def _item_stmt() -> Select[tuple[Item]]:
         .options(
             selectinload(Item.volume).selectinload(Volume.series),
             selectinload(Item.editions).selectinload(Edition.variants),
-            selectinload(Item.editions).selectinload(Edition.releases),
         )
         .order_by(Item.sort_key.nullslast(), Item.title)
     )

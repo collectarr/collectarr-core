@@ -28,7 +28,6 @@ _ENTITY_TYPES = {
     "item",
     "edition",
     "variant",
-    "release",
 }
 
 

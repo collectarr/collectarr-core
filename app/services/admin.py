@@ -388,7 +388,6 @@ class AdminMetadataService:
                 detail="Item not found",
             )
         update_data = payload.model_dump(exclude_unset=True)
-        bundle_items = list(bundle.items or [])
         before = {
             "title": item.title,
             "item_number": item.item_number,

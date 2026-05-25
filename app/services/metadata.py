@@ -2,7 +2,6 @@ import asyncio
 import logging
 import re
 from dataclasses import replace
-from datetime import date
 from urllib.parse import urlparse
 from uuid import UUID
 

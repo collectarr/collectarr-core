@@ -1750,6 +1750,89 @@ async def test_admin_bundle_release_update_can_add_cross_kind_members(client, mo
 
 
 @pytest.mark.asyncio
+async def test_admin_bundle_release_audit_uses_public_member_sorting(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.music, title="Compilation Series")
+        volume = Volume(series=series, name="Compilation Series", volume_number=1)
+        zebra_item = Item(kind=ItemKind.music, title="Zebra Disc", sort_key="zebra-disc", volume=volume)
+        alpha_item = Item(kind=ItemKind.music, title="Alpha Disc", sort_key="alpha-disc", volume=volume)
+        db.add_all([series, volume, zebra_item, alpha_item])
+        await db.flush()
+        bundle = BundleRelease(
+            kind=ItemKind.music,
+            title="Sortable Box",
+            bundle_type="box_set",
+            primary_item_id=zebra_item.id,
+            series_id=series.id,
+            volume_id=volume.id,
+        )
+        db.add(bundle)
+        await db.flush()
+        zebra_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=zebra_item.id,
+            item=zebra_item,
+            role="primary",
+            quantity=1,
+            is_primary=True,
+        )
+        alpha_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=alpha_item.id,
+            item=alpha_item,
+            role="component",
+            quantity=1,
+            is_primary=False,
+        )
+        db.add_all([zebra_member, alpha_member])
+        await db.commit()
+        bundle_id = str(bundle.id)
+        zebra_member_id = str(zebra_member.id)
+        alpha_member_id = str(alpha_member.id)
+
+    response = await client.patch(
+        f"/admin/catalog/bundle-releases/{bundle_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Sortable Box Updated",
+            "members": [
+                {
+                    "id": zebra_member_id,
+                    "role": "primary",
+                    "quantity": 1,
+                    "is_primary": True,
+                },
+                {
+                    "id": alpha_member_id,
+                    "role": "component",
+                    "quantity": 1,
+                    "is_primary": False,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+    logs = await client.get(
+        "/admin/audit/logs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"action": "metadata.bundle_correction"},
+    )
+
+    assert logs.status_code == 200
+    before_members = logs.json()[0]["details_json"]["before"]["members"]
+    assert [member["id"] for member in before_members] == [alpha_member_id, zebra_member_id]
+
+
+@pytest.mark.asyncio
 async def test_admin_provider_ingest_persistent_job_queue(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     settings = get_settings()

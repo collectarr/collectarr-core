@@ -100,6 +100,7 @@ from app.schemas.metadata import (
     BundleReleaseDetailResponse,
     ProviderLink,
     SeriesResponse,
+    bundle_release_member_sort_key,
     bundle_release_detail_from_model,
     item_response_from_model,
 )
@@ -387,6 +388,7 @@ class AdminMetadataService:
                 detail="Item not found",
             )
         update_data = payload.model_dump(exclude_unset=True)
+        bundle_items = list(bundle.items or [])
         before = {
             "title": item.title,
             "item_number": item.item_number,
@@ -569,8 +571,8 @@ class AdminMetadataService:
                 code="bundle_release_not_found",
                 detail="Bundle release not found",
             )
-
         update_data = payload.model_dump(exclude_unset=True)
+        bundle_items = list(bundle.items or [])
         before = {
             "title": bundle.title,
             "bundle_type": bundle.bundle_type,
@@ -597,16 +599,7 @@ class AdminMetadataService:
                     "quantity": member.quantity,
                     "is_primary": member.is_primary,
                 }
-                for member in sorted(
-                    list(bundle.items or []),
-                    key=lambda member: (
-                        getattr(member, "disc_number", None) is None,
-                        getattr(member, "disc_number", None) or 0,
-                        getattr(member, "sequence_number", None) is None,
-                        getattr(member, "sequence_number", None) or 0,
-                        str(getattr(member, "id", "")),
-                    ),
-                )
+                for member in sorted(bundle_items, key=bundle_release_member_sort_key)
             ],
         }
 
@@ -628,7 +621,7 @@ class AdminMetadataService:
             if field in update_data:
                 setattr(bundle, field, update_data[field])
 
-        affected_item_ids = {member.item_id for member in bundle.items}
+        affected_item_ids = {member.item_id for member in bundle_items}
         if "members" in update_data:
             members_payload = payload.members or []
             if not members_payload:
@@ -637,7 +630,7 @@ class AdminMetadataService:
                     code="bundle_members_required",
                     detail="Bundle release updates must keep at least one member",
                 )
-            existing_members = {member.id: member for member in bundle.items}
+            existing_members = {member.id: member for member in bundle_items}
             payload_existing_ids = [member.id for member in members_payload if member.id is not None]
             if len(payload_existing_ids) != len(set(payload_existing_ids)):
                 raise ApiHTTPException(
@@ -707,6 +700,8 @@ class AdminMetadataService:
                         item=available_items[member_payload.item_id],
                     )
                     self.db.add(member)
+                    if bundle.items is None:
+                        bundle.items = []
                     bundle.items.append(member)
                 member.role = member_payload.role
                 member.sequence_number = member_payload.sequence_number

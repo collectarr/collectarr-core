@@ -535,17 +535,24 @@ def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSumma
     )
 
 
+def bundle_release_member_sort_key(member: Any) -> tuple[bool, int, bool, int, str]:
+    item = getattr(member, "item", None)
+    item_title = getattr(item, "title", None)
+    title_key = str(item_title).casefold() if item_title is not None else str(getattr(member, "id", ""))
+    return (
+        getattr(member, "disc_number", None) is None,
+        getattr(member, "disc_number", None) or 0,
+        getattr(member, "sequence_number", None) is None,
+        getattr(member, "sequence_number", None) or 0,
+        title_key,
+    )
+
+
 def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetailResponse:
     summary = bundle_release_summary_from_model(bundle_release)
     members = sorted(
         list(getattr(bundle_release, "items", []) or []),
-        key=lambda member: (
-            getattr(member, "disc_number", None) is None,
-            getattr(member, "disc_number", None) or 0,
-            getattr(member, "sequence_number", None) is None,
-            getattr(member, "sequence_number", None) or 0,
-            getattr(getattr(member, "item", None), "title", ""),
-        ),
+        key=bundle_release_member_sort_key,
     )
     return BundleReleaseDetailResponse(
         **summary.model_dump(),

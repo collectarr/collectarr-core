@@ -30,6 +30,261 @@ Core owns the shared catalog and provider infrastructure. Personal collection da
 - **Role-based access** — viewer / editor / admin roles with audit trail
 - **OpenAPI docs** — auto-generated schema at `/docs` with versioned export
 
+## Database Schema
+
+Below is the high-level canonical database map used by Core. It is intentionally split into two Mermaid diagrams so the README view stays readable on GitHub.
+
+The source of truth remains `app/models/canonical.py`.
+
+### Catalog Spine
+
+```mermaid
+erDiagram
+	FRANCHISE {
+		uuid id PK
+		string name
+		text description
+		jsonb metadata_json
+	}
+
+	SERIES {
+		uuid id PK
+		uuid franchise_id FK
+		string kind
+		string title
+		string slug
+		string status
+	}
+
+	VOLUME {
+		uuid id PK
+		uuid series_id FK
+		string name
+		int volume_number
+		int start_year
+	}
+
+	ITEM {
+		uuid id PK
+		uuid volume_id FK
+		string kind
+		string title
+		string item_number
+		string release_type
+	}
+
+	EDITION {
+		uuid id PK
+		uuid item_id FK
+		string title
+		string format
+		string publisher
+		string isbn
+		string upc
+	}
+
+	VARIANT {
+		uuid id PK
+		uuid edition_id FK
+		string name
+		string variant_type
+		string sku
+		string barcode
+		bool is_primary
+	}
+
+	BUNDLE_RELEASE {
+		uuid id PK
+		uuid franchise_id FK
+		uuid series_id FK
+		uuid volume_id FK
+		uuid primary_item_id FK
+		string title
+		string bundle_type
+		string barcode
+	}
+
+	BUNDLE_RELEASE_ITEM {
+		uuid id PK
+		uuid bundle_release_id FK
+		uuid item_id FK
+		string role
+		int disc_number
+		int sequence_number
+	}
+
+	FRANCHISE ||--o{ SERIES : groups
+	SERIES ||--o{ VOLUME : contains
+	VOLUME ||--o{ ITEM : contains
+	ITEM ||--o{ EDITION : publishes
+	EDITION ||--o{ VARIANT : specializes
+
+	FRANCHISE ||--o{ BUNDLE_RELEASE : scopes
+	SERIES ||--o{ BUNDLE_RELEASE : scopes
+	VOLUME ||--o{ BUNDLE_RELEASE : scopes
+	ITEM ||--o| BUNDLE_RELEASE : primary_item
+	BUNDLE_RELEASE ||--o{ BUNDLE_RELEASE_ITEM : includes
+	ITEM ||--o{ BUNDLE_RELEASE_ITEM : member
+```
+
+### Editorial, Identity, and Operations
+
+```mermaid
+erDiagram
+	ITEM {
+		uuid id PK
+		string title
+		string kind
+	}
+
+	SERIES {
+		uuid id PK
+		string title
+		string kind
+	}
+
+	STORY_ARC {
+		uuid id PK
+		string name
+		string publisher
+	}
+
+	STORY_ARC_ITEM {
+		uuid id PK
+		uuid story_arc_id FK
+		uuid item_id FK
+		int ordinal
+	}
+
+	CHARACTER {
+		uuid id PK
+		string name
+		uuid first_appearance_item_id FK
+	}
+
+	CHARACTER_APPEARANCE {
+		uuid id PK
+		uuid character_id FK
+		uuid item_id FK
+		string role
+	}
+
+	TAG {
+		uuid id PK
+		string kind
+		string name
+	}
+
+	ENTITY_TAG {
+		uuid id PK
+		string entity_type
+		uuid entity_id
+		uuid tag_id FK
+	}
+
+	PERSON {
+		uuid id PK
+		string name
+	}
+
+	ENTITY_PERSON {
+		uuid id PK
+		string entity_type
+		uuid entity_id
+		uuid person_id FK
+		string role
+	}
+
+	ORGANIZATION {
+		uuid id PK
+		string name
+		string type
+	}
+
+	ENTITY_ORGANIZATION {
+		uuid id PK
+		string entity_type
+		uuid entity_id
+		uuid organization_id FK
+		string role
+	}
+
+	SERIES_RELATION {
+		uuid id PK
+		uuid source_series_id FK
+		uuid target_series_id FK
+		string relation_type
+	}
+
+	EXTERNAL_PROVIDER_ID {
+		uuid id PK
+		string provider
+		string provider_item_id
+		string entity_type
+		uuid entity_id
+	}
+
+	IMAGE_ASSET {
+		uuid id PK
+		string entity_type
+		uuid entity_id
+		string image_type
+		string provider
+	}
+
+	IMAGE_CACHE_ENTRY {
+		uuid id PK
+		string provider
+		string provider_item_id
+		string source_url
+		string object_key
+	}
+
+	PROVIDER_INGEST_JOB {
+		uuid id PK
+		string provider
+		string provider_item_id
+		string status
+		uuid item_id
+	}
+
+	METADATA_PROPOSAL {
+		uuid id PK
+		string provider
+		string provider_item_id
+		string query
+		string status
+	}
+
+	ADMIN_AUDIT_LOG {
+		uuid id PK
+		string action
+		string entity_type
+		uuid entity_id
+		string actor_email
+	}
+
+	STORY_ARC ||--o{ STORY_ARC_ITEM : maps
+	ITEM ||--o{ STORY_ARC_ITEM : belongs_to
+
+	CHARACTER ||--o{ CHARACTER_APPEARANCE : maps
+	ITEM ||--o{ CHARACTER_APPEARANCE : has
+	ITEM ||--o| CHARACTER : first_appearance
+
+	TAG ||--o{ ENTITY_TAG : assigns
+	PERSON ||--o{ ENTITY_PERSON : assigns
+	ORGANIZATION ||--o{ ENTITY_ORGANIZATION : assigns
+
+	SERIES ||--o{ SERIES_RELATION : source
+	SERIES ||--o{ SERIES_RELATION : target
+
+	ITEM ||--o{ PROVIDER_INGEST_JOB : ingest_target
+```
+
+- `entity_tags`, `entity_persons`, `entity_organizations`, `external_provider_ids`, and `image_assets` are polymorphic link tables: they store `entity_type` + `entity_id` so the same support table can attach to multiple catalog entity types.
+- `image_cache_entries`, `provider_ingest_jobs`, `metadata_proposals`, and `admin_audit_logs` are operational tables around ingestion, caching, and moderation workflows.
+- If you want a fuller pan/zoom-first version later, the next good step would be exporting the same schema to a dedicated ERD page or `dbdiagram` file, but the Mermaid version above renders directly in GitHub.
+
 ## Quick Start
 
 ```powershell

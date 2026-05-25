@@ -2,6 +2,12 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      build_only:
+        description: Build the container image without publishing a GitHub Release or pushing to GHCR
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -30,16 +36,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve release mode
+        id: release_mode
+        shell: bash
+        run: |
+          if [ "${{ inputs.build_only }}" = "true" ]; then
+            echo "build_requested=true" >> "$GITHUB_OUTPUT"
+            echo "publish_release=false" >> "$GITHUB_OUTPUT"
+            echo "image_tag=build-only-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.semantic_preview.outputs.new_release_published }}" = "true" ]; then
+            echo "build_requested=true" >> "$GITHUB_OUTPUT"
+            echo "publish_release=true" >> "$GITHUB_OUTPUT"
+            echo "image_tag=${{ steps.semantic_preview.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_requested=false" >> "$GITHUB_OUTPUT"
+            echo "publish_release=false" >> "$GITHUB_OUTPUT"
+            echo "image_tag=build-only-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
       - name: Set up QEMU
-        if: steps.semantic_preview.outputs.new_release_published == 'true'
+        if: steps.release_mode.outputs.build_requested == 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Buildx
-        if: steps.semantic_preview.outputs.new_release_published == 'true'
+        if: steps.release_mode.outputs.build_requested == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
-        if: steps.semantic_preview.outputs.new_release_published == 'true'
+        if: steps.release_mode.outputs.publish_release == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -47,31 +73,31 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker metadata
-        if: steps.semantic_preview.outputs.new_release_published == 'true'
+        if: steps.release_mode.outputs.build_requested == 'true'
         id: docker_meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest
-            type=raw,value=${{ steps.semantic_preview.outputs.new_release_version }}
+            type=raw,value=latest,enable=${{ steps.release_mode.outputs.publish_release == 'true' }}
+            type=raw,value=${{ steps.release_mode.outputs.image_tag }}
 
       - name: Build and push container image
-        if: steps.semantic_preview.outputs.new_release_published == 'true'
+        if: steps.release_mode.outputs.build_requested == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ steps.release_mode.outputs.publish_release == 'true' }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
 
       - name: Release
-        if: steps.semantic_preview.outputs.new_release_published == 'true'
+        if: steps.release_mode.outputs.publish_release == 'true'
         uses: cycjimmy/semantic-release-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: No release needed
-        if: steps.semantic_preview.outputs.new_release_published != 'true'
+        if: steps.release_mode.outputs.build_requested != 'true'
         run: echo "No releasable changes detected."

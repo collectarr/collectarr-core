@@ -102,6 +102,13 @@ When a releasable version is detected, the workflow publishes a GitHub Release
 and pushes the backend container image to `ghcr.io/collectarr/collectarr-core`
 with both the semantic version tag and `latest`.
 
+The first published GHCR package defaults to `private`. After the first real
+release, open the package page in the `collectarr` organization and switch
+`collectarr-core` to `public` before expecting anonymous `docker pull`
+operations to work:
+
+- `https://github.com/orgs/collectarr/packages/container/package/collectarr-core`
+
 For personal LAN deployment on unRAID with Docker Compose, see
 [docs/unraid.md](docs/unraid.md).
 

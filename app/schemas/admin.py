@@ -140,6 +140,29 @@ class ProviderIngestHistoryEntry(BaseModel):
     error: str | None = None
 
 
+class ProviderBatchHydrateItem(BaseModel):
+    provider_item_id: str = Field(min_length=1, max_length=255)
+
+
+class ProviderBatchHydrateRequest(BaseModel):
+    provider: ExternalProvider
+    items: list[ProviderBatchHydrateItem] = Field(min_length=1, max_length=500)
+
+
+class ProviderBatchHydrateResultItem(BaseModel):
+    provider_item_id: str
+    success: bool
+    preview: ProviderPreviewResponse | None = None
+    error: str | None = None
+
+
+class ProviderBatchHydrateResponse(BaseModel):
+    results: list[ProviderBatchHydrateResultItem]
+    total: int
+    succeeded: int
+    failed: int
+
+
 class ProviderIngestRetryRequest(BaseModel):
     history_id: int
 

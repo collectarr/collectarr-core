@@ -24,6 +24,7 @@ def test_media_catalog_keeps_bluray_as_legacy_physical_format():
     bluray = media_type_for_route("blu-ray")
     movies = media_type_for_kind(ItemKind.movie)
     tv = media_type_for_kind(ItemKind.tv)
+    anime = media_type_for_kind(ItemKind.anime)
 
     assert ItemKind.bluray not in top_level_kinds
     assert bluray is not None
@@ -34,6 +35,7 @@ def test_media_catalog_keeps_bluray_as_legacy_physical_format():
     assert [format.id for format in bluray.physical_formats] == ["blu-ray"]
     assert movies is not None
     assert tv is not None
+    assert anime is not None
     assert [format.id for format in movies.physical_formats] == [
         "dvd",
         "blu-ray",
@@ -44,10 +46,12 @@ def test_media_catalog_keeps_bluray_as_legacy_physical_format():
     ]
     assert movies.physical_formats == video_physical_formats
     assert tv.physical_formats == video_physical_formats
+    assert anime.physical_formats == video_physical_formats
     assert physical_format_for_id(" Blu-Ray ") is not None
     assert physical_format_for_id("4K Blu-ray") is not None
     assert is_video_item_kind(ItemKind.movie) is True
     assert is_video_item_kind(ItemKind.tv) is True
+    assert is_video_item_kind(ItemKind.anime) is True
     assert is_video_item_kind(ItemKind.comic) is False
 
 

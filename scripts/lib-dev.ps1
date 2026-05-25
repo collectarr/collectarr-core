@@ -57,6 +57,63 @@ function Invoke-ComposeChecked {
   }
 }
 
+function Test-CollectarrHasAlembicVersions {
+  param([Parameter(Mandatory = $true)][string]$RepoRoot)
+
+  $versionsPath = Join-Path $RepoRoot "alembic\versions"
+  if (-not (Test-Path -LiteralPath $versionsPath)) {
+    return $false
+  }
+
+  $versionFiles = Get-ChildItem -LiteralPath $versionsPath -Filter "*.py" -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -ne "__init__.py" }
+  return [bool]($versionFiles | Select-Object -First 1)
+}
+
+function Invoke-CollectarrSchemaSetup {
+  param(
+    [Parameter(Mandatory = $true)][string]$RepoRoot,
+    [switch]$WithSync
+  )
+
+  $prefixArguments = @()
+  if ($WithSync) {
+    $prefixArguments = @("-f", "docker-compose.yml", "-f", "docker-compose.devstack.yml")
+  }
+
+  if (Test-CollectarrHasAlembicVersions -RepoRoot $RepoRoot) {
+    Invoke-ComposeChecked -PrefixArguments $prefixArguments -Arguments @("run", "--rm", "api", "alembic", "upgrade", "head")
+    return
+  }
+
+  Write-Host "No Alembic versions found; bootstrapping schema from SQLAlchemy metadata instead." -ForegroundColor Yellow
+  $bootstrapSchemaScript = @'
+import asyncio
+
+from app.db.session import engine
+from app.models import Base
+
+
+async def main() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+
+
+asyncio.run(main())
+'@
+
+  $composeArgs = @("compose") + $prefixArguments + @("run", "--rm", "-T", "api", "python", "-")
+  if ($script:CollectarrUseWslDockerResolved) {
+    $bootstrapSchemaScript | & wsl docker @composeArgs
+  } else {
+    $bootstrapSchemaScript | & docker @composeArgs
+  }
+  if ($LASTEXITCODE -ne 0) {
+    throw "docker compose run --rm -T api python - failed with exit code $LASTEXITCODE"
+  }
+}
+
 function Read-DotEnv {
   param([Parameter(Mandatory = $true)][string]$Path)
 

@@ -57,6 +57,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("anime",),
         default_provider=ExternalProvider.anilist,
         providers=(ExternalProvider.anilist, ExternalProvider.tmdb),
+        physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
         kind=ItemKind.movie,

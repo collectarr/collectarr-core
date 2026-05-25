@@ -51,6 +51,9 @@ if (-not $KeepSearchIndex) {
 if (-not $KeepImages) {
   $volumes += "collectarr_minio_data"
 }
+if ($WithSync) {
+  $volumes += "collectarr_sync_data"
+}
 
 foreach ($volume in $volumes) {
   $existing = Invoke-DockerText @("volume", "ls", "--quiet", "--filter", "name=^$volume$")
@@ -67,7 +70,7 @@ if (-not (Test-Path ".env")) {
 }
 
 Invoke-Compose @("up", "--build", "-d", "postgres", "redis", "meilisearch", "minio")
-Invoke-Compose @("run", "--rm", "api", "alembic", "upgrade", "head")
+Invoke-CollectarrSchemaSetup -RepoRoot $repoRoot -WithSync:$WithSync
 Invoke-Compose @("run", "--rm", "api", "python", "-m", "app.scripts.seed_comics")
 Invoke-Compose @("up", "--build", "-d")
 

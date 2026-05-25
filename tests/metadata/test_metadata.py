@@ -701,6 +701,53 @@ def test_item_response_merges_persisted_provider_link_urls():
     ]
 
 
+def test_item_response_from_model_synthesizes_video_release_when_missing_editions():
+    item_id = uuid4()
+    item = SimpleNamespace(
+        id=item_id,
+        kind=ItemKind.anime,
+        title="Spirited Away",
+        item_number=None,
+        sort_key=None,
+        synopsis=None,
+        release_type=None,
+        season_number=None,
+        episode_number=None,
+        runtime_minutes=125,
+        page_count=None,
+        metadata_json={
+            "provider": "tmdb",
+            "provider_item_id": "anime:129",
+            "normalized": {
+                "kind": "anime",
+                "release_date": "2001-07-20",
+                "language": "ja",
+                "country": "JP",
+                "cover_image_url": "https://images.example/spirited-away.jpg",
+                "thumbnail_image_url": "https://images.example/spirited-away-thumb.jpg",
+            },
+        },
+        volume=None,
+        editions=[],
+        primary_bundle_releases=[],
+    )
+
+    response = item_response_from_model(item)
+
+    assert len(response.editions) == 1
+    edition = response.editions[0]
+    assert edition.title == "Spirited Away"
+    assert edition.format == "Anime"
+    assert edition.release_date == date(2001, 7, 20)
+    assert edition.language == "ja"
+    assert edition.region == "JP"
+    assert len(edition.variants) == 1
+    variant = edition.variants[0]
+    assert variant.name == "Anime"
+    assert variant.cover_image_url == "https://images.example/spirited-away.jpg"
+    assert variant.thumbnail_image_url == "https://images.example/spirited-away-thumb.jpg"
+
+
 def test_search_result_exposes_runtime_minutes():
     service = MetadataService.__new__(MetadataService)
     item = SimpleNamespace(

@@ -340,7 +340,6 @@ async def _download_mangadex_cover(url: str) -> tuple[str, bytes]:
 async def create_metadata_proposal(
     payload: MetadataProposalCreate,
     db: DbSession,
-    _user: CurrentUser,
 ) -> MetadataProposalResponse:
     return await MetadataService(db).create_proposal(payload)
 

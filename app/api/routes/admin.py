@@ -19,6 +19,8 @@ from app.schemas.admin import (
     AdminSearchStatusResponse,
     MetadataProposalAdminResponse,
     MetadataProposalSummaryResponse,
+    ProviderBatchHydrateRequest,
+    ProviderBatchHydrateResponse,
     ProviderIngestJobCreateRequest,
     ProviderIngestJobResponse,
     ProviderIngestJobRunResponse,
@@ -175,6 +177,16 @@ async def provider_preview(
     payload: ProviderIngestRequest, db: DbSession, user: CurrentAdmin
 ) -> ProviderPreviewResponse:
     return await AdminMetadataService(db).preview(payload)
+
+
+@router.post(
+    "/providers/batch-hydrate",
+    response_model=ProviderBatchHydrateResponse,
+)
+async def provider_batch_hydrate(
+    payload: ProviderBatchHydrateRequest, db: DbSession, user: CurrentAdmin
+) -> ProviderBatchHydrateResponse:
+    return await AdminMetadataService(db).batch_hydrate(payload)
 
 
 @router.post(

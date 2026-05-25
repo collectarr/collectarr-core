@@ -59,7 +59,12 @@ _PHYSICAL_FORMATS_BY_ID = {
     for key in (config.id, *config.aliases)
 }
 
-video_item_kinds = frozenset({ItemKind.movie, ItemKind.tv, ItemKind.bluray})
+video_item_kinds = frozenset({
+    ItemKind.movie,
+    ItemKind.tv,
+    ItemKind.anime,
+    ItemKind.bluray,
+})
 
 
 def physical_format_for_id(format_id: str) -> PhysicalFormatConfig | None:

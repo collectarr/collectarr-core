@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Enum, ForeignKeyConstraint, Index, PrimaryKeyConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, Enum, ForeignKeyConstraint, PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.schema import Column, Table
 
@@ -15,8 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import app.models  # noqa: F401
-from app.models.base import Base
+import app.models  # noqa: E402, F401
+from app.models.base import Base  # noqa: E402
 
 POSTGRES_DIALECT = postgresql.dialect()
 DOCS_DIR = REPO_ROOT / "docs"

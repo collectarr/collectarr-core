@@ -501,6 +501,26 @@ async def test_provider_search_returns_planned_provider_stub(client):
 
 
 @pytest.mark.asyncio
+async def test_metadata_proposal_is_saved_without_login(client):
+    response = await client.post(
+        "/metadata/proposals",
+        json={
+            "provider": "comicvine",
+            "provider_item_id": "4000-12345",
+            "query": "missing spider-man issue",
+            "title": "The Amazing Spider-Man #1 The Spider Strikes",
+            "summary": "Candidate metadata from ComicVine.",
+            "image_url": "https://example.test/cover.jpg",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "pending"
+    assert body["provider"] == "comicvine"
+
+
+@pytest.mark.asyncio
 async def test_metadata_proposal_is_saved_without_user_collection_data(client):
     token = await register_and_login(client)
 

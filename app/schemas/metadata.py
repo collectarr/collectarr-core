@@ -1,6 +1,7 @@
+from uuid import UUID, NAMESPACE_URL, uuid5
+
 from datetime import date
 from typing import Any
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -454,9 +455,12 @@ def item_response_from_model(
     item: Any, extra_provider_links: list[ProviderLink] | None = None
 ) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
+    _synthesize_video_release_if_missing(base, item)
     _enrich_physical_formats(base, item)
     edition = _primary_edition(item)
+    edition = edition or _synthetic_primary_edition(base)
     variant = _primary_variant(item)
+    variant = variant or _synthetic_primary_variant(base)
     source = _source_metadata(edition)
     normalized = _normalized_metadata(edition)
     volume = getattr(item, "volume", None)
@@ -497,6 +501,114 @@ def item_response_from_model(
         }
     )
     return ItemResponse(**base)
+
+
+def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> None:
+    if not is_video_item_kind(getattr(item, "kind", None)):
+        return
+    editions = base.get("editions")
+    if isinstance(editions, list) and editions:
+        return
+
+    normalized_item = _normalized_item_metadata(item)
+    source_item = _source_item_metadata(item)
+    release_title = (
+        _optional_text(normalized_item.get("edition_title"))
+        or _optional_text(getattr(item, "title", None))
+        or "Standard release"
+    )
+    fallback_format = _optional_text(normalized_item.get("edition_format")) or _default_video_format(item)
+    variant_name = (
+        _optional_text(normalized_item.get("variant_name"))
+        or _optional_text(normalized_item.get("physical_format_label"))
+        or fallback_format
+        or "Primary release"
+    )
+    normalized_physical_format = _optional_text(normalized_item.get("physical_format"))
+    physical_payload = _physical_format_payload(
+        {"normalized": {"physical_format": normalized_physical_format}}
+        if normalized_physical_format
+        else None,
+        fallback_format=fallback_format,
+        kind=getattr(item, "kind", None),
+    )
+    cover_image_url = _optional_text(normalized_item.get("cover_image_url")) or _optional_text(
+        source_item.get("cover_image_url")
+    )
+    thumbnail_image_url = _optional_text(normalized_item.get("thumbnail_image_url")) or _optional_text(
+        source_item.get("thumbnail_image_url")
+    ) or cover_image_url
+    edition_id = _synthetic_release_id(item, "edition")
+    variant_id = _synthetic_release_id(item, "variant")
+    edition_payload = {
+        "id": edition_id,
+        "title": release_title,
+        "format": fallback_format,
+        "publisher": _optional_text(normalized_item.get("publisher")),
+        "isbn": _optional_text(normalized_item.get("isbn")),
+        "upc": _optional_text(normalized_item.get("barcode")),
+        "language": _optional_text(normalized_item.get("language")),
+        "region": _optional_text(normalized_item.get("country")),
+        "release_date": _date_value(normalized_item.get("release_date")),
+        "metadata_json": {
+            "provider": _optional_text(source_item.get("provider")),
+            "provider_item_id": _optional_text(source_item.get("provider_item_id")),
+            "normalized": {
+                "title": release_title,
+                "format": fallback_format,
+                "physical_format": normalized_physical_format,
+                "physical_format_label": (
+                    physical_payload.get("physical_format_label") if physical_payload else None
+                ),
+                "publisher": _optional_text(normalized_item.get("publisher")),
+                "release_date": _optional_text(normalized_item.get("release_date")),
+                "barcode": _optional_text(normalized_item.get("barcode")),
+                "language": _optional_text(normalized_item.get("language")),
+                "country": _optional_text(normalized_item.get("country")),
+                "cover_image_url": cover_image_url,
+                "thumbnail_image_url": thumbnail_image_url,
+            },
+            "source": source_item or None,
+        },
+        "variants": [
+            {
+                "id": variant_id,
+                "name": variant_name,
+                "variant_type": _optional_text(normalized_item.get("variant_type")),
+                "sku": None,
+                "barcode": _optional_text(normalized_item.get("barcode")),
+                "isbn": _optional_text(normalized_item.get("isbn")),
+                "region": _optional_text(normalized_item.get("country")),
+                "platform": None,
+                "cover_price_cents": _optional_int(normalized_item.get("cover_price_cents")),
+                "currency": _optional_text(normalized_item.get("currency")),
+                "cover_image_url": cover_image_url,
+                "thumbnail_image_url": thumbnail_image_url,
+                "description": None,
+                "metadata_json": {
+                    "normalized": {
+                        "name": variant_name,
+                        "variant_type": _optional_text(normalized_item.get("variant_type")),
+                        "physical_format": normalized_physical_format,
+                        "physical_format_label": (
+                            physical_payload.get("physical_format_label") if physical_payload else None
+                        ),
+                        "barcode": _optional_text(normalized_item.get("barcode")),
+                        "isbn": _optional_text(normalized_item.get("isbn")),
+                        "cover_price_cents": _optional_int(normalized_item.get("cover_price_cents")),
+                        "currency": _optional_text(normalized_item.get("currency")),
+                        "cover_image_url": cover_image_url,
+                        "thumbnail_image_url": thumbnail_image_url,
+                    }
+                },
+                "is_primary": True,
+            }
+        ],
+    }
+    if physical_payload is not None:
+        edition_payload.update(physical_payload)
+        edition_payload["variants"][0].update(physical_payload)
+    base["editions"] = [edition_payload]
 
 
 def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSummaryResponse:
@@ -648,6 +760,62 @@ def _metadata_physical_format(metadata: dict[str, Any] | None) -> str | None:
             return str(physical_format)
     physical_format = metadata.get("physical_format")
     return str(physical_format) if physical_format else None
+
+
+def _normalized_item_metadata(item: Any) -> dict[str, Any]:
+    metadata = getattr(item, "metadata_json", None) or {}
+    normalized = metadata.get("normalized") if isinstance(metadata, dict) else None
+    return normalized if isinstance(normalized, dict) else {}
+
+
+def _source_item_metadata(item: Any) -> dict[str, Any]:
+    metadata = getattr(item, "metadata_json", None) or {}
+    provider = metadata.get("provider") if isinstance(metadata, dict) else None
+    provider_item_id = metadata.get("provider_item_id") if isinstance(metadata, dict) else None
+    source = {
+        "provider": provider,
+        "provider_item_id": provider_item_id,
+    }
+    normalized = _normalized_item_metadata(item)
+    for key in ("cover_image_url", "thumbnail_image_url"):
+        value = _optional_text(normalized.get(key))
+        if value is not None:
+            source[key] = value
+    return {key: value for key, value in source.items() if value is not None}
+
+
+def _default_video_format(item: Any) -> str:
+    kind = getattr(item, "kind", None)
+    if kind == ItemKind.movie:
+        return "Movie"
+    if kind == ItemKind.anime:
+        return "Anime"
+    return "TV Series"
+
+
+def _synthetic_release_id(item: Any, scope: str) -> UUID:
+    item_id = getattr(item, "id", None)
+    kind = getattr(item, "kind", None)
+    return uuid5(NAMESPACE_URL, f"collectarr:{kind}:{item_id}:{scope}")
+
+
+def _synthetic_primary_edition(base: dict[str, Any]) -> Any | None:
+    editions = base.get("editions")
+    if not isinstance(editions, list) or not editions:
+        return None
+    edition = editions[0]
+    return edition if isinstance(edition, dict) else None
+
+
+def _synthetic_primary_variant(base: dict[str, Any]) -> Any | None:
+    edition = _synthetic_primary_edition(base)
+    if edition is None:
+        return None
+    variants = edition.get("variants")
+    if not isinstance(variants, list) or not variants:
+        return None
+    variant = variants[0]
+    return variant if isinstance(variant, dict) else None
 
 
 def _primary_edition(item: Any) -> Any | None:

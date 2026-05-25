@@ -82,6 +82,10 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
+    ProviderBatchHydrateItem,
+    ProviderBatchHydrateRequest,
+    ProviderBatchHydrateResponse,
+    ProviderBatchHydrateResultItem,
     ProviderIngestHistoryEntry,
     ProviderIngestJobCreateRequest,
     ProviderIngestJobResponse,
@@ -1519,6 +1523,53 @@ class AdminMetadataService:
                 )
                 for t in normalized.tracks
             ],
+        )
+
+    async def batch_hydrate(
+        self,
+        payload: ProviderBatchHydrateRequest,
+    ) -> ProviderBatchHydrateResponse:
+        """Batch-fetch and normalize provider data without creating anything in the DB."""
+        provider = self._provider(payload.provider)
+        self._ensure_provider_ingest_supported(provider, payload.provider)
+        results: list[ProviderBatchHydrateResultItem] = []
+        succeeded = 0
+        failed = 0
+        for item in payload.items:
+            try:
+                ingest_req = ProviderIngestRequest(
+                    provider=payload.provider,
+                    provider_item_id=item.provider_item_id,
+                )
+                preview = await self.preview(ingest_req)
+                results.append(
+                    ProviderBatchHydrateResultItem(
+                        provider_item_id=item.provider_item_id,
+                        success=True,
+                        preview=preview,
+                    )
+                )
+                succeeded += 1
+            except Exception as exc:
+                logger.warning(
+                    "batch_hydrate_item_failed provider=%s id=%s error=%s",
+                    payload.provider.value,
+                    item.provider_item_id,
+                    str(exc),
+                )
+                results.append(
+                    ProviderBatchHydrateResultItem(
+                        provider_item_id=item.provider_item_id,
+                        success=False,
+                        error=str(exc),
+                    )
+                )
+                failed += 1
+        return ProviderBatchHydrateResponse(
+            results=results,
+            total=len(payload.items),
+            succeeded=succeeded,
+            failed=failed,
         )
 
     async def ingest(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:

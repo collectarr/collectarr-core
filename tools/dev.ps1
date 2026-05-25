@@ -34,7 +34,7 @@ switch ($Command) {
         Invoke-Compose @("down")
     }
     "migrate" {
-        Invoke-Compose @("exec", "api", "alembic", "upgrade", "head")
+        Invoke-CollectarrSchemaSetup -RepoRoot $Root -WithSync:$WithSync
     }
     "seed" {
         Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_comics")

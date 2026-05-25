@@ -1,13 +1,7 @@
-name: Release
+name: Publish Release
 
 on:
   workflow_dispatch:
-    inputs:
-      build_only:
-        description: Build the container image without publishing a GitHub Release or pushing to GHCR
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: write
@@ -44,18 +38,14 @@ jobs:
         id: release_mode
         shell: bash
         run: |
-          if [ "${{ inputs.build_only }}" = "true" ]; then
-            echo "build_requested=true" >> "$GITHUB_OUTPUT"
-            echo "publish_release=false" >> "$GITHUB_OUTPUT"
-            echo "image_tag=build-only-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ steps.semantic_preview.outputs.new_release_published }}" = "true" ]; then
+          if [ "${{ steps.semantic_preview.outputs.new_release_published }}" = "true" ]; then
             echo "build_requested=true" >> "$GITHUB_OUTPUT"
             echo "publish_release=true" >> "$GITHUB_OUTPUT"
             echo "image_tag=${{ steps.semantic_preview.outputs.new_release_version }}" >> "$GITHUB_OUTPUT"
           else
             echo "build_requested=false" >> "$GITHUB_OUTPUT"
             echo "publish_release=false" >> "$GITHUB_OUTPUT"
-            echo "image_tag=build-only-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "image_tag=skip-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}

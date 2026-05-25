@@ -1,0 +1,66 @@
+name: Validate Release Config
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Preview release version
+        id: semantic_preview
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          dry_run: true
+          extra_plugins: |
+            @semantic-release/changelog
+            @semantic-release/git
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summarize preview
+        shell: bash
+        run: |
+          echo "would_publish=${{ steps.semantic_preview.outputs.new_release_published }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.semantic_preview.outputs.new_release_version }}" ]; then
+            echo "next_version=${{ steps.semantic_preview.outputs.new_release_version }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=validate-${{ github.run_number }}
+            type=raw,value=preview-${{ steps.semantic_preview.outputs.new_release_version }},enable=${{ steps.semantic_preview.outputs.new_release_published == 'true' }}
+
+      - name: Build container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}

@@ -32,11 +32,12 @@ Core owns the shared catalog and provider infrastructure. Personal collection da
 
 ## Database Schema
 
-Open the interactive schema viewer here:
+Open the generated full-fidelity schema docs here:
 
-- [Open interactive schema](https://collectarr.github.io/collectarr-core/schema.html)
+- [Open interactive schema explorer](https://collectarr.github.io/collectarr-core/schema.html)
+- [Open generated markdown snapshot](docs/schema-full.md)
 
-It is published from `docs/schema.html` via GitHub Pages and is easier to navigate than an inline README diagram: drag to pan, zoom in/out, and reset to fit.
+The explorer and snapshot are generated from SQLAlchemy metadata, split by domain, and include all model-declared columns, enums, foreign keys, unique constraints, indexes, defaults, and cross-domain references.
 
 ## Quick Start
 

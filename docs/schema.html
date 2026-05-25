@@ -8,25 +8,35 @@
       :root {
         color-scheme: light dark;
         --bg: #0f172a;
-        --panel: #111827;
+        --bg-accent: rgba(56, 189, 248, 0.12);
+        --panel: rgba(15, 23, 42, 0.88);
+        --panel-strong: #111827;
         --panel-border: rgba(148, 163, 184, 0.2);
         --text: #e5e7eb;
         --muted: #94a3b8;
         --accent: #38bdf8;
         --accent-strong: #0ea5e9;
         --button: #1f2937;
+        --chip: rgba(2, 132, 199, 0.12);
+        --grid-line: rgba(148, 163, 184, 0.08);
+        --danger: #f97316;
       }
 
       @media (prefers-color-scheme: light) {
         :root {
           --bg: #f8fafc;
-          --panel: #ffffff;
+          --bg-accent: rgba(2, 132, 199, 0.08);
+          --panel: rgba(255, 255, 255, 0.92);
+          --panel-strong: #ffffff;
           --panel-border: rgba(15, 23, 42, 0.08);
           --text: #0f172a;
           --muted: #475569;
           --accent: #0284c7;
           --accent-strong: #0369a1;
           --button: #e2e8f0;
+          --chip: rgba(2, 132, 199, 0.08);
+          --grid-line: rgba(148, 163, 184, 0.2);
+          --danger: #c2410c;
         }
       }
 
@@ -34,125 +44,218 @@
         box-sizing: border-box;
       }
 
+      html {
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
         font-family: "Segoe UI", "Helvetica Neue", sans-serif;
         background:
-          radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 32%),
+          radial-gradient(circle at top, var(--bg-accent), transparent 30%),
+          linear-gradient(180deg, rgba(15, 23, 42, 0.04), transparent 20%),
           var(--bg);
         color: var(--text);
       }
 
+      a {
+        color: inherit;
+      }
+
+      code {
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-size: 0.92em;
+      }
+
       .page {
-        width: min(1400px, calc(100% - 32px));
+        width: min(1560px, calc(100% - 32px));
         margin: 0 auto;
-        padding: 32px 0 48px;
+        padding: 32px 0 56px;
+      }
+
+      .hero,
+      .card,
+      .domain,
+      .table-card,
+      .notes,
+      .empty-state {
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+        backdrop-filter: blur(12px);
       }
 
       .hero {
-        margin-bottom: 24px;
         padding: 28px;
-        border: 1px solid var(--panel-border);
-        border-radius: 20px;
-        background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), transparent 50%), var(--panel);
+        border-radius: 24px;
       }
 
       h1,
       h2,
+      h3,
       p {
         margin: 0;
       }
 
       .hero h1 {
         font-size: clamp(2rem, 4vw, 3rem);
-        line-height: 1.05;
-        margin-bottom: 12px;
+        line-height: 1.04;
+        margin-bottom: 10px;
       }
 
-      .hero p,
-      .notes li {
+      .lede,
+      .domain-description,
+      .muted,
+      .notes li,
+      .constraint-list li,
+      .reference-list li {
         color: var(--muted);
         line-height: 1.6;
       }
 
-      .hero-links {
+      .hero-links,
+      .domain-nav,
+      .meta-row,
+      .stats,
+      .chips,
+      .diagram-controls,
+      .table-meta {
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
+      }
+
+      .hero-links,
+      .meta-row,
+      .stats,
+      .domain-nav {
         margin-top: 18px;
       }
 
-      .hero-links a {
+      .pill,
+      .domain-link,
+      .diagram-controls button {
         display: inline-flex;
         align-items: center;
         gap: 8px;
         padding: 10px 14px;
         border-radius: 999px;
         border: 1px solid var(--panel-border);
+        background: var(--chip);
         color: var(--text);
         text-decoration: none;
-        background: rgba(2, 132, 199, 0.08);
-      }
-
-      .hero-links a:hover {
-        border-color: rgba(14, 165, 233, 0.45);
-      }
-
-      .diagram-card {
-        margin-top: 18px;
-        padding: 20px;
-        border-radius: 20px;
-        border: 1px solid var(--panel-border);
-        background: var(--panel);
-      }
-
-      .diagram-header {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        margin-bottom: 16px;
-      }
-
-      .diagram-header h2 {
-        margin-bottom: 8px;
-        font-size: 1.25rem;
-      }
-
-      .diagram-controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        font: inherit;
       }
 
       .diagram-controls button {
-        border: 1px solid var(--panel-border);
-        background: var(--button);
-        color: var(--text);
-        border-radius: 999px;
-        padding: 9px 14px;
-        font: inherit;
         cursor: pointer;
       }
 
+      .pill strong,
+      .stat-value,
+      .domain-link:hover,
       .diagram-controls button:hover {
-        border-color: rgba(14, 165, 233, 0.45);
         color: var(--accent);
       }
 
-      .viewer-shell {
-        height: min(78vh, 920px);
-        min-height: 520px;
-        overflow: hidden;
+      .layout {
+        display: grid;
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .card,
+      .notes,
+      .empty-state {
+        border-radius: 22px;
+        padding: 22px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+
+      .stat {
+        padding: 16px 18px;
+        border-radius: 18px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-strong);
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .stat-value {
+        display: block;
+        margin-top: 8px;
+        font-size: 1.9rem;
+        font-weight: 700;
+      }
+
+      .toolbar {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .search {
+        width: 100%;
+        padding: 14px 16px;
         border-radius: 16px;
         border: 1px solid var(--panel-border);
+        background: var(--panel-strong);
+        color: var(--text);
+        font: inherit;
+      }
+
+      .notes ul,
+      .constraint-list,
+      .reference-list {
+        margin: 12px 0 0;
+        padding-left: 18px;
+      }
+
+      .domains {
+        display: grid;
+        gap: 22px;
+      }
+
+      .domain {
+        border-radius: 24px;
+        padding: 24px;
+      }
+
+      .domain-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .domain-title {
+        font-size: 1.45rem;
+        margin-bottom: 8px;
+      }
+
+      .viewer-shell {
+        height: min(78vh, 980px);
+        min-height: 540px;
+        overflow: hidden;
+        border-radius: 18px;
+        border: 1px solid var(--panel-border);
         background:
-          linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-          linear-gradient(180deg, rgba(14, 165, 233, 0.03), transparent 40%),
-          rgba(15, 23, 42, 0.2);
-        background-size: 24px 24px, 24px 24px, auto, auto;
+          linear-gradient(var(--grid-line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+          linear-gradient(180deg, rgba(14, 165, 233, 0.04), transparent 40%),
+          rgba(15, 23, 42, 0.16);
+        background-size: 28px 28px, 28px 28px, auto, auto;
+        margin-top: 16px;
       }
 
       .diagram-viewer {
@@ -167,21 +270,141 @@
         max-width: none;
       }
 
-      .notes {
-        margin-top: 24px;
-        padding: 20px 22px;
+      .domain-subgrid {
+        display: grid;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .table-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .table-card {
         border-radius: 20px;
+        padding: 18px;
+      }
+
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .table-name {
+        font-size: 1.12rem;
+      }
+
+      .chip {
+        padding: 5px 10px;
+        border-radius: 999px;
         border: 1px solid var(--panel-border);
-        background: var(--panel);
+        background: var(--chip);
+        color: var(--muted);
+        font-size: 0.85rem;
       }
 
-      .notes h2 {
-        margin-bottom: 12px;
+      .chip-flag {
+        color: var(--accent);
       }
 
-      .notes ul {
-        margin: 0;
-        padding-left: 20px;
+      .chip-warn {
+        color: var(--danger);
+      }
+
+      .columns-table,
+      .relationship-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 14px;
+        font-size: 0.95rem;
+      }
+
+      .columns-table th,
+      .columns-table td,
+      .relationship-table th,
+      .relationship-table td {
+        text-align: left;
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--panel-border);
+        vertical-align: top;
+      }
+
+      .columns-table th,
+      .relationship-table th {
+        color: var(--muted);
+        font-size: 0.84rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .constraint-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .constraint-card {
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-strong);
+      }
+
+      .constraint-card h4 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+      }
+
+      .constraint-card p {
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 0.92rem;
+      }
+
+      .section-title {
+        margin-bottom: 10px;
+        font-size: 1.18rem;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .empty-state {
+        margin-top: 18px;
+      }
+
+      @media (max-width: 760px) {
+        .page {
+          width: min(100% - 20px, 1560px);
+          padding-top: 20px;
+        }
+
+        .hero,
+        .card,
+        .domain,
+        .table-card,
+        .notes,
+        .empty-state {
+          padding: 18px;
+        }
+
+        .viewer-shell {
+          min-height: 420px;
+          height: 58vh;
+        }
+
+        .columns-table,
+        .relationship-table {
+          display: block;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
       }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
@@ -190,60 +413,58 @@
     <main class="page">
       <section class="hero">
         <h1>Collectarr Core Interactive Schema</h1>
-        <p>
-          High-level ER diagrams for the canonical catalog, editorial links, and ingest operations.
-          Drag to pan, use the mouse wheel or trackpad to zoom, and use the controls to fit or reset.
+        <p class="lede">
+          Full-fidelity schema explorer generated from SQLAlchemy metadata. Each domain includes a pan-and-zoom ER diagram,
+          every column, enum-backed types, foreign keys, unique constraints, indexes, defaults, and cross-domain references.
         </p>
         <div class="hero-links">
-          <a href="https://github.com/collectarr/collectarr-core">Repository</a>
-          <a href="https://github.com/collectarr/collectarr-core/blob/main/app/models/canonical.py">Source of truth: canonical.py</a>
-          <a href="https://github.com/collectarr/collectarr-core/blob/main/docs/schema.md">Data boundaries notes</a>
+          <a class="pill" href="https://github.com/collectarr/collectarr-core">Repository</a>
+          <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/app/models/canonical.py">canonical.py</a>
+          <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/app/models/user.py">user.py</a>
+          <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/docs/schema-full.md">Generated markdown snapshot</a>
         </div>
+        <div id="meta-row" class="meta-row"></div>
+        <div id="stats" class="stats"></div>
       </section>
 
-      <section class="diagram-card">
-        <div class="diagram-header">
-          <div>
-            <h2>Catalog Spine</h2>
-            <p>The core catalog chain: franchise, series, volume, item, edition, variant, and bundle releases.</p>
-          </div>
-          <div class="diagram-controls" data-target="catalog">
-            <button type="button" data-action="zoom-in">Zoom in</button>
-            <button type="button" data-action="zoom-out">Zoom out</button>
-            <button type="button" data-action="fit">Fit</button>
-            <button type="button" data-action="reset">Reset</button>
-          </div>
-        </div>
-        <div class="viewer-shell">
-          <div id="catalog" class="diagram-viewer" aria-label="Catalog spine diagram"></div>
-        </div>
-      </section>
-
-      <section class="diagram-card">
-        <div class="diagram-header">
-          <div>
-            <h2>Editorial, Identity, and Operations</h2>
-            <p>Story arcs, characters, polymorphic link tables, provider mappings, images, and ingest workflow tables.</p>
-          </div>
-          <div class="diagram-controls" data-target="ops">
-            <button type="button" data-action="zoom-in">Zoom in</button>
-            <button type="button" data-action="zoom-out">Zoom out</button>
-            <button type="button" data-action="fit">Fit</button>
-            <button type="button" data-action="reset">Reset</button>
-          </div>
-        </div>
-        <div class="viewer-shell">
-          <div id="ops" class="diagram-viewer" aria-label="Editorial identity and operations diagram"></div>
+      <section class="card layout">
+        <div class="toolbar">
+          <input id="schema-search" class="search" type="search" placeholder="Filter tables, columns, constraints, enums, or references">
+          <div id="domain-nav" class="domain-nav"></div>
         </div>
       </section>
 
       <section class="notes">
-        <h2>Notes</h2>
-        <ul>
-          <li>`entity_tags`, `entity_persons`, `entity_organizations`, `external_provider_ids`, and `image_assets` are polymorphic support tables keyed by `entity_type` and `entity_id`.</li>
-          <li>`image_cache_entries`, `provider_ingest_jobs`, `metadata_proposals`, and `admin_audit_logs` are operational tables around ingestion, caching, and moderation.</li>
-          <li>The diagrams are intentionally high-level. For exact columns and constraints, use `app/models/canonical.py` and the Alembic migrations.</li>
-        </ul>
+        <h2 class="section-title">What This Includes</h2>
+        <ul id="notes-list"></ul>
+      </section>
+
+      <div id="empty-state" class="empty-state hidden">
+        <h2 class="section-title">No Matches</h2>
+        <p class="muted">Try a broader table name, column name, enum value, or constraint fragment.</p>
+      </div>
+
+      <section id="domains" class="domains"></section>
+
+      <section class="card">
+        <h2 class="section-title">Enums</h2>
+        <div id="enum-grid" class="constraint-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">All Foreign Key Relationships</h2>
+        <table class="relationship-table">
+          <thead>
+            <tr>
+              <th>From</th>
+              <th>Columns</th>
+              <th>To</th>
+              <th>On delete</th>
+              <th>On update</th>
+            </tr>
+          </thead>
+          <tbody id="relationship-body"></tbody>
+        </table>
       </section>
     </main>
 
@@ -254,249 +475,219 @@
         startOnLoad: false,
         theme: "neutral",
         securityLevel: "loose",
-        er: {
-          useMaxWidth: false,
-        },
+        er: { useMaxWidth: false },
       });
-
-      const diagrams = {
-        catalog: `erDiagram
-  FRANCHISE {
-    uuid id PK
-    string name
-    text description
-    jsonb metadata_json
-  }
-
-  SERIES {
-    uuid id PK
-    uuid franchise_id FK
-    string kind
-    string title
-    string slug
-    string status
-  }
-
-  VOLUME {
-    uuid id PK
-    uuid series_id FK
-    string name
-    int volume_number
-    int start_year
-  }
-
-  ITEM {
-    uuid id PK
-    uuid volume_id FK
-    string kind
-    string title
-    string item_number
-    string release_type
-  }
-
-  EDITION {
-    uuid id PK
-    uuid item_id FK
-    string title
-    string format
-    string publisher
-    string isbn
-    string upc
-  }
-
-  VARIANT {
-    uuid id PK
-    uuid edition_id FK
-    string name
-    string variant_type
-    string sku
-    string barcode
-    bool is_primary
-  }
-
-  BUNDLE_RELEASE {
-    uuid id PK
-    uuid franchise_id FK
-    uuid series_id FK
-    uuid volume_id FK
-    uuid primary_item_id FK
-    string title
-    string bundle_type
-    string barcode
-  }
-
-  BUNDLE_RELEASE_ITEM {
-    uuid id PK
-    uuid bundle_release_id FK
-    uuid item_id FK
-    string role
-    int disc_number
-    int sequence_number
-  }
-
-  FRANCHISE ||--o{ SERIES : groups
-  SERIES ||--o{ VOLUME : contains
-  VOLUME ||--o{ ITEM : contains
-  ITEM ||--o{ EDITION : publishes
-  EDITION ||--o{ VARIANT : specializes
-  FRANCHISE ||--o{ BUNDLE_RELEASE : scopes
-  SERIES ||--o{ BUNDLE_RELEASE : scopes
-  VOLUME ||--o{ BUNDLE_RELEASE : scopes
-  ITEM ||--o| BUNDLE_RELEASE : primary_item
-  BUNDLE_RELEASE ||--o{ BUNDLE_RELEASE_ITEM : includes
-  ITEM ||--o{ BUNDLE_RELEASE_ITEM : member`,
-        ops: `erDiagram
-  ITEM {
-    uuid id PK
-    string title
-    string kind
-  }
-
-  SERIES {
-    uuid id PK
-    string title
-    string kind
-  }
-
-  STORY_ARC {
-    uuid id PK
-    string name
-    string publisher
-  }
-
-  STORY_ARC_ITEM {
-    uuid id PK
-    uuid story_arc_id FK
-    uuid item_id FK
-    int ordinal
-  }
-
-  CHARACTER {
-    uuid id PK
-    string name
-    uuid first_appearance_item_id FK
-  }
-
-  CHARACTER_APPEARANCE {
-    uuid id PK
-    uuid character_id FK
-    uuid item_id FK
-    string role
-  }
-
-  TAG {
-    uuid id PK
-    string kind
-    string name
-  }
-
-  ENTITY_TAG {
-    uuid id PK
-    string entity_type
-    uuid entity_id
-    uuid tag_id FK
-  }
-
-  PERSON {
-    uuid id PK
-    string name
-  }
-
-  ENTITY_PERSON {
-    uuid id PK
-    string entity_type
-    uuid entity_id
-    uuid person_id FK
-    string role
-  }
-
-  ORGANIZATION {
-    uuid id PK
-    string name
-    string type
-  }
-
-  ENTITY_ORGANIZATION {
-    uuid id PK
-    string entity_type
-    uuid entity_id
-    uuid organization_id FK
-    string role
-  }
-
-  SERIES_RELATION {
-    uuid id PK
-    uuid source_series_id FK
-    uuid target_series_id FK
-    string relation_type
-  }
-
-  EXTERNAL_PROVIDER_ID {
-    uuid id PK
-    string provider
-    string provider_item_id
-    string entity_type
-    uuid entity_id
-  }
-
-  IMAGE_ASSET {
-    uuid id PK
-    string entity_type
-    uuid entity_id
-    string image_type
-    string provider
-  }
-
-  IMAGE_CACHE_ENTRY {
-    uuid id PK
-    string provider
-    string provider_item_id
-    string source_url
-    string object_key
-  }
-
-  PROVIDER_INGEST_JOB {
-    uuid id PK
-    string provider
-    string provider_item_id
-    string status
-    uuid item_id
-  }
-
-  METADATA_PROPOSAL {
-    uuid id PK
-    string provider
-    string provider_item_id
-    string query
-    string status
-  }
-
-  ADMIN_AUDIT_LOG {
-    uuid id PK
-    string action
-    string entity_type
-    uuid entity_id
-    string actor_email
-  }
-
-  STORY_ARC ||--o{ STORY_ARC_ITEM : maps
-  ITEM ||--o{ STORY_ARC_ITEM : belongs_to
-  CHARACTER ||--o{ CHARACTER_APPEARANCE : maps
-  ITEM ||--o{ CHARACTER_APPEARANCE : has
-  ITEM ||--o| CHARACTER : first_appearance
-  TAG ||--o{ ENTITY_TAG : assigns
-  PERSON ||--o{ ENTITY_PERSON : assigns
-  ORGANIZATION ||--o{ ENTITY_ORGANIZATION : assigns
-  SERIES ||--o{ SERIES_RELATION : source
-  SERIES ||--o{ SERIES_RELATION : target
-  ITEM ||--o{ PROVIDER_INGEST_JOB : ingest_target`,
-      };
 
       const panZoomById = new Map();
 
+      const schemaData = await fetch("./schema-data.json").then((response) => {
+        if (!response.ok) {
+          throw new Error(`Unable to load schema-data.json (${response.status})`);
+        }
+        return response.json();
+      });
+
+      const escapeHtml = (value) => String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+
+      const formatNullable = (flag) => flag ? '<span class="chip chip-warn">nullable</span>' : '<span class="chip chip-flag">not null</span>';
+      const formatFlagChips = (column) => {
+        const flags = [];
+        if (column.primary_key) flags.push('<span class="chip chip-flag">PK</span>');
+        if (column.unique) flags.push('<span class="chip chip-flag">unique</span>');
+        if (column.index) flags.push('<span class="chip">indexed</span>');
+        if (column.enum) flags.push(`<span class="chip">enum: ${escapeHtml(column.enum)}</span>`);
+        if (column.foreign_keys.length) flags.push('<span class="chip chip-flag">FK</span>');
+        return `${formatNullable(column.nullable)}${flags.join("")}`;
+      };
+
+      const renderMeta = () => {
+        const metaRow = document.getElementById("meta-row");
+        metaRow.innerHTML = [
+          `<span class="pill"><strong>Generated</strong> ${escapeHtml(schemaData.generated_at)}</span>`,
+          ...schemaData.source_modules.map((modulePath) => `<span class="pill"><strong>Source</strong> ${escapeHtml(modulePath)}</span>`),
+        ].join("");
+
+        const stats = document.getElementById("stats");
+        const statEntries = [
+          ["Tables", schemaData.summary.tables],
+          ["Columns", schemaData.summary.columns],
+          ["Foreign keys", schemaData.summary.foreign_keys],
+          ["Indexes", schemaData.summary.indexes],
+          ["Unique constraints", schemaData.summary.unique_constraints],
+          ["Check constraints", schemaData.summary.check_constraints],
+        ];
+        stats.innerHTML = statEntries.map(([label, value]) => `
+          <div class="stat">
+            <span class="stat-label">${escapeHtml(label)}</span>
+            <span class="stat-value">${escapeHtml(value)}</span>
+          </div>
+        `).join("");
+      };
+
+      const renderNotes = () => {
+        const notes = document.getElementById("notes-list");
+        notes.innerHTML = schemaData.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
+      };
+
+      const renderEnums = () => {
+        const enumGrid = document.getElementById("enum-grid");
+        enumGrid.innerHTML = Object.values(schemaData.enums).map((enumData) => `
+          <div class="constraint-card">
+            <h4>${escapeHtml(enumData.name)}</h4>
+            <div class="chips">${enumData.values.map((value) => `<span class="chip chip-flag">${escapeHtml(value)}</span>`).join("")}</div>
+          </div>
+        `).join("");
+      };
+
+      const renderRelationships = () => {
+        const body = document.getElementById("relationship-body");
+        body.innerHTML = schemaData.relationships.map((relationship) => `
+          <tr>
+            <td><code>${escapeHtml(relationship.from_table)}</code></td>
+            <td><code>${escapeHtml(relationship.from_columns.join(", "))}</code></td>
+            <td><code>${escapeHtml(relationship.to_targets.join(", "))}</code></td>
+            <td>${escapeHtml(relationship.ondelete || "-")}</td>
+            <td>${escapeHtml(relationship.onupdate || "-")}</td>
+          </tr>
+        `).join("");
+      };
+
+      const renderConstraintCard = (title, items, formatter) => `
+        <div class="constraint-card">
+          <h4>${escapeHtml(title)}</h4>
+          ${items.length ? `<ul class="constraint-list">${items.map((item) => `<li>${formatter(item)}</li>`).join("")}</ul>` : '<p>None</p>'}
+        </div>
+      `;
+
+      const renderTableCard = (table) => {
+        const columnSearchTokens = table.columns.flatMap((column) => [
+          table.name,
+          column.name,
+          column.type,
+          column.default || "",
+          column.server_default || "",
+          column.enum || "",
+          ...column.foreign_keys.map((foreignKey) => foreignKey.target),
+        ]);
+        const constraintSearchTokens = [
+          ...table.constraints.unique_constraints.flatMap((constraint) => [constraint.name || "", ...constraint.columns]),
+          ...table.constraints.indexes.flatMap((index) => [index.name || "", ...index.columns]),
+          ...table.constraints.check_constraints.flatMap((check) => [check.name || "", check.sqltext || ""]),
+          ...table.constraints.foreign_keys.flatMap((foreignKey) => [foreignKey.name || "", ...foreignKey.columns, ...foreignKey.targets]),
+        ];
+        const searchValue = [...columnSearchTokens, ...constraintSearchTokens, table.polymorphic_note || ""].join(" ").toLowerCase();
+
+        return `
+          <article class="table-card" data-search="${escapeHtml(searchValue)}">
+            <div class="table-header">
+              <div>
+                <h3 class="table-name"><code>${escapeHtml(table.name)}</code></h3>
+                <p class="muted">${table.columns.length} columns, ${table.constraints.foreign_keys.length} foreign keys, ${table.constraints.indexes.length} indexes.</p>
+              </div>
+              <div class="table-meta">
+                <span class="chip chip-flag">PK: ${escapeHtml(table.constraints.primary_key.columns.join(", ") || "-")}</span>
+                ${table.polymorphic_note ? '<span class="chip chip-warn">polymorphic</span>' : ""}
+              </div>
+            </div>
+
+            <table class="columns-table">
+              <thead>
+                <tr>
+                  <th>Column</th>
+                  <th>Type</th>
+                  <th>Flags</th>
+                  <th>Default</th>
+                  <th>References</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${table.columns.map((column) => `
+                  <tr>
+                    <td><code>${escapeHtml(column.name)}</code></td>
+                    <td><code>${escapeHtml(column.type)}</code></td>
+                    <td><div class="chips">${formatFlagChips(column)}</div></td>
+                    <td>
+                      <div class="muted">
+                        ${column.default ? `<div><strong>default</strong>: <code>${escapeHtml(column.default)}</code></div>` : ""}
+                        ${column.server_default ? `<div><strong>server</strong>: <code>${escapeHtml(column.server_default)}</code></div>` : (!column.default ? "-" : "")}
+                      </div>
+                    </td>
+                    <td>
+                      ${column.foreign_keys.length ? column.foreign_keys.map((foreignKey) => `
+                        <div class="muted"><code>${escapeHtml(foreignKey.target)}</code>${foreignKey.ondelete ? ` on delete ${escapeHtml(foreignKey.ondelete)}` : ""}</div>
+                      `).join("") : "-"}
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+
+            <div class="constraint-grid">
+              ${renderConstraintCard("Unique constraints", table.constraints.unique_constraints, (constraint) => `<code>${escapeHtml((constraint.name || "(anonymous)"))}</code> on <code>${escapeHtml(constraint.columns.join(", "))}</code>`)}
+              ${renderConstraintCard("Indexes", table.constraints.indexes, (index) => `<code>${escapeHtml(index.name)}</code> (${index.unique ? "unique" : "non-unique"}) on <code>${escapeHtml(index.columns.join(", "))}</code>`)}
+              ${renderConstraintCard("Foreign keys", table.constraints.foreign_keys, (foreignKey) => `<code>${escapeHtml(foreignKey.name || "(anonymous)")}</code>: <code>${escapeHtml(foreignKey.columns.join(", "))}</code> -> <code>${escapeHtml(foreignKey.targets.join(", "))}</code>`)}
+              ${renderConstraintCard("Check constraints", table.constraints.check_constraints, (check) => `<code>${escapeHtml(check.name || "(anonymous)")}</code>: <code>${escapeHtml(check.sqltext)}</code>`)}
+            </div>
+
+            ${table.polymorphic_note ? `<p class="muted" style="margin-top: 14px;">${escapeHtml(table.polymorphic_note)}</p>` : ""}
+          </article>
+        `;
+      };
+
+      const renderDomains = () => {
+        const domainNav = document.getElementById("domain-nav");
+        domainNav.innerHTML = schemaData.domains.map((domain) => `
+          <a class="domain-link" href="#domain-${escapeHtml(domain.id)}">${escapeHtml(domain.title)}</a>
+        `).join("");
+
+        const tablesByName = new Map(schemaData.tables.map((table) => [table.name, table]));
+        const domains = document.getElementById("domains");
+        domains.innerHTML = schemaData.domains.map((domain) => {
+          const tables = domain.tables.map((tableName) => tablesByName.get(tableName));
+          return `
+            <section id="domain-${escapeHtml(domain.id)}" class="domain" data-domain>
+              <div class="domain-header">
+                <div>
+                  <h2 class="domain-title">${escapeHtml(domain.title)}</h2>
+                  <p class="domain-description">${escapeHtml(domain.description)}</p>
+                </div>
+                <div class="diagram-controls" data-target="diagram-${escapeHtml(domain.id)}">
+                  <button type="button" data-action="zoom-in">Zoom in</button>
+                  <button type="button" data-action="zoom-out">Zoom out</button>
+                  <button type="button" data-action="fit">Fit</button>
+                  <button type="button" data-action="reset">Reset</button>
+                </div>
+              </div>
+
+              <div class="viewer-shell">
+                <div id="diagram-${escapeHtml(domain.id)}" class="diagram-viewer" aria-label="${escapeHtml(domain.title)} schema diagram"></div>
+              </div>
+
+              <div class="domain-subgrid">
+                ${domain.external_references.length ? `
+                  <div class="constraint-card">
+                    <h4>Cross-domain references</h4>
+                    <ul class="reference-list">
+                      ${domain.external_references.map((reference) => `<li><code>${escapeHtml(reference.from_table)}.${escapeHtml(reference.from_columns.join(", "))}</code> -> <code>${escapeHtml(reference.targets.join(", "))}</code></li>`).join("")}
+                    </ul>
+                  </div>
+                ` : ""}
+                <div class="table-grid">
+                  ${tables.map((table) => renderTableCard(table)).join("")}
+                </div>
+              </div>
+            </section>
+          `;
+        }).join("");
+      };
+
       const renderDiagram = async (targetId, definition) => {
         const container = document.getElementById(targetId);
-        const { svg, bindFunctions } = await mermaid.render(`diagram-${targetId}`, definition);
+        const { svg, bindFunctions } = await mermaid.render(`render-${targetId}`, definition);
         container.innerHTML = svg;
         if (bindFunctions) {
           bindFunctions(container);
@@ -514,51 +705,81 @@
           controlIconsEnabled: false,
           fit: true,
           center: true,
-          minZoom: 0.2,
-          maxZoom: 12,
+          minZoom: 0.12,
+          maxZoom: 16,
           dblClickZoomEnabled: false,
           mouseWheelZoomEnabled: true,
         });
-
         panZoomById.set(targetId, panZoom);
       };
 
-      await Promise.all(Object.entries(diagrams).map(([targetId, definition]) => renderDiagram(targetId, definition)));
+      const bindDiagramControls = () => {
+        document.querySelectorAll(".diagram-controls").forEach((controls) => {
+          const targetId = controls.dataset.target;
+          controls.addEventListener("click", (event) => {
+            const button = event.target.closest("button[data-action]");
+            if (!button) {
+              return;
+            }
+            const panZoom = panZoomById.get(targetId);
+            if (!panZoom) {
+              return;
+            }
 
-      document.querySelectorAll(".diagram-controls").forEach((controls) => {
-        const targetId = controls.dataset.target;
-        controls.addEventListener("click", (event) => {
-          const button = event.target.closest("button[data-action]");
-          if (!button) {
-            return;
-          }
-
-          const panZoom = panZoomById.get(targetId);
-          if (!panZoom) {
-            return;
-          }
-
-          switch (button.dataset.action) {
-            case "zoom-in":
-              panZoom.zoomIn();
-              break;
-            case "zoom-out":
-              panZoom.zoomOut();
-              break;
-            case "fit":
-              panZoom.fit();
-              panZoom.center();
-              break;
-            case "reset":
-              panZoom.resetZoom();
-              panZoom.center();
-              panZoom.fit();
-              break;
-            default:
-              break;
-          }
+            switch (button.dataset.action) {
+              case "zoom-in":
+                panZoom.zoomIn();
+                break;
+              case "zoom-out":
+                panZoom.zoomOut();
+                break;
+              case "fit":
+                panZoom.fit();
+                panZoom.center();
+                break;
+              case "reset":
+                panZoom.resetZoom();
+                panZoom.fit();
+                panZoom.center();
+                break;
+              default:
+                break;
+            }
+          });
         });
-      });
+      };
+
+      const bindSearch = () => {
+        const emptyState = document.getElementById("empty-state");
+        const search = document.getElementById("schema-search");
+        search.addEventListener("input", () => {
+          const query = search.value.trim().toLowerCase();
+          let visibleCards = 0;
+          document.querySelectorAll(".table-card").forEach((card) => {
+            const matches = !query || card.dataset.search.includes(query);
+            card.classList.toggle("hidden", !matches);
+            if (matches) {
+              visibleCards += 1;
+            }
+          });
+
+          document.querySelectorAll("[data-domain]").forEach((domain) => {
+            const visibleInDomain = domain.querySelectorAll(".table-card:not(.hidden)").length;
+            domain.classList.toggle("hidden", visibleInDomain === 0);
+          });
+
+          emptyState.classList.toggle("hidden", visibleCards !== 0);
+        });
+      };
+
+      renderMeta();
+      renderNotes();
+      renderEnums();
+      renderRelationships();
+      renderDomains();
+      bindDiagramControls();
+      bindSearch();
+      await Promise.all(schemaData.domains.map((domain) => renderDiagram(`diagram-${domain.id}`, domain.diagram)));
     </script>
   </body>
 </html>

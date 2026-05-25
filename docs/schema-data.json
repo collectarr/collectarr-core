@@ -1,0 +1,6541 @@
+{
+  "generated_at": "2026-05-25T06:38:29Z",
+  "generator": "scripts/export_schema_site.py",
+  "source_modules": [
+    "app/models/base.py",
+    "app/models/user.py",
+    "app/models/canonical.py"
+  ],
+  "notes": [
+    "Polymorphic support tables such as entity_tags and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
+    "For migration history and any constraints introduced outside model declarations, cross-check the Alembic revisions in alembic/versions."
+  ],
+  "domains": [
+    {
+      "id": "catalog",
+      "title": "Catalog Spine",
+      "description": "Core catalog hierarchy, releases, bundle composition, and series-to-series catalog links.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "items",
+        "editions",
+        "variants",
+        "bundle_releases",
+        "bundle_release_items",
+        "series_relations"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    INTEGER volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB external_ids\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  SERIES ||--o{ SERIES_RELATIONS : target_series_id\n  SERIES ||--o{ SERIES_RELATIONS : source_series_id",
+      "external_references": []
+    },
+    {
+      "id": "editorial",
+      "title": "Editorial and Taxonomy",
+      "description": "People, organizations, characters, story arcs, and shared tagging tables.",
+      "tables": [
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "story_arcs",
+        "story_arc_items",
+        "characters",
+        "character_appearances",
+        "tags",
+        "entity_tags"
+      ],
+      "diagram": "erDiagram\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    DATE end_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    UUID item_id FK\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name UK\n    JSONB aliases\n    TEXT description\n    VARCHAR_1024 image_url\n    UUID first_appearance_item_id FK\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
+      "external_references": [
+        {
+          "from_table": "story_arc_items",
+          "from_columns": [
+            "item_id"
+          ],
+          "to_table": "items",
+          "targets": [
+            "items.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "characters",
+          "from_columns": [
+            "first_appearance_item_id"
+          ],
+          "to_table": "items",
+          "targets": [
+            "items.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "character_appearances",
+          "from_columns": [
+            "item_id"
+          ],
+          "to_table": "items",
+          "targets": [
+            "items.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "title": "Identity and Source Mapping",
+      "description": "Users and external provider identifiers that map upstream ids back to catalog entities.",
+      "tables": [
+        "users",
+        "external_provider_ids"
+      ],
+      "diagram": "erDiagram\n  USERS {\n    VARCHAR_320 email UK\n    VARCHAR_120 display_name\n    VARCHAR_255 password_hash\n    BOOLEAN is_active\n    BOOLEAN is_admin\n    user_role role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }",
+      "external_references": []
+    },
+    {
+      "id": "operations",
+      "title": "Images and Operations",
+      "description": "Image storage, cache tracking, ingest jobs, admin audit trails, and proposal workflow tables.",
+      "tables": [
+        "image_assets",
+        "image_cache_entries",
+        "provider_ingest_jobs",
+        "metadata_proposals",
+        "admin_audit_logs"
+      ],
+      "diagram": "erDiagram\n  IMAGE_ASSETS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_64 image_type\n    VARCHAR_512 storage_key\n    VARCHAR_512 thumbnail_storage_key\n    VARCHAR_1024 source_url\n    VARCHAR_64 provider\n    TEXT attribution\n    INTEGER width\n    INTEGER height\n    VARCHAR_128 phash\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  IMAGE_CACHE_ENTRIES {\n    VARCHAR_64 provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_1024 source_url\n    VARCHAR_512 object_key UK\n    VARCHAR_1024 public_url\n    VARCHAR_64 mime_type\n    INTEGER size_bytes\n    INTEGER width\n    INTEGER height\n    VARCHAR_128 content_hash\n    INTEGER access_count\n    TIMESTAMP_WITH_TIME_ZONE last_accessed_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_INGEST_JOBS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_32 status\n    INTEGER attempts\n    INTEGER max_attempts\n    TIMESTAMP_WITH_TIME_ZONE next_run_at\n    UUID item_id\n    TEXT last_error\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  METADATA_PROPOSALS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_255 query\n    VARCHAR_255 title\n    TEXT summary\n    VARCHAR_1024 image_url\n    JSONB metadata_payload\n    VARCHAR_32 status\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ADMIN_AUDIT_LOGS {\n    VARCHAR_100 action\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB details_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }",
+      "external_references": [
+        {
+          "from_table": "admin_audit_logs",
+          "from_columns": [
+            "actor_user_id"
+          ],
+          "to_table": "users",
+          "targets": [
+            "users.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "external_provider_ids",
+      "domain": "identity",
+      "columns": [
+        {
+          "name": "provider",
+          "type": "external_provider",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "provider_item_id",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "site_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "api_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [
+          {
+            "name": "uq_provider_provider_item_id",
+            "columns": [
+              "provider",
+              "provider_item_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_external_entity",
+            "columns": [
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
+    },
+    {
+      "name": "franchises",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_franchises_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [
+          {
+            "name": "uq_franchises_name",
+            "columns": [
+              "name"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_franchises_name",
+            "columns": [
+              "name"
+            ],
+            "unique": true
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "image_assets",
+      "domain": "operations",
+      "columns": [
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "image_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_assets_image_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "storage_key",
+          "type": "VARCHAR(512)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "thumbnail_storage_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "provider",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_assets_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "attribution",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "width",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "height",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "phash",
+          "type": "VARCHAR(128)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_assets_phash"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_image_assets_entity",
+            "columns": [
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_assets_image_type",
+            "columns": [
+              "image_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_assets_phash",
+            "columns": [
+              "phash"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_assets_provider",
+            "columns": [
+              "provider"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
+    },
+    {
+      "name": "image_cache_entries",
+      "domain": "operations",
+      "columns": [
+        {
+          "name": "provider",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_cache_entries_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "provider_item_id",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_cache_entries_provider_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_url",
+          "type": "VARCHAR(1024)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "object_key",
+          "type": "VARCHAR(512)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "unique_constraint": "uq_image_cache_object_key",
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "public_url",
+          "type": "VARCHAR(1024)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "mime_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "size_bytes",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "width",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "height",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "content_hash",
+          "type": "VARCHAR(128)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_cache_entries_content_hash"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "access_count",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "1",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "last_accessed_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_image_cache_last_accessed"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [
+          {
+            "name": "uq_image_cache_object_key",
+            "columns": [
+              "object_key"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_image_cache_entries_content_hash",
+            "columns": [
+              "content_hash"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_cache_entries_provider",
+            "columns": [
+              "provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_cache_entries_provider_item_id",
+            "columns": [
+              "provider_item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_cache_last_accessed",
+            "columns": [
+              "last_accessed_at"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_image_cache_provider_source",
+            "columns": [
+              "provider",
+              "source_url"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "metadata_proposals",
+      "domain": "operations",
+      "columns": [
+        {
+          "name": "provider",
+          "type": "external_provider",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_metadata_proposals_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "provider_item_id",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_metadata_proposals_provider_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "query",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "summary",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_payload",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_metadata_proposals_status"
+          ],
+          "default": "pending",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_metadata_proposals_provider",
+            "columns": [
+              "provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_metadata_proposals_provider_item_id",
+            "columns": [
+              "provider_item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_metadata_proposals_status",
+            "columns": [
+              "status"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_metadata_proposals_status_provider",
+            "columns": [
+              "status",
+              "provider"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "organizations",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_organizations_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_organizations_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "country",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_organizations_country"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_organizations_country",
+            "columns": [
+              "country"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_organizations_name",
+            "columns": [
+              "name"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_organizations_type",
+            "columns": [
+              "type"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "persons",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_persons_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_persons_name",
+            "columns": [
+              "name"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "provider_ingest_jobs",
+      "domain": "operations",
+      "columns": [
+        {
+          "name": "provider",
+          "type": "external_provider",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_provider_ingest_jobs_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "provider_item_id",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_provider_ingest_jobs_provider_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_provider_ingest_jobs_status"
+          ],
+          "default": "queued",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "attempts",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "0",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "max_attempts",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "3",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "next_run_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_provider_ingest_jobs_next_run_at"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "item_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_provider_ingest_jobs_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "last_error",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_provider_ingest_jobs_item_id",
+            "columns": [
+              "item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_provider_ingest_jobs_next_run_at",
+            "columns": [
+              "next_run_at"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_provider_ingest_jobs_provider",
+            "columns": [
+              "provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_provider_ingest_jobs_provider_item",
+            "columns": [
+              "provider",
+              "provider_item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_provider_ingest_jobs_provider_item_id",
+            "columns": [
+              "provider_item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_provider_ingest_jobs_status",
+            "columns": [
+              "status"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_provider_ingest_jobs_status_next_run",
+            "columns": [
+              "status",
+              "next_run_at"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "story_arcs",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_story_arcs_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_story_arcs_publisher"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "start_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "end_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [
+          {
+            "name": "uq_story_arcs_name_publisher",
+            "columns": [
+              "name",
+              "publisher"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_story_arcs_name",
+            "columns": [
+              "name"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_story_arcs_publisher",
+            "columns": [
+              "publisher"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "tags",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "kind",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tags_kind"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tags_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [
+          {
+            "name": "uq_tags_kind_name",
+            "columns": [
+              "kind",
+              "name"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_tags_kind",
+            "columns": [
+              "kind"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tags_name",
+            "columns": [
+              "name"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "users",
+      "domain": "identity",
+      "columns": [
+        {
+          "name": "email",
+          "type": "VARCHAR(320)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_users_email"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "display_name",
+          "type": "VARCHAR(120)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "password_hash",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_active",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "True",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_admin",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "user_role",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "viewer",
+          "server_default": "viewer",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "user_role"
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [
+          {
+            "name": "uq_users_email",
+            "columns": [
+              "email"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_users_email",
+            "columns": [
+              "email"
+            ],
+            "unique": true
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "admin_audit_logs",
+      "domain": "operations",
+      "columns": [
+        {
+          "name": "action",
+          "type": "VARCHAR(100)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_admin_audit_logs_action"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "actor_user_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_admin_audit_logs_actor_user_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "actor_user_id",
+              "target_table": "users",
+              "target_column": "id",
+              "target": "users.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "actor_email",
+          "type": "VARCHAR(320)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_admin_audit_logs_actor_email"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_admin_audit_logs_entity_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_admin_audit_logs_entity_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "details_json",
+          "type": "JSONB",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:builtins.dict",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "actor_user_id"
+            ],
+            "targets": [
+              "users.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_admin_audit_logs_action",
+            "columns": [
+              "action"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_admin_audit_logs_action_created",
+            "columns": [
+              "action",
+              "created_at"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_admin_audit_logs_actor_email",
+            "columns": [
+              "actor_email"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_admin_audit_logs_actor_user_id",
+            "columns": [
+              "actor_user_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_admin_audit_logs_entity",
+            "columns": [
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_admin_audit_logs_entity_id",
+            "columns": [
+              "entity_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_admin_audit_logs_entity_type",
+            "columns": [
+              "entity_type"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "entity_organizations",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "organization_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "organization_id",
+              "target_table": "organizations",
+              "target_column": "id",
+              "target": "organizations.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_entity_organizations_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "organization_id"
+            ],
+            "targets": [
+              "organizations.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_entity_organization_role",
+            "columns": [
+              "entity_type",
+              "entity_id",
+              "organization_id",
+              "role"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_entity_organizations_entity",
+            "columns": [
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_entity_organizations_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
+    },
+    {
+      "name": "entity_persons",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "person_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "person_id",
+              "target_table": "persons",
+              "target_column": "id",
+              "target": "persons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_entity_persons_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "person_id"
+            ],
+            "targets": [
+              "persons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_entity_person_role",
+            "columns": [
+              "entity_type",
+              "entity_id",
+              "person_id",
+              "role"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_entity_persons_entity",
+            "columns": [
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_entity_persons_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
+    },
+    {
+      "name": "entity_tags",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "tag_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "tag_id",
+              "target_table": "tags",
+              "target_column": "id",
+              "target": "tags.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "tag_id"
+            ],
+            "targets": [
+              "tags.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_entity_tag",
+            "columns": [
+              "entity_type",
+              "entity_id",
+              "tag_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_entity_tags_entity",
+            "columns": [
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
+    },
+    {
+      "name": "series",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "franchise_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_franchise_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "franchise_id",
+              "target_table": "franchises",
+              "target_column": "id",
+              "target": "franchises.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "kind",
+          "type": "item_kind",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "item_kind"
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "slug",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_slug"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "original_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "start_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "end_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_status"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "country",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_country"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "franchise_id"
+            ],
+            "targets": [
+              "franchises.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_series_country",
+            "columns": [
+              "country"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_franchise_id",
+            "columns": [
+              "franchise_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_language",
+            "columns": [
+              "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_slug",
+            "columns": [
+              "slug"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_status",
+            "columns": [
+              "status"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "series_relations",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "source_series_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_relations_source_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "source_series_id",
+              "target_table": "series",
+              "target_column": "id",
+              "target": "series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "target_series_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_relations_target_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "target_series_id",
+              "target_table": "series",
+              "target_column": "id",
+              "target": "series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "relation_type",
+          "type": "series_relation_type",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_series_relations_relation_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "series_relation_type"
+        },
+        {
+          "name": "ordinal",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "target_series_id"
+            ],
+            "targets": [
+              "series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "source_series_id"
+            ],
+            "targets": [
+              "series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_series_relations_source_target_type",
+            "columns": [
+              "source_series_id",
+              "target_series_id",
+              "relation_type"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_series_relations_relation_type",
+            "columns": [
+              "relation_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_relations_source_series_id",
+            "columns": [
+              "source_series_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_series_relations_target_series_id",
+            "columns": [
+              "target_series_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "volumes",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "series_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_volumes_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "series_id",
+              "target_table": "series",
+              "target_column": "id",
+              "target": "series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "volume_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "start_year",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "start_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "end_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "series_id"
+            ],
+            "targets": [
+              "series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_volumes_series_id",
+            "columns": [
+              "series_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "items",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "volume_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_volume_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "volume_id",
+              "target_table": "volumes",
+              "target_column": "id",
+              "target": "volumes.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "kind",
+          "type": "item_kind",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "item_kind"
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "item_number",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_item_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_key",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_sort_key"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "synopsis",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_release_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "season_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_season_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "episode_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_items_episode_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "runtime_minutes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "page_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "volume_id"
+            ],
+            "targets": [
+              "volumes.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_items_episode_number",
+            "columns": [
+              "episode_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_item_number",
+            "columns": [
+              "item_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_kind_title",
+            "columns": [
+              "kind",
+              "title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_release_type",
+            "columns": [
+              "release_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_season_number",
+            "columns": [
+              "season_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_sort_key",
+            "columns": [
+              "sort_key"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_items_volume_id",
+            "columns": [
+              "volume_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "bundle_releases",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "kind",
+          "type": "item_kind",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "item_kind"
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "bundle_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_bundle_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "franchise_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_franchise_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "franchise_id",
+              "target_table": "franchises",
+              "target_column": "id",
+              "target": "franchises.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "series_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "series_id",
+              "target_table": "series",
+              "target_column": "id",
+              "target": "series.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "volume_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_volume_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "volume_id",
+              "target_table": "volumes",
+              "target_column": "id",
+              "target": "volumes.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "primary_item_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_primary_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "primary_item_id",
+              "target_table": "items",
+              "target_column": "id",
+              "target": "items.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "variant_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_variant_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "packaging_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_packaging_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_region"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sku",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_sku"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_releases_release_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "thumbnail_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "thumbnail_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "external_ids",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "franchise_id"
+            ],
+            "targets": [
+              "franchises.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "series_id"
+            ],
+            "targets": [
+              "series.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "primary_item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "volume_id"
+            ],
+            "targets": [
+              "volumes.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_bundle_releases_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_bundle_type",
+            "columns": [
+              "bundle_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_format",
+            "columns": [
+              "format"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_format_region",
+            "columns": [
+              "format",
+              "region"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_franchise_id",
+            "columns": [
+              "franchise_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_kind_bundle_type",
+            "columns": [
+              "kind",
+              "bundle_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_language",
+            "columns": [
+              "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_packaging_type",
+            "columns": [
+              "packaging_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_primary_item_id",
+            "columns": [
+              "primary_item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_region",
+            "columns": [
+              "region"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_release_date",
+            "columns": [
+              "release_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_series_id",
+            "columns": [
+              "series_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_series_release_date",
+            "columns": [
+              "series_id",
+              "release_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_sku",
+            "columns": [
+              "sku"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_variant_type",
+            "columns": [
+              "variant_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_releases_volume_id",
+            "columns": [
+              "volume_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "characters",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": true,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_characters_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "aliases",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "first_appearance_item_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_characters_first_appearance_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "first_appearance_item_id",
+              "target_table": "items",
+              "target_column": "id",
+              "target": "items.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "first_appearance_item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_characters_name",
+            "columns": [
+              "name"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_characters_first_appearance_item_id",
+            "columns": [
+              "first_appearance_item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_characters_name",
+            "columns": [
+              "name"
+            ],
+            "unique": true
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "editions",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "item_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "item_id",
+              "target_table": "items",
+              "target_column": "id",
+              "target": "items.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "format",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_publisher"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "isbn",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_isbn"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "upc",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_upc"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_region"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_editions_isbn",
+            "columns": [
+              "isbn"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_editions_item_id",
+            "columns": [
+              "item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_editions_language",
+            "columns": [
+              "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_editions_publisher",
+            "columns": [
+              "publisher"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_editions_region",
+            "columns": [
+              "region"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_editions_upc",
+            "columns": [
+              "upc"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "story_arc_items",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "story_arc_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_story_arc_items_story_arc"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "story_arc_id",
+              "target_table": "story_arcs",
+              "target_column": "id",
+              "target": "story_arcs.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "item_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_story_arc_items_item"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "item_id",
+              "target_table": "items",
+              "target_column": "id",
+              "target": "items.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "ordinal",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "story_arc_id"
+            ],
+            "targets": [
+              "story_arcs.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_story_arc_item",
+            "columns": [
+              "story_arc_id",
+              "item_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_story_arc_items_item",
+            "columns": [
+              "item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_story_arc_items_story_arc",
+            "columns": [
+              "story_arc_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "bundle_release_items",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "bundle_release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_release_items_bundle_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "bundle_release_id",
+              "target_table": "bundle_releases",
+              "target_column": "id",
+              "target": "bundle_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "item_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_release_items_item_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "item_id",
+              "target_table": "items",
+              "target_column": "id",
+              "target": "items.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_release_items_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "disc_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_bundle_release_items_disc_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "disc_label",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "1",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "bundle_release_id"
+            ],
+            "targets": [
+              "bundle_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_bundle_release_item_membership",
+            "columns": [
+              "bundle_release_id",
+              "item_id",
+              "role",
+              "disc_number",
+              "sequence_number"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_bundle_release_items_bundle_release_id",
+            "columns": [
+              "bundle_release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_release_items_bundle_sequence",
+            "columns": [
+              "bundle_release_id",
+              "disc_number",
+              "sequence_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_release_items_disc_number",
+            "columns": [
+              "disc_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_release_items_item_id",
+            "columns": [
+              "item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_bundle_release_items_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "character_appearances",
+      "domain": "editorial",
+      "columns": [
+        {
+          "name": "character_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_character_appearances_character"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "character_id",
+              "target_table": "characters",
+              "target_column": "id",
+              "target": "characters.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "item_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_character_appearances_item"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "item_id",
+              "target_table": "items",
+              "target_column": "id",
+              "target": "items.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_character_appearances_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "character_id"
+            ],
+            "targets": [
+              "characters.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_character_appearance",
+            "columns": [
+              "character_id",
+              "item_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_character_appearances_character",
+            "columns": [
+              "character_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_character_appearances_item",
+            "columns": [
+              "item_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_character_appearances_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "variants",
+      "domain": "catalog",
+      "columns": [
+        {
+          "name": "edition_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_edition_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "edition_id",
+              "target_table": "editions",
+              "target_column": "id",
+              "target": "editions.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "variant_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_variant_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sku",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_sku"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "isbn",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_isbn"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_region"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "platform",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_platform"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_price_cents",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "currency",
+          "type": "VARCHAR(3)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "thumbnail_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "thumbnail_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "edition_id"
+            ],
+            "targets": [
+              "editions.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_variants_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_variants_edition_id",
+            "columns": [
+              "edition_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_variants_isbn",
+            "columns": [
+              "isbn"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_variants_platform",
+            "columns": [
+              "platform"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_variants_region",
+            "columns": [
+              "region"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_variants_sku",
+            "columns": [
+              "sku"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_variants_variant_type",
+            "columns": [
+              "variant_type"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    }
+  ],
+  "enums": {
+    "external_provider": {
+      "name": "external_provider",
+      "values": [
+        "anilist",
+        "bgg",
+        "comicvine",
+        "gcd",
+        "hardcover",
+        "igdb",
+        "mangadex",
+        "musicbrainz",
+        "openlibrary",
+        "tmdb"
+      ]
+    },
+    "item_kind": {
+      "name": "item_kind",
+      "values": [
+        "anime",
+        "boardgame",
+        "book",
+        "bluray",
+        "comic",
+        "game",
+        "manga",
+        "movie",
+        "music",
+        "tv"
+      ]
+    },
+    "series_relation_type": {
+      "name": "series_relation_type",
+      "values": [
+        "sequel",
+        "prequel",
+        "side_story",
+        "spin_off",
+        "parent",
+        "adaptation",
+        "alternative",
+        "summary",
+        "compilation",
+        "other"
+      ]
+    },
+    "user_role": {
+      "name": "user_role",
+      "values": [
+        "viewer",
+        "editor",
+        "admin"
+      ]
+    }
+  },
+  "relationships": [
+    {
+      "from_table": "admin_audit_logs",
+      "from_columns": [
+        "actor_user_id"
+      ],
+      "to_targets": [
+        "users.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "entity_organizations",
+      "from_columns": [
+        "organization_id"
+      ],
+      "to_targets": [
+        "organizations.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "entity_persons",
+      "from_columns": [
+        "person_id"
+      ],
+      "to_targets": [
+        "persons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "entity_tags",
+      "from_columns": [
+        "tag_id"
+      ],
+      "to_targets": [
+        "tags.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "series",
+      "from_columns": [
+        "franchise_id"
+      ],
+      "to_targets": [
+        "franchises.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "series_relations",
+      "from_columns": [
+        "target_series_id"
+      ],
+      "to_targets": [
+        "series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "series_relations",
+      "from_columns": [
+        "source_series_id"
+      ],
+      "to_targets": [
+        "series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "volumes",
+      "from_columns": [
+        "series_id"
+      ],
+      "to_targets": [
+        "series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "items",
+      "from_columns": [
+        "volume_id"
+      ],
+      "to_targets": [
+        "volumes.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "franchise_id"
+      ],
+      "to_targets": [
+        "franchises.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "series_id"
+      ],
+      "to_targets": [
+        "series.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "primary_item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "volume_id"
+      ],
+      "to_targets": [
+        "volumes.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "characters",
+      "from_columns": [
+        "first_appearance_item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "editions",
+      "from_columns": [
+        "item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "story_arc_items",
+      "from_columns": [
+        "story_arc_id"
+      ],
+      "to_targets": [
+        "story_arcs.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "story_arc_items",
+      "from_columns": [
+        "item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_release_items",
+      "from_columns": [
+        "bundle_release_id"
+      ],
+      "to_targets": [
+        "bundle_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_release_items",
+      "from_columns": [
+        "item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "character_appearances",
+      "from_columns": [
+        "item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "character_appearances",
+      "from_columns": [
+        "character_id"
+      ],
+      "to_targets": [
+        "characters.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "variants",
+      "from_columns": [
+        "edition_id"
+      ],
+      "to_targets": [
+        "editions.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    }
+  ],
+  "summary": {
+    "tables": 26,
+    "columns": 271,
+    "foreign_keys": 22,
+    "indexes": 102,
+    "unique_constraints": 14,
+    "check_constraints": 0
+  }
+}

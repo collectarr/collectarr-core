@@ -98,6 +98,13 @@ app-only fields.
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 `workflow_dispatch`; pushing to `main` runs CI only — no auto-publish.
 
+When a releasable version is detected, the workflow publishes a GitHub Release
+and pushes the backend container image to `ghcr.io/collectarr/collectarr-core`
+with both the semantic version tag and `latest`.
+
+For personal LAN deployment on unRAID with Docker Compose, see
+[docs/unraid.md](docs/unraid.md).
+
 ## Catalog Badges
 
 The repo includes snapshot badges for total catalog items and per-kind item

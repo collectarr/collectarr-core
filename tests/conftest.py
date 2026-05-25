@@ -2,7 +2,6 @@ import asyncio
 import os
 import socket
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import asyncpg
 import pytest

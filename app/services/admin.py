@@ -51,7 +51,6 @@ from app.models.user import User
 from app.providers.base import (
     MetadataProvider,
     NormalizedBundleMember,
-    NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,

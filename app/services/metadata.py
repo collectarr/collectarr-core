@@ -1,7 +1,8 @@
+import asyncio
 import logging
 import re
-import asyncio
 from dataclasses import replace
+from datetime import date
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -15,7 +16,6 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
-    BundleRelease,
     Character,
     CharacterAppearance,
     Edition,
@@ -46,6 +46,7 @@ from app.schemas.metadata import (
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
+    EditionResponse,
     ItemResponse,
     MetadataCredit,
     MetadataProposalCreate,
@@ -1621,8 +1622,6 @@ class MetadataService:
     async def create_edition(
         self, item_id: UUID, *, title: str, **kwargs: object
     ) -> "EditionResponse":
-        from app.schemas.metadata import EditionResponse
-
         item = (
             await self.db.execute(select(Item).where(Item.id == item_id))
         ).scalar_one_or_none()

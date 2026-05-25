@@ -1190,10 +1190,11 @@ class MetadataService:
             list(getattr(item, "primary_bundle_releases", []) or []),
             key=lambda bundle: (
                 getattr(bundle, "release_date", None) is None,
-                getattr(bundle, "release_date", None) or date.min,
-                getattr(bundle, "title", ""),
+                -getattr(bundle, "release_date", None).toordinal()
+                if getattr(bundle, "release_date", None) is not None
+                else 0,
+                str(getattr(bundle, "title", "")).casefold(),
             ),
-            reverse=True,
         )
         if bundle_releases:
             bundle_titles = [bundle.title for bundle in bundle_releases if getattr(bundle, "title", None)]

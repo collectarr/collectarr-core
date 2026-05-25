@@ -683,6 +683,37 @@ def test_search_result_exposes_runtime_minutes():
     assert result.runtime_minutes == 164
 
 
+def test_search_result_sorts_bundle_releases_by_known_date_then_title():
+    service = MetadataService.__new__(MetadataService)
+    item = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.music,
+        title="Anthology",
+        item_number=None,
+        synopsis=None,
+        runtime_minutes=None,
+        page_count=None,
+        editions=[],
+        series=None,
+        volume=None,
+        primary_bundle_releases=[
+            SimpleNamespace(id=uuid4(), title="Zulu Box", release_date=None),
+            SimpleNamespace(id=uuid4(), title="Bravo Box", release_date=date(2024, 6, 1)),
+            SimpleNamespace(id=uuid4(), title="Alpha Box", release_date=date(2024, 6, 1)),
+            SimpleNamespace(id=uuid4(), title="Latest Box", release_date=date(2025, 1, 1)),
+        ],
+    )
+
+    result = MetadataService._search_result(service, item, None, None)
+
+    assert result.bundle_titles == [
+        "Latest Box",
+        "Alpha Box",
+        "Bravo Box",
+        "Zulu Box",
+    ]
+
+
 def test_provider_search_query_uses_artist_and_release_for_music():
     service = MetadataService.__new__(MetadataService)
 

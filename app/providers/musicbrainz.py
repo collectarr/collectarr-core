@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from typing import Any, Mapping
+from typing import Any, Mapping, TypedDict, cast
 
 import httpx
 from fastapi import status
@@ -9,6 +9,8 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
+    NormalizedBundleMember,
+    NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedItem,
     NormalizedTrack,
@@ -20,6 +22,98 @@ from app.providers.base import (
 
 _MBID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+
+
+class MusicBrainzArtistRaw(TypedDict, total=False):
+    id: str
+    name: str
+
+
+class MusicBrainzArtistCreditRaw(TypedDict, total=False):
+    name: str
+    artist: MusicBrainzArtistRaw
+
+
+class MusicBrainzLabelRaw(TypedDict, total=False):
+    id: str
+    name: str
+
+
+MusicBrainzLabelInfoRaw = TypedDict(
+    "MusicBrainzLabelInfoRaw",
+    {
+        "catalog-number": str,
+        "label": MusicBrainzLabelRaw,
+    },
+    total=False,
+)
+
+
+MusicBrainzTrackRaw = TypedDict(
+    "MusicBrainzTrackRaw",
+    {
+        "position": int,
+        "title": str,
+        "length": int | float,
+        "artist-credit": list[MusicBrainzArtistCreditRaw],
+    },
+    total=False,
+)
+
+
+MusicBrainzMediumRaw = TypedDict(
+    "MusicBrainzMediumRaw",
+    {
+        "position": int,
+        "title": str,
+        "format": str,
+        "track-count": int,
+        "tracks": list[MusicBrainzTrackRaw],
+    },
+    total=False,
+)
+
+
+MusicBrainzReleaseGroupRaw = TypedDict(
+    "MusicBrainzReleaseGroupRaw",
+    {
+        "id": str,
+        "primary-type": str,
+        "title": str,
+    },
+    total=False,
+)
+
+
+class MusicBrainzCoverArtArchiveRaw(TypedDict, total=False):
+    artwork: bool
+    front: bool
+
+
+class MusicBrainzTextRepresentationRaw(TypedDict, total=False):
+    language: str
+
+
+MusicBrainzReleaseRaw = TypedDict(
+    "MusicBrainzReleaseRaw",
+    {
+        "id": str,
+        "title": str,
+        "date": str,
+        "country": str,
+        "barcode": str,
+        "status": str,
+        "packaging": str,
+        "disambiguation": str,
+        "artist-credit": list[MusicBrainzArtistCreditRaw],
+        "label-info": list[MusicBrainzLabelInfoRaw],
+        "media": list[MusicBrainzMediumRaw],
+        "release-group": MusicBrainzReleaseGroupRaw,
+        "cover-art-archive": MusicBrainzCoverArtArchiveRaw,
+        "text-representation": MusicBrainzTextRepresentationRaw,
+    },
+    total=False,
 )
 
 
@@ -84,30 +178,41 @@ class MusicBrainzProvider:
             return []
         return await self.search(f"barcode:{normalized}", kind)
 
-    async def get_item(self, provider_item_id: str) -> ProviderItem:
+    async def get_item(self, provider_item_id: str) -> ProviderItem[MusicBrainzReleaseRaw]:
         if not _MBID_RE.fullmatch(provider_item_id):
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="musicbrainz_invalid_release_id",
                 detail="Invalid MusicBrainz release id",
             )
-        raw = await self._request(
-            f"release/{provider_item_id}",
-            {
-                "fmt": "json",
-                "inc": "artist-credits+labels+release-groups+media",
-            },
+        raw = cast(
+            MusicBrainzReleaseRaw,
+            await self._request(
+                f"release/{provider_item_id}",
+                {
+                    "fmt": "json",
+                    "inc": "artist-credits+labels+release-groups+media+recordings",
+                },
+            ),
         )
         return ProviderItem(provider=self.name, provider_item_id=provider_item_id, raw=raw)
 
-    async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
+    async def normalize(self, data: MusicBrainzReleaseRaw | Mapping[str, Any]) -> NormalizedItem:
         provider_item_id = self._optional_text(data.get("id"))
         title = self._optional_text(data.get("title")) or "Unknown release"
         release_group = data.get("release-group") if isinstance(data.get("release-group"), Mapping) else {}
         release_date = self._date(data.get("date"))
         artist_names = self._artist_names(data.get("artist-credit"))
-        track_count, medium_formats, tracks = self._media_details(data.get("media"))
+        media = data.get("media")
+        track_count, medium_formats, tracks = self._media_details(media)
         catalog_number = self._catalog_number(data)
+        bundle_release = self._bundle_release(
+            data=data,
+            media=media,
+            provider_item_id=provider_item_id,
+            release_date=release_date,
+            artist_names=artist_names,
+        )
 
         return NormalizedItem(
             kind=ItemKind.music,
@@ -138,6 +243,7 @@ class MusicBrainzProvider:
                 if isinstance(data.get("text-representation"), Mapping)
                 else None
             ),
+            bundle_release=bundle_release,
         )
 
     async def _request(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -291,6 +397,127 @@ class MusicBrainzProvider:
             if cat:
                 return cat
         return None
+
+    def _bundle_release(
+        self,
+        *,
+        data: Mapping[str, Any],
+        media: Any,
+        provider_item_id: str | None,
+        release_date: date | None,
+        artist_names: list[str],
+    ) -> NormalizedBundleRelease | None:
+        bundle_media = self._bundle_media(media)
+        if not bundle_media:
+            return None
+
+        publisher = self._publisher(data)
+        language = self._optional_text(
+            (data.get("text-representation") or {}).get("language")
+            if isinstance(data.get("text-representation"), Mapping)
+            else None
+        )
+        cover_image_url = self._cover_url(data)
+        member_formats: list[str] = []
+        members: list[NormalizedBundleMember] = []
+        for index, medium in enumerate(bundle_media, start=1):
+            medium_title = self._optional_text(medium.get("title")) or f"Disc {index}"
+            medium_format = self._optional_text(medium.get("format"))
+            if medium_format and medium_format not in member_formats:
+                member_formats.append(medium_format)
+            raw_track = medium["tracks"][0]
+            member_provider_id = (
+                f"{provider_item_id}#disc-{index}" if provider_item_id is not None else None
+            )
+            member_item = NormalizedItem(
+                kind=ItemKind.music,
+                title=medium_title,
+                synopsis=self._optional_text(data.get("disambiguation")),
+                series_title=", ".join(artist_names) if artist_names else None,
+                volume_name=medium_title,
+                volume_start_year=release_date.year if release_date else None,
+                edition_title=medium_title,
+                edition_format=medium_format or "Music Release",
+                physical_format=medium_format,
+                publisher=publisher,
+                release_date=release_date,
+                cover_image_url=cover_image_url,
+                creators=[NormalizedCredit(name=name, role="Artist") for name in artist_names],
+                provider_ids={self.name: member_provider_id} if member_provider_id else {},
+                track_count=1,
+                tracks=[
+                    NormalizedTrack(
+                        position=1,
+                        title=medium_title,
+                        duration_seconds=self._track_duration_seconds(raw_track),
+                    )
+                ],
+                country=self._optional_text(data.get("country")),
+                release_status=self._optional_text(data.get("status")),
+                language=language,
+            )
+            members.append(
+                NormalizedBundleMember(
+                    item=member_item,
+                    role="primary" if index == 1 else "component",
+                    sequence_number=index,
+                    disc_number=index,
+                    disc_label=medium_title,
+                    quantity=1,
+                    is_primary=index == 1,
+                    metadata={
+                        "musicbrainz_medium_position": medium.get("position") or index,
+                        "musicbrainz_medium_format": medium_format,
+                    },
+                )
+            )
+
+        bundle_format = member_formats[0] if len(member_formats) == 1 else " / ".join(member_formats)
+        return NormalizedBundleRelease(
+            title=self._optional_text(data.get("title")) or "Unknown release",
+            bundle_type="box_set",
+            format=bundle_format or None,
+            packaging_type=self._optional_text(data.get("packaging")),
+            region=self._optional_text(data.get("country")),
+            language=language,
+            publisher=publisher,
+            barcode=self._optional_text(data.get("barcode")),
+            release_date=release_date,
+            cover_image_url=cover_image_url,
+            provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            members=members,
+        )
+
+    def _bundle_media(self, media: Any) -> list[Mapping[str, Any]]:
+        if not isinstance(media, list) or len(media) < 2:
+            return []
+        candidates: list[Mapping[str, Any]] = []
+        titles: list[str] = []
+        for medium in media:
+            if not isinstance(medium, Mapping):
+                return []
+            medium_title = self._optional_text(medium.get("title"))
+            raw_tracks = medium.get("tracks")
+            if not medium_title or not isinstance(raw_tracks, list) or len(raw_tracks) != 1:
+                return []
+            raw_track = raw_tracks[0]
+            if not isinstance(raw_track, Mapping):
+                return []
+            track_title = self._optional_text(raw_track.get("title"))
+            track_count = medium.get("track-count")
+            if track_title != medium_title or track_count != 1:
+                return []
+            titles.append(medium_title.casefold())
+            candidates.append(medium)
+        if len(set(titles)) != len(titles):
+            return []
+        return candidates
+
+    def _track_duration_seconds(self, raw_track: Mapping[str, Any]) -> int | None:
+        length_ms = raw_track.get("length")
+        if not isinstance(length_ms, (int, float)) or length_ms <= 0:
+            return None
+        return int(length_ms) // 1000
 
     def _cover_url(self, data: Mapping[str, Any]) -> str | None:
         archive = data.get("cover-art-archive")

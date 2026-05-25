@@ -30,15 +30,60 @@ class VariantResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ReleaseResponse(BaseModel):
-    id: UUID
-    region: str
-    release_date: date | None
-    publisher: str | None
-    external_ids: dict[str, Any] | None
-    metadata_json: dict[str, Any] | None
+class BundleReleaseContentSummaryResponse(BaseModel):
+    total_items: int
+    primary_count: int
+    bonus_count: int
 
-    model_config = {"from_attributes": True}
+
+class BundleReleaseSummaryResponse(BaseModel):
+    id: UUID
+    kind: ItemKind
+    title: str
+    bundle_type: str | None = None
+    format: str | None = None
+    variant_type: str | None = None
+    packaging_type: str | None = None
+    region: str | None = None
+    language: str | None = None
+    publisher: str | None = None
+    sku: str | None = None
+    barcode: str | None = None
+    release_date: date | None = None
+    cover_image_url: str | None = None
+    thumbnail_image_url: str | None = None
+    primary_item_id: UUID | None = None
+    primary_item_title: str | None = None
+    series_id: UUID | None = None
+    series_title: str | None = None
+    volume_id: UUID | None = None
+    volume_name: str | None = None
+    content_summary: BundleReleaseContentSummaryResponse
+
+
+class BundleReleaseMemberResponse(BaseModel):
+    id: UUID
+    item_id: UUID
+    role: str
+    sequence_number: int | None = None
+    disc_number: int | None = None
+    disc_label: str | None = None
+    quantity: int
+    is_primary: bool
+    kind: ItemKind
+    title: str
+    item_number: str | None = None
+    series_id: UUID | None = None
+    series_title: str | None = None
+    volume_name: str | None = None
+    volume_number: int | None = None
+
+
+class BundleReleaseDetailResponse(BundleReleaseSummaryResponse):
+    franchise_id: UUID | None = None
+    metadata_json: dict[str, Any] | None = None
+    external_ids: dict[str, Any] | None = None
+    members: list[BundleReleaseMemberResponse] = Field(default_factory=list)
 
 
 class MetadataCredit(BaseModel):
@@ -46,6 +91,7 @@ class MetadataCredit(BaseModel):
     role: str | None = None
     api_detail_url: str | None = None
     site_detail_url: str | None = None
+    image_url: str | None = None
 
     model_config = {"extra": "allow"}
 
@@ -72,9 +118,19 @@ class EditionResponse(BaseModel):
     physical_format_label: str | None = None
     metadata_json: dict[str, Any] | None
     variants: list[VariantResponse] = []
-    releases: list[ReleaseResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class CreateEditionRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    format: str | None = None
+    publisher: str | None = None
+    isbn: str | None = None
+    upc: str | None = None
+    language: str | None = None
+    region: str | None = None
+    release_date: date | None = None
 
 
 class ItemResponse(BaseModel):
@@ -107,7 +163,15 @@ class ItemResponse(BaseModel):
     creators: list[MetadataCredit] = []
     characters: list[MetadataCredit] = []
     story_arcs: list[MetadataCredit] = []
+    tags: list[str] = Field(default_factory=list)
     platforms: list[str] = []
+    genres: list[str] = []
+    country: str | None = None
+    language: str | None = None
+    age_rating: str | None = None
+    imprint: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
     release_status: str | None = None
     provider_links: list[ProviderLink] = []
     editions: list[EditionResponse] = []
@@ -152,6 +216,8 @@ class SearchResult(BaseModel):
     imprint: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
+    bundle_titles: list[str] | None = None
+    bundle_release_ids: list[str] | None = None
 
 
 class ProviderSearchResultResponse(BaseModel):
@@ -234,6 +300,7 @@ class SeriesResponse(BaseModel):
     status: str | None = None
     language: str | None = None
     country: str | None = None
+    tags: list[str] = Field(default_factory=list)
     volume_count: int = 0
     item_count: int = 0
 
@@ -383,7 +450,9 @@ class CharacterAppearanceResponse(BaseModel):
     cover_image_url: str | None = None
 
 
-def item_response_from_model(item: Any) -> ItemResponse:
+def item_response_from_model(
+    item: Any, extra_provider_links: list[ProviderLink] | None = None
+) -> ItemResponse:
     base = ItemResponse.model_validate(item).model_dump()
     _enrich_physical_formats(base, item)
     edition = _primary_edition(item)
@@ -415,11 +484,102 @@ def item_response_from_model(item: Any) -> ItemResponse:
             "story_arcs": _credits(source.get("story_arc_credits"))
             or _credits(normalized.get("story_arcs")),
             "platforms": _string_list(normalized.get("platforms")),
+            "genres": _string_list(normalized.get("genres")),
+            "country": _optional_text(normalized.get("country")),
+            "language": _optional_text(getattr(edition, "language", None))
+            or _optional_text(normalized.get("language")),
+            "age_rating": _optional_text(normalized.get("age_rating")),
+            "imprint": _optional_text(normalized.get("imprint")),
+            "subtitle": _optional_text(normalized.get("subtitle")),
+            "series_group": _optional_text(normalized.get("series_group")),
             "release_status": _optional_text(normalized.get("release_status")),
-            "provider_links": _provider_links(item),
+            "provider_links": _provider_links(item, extra_provider_links=extra_provider_links),
         }
     )
     return ItemResponse(**base)
+
+
+def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSummaryResponse:
+    primary_item = getattr(bundle_release, "primary_item", None)
+    series = getattr(bundle_release, "series", None)
+    volume = getattr(bundle_release, "volume", None)
+    items = list(getattr(bundle_release, "items", []) or [])
+    primary_count = sum(1 for member in items if getattr(member, "is_primary", False))
+    return BundleReleaseSummaryResponse(
+        id=bundle_release.id,
+        kind=bundle_release.kind,
+        title=bundle_release.title,
+        bundle_type=getattr(bundle_release, "bundle_type", None),
+        format=getattr(bundle_release, "format", None),
+        variant_type=getattr(bundle_release, "variant_type", None),
+        packaging_type=getattr(bundle_release, "packaging_type", None),
+        region=getattr(bundle_release, "region", None),
+        language=getattr(bundle_release, "language", None),
+        publisher=getattr(bundle_release, "publisher", None),
+        sku=getattr(bundle_release, "sku", None),
+        barcode=getattr(bundle_release, "barcode", None),
+        release_date=getattr(bundle_release, "release_date", None),
+        cover_image_url=getattr(bundle_release, "cover_image_url", None),
+        thumbnail_image_url=getattr(bundle_release, "thumbnail_image_url", None),
+        primary_item_id=getattr(primary_item, "id", None),
+        primary_item_title=getattr(primary_item, "title", None),
+        series_id=getattr(series, "id", None),
+        series_title=getattr(series, "title", None),
+        volume_id=getattr(volume, "id", None),
+        volume_name=getattr(volume, "name", None),
+        content_summary=BundleReleaseContentSummaryResponse(
+            total_items=len(items),
+            primary_count=primary_count,
+            bonus_count=max(len(items) - primary_count, 0),
+        ),
+    )
+
+
+def bundle_release_member_sort_key(member: Any) -> tuple[bool, int, bool, int, str]:
+    item = getattr(member, "item", None)
+    item_title = getattr(item, "title", None)
+    title_key = str(item_title).casefold() if item_title is not None else str(getattr(member, "id", ""))
+    return (
+        getattr(member, "disc_number", None) is None,
+        getattr(member, "disc_number", None) or 0,
+        getattr(member, "sequence_number", None) is None,
+        getattr(member, "sequence_number", None) or 0,
+        title_key,
+    )
+
+
+def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetailResponse:
+    summary = bundle_release_summary_from_model(bundle_release)
+    members = sorted(
+        list(getattr(bundle_release, "items", []) or []),
+        key=bundle_release_member_sort_key,
+    )
+    return BundleReleaseDetailResponse(
+        **summary.model_dump(),
+        franchise_id=getattr(bundle_release, "franchise_id", None),
+        metadata_json=getattr(bundle_release, "metadata_json", None),
+        external_ids=getattr(bundle_release, "external_ids", None),
+        members=[
+            BundleReleaseMemberResponse(
+                id=member.id,
+                item_id=member.item_id,
+                role=member.role,
+                sequence_number=getattr(member, "sequence_number", None),
+                disc_number=getattr(member, "disc_number", None),
+                disc_label=getattr(member, "disc_label", None),
+                quantity=getattr(member, "quantity", 1),
+                is_primary=getattr(member, "is_primary", False),
+                kind=member.item.kind,
+                title=member.item.title,
+                item_number=getattr(member.item, "item_number", None),
+                series_id=getattr(getattr(getattr(member.item, "volume", None), "series", None), "id", None),
+                series_title=getattr(getattr(getattr(member.item, "volume", None), "series", None), "title", None),
+                volume_name=getattr(getattr(member.item, "volume", None), "name", None),
+                volume_number=getattr(getattr(member.item, "volume", None), "volume_number", None),
+            )
+            for member in members
+        ],
+    )
 
 
 def _enrich_physical_formats(base: dict[str, Any], item: Any) -> None:
@@ -522,9 +682,6 @@ def _publisher(item: Any) -> str | None:
     for edition in getattr(item, "editions", []) or []:
         if edition.publisher:
             return edition.publisher
-        for release in getattr(edition, "releases", []) or []:
-            if release.publisher:
-                return release.publisher
     return None
 
 
@@ -575,6 +732,7 @@ def _credits(values: Any) -> list[MetadataCredit]:
                 role=str(role) if role else None,
                 api_detail_url=_optional_text(value.get("api_detail_url")),
                 site_detail_url=_optional_text(value.get("site_detail_url")),
+                image_url=_optional_text(value.get("image_url")),
             )
         )
     return credits
@@ -618,9 +776,21 @@ def _string_list(values: Any) -> list[str]:
     return result
 
 
-def _provider_links(item: Any) -> list[ProviderLink]:
+def _provider_links(
+    item: Any, extra_provider_links: list[ProviderLink] | None = None
+) -> list[ProviderLink]:
     links: list[ProviderLink] = []
-    seen: set[tuple[str, str, str]] = set()
+    seen: dict[tuple[str, str, str], ProviderLink] = {}
+    for link in extra_provider_links or []:
+        _append_provider_link(
+            links,
+            seen,
+            provider=link.provider.value,
+            entity_type=link.entity_type,
+            provider_item_id=link.provider_item_id,
+            site_url=link.site_url,
+            api_url=link.api_url,
+        )
     for edition in getattr(item, "editions", []) or []:
         metadata = getattr(edition, "metadata_json", None) or {}
         provider = metadata.get("provider") if isinstance(metadata, dict) else None
@@ -636,25 +806,12 @@ def _provider_links(item: Any) -> list[ProviderLink]:
                 site_url=_optional_text(source.get("site_detail_url")),
                 api_url=_optional_text(source.get("api_detail_url")),
             )
-        for release in getattr(edition, "releases", []) or []:
-            external_ids = getattr(release, "external_ids", None) or {}
-            if not isinstance(external_ids, dict):
-                continue
-            for release_provider, release_id in external_ids.items():
-                if release_id:
-                    _append_provider_link(
-                        links,
-                        seen,
-                        provider=str(release_provider),
-                        entity_type="release",
-                        provider_item_id=str(release_id),
-                    )
     return links
 
 
 def _append_provider_link(
     links: list[ProviderLink],
-    seen: set[tuple[str, str, str]],
+    seen: dict[tuple[str, str, str], ProviderLink],
     *,
     provider: str,
     entity_type: str,
@@ -663,22 +820,26 @@ def _append_provider_link(
     api_url: str | None = None,
 ) -> None:
     key = (provider, entity_type, provider_item_id)
-    if key in seen:
+    existing = seen.get(key)
+    if existing is not None:
+        if existing.site_url is None and site_url is not None:
+            existing.site_url = site_url
+        if existing.api_url is None and api_url is not None:
+            existing.api_url = api_url
         return
     try:
         provider_enum = ExternalProvider(provider)
     except ValueError:
         return
-    seen.add(key)
-    links.append(
-        ProviderLink(
-            provider=provider_enum,
-            entity_type=entity_type,
-            provider_item_id=provider_item_id,
-            site_url=site_url,
-            api_url=api_url,
-        )
+    link = ProviderLink(
+        provider=provider_enum,
+        entity_type=entity_type,
+        provider_item_id=provider_item_id,
+        site_url=site_url,
+        api_url=api_url,
     )
+    seen[key] = link
+    links.append(link)
 
 
 def _optional_text(value: Any) -> str | None:

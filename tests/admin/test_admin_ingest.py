@@ -10,6 +10,8 @@ from app.core.errors import ApiHTTPException
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseItem,
     Character,
     CharacterAppearance,
     Edition,
@@ -23,7 +25,6 @@ from app.models.canonical import (
     Organization,
     Person,
     ProviderIngestJob,
-    Release,
     Series,
     StoryArc,
     StoryArcItem,
@@ -32,7 +33,12 @@ from app.models.canonical import (
     Volume,
 )
 from app.providers.base import ProviderItem, ProviderSearchResult
-from app.providers.base import NormalizedItem, ProviderCapabilities
+from app.providers.base import (
+    NormalizedBundleMember,
+    NormalizedBundleRelease,
+    NormalizedItem,
+    ProviderCapabilities,
+)
 from app.providers.comicvine import (
     ComicVineCharacterDetail,
     ComicVineIssueCover,
@@ -947,6 +953,20 @@ async def test_admin_provider_search_rejects_provider_for_wrong_kind(client, mon
 
 
 @pytest.mark.asyncio
+async def test_admin_provider_ingest_rejects_provider_for_wrong_kind(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "gcd", "provider_item_id": "4000-1", "kind": "book"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Provider 'gcd' does not support kind 'book'"
+
+
+@pytest.mark.asyncio
 async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
 
@@ -1364,12 +1384,22 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
         json={
             "title": "Absolute Batman Deluxe",
             "item_number": "1A",
+            "edition_title": "Collector Edition",
             "publisher": "DC Black Label",
             "release_date": "2024-10-16",
+            "imprint": "Black Label",
+            "subtitle": "Noir Edition",
+            "series_group": "Absolute Universe",
             "variant_name": "Foil Cover",
             "barcode": "76194138584600121",
+            "country": "US",
+            "language": "en",
+            "age_rating": "Mature",
             "cover_image_url": "https://cdn.example/new.jpg",
             "page_count": 52,
+            "runtime_minutes": 0,
+            "catalog_number": "ABS-BAT-DELUXE",
+            "release_status": "announced",
         },
     )
 
@@ -1377,8 +1407,18 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     body = updated.json()
     assert body["title"] == "Absolute Batman Deluxe"
     assert body["item_number"] == "1A"
+    assert body["runtime_minutes"] == 0
     assert body["publisher"] == "DC Black Label"
     assert body["page_count"] == 52
+    assert body["imprint"] == "Black Label"
+    assert body["subtitle"] == "Noir Edition"
+    assert body["series_group"] == "Absolute Universe"
+    assert body["country"] == "US"
+    assert body["language"] == "en"
+    assert body["age_rating"] == "Mature"
+    assert body["catalog_number"] == "ABS-BAT-DELUXE"
+    assert body["release_status"] == "announced"
+    assert body["editions"][0]["title"] == "Collector Edition"
     assert body["editions"][0]["release_date"] == "2024-10-16"
     assert body["editions"][0]["variants"][0]["name"] == "Foil Cover"
     assert body["editions"][0]["variants"][0]["barcode"] == "76194138584600121"
@@ -1439,6 +1479,357 @@ async def test_admin_catalog_correction_updates_video_physical_format(client, mo
     )
     assert invalid_format.status_code == 400
     assert invalid_format.json()["code"] == "invalid_physical_format"
+
+
+@pytest.mark.asyncio
+async def test_admin_series_tags_update_persists_series_level_tags(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.manga, title="Monster")
+        volume = Volume(name="Monster Vol. 1", series=series, volume_number=1)
+        item = Item(
+            kind=ItemKind.manga,
+            title="Monster",
+            item_number="1",
+            sort_key="monster-001",
+            volume=volume,
+        )
+        db.add_all([series, volume, item])
+        await db.commit()
+        series_id = str(series.id)
+
+    response = await client.patch(
+        f"/admin/catalog/series/{series_id}/tags",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"tags": ["Psychological", "Seinen", "Psychological", "  "]},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["tags"] == ["Psychological", "Seinen"]
+
+    async with AsyncSessionLocal() as db:
+        stored = list(
+            await db.scalars(
+                select(Tag.name)
+                .join(EntityTag, EntityTag.tag_id == Tag.id)
+                .where(
+                    EntityTag.entity_type == "series",
+                    EntityTag.entity_id == UUID(series_id),
+                    Tag.kind == "series_tag:manga",
+                )
+                .order_by(Tag.name.asc())
+            )
+        )
+        assert stored == ["Psychological", "Seinen"]
+
+
+@pytest.mark.asyncio
+async def test_admin_bundle_release_update_persists_member_metadata_and_primary_item(
+    client, monkeypatch
+):
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.music, title="Compilation Series")
+        volume = Volume(series=series, name="Compilation Series", volume_number=1)
+        first_item = Item(kind=ItemKind.music, title="Disc One", sort_key="disc-one", volume=volume)
+        second_item = Item(kind=ItemKind.music, title="Disc Two", sort_key="disc-two", volume=volume)
+        db.add_all([series, volume, first_item, second_item])
+        await db.flush()
+        bundle = BundleRelease(
+            kind=ItemKind.music,
+            title="Original Box",
+            bundle_type="box_set",
+            primary_item_id=first_item.id,
+            series_id=series.id,
+            volume_id=volume.id,
+            format="CD",
+            packaging_type="box",
+            publisher="Label One",
+            barcode="111111111111",
+            release_date=date(2025, 1, 1),
+        )
+        db.add(bundle)
+        await db.flush()
+        first_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=first_item.id,
+            role="primary",
+            sequence_number=1,
+            disc_number=1,
+            disc_label="Disc One",
+            quantity=1,
+            is_primary=True,
+        )
+        second_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=second_item.id,
+            role="component",
+            sequence_number=2,
+            disc_number=2,
+            disc_label="Disc Two",
+            quantity=1,
+            is_primary=False,
+        )
+        db.add_all([first_member, second_member])
+        await db.commit()
+        bundle_id = str(bundle.id)
+        first_member_id = str(first_member.id)
+        second_member_id = str(second_member.id)
+        second_item_id = str(second_item.id)
+
+    response = await client.patch(
+        f"/admin/catalog/bundle-releases/{bundle_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Updated Box",
+            "publisher": "Label Two",
+            "barcode": "222222222222",
+            "release_date": "2025-02-02",
+            "members": [
+                {
+                    "id": first_member_id,
+                    "role": "bonus",
+                    "sequence_number": 2,
+                    "disc_number": 2,
+                    "disc_label": "Bonus Disc",
+                    "quantity": 1,
+                    "is_primary": False,
+                },
+                {
+                    "id": second_member_id,
+                    "role": "primary",
+                    "sequence_number": 1,
+                    "disc_number": 1,
+                    "disc_label": "Main Disc",
+                    "quantity": 2,
+                    "is_primary": True,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "Updated Box"
+    assert body["publisher"] == "Label Two"
+    assert body["barcode"] == "222222222222"
+    assert body["primary_item_id"] == second_item_id
+    assert [member["disc_label"] for member in body["members"]] == ["Main Disc", "Bonus Disc"]
+    assert body["members"][0]["item_id"] == second_item_id
+    assert body["members"][0]["quantity"] == 2
+    assert body["members"][0]["is_primary"] is True
+
+    async with AsyncSessionLocal() as db:
+        stored_bundle = await db.get(BundleRelease, UUID(bundle_id))
+        stored_members = list(
+            await db.scalars(
+                select(BundleReleaseItem)
+                .where(BundleReleaseItem.bundle_release_id == UUID(bundle_id))
+                .order_by(BundleReleaseItem.sequence_number.asc())
+            )
+        )
+        assert stored_bundle is not None
+        assert str(stored_bundle.primary_item_id) == second_item_id
+        assert stored_bundle.title == "Updated Box"
+        assert stored_bundle.publisher == "Label Two"
+        assert stored_bundle.barcode == "222222222222"
+        assert stored_members[0].disc_label == "Main Disc"
+        assert stored_members[0].quantity == 2
+        assert stored_members[0].is_primary is True
+
+    logs = await client.get(
+        "/admin/audit/logs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"action": "metadata.bundle_correction"},
+    )
+
+    assert logs.status_code == 200
+    assert logs.json()[0]["entity_type"] == "bundle_release"
+    assert logs.json()[0]["entity_id"] == bundle_id
+
+
+@pytest.mark.asyncio
+async def test_admin_bundle_release_update_can_add_cross_kind_members(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.music, title="Compilation Series")
+        volume = Volume(series=series, name="Compilation Series", volume_number=1)
+        first_item = Item(kind=ItemKind.music, title="Disc One", sort_key="disc-one", volume=volume)
+        second_item = Item(kind=ItemKind.music, title="Disc Two", sort_key="disc-two", volume=volume)
+        third_item = Item(kind=ItemKind.book, title="Collector Booklet", sort_key="collector-booklet")
+        db.add_all([series, volume, first_item, second_item, third_item])
+        await db.flush()
+        bundle = BundleRelease(
+            kind=ItemKind.music,
+            title="Mutable Box",
+            bundle_type="box_set",
+            primary_item_id=first_item.id,
+            series_id=series.id,
+            volume_id=volume.id,
+        )
+        db.add(bundle)
+        await db.flush()
+        first_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=first_item.id,
+            role="primary",
+            sequence_number=1,
+            quantity=1,
+            is_primary=True,
+        )
+        second_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=second_item.id,
+            role="component",
+            sequence_number=2,
+            quantity=1,
+            is_primary=False,
+        )
+        db.add_all([first_member, second_member])
+        await db.commit()
+        bundle_id = str(bundle.id)
+        second_member_id = str(second_member.id)
+        third_item_id = str(third_item.id)
+
+    response = await client.patch(
+        f"/admin/catalog/bundle-releases/{bundle_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "members": [
+                {
+                    "id": second_member_id,
+                    "role": "bonus",
+                    "sequence_number": 2,
+                    "quantity": 1,
+                    "is_primary": False,
+                },
+                {
+                    "item_id": third_item_id,
+                    "role": "primary",
+                    "sequence_number": 1,
+                    "disc_label": "New Main Disc",
+                    "quantity": 1,
+                    "is_primary": True,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["primary_item_id"] == third_item_id
+    assert body["members"][0]["item_id"] == third_item_id
+    assert body["members"][0]["kind"] == "book"
+    assert {member["title"] for member in body["members"]} == {"Disc Two", "Collector Booklet"}
+    assert all(member["title"] != "Disc One" for member in body["members"])
+
+    async with AsyncSessionLocal() as db:
+        stored_members = list(
+            await db.scalars(
+                select(BundleReleaseItem)
+                .where(BundleReleaseItem.bundle_release_id == UUID(bundle_id))
+                .order_by(BundleReleaseItem.sequence_number.asc())
+            )
+        )
+        assert len(stored_members) == 2
+        assert third_item_id in {str(member.item_id) for member in stored_members}
+        assert all(str(member.item_id) != str(first_item.id) for member in stored_members)
+
+
+@pytest.mark.asyncio
+async def test_admin_bundle_release_audit_uses_public_member_sorting(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.music, title="Compilation Series")
+        volume = Volume(series=series, name="Compilation Series", volume_number=1)
+        zebra_item = Item(kind=ItemKind.music, title="Zebra Disc", sort_key="zebra-disc", volume=volume)
+        alpha_item = Item(kind=ItemKind.music, title="Alpha Disc", sort_key="alpha-disc", volume=volume)
+        db.add_all([series, volume, zebra_item, alpha_item])
+        await db.flush()
+        bundle = BundleRelease(
+            kind=ItemKind.music,
+            title="Sortable Box",
+            bundle_type="box_set",
+            primary_item_id=zebra_item.id,
+            series_id=series.id,
+            volume_id=volume.id,
+        )
+        db.add(bundle)
+        await db.flush()
+        zebra_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=zebra_item.id,
+            item=zebra_item,
+            role="primary",
+            quantity=1,
+            is_primary=True,
+        )
+        alpha_member = BundleReleaseItem(
+            bundle_release_id=bundle.id,
+            item_id=alpha_item.id,
+            item=alpha_item,
+            role="component",
+            quantity=1,
+            is_primary=False,
+        )
+        db.add_all([zebra_member, alpha_member])
+        await db.commit()
+        bundle_id = str(bundle.id)
+        zebra_member_id = str(zebra_member.id)
+        alpha_member_id = str(alpha_member.id)
+
+    response = await client.patch(
+        f"/admin/catalog/bundle-releases/{bundle_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Sortable Box Updated",
+            "members": [
+                {
+                    "id": zebra_member_id,
+                    "role": "primary",
+                    "quantity": 1,
+                    "is_primary": True,
+                },
+                {
+                    "id": alpha_member_id,
+                    "role": "component",
+                    "quantity": 1,
+                    "is_primary": False,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+    logs = await client.get(
+        "/admin/audit/logs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"action": "metadata.bundle_correction"},
+    )
+
+    assert logs.status_code == 200
+    before_members = logs.json()[0]["details_json"]["before"]["members"]
+    assert [member["id"] for member in before_members] == [alpha_member_id, zebra_member_id]
 
 
 @pytest.mark.asyncio
@@ -1723,12 +2114,14 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "role": "Writer",
             "api_detail_url": None,
             "site_detail_url": None,
+            "image_url": None,
         },
         {
             "name": "Steve Ditko",
             "role": "Artist",
             "api_detail_url": None,
             "site_detail_url": None,
+            "image_url": None,
         },
     ]
     assert body["item"]["characters"][0]["name"] == "Spider-Man"
@@ -1757,12 +2150,14 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "thumbnail_image_url": None,
             "publisher": "Marvel",
             "release_date": "1963-03-01",
-            "region": "US",
+                "region": None,
             "release_year": 1963,
             "barcode": None,
             "barcodes": [],
             "variant": "Cover A",
             "variant_names": ["Cover A"],
+            "bundle_titles": [],
+            "bundle_release_ids": [],
             "series_title": "The Amazing Spider-Man",
             "volume_name": "The Amazing Spider-Man",
             "catalog_number": None,
@@ -1788,7 +2183,6 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(Series)) == 1
         assert await db.scalar(select(func.count()).select_from(Volume)) == 1
         assert await db.scalar(select(func.count()).select_from(Variant)) == 1
-        assert await db.scalar(select(func.count()).select_from(Release)) == 1
         assert await db.scalar(select(func.count()).select_from(Organization)) == 1
         assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 1
         assert await db.scalar(select(func.count()).select_from(Person)) == 2
@@ -1805,6 +2199,30 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             )
         )
         assert list(provider_ids) == ["4000-12345", "4005-1443", "4050-6789"]
+        provider_links = await db.execute(
+            select(
+                ExternalProviderId.entity_type,
+                ExternalProviderId.provider_item_id,
+                ExternalProviderId.site_url,
+                ExternalProviderId.api_url,
+            ).order_by(
+                ExternalProviderId.entity_type.asc(),
+                ExternalProviderId.provider_item_id.asc(),
+            )
+        )
+        provider_link_rows = provider_links.all()
+        assert (
+            "character",
+            "4005-1443",
+            "https://comicvine.gamespot.com/spider-man/4005-1443/",
+            "https://comicvine.gamespot.com/api/character/4005-1443/",
+        ) in provider_link_rows
+        assert (
+            "item",
+            "4000-12345",
+            "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
+            "https://comicvine.gamespot.com/api/issue/4000-12345/",
+        ) in provider_link_rows
         character = await db.scalar(select(Character).where(Character.name == "Spider-Man"))
         assert character is not None
         assert character.aliases == ["Peter Parker", "Spidey"]
@@ -2520,3 +2938,145 @@ async def test_admin_preview_cache_reuses_hydrated_preview_for_ingest(monkeypatc
     assert preview.title == "The Silmarillion"
     assert response.created is True
     assert calls == {"get_item": 1, "normalize": 1}
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_creates_bundle_release_from_provider_package(monkeypatch):
+    class FakeMusicBundleProvider:
+        name = "musicbrainz"
+        capabilities = ProviderCapabilities(
+            kind=ItemKind.music,
+            display_name="MusicBrainz",
+            kinds=(ItemKind.music,),
+        )
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def status_message(self) -> str:
+            return "configured"
+
+        async def search(self, query: str, kind: ItemKind | None = None):
+            return []
+
+        async def get_item(self, provider_item_id: str) -> ProviderItem:
+            assert provider_item_id == "bundle:mb:collection-1"
+            return ProviderItem(
+                provider="musicbrainz",
+                provider_item_id=provider_item_id,
+                raw={"id": "collection-1", "title": "Collection Box"},
+            )
+
+        async def normalize(self, data) -> NormalizedItem:
+            assert data["id"] == "collection-1"
+            return NormalizedItem(
+                kind=ItemKind.music,
+                title="Album One",
+                series_title="Album One",
+                volume_name="Album One",
+                edition_title="Standard Edition",
+                edition_format="CD",
+                publisher="Roadrunner",
+                release_date=date(2024, 5, 3),
+                bundle_release=NormalizedBundleRelease(
+                    title="Collection Box",
+                    bundle_type="box_set",
+                    format="CD",
+                    packaging_type="box",
+                    region="US",
+                    publisher="Roadrunner",
+                    barcode="123456789012",
+                    release_date=date(2024, 5, 3),
+                    provider_ids={"musicbrainz": "bundle:mb:collection-1"},
+                    members=[
+                        NormalizedBundleMember(
+                            item=NormalizedItem(
+                                kind=ItemKind.music,
+                                title="Album One",
+                                series_title="Album One",
+                                volume_name="Album One",
+                                edition_title="Standard Edition",
+                                edition_format="CD",
+                                publisher="Roadrunner",
+                                release_date=date(2024, 5, 3),
+                                provider_ids={"musicbrainz": "release:album-one"},
+                            ),
+                            role="primary",
+                            sequence_number=1,
+                            disc_number=1,
+                            is_primary=True,
+                        ),
+                        NormalizedBundleMember(
+                            item=NormalizedItem(
+                                kind=ItemKind.music,
+                                title="Album Two",
+                                series_title="Album Two",
+                                volume_name="Album Two",
+                                edition_title="Deluxe Edition",
+                                edition_format="CD",
+                                publisher="Roadrunner",
+                                release_date=date(2024, 5, 3),
+                                provider_ids={"musicbrainz": "release:album-two"},
+                            ),
+                            role="primary",
+                            sequence_number=2,
+                            disc_number=2,
+                        ),
+                    ],
+                ),
+            )
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeMusicBundleProvider())
+
+        response = await service.ingest(
+            ProviderIngestRequest(
+                provider=ExternalProvider.musicbrainz,
+                provider_item_id="bundle:mb:collection-1",
+            )
+        )
+        second_response = await service.ingest(
+            ProviderIngestRequest(
+                provider=ExternalProvider.musicbrainz,
+                provider_item_id="bundle:mb:collection-1",
+            )
+        )
+
+    assert response.created is True
+    assert response.item.title == "Album One"
+    assert second_response.created is False
+    assert second_response.item_id == response.item_id
+
+    async with AsyncSessionLocal() as db:
+        assert await db.scalar(select(func.count()).select_from(Item)) == 2
+        assert await db.scalar(select(func.count()).select_from(BundleRelease)) == 1
+        assert await db.scalar(select(func.count()).select_from(BundleReleaseItem)) == 2
+
+        bundle = await db.scalar(select(BundleRelease))
+        assert bundle is not None
+        assert bundle.title == "Collection Box"
+        assert bundle.bundle_type == "box_set"
+        assert bundle.primary_item_id == UUID(str(response.item_id))
+        assert bundle.barcode == "123456789012"
+
+        member_roles = await db.execute(
+            select(BundleReleaseItem.role, BundleReleaseItem.disc_number)
+            .where(BundleReleaseItem.bundle_release_id == bundle.id)
+            .order_by(BundleReleaseItem.sequence_number.asc())
+        )
+        assert member_roles.all() == [("primary", 1), ("primary", 2)]
+
+        provider_links = await db.execute(
+            select(
+                ExternalProviderId.entity_type,
+                ExternalProviderId.provider_item_id,
+            ).order_by(ExternalProviderId.entity_type.asc(), ExternalProviderId.provider_item_id.asc())
+        )
+        assert provider_links.all() == [
+            ("bundle_release", "bundle:mb:collection-1"),
+            ("item", "release:album-one"),
+            ("item", "release:album-two"),
+        ]

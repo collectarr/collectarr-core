@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.deps import CurrentAdmin, DbSession
 from app.core.rate_limit import admin_provider_rate_limit
 from app.schemas.admin import (
+    AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
@@ -35,12 +36,8 @@ from app.schemas.admin import (
     UserUpdateRequest,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.schemas.metadata import ItemResponse, SeriesResponse
-from datetime import datetime
-
-from app.schemas.tracking import AdminTrackingStatsResponse, TrackingFacetsResponse
+from app.schemas.metadata import BundleReleaseDetailResponse, ItemResponse, SeriesResponse
 from app.services.admin import AdminMetadataService
-from app.services.tracking import TrackingService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -56,46 +53,6 @@ async def providers(db: DbSession, user: CurrentAdmin) -> ProviderStatusListResp
 @router.get("/catalog/summary", response_model=AdminCatalogSummaryResponse)
 async def catalog_summary(db: DbSession, user: CurrentAdmin) -> AdminCatalogSummaryResponse:
     return await AdminMetadataService(db).catalog_summary()
-
-
-@router.get("/tracking/stats", response_model=AdminTrackingStatsResponse)
-async def tracking_stats(
-    db: DbSession,
-    user: CurrentAdmin,
-    kind: ItemKind | None = None,
-    status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
-    updated_from: datetime | None = None,
-    updated_to: datetime | None = None,
-    limit: int = Query(default=10, ge=1, le=50),
-) -> AdminTrackingStatsResponse:
-    return await TrackingService(db).admin_stats(
-        kind=kind,
-        status_filter=status_filter,
-        source_type=source_type,
-        updated_from=updated_from,
-        updated_to=updated_to,
-        limit=limit,
-    )
-
-
-@router.get("/tracking/facets", response_model=TrackingFacetsResponse)
-async def tracking_facets(
-    db: DbSession,
-    user: CurrentAdmin,
-    kind: ItemKind | None = None,
-    status_filter: str | None = Query(default=None, alias="status", min_length=1, max_length=64),
-    source_type: str | None = Query(default=None, min_length=1, max_length=64),
-    updated_from: datetime | None = None,
-    updated_to: datetime | None = None,
-) -> TrackingFacetsResponse:
-    return await TrackingService(db).admin_facets(
-        kind=kind,
-        status_filter=status_filter,
-        source_type=source_type,
-        updated_from=updated_from,
-        updated_to=updated_to,
-    )
 
 
 @router.get("/catalog/items", response_model=list[ItemResponse])
@@ -128,6 +85,19 @@ async def catalog_series_tags_update(
     user: CurrentAdmin,
 ) -> SeriesResponse:
     return await AdminMetadataService(db, user).update_series_tags(series_id, payload)
+
+
+@router.patch(
+    "/catalog/bundle-releases/{bundle_release_id}",
+    response_model=BundleReleaseDetailResponse,
+)
+async def catalog_bundle_release_update(
+    bundle_release_id: UUID,
+    payload: AdminBundleReleaseCorrectionRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> BundleReleaseDetailResponse:
+    return await AdminMetadataService(db, user).update_bundle_release(bundle_release_id, payload)
 
 
 @router.get("/search/status", response_model=AdminSearchStatusResponse)

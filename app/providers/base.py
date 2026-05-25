@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Mapping, Protocol
+from typing import Any, Generic, Mapping, Protocol, TypeVar
 
 from app.models.base import ItemKind
 
@@ -51,11 +51,14 @@ class ProviderSearchResult:
     story_arc_preview: list[str] = field(default_factory=list)
 
 
+ProviderRawT = TypeVar("ProviderRawT", covariant=True)
+
+
 @dataclass(frozen=True)
-class ProviderItem:
+class ProviderItem(Generic[ProviderRawT]):
     provider: str
     provider_item_id: str
-    raw: Mapping[str, Any]
+    raw: ProviderRawT
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,7 @@ class NormalizedCredit:
     role: str | None = None
     api_detail_url: str | None = None
     site_detail_url: str | None = None
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,6 +123,36 @@ class NormalizedSeason:
 
 
 @dataclass(frozen=True)
+class NormalizedBundleMember:
+    item: "NormalizedItem"
+    role: str = "primary"
+    sequence_number: int | None = None
+    disc_number: int | None = None
+    disc_label: str | None = None
+    quantity: int = 1
+    is_primary: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NormalizedBundleRelease:
+    title: str
+    bundle_type: str | None = None
+    format: str | None = None
+    variant_type: str | None = None
+    packaging_type: str | None = None
+    region: str | None = None
+    language: str | None = None
+    publisher: str | None = None
+    sku: str | None = None
+    barcode: str | None = None
+    release_date: date | None = None
+    cover_image_url: str | None = None
+    provider_ids: dict[str, str] = field(default_factory=dict)
+    members: list[NormalizedBundleMember] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class NormalizedItem:
     kind: ItemKind
     title: str
@@ -161,6 +195,7 @@ class NormalizedItem:
     age_rating: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
+    bundle_release: NormalizedBundleRelease | None = None
 
     def __post_init__(self) -> None:
         if self.story_arcs or not self.genres:

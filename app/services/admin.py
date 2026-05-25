@@ -23,6 +23,8 @@ from app.catalog.media_types import media_type_for_kind
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
     AdminAuditLog,
+    BundleRelease,
+    BundleReleaseItem,
     Character,
     CharacterAppearance,
     Edition,
@@ -37,7 +39,6 @@ from app.models.canonical import (
     Organization,
     Person,
     ProviderIngestJob,
-    Release,
     Series,
     SeriesRelation,
     StoryArc,
@@ -49,11 +50,13 @@ from app.models.canonical import (
 from app.models.user import User
 from app.providers.base import (
     MetadataProvider,
+    NormalizedBundleMember,
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,
     NormalizedSeason,
     NormalizedVariantCover,
+    ProviderItem,
 )
 from app.providers.comicvine import ComicVineCharacterDetail, ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
@@ -65,6 +68,7 @@ from app.services.provider_preview_state import (
     clear_provider_preview_cache,
 )
 from app.schemas.admin import (
+    AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
@@ -72,6 +76,7 @@ from app.schemas.admin import (
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
     AdminMetadataCorrectionRequest,
+    AdminSeriesTagsUpdateRequest,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
@@ -91,7 +96,14 @@ from app.schemas.admin import (
     ProviderSearchRequest,
     ProviderStatusResponse,
 )
-from app.schemas.metadata import item_response_from_model
+from app.schemas.metadata import (
+    BundleReleaseDetailResponse,
+    ProviderLink,
+    SeriesResponse,
+    bundle_release_member_sort_key,
+    bundle_release_detail_from_model,
+    item_response_from_model,
+)
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
 from app.storage.image_cache import ImageCache
@@ -136,6 +148,106 @@ class AdminMetadataService:
         self.settings = get_settings()
         self._comicvine_character_details: dict[str, ComicVineCharacterDetail | None] = {}
 
+    async def _provider_links_for_items(
+        self, item_ids: list[UUID]
+    ) -> dict[UUID, list[ProviderLink]]:
+        if not item_ids:
+            return {}
+        result = await self.db.execute(
+            select(ExternalProviderId)
+            .where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id.in_(item_ids),
+            )
+            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
+        )
+        links_by_item: dict[UUID, list[ProviderLink]] = {}
+        for row in result.scalars():
+            links_by_item.setdefault(row.entity_id, []).append(
+                ProviderLink(
+                    provider=row.provider,
+                    entity_type=row.entity_type,
+                    provider_item_id=row.provider_item_id,
+                    site_url=row.site_url,
+                    api_url=row.api_url,
+                )
+            )
+        return links_by_item
+
+    async def _item_response(self, item: Item) -> Any:
+        links_by_item = await self._provider_links_for_items([item.id])
+        return item_response_from_model(item, extra_provider_links=links_by_item.get(item.id))
+
+    async def _item_responses(self, items: list[Item]) -> list[Any]:
+        links_by_item = await self._provider_links_for_items([item.id for item in items])
+        return [
+            item_response_from_model(item, extra_provider_links=links_by_item.get(item.id))
+            for item in items
+        ]
+
+    @staticmethod
+    def _provider_link_url_text(value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @staticmethod
+    def _looks_like_api_url(value: str) -> bool:
+        lowered = value.casefold()
+        return "/api/" in lowered or "api." in lowered
+
+    @classmethod
+    def _provider_link_urls_from_value(cls, value: Any) -> tuple[str | None, str | None]:
+        site_url: str | None = None
+        api_url: str | None = None
+        if isinstance(value, dict):
+            site_url = cls._provider_link_url_text(
+                value.get("site_detail_url")
+                or value.get("site_url")
+                or value.get("html_url")
+                or value.get("web_url")
+                or value.get("external_url")
+                or value.get("permalink")
+            )
+            api_url = cls._provider_link_url_text(value.get("api_detail_url") or value.get("api_url"))
+            fallback_url = cls._provider_link_url_text(value.get("url") or value.get("source_url"))
+            if fallback_url:
+                if api_url is None and cls._looks_like_api_url(fallback_url):
+                    api_url = fallback_url
+                elif site_url is None:
+                    site_url = fallback_url
+            return site_url, api_url
+        fallback_url = cls._provider_link_url_text(value)
+        if fallback_url is None:
+            return None, None
+        if cls._looks_like_api_url(fallback_url):
+            return None, fallback_url
+        return fallback_url, None
+
+    def _provider_link_urls_for_provider(
+        self,
+        provider: ExternalProvider,
+        provider_ids: dict[str, str],
+        raw_value: Any,
+    ) -> dict[str, dict[str, str | None]] | None:
+        provider_item_id = provider_ids.get(provider.value)
+        if not provider_item_id:
+            return None
+        site_url, api_url = self._provider_link_urls_from_value(raw_value)
+        if site_url is None and api_url is None:
+            return None
+        return {provider.value: {"site_url": site_url, "api_url": api_url}}
+
+    @staticmethod
+    def _credit_provider_urls(credit: NormalizedCredit) -> dict[str, str | None] | None:
+        if credit.site_detail_url is None and credit.api_detail_url is None:
+            return None
+        return {
+            "site_url": credit.site_detail_url,
+            "api_url": credit.api_detail_url,
+        }
+
     async def provider_statuses(self) -> list[ProviderStatusResponse]:
         return [
             ProviderStatusResponse(
@@ -171,7 +283,6 @@ class AdminMetadataService:
             volumes=await self._count(Volume),
             editions=await self._count(Edition),
             variants=await self._count(Variant),
-            releases=await self._count(Release),
             provider_links=await self._count(ExternalProviderId),
             image_assets=await self._count_image_assets(),
             image_cache_entries=await self._count(ImageCacheEntry),
@@ -261,7 +372,7 @@ class AdminMetadataService:
             kind=kind,
             limit=limit,
         )
-        return [item_response_from_model(item) for item in items]
+        return await self._item_responses(items)
 
     async def update_catalog_item(
         self,
@@ -283,10 +394,17 @@ class AdminMetadataService:
             "synopsis": item.synopsis,
             "edition_title": None,
             "page_count": item.page_count,
+            "runtime_minutes": item.runtime_minutes,
             "publisher": None,
             "release_date": None,
-            "imprint": dict(item.metadata_json or {}).get("imprint"),
-            "series_group": dict(item.metadata_json or {}).get("series_group"),
+            "imprint": None,
+            "subtitle": None,
+            "series_group": None,
+            "country": None,
+            "language": None,
+            "age_rating": None,
+            "catalog_number": None,
+            "release_status": None,
             "variant_name": None,
             "barcode": None,
             "cover_image_url": None,
@@ -300,6 +418,8 @@ class AdminMetadataService:
             item.synopsis = payload.synopsis
         if "page_count" in update_data:
             item.page_count = payload.page_count
+        if "runtime_minutes" in update_data:
+            item.runtime_minutes = payload.runtime_minutes
         item.sort_key = self._sort_key(item.kind, item.title, item.item_number)
 
         edition = self._primary_edition_model(item)
@@ -310,24 +430,46 @@ class AdminMetadataService:
                 payload.physical_format,
             )
         if edition is not None:
+            edition_metadata = dict(edition.metadata_json or {})
+            normalized_metadata = dict(edition_metadata.get("normalized") or {})
             before["edition_title"] = edition.title
             before["publisher"] = edition.publisher
             before["release_date"] = edition.release_date
-            before["imprint"] = dict(edition.metadata_json or {}).get("imprint")
-            before["series_group"] = dict(edition.metadata_json or {}).get("series_group")
+            before["imprint"] = normalized_metadata.get("imprint")
+            before["subtitle"] = normalized_metadata.get("subtitle")
+            before["series_group"] = normalized_metadata.get("series_group")
+            before["country"] = normalized_metadata.get("country")
+            before["language"] = edition.language or normalized_metadata.get("language")
+            before["age_rating"] = normalized_metadata.get("age_rating")
+            before["catalog_number"] = normalized_metadata.get("catalog_number")
+            before["release_status"] = normalized_metadata.get("release_status")
             if "edition_title" in update_data:
                 edition.title = payload.edition_title
             if "publisher" in update_data:
                 edition.publisher = payload.publisher
             if "release_date" in update_data:
                 edition.release_date = payload.release_date
-            metadata = dict(edition.metadata_json or {})
             if "imprint" in update_data:
-                metadata["imprint"] = payload.imprint
+                normalized_metadata["imprint"] = payload.imprint
             if "series_group" in update_data:
-                metadata["series_group"] = payload.series_group
-            if metadata != dict(edition.metadata_json or {}):
-                edition.metadata_json = metadata
+                normalized_metadata["series_group"] = payload.series_group
+            if "subtitle" in update_data:
+                normalized_metadata["subtitle"] = payload.subtitle
+            if "country" in update_data:
+                normalized_metadata["country"] = payload.country
+            if "language" in update_data:
+                edition.language = payload.language
+                normalized_metadata["language"] = payload.language
+            if "age_rating" in update_data:
+                normalized_metadata["age_rating"] = payload.age_rating
+            if "catalog_number" in update_data:
+                normalized_metadata["catalog_number"] = payload.catalog_number
+            if "release_status" in update_data:
+                normalized_metadata["release_status"] = payload.release_status
+            if normalized_metadata != dict(edition_metadata.get("normalized") or {}):
+                edition_metadata["normalized"] = normalized_metadata
+            if edition_metadata != dict(edition.metadata_json or {}):
+                edition.metadata_json = edition_metadata
             if physical_format is not None:
                 self._apply_physical_format_to_edition(edition, physical_format)
 
@@ -371,7 +513,260 @@ class AdminMetadataService:
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
             await SearchClient().index_documents_best_effort([item_search_document(loaded_item)])
-        return item_response_from_model(loaded_item)
+        return await self._item_response(loaded_item)
+
+    async def update_series_tags(
+        self,
+        series_id: UUID,
+        payload: AdminSeriesTagsUpdateRequest,
+    ) -> SeriesResponse:
+        series = await self.db.get(Series, series_id)
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="series_not_found",
+                detail="Series not found",
+            )
+
+        before = await self._entity_tag_names("series", series.id, self._series_tag_kind(series.kind))
+        normalized_tags = self._normalize_admin_tags(payload.tags)
+        await self._replace_entity_tags(
+            entity_type="series",
+            entity_id=series.id,
+            tag_kind=self._series_tag_kind(series.kind),
+            names=normalized_tags,
+        )
+
+        metadata = dict(series.metadata_json or {})
+        metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
+        metadata["admin_corrected_fields"] = ["tags"]
+        series.metadata_json = metadata
+        self._record_admin_audit(
+            action="metadata.series_tags_update",
+            entity_type="series",
+            entity_id=series.id,
+            details={
+                "kind": series.kind,
+                "fields": ["tags"],
+                "before": {"tags": before},
+                "after": {"tags": normalized_tags},
+            },
+        )
+        await self.db.commit()
+
+        from app.services.metadata import MetadataService
+
+        return await MetadataService(self.db).get_series(series.id)
+
+    async def update_bundle_release(
+        self,
+        bundle_release_id: UUID,
+        payload: AdminBundleReleaseCorrectionRequest,
+    ) -> BundleReleaseDetailResponse:
+        bundle = await MetadataRepository(self.db).get_bundle_release(bundle_release_id)
+        if bundle is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="bundle_release_not_found",
+                detail="Bundle release not found",
+            )
+        update_data = payload.model_dump(exclude_unset=True)
+        bundle_items = list(bundle.items or [])
+        before = {
+            "title": bundle.title,
+            "bundle_type": bundle.bundle_type,
+            "format": bundle.format,
+            "variant_type": bundle.variant_type,
+            "packaging_type": bundle.packaging_type,
+            "region": bundle.region,
+            "language": bundle.language,
+            "publisher": bundle.publisher,
+            "sku": bundle.sku,
+            "barcode": bundle.barcode,
+            "release_date": bundle.release_date,
+            "cover_image_url": bundle.cover_image_url,
+            "thumbnail_image_url": bundle.thumbnail_image_url,
+            "primary_item_id": bundle.primary_item_id,
+            "members": [
+                {
+                    "id": member.id,
+                    "item_id": member.item_id,
+                    "role": member.role,
+                    "sequence_number": member.sequence_number,
+                    "disc_number": member.disc_number,
+                    "disc_label": member.disc_label,
+                    "quantity": member.quantity,
+                    "is_primary": member.is_primary,
+                }
+                for member in sorted(bundle_items, key=bundle_release_member_sort_key)
+            ],
+        }
+
+        for field in (
+            "title",
+            "bundle_type",
+            "format",
+            "variant_type",
+            "packaging_type",
+            "region",
+            "language",
+            "publisher",
+            "sku",
+            "barcode",
+            "release_date",
+            "cover_image_url",
+            "thumbnail_image_url",
+        ):
+            if field in update_data:
+                setattr(bundle, field, update_data[field])
+
+        affected_item_ids = {member.item_id for member in bundle_items}
+        if "members" in update_data:
+            members_payload = payload.members or []
+            if not members_payload:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="bundle_members_required",
+                    detail="Bundle release updates must keep at least one member",
+                )
+            existing_members = {member.id: member for member in bundle_items}
+            payload_existing_ids = [member.id for member in members_payload if member.id is not None]
+            if len(payload_existing_ids) != len(set(payload_existing_ids)):
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="duplicate_bundle_member_reference",
+                    detail="Bundle member updates cannot reference the same membership row twice",
+                )
+            primary_members = [member for member in members_payload if member.is_primary]
+            if len(primary_members) != 1:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_bundle_primary_member",
+                    detail="Exactly one bundle member must be marked as primary",
+                )
+            requested_item_ids = {
+                member.item_id
+                for member in members_payload
+                if member.item_id is not None
+            }
+            requested_item_ids.update(
+                existing_members[member_id].item_id
+                for member_id in payload_existing_ids
+                if member_id in existing_members
+            )
+            if not requested_item_ids:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="bundle_members_required",
+                    detail="Bundle release updates must keep at least one member",
+                )
+            item_result = await self.db.execute(select(Item).where(Item.id.in_(requested_item_ids)))
+            available_items = {item.id: item for item in item_result.scalars().all()}
+            missing_item_ids = sorted(str(item_id) for item_id in requested_item_ids if item_id not in available_items)
+            if missing_item_ids:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="bundle_member_item_not_found",
+                    detail=f"Bundle member items not found: {', '.join(missing_item_ids)}",
+                )
+
+            kept_member_ids: set[UUID] = set()
+            member_keys: set[tuple[UUID, str, int | None, int | None]] = set()
+            primary_member_model: BundleReleaseItem | None = None
+            for member_payload in members_payload:
+                if member_payload.id is not None:
+                    member = existing_members.get(member_payload.id)
+                    if member is None:
+                        raise ApiHTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            code="bundle_member_mismatch",
+                            detail="Bundle member updates must reference valid membership rows",
+                        )
+                    kept_member_ids.add(member.id)
+                    if member_payload.item_id is not None and member_payload.item_id != member.item_id:
+                        member.item_id = member_payload.item_id
+                        member.item = available_items[member_payload.item_id]
+                else:
+                    if member_payload.item_id is None:
+                        raise ApiHTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            code="bundle_member_item_required",
+                            detail="New bundle members must include item_id",
+                        )
+                    member = BundleReleaseItem(
+                        bundle_release_id=bundle.id,
+                        item_id=member_payload.item_id,
+                        item=available_items[member_payload.item_id],
+                    )
+                    self.db.add(member)
+                    if bundle.items is None:
+                        bundle.items = []
+                    bundle.items.append(member)
+                member.role = member_payload.role
+                member.sequence_number = member_payload.sequence_number
+                member.disc_number = member_payload.disc_number
+                member.disc_label = member_payload.disc_label
+                member.quantity = member_payload.quantity
+                member.is_primary = member_payload.is_primary
+                member_key = (
+                    member.item_id,
+                    member.role,
+                    member.disc_number,
+                    member.sequence_number,
+                )
+                if member_key in member_keys:
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        code="duplicate_bundle_member",
+                        detail="Bundle members must remain unique by item, role, disc, and sequence",
+                    )
+                member_keys.add(member_key)
+                if member.is_primary:
+                    primary_member_model = member
+
+            for member_id, member in existing_members.items():
+                if member_id in kept_member_ids:
+                    continue
+                if member in bundle.items:
+                    bundle.items.remove(member)
+                await self.db.delete(member)
+
+            if primary_member_model is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_bundle_primary_member",
+                    detail="Exactly one bundle member must be marked as primary",
+                )
+            primary_member = primary_member_model
+            bundle.primary_item_id = primary_member.item_id
+            bundle.primary_item = primary_member.item
+
+        metadata = dict(bundle.metadata_json or {})
+        metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
+        metadata["admin_corrected_fields"] = sorted(update_data.keys())
+        bundle.metadata_json = metadata
+        self._record_admin_audit(
+            action="metadata.bundle_correction",
+            entity_type="bundle_release",
+            entity_id=bundle.id,
+            details={
+                "kind": bundle.kind,
+                "fields": sorted(update_data.keys()),
+                "before": before,
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+
+        loaded_bundle = await MetadataRepository(self.db).get_bundle_release(bundle.id)
+        if loaded_bundle is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="bundle_release_not_found",
+                detail="Bundle release not found after update",
+            )
+        await self._reindex_items(affected_item_ids | {member.item_id for member in loaded_bundle.items})
+        return bundle_release_detail_from_model(loaded_bundle)
 
     def _validated_physical_format(
         self,
@@ -581,10 +976,11 @@ class AdminMetadataService:
                 code="merged_target_unavailable",
                 detail="Merged target item could not be loaded",
             )
+        response_item = await self._item_response(loaded_item)
         return AdminDuplicateActionResponse(
             ok=True,
             affected_items=len(sources),
-            item=item_response_from_model(loaded_item),
+            item=response_item,
         )
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
@@ -1062,6 +1458,7 @@ class AdminMetadataService:
         """Fetch and normalize provider data without creating anything in the DB."""
         provider = self._provider(payload.provider)
         self._ensure_provider_ingest_supported(provider, payload.provider)
+        self._ensure_provider_kind_supported(provider, payload)
         hydrated = await self._hydrated_provider_preview(payload, provider=provider)
         provider_item = hydrated.provider_item
         normalized = hydrated.normalized
@@ -1102,7 +1499,11 @@ class AdminMetadataService:
             track_count=normalized.track_count,
             catalog_number=normalized.catalog_number,
             creators=[
-                ProviderPreviewCredit(name=c.name, role=c.role)
+                ProviderPreviewCredit(
+                    name=c.name,
+                    role=c.role,
+                    image_url=c.image_url,
+                )
                 for c in normalized.creators
             ],
             characters=[c.name for c in normalized.characters],
@@ -1170,6 +1571,7 @@ class AdminMetadataService:
     async def _ingest_once(self, payload: ProviderIngestRequest) -> ProviderIngestResponse:
         provider = self._provider(payload.provider)
         self._ensure_provider_ingest_supported(provider, payload.provider)
+        self._ensure_provider_kind_supported(provider, payload)
         existing_provider_id = await self._get_provider_id(payload)
         if existing_provider_id:
             return await self._existing_response(existing_provider_id)
@@ -1183,202 +1585,20 @@ class AdminMetadataService:
             return await self._existing_response(existing_provider_id)
 
         normalized = hydrated.normalized
-        physical_format = self._physical_format_for_normalized(normalized)
-        edition_format = physical_format.label if physical_format else normalized.edition_format
-        variant_name = normalized.variant_name or (
-            physical_format.label if physical_format is not None else "Cover A"
-        )
-        variant_type = normalized.variant_type or (
-            physical_format.variant_type if physical_format is not None else None
-        )
-        mirrored_cover = None
-        if self._should_mirror_provider_images(provider):
-            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
-                normalized.cover_image_url,
-                payload.provider.value,
-                provider_item.provider_item_id,
+        if normalized.bundle_release is not None:
+            item = await self._ingest_bundle_release(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item=provider_item,
+                normalized=normalized,
             )
-        cover_metadata = self._cover_metadata(
-            normalized.cover_image_url,
-            mirrored_cover,
-        )
-        volume, series = await self._upsert_volume(
-            normalized.kind,
-            normalized.series_title,
-            normalized.volume_name,
-            normalized.volume_start_year,
-        )
-        item = Item(
-            volume=volume,
-            kind=normalized.kind,
-            title=normalized.title,
-            item_number=normalized.item_number,
-            sort_key=self._sort_key(normalized.kind, normalized.title, normalized.item_number),
-            synopsis=normalized.synopsis,
-            runtime_minutes=normalized.runtime_minutes,
-            page_count=normalized.page_count,
-            metadata_json={
-                "provider": payload.provider.value,
-                "provider_item_id": provider_item.provider_item_id,
-                "normalized": {
-                    "kind": normalized.kind.value,
-                    "series_title": normalized.series_title,
-                    "volume_name": normalized.volume_name,
-                    "volume_number": normalized.volume_number,
-                    "volume_start_year": normalized.volume_start_year,
-                    "runtime_minutes": normalized.runtime_minutes,
-                    "story_arcs": [credit.name for credit in normalized.story_arcs],
-                    **cover_metadata,
-                },
-            },
-        )
-        edition = Edition(
-            item=item,
-            title=normalized.edition_title or "Standard Edition",
-            format=edition_format,
-            publisher=normalized.publisher,
-            isbn=normalized.isbn,
-            release_date=normalized.release_date,
-            metadata_json={
-                "provider": payload.provider.value,
-                "provider_item_id": provider_item.provider_item_id,
-                "normalized": {
-                    "title": normalized.edition_title or "Standard Edition",
-                    "format": edition_format,
-                    "physical_format": physical_format.id if physical_format else None,
-                    "physical_format_label": physical_format.label if physical_format else None,
-                    "physical_format_media_family": (
-                        physical_format.media_family if physical_format else None
-                    ),
-                    "physical_format_variant_type": (
-                        physical_format.variant_type if physical_format else None
-                    ),
-                    "publisher": normalized.publisher,
-                    "imprint": normalized.imprint,
-                    "release_date": (
-                        normalized.release_date.isoformat() if normalized.release_date else None
-                    ),
-                    "isbn": normalized.isbn,
-                    "barcode": normalized.barcode,
-                    "creators": [
-                        {"name": credit.name, "role": credit.role} for credit in normalized.creators
-                    ],
-                    "characters": [credit.name for credit in normalized.characters],
-                    "story_arcs": [credit.name for credit in normalized.story_arcs],
-                    "track_count": normalized.track_count,
-                    "tracks": [
-                        {
-                            "position": t.position,
-                            "title": t.title,
-                            "duration_seconds": t.duration_seconds,
-                            "artist": t.artist,
-                            "disc_number": t.disc_number,
-                        }
-                        for t in normalized.tracks
-                    ] or None,
-                    "catalog_number": normalized.catalog_number,
-                    "country": normalized.country,
-                    "release_status": normalized.release_status,
-                    "platforms": normalized.platforms or None,
-                    "genres": normalized.genres or None,
-                    "language": normalized.language,
-                    "age_rating": normalized.age_rating,
-                    "subtitle": normalized.subtitle,
-                    "series_group": normalized.series_group,
-                    **cover_metadata,
-                },
-                "source": provider_item.raw,
-            },
-        )
-        variant = Variant(
-            edition=edition,
-            name=variant_name,
-            variant_type=variant_type,
-            barcode=normalized.barcode,
-            isbn=normalized.isbn,
-            cover_price_cents=normalized.cover_price_cents,
-            currency=normalized.currency,
-            cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
-            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
-            thumbnail_image_url=mirrored_cover.thumbnail_url if mirrored_cover else None,
-            metadata_json={
-                "provider": payload.provider.value,
-                "provider_item_id": provider_item.provider_item_id,
-                "normalized": {
-                    "name": variant_name,
-                    "variant_type": variant_type,
-                    "physical_format": physical_format.id if physical_format else None,
-                    "physical_format_label": physical_format.label if physical_format else None,
-                    "physical_format_media_family": (
-                        physical_format.media_family if physical_format else None
-                    ),
-                    "physical_format_variant_type": (
-                        physical_format.variant_type if physical_format else None
-                    ),
-                    "barcode": normalized.barcode,
-                    "isbn": normalized.isbn,
-                    "cover_price_cents": normalized.cover_price_cents,
-                    "currency": normalized.currency,
-                    **cover_metadata,
-                },
-            },
-            is_primary=True,
-        )
-        additional_variants, additional_mirrored_covers = await self._comicvine_associated_variants(
-            provider=provider,
-            provider_name=payload.provider,
-            provider_item_id=provider_item.provider_item_id,
-            normalized=normalized,
-            edition=edition,
-            primary_cover_url=normalized.cover_image_url,
-        )
-        release = Release(
-            edition=edition,
-            region="US",
-            release_date=normalized.release_date,
-            publisher=normalized.publisher,
-            external_ids=normalized.provider_ids,
-            metadata_json={
-                "provider": payload.provider.value,
-                "provider_item_id": provider_item.provider_item_id,
-                "normalized": {
-                    "release_date": (
-                        normalized.release_date.isoformat() if normalized.release_date else None
-                    ),
-                    "publisher": normalized.publisher,
-                    "external_ids": normalized.provider_ids,
-                },
-            },
-        )
-        self.db.add_all([item, edition, variant, *additional_variants, release])
-        await self.db.flush()
-        if mirrored_cover:
-            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
-        for mirrored_variant_cover in additional_mirrored_covers:
-            await ImageCache(self.db).record_mirrored_cover(mirrored_variant_cover)
-        await self._add_provider_links(payload.provider, normalized.provider_ids, "item", item.id)
-        if volume:
-            await self._add_provider_links(
-                payload.provider, normalized.volume_provider_ids, "volume", volume.id
-            )
-        await self._link_publisher(item.id, normalized.publisher)
-        await self._link_imprint(item.id, normalized.imprint, normalized.publisher)
-        await self._link_people(item.id, payload.provider, normalized.creators)
-        await self._link_characters(item.id, payload.provider, normalized.characters)
-        await self._link_story_arcs(item.id, payload.provider, normalized.story_arcs)
-        # Transitional dual-write for compatibility with existing tag-based consumers.
-        await self._link_tags(item.id, "character", normalized.characters)
-        await self._link_tags(item.id, "story_arc", normalized.story_arcs)
-        if volume:
-            await self._link_relations(series, normalized.relations)
-        if series and hasattr(provider, "get_seasons"):
-            await self._ingest_seasons(
-                provider, provider_item.provider_item_id, series, normalized.kind
-            )
-        if series and hasattr(provider, "get_volumes"):
-            await self._ingest_volumes(
-                provider, provider_item.provider_item_id, series, normalized.kind
+        else:
+            item, _, _ = await self._create_catalog_item_from_normalized(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item_id=provider_item.provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=normalized,
             )
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
@@ -1387,7 +1607,7 @@ class AdminMetadataService:
         return ProviderIngestResponse(
             item_id=item.id,
             created=True,
-            item=item_response_from_model(loaded_item),
+            item=await self._item_response(loaded_item),
         )
 
     async def _hydrated_provider_preview(
@@ -1407,6 +1627,15 @@ class AdminMetadataService:
         provider_item = await provider.get_item(payload.provider_item_id)
         normalized = await provider.normalize(provider_item.raw)
         normalized = await self._enrich_missing_comic_cover(normalized)
+        if payload.kind is not None and normalized.kind != payload.kind:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_kind_mismatch",
+                detail=(
+                    f"Provider item '{payload.provider_item_id}' normalized as "
+                    f"'{normalized.kind.value}', not '{payload.kind.value}'"
+                ),
+            )
         hydrated = HydratedProviderPreview(
             provider_item=provider_item,
             normalized=normalized,
@@ -1418,6 +1647,21 @@ class AdminMetadataService:
                 hydrated,
             )
         return hydrated
+
+    def _ensure_provider_kind_supported(
+        self,
+        provider: MetadataProvider,
+        payload: ProviderIngestRequest,
+    ) -> None:
+        if payload.kind is not None and not provider.capabilities.supports_kind(payload.kind):
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="provider_kind_unsupported",
+                detail=(
+                    f"Provider '{payload.provider.value}' does not support "
+                    f"kind '{payload.kind.value}'"
+                ),
+            )
 
     def _physical_format_for_normalized(
         self,
@@ -1682,7 +1926,18 @@ class AdminMetadataService:
         return result.scalar_one_or_none()
 
     async def _existing_response(self, provider_id: ExternalProviderId) -> ProviderIngestResponse:
-        item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
+        if provider_id.entity_type == "bundle_release":
+            bundle = await self.db.get(BundleRelease, provider_id.entity_id)
+            item_id = bundle.primary_item_id if bundle is not None else None
+            if item_id is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="provider_link_stale",
+                    detail="Provider link is stale",
+                )
+            item = await MetadataRepository(self.db).get_item(item_id)
+        else:
+            item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
         if item is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -1692,8 +1947,355 @@ class AdminMetadataService:
         return ProviderIngestResponse(
             item_id=item.id,
             created=False,
-            item=item_response_from_model(item),
+            item=await self._item_response(item),
         )
+
+    async def _ingest_bundle_release(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item: ProviderItem,
+        normalized: NormalizedItem,
+    ) -> Item:
+        bundle_normalized = normalized.bundle_release
+        if bundle_normalized is None:
+            raise RuntimeError("Bundle ingest called without bundle payload")
+
+        members = self._bundle_members_for_ingest(normalized)
+        created_members: list[tuple[NormalizedBundleMember, Item, Volume | None, Series | None]] = []
+        for index, member in enumerate(members, start=1):
+            member_provider_item_id = self._bundle_member_provider_item_id(
+                provider_name,
+                provider_item.provider_item_id,
+                member,
+                index,
+            )
+            member_item, member_volume, member_series = await self._create_catalog_item_from_normalized(
+                provider=provider,
+                provider_name=provider_name,
+                provider_item_id=member_provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=member.item,
+                ingest_related_collections=False,
+            )
+            created_members.append((member, member_item, member_volume, member_series))
+
+        primary_member = next(
+            ((member, item, volume, series) for member, item, volume, series in created_members if member.is_primary),
+            created_members[0],
+        )
+        _, primary_item, primary_volume, primary_series = primary_member
+
+        mirrored_cover = None
+        if self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
+                bundle_normalized.cover_image_url,
+                provider_name.value,
+                provider_item.provider_item_id,
+            )
+        cover_metadata = self._cover_metadata(bundle_normalized.cover_image_url, mirrored_cover)
+        bundle = BundleRelease(
+            kind=normalized.kind,
+            title=bundle_normalized.title,
+            bundle_type=bundle_normalized.bundle_type,
+            franchise_id=primary_series.franchise_id if primary_series is not None else None,
+            series_id=primary_series.id if primary_series is not None else None,
+            volume_id=primary_volume.id if primary_volume is not None else None,
+            primary_item_id=primary_item.id,
+            format=bundle_normalized.format,
+            variant_type=bundle_normalized.variant_type,
+            packaging_type=bundle_normalized.packaging_type,
+            region=bundle_normalized.region,
+            language=bundle_normalized.language,
+            publisher=bundle_normalized.publisher or normalized.publisher,
+            sku=bundle_normalized.sku,
+            barcode=bundle_normalized.barcode,
+            release_date=bundle_normalized.release_date,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            cover_image_url=mirrored_cover.url if mirrored_cover else bundle_normalized.cover_image_url,
+            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
+            thumbnail_image_url=(
+                mirrored_cover.thumbnail_url if mirrored_cover else bundle_normalized.cover_image_url
+            ),
+            external_ids=bundle_normalized.provider_ids or None,
+            metadata_json={
+                "provider": provider_name.value,
+                "provider_item_id": provider_item.provider_item_id,
+                "normalized": {
+                    "title": bundle_normalized.title,
+                    "bundle_type": bundle_normalized.bundle_type,
+                    "format": bundle_normalized.format,
+                    "variant_type": bundle_normalized.variant_type,
+                    "packaging_type": bundle_normalized.packaging_type,
+                    "region": bundle_normalized.region,
+                    "language": bundle_normalized.language,
+                    "publisher": bundle_normalized.publisher or normalized.publisher,
+                    "sku": bundle_normalized.sku,
+                    "barcode": bundle_normalized.barcode,
+                    "release_date": (
+                        bundle_normalized.release_date.isoformat()
+                        if bundle_normalized.release_date
+                        else None
+                    ),
+                    **cover_metadata,
+                },
+                "source": provider_item.raw,
+            },
+        )
+        self.db.add(bundle)
+        await self.db.flush()
+        if mirrored_cover is not None:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        for index, (member, member_item, _, _) in enumerate(created_members, start=1):
+            self.db.add(
+                BundleReleaseItem(
+                    bundle_release_id=bundle.id,
+                    item_id=member_item.id,
+                    role=member.role,
+                    sequence_number=member.sequence_number or index,
+                    disc_number=member.disc_number,
+                    disc_label=member.disc_label,
+                    quantity=member.quantity,
+                    is_primary=member.is_primary,
+                    metadata_json=member.metadata or None,
+                )
+            )
+        await self._add_provider_links(
+            provider_name,
+            bundle_normalized.provider_ids,
+            "bundle_release",
+            bundle.id,
+            provider_urls=self._provider_link_urls_for_provider(
+                provider_name,
+                bundle_normalized.provider_ids,
+                provider_item.raw,
+            ),
+        )
+        return primary_item
+
+    def _bundle_members_for_ingest(
+        self,
+        normalized: NormalizedItem,
+    ) -> list[NormalizedBundleMember]:
+        bundle_normalized = normalized.bundle_release
+        if bundle_normalized is None:
+            return []
+        if bundle_normalized.members:
+            return bundle_normalized.members
+        return [
+            NormalizedBundleMember(
+                item=replace(normalized, bundle_release=None),
+                role="primary",
+                sequence_number=1,
+                quantity=1,
+                is_primary=True,
+            )
+        ]
+
+    def _bundle_member_provider_item_id(
+        self,
+        provider_name: ExternalProvider,
+        bundle_provider_item_id: str,
+        member: NormalizedBundleMember,
+        index: int,
+    ) -> str:
+        candidate = member.item.provider_ids.get(provider_name.value)
+        if candidate:
+            return candidate
+        return f"{bundle_provider_item_id}#member-{index}"
+
+    async def _create_catalog_item_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any,
+        normalized: NormalizedItem,
+        ingest_related_collections: bool = True,
+    ) -> tuple[Item, Volume | None, Series | None]:
+        physical_format = self._physical_format_for_normalized(normalized)
+        edition_format = physical_format.label if physical_format else normalized.edition_format
+        variant_name = normalized.variant_name or (
+            physical_format.label if physical_format is not None else "Cover A"
+        )
+        variant_type = normalized.variant_type or (
+            physical_format.variant_type if physical_format is not None else None
+        )
+        mirrored_cover = None
+        if self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
+                normalized.cover_image_url,
+                provider_name.value,
+                provider_item_id,
+            )
+        cover_metadata = self._cover_metadata(normalized.cover_image_url, mirrored_cover)
+        volume, series = await self._upsert_volume(
+            normalized.kind,
+            normalized.series_title,
+            normalized.volume_name,
+            normalized.volume_start_year,
+        )
+        item = Item(
+            volume=volume,
+            kind=normalized.kind,
+            title=normalized.title,
+            item_number=normalized.item_number,
+            sort_key=self._sort_key(normalized.kind, normalized.title, normalized.item_number),
+            synopsis=normalized.synopsis,
+            runtime_minutes=normalized.runtime_minutes,
+            page_count=normalized.page_count,
+            metadata_json={
+                "provider": provider_name.value,
+                "provider_item_id": provider_item_id,
+                "normalized": {
+                    "kind": normalized.kind.value,
+                    "series_title": normalized.series_title,
+                    "volume_name": normalized.volume_name,
+                    "volume_number": normalized.volume_number,
+                    "volume_start_year": normalized.volume_start_year,
+                    "runtime_minutes": normalized.runtime_minutes,
+                    "story_arcs": [credit.name for credit in normalized.story_arcs],
+                    **cover_metadata,
+                },
+            },
+        )
+        edition = Edition(
+            item=item,
+            title=normalized.edition_title or "Standard Edition",
+            format=edition_format,
+            publisher=normalized.publisher,
+            isbn=normalized.isbn,
+            release_date=normalized.release_date,
+            metadata_json={
+                "provider": provider_name.value,
+                "provider_item_id": provider_item_id,
+                "normalized": {
+                    "title": normalized.edition_title or "Standard Edition",
+                    "format": edition_format,
+                    "physical_format": physical_format.id if physical_format else None,
+                    "physical_format_label": physical_format.label if physical_format else None,
+                    "physical_format_media_family": (
+                        physical_format.media_family if physical_format else None
+                    ),
+                    "physical_format_variant_type": (
+                        physical_format.variant_type if physical_format else None
+                    ),
+                    "publisher": normalized.publisher,
+                    "imprint": normalized.imprint,
+                    "release_date": (
+                        normalized.release_date.isoformat() if normalized.release_date else None
+                    ),
+                    "isbn": normalized.isbn,
+                    "barcode": normalized.barcode,
+                    "creators": [
+                        {"name": credit.name, "role": credit.role} for credit in normalized.creators
+                    ],
+                    "characters": [credit.name for credit in normalized.characters],
+                    "story_arcs": [credit.name for credit in normalized.story_arcs],
+                    "track_count": normalized.track_count,
+                    "tracks": [
+                        {
+                            "position": track.position,
+                            "title": track.title,
+                            "duration_seconds": track.duration_seconds,
+                            "artist": track.artist,
+                            "disc_number": track.disc_number,
+                        }
+                        for track in normalized.tracks
+                    ]
+                    or None,
+                    "catalog_number": normalized.catalog_number,
+                    "country": normalized.country,
+                    "release_status": normalized.release_status,
+                    "platforms": normalized.platforms or None,
+                    "genres": normalized.genres or None,
+                    "language": normalized.language,
+                    "age_rating": normalized.age_rating,
+                    "subtitle": normalized.subtitle,
+                    "series_group": normalized.series_group,
+                    **cover_metadata,
+                },
+                "source": provider_raw,
+            },
+        )
+        variant = Variant(
+            edition=edition,
+            name=variant_name,
+            variant_type=variant_type,
+            barcode=normalized.barcode,
+            isbn=normalized.isbn,
+            cover_price_cents=normalized.cover_price_cents,
+            currency=normalized.currency,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
+            thumbnail_image_url=mirrored_cover.thumbnail_url if mirrored_cover else None,
+            metadata_json={
+                "provider": provider_name.value,
+                "provider_item_id": provider_item_id,
+                "normalized": {
+                    "name": variant_name,
+                    "variant_type": variant_type,
+                    "physical_format": physical_format.id if physical_format else None,
+                    "physical_format_label": physical_format.label if physical_format else None,
+                    "physical_format_media_family": (
+                        physical_format.media_family if physical_format else None
+                    ),
+                    "physical_format_variant_type": (
+                        physical_format.variant_type if physical_format else None
+                    ),
+                    "barcode": normalized.barcode,
+                    "isbn": normalized.isbn,
+                    "cover_price_cents": normalized.cover_price_cents,
+                    "currency": normalized.currency,
+                    **cover_metadata,
+                },
+            },
+            is_primary=True,
+        )
+        additional_variants, additional_mirrored_covers = await self._comicvine_associated_variants(
+            provider=provider,
+            provider_name=provider_name,
+            provider_item_id=provider_item_id,
+            normalized=normalized,
+            edition=edition,
+            primary_cover_url=normalized.cover_image_url,
+        )
+        self.db.add_all([item, edition, variant, *additional_variants])
+        await self.db.flush()
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        for mirrored_variant_cover in additional_mirrored_covers:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_variant_cover)
+        await self._add_provider_links(
+            provider_name,
+            normalized.provider_ids,
+            "item",
+            item.id,
+            provider_urls=self._provider_link_urls_for_provider(
+                provider_name,
+                normalized.provider_ids,
+                provider_raw,
+            ),
+        )
+        if volume:
+            await self._add_provider_links(provider_name, normalized.volume_provider_ids, "volume", volume.id)
+        await self._link_publisher(item.id, normalized.publisher)
+        await self._link_imprint(item.id, normalized.imprint, normalized.publisher)
+        await self._link_people(item.id, provider_name, normalized.creators)
+        await self._link_characters(item.id, provider_name, normalized.characters)
+        await self._link_story_arcs(item.id, provider_name, normalized.story_arcs)
+        await self._link_tags(item.id, "character", normalized.characters)
+        await self._link_tags(item.id, "story_arc", normalized.story_arcs)
+        if volume:
+            await self._link_relations(series, normalized.relations)
+        if ingest_related_collections and series and hasattr(provider, "get_seasons"):
+            await self._ingest_seasons(provider, provider_item_id, series, normalized.kind)
+        if ingest_related_collections and series and hasattr(provider, "get_volumes"):
+            await self._ingest_volumes(provider, provider_item_id, series, normalized.kind)
+        return item, volume, series
 
     async def _upsert_volume(
         self,
@@ -1737,6 +2339,7 @@ class AdminMetadataService:
         provider_ids: dict[str, str],
         entity_type: str,
         entity_id: UUID,
+        provider_urls: dict[str, dict[str, str | None]] | None = None,
     ) -> None:
         candidate_ids = provider_ids or {}
         if provider.value not in candidate_ids:
@@ -1748,13 +2351,20 @@ class AdminMetadataService:
                 provider_enum = ExternalProvider(provider_name)
             except ValueError:
                 continue
-            exists = await self.db.scalar(
-                select(ExternalProviderId.id).where(
+            urls = provider_urls.get(provider_name) if provider_urls else None
+            site_url = self._provider_link_url_text(urls.get("site_url")) if urls else None
+            api_url = self._provider_link_url_text(urls.get("api_url")) if urls else None
+            existing = await self.db.scalar(
+                select(ExternalProviderId).where(
                     ExternalProviderId.provider == provider_enum,
                     ExternalProviderId.provider_item_id == provider_id,
                 )
             )
-            if exists:
+            if existing:
+                if site_url and site_url != existing.site_url:
+                    existing.site_url = site_url
+                if api_url and api_url != existing.api_url:
+                    existing.api_url = api_url
                 continue
             self.db.add(
                 ExternalProviderId(
@@ -1762,6 +2372,8 @@ class AdminMetadataService:
                     provider_item_id=provider_id,
                     entity_type=entity_type,
                     entity_id=entity_id,
+                    site_url=site_url,
+                    api_url=api_url,
                 )
             )
 
@@ -1853,6 +2465,7 @@ class AdminMetadataService:
                     {provider.value: provider_item_id},
                     "person",
                     person.id,
+                    provider_urls={provider.value: self._credit_provider_urls(credit) or {}},
                 )
 
     async def _link_story_arcs(
@@ -1894,6 +2507,7 @@ class AdminMetadataService:
                     {provider.value: provider_item_id},
                     "story_arc",
                     story_arc.id,
+                    provider_urls={provider.value: self._credit_provider_urls(credit) or {}},
                 )
 
     async def _link_characters(
@@ -1939,6 +2553,7 @@ class AdminMetadataService:
                     {provider.value: provider_item_id},
                     "character",
                     character.id,
+                    provider_urls={provider.value: self._credit_provider_urls(credit) or {}},
                 )
                 await self._enrich_comicvine_character(
                     character,
@@ -2148,6 +2763,7 @@ class AdminMetadataService:
                 metadata_json={
                     "api_detail_url": credit.api_detail_url,
                     "site_detail_url": credit.site_detail_url,
+                    "image_url": credit.image_url,
                 },
             )
             self.db.add(person)
@@ -2160,6 +2776,9 @@ class AdminMetadataService:
             updated = True
         if not metadata.get("site_detail_url") and credit.site_detail_url:
             metadata["site_detail_url"] = credit.site_detail_url
+            updated = True
+        if not metadata.get("image_url") and credit.image_url:
+            metadata["image_url"] = credit.image_url
             updated = True
         if updated:
             person.metadata_json = metadata
@@ -2347,6 +2966,71 @@ class AdminMetadataService:
             await self.db.flush()
         return tag
 
+    async def _entity_tag_names(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+        tag_kind: str | None = None,
+    ) -> list[str]:
+        stmt = (
+            select(Tag.name)
+            .join(EntityTag, EntityTag.tag_id == Tag.id)
+            .where(
+                EntityTag.entity_type == entity_type,
+                EntityTag.entity_id == entity_id,
+            )
+            .order_by(Tag.name.asc())
+        )
+        if tag_kind is not None:
+            stmt = stmt.where(Tag.kind == tag_kind)
+        rows = await self.db.scalars(stmt)
+        return [name for name in rows if isinstance(name, str) and name.strip()]
+
+    async def _replace_entity_tags(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+        tag_kind: str,
+        names: list[str],
+    ) -> None:
+        existing_links = list(
+            (
+                await self.db.execute(
+                    select(EntityTag)
+                    .join(Tag, Tag.id == EntityTag.tag_id)
+                    .where(
+                        EntityTag.entity_type == entity_type,
+                        EntityTag.entity_id == entity_id,
+                        Tag.kind == tag_kind,
+                    )
+                )
+            ).scalars()
+        )
+        for link in existing_links:
+            await self.db.delete(link)
+        await self.db.flush()
+        for name in names:
+            tag = await self._get_or_create_tag(tag_kind, name)
+            self.db.add(EntityTag(entity_type=entity_type, entity_id=entity_id, tag_id=tag.id))
+        await self.db.flush()
+
+    def _normalize_admin_tags(self, tags: list[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in tags:
+            value = " ".join(str(raw or "").split()).strip()
+            if not value:
+                continue
+            key = value.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(value)
+        return normalized
+
+    def _series_tag_kind(self, kind: ItemKind) -> str:
+        return f"series_tag:{kind.value}"
+
     def _character_appearance_role(self, source_role: str | None) -> str:
         normalized = (source_role or "").strip().casefold()
         if "cameo" in normalized or "guest" in normalized:
@@ -2454,7 +3138,6 @@ class AdminMetadataService:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.editions).selectinload(Edition.releases),
             )
             .where(Item.id.in_(unique_ids))
         )
@@ -2619,9 +3302,6 @@ class AdminMetadataService:
         for edition in item.editions:
             if edition.release_date is not None:
                 return edition.release_date.isoformat()
-            for release in edition.releases:
-                if release.release_date is not None:
-                    return release.release_date.isoformat()
         return None
 
     def _duplicate_ignore_token(self, item_ids: list[UUID]) -> str:
@@ -2762,8 +3442,8 @@ class AdminMetadataService:
         result = await self.db.execute(
             select(Item).options(
                 selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.editions).selectinload(Edition.releases),
             )
         )
         return [item_search_document(item) for item in result.scalars().unique()]
@@ -2880,6 +3560,16 @@ class AdminMetadataService:
         if isinstance(value, list | tuple | set):
             return [self._audit_json_safe(item) for item in value]
         return value
+
+    async def _reindex_items(self, item_ids: set[UUID]) -> None:
+        documents: list[dict[str, Any]] = []
+        repository = MetadataRepository(self.db)
+        for item_id in item_ids:
+            loaded_item = await repository.get_item(item_id)
+            if loaded_item is not None:
+                documents.append(item_search_document(loaded_item))
+        if documents:
+            await SearchClient().index_documents_best_effort(documents)
 
     def _backoff_delay(self, attempts: int) -> timedelta:
         return timedelta(seconds=min(300, 5 * (2 ** max(0, attempts - 1))))

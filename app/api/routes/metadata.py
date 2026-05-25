@@ -24,12 +24,16 @@ from app.schemas.admin import (
     ProviderPreviewResponse,
 )
 from app.schemas.metadata import (
+    BundleReleaseDetailResponse,
+    BundleReleaseSummaryResponse,
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    CreateEditionRequest,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
+    EditionResponse,
     FacetItemIdsRequest,
     ItemResponse,
     MediaCatalogResponse,
@@ -377,6 +381,30 @@ async def get_creator_facets(
     return await MetadataService(db).get_creator_facets(body.item_ids)
 
 
+@router.get(
+    "/metadata/items/{item_id}/bundle-releases",
+    response_model=list[BundleReleaseSummaryResponse],
+)
+async def get_item_bundle_releases(
+    item_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[BundleReleaseSummaryResponse]:
+    return await MetadataService(db).get_bundle_releases_for_item(item_id)
+
+
+@router.get(
+    "/metadata/bundle-releases/{bundle_release_id}",
+    response_model=BundleReleaseDetailResponse,
+)
+async def get_bundle_release(
+    bundle_release_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> BundleReleaseDetailResponse:
+    return await MetadataService(db).get_bundle_release(bundle_release_id)
+
+
 @router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse)
 async def get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> ItemResponse:
     return await _get_metadata_item(media_type, item_id, db)
@@ -489,6 +517,42 @@ async def get_item_volumes(
     _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_item_volumes(item_id)
+
+
+@router.get(
+    "/metadata/items/{item_id}/seasons",
+    response_model=list[SeasonResponse],
+)
+async def get_item_seasons(
+    item_id: UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> list[SeasonResponse]:
+    return await MetadataService(db).get_item_seasons(item_id)
+
+
+@router.post(
+    "/metadata/items/{item_id}/editions",
+    response_model=EditionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_item_edition(
+    item_id: UUID,
+    payload: CreateEditionRequest,
+    db: DbSession,
+    _user: CurrentUser,
+) -> EditionResponse:
+    return await MetadataService(db).create_edition(
+        item_id,
+        title=payload.title,
+        format=payload.format,
+        publisher=payload.publisher,
+        isbn=payload.isbn,
+        upc=payload.upc,
+        language=payload.language,
+        region=payload.region,
+        release_date=payload.release_date,
+    )
 
 
 @router.get(

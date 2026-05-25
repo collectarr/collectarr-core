@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ExternalProviderId, Item, Person, Tag
+from app.models.canonical import BundleRelease, ExternalProviderId, Item, Person, Tag
 from app.providers.anilist import AniListProvider
 from app.providers.base import ProviderItem
 from app.search.client import SearchClient
@@ -90,6 +90,44 @@ def _anilist_anime_raw() -> dict:
                 }
             ]
         },
+        "relations": {
+            "edges": [
+                {
+                    "relationType": "PREQUEL",
+                    "node": {
+                        "id": 20,
+                        "type": "ANIME",
+                        "format": "TV",
+                        "title": {
+                            "romaji": "One Piece Season 1",
+                            "english": "One Piece Season 1",
+                            "native": "ONE PIECE Season 1",
+                        },
+                        "startDate": {"year": 1999},
+                        "coverImage": {
+                            "medium": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/20.jpg",
+                        },
+                    },
+                },
+                {
+                    "relationType": "SEQUEL",
+                    "node": {
+                        "id": 22,
+                        "type": "ANIME",
+                        "format": "TV",
+                        "title": {
+                            "romaji": "One Piece Season 3",
+                            "english": "One Piece Season 3",
+                            "native": "ONE PIECE Season 3",
+                        },
+                        "startDate": {"year": 2001},
+                        "coverImage": {
+                            "medium": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/22.jpg",
+                        },
+                    },
+                },
+            ]
+        },
     }
 
 
@@ -134,6 +172,33 @@ async def test_anilist_provider_fetches_media_and_normalizes(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_anilist_provider_emits_box_set_bundle_for_multi_volume_manga(monkeypatch):
+    raw = _anilist_raw()
+    raw["volumes"] = 3
+
+    async def fake_graphql(self, query, variables):
+        assert variables == {"id": 30013}
+        return {"data": {"Media": raw}}
+
+    monkeypatch.setattr(AniListProvider, "_graphql", fake_graphql)
+
+    item = await AniListProvider().get_item("30013")
+    normalized = await AniListProvider().normalize(item.raw)
+
+    assert normalized.bundle_release is not None
+    assert normalized.bundle_release.title == "One Piece Box Set"
+    assert normalized.bundle_release.bundle_type == "box_set"
+    assert [member.item.volume_name for member in normalized.bundle_release.members] == [
+        "Volume 1",
+        "Volume 2",
+        "Volume 3",
+    ]
+    assert normalized.bundle_release.members[0].item.provider_ids == {
+        "anilist": "30013#volume-1"
+    }
+
+
+@pytest.mark.asyncio
 async def test_anilist_provider_searches_and_normalizes_anime(monkeypatch):
     async def fake_graphql(self, query, variables):
         assert "type: ANIME" in query
@@ -156,6 +221,36 @@ async def test_anilist_provider_searches_and_normalizes_anime(monkeypatch):
     assert normalized.runtime_minutes == 24
     assert normalized.edition_format == "TV"
     assert normalized.provider_ids == {"anilist": "anime:21"}
+
+
+@pytest.mark.asyncio
+async def test_anilist_provider_emits_season_pack_bundle_for_related_anime(monkeypatch):
+    async def fake_graphql(self, query, variables):
+        assert variables == {"id": 21}
+        return {"data": {"Media": _anilist_anime_raw()}}
+
+    monkeypatch.setattr(AniListProvider, "_graphql", fake_graphql)
+
+    item = await AniListProvider().get_item("anime:21")
+    normalized = await AniListProvider().normalize(item.raw)
+
+    assert normalized.bundle_release is not None
+    assert normalized.bundle_release.title == "One Piece Seasons"
+    assert normalized.bundle_release.bundle_type == "season_pack"
+    assert [member.item.title for member in normalized.bundle_release.members] == [
+        "One Piece Season 1",
+        "One Piece",
+        "One Piece Season 3",
+    ]
+    assert normalized.bundle_release.members[0].item.provider_ids == {
+        "anilist": "anime:20"
+    }
+    assert normalized.bundle_release.members[1].item.provider_ids == {
+        "anilist": "anime:21"
+    }
+    assert normalized.bundle_release.members[2].item.provider_ids == {
+        "anilist": "anime:22"
+    }
 
 
 @pytest.mark.asyncio
@@ -199,3 +294,52 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
     assert provider_ids == ["30013"]
     assert creator == "Eiichiro Oda"
     assert tags == ["Action", "Adventure"]
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypatch):
+    token = await _admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="anilist", provider_item_id="anime:21", raw=_anilist_anime_raw())
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(AniListProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "anilist", "provider_item_id": "anime:21"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["created"] is True
+    assert body["item"]["kind"] == "anime"
+    assert body["item"]["title"] == "One Piece"
+
+    async with AsyncSessionLocal() as db:
+        item_titles = list(
+            await db.scalars(select(Item.title).where(Item.kind == ItemKind.anime).order_by(Item.title))
+        )
+        bundle = await db.scalar(select(BundleRelease).where(BundleRelease.bundle_type == "season_pack"))
+        provider_ids = list(
+            await db.execute(
+                select(ExternalProviderId.entity_type, ExternalProviderId.provider_item_id)
+                .where(ExternalProviderId.provider == ExternalProvider.anilist)
+                .order_by(ExternalProviderId.entity_type, ExternalProviderId.provider_item_id)
+            )
+        )
+
+    assert item_titles == ["One Piece", "One Piece Season 1", "One Piece Season 3"]
+    assert bundle is not None
+    assert bundle.title == "One Piece Seasons"
+    assert bundle.external_ids == {"anilist": "anime:21"}
+    assert provider_ids == [
+        ("item", "anime:20"),
+        ("item", "anime:21"),
+        ("item", "anime:22"),
+    ]

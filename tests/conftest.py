@@ -2,13 +2,10 @@ import asyncio
 import os
 import socket
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 import asyncpg
 import pytest
 import pytest_asyncio
-from alembic import command
-from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
@@ -28,10 +25,16 @@ os.environ["IGDB_CLIENT_SECRET"] = ""
 os.environ["IGDB_ACCESS_TOKEN"] = ""
 os.environ["BGG_API_TOKEN"] = ""
 
-from app.db.session import AsyncSessionLocal  # noqa: E402
+from app.db.session import AsyncSessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.rate_limit import reset_rate_limits  # noqa: E402
+from app.models import Base  # noqa: E402
 from app.services.provider_search_state import reset_provider_search_state  # noqa: E402
+
+
+async def _create_schema() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 async def _ensure_test_database(database_url: str) -> None:
@@ -109,8 +112,7 @@ def migrated_database() -> None:
         if sock.connect_ex((host, port)) != 0:
             pytest.skip(f"PostgreSQL test database is not available at {host}:{port}")
     asyncio.run(_ensure_test_database(database_url))
-    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    command.upgrade(config, "head")
+    asyncio.run(_create_schema())
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -123,11 +125,11 @@ async def clean_database() -> AsyncIterator[None]:
                 """
                 truncate table
                   users, admin_audit_logs, metadata_proposals, image_cache_entries, image_assets,
-                  tracking_entries,
                   provider_ingest_jobs,
+                                    bundle_release_items, bundle_releases,
                   story_arc_items, character_appearances, story_arcs, characters,
                   entity_tags, entity_persons, entity_organizations, tags, persons, organizations,
-                  releases, variants, editions, external_provider_ids,
+                                    variants, editions, external_provider_ids,
                   series_relations, items, volumes, series, franchises
                 restart identity cascade
                 """

@@ -65,6 +65,45 @@ async def test_add_entity_image_requires_admin(client):
 
 
 @pytest.mark.asyncio
+async def test_add_entity_image_allows_bundle_release_entity_type(client, monkeypatch):
+    token = await _register_and_login_admin(client, email="bundle-image-admin@example.com")
+    entity_id = uuid4()
+
+    class FakeStorage:
+        def public_object_url(self, object_key: str) -> str:
+            return f"https://storage.example/{object_key}"
+
+    async def fake_mirror(self, image_bytes, *, source_url, provider, provider_item_id):
+        class Mirrored:
+            key = f"covers/user/{provider_item_id}/bundle.webp"
+            width = 1200
+            height = 1200
+
+        return Mirrored()
+
+    monkeypatch.setattr(
+        "app.api.routes.images.ObjectStorage.shared",
+        lambda: FakeStorage(),
+    )
+    monkeypatch.setattr(
+        "app.api.routes.images.ImageMirror.mirror_cover_bytes_best_effort",
+        fake_mirror,
+    )
+
+    response = await client.post(
+        f"/images/entity/bundle_release/{entity_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "image_type": "front_cover",
+            "image_data_base64": base64.b64encode(b"bundle-image").decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["entity_type"] == "bundle_release"
+
+
+@pytest.mark.asyncio
 async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     client,
     monkeypatch,

@@ -1,6 +1,6 @@
 import re
 from datetime import date
-from typing import Any, Mapping
+from typing import Any, Mapping, TypedDict
 
 import httpx
 from fastapi import status
@@ -19,6 +19,43 @@ from app.providers.base import (
 
 _OLID_RE = re.compile(r"^(?P<id>OL\d+[MWA])$", re.IGNORECASE)
 _YEAR_RE = re.compile(r"\b(?P<year>\d{4})\b")
+
+
+class OpenLibraryKeyRef(TypedDict):
+    key: str
+
+
+class OpenLibraryNamedRef(TypedDict, total=False):
+    name: str
+
+
+class OpenLibraryWorkRaw(TypedDict, total=False):
+    key: str
+    title: str
+    description: str | dict[str, Any]
+    subjects: list[str]
+    series: list[str | OpenLibraryNamedRef]
+
+
+class OpenLibraryEditionRaw(TypedDict, total=False):
+    key: str
+    title: str
+    subtitle: str
+    description: str | dict[str, Any]
+    isbn_13: list[str]
+    isbn_10: list[str]
+    publishers: list[str]
+    publish_date: str | int
+    number_of_pages: int
+    physical_format: str
+    works: list[OpenLibraryKeyRef]
+    languages: list[OpenLibraryKeyRef | str]
+    series: list[str | OpenLibraryNamedRef]
+
+
+class OpenLibraryItemRaw(TypedDict):
+    work: OpenLibraryWorkRaw | None
+    edition: OpenLibraryEditionRaw | None
 
 
 class OpenLibraryProvider:
@@ -103,7 +140,7 @@ class OpenLibraryProvider:
             return []
         return await self.search(f"isbn:{normalized}", kind)
 
-    async def get_item(self, provider_item_id: str) -> ProviderItem:
+    async def get_item(self, provider_item_id: str) -> ProviderItem[OpenLibraryItemRaw]:
         provider_id = self._provider_id(provider_item_id)
         if provider_id is None:
             raise ApiHTTPException(
@@ -118,23 +155,25 @@ class OpenLibraryProvider:
             edition = await self._request(f"books/{provider_id}.json")
         else:
             work = await self._request(f"works/{provider_id}.json")
+            raw: OpenLibraryItemRaw = {"work": work, "edition": None}
             return ProviderItem(
                 provider=self.name,
                 provider_item_id=provider_id,
-                raw={"work": work, "edition": None},
+                raw=raw,
             )
 
         work = None
         work_id = self._work_id_from_edition(edition)
         if work_id is not None:
             work = await self._request(f"works/{work_id}.json")
+        raw: OpenLibraryItemRaw = {"work": work, "edition": edition}
         return ProviderItem(
             provider=self.name,
             provider_item_id=self._edition_id(edition) or provider_id,
-            raw={"work": work, "edition": edition},
+            raw=raw,
         )
 
-    async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
+    async def normalize(self, data: OpenLibraryItemRaw | Mapping[str, Any]) -> NormalizedItem:
         edition = data.get("edition") if isinstance(data.get("edition"), Mapping) else None
         work = data.get("work") if isinstance(data.get("work"), Mapping) else None
         search_doc = data if edition is None and work is None else None

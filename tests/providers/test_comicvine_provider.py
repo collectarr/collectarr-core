@@ -363,3 +363,44 @@ async def test_comicvine_get_item_and_normalize_preserves_requested_manga_kind(
     assert normalized.page_count == 55
     assert normalized.provider_ids == {"comicvine": "manga:4000-12345"}
     assert normalized.volume_provider_ids == {"comicvine": "manga:4050-6789"}
+
+
+@pytest.mark.asyncio
+async def test_comicvine_provider_emits_tpb_bundle_for_explicit_collected_edition():
+    raw = {
+        "id": 54321,
+        "api_detail_url": "https://comicvine.gamespot.com/api/issue/4000-54321/",
+        "site_detail_url": "https://comicvine.gamespot.com/saga-volume-one/4000-54321/",
+        "name": "Volume One",
+        "issue_number": "",
+        "deck": "Collects issues #1-6.",
+        "description": "<p>Collects issues #1-6 of Saga.</p>",
+        "cover_date": "2012-10-10",
+        "number_of_pages": 160,
+        "image": {
+            "super_url": "https://comicvine.gamespot.com/a/uploads/scale_large/saga-volume-one.jpg"
+        },
+        "volume": {
+            "id": 99001,
+            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-99001/",
+            "name": "Saga",
+            "publisher": {"name": "Image"},
+        },
+    }
+
+    normalized = await ComicVineProvider().normalize(raw)
+
+    assert normalized.bundle_release is not None
+    assert normalized.bundle_release.bundle_type == "tpb"
+    assert normalized.bundle_release.title == "Volume One"
+    assert [member.item.item_number for member in normalized.bundle_release.members] == [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+    ]
+    assert normalized.bundle_release.members[0].item.provider_ids == {
+        "comicvine": "4000-54321#issue-1"
+    }

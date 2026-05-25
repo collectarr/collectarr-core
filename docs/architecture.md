@@ -136,7 +136,7 @@ local fallback data for offline/development sessions when Core is unavailable.
 
 ## Local Personal Data
 
-The Flutter client stores personal collection state in Drift. Owned items, wishlist entries, purchase dates, prices, grades, condition, and notes stay on the user's device.
+The Flutter client stores personal collection state in Drift. Owned items, wishlist entries, purchase dates, prices, grades, condition, notes, and personal tags stay on the user's device. Shared series-level catalog tags live in Core.
 
 The central backend intentionally does not expose `/collection` or `/sync` endpoints. This keeps the shared metadata server stateless with respect to personal libraries and avoids turning public web access into a private-data hosting requirement.
 

@@ -10,6 +10,8 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
+    NormalizedBundleMember,
+    NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,
@@ -201,6 +203,13 @@ class AniListProvider:
         title = self._title(data) or f"Unknown {kind.value}"
         start_date = self._date(data.get("startDate"))
         genres = self._list_text(data.get("genres"))
+        bundle_release = self._bundle_release(
+            data=data,
+            kind=kind,
+            provider_item_id=provider_item_id or None,
+            title=title,
+            start_date=start_date,
+        )
 
         return NormalizedItem(
             kind=kind,
@@ -221,6 +230,7 @@ class AniListProvider:
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             relations=self._relations(data.get("relations"), kind),
+            bundle_release=bundle_release,
         )
 
     async def _graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
@@ -468,6 +478,175 @@ class AniListProvider:
             return None
         text = str(value).strip()
         return text or None
+
+    def _bundle_release(
+        self,
+        *,
+        data: Mapping[str, Any],
+        kind: ItemKind,
+        provider_item_id: str | None,
+        title: str,
+        start_date: date | None,
+    ) -> NormalizedBundleRelease | None:
+        if kind == ItemKind.anime:
+            return self._anime_bundle_release(
+                data=data,
+                provider_item_id=provider_item_id,
+                title=title,
+                start_date=start_date,
+            )
+        if kind != ItemKind.manga:
+            return None
+        volume_count = self._int(data.get("volumes"))
+        if volume_count is None or volume_count < 2:
+            return None
+
+        members = [
+            NormalizedBundleMember(
+                item=NormalizedItem(
+                    kind=kind,
+                    title=f"{title} Volume {index}",
+                    series_title=title,
+                    volume_name=f"Volume {index}",
+                    volume_number=index,
+                    volume_start_year=start_date.year if start_date else None,
+                    edition_title=f"Volume {index}",
+                    edition_format="Manga Volume",
+                    release_date=start_date,
+                    cover_image_url=self._cover_url(data),
+                    creators=self._staff(data.get("staff")),
+                    genres=self._list_text(data.get("genres")),
+                    provider_ids=(
+                        {self.name: f"{provider_item_id}#volume-{index}"}
+                        if provider_item_id
+                        else {}
+                    ),
+                ),
+                role="primary" if index == 1 else "component",
+                sequence_number=index,
+                disc_number=index,
+                disc_label=f"Volume {index}",
+                is_primary=index == 1,
+                metadata={"anilist_volume_number": index},
+            )
+            for index in range(1, volume_count + 1)
+        ]
+
+        return NormalizedBundleRelease(
+            title=f"{title} Box Set",
+            bundle_type="box_set",
+            format="Manga Volume",
+            packaging_type="box",
+            release_date=start_date,
+            cover_image_url=self._cover_url(data),
+            provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            members=members,
+        )
+
+    def _anime_bundle_release(
+        self,
+        *,
+        data: Mapping[str, Any],
+        provider_item_id: str | None,
+        title: str,
+        start_date: date | None,
+    ) -> NormalizedBundleRelease | None:
+        candidates: list[tuple[str | None, str, date | None, str | None, str]] = [
+            (provider_item_id, title, start_date, self._cover_url(data), "self")
+        ]
+        relations = data.get("relations") if isinstance(data.get("relations"), Mapping) else None
+        edges = relations.get("edges") if isinstance(relations, Mapping) else None
+        if isinstance(edges, list):
+            for edge in edges:
+                if not isinstance(edge, Mapping):
+                    continue
+                relation_type = self._optional_text(edge.get("relationType"))
+                if relation_type not in {"PREQUEL", "SEQUEL"}:
+                    continue
+                node = edge.get("node") if isinstance(edge.get("node"), Mapping) else None
+                if not isinstance(node, Mapping):
+                    continue
+                if str(node.get("type") or "").upper() != "ANIME":
+                    continue
+                node_title = self._title(node)
+                node_id = self._id(node.get("id"))
+                if not node_title or node_id is None:
+                    continue
+                candidates.append(
+                    (
+                        self._provider_item_id(ItemKind.anime, node_id),
+                        node_title,
+                        self._date(node.get("startDate")),
+                        self._cover_url(node),
+                        relation_type.lower(),
+                    )
+                )
+
+        unique_candidates: list[tuple[str | None, str, date | None, str | None, str]] = []
+        seen_provider_ids: set[str] = set()
+        for candidate in candidates:
+            candidate_provider_id = candidate[0]
+            if candidate_provider_id and candidate_provider_id in seen_provider_ids:
+                continue
+            if candidate_provider_id:
+                seen_provider_ids.add(candidate_provider_id)
+            unique_candidates.append(candidate)
+
+        if len(unique_candidates) < 2:
+            return None
+
+        relation_order = {"prequel": 0, "self": 1, "sequel": 2}
+        unique_candidates.sort(
+            key=lambda candidate: (
+                candidate[2] or date.max,
+                relation_order.get(candidate[4], 3),
+                candidate[1].lower(),
+            )
+        )
+
+        members = [
+            NormalizedBundleMember(
+                item=NormalizedItem(
+                    kind=ItemKind.anime,
+                    title=candidate_title,
+                    series_title=title,
+                    volume_name=candidate_title,
+                    volume_number=index,
+                    volume_start_year=candidate_date.year if candidate_date else None,
+                    edition_title=candidate_title,
+                    edition_format="Anime Season",
+                    release_date=candidate_date,
+                    cover_image_url=candidate_cover,
+                    provider_ids={self.name: candidate_provider_id}
+                    if candidate_provider_id
+                    else {},
+                ),
+                role="primary" if candidate_provider_id == provider_item_id else "component",
+                sequence_number=index,
+                disc_number=index,
+                disc_label=candidate_title,
+                is_primary=candidate_provider_id == provider_item_id,
+                metadata={"anilist_relation_type": candidate_relation_type},
+            )
+            for index, (
+                candidate_provider_id,
+                candidate_title,
+                candidate_date,
+                candidate_cover,
+                candidate_relation_type,
+            ) in enumerate(unique_candidates, start=1)
+        ]
+
+        return NormalizedBundleRelease(
+            title=f"{title} Seasons",
+            bundle_type="season_pack",
+            format="Anime Season",
+            packaging_type="digital",
+            release_date=members[0].item.release_date,
+            cover_image_url=self._cover_url(data),
+            provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            members=members,
+        )
 
     async def get_volumes(self, provider_item_id: str) -> list[NormalizedSeason]:
         """Seed volumes from AniList volume count. No per-chapter data available."""

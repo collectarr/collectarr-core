@@ -1,6 +1,6 @@
+import asyncio
 import logging
 import re
-import asyncio
 from dataclasses import replace
 from urllib.parse import urlparse
 from uuid import UUID
@@ -18,7 +18,9 @@ from app.models.canonical import (
     Character,
     CharacterAppearance,
     Edition,
+    EntityTag,
     EntityPerson,
+    ExternalProviderId,
     Item,
     MetadataProposal,
     Person,
@@ -26,6 +28,7 @@ from app.models.canonical import (
     SeriesRelation,
     StoryArc,
     StoryArcItem,
+    Tag,
     Volume,
 )
 from app.providers.base import MetadataProvider, ProviderSearchResult
@@ -37,13 +40,17 @@ from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    BundleReleaseDetailResponse,
+    BundleReleaseSummaryResponse,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
+    EditionResponse,
     ItemResponse,
     MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
+    ProviderLink,
     ProviderSearchResultResponse,
     SeasonResponse,
     SearchResult,
@@ -53,6 +60,8 @@ from app.schemas.metadata import (
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
+    bundle_release_detail_from_model,
+    bundle_release_summary_from_model,
     item_response_from_model,
 )
 from app.search.client import SearchClient
@@ -85,6 +94,26 @@ class MetadataService:
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
 
+    async def _provider_links_for_item(self, item_id: UUID) -> list[ProviderLink]:
+        result = await self.db.execute(
+            select(ExternalProviderId)
+            .where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id == item_id,
+            )
+            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
+        )
+        return [
+            ProviderLink(
+                provider=row.provider,
+                entity_type=row.entity_type,
+                provider_item_id=row.provider_item_id,
+                site_url=row.site_url,
+                api_url=row.api_url,
+            )
+            for row in result.scalars()
+        ]
+
     async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse:
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
@@ -93,11 +122,41 @@ class MetadataService:
                 code="metadata_item_not_found",
                 detail="Item not found",
             )
-        response = item_response_from_model(item)
-        await self._enrich_item_metadata_facets(response, item.id)
+        response = item_response_from_model(
+            item,
+            extra_provider_links=await self._provider_links_for_item(item.id),
+        )
+        series_id = getattr(getattr(getattr(item, "volume", None), "series", None), "id", None)
+        await self._enrich_item_metadata_facets(response, item.id, series_id=series_id)
         return response
 
-    async def _enrich_item_metadata_facets(self, response: ItemResponse, item_id: UUID) -> None:
+    async def get_bundle_releases_for_item(self, item_id: UUID) -> list[BundleReleaseSummaryResponse]:
+        item = await self.metadata.get_item(item_id)
+        if item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Item not found",
+            )
+        bundle_releases = await self.metadata.get_bundle_releases_for_item(item_id)
+        return [bundle_release_summary_from_model(bundle) for bundle in bundle_releases]
+
+    async def get_bundle_release(self, bundle_release_id: UUID) -> BundleReleaseDetailResponse:
+        bundle_release = await self.metadata.get_bundle_release(bundle_release_id)
+        if bundle_release is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="bundle_release_not_found",
+                detail="Bundle release not found",
+            )
+        return bundle_release_detail_from_model(bundle_release)
+
+    async def _enrich_item_metadata_facets(
+        self,
+        response: ItemResponse,
+        item_id: UUID,
+        series_id: UUID | None = None,
+    ) -> None:
         creator_rows = (
             await self.db.execute(
                 select(EntityPerson, Person)
@@ -116,6 +175,7 @@ class MetadataService:
                     role=link.role,
                     api_detail_url=_metadata_text(person.metadata_json, "api_detail_url"),
                     site_detail_url=_metadata_text(person.metadata_json, "site_detail_url"),
+                    image_url=_metadata_text(person.metadata_json, "image_url"),
                 )
                 for link, person in creator_rows
             ]
@@ -161,6 +221,20 @@ class MetadataService:
                 )
                 for link, arc in arc_rows
             ]
+        if series_id is not None:
+            response.tags = await self._entity_tags("series", series_id)
+
+    async def _entity_tags(self, entity_type: str, entity_id: UUID) -> list[str]:
+        rows = await self.db.scalars(
+            select(Tag.name)
+            .join(EntityTag, EntityTag.tag_id == Tag.id)
+            .where(
+                EntityTag.entity_type == entity_type,
+                EntityTag.entity_id == entity_id,
+            )
+            .order_by(Tag.name.asc())
+        )
+        return [name for name in rows if isinstance(name, str) and name.strip()]
 
     async def search(
         self,
@@ -1069,6 +1143,8 @@ class MetadataService:
         imprint_val: str | None = None
         subtitle: str | None = None
         series_group: str | None = None
+        bundle_titles: list[str] | None = None
+        bundle_release_ids: list[str] | None = None
         for edition in item.editions:
             md = getattr(edition, "metadata_json", None)
             if isinstance(md, dict):
@@ -1109,6 +1185,19 @@ class MetadataService:
             if primary is not None:
                 cover_price_cents = cover_price_cents or primary.cover_price_cents
                 item_currency = item_currency or primary.currency
+        bundle_releases = sorted(
+            list(getattr(item, "primary_bundle_releases", []) or []),
+            key=lambda bundle: (
+                getattr(bundle, "release_date", None) is None,
+                -getattr(bundle, "release_date", None).toordinal()
+                if getattr(bundle, "release_date", None) is not None
+                else 0,
+                str(getattr(bundle, "title", "")).casefold(),
+            ),
+        )
+        if bundle_releases:
+            bundle_titles = [bundle.title for bundle in bundle_releases if getattr(bundle, "title", None)]
+            bundle_release_ids = [str(bundle.id) for bundle in bundle_releases]
         return SearchResult(
             id=item.id,
             kind=item.kind,
@@ -1146,6 +1235,8 @@ class MetadataService:
             imprint=imprint_val,
             subtitle=subtitle,
             series_group=series_group,
+            bundle_titles=bundle_titles,
+            bundle_release_ids=bundle_release_ids,
         )
 
     def _preferred_variant(
@@ -1262,6 +1353,7 @@ class MetadataService:
             )
             or 0
         )
+        tags = await self._entity_tags("series", series_id)
         return SeriesResponse(
             id=series.id,
             kind=series.kind,
@@ -1273,6 +1365,7 @@ class MetadataService:
             status=series.status,
             language=series.language,
             country=series.country,
+            tags=tags,
             volume_count=volume_count,
             item_count=item_count,
         )
@@ -1467,6 +1560,83 @@ class MetadataService:
             ]
 
         return []
+
+    async def get_item_seasons(self, item_id: UUID) -> list[SeasonResponse]:
+        """Look up provider links for an item and return seasons from the first
+        TV-capable provider (TMDB)."""
+        from app.models.canonical import ExternalProviderId
+        from app.providers.base import NormalizedSeason
+        from app.schemas.metadata import EpisodeResponse
+
+        _SEASON_PROVIDERS = [ExternalProvider.tmdb]
+
+        rows = (
+            (
+                await self.db.execute(
+                    select(ExternalProviderId).where(
+                        ExternalProviderId.entity_type == "item",
+                        ExternalProviderId.entity_id == item_id,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        provider_map = {row.provider: row.provider_item_id for row in rows}
+
+        for prov_enum in _SEASON_PROVIDERS:
+            pid = provider_map.get(prov_enum)
+            if pid is None:
+                continue
+            provider = self.providers.maybe_get(prov_enum)
+            if provider is None or not hasattr(provider, "get_seasons"):
+                continue
+            seasons: list[NormalizedSeason] = await provider.get_seasons(pid)
+            return [
+                SeasonResponse(
+                    season_number=s.season_number,
+                    title=s.title,
+                    overview=s.overview,
+                    air_date=s.air_date,
+                    episode_count=s.episode_count,
+                    poster_url=s.poster_url,
+                    episodes=[
+                        EpisodeResponse(
+                            episode_number=ep.episode_number,
+                            title=ep.title,
+                            overview=ep.overview,
+                            air_date=ep.air_date,
+                            runtime_minutes=ep.runtime_minutes,
+                            page_count=ep.page_count,
+                            still_url=ep.still_url,
+                        )
+                        for ep in s.episodes
+                    ],
+                )
+                for s in seasons
+            ]
+
+        return []
+
+    async def create_edition(
+        self, item_id: UUID, *, title: str, **kwargs: object
+    ) -> "EditionResponse":
+        item = (
+            await self.db.execute(select(Item).where(Item.id == item_id))
+        ).scalar_one_or_none()
+        if item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="item_not_found",
+                detail="Catalog item not found",
+            )
+        edition = Edition(item_id=item_id, title=title, **kwargs)
+        self.db.add(edition)
+        await self.db.flush()
+        await self.db.refresh(edition, attribute_names=["variants"])
+        await self.db.commit()
+        return EditionResponse.model_validate(edition)
 
     async def search_story_arcs(
         self,

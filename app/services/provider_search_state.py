@@ -41,10 +41,23 @@ class _ProviderSearchBackoff:
         self.reason = reason
 
 
+class _ProviderSearchStats:
+    def __init__(self) -> None:
+        self.hits = 0
+        self.misses = 0
+        self.writes = 0
+
+
 def reset_provider_search_state() -> None:
     with _PROVIDER_SEARCH_LOCK:
         _PROVIDER_SEARCH_CACHE.clear()
         _PROVIDER_SEARCH_BACKOFFS.clear()
+        _PROVIDER_SEARCH_STATS.hits = 0
+        _PROVIDER_SEARCH_STATS.misses = 0
+        _PROVIDER_SEARCH_STATS.writes = 0
+
+
+_PROVIDER_SEARCH_STATS = _ProviderSearchStats()
 
 
 class ProviderSearchState:
@@ -60,15 +73,19 @@ class ProviderSearchState:
             return None
         redis_results = await self._cached_redis(key)
         if redis_results is not None:
+            self._record_hit()
             return redis_results
         now = monotonic()
         with _PROVIDER_SEARCH_LOCK:
             entry = _PROVIDER_SEARCH_CACHE.get(key)
             if entry is None:
+                _PROVIDER_SEARCH_STATS.misses += 1
                 return None
             if entry.expires_at <= now:
                 del _PROVIDER_SEARCH_CACHE[key]
+                _PROVIDER_SEARCH_STATS.misses += 1
                 return None
+            _PROVIDER_SEARCH_STATS.hits += 1
             return list(entry.results)
 
     async def store(
@@ -81,6 +98,7 @@ class ProviderSearchState:
         if ttl <= 0 or max_entries <= 0:
             return
         if await self._store_redis(key, results, ttl):
+            self._record_write()
             return
         now = monotonic()
         with _PROVIDER_SEARCH_LOCK:
@@ -88,12 +106,38 @@ class ProviderSearchState:
                 results,
                 expires_at=now + ttl,
             )
+            _PROVIDER_SEARCH_STATS.writes += 1
             while len(_PROVIDER_SEARCH_CACHE) > max_entries:
                 oldest_key = min(
                     _PROVIDER_SEARCH_CACHE,
                     key=lambda item: _PROVIDER_SEARCH_CACHE[item].expires_at,
                 )
                 del _PROVIDER_SEARCH_CACHE[oldest_key]
+
+    async def stats(self) -> dict[str, int]:
+        redis_entries, redis_backoffs = await self._redis_counts()
+        with _PROVIDER_SEARCH_LOCK:
+            local_entries = len(_PROVIDER_SEARCH_CACHE)
+            local_backoffs = len(_PROVIDER_SEARCH_BACKOFFS)
+            return {
+                "hits": _PROVIDER_SEARCH_STATS.hits,
+                "misses": _PROVIDER_SEARCH_STATS.misses,
+                "writes": _PROVIDER_SEARCH_STATS.writes,
+                "entries": max(local_entries, redis_entries),
+                "backoffs": max(local_backoffs, redis_backoffs),
+                "local_entries": local_entries,
+                "redis_entries": redis_entries,
+                "local_backoffs": local_backoffs,
+                "redis_backoffs": redis_backoffs,
+            }
+
+    def _record_hit(self) -> None:
+        with _PROVIDER_SEARCH_LOCK:
+            _PROVIDER_SEARCH_STATS.hits += 1
+
+    def _record_write(self) -> None:
+        with _PROVIDER_SEARCH_LOCK:
+            _PROVIDER_SEARCH_STATS.writes += 1
 
     async def raise_if_backoff(
         self,
@@ -262,6 +306,25 @@ class ProviderSearchState:
                 exc_info=True,
             )
             return False
+
+    async def _redis_counts(self) -> tuple[int, int]:
+        try:
+            async with redis_client() as client:
+                if client is None:
+                    return 0, 0
+                cache_count = 0
+                async for _ in client.scan_iter(match=f"{_PROVIDER_SEARCH_CACHE_PREFIX}:*"):
+                    cache_count += 1
+                backoff_count = 0
+                async for _ in client.scan_iter(match=f"{_PROVIDER_SEARCH_BACKOFF_PREFIX}:*"):
+                    backoff_count += 1
+                return cache_count, backoff_count
+        except Exception:
+            logger.warning(
+                "Redis provider search cache stats unavailable; using in-memory fallback",
+                exc_info=True,
+            )
+            return 0, 0
 
     def _redis_cache_key(self, key: tuple[str, str, str]) -> str:
         digest = hashlib.sha256("|".join(key).encode("utf-8")).hexdigest()

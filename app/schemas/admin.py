@@ -30,9 +30,27 @@ class ProviderStatusResponse(BaseModel):
     message: str
 
 
+class ProviderCacheStatsResponse(BaseModel):
+    hits: int = 0
+    misses: int = 0
+    writes: int = 0
+    entries: int = 0
+    backoffs: int = 0
+    local_entries: int = 0
+    redis_entries: int = 0
+    local_backoffs: int = 0
+    redis_backoffs: int = 0
+
+
+class ProviderCacheSummaryResponse(BaseModel):
+    search: ProviderCacheStatsResponse
+    preview: ProviderCacheStatsResponse
+
+
 class ProviderStatusListResponse(BaseModel):
     contract_version: int
     providers: list[ProviderStatusResponse]
+    cache_stats: ProviderCacheSummaryResponse
 
 
 class ProviderIngestRequest(BaseModel):

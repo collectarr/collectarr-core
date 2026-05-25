@@ -474,6 +474,45 @@ async def test_barcode_provider_search_returns_musicbrainz_results(client, monke
 
 
 @pytest.mark.asyncio
+async def test_barcode_provider_search_uses_query_cache(client, monkeypatch):
+    token = await register_and_login(client)
+    calls = 0
+
+    async def fake_search_by_barcode(self, barcode, kind=None):
+        nonlocal calls
+        calls += 1
+        from app.providers.base import ProviderSearchResult
+
+        return [
+            ProviderSearchResult(
+                provider="musicbrainz",
+                provider_item_id="release-1234",
+                title="Test Album",
+                kind=ItemKind.music,
+                summary="Barcode match",
+            )
+        ]
+
+    from app.providers.musicbrainz import MusicBrainzProvider
+
+    monkeypatch.setattr(MusicBrainzProvider, "search_by_barcode", fake_search_by_barcode)
+
+    for _ in range(2):
+        response = await client.get(
+            "/barcode/0028948612345/providers",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"kind": "music"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 1
+        assert data[0]["provider_item_id"] == "release-1234"
+
+    assert calls == 1
+
+
+@pytest.mark.asyncio
 async def test_search_document_keeps_synopsis_out_of_index():
     item_id, _, _ = await seed_comic()
     async with AsyncSessionLocal() as db:

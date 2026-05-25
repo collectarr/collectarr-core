@@ -1,6 +1,8 @@
 import pytest
 
 from app.core.config import get_settings
+from app.models.base import ItemKind
+from app.providers.base import NormalizedItem, ProviderItem
 
 
 async def admin_token(client, monkeypatch) -> str:
@@ -29,6 +31,11 @@ async def test_admin_ui_is_served_without_api_token(client):
     assert "Needs provider match" in response.text
     assert "Catalog search" in response.text
     assert "providersButton" in response.text
+    assert "providerCacheStats" in response.text
+    assert "renderProviderCacheStats" in response.text
+    assert "refreshProviderCacheStats" in response.text
+    assert "local entries" in response.text
+    assert "redis entries" in response.text
 
 
 @pytest.mark.asyncio
@@ -42,6 +49,30 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     assert response.status_code == 200
     body = response.json()
     assert body["contract_version"] == 1
+    assert body["cache_stats"] == {
+        "search": {
+            "hits": 0,
+            "misses": 0,
+            "writes": 0,
+            "entries": 0,
+            "backoffs": 0,
+            "local_entries": 0,
+            "redis_entries": 0,
+            "local_backoffs": 0,
+            "redis_backoffs": 0,
+        },
+        "preview": {
+            "hits": 0,
+            "misses": 0,
+            "writes": 0,
+            "entries": 0,
+            "backoffs": 0,
+            "local_entries": 0,
+            "redis_entries": 0,
+            "local_backoffs": 0,
+            "redis_backoffs": 0,
+        },
+    }
     providers = {item["name"]: item for item in body["providers"]}
     assert providers["comicvine"]["kind"] == "comic"
     assert providers["comicvine"]["status"] == "stub"
@@ -70,3 +101,80 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     assert providers["musicbrainz"]["kind"] == "music"
     assert providers["musicbrainz"]["status"] == "live"
     assert providers["musicbrainz"]["supports_ingest"] is True
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_statuses_report_cache_activity(client, monkeypatch):
+    from app.providers.comicvine import ComicVineProvider
+    from app.providers.openlibrary import OpenLibraryProvider
+    from tests.admin.test_admin_ingest import comicvine_issue_raw
+
+    token = await admin_token(client, monkeypatch)
+
+    async def fake_search(self, query, kind=None):
+        return [ComicVineProvider()._search_result(comicvine_issue_raw())]
+
+    async def fake_get_item(self, provider_item_id: str) -> ProviderItem:
+        assert provider_item_id == "OL4242M"
+        return ProviderItem(
+            provider="openlibrary",
+            provider_item_id=provider_item_id,
+            raw={"id": 4242, "title": "The Silmarillion"},
+        )
+
+    async def fake_normalize(self, data) -> NormalizedItem:
+        assert data["id"] == 4242
+        return NormalizedItem(
+            kind=ItemKind.book,
+            title="The Silmarillion",
+            edition_format="Hardcover",
+            provider_ids={"openlibrary": "OL4242M"},
+            volume_provider_ids={"openlibrary": "OL4242M"},
+        )
+
+    monkeypatch.setattr(ComicVineProvider, "search", fake_search)
+    monkeypatch.setattr(OpenLibraryProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(OpenLibraryProvider, "normalize", fake_normalize)
+
+    for _ in range(2):
+        response = await client.post(
+            "/admin/providers/search",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"provider": "comicvine", "query": "spider", "kind": "comic"},
+        )
+        assert response.status_code == 200
+
+    for _ in range(2):
+        response = await client.post(
+            "/admin/providers/preview",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"provider": "openlibrary", "provider_item_id": "OL4242M"},
+        )
+        assert response.status_code == 200
+
+    response = await client.get("/admin/providers", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cache_stats"]["search"] == {
+        "hits": 1,
+        "misses": 1,
+        "writes": 1,
+        "entries": 1,
+        "backoffs": 0,
+        "local_entries": 1,
+        "redis_entries": 0,
+        "local_backoffs": 0,
+        "redis_backoffs": 0,
+    }
+    assert body["cache_stats"]["preview"] == {
+        "hits": 1,
+        "misses": 1,
+        "writes": 1,
+        "entries": 1,
+        "backoffs": 0,
+        "local_entries": 1,
+        "redis_entries": 0,
+        "local_backoffs": 0,
+        "redis_backoffs": 0,
+    }

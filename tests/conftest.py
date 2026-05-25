@@ -29,6 +29,7 @@ from app.db.session import AsyncSessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.rate_limit import reset_rate_limits  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.services.provider_preview_state import reset_provider_preview_state  # noqa: E402
 from app.services.provider_search_state import reset_provider_search_state  # noqa: E402
 
 
@@ -118,6 +119,7 @@ def migrated_database() -> None:
 @pytest_asyncio.fixture(autouse=True)
 async def clean_database() -> AsyncIterator[None]:
     reset_rate_limits()
+    reset_provider_preview_state()
     reset_provider_search_state()
     async with AsyncSessionLocal() as db:
         await db.execute(
@@ -138,6 +140,7 @@ async def clean_database() -> AsyncIterator[None]:
         await db.commit()
     yield
     reset_rate_limits()
+    reset_provider_preview_state()
     reset_provider_search_state()
 
 

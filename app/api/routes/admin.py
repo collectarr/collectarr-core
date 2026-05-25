@@ -44,9 +44,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/providers", response_model=ProviderStatusListResponse)
 async def providers(db: DbSession, user: CurrentAdmin) -> ProviderStatusListResponse:
+    service = AdminMetadataService(db)
     return ProviderStatusListResponse(
         contract_version=1,
-        providers=await AdminMetadataService(db).provider_statuses(),
+        providers=await service.provider_statuses(),
+        cache_stats=await service.provider_cache_stats(),
     )
 
 

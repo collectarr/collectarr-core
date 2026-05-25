@@ -316,6 +316,7 @@ _ADMIN_UI_HTML = """
         <div class="panel stack">
           <h2>Providers</h2>
           <button id="providersButton" type="button">Load provider status</button>
+          <div id="providerCacheStats" class="stack"></div>
           <div id="providerStatusList" class="stack"></div>
         </div>
       </aside>
@@ -513,6 +514,43 @@ _ADMIN_UI_HTML = """
 
       function providerStatusItems(data) {
         return Array.isArray(data) ? data : (data?.providers || []);
+      }
+
+      function renderProviderCacheStats(cacheStats) {
+        const target = $("providerCacheStats");
+        if (!cacheStats) {
+          target.innerHTML = '<p class="muted">No cache stats yet.</p>';
+          return;
+        }
+        const blocks = [
+          ["Search cache", cacheStats.search],
+          ["Preview cache", cacheStats.preview],
+        ].map(([label, stats]) => {
+          const safe = stats || {};
+          return `
+            <div class="result">
+              <h3>${escapeHtml(label)}</h3>
+              <div class="row">
+                <span class="badge">hits ${escapeHtml(String(safe.hits ?? 0))}</span>
+                <span class="badge">misses ${escapeHtml(String(safe.misses ?? 0))}</span>
+                <span class="badge">writes ${escapeHtml(String(safe.writes ?? 0))}</span>
+                <span class="badge">entries ${escapeHtml(String(safe.entries ?? 0))}</span>
+                ${label === "Search cache" ? `<span class="badge">backoffs ${escapeHtml(String(safe.backoffs ?? 0))}</span>` : ""}
+              </div>
+              <p class="muted">local entries ${escapeHtml(String(safe.local_entries ?? 0))} | redis entries ${escapeHtml(String(safe.redis_entries ?? 0))}</p>
+              ${label === "Search cache" ? `<p class="muted">local backoffs ${escapeHtml(String(safe.local_backoffs ?? 0))} | redis backoffs ${escapeHtml(String(safe.redis_backoffs ?? 0))}</p>` : ""}
+            </div>
+          `;
+        });
+        target.innerHTML = blocks.join("");
+      }
+
+      async function refreshProviderCacheStats() {
+        const data = await request("/admin/providers", {
+          headers: headers(true),
+        });
+        renderProviderCacheStats(data.cache_stats);
+        return data;
       }
 
       function renderCatalogResults(target, items) {
@@ -798,6 +836,7 @@ _ADMIN_UI_HTML = """
               : `Found ${data.length} provider items.`,
             "ok"
           );
+          await refreshProviderCacheStats();
           setResponse(data);
           logEvent(`Provider search returned ${data.length} items.`);
         } catch (error) {
@@ -811,9 +850,7 @@ _ADMIN_UI_HTML = """
         const button = $("providersButton");
         setBusy(button, true);
         try {
-          const data = await request("/admin/providers", {
-            headers: headers(true),
-          });
+          const data = await refreshProviderCacheStats();
           const providers = providerStatusItems(data);
           renderProviderStatuses(providers);
           renderProviderOptions(providers);
@@ -862,6 +899,7 @@ _ADMIN_UI_HTML = """
           });
           setStatus(data.created ? "Metadata item ingested." : "Metadata item already exists.", "ok");
           setMetric("ingestMetric", data.created ? "new" : "exists");
+          await refreshProviderCacheStats();
           setResponse(data);
           logEvent(data.created ? "Metadata item ingested." : "Ingest skipped, item already exists.");
         } catch (error) {
@@ -926,6 +964,7 @@ _ADMIN_UI_HTML = """
           state.activeProposalTitle = "";
           setStatus("Proposal approved with selected provider item.", "ok");
           setMetric("ingestMetric", data.created ? "new" : "exists");
+          await refreshProviderCacheStats();
           setResponse(data);
           logEvent("Manual proposal approved with provider item.");
           $("providerResults").innerHTML = "";
@@ -944,6 +983,7 @@ _ADMIN_UI_HTML = """
           });
           setStatus("Proposal approved and ingested.", "ok");
           setMetric("ingestMetric", "approved");
+          await refreshProviderCacheStats();
           setResponse(data);
           logEvent("Proposal approved and ingested.");
           loadProposalSummary();

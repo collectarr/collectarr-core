@@ -65,11 +65,13 @@ from app.repositories.metadata import MetadataRepository
 from app.services.provider_preview_state import (
     HydratedProviderPreview,
     ProviderPreviewState,
-    clear_provider_preview_cache,
 )
+from app.services.provider_search_state import ProviderSearchState
 from app.schemas.admin import (
     AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
+    ProviderCacheStatsResponse,
+    ProviderCacheSummaryResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -106,6 +108,7 @@ from app.schemas.metadata import (
 )
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
+from app.services.metadata import MetadataService
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
@@ -146,6 +149,7 @@ class AdminMetadataService:
         self.providers = ProviderRegistry()
         self.provider_preview_state = ProviderPreviewState()
         self.settings = get_settings()
+        self.provider_search_state = ProviderSearchState(self.settings)
         self._comicvine_character_details: dict[str, ComicVineCharacterDetail | None] = {}
 
     async def _provider_links_for_items(
@@ -273,6 +277,12 @@ class AdminMetadataService:
             )
             for status in self.providers.status_entries()
         ]
+
+    async def provider_cache_stats(self) -> ProviderCacheSummaryResponse:
+        return ProviderCacheSummaryResponse(
+            search=ProviderCacheStatsResponse(**(await self.provider_search_state.stats())),
+            preview=ProviderCacheStatsResponse(**(await self.provider_preview_state.stats())),
+        )
 
     async def catalog_summary(self) -> AdminCatalogSummaryResponse:
         duplicate_groups = await self._duplicate_group_count()
@@ -984,24 +994,12 @@ class AdminMetadataService:
         )
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
-        provider = self._provider(payload.provider)
-        if not provider.capabilities.supports_search:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_search_unsupported",
-                detail=f"Provider '{payload.provider.value}' does not support search",
-            )
-        if payload.kind is not None and not provider.capabilities.supports_kind(payload.kind):
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_kind_unsupported",
-                detail=(
-                    f"Provider '{payload.provider.value}' does not support "
-                    f"kind '{payload.kind.value}'"
-                ),
-            )
-        results = await provider.search(payload.query, payload.kind)
-        return [result.__dict__ for result in results]
+        results = await MetadataService(self.db).search_provider(
+            payload.provider,
+            payload.query,
+            payload.kind,
+        )
+        return [result.model_dump(mode="json") for result in results]
 
     async def proposal_summary(self) -> MetadataProposalSummaryResponse:
         result = await self.db.execute(
@@ -1544,12 +1542,19 @@ class AdminMetadataService:
                     attempt,
                     response.item_id,
                 )
-                clear_provider_preview_cache()
+                await self.provider_preview_state.invalidate(
+                    payload.provider.value,
+                    payload.provider_item_id,
+                    response.item.provider_links[0].provider_item_id if response.item.provider_links else None,
+                )
                 return response
             except Exception as exc:
                 last_error = exc
                 await self.db.rollback()
-                clear_provider_preview_cache()
+                await self.provider_preview_state.invalidate(
+                    payload.provider.value,
+                    payload.provider_item_id,
+                )
                 if attempt >= attempts or not self._is_retryable_ingest_error(exc):
                     self._record_ingest_history(
                         payload=payload,
@@ -1618,7 +1623,7 @@ class AdminMetadataService:
         use_cache: bool = True,
     ) -> HydratedProviderPreview:
         if use_cache:
-            cached = self.provider_preview_state.cached(
+            cached = await self.provider_preview_state.cached(
                 payload.provider.value,
                 payload.provider_item_id,
             )
@@ -1641,7 +1646,7 @@ class AdminMetadataService:
             normalized=normalized,
         )
         if use_cache:
-            self.provider_preview_state.store(
+            await self.provider_preview_state.store(
                 payload.provider.value,
                 payload.provider_item_id,
                 hydrated,

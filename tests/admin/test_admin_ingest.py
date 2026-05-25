@@ -1,4 +1,6 @@
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
+import fnmatch
 from uuid import UUID
 
 import pytest
@@ -61,6 +63,33 @@ async def admin_token(client, monkeypatch) -> str:
     )
     assert response.status_code == 201
     return response.json()["access_token"]
+
+
+class FakePreviewCacheRedis:
+    def __init__(self) -> None:
+        self.values: dict[str, str] = {}
+        self.ttls: dict[str, int] = {}
+
+    async def get(self, key: str) -> str | None:
+        return self.values.get(key)
+
+    async def setex(self, key: str, ttl: int, value: str) -> None:
+        self.values[key] = value
+        self.ttls[key] = ttl
+
+    async def scan_iter(self, match: str | None = None):
+        for key in list(self.values):
+            if match is None or fnmatch.fnmatch(key, match):
+                yield key
+
+    async def delete(self, *keys: str) -> int:
+        deleted = 0
+        for key in keys:
+            if key in self.values:
+                deleted += 1
+            self.values.pop(key, None)
+            self.ttls.pop(key, None)
+        return deleted
 
 
 def comicvine_issue_raw() -> dict:
@@ -906,6 +935,31 @@ async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
     assert response.status_code == 200
     assert response.json()[0]["provider_item_id"] == "4000-12345"
     assert response.json()[0]["title"] == "The Amazing Spider-Man #1 The Spider Strikes"
+
+
+@pytest.mark.asyncio
+async def test_admin_provider_search_uses_query_cache(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    calls = 0
+
+    async def fake_search(self, query, kind=None):
+        nonlocal calls
+        calls += 1
+        return [ComicVineProvider()._search_result(comicvine_issue_raw())]
+
+    monkeypatch.setattr(ComicVineProvider, "search", fake_search)
+
+    for _ in range(2):
+        response = await client.post(
+            "/admin/providers/search",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"provider": "comicvine", "query": "spider", "kind": "comic"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()[0]["provider_item_id"] == "4000-12345"
+
+    assert calls == 1
 
 
 @pytest.mark.asyncio
@@ -2938,6 +2992,113 @@ async def test_admin_preview_cache_reuses_hydrated_preview_for_ingest(monkeypatc
     assert preview.title == "The Silmarillion"
     assert response.created is True
     assert calls == {"get_item": 1, "normalize": 1}
+
+
+@pytest.mark.asyncio
+async def test_admin_preview_cache_uses_redis_across_service_instances(monkeypatch):
+    clear_provider_preview_cache()
+    fake = FakePreviewCacheRedis()
+    calls = {"get_item": 0, "normalize": 0}
+
+    @asynccontextmanager
+    async def fake_redis_client():
+        yield fake
+
+    monkeypatch.setattr("app.services.provider_preview_state.redis_client", fake_redis_client)
+
+    class FakeOpenLibraryProvider:
+        name = "openlibrary"
+        capabilities = ProviderCapabilities(
+            kind=ItemKind.book,
+            display_name="Open Library",
+            kinds=(ItemKind.book,),
+        )
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def status_message(self) -> str:
+            return "configured"
+
+        async def search(self, query: str, kind: ItemKind | None = None):
+            return []
+
+        async def get_item(self, provider_item_id: str) -> ProviderItem:
+            calls["get_item"] += 1
+            assert provider_item_id in {"OL4242M", "OL9999M"}
+            return ProviderItem(
+                provider="openlibrary",
+                provider_item_id=provider_item_id,
+                raw={
+                    "id": 4242 if provider_item_id == "OL4242M" else 9999,
+                    "title": "The Silmarillion" if provider_item_id == "OL4242M" else "Unfinished Tales",
+                },
+            )
+
+        async def normalize(self, data) -> NormalizedItem:
+            calls["normalize"] += 1
+            assert data["id"] in {4242, 9999}
+            return NormalizedItem(
+                kind=ItemKind.book,
+                title="The Silmarillion" if data["id"] == 4242 else "Unfinished Tales",
+                edition_format="Hardcover",
+                provider_ids={"openlibrary": "OL4242M" if data["id"] == 4242 else "OL9999M"},
+                volume_provider_ids={"openlibrary": "OL4242M" if data["id"] == 4242 else "OL9999M"},
+            )
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeOpenLibraryProvider())
+
+        preview = await service.preview(
+            ProviderIngestRequest(
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL4242M",
+            )
+        )
+        sibling_preview = await service.preview(
+            ProviderIngestRequest(
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL9999M",
+            )
+        )
+
+    assert fake.values
+    assert fake.ttls
+    clear_provider_preview_cache()
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeOpenLibraryProvider())
+
+        response = await service.ingest(
+            ProviderIngestRequest(
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL4242M",
+            )
+        )
+
+    clear_provider_preview_cache()
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeOpenLibraryProvider())
+
+        sibling_cached = await service.preview(
+            ProviderIngestRequest(
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL9999M",
+            )
+        )
+
+    assert preview.title == "The Silmarillion"
+    assert sibling_preview.title == "Unfinished Tales"
+    assert sibling_cached.title == "Unfinished Tales"
+    assert response.created is True
+    assert calls == {"get_item": 2, "normalize": 2}
+    assert fake.values
 
 
 @pytest.mark.asyncio

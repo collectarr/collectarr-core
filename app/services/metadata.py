@@ -322,6 +322,11 @@ class MetadataService:
         kind: ItemKind | None = None,
     ) -> list[ProviderSearchResult]:
         """Search external providers for a barcode/UPC/ISBN."""
+        cache_key = self._provider_search_cache_key("barcode", barcode, kind)
+        cached_results = await self._cached_provider_search_results(cache_key)
+        if cached_results is not None:
+            return await self._with_stable_provider_image_urls(cached_results)
+
         if kind is not None:
             providers = self.providers.for_kind(kind)
         else:
@@ -343,7 +348,11 @@ class MetadataService:
                 )
                 continue
             if results:
-                return results[:3]
+                results = results[:3]
+                await self._store_provider_search_results(cache_key, results)
+                return await self._with_stable_provider_image_urls(results)
+
+        await self._store_provider_search_results(cache_key, [])
         return []
 
     async def search_provider(
@@ -489,12 +498,18 @@ class MetadataService:
 
     def _provider_search_cache_key(
         self,
-        provider_name: ExternalProvider,
+        provider_name: ExternalProvider | str,
         query: str,
         kind: ItemKind | None,
     ) -> tuple[str, str, str]:
         normalized_query = " ".join(query.split()).casefold()
-        return provider_name.value, kind.value if kind else "*", normalized_query
+        return self._provider_search_cache_namespace(provider_name), kind.value if kind else "*", normalized_query
+
+    def _provider_search_cache_namespace(
+        self,
+        provider_name: ExternalProvider | str,
+    ) -> str:
+        return provider_name.value if isinstance(provider_name, ExternalProvider) else str(provider_name)
 
     def _provider_search_query(
         self,

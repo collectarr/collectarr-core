@@ -20,6 +20,8 @@ from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.providers.mangadex import MangaDexProvider
 from app.schemas.admin import (
+    ProviderBatchHydrateRequest,
+    ProviderBatchHydrateResponse,
     ProviderIngestRequest as ProviderPreviewRequest,
     ProviderPreviewResponse,
 )
@@ -51,6 +53,7 @@ from app.schemas.metadata import (
     StoryArcResponse,
     SeriesRelationResponse,
 )
+from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
 
 router = APIRouter(tags=["metadata"])
@@ -627,3 +630,14 @@ async def get_character_appearances(
     _user: CurrentUser,
 ) -> list[CharacterAppearanceResponse]:
     return await MetadataService(db).get_character_appearances(character_id)
+
+
+@router.post(
+    "/providers/batch-hydrate",
+    response_model=ProviderBatchHydrateResponse,
+)
+async def provider_batch_hydrate(
+    payload: ProviderBatchHydrateRequest,
+    db: DbSession,
+) -> ProviderBatchHydrateResponse:
+    return await AdminMetadataService(db).batch_hydrate(payload)

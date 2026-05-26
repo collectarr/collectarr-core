@@ -54,7 +54,7 @@ jobs:
 
       - name: Set up Buildx
         if: steps.release_mode.outputs.build_requested == 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GHCR
         if: steps.release_mode.outputs.publish_release == 'true'

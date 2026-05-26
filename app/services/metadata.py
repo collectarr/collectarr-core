@@ -1462,7 +1462,6 @@ class MetadataService:
                         air_date=ep.air_date,
                         runtime_minutes=ep.runtime_minutes,
                         page_count=ep.page_count,
-                        still_url=ep.still_url,
                     )
                     for ep in s.episodes
                 ],
@@ -1506,7 +1505,6 @@ class MetadataService:
                         air_date=ep.air_date,
                         runtime_minutes=ep.runtime_minutes,
                         page_count=ep.page_count,
-                        still_url=ep.still_url,
                     )
                     for ep in v.episodes
                 ],
@@ -1566,7 +1564,6 @@ class MetadataService:
                             air_date=ep.air_date,
                             runtime_minutes=ep.runtime_minutes,
                             page_count=ep.page_count,
-                            still_url=ep.still_url,
                         )
                         for ep in v.episodes
                     ],
@@ -1624,7 +1621,6 @@ class MetadataService:
                             air_date=ep.air_date,
                             runtime_minutes=ep.runtime_minutes,
                             page_count=ep.page_count,
-                            still_url=ep.still_url,
                         )
                         for ep in s.episodes
                     ],

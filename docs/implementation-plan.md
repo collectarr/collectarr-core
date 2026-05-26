@@ -44,6 +44,11 @@
 - OpenAPI auto-generated with tags (system, auth, metadata, admin)
 - `scripts/export_openapi.py` for versioned schema snapshots
 
+### 🔓 API Access
+- Read-only metadata endpoints (search, facets, series, seasons, volumes, bundle releases, provider search/preview) are public — no auth required
+- Write endpoints (create edition, admin mutations) remain auth-protected
+- Keeps App usable without login for browsing/searching metadata
+
 ## 🔜 Next Up
 
 ### 🎯 Provider Quality

@@ -414,7 +414,6 @@ class HardcoverProvider:
                     overview=book.get("description"),
                     air_date=release,
                     page_count=pages,
-                    still_url=self._book_image(book),
                 )
             )
 

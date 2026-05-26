@@ -76,7 +76,7 @@ jobs:
 
       - name: Build and push container image
         if: steps.release_mode.outputs.build_requested == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ steps.release_mode.outputs.publish_release == 'true' }}

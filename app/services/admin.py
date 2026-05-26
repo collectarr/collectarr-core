@@ -2727,7 +2727,6 @@ class AdminMetadataService:
                     metadata_json={
                         "season_title": season.title,
                         "air_date": ep.air_date.isoformat() if ep.air_date else None,
-                        "still_url": ep.still_url,
                     },
                 )
                 self.db.add(item)

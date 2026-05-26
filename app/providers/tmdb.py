@@ -553,7 +553,6 @@ class TMDbProvider:
                         overview=self._optional_text(ep.get("overview")),
                         air_date=self._date(ep.get("air_date")),
                         runtime_minutes=ep.get("runtime"),
-                        still_url=self._image_url(ep.get("still_path")),
                     )
                 )
             seasons.append(

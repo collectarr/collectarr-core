@@ -110,7 +110,6 @@ async def lookup_barcode(
 async def barcode_provider_search(
     barcode: str,
     db: DbSession,
-    _user: CurrentUser,
     kind: ItemKind | None = None,
 ) -> list[ProviderSearchResultResponse]:
     results = await MetadataService(db).barcode_provider_search(barcode, kind)
@@ -144,7 +143,6 @@ async def barcode_provider_search(
 )
 async def default_provider_search(
     db: DbSession,
-    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind = Query(...),
     series: str | None = Query(default=None, min_length=1, max_length=255),
@@ -168,7 +166,6 @@ async def default_provider_search(
 async def provider_search(
     provider: ExternalProvider,
     db: DbSession,
-    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind | None = None,
     series: str | None = Query(default=None, min_length=1, max_length=255),
@@ -193,7 +190,6 @@ async def provider_search(
 async def provider_preview(
     payload: ProviderPreviewRequest,
     db: DbSession,
-    _user: CurrentUser,
 ) -> ProviderPreviewResponse:
     from app.services.admin import AdminMetadataService
 
@@ -353,7 +349,6 @@ async def create_metadata_proposal(
 )
 async def get_story_arc_facets(
     db: DbSession,
-    _user: CurrentUser,
     body: FacetItemIdsRequest,
 ) -> list[StoryArcFacetResponse]:
     return await MetadataService(db).get_story_arc_facets(body.item_ids)
@@ -365,7 +360,6 @@ async def get_story_arc_facets(
 )
 async def get_character_facets(
     db: DbSession,
-    _user: CurrentUser,
     body: FacetItemIdsRequest,
 ) -> list[CharacterFacetResponse]:
     return await MetadataService(db).get_character_facets(body.item_ids)
@@ -377,7 +371,6 @@ async def get_character_facets(
 )
 async def get_creator_facets(
     db: DbSession,
-    _user: CurrentUser,
     body: FacetItemIdsRequest,
 ) -> list[CreatorFacetResponse]:
     return await MetadataService(db).get_creator_facets(body.item_ids)
@@ -390,7 +383,6 @@ async def get_creator_facets(
 async def get_item_bundle_releases(
     item_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[BundleReleaseSummaryResponse]:
     return await MetadataService(db).get_bundle_releases_for_item(item_id)
 
@@ -402,7 +394,6 @@ async def get_item_bundle_releases(
 async def get_bundle_release(
     bundle_release_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> BundleReleaseDetailResponse:
     return await MetadataService(db).get_bundle_release(bundle_release_id)
 
@@ -457,7 +448,6 @@ def _physical_format_response(config: PhysicalFormatConfig) -> PhysicalFormatRes
 async def get_series_relations(
     series_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[SeriesRelationResponse]:
     return await MetadataService(db).get_series_relations(series_id)
 
@@ -466,7 +456,6 @@ async def get_series_relations(
 async def get_series(
     series_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> SeriesResponse:
     return await MetadataService(db).get_series(series_id)
 
@@ -478,7 +467,6 @@ async def get_series(
 async def get_series_items(
     series_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[SeriesItemResponse]:
     return await MetadataService(db).get_series_items(series_id)
 
@@ -491,7 +479,6 @@ async def get_provider_seasons(
     provider: ExternalProvider,
     provider_item_id: str,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_provider_seasons(provider, provider_item_id)
 
@@ -504,7 +491,6 @@ async def get_provider_volumes(
     provider: ExternalProvider,
     provider_item_id: str,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_provider_volumes(provider, provider_item_id)
 
@@ -516,7 +502,6 @@ async def get_provider_volumes(
 async def get_item_volumes(
     item_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_item_volumes(item_id)
 
@@ -528,7 +513,6 @@ async def get_item_volumes(
 async def get_item_seasons(
     item_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_item_seasons(item_id)
 
@@ -563,7 +547,6 @@ async def create_item_edition(
 )
 async def search_story_arcs(
     db: DbSession,
-    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=200),
 ) -> list[StoryArcResponse]:
@@ -577,7 +560,6 @@ async def search_story_arcs(
 async def get_story_arc_items(
     story_arc_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[StoryArcItemResponse]:
     return await MetadataService(db).get_story_arc_items(story_arc_id)
 
@@ -588,7 +570,6 @@ async def get_story_arc_items(
 )
 async def search_creators(
     db: DbSession,
-    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=200),
 ) -> list[CreatorResponse]:
@@ -602,7 +583,6 @@ async def search_creators(
 async def get_creator_credits(
     creator_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[CreatorCreditResponse]:
     return await MetadataService(db).get_creator_credits(creator_id)
 
@@ -613,7 +593,6 @@ async def get_creator_credits(
 )
 async def search_characters(
     db: DbSession,
-    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=200),
 ) -> list[CharacterResponse]:
@@ -627,7 +606,6 @@ async def search_characters(
 async def get_character_appearances(
     character_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
 ) -> list[CharacterAppearanceResponse]:
     return await MetadataService(db).get_character_appearances(character_id)
 

@@ -38,6 +38,7 @@ switch ($Command) {
     }
     "seed" {
         Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_comics")
+        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_all_libraries")
     }
     "test" {
         python -m pytest

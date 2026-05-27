@@ -82,7 +82,6 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
-    ProviderBatchHydrateItem,
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
     ProviderBatchHydrateResultItem,

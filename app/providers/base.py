@@ -108,6 +108,7 @@ class NormalizedEpisode:
     air_date: date | None = None
     runtime_minutes: int | None = None
     page_count: int | None = None
+    still_url: str | None = None
 
 
 @dataclass(frozen=True)

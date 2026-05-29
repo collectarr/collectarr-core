@@ -2144,13 +2144,13 @@ class AdminProviderIngestService:
     def _merge_aliases(
         self,
         existing: list[str],
-        incoming: list[str],
+        incoming: list[str] | None,
         *,
         primary_name: str,
     ) -> list[str]:
         aliases: list[str] = []
         seen = {primary_name.casefold()}
-        for value in [*existing, *incoming]:
+        for value in [*existing, *(incoming or [])]:
             text = " ".join(str(value or "").split()).strip()
             key = text.casefold()
             if not text or key in seen:

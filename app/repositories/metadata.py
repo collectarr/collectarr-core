@@ -5,7 +5,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.base import ItemKind
-from app.models.canonical import BundleRelease, BundleReleaseItem, Edition, Item, Series, Variant, Volume
+from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseItem,
+    CharacterAppearance,
+    Edition,
+    EntityOrganization,
+    EntityPerson,
+    Item,
+    Series,
+    StoryArcItem,
+    Variant,
+    Volume,
+)
 
 
 class MetadataRepository:
@@ -17,6 +29,7 @@ class MetadataRepository:
             selectinload(BundleRelease.series),
             selectinload(BundleRelease.volume),
             selectinload(BundleRelease.primary_item),
+            selectinload(BundleRelease.provider_links),
             selectinload(BundleRelease.items)
             .selectinload(BundleReleaseItem.item)
             .selectinload(Item.volume)
@@ -27,7 +40,12 @@ class MetadataRepository:
         return select(Item).options(
             selectinload(Item.volume).selectinload(Volume.series),
             selectinload(Item.editions).selectinload(Edition.variants),
+            selectinload(Item.provider_links),
             selectinload(Item.primary_bundle_releases),
+            selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
+            selectinload(Item.creator_links).selectinload(EntityPerson.person),
+            selectinload(Item.character_appearances).selectinload(CharacterAppearance.character),
+            selectinload(Item.story_arc_items).selectinload(StoryArcItem.story_arc),
         )
 
     async def get_item(self, item_id: UUID, kind: ItemKind | None = None) -> Item | None:
@@ -60,6 +78,14 @@ class MetadataRepository:
         series: str | None = None,
         issue_number: str | None = None,
         publisher: str | None = None,
+        imprint: str | None = None,
+        subtitle: str | None = None,
+        series_group: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
+        age_rating: str | None = None,
+        catalog_number: str | None = None,
+        release_status: str | None = None,
         year: int | None = None,
         barcode: str | None = None,
     ) -> list[Item]:
@@ -68,7 +94,12 @@ class MetadataRepository:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.provider_links),
                 selectinload(Item.primary_bundle_releases),
+                selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
+                selectinload(Item.creator_links).selectinload(EntityPerson.person),
+                selectinload(Item.character_appearances).selectinload(CharacterAppearance.character),
+                selectinload(Item.story_arc_items).selectinload(StoryArcItem.story_arc),
             )
             .join(Item.volume, isouter=True)
             .join(Volume.series, isouter=True)
@@ -88,6 +119,14 @@ class MetadataRepository:
                     Volume.name.ilike(pattern),
                     Series.title.ilike(pattern),
                     Edition.publisher.ilike(pattern),
+                    Edition.imprint.ilike(pattern),
+                    Edition.subtitle.ilike(pattern),
+                    Edition.series_group.ilike(pattern),
+                    Edition.age_rating.ilike(pattern),
+                    Edition.catalog_number.ilike(pattern),
+                    Edition.release_status.ilike(pattern),
+                    Edition.language.ilike(pattern),
+                    Edition.region.ilike(pattern),
                     Edition.upc.ilike(pattern),
                     Edition.isbn.ilike(pattern),
                     Variant.name.ilike(pattern),
@@ -122,6 +161,22 @@ class MetadataRepository:
                     BundleRelease.publisher.ilike(f"%{publisher.strip()}%"),
                 )
             )
+        if imprint:
+            stmt = stmt.where(Edition.imprint.ilike(f"%{imprint.strip()}%"))
+        if subtitle:
+            stmt = stmt.where(Edition.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if series_group:
+            stmt = stmt.where(Edition.series_group.ilike(f"%{series_group.strip()}%"))
+        if country:
+            stmt = stmt.where(Edition.region.ilike(f"%{country.strip()}%"))
+        if language:
+            stmt = stmt.where(Edition.language.ilike(f"%{language.strip()}%"))
+        if age_rating:
+            stmt = stmt.where(Edition.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number:
+            stmt = stmt.where(Edition.catalog_number.ilike(f"%{catalog_number.strip()}%"))
+        if release_status:
+            stmt = stmt.where(Edition.release_status.ilike(f"%{release_status.strip()}%"))
         if year is not None:
             stmt = stmt.where(
                 or_(

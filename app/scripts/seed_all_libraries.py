@@ -10,13 +10,14 @@ from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     Edition,
-    ExternalProviderId,
+    ItemProviderLink,
     Franchise,
     Item,
     Series,
     Variant,
     Volume,
 )
+from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 # ---------------------------------------------------------------------------
 # Provider mapping per kind
@@ -1144,6 +1145,13 @@ async def _get_or_create_item(db, entry: SeedEntry, volume: Volume) -> Item:
 
 async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> None:
     edition_defs = entry.editions if entry.editions else [_default_edition(entry)]
+    cover_url, thumbnail_url = await resolve_seed_cover_urls(
+        kind=entry.kind,
+        slug=entry.slug,
+        title=entry.title,
+        series=entry.series,
+        fallback_key=f"collectarr-{entry.kind.value}-{entry.slug}-{entry.item_number}",
+    )
     for ed_def in edition_defs:
         result = await db.execute(
             select(Edition).where(
@@ -1182,7 +1190,7 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
             )
             variant = result.scalar_one_or_none()
             if variant is None:
-                db.add(Variant(
+                variant = Variant(
                     edition=edition,
                     name=var_def.name,
                     variant_type=var_def.variant_type,
@@ -1191,24 +1199,36 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
                     cover_price_cents=var_def.cover_price_cents,
                     currency=var_def.currency,
                     platform=var_def.platform,
+                    cover_image_url=cover_url,
+                    thumbnail_image_url=thumbnail_url,
                     metadata_json=var_def.metadata_json,
-                ))
+                )
+                db.add(variant)
+            else:
+                variant.variant_type = var_def.variant_type
+                variant.barcode = var_def.barcode
+                variant.is_primary = var_def.is_primary
+                variant.cover_price_cents = var_def.cover_price_cents
+                variant.currency = var_def.currency
+                variant.platform = var_def.platform
+                variant.cover_image_url = cover_url
+                variant.thumbnail_image_url = thumbnail_url
+                variant.metadata_json = var_def.metadata_json
 
 
 async def _ensure_provider_id(db, entry: SeedEntry, item: Item) -> None:
     result = await db.execute(
-        select(ExternalProviderId).where(
-            ExternalProviderId.provider == entry.provider,
-            ExternalProviderId.provider_item_id == entry.provider_id,
+        select(ItemProviderLink).where(
+            ItemProviderLink.provider == entry.provider,
+            ItemProviderLink.provider_item_id == entry.provider_id,
         )
     )
     if result.scalar_one_or_none() is not None:
         return
-    db.add(ExternalProviderId(
+    db.add(ItemProviderLink(
         provider=entry.provider,
         provider_item_id=entry.provider_id,
-        entity_type="item",
-        entity_id=item.id,
+        item_id=item.id,
     ))
 
 

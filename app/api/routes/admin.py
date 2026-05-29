@@ -65,9 +65,31 @@ async def catalog_items(
     user: CurrentAdmin,
     q: str | None = Query(default=None, min_length=1, max_length=255),
     kind: ItemKind | None = None,
+    publisher: str | None = Query(default=None, min_length=1, max_length=255),
+    imprint: str | None = Query(default=None, min_length=1, max_length=255),
+    subtitle: str | None = Query(default=None, min_length=1, max_length=255),
+    series_group: str | None = Query(default=None, min_length=1, max_length=255),
+    country: str | None = Query(default=None, min_length=1, max_length=64),
+    language: str | None = Query(default=None, min_length=1, max_length=32),
+    age_rating: str | None = Query(default=None, min_length=1, max_length=64),
+    catalog_number: str | None = Query(default=None, min_length=1, max_length=100),
+    release_status: str | None = Query(default=None, min_length=1, max_length=64),
     limit: int = Query(default=25, ge=1, le=100),
 ) -> list[ItemResponse]:
-    return await AdminMetadataService(db).catalog_items(q, kind, limit)
+    return await AdminMetadataService(db).catalog_items(
+        q,
+        kind,
+        limit,
+        publisher=publisher,
+        imprint=imprint,
+        subtitle=subtitle,
+        series_group=series_group,
+        country=country,
+        language=language,
+        age_rating=age_rating,
+        catalog_number=catalog_number,
+        release_status=release_status,
+    )
 
 
 @router.patch("/catalog/items/{kind}/{item_id}", response_model=ItemResponse)

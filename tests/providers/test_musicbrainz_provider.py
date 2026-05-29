@@ -4,7 +4,16 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import BundleRelease, BundleReleaseItem, ExternalProviderId, Item, Organization, Person
+from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseItem,
+    BundleReleaseProviderLink,
+    Item,
+    ItemProviderLink,
+    Organization,
+    Person,
+    VolumeProviderLink,
+)
 from app.providers.base import ProviderItem
 from app.providers.musicbrainz import MusicBrainzProvider
 from app.search.client import SearchClient
@@ -276,8 +285,15 @@ async def test_admin_ingest_upserts_musicbrainz_release(client, monkeypatch):
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.music))
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.musicbrainz
+                select(ItemProviderLink.provider_item_id).where(
+                    ItemProviderLink.provider == ExternalProvider.musicbrainz
+                )
+            )
+        )
+        volume_provider_ids = list(
+            await db.scalars(
+                select(VolumeProviderLink.provider_item_id).where(
+                    VolumeProviderLink.provider == ExternalProvider.musicbrainz
                 )
             )
         )
@@ -285,7 +301,8 @@ async def test_admin_ingest_upserts_musicbrainz_release(client, monkeypatch):
         artist = await db.scalar(select(Person.name))
 
     assert item is not None
-    assert sorted(provider_ids) == sorted([RELEASE_ID, GROUP_ID])
+    assert provider_ids == [RELEASE_ID]
+    assert volume_provider_ids == [GROUP_ID]
     assert publisher == "Columbia"
     assert artist == "Miles Davis"
 
@@ -331,8 +348,15 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
         )
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.musicbrainz
+                select(ItemProviderLink.provider_item_id).where(
+                    ItemProviderLink.provider == ExternalProvider.musicbrainz
+                )
+            )
+        )
+        bundle_provider_ids = list(
+            await db.scalars(
+                select(BundleReleaseProviderLink.provider_item_id).where(
+                    BundleReleaseProviderLink.provider == ExternalProvider.musicbrainz
                 )
             )
         )
@@ -345,8 +369,8 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
     assert len(bundle_items) == 2
     assert [entry.disc_label for entry in bundle_items] == ["ae3o", "h3ae"]
     assert sorted(provider_ids) == [
-        "59211ea4-ffd2-4ad9-9a4e-941d3148024a",
         "59211ea4-ffd2-4ad9-9a4e-941d3148024a#disc-1",
         "59211ea4-ffd2-4ad9-9a4e-941d3148024a#disc-2",
     ]
+    assert bundle_provider_ids == ["59211ea4-ffd2-4ad9-9a4e-941d3148024a"]
     assert item_titles == ["ae3o", "h3ae"]

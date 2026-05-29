@@ -82,7 +82,7 @@ function Invoke-CollectarrSchemaSetup {
   }
 
   if (Test-CollectarrHasAlembicVersions -RepoRoot $RepoRoot) {
-    Invoke-ComposeChecked -PrefixArguments $prefixArguments -Arguments @("run", "--rm", "api", "alembic", "upgrade", "head")
+    Invoke-ComposeChecked -PrefixArguments $prefixArguments -Arguments @("run", "--rm", "api", "python", "-m", "app.scripts.bootstrap_alembic")
     return
   }
 

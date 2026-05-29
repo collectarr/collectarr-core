@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import ExternalProviderId, Item, Organization, Person, Tag
+from app.models.canonical import Item, ItemProviderLink, Organization, Person, Tag
 from app.providers.base import ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
@@ -29,6 +29,7 @@ def _movie_raw() -> dict:
         "original_title": "The Matrix",
         "overview": "A hacker discovers the nature of reality.",
         "release_date": "1999-03-31",
+        "vote_average": 8.7,
         "runtime": 136,
         "poster_path": "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
         "genres": [{"name": "Science Fiction"}, {"name": "Action"}],
@@ -53,6 +54,7 @@ def _tv_raw() -> dict:
         "original_name": "Game of Thrones",
         "overview": "Noble families fight for control.",
         "first_air_date": "2011-04-17",
+        "vote_average": 8.4,
         "episode_run_time": [60],
         "poster_path": "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
         "genres": [{"name": "Drama"}],
@@ -166,6 +168,7 @@ async def test_tmdb_provider_fetches_and_normalizes_movie(monkeypatch):
     assert normalized.creators[0].name == "Lana Wachowski"
     assert normalized.characters[0].name == "Keanu Reeves"
     assert normalized.story_arcs[0].name == "Science Fiction"
+    assert normalized.audience_rating == "8.7"
     assert normalized.provider_ids == {"tmdb": "movie:603"}
 
 
@@ -191,6 +194,7 @@ async def test_tmdb_provider_fetches_and_normalizes_tv(monkeypatch):
     assert normalized.runtime_minutes == 60
     assert normalized.edition_format == "TV Series"
     assert normalized.creators[0].role == "Creator"
+    assert normalized.audience_rating == "8.4"
     assert normalized.provider_ids == {"tmdb": "tv:1399"}
 
 
@@ -274,7 +278,7 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
 
     async with AsyncSessionLocal() as db:
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.movie))
-        provider_ids = list(await db.scalars(select(ExternalProviderId.provider_item_id)))
+        provider_ids = list(await db.scalars(select(ItemProviderLink.provider_item_id)))
         publisher = await db.scalar(select(Organization.name))
         creator = await db.scalar(select(Person.name))
         tags = set(await db.scalars(select(Tag.name)))

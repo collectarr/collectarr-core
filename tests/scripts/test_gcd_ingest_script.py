@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import ExternalProviderId, Item
+from app.models.canonical import Item, ItemProviderLink, VolumeProviderLink
 from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.gcd import GCDProvider
 from app.scripts import ingest_gcd
@@ -120,8 +120,14 @@ async def test_ingest_gcd_imports_issue_and_skips_existing(monkeypatch):
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Item)) == 1
         provider_ids = await db.scalars(
-            select(ExternalProviderId.provider_item_id).order_by(
-                ExternalProviderId.provider_item_id
+            select(ItemProviderLink.provider_item_id).order_by(
+                ItemProviderLink.provider_item_id
             )
         )
-        assert list(provider_ids) == ["256114", "6139"]
+        volume_provider_ids = await db.scalars(
+            select(VolumeProviderLink.provider_item_id).order_by(
+                VolumeProviderLink.provider_item_id
+            )
+        )
+        assert list(provider_ids) == ["256114"]
+        assert list(volume_provider_ids) == ["6139"]

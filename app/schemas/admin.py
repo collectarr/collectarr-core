@@ -114,6 +114,7 @@ class ProviderPreviewResponse(BaseModel):
     country: str | None = None
     language: str | None = None
     age_rating: str | None = None
+    audience_rating: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
     page_count: int | None = None

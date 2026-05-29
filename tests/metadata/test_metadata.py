@@ -16,9 +16,11 @@ from app.models.canonical import (
     Character,
     CharacterAppearance,
     Edition,
+    EntityOrganization,
     EntityPerson,
     EntityTag,
     Item,
+    Organization,
     Person,
     Series,
     StoryArc,
@@ -197,7 +199,19 @@ async def test_search_supports_comic_filters(client, monkeypatch):
         return None
 
     monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
-    item_id, _, _ = await seed_comic()
+    item_id, edition_id, _ = await seed_comic()
+
+    async with AsyncSessionLocal() as db:
+        edition = await db.get(Edition, UUID(edition_id))
+        assert edition is not None
+        edition.imprint = "Marvel Knights"
+        edition.subtitle = "Collector Edition"
+        edition.series_group = "Spider-Verse"
+        edition.region = "US"
+        edition.age_rating = "Teen"
+        edition.catalog_number = "ASM-001"
+        edition.release_status = "released"
+        await db.commit()
 
     response = await client.get(
         "/search",
@@ -206,6 +220,14 @@ async def test_search_supports_comic_filters(client, monkeypatch):
             "series": "Amazing",
             "issue_number": "1",
             "publisher": "Marvel",
+            "imprint": "Marvel Knights",
+            "subtitle": "Collector Edition",
+            "series_group": "Spider-Verse",
+            "country": "US",
+            "language": "en",
+            "age_rating": "Teen",
+            "catalog_number": "ASM-001",
+            "release_status": "released",
             "year": 1963,
         },
     )
@@ -217,6 +239,8 @@ async def test_search_supports_comic_filters(client, monkeypatch):
     assert response.json()[0]["release_year"] == 1963
     assert response.json()[0]["barcode"] == "75960604716100111"
     assert response.json()[0]["variant"] == "Cover A"
+    assert response.json()[0]["imprint"] == "Marvel Knights"
+    assert response.json()[0]["catalog_number"] == "ASM-001"
 
 
 @pytest.mark.asyncio
@@ -274,6 +298,78 @@ async def test_search_supports_bundle_release_title(client, monkeypatch):
     assert response.json()[0]["id"] == item_id
     assert response.json()[0]["title"] == "The Amazing Spider-Man"
     assert response.json()[0]["bundle_titles"] == ["Spider-Verse Collector Box"]
+
+
+@pytest.mark.asyncio
+async def test_search_prefers_normalized_relations_over_edition_json(client, monkeypatch):
+    async def unavailable_search(self, query, kind=None, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
+    item_id, edition_id, _ = await seed_comic()
+
+    async with AsyncSessionLocal() as db:
+        item = await db.get(Item, UUID(item_id))
+        edition = await db.get(Edition, UUID(edition_id))
+        assert item is not None
+        assert edition is not None
+        edition.metadata_json = {
+            "normalized": {
+                "creators": [{"name": "Stale Writer", "role": "writer"}],
+                "characters": ["Old Spider-Man"],
+                "story_arcs": ["Outdated Arc"],
+            },
+            "source": {
+                "person_credits": [{"name": "Stale Writer", "role": "writer"}],
+                "character_credits": [{"name": "Old Spider-Man"}],
+                "story_arc_credits": [{"name": "Outdated Arc"}],
+            },
+        }
+        creator = Person(
+            name="Stan Lee",
+            metadata_json={
+                "api_detail_url": "https://api.example/stan-lee",
+                "site_detail_url": "https://example.com/stan-lee",
+                "image_url": "https://cdn.example/stan-lee.jpg",
+            },
+        )
+        character = Character(name="Spider-Man [Peter Parker]")
+        story_arc = StoryArc(name="If This Be My Destiny", publisher="Marvel")
+        db.add_all([creator, character, story_arc])
+        await db.flush()
+        db.add_all(
+            [
+                EntityPerson(
+                    entity_type="item",
+                    entity_id=item.id,
+                    person_id=creator.id,
+                    role="writer",
+                ),
+                CharacterAppearance(character_id=character.id, item_id=item.id, role="main"),
+                StoryArcItem(story_arc_id=story_arc.id, item_id=item.id, ordinal=1),
+            ]
+        )
+        await db.commit()
+
+    response = await client.get("/search", params={"q": "spider", "kind": "comic"})
+
+    assert response.status_code == 200
+    body = response.json()[0]
+    assert [(credit["name"], credit["role"]) for credit in body["creators"]] == [
+        ("Stan Lee", "writer")
+    ]
+    assert body["creators"][0]["api_detail_url"] == "https://api.example/stan-lee"
+    assert body["characters"] == ["Spider-Man [Peter Parker]"]
+    assert body["story_arcs"] == ["If This Be My Destiny"]
+
+    async with AsyncSessionLocal() as db:
+        item = await MetadataRepository(db).get_item(UUID(item_id), ItemKind.comic)
+
+    assert item is not None
+    document = item_search_document(item)
+    assert document["creators"] == ["Stan Lee"]
+    assert document["characters"] == ["Spider-Man [Peter Parker]"]
+    assert document["story_arcs"] == ["If This Be My Destiny"]
 
 
 @pytest.mark.asyncio
@@ -576,24 +672,46 @@ def test_item_response_from_model_exposes_normalized_metadata_fields():
                 title="Mass Effect",
             ),
         ),
+        organization_links=[
+            SimpleNamespace(
+                role="publisher",
+                organization=SimpleNamespace(name="Electronic Arts"),
+            ),
+            SimpleNamespace(
+                role="imprint",
+                organization=SimpleNamespace(name="BioWare"),
+            ),
+        ],
         editions=[
             SimpleNamespace(
                 id=uuid4(),
                 title="Standard",
                 format="Digital",
-                publisher="Electronic Arts",
+                publisher="Stale Publisher",
                 isbn=None,
                 upc="014633742207",
                 language="en",
                 region="WW",
+                imprint="Stale Imprint",
+                subtitle="N7 Collection",
+                series_group="Mass Effect Trilogy",
+                age_rating="Mature 17+",
+                catalog_number="ME-LE-2021",
+                release_status="Released",
                 release_date=date(2021, 5, 14),
                 metadata_json={
                     "provider": "igdb",
                     "provider_item_id": "igdb-123",
                     "normalized": {
+                        "catalog_number": "STALE-CATALOG",
+                        "release_status": "Stale",
+                        "language": "de",
+                        "country": "DE",
+                        "imprint": "Stale Studio",
+                        "subtitle": "Stale Subtitle",
+                        "series_group": "Stale Group",
+                        "age_rating": "Everyone",
                         "platforms": ["PC", "Xbox One", "PlayStation 4"],
-                        "catalog_number": "ME-LE-2021",
-                        "release_status": "Released",
                         "track_count": 2,
                         "tracks": [
                             {
@@ -651,9 +769,18 @@ def test_item_response_from_model_exposes_normalized_metadata_fields():
     ]
     assert response.platforms == ["PC", "Xbox One", "PlayStation 4"]
     assert response.release_status == "Released"
+    assert response.language == "en"
+    assert response.country == "WW"
+    assert response.imprint == "BioWare"
+    assert response.subtitle == "N7 Collection"
+    assert response.series_group == "Mass Effect Trilogy"
+    assert response.age_rating == "Mature 17+"
     assert response.runtime_minutes == 92
     assert response.series_title == "Mass Effect"
     assert response.volume_name == "Legendary Edition"
+    assert response.editions[0].imprint == "BioWare"
+    assert response.editions[0].catalog_number == "ME-LE-2021"
+    assert response.editions[0].release_status == "Released"
     assert response.provider_links[0].provider.value == "igdb"
     assert response.provider_links[0].provider_item_id == "igdb-123"
 
@@ -734,18 +861,104 @@ def test_item_response_from_model_synthesizes_video_release_when_missing_edition
 
     response = item_response_from_model(item)
 
-    assert len(response.editions) == 1
-    edition = response.editions[0]
-    assert edition.title == "Spirited Away"
-    assert edition.format == "Anime"
-    assert edition.release_date == date(2001, 7, 20)
-    assert edition.language == "ja"
-    assert edition.region == "JP"
-    assert len(edition.variants) == 1
-    variant = edition.variants[0]
-    assert variant.name == "Anime"
-    assert variant.cover_image_url == "https://images.example/spirited-away.jpg"
-    assert variant.thumbnail_image_url == "https://images.example/spirited-away-thumb.jpg"
+    assert response.editions == []
+    assert response.runtime_minutes == 125
+    assert response.language is None
+    assert response.country is None
+
+
+def test_item_response_prefers_organization_links_for_publisher_and_imprint():
+    item = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.comic,
+        title="Saga #1",
+        item_number="1",
+        sort_key=None,
+        synopsis=None,
+        release_type=None,
+        season_number=None,
+        episode_number=None,
+        runtime_minutes=None,
+        page_count=32,
+        metadata_json=None,
+        volume=None,
+        primary_bundle_releases=[],
+        organization_links=[
+            SimpleNamespace(
+                role="publisher",
+                organization=SimpleNamespace(name="Image Comics"),
+            ),
+            SimpleNamespace(
+                role="imprint",
+                organization=SimpleNamespace(name="Skybound"),
+            ),
+        ],
+        editions=[
+            SimpleNamespace(
+                id=uuid4(),
+                title="Issue #1",
+                format="Single Issue",
+                publisher="Stale Publisher",
+                isbn=None,
+                upc=None,
+                language=None,
+                region=None,
+                imprint="Stale Imprint",
+                subtitle=None,
+                series_group=None,
+                age_rating=None,
+                catalog_number=None,
+                release_status=None,
+                release_date=date(2012, 3, 14),
+                metadata_json=None,
+                variants=[],
+            )
+        ],
+    )
+
+    response = item_response_from_model(item)
+
+    assert response.publisher == "Image Comics"
+    assert response.imprint == "Skybound"
+
+
+@pytest.mark.asyncio
+async def test_search_document_and_search_result_prefer_item_organization_links():
+    async with AsyncSessionLocal() as db:
+        item = Item(kind=ItemKind.comic, title="Invincible", item_number="1")
+        edition = Edition(item=item, title="Issue #1", publisher="Stale Publisher", imprint="Stale Imprint")
+        publisher = Organization(name="Image Comics")
+        imprint = Organization(name="Skybound")
+        db.add_all([item, edition, publisher, imprint])
+        await db.flush()
+        db.add_all(
+            [
+                EntityOrganization(
+                    entity_type="item",
+                    entity_id=item.id,
+                    organization_id=publisher.id,
+                    role="publisher",
+                ),
+                EntityOrganization(
+                    entity_type="item",
+                    entity_id=item.id,
+                    organization_id=imprint.id,
+                    role="imprint",
+                ),
+            ]
+        )
+        await db.commit()
+        loaded = await MetadataRepository(db).get_item(item.id, ItemKind.comic)
+
+    assert loaded is not None
+    document = item_search_document(loaded)
+    service = MetadataService.__new__(MetadataService)
+    result = MetadataService._search_result(service, loaded, None, None)
+
+    assert document["publisher"] == "Image Comics"
+    assert document["imprint"] == "Skybound"
+    assert result.publisher == "Image Comics"
+    assert result.imprint == "Skybound"
 
 
 def test_search_result_exposes_runtime_minutes():

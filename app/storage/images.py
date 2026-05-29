@@ -7,6 +7,7 @@ from io import BytesIO
 from urllib.parse import urlparse
 
 import httpx
+import imagehash
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import get_settings
@@ -36,6 +37,7 @@ class MirroredImage:
     width: int
     height: int
     content_hash: str
+    phash: str | None = None
     thumbnail_key: str | None = None
     thumbnail_url: str | None = None
 
@@ -45,6 +47,7 @@ class NormalizedCover:
     body: bytes
     width: int
     height: int
+    phash: str | None = None
 
     @property
     def size_bytes(self) -> int:
@@ -123,6 +126,7 @@ class ImageMirror:
             width=cover.width,
             height=cover.height,
             content_hash=cover.content_hash,
+            phash=cover.phash,
         )
 
     async def _download_image(self, source_url: str) -> bytes:
@@ -175,6 +179,12 @@ class ImageMirror:
             image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
             image = self._rgb_image(image)
             width, height = image.size
+            # Compute perceptual hash before WebP compression.
+            phash_value: str | None = None
+            try:
+                phash_value = str(imagehash.phash(image))
+            except Exception:
+                logger.debug("phash computation failed", exc_info=True)
             output = BytesIO()
             image.save(
                 output,
@@ -182,7 +192,12 @@ class ImageMirror:
                 quality=self.settings.provider_image_quality,
                 method=6,
             )
-            return NormalizedCover(body=output.getvalue(), width=width, height=height)
+            return NormalizedCover(
+                body=output.getvalue(),
+                width=width,
+                height=height,
+                phash=phash_value,
+            )
 
     def _rgb_image(self, image: Image.Image) -> Image.Image:
         if image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info):

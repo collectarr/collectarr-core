@@ -18,10 +18,10 @@ from app.models.canonical import (
     Character,
     CharacterAppearance,
     Edition,
-    EntityTag,
     EntityPerson,
-    ExternalProviderId,
+    EntityTag,
     Item,
+    ItemProviderLink,
     MetadataProposal,
     Person,
     Series,
@@ -85,6 +85,31 @@ def _metadata_text(metadata: dict[str, object] | None, key: str) -> str | None:
     return text or None
 
 
+def _loaded_rows(item: object, attr_name: str) -> list[object]:
+    rows = getattr(item, "__dict__", {}).get(attr_name)
+    if rows is None:
+        return []
+    return list(rows)
+
+
+def _organization_name(item: object, role: str) -> str | None:
+    rows = sorted(
+        _loaded_rows(item, "organization_links"),
+        key=lambda link: (
+            str(getattr(link, "role", "") or "").casefold(),
+            str(getattr(getattr(link, "organization", None), "name", "") or "").casefold(),
+        ),
+    )
+    for link in rows:
+        if getattr(link, "role", None) != role:
+            continue
+        organization = getattr(link, "organization", None)
+        name = getattr(organization, "name", None)
+        if name:
+            return str(name)
+    return None
+
+
 class MetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -96,17 +121,16 @@ class MetadataService:
 
     async def _provider_links_for_item(self, item_id: UUID) -> list[ProviderLink]:
         result = await self.db.execute(
-            select(ExternalProviderId)
+            select(ItemProviderLink)
             .where(
-                ExternalProviderId.entity_type == "item",
-                ExternalProviderId.entity_id == item_id,
+                ItemProviderLink.item_id == item_id,
             )
-            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
+            .order_by(ItemProviderLink.provider, ItemProviderLink.provider_item_id)
         )
         return [
             ProviderLink(
                 provider=row.provider,
-                entity_type=row.entity_type,
+                entity_type="item",
                 provider_item_id=row.provider_item_id,
                 site_url=row.site_url,
                 api_url=row.api_url,
@@ -243,13 +267,36 @@ class MetadataService:
         series: str | None = None,
         issue_number: str | None = None,
         publisher: str | None = None,
+        imprint: str | None = None,
+        subtitle: str | None = None,
+        series_group: str | None = None,
+        language: str | None = None,
+        country: str | None = None,
+        age_rating: str | None = None,
+        catalog_number: str | None = None,
+        release_status: str | None = None,
         year: int | None = None,
         barcode: str | None = None,
         limit: int = 25,
     ) -> list[SearchResult]:
         if not any(
             value is not None and str(value).strip()
-            for value in (query, series, issue_number, publisher, year, barcode)
+            for value in (
+                query,
+                series,
+                issue_number,
+                publisher,
+                imprint,
+                subtitle,
+                series_group,
+                language,
+                country,
+                age_rating,
+                catalog_number,
+                release_status,
+                year,
+                barcode,
+            )
         ):
             return []
 
@@ -259,6 +306,14 @@ class MetadataService:
             series=series,
             issue_number=issue_number,
             publisher=publisher,
+            imprint=imprint,
+            subtitle=subtitle,
+            series_group=series_group,
+            language=language,
+            country=country,
+            age_rating=age_rating,
+            catalog_number=catalog_number,
+            release_status=release_status,
             year=year,
             barcode=barcode,
             limit=limit,
@@ -273,6 +328,14 @@ class MetadataService:
             series=series,
             issue_number=issue_number,
             publisher=publisher,
+            imprint=imprint,
+            subtitle=subtitle,
+            series_group=series_group,
+            language=language,
+            country=country,
+            age_rating=age_rating,
+            catalog_number=catalog_number,
+            release_status=release_status,
             year=year,
             barcode=barcode,
         )
@@ -1079,7 +1142,7 @@ class MetadataService:
         *,
         preferred_variant=None,
     ) -> SearchResult:
-        publisher = None
+        publisher = _organization_name(item, "publisher")
         release_date = None
         release_year = None
         barcode = None
@@ -1155,31 +1218,69 @@ class MetadataService:
         release_status: str | None = None
         language: str | None = None
         age_rating: str | None = None
-        imprint_val: str | None = None
+        imprint_val: str | None = _organization_name(item, "imprint")
         subtitle: str | None = None
         series_group: str | None = None
         bundle_titles: list[str] | None = None
         bundle_release_ids: list[str] | None = None
+        creator_links = sorted(
+            _loaded_rows(item, "creator_links"),
+            key=lambda link: (
+                getattr(link, "created_at", None) is None,
+                getattr(link, "created_at", None),
+                str(getattr(link, "id", "") or ""),
+            ),
+        )
+        if creator_links:
+            creators = [
+                {
+                    "name": link.person.name,
+                    "role": link.role,
+                    "api_detail_url": _metadata_text(link.person.metadata_json, "api_detail_url"),
+                    "site_detail_url": _metadata_text(link.person.metadata_json, "site_detail_url"),
+                    "image_url": _metadata_text(link.person.metadata_json, "image_url"),
+                }
+                for link in creator_links
+                if getattr(link, "person", None) is not None and getattr(link.person, "name", None)
+            ] or None
+        character_links = sorted(
+            _loaded_rows(item, "character_appearances"),
+            key=lambda appearance: (
+                str(getattr(appearance, "role", "") or "").casefold(),
+                str(getattr(getattr(appearance, "character", None), "name", "") or "").casefold(),
+            ),
+        )
+        if character_links:
+            characters = [
+                appearance.character.name
+                for appearance in character_links
+                if getattr(appearance, "character", None) is not None
+                and getattr(appearance.character, "name", None)
+            ] or None
+        story_arc_links = sorted(
+            _loaded_rows(item, "story_arc_items"),
+            key=lambda link: (
+                getattr(link, "ordinal", None) is None,
+                getattr(link, "ordinal", None) or 0,
+                str(getattr(getattr(link, "story_arc", None), "name", "") or "").casefold(),
+            ),
+        )
+        if story_arc_links:
+            story_arcs = [
+                link.story_arc.name
+                for link in story_arc_links
+                if getattr(link, "story_arc", None) is not None
+                and getattr(link.story_arc, "name", None)
+            ] or None
         for edition in item.editions:
             md = getattr(edition, "metadata_json", None)
             if isinstance(md, dict):
                 norm = md.get("normalized", md)
                 if item.kind == ItemKind.music:
                     track_count = track_count or norm.get("track_count")
-                    catalog_number = catalog_number or norm.get("catalog_number")
-                    release_status = release_status or norm.get("release_status")
                     raw_tracks = norm.get("tracks")
                     if isinstance(raw_tracks, list) and raw_tracks and tracks is None:
                         tracks = raw_tracks
-                raw_creators = norm.get("creators")
-                if isinstance(raw_creators, list) and raw_creators and creators is None:
-                    creators = raw_creators
-                raw_characters = norm.get("characters")
-                if isinstance(raw_characters, list) and raw_characters and characters is None:
-                    characters = raw_characters
-                raw_arcs = norm.get("story_arcs")
-                if isinstance(raw_arcs, list) and raw_arcs and story_arcs is None:
-                    story_arcs = raw_arcs
                 raw_platforms = norm.get("platforms")
                 if isinstance(raw_platforms, list) and raw_platforms and platforms is None:
                     platforms = [
@@ -1190,12 +1291,14 @@ class MetadataService:
                 raw_genres = norm.get("genres")
                 if isinstance(raw_genres, list) and raw_genres and genres is None:
                     genres = raw_genres
-                country = country or norm.get("country")
-                language = language or norm.get("language")
-                age_rating = age_rating or norm.get("age_rating")
-                imprint_val = imprint_val or norm.get("imprint")
-                subtitle = subtitle or norm.get("subtitle")
-                series_group = series_group or norm.get("series_group")
+            catalog_number = catalog_number or getattr(edition, "catalog_number", None)
+            release_status = release_status or getattr(edition, "release_status", None)
+            country = country or getattr(edition, "region", None)
+            language = language or getattr(edition, "language", None)
+            age_rating = age_rating or getattr(edition, "age_rating", None)
+            imprint_val = imprint_val or getattr(edition, "imprint", None)
+            subtitle = subtitle or getattr(edition, "subtitle", None)
+            series_group = series_group or getattr(edition, "series_group", None)
             primary = next((v for v in edition.variants if v.is_primary), None)
             if primary is not None:
                 cover_price_cents = cover_price_cents or primary.cover_price_cents
@@ -1515,7 +1618,6 @@ class MetadataService:
     async def get_item_volumes(self, item_id: UUID) -> list[SeasonResponse]:
         """Look up provider links for an item and return volumes from the first
         manga-capable provider (MangaDex, then AniList)."""
-        from app.models.canonical import ExternalProviderId
         from app.providers.base import NormalizedSeason
         from app.schemas.metadata import EpisodeResponse
 
@@ -1524,9 +1626,8 @@ class MetadataService:
         rows = (
             (
                 await self.db.execute(
-                    select(ExternalProviderId).where(
-                        ExternalProviderId.entity_type == "item",
-                        ExternalProviderId.entity_id == item_id,
+                    select(ItemProviderLink).where(
+                        ItemProviderLink.item_id == item_id,
                     )
                 )
             )
@@ -1576,7 +1677,6 @@ class MetadataService:
     async def get_item_seasons(self, item_id: UUID) -> list[SeasonResponse]:
         """Look up provider links for an item and return seasons from the first
         TV-capable provider (TMDB)."""
-        from app.models.canonical import ExternalProviderId
         from app.providers.base import NormalizedSeason
         from app.schemas.metadata import EpisodeResponse
 
@@ -1585,9 +1685,8 @@ class MetadataService:
         rows = (
             (
                 await self.db.execute(
-                    select(ExternalProviderId).where(
-                        ExternalProviderId.entity_type == "item",
-                        ExternalProviderId.entity_id == item_id,
+                    select(ItemProviderLink).where(
+                        ItemProviderLink.item_id == item_id,
                     )
                 )
             )

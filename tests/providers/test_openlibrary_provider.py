@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ExternalProviderId, Item, Organization
+from app.models.canonical import Item, ItemProviderLink, Organization, VolumeProviderLink
 from app.providers.base import ProviderItem
 from app.providers.openlibrary import OpenLibraryProvider
 from app.search.client import SearchClient
@@ -135,13 +135,21 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.book))
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.openlibrary
+                select(ItemProviderLink.provider_item_id).where(
+                    ItemProviderLink.provider == ExternalProvider.openlibrary
+                )
+            )
+        )
+        volume_provider_ids = list(
+            await db.scalars(
+                select(VolumeProviderLink.provider_item_id).where(
+                    VolumeProviderLink.provider == ExternalProvider.openlibrary
                 )
             )
         )
         publisher = await db.scalar(select(Organization.name))
 
     assert item is not None
-    assert sorted(provider_ids) == ["OL262758W", "OL7353617M"]
+    assert provider_ids == ["OL7353617M"]
+    assert volume_provider_ids == ["OL262758W"]
     assert publisher == "George Allen & Unwin"

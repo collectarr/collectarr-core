@@ -7,7 +7,8 @@ from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import Edition, ExternalProviderId, Franchise, Item, Series, Variant, Volume
+from app.models.canonical import Edition, Franchise, Item, ItemProviderLink, Series, Variant, Volume
+from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 
 @dataclass(frozen=True)
@@ -334,26 +335,44 @@ async def _ensure_edition_and_variant(db, comic: SeedComic, item: Item) -> None:
 
     result = await db.execute(select(Variant).where(Variant.edition_id == edition.id))
     variant = result.scalar_one_or_none()
+    cover_url, thumbnail_url = await resolve_seed_cover_urls(
+        kind=ItemKind.comic,
+        slug=comic.slug,
+        title=comic.title,
+        series=comic.series,
+        fallback_key=f"collectarr-comic-{comic.slug}-{comic.item_number}",
+    )
     if variant is None:
-        db.add(Variant(edition=edition, name="Cover A", is_primary=True))
+        variant = Variant(
+            edition=edition,
+            name="Cover A",
+            is_primary=True,
+            cover_image_url=cover_url,
+            thumbnail_image_url=thumbnail_url,
+        )
+        db.add(variant)
+    else:
+        variant.name = "Cover A"
+        variant.is_primary = True
+        variant.cover_image_url = cover_url
+        variant.thumbnail_image_url = thumbnail_url
 
 
 async def _ensure_provider_id(db, comic: SeedComic, item: Item) -> None:
     result = await db.execute(
-        select(ExternalProviderId).where(
-            ExternalProviderId.provider == ExternalProvider.comicvine,
-            ExternalProviderId.provider_item_id == comic.provider_id,
+        select(ItemProviderLink).where(
+            ItemProviderLink.provider == ExternalProvider.comicvine,
+            ItemProviderLink.provider_item_id == comic.provider_id,
         )
     )
     if result.scalar_one_or_none() is not None:
         return
 
     db.add(
-        ExternalProviderId(
+        ItemProviderLink(
             provider=ExternalProvider.comicvine,
             provider_item_id=comic.provider_id,
-            entity_type="item",
-            entity_id=item.id,
+            item_id=item.id,
         )
     )
 

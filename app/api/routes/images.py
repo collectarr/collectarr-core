@@ -2,10 +2,13 @@ import asyncio
 import base64
 import hashlib
 import logging
+from io import BytesIO
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Path, Query, status
+import imagehash
+from fastapi import APIRouter, Body, Depends, Path, Query, UploadFile, status
 from fastapi.responses import Response
+from PIL import Image
 from sqlalchemy import func, or_, select, update
 
 from app.api.deps import CurrentAdmin, CurrentUser, DbSession
@@ -318,6 +321,7 @@ async def add_entity_image(
         attribution=attribution,
         width=mirrored.width,
         height=mirrored.height,
+        phash=getattr(mirrored, "phash", None),
         is_primary=is_primary,
     )
     db.add(asset)
@@ -377,3 +381,94 @@ async def set_image_primary(
     await db.commit()
     storage = ObjectStorage.shared()
     return _asset_dict(asset, storage)
+
+
+# ---------------------------------------------------------------------------
+# Search by perceptual hash — find visually similar covers
+# ---------------------------------------------------------------------------
+
+
+def _hamming_distance(hash_a: str, hash_b: str) -> int:
+    """Hamming distance between two hex-encoded perceptual hashes."""
+    int_a = int(hash_a, 16)
+    int_b = int(hash_b, 16)
+    return bin(int_a ^ int_b).count("1")
+
+
+@router.post("/search-by-cover")
+async def search_by_cover(
+    db: DbSession,
+    user: CurrentUser,
+    phash: str = Query(min_length=1, max_length=128, description="Hex-encoded perceptual hash"),
+    threshold: int = Query(default=12, ge=0, le=64, description="Max Hamming distance"),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> list[dict]:
+    """Return image assets whose perceptual hash is within *threshold* bits of *phash*.
+
+    The search scans all assets that have a non-NULL phash and ranks results by
+    ascending Hamming distance.  This is intentionally a simple in-Python scan
+    for MVP; a GIN/trigram or pgvector index can optimise later.
+    """
+    result = await db.scalars(
+        select(ImageAsset).where(ImageAsset.phash.is_not(None))
+    )
+    assets = result.all()
+
+    storage = ObjectStorage.shared()
+    matches: list[tuple[int, dict]] = []
+    for asset in assets:
+        dist = _hamming_distance(phash, asset.phash)
+        if dist <= threshold:
+            d = _asset_dict(asset, storage)
+            d["hamming_distance"] = dist
+            matches.append((dist, d))
+
+    matches.sort(key=lambda x: x[0])
+    return [m[1] for m in matches[:limit]]
+
+
+@router.post("/search-by-cover-upload")
+async def search_by_cover_upload(
+    db: DbSession,
+    user: CurrentUser,
+    file: UploadFile,
+    threshold: int = Query(default=12, ge=0, le=64),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> dict:
+    """Accept an image upload, compute its phash, and return similar covers."""
+    image_bytes = await file.read()
+    if len(image_bytes) > get_settings().max_image_bytes:
+        raise ApiHTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="image_too_large",
+            detail="Uploaded image exceeds size limit",
+        )
+    try:
+        pil_image = Image.open(BytesIO(image_bytes))
+        query_phash = str(imagehash.phash(pil_image))
+    except Exception:
+        raise ApiHTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="invalid_image",
+            detail="Could not process uploaded image",
+        )
+
+    result = await db.scalars(
+        select(ImageAsset).where(ImageAsset.phash.is_not(None))
+    )
+    assets = result.all()
+
+    storage = ObjectStorage.shared()
+    matches: list[tuple[int, dict]] = []
+    for asset in assets:
+        dist = _hamming_distance(query_phash, asset.phash)
+        if dist <= threshold:
+            d = _asset_dict(asset, storage)
+            d["hamming_distance"] = dist
+            matches.append((dist, d))
+
+    matches.sort(key=lambda x: x[0])
+    return {
+        "query_phash": query_phash,
+        "results": [m[1] for m in matches[:limit]],
+    }

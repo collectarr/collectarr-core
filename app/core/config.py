@@ -9,7 +9,20 @@ class Settings(BaseSettings):
     environment: str = "development"
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = 60 * 24 * 7
-    cors_origins: list[str] = Field(default_factory=list)
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+            "http://localhost:8082",
+            "http://127.0.0.1:8082",
+            "http://localhost:8083",
+            "http://127.0.0.1:8083",
+        ]
+    )
     bootstrap_admin_emails: set[str] = Field(default_factory=set)
 
     database_url: str = "postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr"

@@ -1,5 +1,13 @@
 # Collectarr Core
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![GitHub Release](https://img.shields.io/github/v/release/collectarr/collectarr-core)
+[![Issues](https://img.shields.io/github/issues/collectarr/collectarr-core)](https://github.com/collectarr/collectarr-core/issues)
+![Made with Python](https://img.shields.io/badge/Made%20with-Python-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
+![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
+
 ![Catalog items](docs/badges/catalog-total.svg)
 ![Comics](docs/badges/catalog-comic.svg)
 ![Manga](docs/badges/catalog-manga.svg)
@@ -12,43 +20,71 @@
 ![Music](docs/badges/catalog-music.svg)
 ![Blu-ray](docs/badges/catalog-bluray.svg)
 
-> The shared metadata engine behind Collectarr — canonical catalog, provider integrations, image delivery, and admin console.
+> Shared metadata engine for Collectarr: canonical catalog, provider ingest, image delivery, admin tooling, and search infrastructure.
 
-Core owns the shared catalog and provider infrastructure. Personal collection data (owned items, wishlists, grades, notes, personal tags) lives in `collectarr-app` and optionally syncs through `collectarr-sync`, while shared editorial tags can be attached to catalog series in Core.
+Collectarr Core owns the shared catalog and provider pipeline. Personal library
+state such as owned items, grades, notes, wishlists, and local tags stays in
+`collectarr-app` and can optionally sync through `collectarr-sync`. Core is the
+place where canonical metadata gets normalized, enriched, indexed, and exposed
+to clients.
 
-## Features
+---
 
-- **Canonical media catalog** — series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and shared series-level tags
-- **10 metadata providers** — GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
-- **Smart provider search** — title normalization, issue matching, series aliases, barcode/UPC lookup
-- **Story arc & character facets** — bulk facet endpoints for filtering items by arcs and characters
-- **Typed metadata projection** — item, search, and admin preview responses expose normalized fields such as platforms, catalog numbers, and release status
-- **Image pipeline** — external URLs by default, optional MinIO/S3 mirroring, MangaDex cover proxy, WebP normalization, LRU cache with budget tracking, and content-addressed origins for uploaded images
-- **Full-text search** — optional Meilisearch indexing for instant catalog queries
-- **Admin console** — provider health, ingest queues, catalog coverage, duplicate detection, user management, image cache stats, audit logs
-- **Ingest job queue** — DB-backed provider ingest with automatic worker processing, retry, and status tracking
-- **Role-based access** — viewer / editor / admin roles with audit trail
-- **OpenAPI docs** — auto-generated schema at `/docs` with versioned export
+## ✨ Features
 
-## Database Schema
+### 📚 Canonical Catalog
 
-Open the generated full-fidelity schema docs here:
+- Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, music, and physical media variants
+- Canonical entities for series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and shared series tags
+- Typed item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
+- Shared editorial metadata that complements local-first personal data in the app
+
+### 🔌 Provider And Search Pipeline
+
+- 10 provider integrations: GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, and TMDb
+- Provider-aware title normalization, alias handling, issue matching, and barcode / UPC lookup
+- DB-backed ingest queue with retries, status tracking, and worker processing
+- Optional Meilisearch indexing for fast catalog queries and richer search previews
+
+### 🖼️ Image And Storage Infrastructure
+
+- External image URLs by default, with optional MinIO / S3 mirroring for controlled hosting
+- MangaDex cover proxy support, WebP normalization, cache budgeting, and origin tracking
+- Content-addressed image handling for uploaded assets and derived media variants
+- Image cache health surfaced through admin tooling instead of ad hoc scripts
+
+### 🛠️ Admin And Operations
+
+- Admin console for provider health, ingest queues, duplicate review, user management, image cache stats, and audit logs
+- Role-based access with viewer / editor / admin permissions
+- OpenAPI docs at `/docs` for API exploration and schema-backed integration work
+- Daily-refreshable catalog badges and provider support docs generated from the live registry
+
+---
+
+## 🧱 Database Schema
+
+The generated schema docs stay in sync with SQLAlchemy metadata and include
+columns, enums, indexes, defaults, unique constraints, and cross-domain
+references.
 
 - [Open interactive schema explorer](https://collectarr.github.io/collectarr-core/schema.html)
 - [Open generated markdown snapshot](docs/schema-full.md)
 
-The explorer and snapshot are generated from SQLAlchemy metadata, split by domain, and include all model-declared columns, enums, foreign keys, unique constraints, indexes, defaults, and cross-domain references.
+---
 
-## Quick Start
+## 🚀 Quick Start
+
+### Start the Docker stack
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build -d
-docker compose exec api alembic upgrade head
+docker compose exec api python -m app.scripts.bootstrap_alembic
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
-## Development
+### Run local development tooling
 
 ```powershell
 python -m pip install -e .[dev]
@@ -56,56 +92,61 @@ python -m ruff check .
 python -m pytest
 ```
 
-Helper commands:
+### Common helper commands
 
 ```powershell
-.\tools\dev.ps1 start          # Start Docker stack
-.\tools\dev.ps1 start -WithSync # Start Core + collectarr-sync dev stack
-.\tools\dev.ps1 migrate        # Run Alembic migrations
-.\tools\dev.ps1 seed           # Seed sample comics data
-.\tools\dev.ps1 test           # Run test suite
-.\tools\dev.ps1 check          # Lint + type check
-.\tools\dev.ps1 smoke-providers # Smoke test all providers
-.\tools\dev.ps1 reset-stack    # Clean reset of all containers
-python -m scripts.export_provider_support  # Regenerate docs/provider-support.md from the provider registry
+.\tools\dev.ps1 start            # Start Docker stack
+.\tools\dev.ps1 start -WithSync  # Start Core + collectarr-sync dev stack
+.\tools\dev.ps1 migrate          # Run Alembic migrations
+.\tools\dev.ps1 seed             # Seed sample comics data
+.\tools\dev.ps1 test             # Run test suite
+.\tools\dev.ps1 check            # Lint + type check
+.\tools\dev.ps1 smoke-providers  # Smoke test all providers
+.\tools\dev.ps1 reset-stack      # Clean reset of containers and volumes
+python -m scripts.export_provider_support
 ```
 
-## Extending Metadata For New Libraries
+---
 
-Core is the canonical source of cross-library metadata. When a provider exposes a
-new field, wire it through the normalized metadata contract first and only then
-project it into the client.
+## 🧩 Extending Metadata For New Libraries
+
+Core is the canonical source of cross-library metadata. When a provider exposes
+a new field, wire it through the normalized metadata contract first and only
+then project it into the client.
 
 1. Normalize the field in the provider ingest pipeline.
-2. Expose it through the public schemas used by the app: item responses, search results, and admin/provider previews.
-3. Add it to Meilisearch documents and display attributes when it should participate in search or search previews.
+2. Expose it through public schemas used by the app: item responses, search results, and admin / provider previews.
+3. Add it to Meilisearch documents and display attributes when it should affect search or preview UX.
 4. Keep field names stable so `collectarr-app` can cache and render the same canonical shape offline.
 
 When normalizing provider data, preserve the provider-native raw payload exactly
 as returned upstream. If a workflow also needs the canonical provider item id,
 use `ProviderItem.provider_item_id` alongside the raw mapping instead of
 rewriting `raw['id']`, because some providers expose numeric or kind-specific
-raw identifiers that are not interchangeable with the canonical route id.
+identifiers that are not interchangeable with the canonical route id.
 
-This keeps provider growth and future library additions predictable: new kinds
-can share the same catalog/search/admin contract instead of inventing parallel
-app-only fields.
+That keeps provider growth additive: new library kinds can share the same
+catalog/search/admin contract instead of inventing parallel app-only fields.
 
-## Local URLs
+---
+
+## 🌐 Local URLs
 
 | Service | URL |
 |---------|-----|
 | API | http://localhost:8010 |
 | API docs (Swagger) | http://localhost:8010/docs |
-| Admin Console | http://localhost:8010/admin/ui |
+| Admin console | http://localhost:8010/admin/ui |
 | Sync service | http://localhost:8020 |
 | Meilisearch | http://localhost:7700 |
 | MinIO console | http://localhost:9001 |
 
-## Release Policy
+---
+
+## 🔄 Releases
 
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
-`workflow_dispatch`; pushing to `main` runs CI only — no auto-publish.
+`workflow_dispatch`; pushing to `main` runs CI only and never auto-publishes.
 
 When a releasable version is detected, the workflow publishes a GitHub Release
 and pushes the backend container image to `ghcr.io/collectarr/collectarr-core`
@@ -121,7 +162,9 @@ operations to work:
 For personal LAN deployment on unRAID with Docker Compose, see
 [docs/unraid.md](docs/unraid.md).
 
-## Catalog Badges
+---
+
+## 📈 Catalog Badges
 
 The repo includes snapshot badges for total catalog items and per-kind item
 counts. `.github/workflows/catalog-badges.yml` refreshes them on a daily
@@ -129,8 +172,8 @@ schedule or manual dispatch.
 
 To switch from placeholder badges to live counts, configure:
 
-- `COLLECTARR_BADGES_BASE_URL` — public base URL for the hosted Core server
-- `COLLECTARR_BADGES_TOKEN` — bearer token for `/admin/catalog/summary`
+- `COLLECTARR_BADGES_BASE_URL` for the public Core base URL
+- `COLLECTARR_BADGES_TOKEN` for bearer-token access to `/admin/catalog/summary`
 
 Or, instead of a static token:
 
@@ -139,19 +182,21 @@ Or, instead of a static token:
 
 The workflow logs in through `/auth/login` when a bearer token is not provided.
 
-## Related Repos
+---
+
+## 🔗 Related Repos
 
 | Repo | Purpose |
 |------|---------|
-| `collectarr-app` | Flutter client (web, Windows, Android) |
-| `collectarr-sync` | Optional personal sync service |
+| `collectarr-app` | Flutter client for local-first collection browsing, editing, and admin-facing UX |
+| `collectarr-sync` | Optional personal sync service for multi-device shelf state |
 
-## Provider Support
+## 📦 Provider Support
 
 See [docs/provider-support.md](docs/provider-support.md) for the generated
 support matrix derived from the provider registry.
 
-## Roadmap
+## 🗺️ Roadmap
 
 See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.
 

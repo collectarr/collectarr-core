@@ -11,6 +11,9 @@ docker compose exec api alembic upgrade head
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
+For a personal unRAID deployment without a reverse proxy or public domain, see
+`docs/unraid.md`.
+
 For live GCD-backed comics metadata, run a dry run first and then ingest with
 duplicate skipping:
 

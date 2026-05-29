@@ -13,6 +13,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
+    BundleReleaseProviderLink,
     BundleReleaseItem,
     Character,
     CharacterAppearance,
@@ -23,6 +24,7 @@ from app.models.canonical import (
     ExternalProviderId,
     ImageCacheEntry,
     Item,
+    ItemProviderLink,
     MetadataProposal,
     Organization,
     Person,
@@ -32,12 +34,14 @@ from app.models.canonical import (
     StoryArcItem,
     Tag,
     Variant,
+    VolumeProviderLink,
     Volume,
 )
 from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.base import (
     NormalizedBundleMember,
     NormalizedBundleRelease,
+    NormalizedCredit,
     NormalizedItem,
     ProviderCapabilities,
 )
@@ -47,9 +51,12 @@ from app.providers.comicvine import (
     ComicVineProvider,
 )
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
+from app.providers.registry import ProviderRegistry
 from app.schemas.admin import ProviderIngestRequest
 from app.search.client import SearchClient
 from app.services import admin as admin_service
+from app.services.admin_domains.provider_ingest import AdminProviderIngestService
+from app.services.provider_preview_state import ProviderPreviewState
 from app.services.provider_preview_state import clear_provider_preview_cache
 from app.storage.images import MirroredImage, ImageMirror
 
@@ -63,6 +70,74 @@ async def admin_token(client, monkeypatch) -> str:
     )
     assert response.status_code == 201
     return response.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_character_prefers_provider_links_over_shared_name():
+    async def _reindex_items(_: set[UUID]) -> None:
+        return None
+
+    async with AsyncSessionLocal() as db:
+        service = AdminProviderIngestService(
+            db=db,
+            settings=get_settings(),
+            providers=ProviderRegistry(),
+            provider_preview_state=ProviderPreviewState(),
+            history_reader=lambda: [],
+            audit_recorder=lambda **_: None,
+            ingest_job_audit_details=lambda *_args, **_kwargs: {},
+            record_ingest_history=lambda *_args, **_kwargs: None,
+            is_retryable_ingest_error=lambda *_args, **_kwargs: False,
+            error_message=lambda exc: str(exc),
+            reindex_items=_reindex_items,
+            item_response_loader=lambda *_args, **_kwargs: None,
+            backoff_delay=lambda *_args, **_kwargs: 0,
+            actor_user_id=None,
+            comicvine_character_details={},
+        )
+        existing = Character(name="Spider-Man", canonical_name="spider-man")
+        db.add(existing)
+        await db.flush()
+        db.add(
+            ExternalProviderId(
+                provider=ExternalProvider.comicvine,
+                provider_item_id="4005-1443",
+                entity_type="character",
+                entity_id=existing.id,
+            )
+        )
+        await db.flush()
+
+        first = await service._get_or_create_character(
+            "Spider-Man",
+            NormalizedCredit(
+                name="Spider-Man",
+                role=None,
+                api_detail_url="https://comicvine.gamespot.com/api/character/4005-1443/",
+                site_detail_url="https://comicvine.gamespot.com/spider-man/4005-1443/",
+            ),
+            provider=ExternalProvider.comicvine,
+            provider_item_id="4005-1443",
+        )
+        second = await service._get_or_create_character(
+            "Spider-Man",
+            NormalizedCredit(
+                name="Spider-Man",
+                role=None,
+                api_detail_url="https://comicvine.gamespot.com/api/character/4005-999999/",
+                site_detail_url="https://comicvine.gamespot.com/spider-man-2099/4005-999999/",
+            ),
+            provider=ExternalProvider.comicvine,
+            provider_item_id="4005-999999",
+        )
+        await db.flush()
+
+        all_characters = list((await db.execute(select(Character).where(Character.name == "Spider-Man"))).scalars())
+
+    assert first.id == existing.id
+    assert second.id != existing.id
+    assert second.canonical_name == "spider-man"
+    assert len(all_characters) == 2
 
 
 class FakePreviewCacheRedis:
@@ -1079,11 +1154,10 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
         )
         await db.flush()
         db.add(
-            ExternalProviderId(
+            ItemProviderLink(
                 provider=ExternalProvider.gcd,
                 provider_item_id="2663120",
-                entity_type="item",
-                entity_id=primary.id,
+                item_id=primary.id,
             )
         )
         await db.commit()
@@ -1352,11 +1426,10 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
         target_id = str(target.id)
         source_id = str(source.id)
         db.add(
-            ExternalProviderId(
+            ItemProviderLink(
                 provider=ExternalProvider.gcd,
                 provider_item_id="2665653",
-                entity_type="item",
-                entity_id=source.id,
+                item_id=source.id,
             )
         )
         await db.commit()
@@ -1377,8 +1450,8 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Item)) == 1
         assert await db.scalar(select(func.count()).select_from(Edition)) == 2
-        provider_link = await db.scalar(select(ExternalProviderId))
-        assert str(provider_link.entity_id) == target_id
+        provider_link = await db.scalar(select(ItemProviderLink))
+        assert str(provider_link.item_id) == target_id
 
     duplicates = await client.get(
         "/admin/duplicates",
@@ -1457,6 +1530,19 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
         },
     )
 
+    async with AsyncSessionLocal() as db:
+        refreshed_edition = await db.scalar(select(Edition).where(Edition.item_id == UUID(item_id)))
+
+    assert refreshed_edition is not None
+    assert refreshed_edition.imprint == "Black Label"
+    assert refreshed_edition.subtitle == "Noir Edition"
+    assert refreshed_edition.series_group == "Absolute Universe"
+    assert refreshed_edition.region == "US"
+    assert refreshed_edition.language == "en"
+    assert refreshed_edition.age_rating == "Mature"
+    assert refreshed_edition.catalog_number == "ABS-BAT-DELUXE"
+    assert refreshed_edition.release_status == "announced"
+
     assert updated.status_code == 200
     body = updated.json()
     assert body["title"] == "Absolute Batman Deluxe"
@@ -1474,9 +1560,31 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     assert body["release_status"] == "announced"
     assert body["editions"][0]["title"] == "Collector Edition"
     assert body["editions"][0]["release_date"] == "2024-10-16"
+    assert body["editions"][0]["imprint"] == "Black Label"
+    assert body["editions"][0]["subtitle"] == "Noir Edition"
+    assert body["editions"][0]["series_group"] == "Absolute Universe"
+    assert body["editions"][0]["age_rating"] == "Mature"
+    assert body["editions"][0]["catalog_number"] == "ABS-BAT-DELUXE"
+    assert body["editions"][0]["release_status"] == "announced"
     assert body["editions"][0]["variants"][0]["name"] == "Foil Cover"
     assert body["editions"][0]["variants"][0]["barcode"] == "76194138584600121"
     assert body["editions"][0]["variants"][0]["cover_image_url"] == "https://cdn.example/new.jpg"
+
+    filtered = await client.get(
+        "/admin/catalog/items",
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "kind": "comic",
+            "imprint": "Black Label",
+            "catalog_number": "ABS-BAT-DELUXE",
+            "release_status": "announced",
+            "language": "en",
+            "country": "US",
+        },
+    )
+
+    assert filtered.status_code == 200
+    assert [row["id"] for row in filtered.json()] == [item_id]
 
 
 @pytest.mark.asyncio
@@ -2220,6 +2328,11 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "story_arcs": ["The Spider Strikes"],
             "platforms": [],
             "release_status": None,
+            "language": None,
+            "imprint": None,
+            "subtitle": None,
+            "series_group": None,
+            "age_rating": None,
         }
     ]
 
@@ -2248,11 +2361,11 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(Tag)) == 2
         assert await db.scalar(select(func.count()).select_from(EntityTag)) == 2
         provider_ids = await db.scalars(
-            select(ExternalProviderId.provider_item_id).order_by(
-                ExternalProviderId.provider_item_id
+            select(ItemProviderLink.provider_item_id).order_by(
+                ItemProviderLink.provider_item_id
             )
         )
-        assert list(provider_ids) == ["4000-12345", "4005-1443", "4050-6789"]
+        assert list(provider_ids) == ["4000-12345"]
         provider_links = await db.execute(
             select(
                 ExternalProviderId.entity_type,
@@ -2276,7 +2389,21 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "4000-12345",
             "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
             "https://comicvine.gamespot.com/api/issue/4000-12345/",
-        ) in provider_link_rows
+        ) not in provider_link_rows
+        item_provider_links = await db.execute(
+            select(
+                ItemProviderLink.provider_item_id,
+                ItemProviderLink.site_url,
+                ItemProviderLink.api_url,
+            )
+        )
+        assert item_provider_links.all() == [
+            (
+                "4000-12345",
+                "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
+                "https://comicvine.gamespot.com/api/issue/4000-12345/",
+            )
+        ]
         character = await db.scalar(select(Character).where(Character.name == "Spider-Man"))
         assert character is not None
         assert character.aliases == ["Peter Parker", "Spidey"]
@@ -2296,6 +2423,40 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert cover is None
         thumbnail = await db.scalar(select(Variant.thumbnail_image_key))
         assert thumbnail is None
+        stored_item = await db.scalar(select(Item).where(Item.id == UUID(body["item_id"])))
+        stored_edition = await db.scalar(select(Edition).join(Item).where(Item.id == UUID(body["item_id"])))
+        stored_variant = await db.scalar(select(Variant).join(Edition).join(Item).where(Item.id == UUID(body["item_id"])))
+        assert stored_item is not None
+        assert stored_edition is not None
+        assert stored_variant is not None
+        assert "story_arcs" not in (stored_item.metadata_json.get("normalized") or {})
+        for key in (
+            "title",
+            "format",
+            "publisher",
+            "release_date",
+            "isbn",
+            "barcode",
+            "creators",
+            "characters",
+            "story_arcs",
+            "catalog_number",
+            "release_status",
+            "language",
+            "imprint",
+            "subtitle",
+            "series_group",
+        ):
+            assert key not in (stored_edition.metadata_json.get("normalized") or {})
+        for key in (
+            "name",
+            "variant_type",
+            "barcode",
+            "isbn",
+            "cover_price_cents",
+            "currency",
+        ):
+            assert key not in (stored_variant.metadata_json.get("normalized") or {})
 
 
 @pytest.mark.asyncio
@@ -2556,11 +2717,17 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
 
     async with AsyncSessionLocal() as db:
         provider_ids = await db.scalars(
-            select(ExternalProviderId.provider_item_id).order_by(
-                ExternalProviderId.provider_item_id
+            select(ItemProviderLink.provider_item_id).order_by(
+                ItemProviderLink.provider_item_id
             )
         )
-        assert list(provider_ids) == ["256114", "6139"]
+        volume_provider_ids = await db.scalars(
+            select(VolumeProviderLink.provider_item_id).order_by(
+                VolumeProviderLink.provider_item_id
+            )
+        )
+        assert list(provider_ids) == ["256114"]
+        assert list(volume_provider_ids) == ["6139"]
 
 
 @pytest.mark.asyncio
@@ -2661,11 +2828,17 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
         assert await db.scalar(select(func.count()).select_from(Item)) == 2
         assert await db.scalar(select(func.count()).select_from(Volume)) == 1
         provider_ids = await db.scalars(
-            select(ExternalProviderId.provider_item_id).order_by(
-                ExternalProviderId.provider_item_id
+            select(ItemProviderLink.provider_item_id).order_by(
+                ItemProviderLink.provider_item_id
             )
         )
-        assert list(provider_ids) == ["216143", "2663120", "2665653"]
+        volume_provider_ids = await db.scalars(
+            select(VolumeProviderLink.provider_item_id).order_by(
+                VolumeProviderLink.provider_item_id
+            )
+        )
+        assert list(provider_ids) == ["2663120", "2665653"]
+        assert list(volume_provider_ids) == ["216143"]
 
 
 @pytest.mark.asyncio
@@ -2842,8 +3015,7 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
     monkeypatch.setattr(settings, "worker_catalog_refresh_stale_days", 0)
     async with AsyncSessionLocal() as db:
         await db.execute(
-            update(ExternalProviderId)
-            .where(ExternalProviderId.entity_type == "item")
+            update(ItemProviderLink)
             .values(updated_at=datetime.now(UTC) - timedelta(days=1))
         )
         await db.commit()
@@ -3231,13 +3403,12 @@ async def test_admin_ingest_creates_bundle_release_from_provider_package(monkeyp
         assert member_roles.all() == [("primary", 1), ("primary", 2)]
 
         provider_links = await db.execute(
-            select(
-                ExternalProviderId.entity_type,
-                ExternalProviderId.provider_item_id,
-            ).order_by(ExternalProviderId.entity_type.asc(), ExternalProviderId.provider_item_id.asc())
+            select(ItemProviderLink.provider_item_id).order_by(ItemProviderLink.provider_item_id.asc())
         )
-        assert provider_links.all() == [
-            ("bundle_release", "bundle:mb:collection-1"),
-            ("item", "release:album-one"),
-            ("item", "release:album-two"),
-        ]
+        bundle_provider_links = await db.scalars(
+            select(BundleReleaseProviderLink.provider_item_id).order_by(
+                BundleReleaseProviderLink.provider_item_id.asc()
+            )
+        )
+        assert [row[0] for row in provider_links.all()] == ["release:album-one", "release:album-two"]
+        assert list(bundle_provider_links) == ["bundle:mb:collection-1"]

@@ -13,9 +13,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    and_,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import Base, ExternalProvider, ItemKind, SeriesRelationType, TimestampMixin, UuidMixin
 
@@ -48,6 +49,9 @@ class Series(UuidMixin, TimestampMixin, Base):
 
     franchise: Mapped[Franchise | None] = relationship()
     volumes: Mapped[list["Volume"]] = relationship(back_populates="series")
+    provider_links: Mapped[list["SeriesProviderLink"]] = relationship(
+        back_populates="series", cascade="all, delete-orphan"
+    )
 
 
 class Volume(UuidMixin, TimestampMixin, Base):
@@ -66,6 +70,9 @@ class Volume(UuidMixin, TimestampMixin, Base):
 
     series: Mapped[Series] = relationship(back_populates="volumes")
     items: Mapped[list["Item"]] = relationship(back_populates="volume")
+    provider_links: Mapped[list["VolumeProviderLink"]] = relationship(
+        back_populates="volume", cascade="all, delete-orphan"
+    )
 
 
 class Item(UuidMixin, TimestampMixin, Base):
@@ -93,6 +100,27 @@ class Item(UuidMixin, TimestampMixin, Base):
         back_populates="primary_item",
         foreign_keys="BundleRelease.primary_item_id",
     )
+    provider_links: Mapped[list["ItemProviderLink"]] = relationship(
+        back_populates="item", cascade="all, delete-orphan"
+    )
+    organization_links: Mapped[list["EntityOrganization"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityOrganization.entity_id) == Item.id,
+            EntityOrganization.entity_type == "item",
+        ),
+        viewonly=True,
+    )
+    creator_links: Mapped[list["EntityPerson"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityPerson.entity_id) == Item.id,
+            EntityPerson.entity_type == "item",
+        ),
+        viewonly=True,
+    )
+    character_appearances: Mapped[list["CharacterAppearance"]] = relationship(
+        back_populates="item"
+    )
+    story_arc_items: Mapped[list["StoryArcItem"]] = relationship(back_populates="item")
 
 
 class Edition(UuidMixin, TimestampMixin, Base):
@@ -108,6 +136,12 @@ class Edition(UuidMixin, TimestampMixin, Base):
     upc: Mapped[str | None] = mapped_column(String(32), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     region: Mapped[str | None] = mapped_column(String(32), index=True)
+    imprint: Mapped[str | None] = mapped_column(String(255), index=True)
+    subtitle: Mapped[str | None] = mapped_column(String(255))
+    series_group: Mapped[str | None] = mapped_column(String(255), index=True)
+    age_rating: Mapped[str | None] = mapped_column(String(64), index=True)
+    catalog_number: Mapped[str | None] = mapped_column(String(100), index=True)
+    release_status: Mapped[str | None] = mapped_column(String(64), index=True)
     release_date: Mapped[date | None] = mapped_column(Date)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -177,7 +211,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
-    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     franchise: Mapped[Franchise | None] = relationship()
@@ -188,6 +221,9 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
         foreign_keys=[primary_item_id],
     )
     items: Mapped[list["BundleReleaseItem"]] = relationship(
+        back_populates="bundle_release", cascade="all, delete-orphan"
+    )
+    provider_links: Mapped[list["BundleReleaseProviderLink"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
     )
 
@@ -222,6 +258,117 @@ class BundleReleaseItem(UuidMixin, TimestampMixin, Base):
 
     bundle_release: Mapped[BundleRelease] = relationship(back_populates="items")
     item: Mapped[Item] = relationship()
+
+
+class ItemProviderLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "item_provider_links"
+    __table_args__ = (
+        UniqueConstraint("item_id", "provider", name="uq_item_provider_links_owner_provider"),
+        UniqueConstraint("provider", "provider_item_id", name="uq_item_provider_links_provider_item"),
+        Index("ix_item_provider_links_item", "item_id"),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    site_url: Mapped[str | None] = mapped_column(String(1024))
+    api_url: Mapped[str | None] = mapped_column(String(1024))
+
+    item: Mapped[Item] = relationship(back_populates="provider_links")
+
+    @property
+    def entity_type(self) -> str:
+        return "item"
+
+
+class SeriesProviderLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "series_provider_links"
+    __table_args__ = (
+        UniqueConstraint("series_id", "provider", name="uq_series_provider_links_owner_provider"),
+        UniqueConstraint("provider", "provider_item_id", name="uq_series_provider_links_provider_item"),
+        Index("ix_series_provider_links_series", "series_id"),
+    )
+
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    site_url: Mapped[str | None] = mapped_column(String(1024))
+    api_url: Mapped[str | None] = mapped_column(String(1024))
+
+    series: Mapped[Series] = relationship(back_populates="provider_links")
+
+    @property
+    def entity_type(self) -> str:
+        return "series"
+
+
+class VolumeProviderLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "volume_provider_links"
+    __table_args__ = (
+        UniqueConstraint("volume_id", "provider", name="uq_volume_provider_links_owner_provider"),
+        UniqueConstraint("provider", "provider_item_id", name="uq_volume_provider_links_provider_item"),
+        Index("ix_volume_provider_links_volume", "volume_id"),
+    )
+
+    volume_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    site_url: Mapped[str | None] = mapped_column(String(1024))
+    api_url: Mapped[str | None] = mapped_column(String(1024))
+
+    volume: Mapped[Volume] = relationship(back_populates="provider_links")
+
+    @property
+    def entity_type(self) -> str:
+        return "volume"
+
+
+class BundleReleaseProviderLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "bundle_release_provider_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "bundle_release_id",
+            "provider",
+            name="uq_bundle_release_provider_links_owner_provider",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_item_id",
+            name="uq_bundle_release_provider_links_provider_item",
+        ),
+        Index("ix_bundle_release_provider_links_bundle_release", "bundle_release_id"),
+    )
+
+    bundle_release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("bundle_releases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    site_url: Mapped[str | None] = mapped_column(String(1024))
+    api_url: Mapped[str | None] = mapped_column(String(1024))
+
+    bundle_release: Mapped[BundleRelease] = relationship(back_populates="provider_links")
+
+    @property
+    def entity_type(self) -> str:
+        return "bundle_release"
 
 
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):
@@ -334,13 +481,14 @@ class StoryArcItem(UuidMixin, TimestampMixin, Base):
     ordinal: Mapped[int | None] = mapped_column(Integer)
 
     story_arc: Mapped[StoryArc] = relationship()
-    item: Mapped[Item] = relationship()
+    item: Mapped[Item] = relationship(back_populates="story_arc_items")
 
 
 class Character(UuidMixin, TimestampMixin, Base):
     __tablename__ = "characters"
 
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    canonical_name: Mapped[str | None] = mapped_column(String(255), index=True)
     aliases: Mapped[list[str] | None] = mapped_column(JSONB)
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
@@ -367,7 +515,7 @@ class CharacterAppearance(UuidMixin, TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
 
     character: Mapped[Character] = relationship()
-    item: Mapped[Item] = relationship()
+    item: Mapped[Item] = relationship(back_populates="character_appearances")
 
 
 class Tag(UuidMixin, TimestampMixin, Base):

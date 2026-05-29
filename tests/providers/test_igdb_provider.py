@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ExternalProviderId, Item, Organization, Person, Tag
+from app.models.canonical import Item, ItemProviderLink, Organization, Person, Tag
 from app.providers.base import ProviderItem
 from app.providers.igdb import IGDBProvider
 from app.search.client import SearchClient
@@ -127,8 +127,8 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.game))
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.igdb
+                select(ItemProviderLink.provider_item_id).where(
+                    ItemProviderLink.provider == ExternalProvider.igdb
                 )
             )
         )

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import BundleRelease, ExternalProviderId, Item, Person, Tag
+from app.models.canonical import BundleRelease, BundleReleaseProviderLink, Item, ItemProviderLink, Person, Tag
 from app.providers.anilist import AniListProvider
 from app.providers.base import ProviderItem
 from app.search.client import SearchClient
@@ -282,8 +282,8 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.manga))
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.anilist
+                select(ItemProviderLink.provider_item_id).where(
+                    ItemProviderLink.provider == ExternalProvider.anilist
                 )
             )
         )
@@ -328,18 +328,21 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
         bundle = await db.scalar(select(BundleRelease).where(BundleRelease.bundle_type == "season_pack"))
         provider_ids = list(
             await db.execute(
-                select(ExternalProviderId.entity_type, ExternalProviderId.provider_item_id)
-                .where(ExternalProviderId.provider == ExternalProvider.anilist)
-                .order_by(ExternalProviderId.entity_type, ExternalProviderId.provider_item_id)
+                select(ItemProviderLink.provider_item_id)
+                .where(ItemProviderLink.provider == ExternalProvider.anilist)
+                .order_by(ItemProviderLink.provider_item_id)
+            )
+        )
+        bundle_provider_ids = list(
+            await db.scalars(
+                select(BundleReleaseProviderLink.provider_item_id)
+                .where(BundleReleaseProviderLink.provider == ExternalProvider.anilist)
+                .order_by(BundleReleaseProviderLink.provider_item_id)
             )
         )
 
     assert item_titles == ["One Piece", "One Piece Season 1", "One Piece Season 3"]
     assert bundle is not None
     assert bundle.title == "One Piece Seasons"
-    assert bundle.external_ids == {"anilist": "anime:21"}
-    assert provider_ids == [
-        ("item", "anime:20"),
-        ("item", "anime:21"),
-        ("item", "anime:22"),
-    ]
+    assert bundle_provider_ids == ["anime:21"]
+    assert [row[0] for row in provider_ids] == ["anime:20", "anime:21", "anime:22"]

@@ -152,6 +152,7 @@ class TMDbProvider:
             characters=self._cast(data.get("credits")),
             genres=genres,
             language=self._optional_text(data.get("original_language")),
+            audience_rating=self._audience_rating(data.get("vote_average")),
             subtitle=self._optional_text(data.get("tagline")),
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
@@ -280,6 +281,17 @@ class TMDbProvider:
         if not poster_path:
             return None
         return f"{self.settings.tmdb_image_base_url.rstrip('/')}/w500/{poster_path.lstrip('/')}"
+
+    def _audience_rating(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        if numeric <= 0:
+            return None
+        return f"{numeric:.1f}".rstrip("0").rstrip(".")
 
     def _runtime(self, data: Mapping[str, Any], kind: ItemKind) -> int | None:
         if kind == ItemKind.movie:

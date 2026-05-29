@@ -40,6 +40,19 @@ def test_image_mirror_creates_bounded_webp_cover():
         assert max(image.size) <= mirror.settings.provider_image_max_long_edge
 
 
+def test_normalized_cover_includes_phash():
+    mirror = ImageMirror(storage=None)
+    source = BytesIO()
+    Image.new("RGB", (400, 600), color=(100, 50, 200)).save(source, format="PNG")
+
+    cover = mirror._normalized_cover(source.getvalue())
+
+    assert cover.phash is not None
+    # phash is a 16-char hex string (64-bit hash)
+    assert len(cover.phash) == 16
+    int(cover.phash, 16)  # must be valid hex
+
+
 def test_image_mirror_does_not_upscale_small_covers():
     mirror = ImageMirror(storage=None)
     source = BytesIO()
@@ -81,6 +94,8 @@ async def test_image_mirror_stores_single_normalized_webp_cover(monkeypatch):
     assert len(result.content_hash) == 64
     assert result.thumbnail_key is None
     assert result.thumbnail_url is None
+    assert result.phash is not None
+    assert len(result.phash) == 16
     assert len(storage.objects) == 1
     stored_body, stored_content_type = next(iter(storage.objects.values()))
     assert stored_content_type == "image/webp"

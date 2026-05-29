@@ -1,16 +1,19 @@
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
+from io import BytesIO
 import logging
 from time import monotonic
 
+import imagehash
+from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.canonical import Edition, Item, Variant, Volume
+from app.models.canonical import Edition, ImageAsset, Item, Variant, Volume
 from app.schemas.admin import ProviderIngestJobRunResponse
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
@@ -131,6 +134,50 @@ async def refresh_stale_catalog_items(limit: int) -> int:
     return refreshed
 
 
+async def backfill_cover_phashes(limit: int = 50) -> int:
+    """Compute perceptual hashes for image assets with NULL phash."""
+    storage = ObjectStorage.shared()
+    updated = 0
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.scalars(
+                select(ImageAsset)
+                .where(
+                    ImageAsset.phash.is_(None),
+                    ImageAsset.storage_key.is_not(None),
+                )
+                .limit(limit)
+            )
+            assets = result.all()
+            if not assets:
+                return 0
+
+            for asset in assets:
+                try:
+                    body, _ = await asyncio.to_thread(
+                        storage.get_object, asset.storage_key
+                    )
+                    pil_image = Image.open(BytesIO(body))
+                    asset.phash = str(imagehash.phash(pil_image))
+                    updated += 1
+                except Exception:
+                    logger.debug(
+                        "phash_backfill_skip asset_id=%s key=%s",
+                        asset.id,
+                        asset.storage_key,
+                        exc_info=True,
+                    )
+            if updated:
+                await db.commit()
+    except Exception:
+        logger.exception("worker_phash_backfill_failed limit=%s", limit)
+        return 0
+
+    if updated:
+        logger.info("worker_phash_backfill_finished updated=%s", updated)
+    return updated
+
+
 async def main() -> None:
     settings = get_settings()
     search = SearchClient()
@@ -151,6 +198,7 @@ async def main() -> None:
     next_index_run_at = 0.0
     next_ingest_run_at = 0.0
     next_refresh_run_at = 0.0
+    next_phash_run_at = 0.0
 
     while True:
         now = monotonic()
@@ -170,7 +218,12 @@ async def main() -> None:
             await refresh_stale_catalog_items(settings.worker_catalog_refresh_batch_size)
             next_refresh_run_at = monotonic() + settings.worker_catalog_refresh_interval_seconds
 
-        sleep_until = min(next_index_run_at, next_ingest_run_at, next_refresh_run_at)
+        now = monotonic()
+        if now >= next_phash_run_at:
+            await backfill_cover_phashes(limit=50)
+            next_phash_run_at = monotonic() + settings.worker_index_interval_seconds
+
+        sleep_until = min(next_index_run_at, next_ingest_run_at, next_refresh_run_at, next_phash_run_at)
         await asyncio.sleep(max(1.0, sleep_until - monotonic()))
 
 

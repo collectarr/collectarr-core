@@ -83,7 +83,7 @@ class BundleReleaseMemberResponse(BaseModel):
 class BundleReleaseDetailResponse(BundleReleaseSummaryResponse):
     franchise_id: UUID | None = None
     metadata_json: dict[str, Any] | None = None
-    external_ids: dict[str, Any] | None = None
+    provider_links: list["ProviderLink"] = Field(default_factory=list)
     members: list[BundleReleaseMemberResponse] = Field(default_factory=list)
 
 
@@ -104,6 +104,8 @@ class ProviderLink(BaseModel):
     site_url: str | None = None
     api_url: str | None = None
 
+    model_config = {"from_attributes": True}
+
 
 class EditionResponse(BaseModel):
     id: UUID
@@ -114,6 +116,12 @@ class EditionResponse(BaseModel):
     upc: str | None
     language: str | None
     region: str | None
+    imprint: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
+    age_rating: str | None = None
+    catalog_number: str | None = None
+    release_status: str | None = None
     release_date: date | None
     physical_format: str | None = None
     physical_format_label: str | None = None
@@ -170,6 +178,7 @@ class ItemResponse(BaseModel):
     country: str | None = None
     language: str | None = None
     age_rating: str | None = None
+    audience_rating: str | None = None
     imprint: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
@@ -453,15 +462,32 @@ class CharacterAppearanceResponse(BaseModel):
 def item_response_from_model(
     item: Any, extra_provider_links: list[ProviderLink] | None = None
 ) -> ItemResponse:
-    base = ItemResponse.model_validate(item).model_dump()
-    _synthesize_video_release_if_missing(base, item)
+    base = ItemResponse.model_validate(
+        {
+            "id": getattr(item, "id", None),
+            "kind": getattr(item, "kind", None),
+            "title": getattr(item, "title", None),
+            "item_number": getattr(item, "item_number", None),
+            "sort_key": getattr(item, "sort_key", None),
+            "synopsis": getattr(item, "synopsis", None),
+            "release_type": getattr(item, "release_type", None),
+            "season_number": getattr(item, "season_number", None),
+            "episode_number": getattr(item, "episode_number", None),
+            "runtime_minutes": getattr(item, "runtime_minutes", None),
+            "page_count": getattr(item, "page_count", None),
+            "metadata_json": getattr(item, "metadata_json", None),
+            "editions": list(getattr(item, "editions", []) or []),
+        }
+    ).model_dump()
     _enrich_physical_formats(base, item)
+    _apply_organization_overrides(base, item)
     edition = _primary_edition(item)
-    edition = edition or _synthetic_primary_edition(base)
     variant = _primary_variant(item)
-    variant = variant or _synthetic_primary_variant(base)
     source = _source_metadata(edition)
     normalized = _normalized_metadata(edition)
+    creators = _creator_credits(item)
+    characters = _character_credits(item)
+    story_arcs = _story_arc_credits(item)
     volume = getattr(item, "volume", None)
     series = getattr(volume, "series", None) if volume is not None else None
     base.update(
@@ -477,25 +503,22 @@ def item_response_from_model(
             "store_date": _date_value(source.get("store_date")),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
-            "catalog_number": _optional_text(normalized.get("catalog_number")),
+            "catalog_number": _optional_text(getattr(edition, "catalog_number", None)),
             "track_count": _optional_int(normalized.get("track_count")),
             "tracks": _tracks(normalized.get("tracks")),
-            "creators": _credits(source.get("person_credits"))
-            or _credits(normalized.get("creators")),
-            "characters": _credits(source.get("character_credits"))
-            or _credits(normalized.get("characters")),
-            "story_arcs": _credits(source.get("story_arc_credits"))
-            or _credits(normalized.get("story_arcs")),
+            "creators": creators,
+            "characters": characters,
+            "story_arcs": story_arcs,
             "platforms": _string_list(normalized.get("platforms")),
             "genres": _string_list(normalized.get("genres")),
-            "country": _optional_text(normalized.get("country")),
-            "language": _optional_text(getattr(edition, "language", None))
-            or _optional_text(normalized.get("language")),
-            "age_rating": _optional_text(normalized.get("age_rating")),
-            "imprint": _optional_text(normalized.get("imprint")),
-            "subtitle": _optional_text(normalized.get("subtitle")),
-            "series_group": _optional_text(normalized.get("series_group")),
-            "release_status": _optional_text(normalized.get("release_status")),
+            "country": _optional_text(getattr(edition, "region", None)),
+            "language": _optional_text(getattr(edition, "language", None)),
+            "age_rating": _optional_text(getattr(edition, "age_rating", None)),
+            "audience_rating": _optional_text(normalized.get("audience_rating")),
+            "imprint": _imprint(item, edition),
+            "subtitle": _optional_text(getattr(edition, "subtitle", None)),
+            "series_group": _optional_text(getattr(edition, "series_group", None)),
+            "release_status": _optional_text(getattr(edition, "release_status", None)),
             "provider_links": _provider_links(item, extra_provider_links=extra_provider_links),
         }
     )
@@ -548,6 +571,13 @@ def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> Non
         "upc": _optional_text(normalized_item.get("barcode")),
         "language": _optional_text(normalized_item.get("language")),
         "region": _optional_text(normalized_item.get("country")),
+        "imprint": _optional_text(normalized_item.get("imprint")),
+        "subtitle": _optional_text(normalized_item.get("subtitle")),
+        "series_group": _optional_text(normalized_item.get("series_group")),
+        "age_rating": _optional_text(normalized_item.get("age_rating")),
+        "audience_rating": _optional_text(normalized_item.get("audience_rating")),
+        "catalog_number": _optional_text(normalized_item.get("catalog_number")),
+        "release_status": _optional_text(normalized_item.get("release_status")),
         "release_date": _date_value(normalized_item.get("release_date")),
         "metadata_json": {
             "provider": _optional_text(source_item.get("provider")),
@@ -562,8 +592,6 @@ def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> Non
                 "publisher": _optional_text(normalized_item.get("publisher")),
                 "release_date": _optional_text(normalized_item.get("release_date")),
                 "barcode": _optional_text(normalized_item.get("barcode")),
-                "language": _optional_text(normalized_item.get("language")),
-                "country": _optional_text(normalized_item.get("country")),
                 "cover_image_url": cover_image_url,
                 "thumbnail_image_url": thumbnail_image_url,
             },
@@ -669,7 +697,10 @@ def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetail
         **summary.model_dump(),
         franchise_id=getattr(bundle_release, "franchise_id", None),
         metadata_json=getattr(bundle_release, "metadata_json", None),
-        external_ids=getattr(bundle_release, "external_ids", None),
+        provider_links=_provider_links_from_models(
+            getattr(bundle_release, "provider_links", []),
+            entity_type="bundle_release",
+        ),
         members=[
             BundleReleaseMemberResponse(
                 id=member.id,
@@ -845,11 +876,129 @@ def _normalized_metadata(edition: Any | None) -> dict[str, Any]:
     return normalized if isinstance(normalized, dict) else {}
 
 
+def _loaded_rows(entity: Any, attr_name: str) -> list[Any]:
+    values = getattr(entity, "__dict__", {}).get(attr_name)
+    if values is None:
+        return []
+    return list(values)
+
+
+def _creator_credits(item: Any) -> list[MetadataCredit]:
+    rows = sorted(
+        _loaded_rows(item, "creator_links"),
+        key=lambda link: (
+            getattr(link, "created_at", None) is None,
+            getattr(link, "created_at", None),
+            str(getattr(link, "id", "") or ""),
+        ),
+    )
+    return [
+        MetadataCredit(
+            name=link.person.name,
+            role=link.role,
+            api_detail_url=_optional_text(getattr(link.person, "metadata_json", {}).get("api_detail_url")),
+            site_detail_url=_optional_text(getattr(link.person, "metadata_json", {}).get("site_detail_url")),
+            image_url=_optional_text(getattr(link.person, "metadata_json", {}).get("image_url")),
+        )
+        for link in rows
+        if getattr(link, "person", None) is not None and getattr(link.person, "name", None)
+    ]
+
+
+def _character_credits(item: Any) -> list[MetadataCredit]:
+    rows = sorted(
+        _loaded_rows(item, "character_appearances"),
+        key=lambda appearance: (
+            str(getattr(appearance, "role", "") or "").casefold(),
+            str(getattr(getattr(appearance, "character", None), "name", "") or "").casefold(),
+        ),
+    )
+    return [
+        MetadataCredit(
+            name=appearance.character.name,
+            role=appearance.role,
+            aliases=[
+                str(alias) for alias in (getattr(appearance.character, "aliases", None) or []) if str(alias).strip()
+            ],
+            description=getattr(appearance.character, "description", None),
+            image_url=getattr(appearance.character, "image_url", None),
+            first_appearance_item_id=getattr(appearance.character, "first_appearance_item_id", None),
+        )
+        for appearance in rows
+        if getattr(appearance, "character", None) is not None
+        and getattr(appearance.character, "name", None)
+    ]
+
+
+def _story_arc_credits(item: Any) -> list[MetadataCredit]:
+    rows = sorted(
+        _loaded_rows(item, "story_arc_items"),
+        key=lambda link: (
+            getattr(link, "ordinal", None) is None,
+            getattr(link, "ordinal", None) or 0,
+            str(getattr(getattr(link, "story_arc", None), "name", "") or "").casefold(),
+        ),
+    )
+    return [
+        MetadataCredit(
+            name=link.story_arc.name,
+            description=getattr(link.story_arc, "description", None),
+            ordinal=getattr(link, "ordinal", None),
+            publisher=getattr(link.story_arc, "publisher", None),
+        )
+        for link in rows
+        if getattr(link, "story_arc", None) is not None and getattr(link.story_arc, "name", None)
+    ]
+
+
 def _publisher(item: Any) -> str | None:
+    publisher = _organization_name(item, "publisher")
+    if publisher is not None:
+        return publisher
     for edition in getattr(item, "editions", []) or []:
         if edition.publisher:
             return edition.publisher
     return None
+
+
+def _imprint(item: Any, edition: Any | None) -> str | None:
+    imprint = _organization_name(item, "imprint")
+    if imprint is not None:
+        return imprint
+    return _optional_text(getattr(edition, "imprint", None))
+
+
+def _organization_name(item: Any, role: str) -> str | None:
+    rows = sorted(
+        _loaded_rows(item, "organization_links"),
+        key=lambda link: (
+            str(getattr(link, "role", "") or "").casefold(),
+            str(getattr(getattr(link, "organization", None), "name", "") or "").casefold(),
+        ),
+    )
+    for link in rows:
+        if getattr(link, "role", None) != role:
+            continue
+        organization = getattr(link, "organization", None)
+        name = getattr(organization, "name", None)
+        if name:
+            return str(name)
+    return None
+
+
+def _apply_organization_overrides(base: dict[str, Any], item: Any) -> None:
+    editions = base.get("editions")
+    if not isinstance(editions, list):
+        return
+    publisher = _organization_name(item, "publisher")
+    imprint = _organization_name(item, "imprint")
+    for edition in editions:
+        if not isinstance(edition, dict):
+            continue
+        if publisher is not None:
+            edition["publisher"] = publisher
+        if imprint is not None:
+            edition["imprint"] = imprint
 
 
 def _barcode(item: Any) -> str | None:
@@ -948,6 +1097,17 @@ def _provider_links(
 ) -> list[ProviderLink]:
     links: list[ProviderLink] = []
     seen: dict[tuple[str, str, str], ProviderLink] = {}
+    loaded_provider_links = item.__dict__.get("provider_links", []) if hasattr(item, "__dict__") else []
+    for link in _provider_links_from_models(loaded_provider_links, entity_type="item"):
+        _append_provider_link(
+            links,
+            seen,
+            provider=link.provider.value,
+            entity_type=link.entity_type,
+            provider_item_id=link.provider_item_id,
+            site_url=link.site_url,
+            api_url=link.api_url,
+        )
     for link in extra_provider_links or []:
         _append_provider_link(
             links,
@@ -973,6 +1133,25 @@ def _provider_links(
                 site_url=_optional_text(source.get("site_detail_url")),
                 api_url=_optional_text(source.get("api_detail_url")),
             )
+    return links
+
+
+def _provider_links_from_models(rows: Any, *, entity_type: str) -> list[ProviderLink]:
+    links: list[ProviderLink] = []
+    for row in rows or []:
+        provider = getattr(row, "provider", None)
+        provider_item_id = getattr(row, "provider_item_id", None)
+        if provider is None or not provider_item_id:
+            continue
+        links.append(
+            ProviderLink(
+                provider=provider,
+                entity_type=entity_type,
+                provider_item_id=provider_item_id,
+                site_url=getattr(row, "site_url", None),
+                api_url=getattr(row, "api_url", None),
+            )
+        )
     return links
 
 

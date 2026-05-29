@@ -193,6 +193,7 @@ class NormalizedItem:
     genres: list[str] = field(default_factory=list)
     language: str | None = None
     age_rating: str | None = None
+    audience_rating: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
     bundle_release: NormalizedBundleRelease | None = None

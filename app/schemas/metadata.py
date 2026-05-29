@@ -146,6 +146,7 @@ class ItemResponse(BaseModel):
     id: UUID
     kind: ItemKind
     title: str
+    title_extension: str | None = None
     item_number: str | None
     sort_key: str | None
     synopsis: str | None
@@ -467,6 +468,7 @@ def item_response_from_model(
             "id": getattr(item, "id", None),
             "kind": getattr(item, "kind", None),
             "title": getattr(item, "title", None),
+            "title_extension": getattr(item, "title_extension", None),
             "item_number": getattr(item, "item_number", None),
             "sort_key": getattr(item, "sort_key", None),
             "synopsis": getattr(item, "synopsis", None),

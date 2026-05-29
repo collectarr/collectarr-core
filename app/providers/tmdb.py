@@ -25,7 +25,7 @@ class TMDbProvider:
     name = "tmdb"
     capabilities = ProviderCapabilities(
         kind=ItemKind.movie,
-        kinds=(ItemKind.movie, ItemKind.tv, ItemKind.anime),
+        kinds=(ItemKind.movie, ItemKind.tv, ItemKind.anime, ItemKind.collection),
         display_name="TMDb",
         supports_search=True,
         supports_ingest=True,
@@ -220,12 +220,15 @@ class TMDbProvider:
 
     def _search_result(self, data: Mapping[str, Any], kind: ItemKind) -> ProviderSearchResult:
         tmdb_id = self._id(data.get("id"))
-        release_date = self._date(
-            data.get("release_date") if kind == ItemKind.movie else data.get("first_air_date")
-        )
+        if kind == ItemKind.collection:
+            release_date = None
+        else:
+            release_date = self._date(
+                data.get("release_date") if kind == ItemKind.movie else data.get("first_air_date")
+            )
         summary_parts = [
             release_date.isoformat() if release_date else None,
-            self._optional_text(data.get("original_language")),
+            self._optional_text(data.get("original_language")) if kind != ItemKind.collection else None,
         ]
         return ProviderSearchResult(
             provider=self.name,
@@ -254,6 +257,8 @@ class TMDbProvider:
         return f"{kind.value}:{tmdb_id}"
 
     def _tmdb_type(self, kind: ItemKind) -> str:
+        if kind == ItemKind.collection:
+            return "collection"
         return "tv" if kind in {ItemKind.tv, ItemKind.anime} else "movie"
 
     def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
@@ -268,10 +273,11 @@ class TMDbProvider:
         return kind if kind in self.capabilities.supported_kinds else ItemKind.movie
 
     def _title(self, data: Mapping[str, Any], kind: ItemKind) -> str:
+        use_title = kind == ItemKind.movie
         return (
-            self._optional_text(data.get("title" if kind == ItemKind.movie else "name"))
+            self._optional_text(data.get("title" if use_title else "name"))
             or self._optional_text(
-                data.get("original_title" if kind == ItemKind.movie else "original_name")
+                data.get("original_title" if use_title else "original_name")
             )
             or "Unknown TMDb title"
         )

@@ -34,6 +34,7 @@ class ItemKind(str, enum.Enum):
     boardgame = "boardgame"
     book = "book"
     bluray = "bluray"
+    collection = "collection"
     comic = "comic"
     game = "game"
     manga = "manga"

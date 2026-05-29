@@ -118,6 +118,8 @@ class AdminCatalogService:
         }
         if "title" in update_data and payload.title is not None:
             item.title = payload.title
+        if "title_extension" in update_data:
+            item.title_extension = payload.title_extension
         if "item_number" in update_data:
             item.item_number = payload.item_number
         if "synopsis" in update_data:

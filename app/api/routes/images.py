@@ -390,9 +390,17 @@ async def set_image_primary(
 
 def _hamming_distance(hash_a: str, hash_b: str) -> int:
     """Hamming distance between two hex-encoded perceptual hashes."""
-    int_a = int(hash_a, 16)
-    int_b = int(hash_b, 16)
+    try:
+        int_a = int(hash_a, 16)
+        int_b = int(hash_b, 16)
+    except (TypeError, ValueError):
+        return 999
     return bin(int_a ^ int_b).count("1")
+
+
+def _compute_phash(image_bytes: bytes) -> str:
+    with Image.open(BytesIO(image_bytes)) as pil_image:
+        return str(imagehash.phash(pil_image))
 
 
 @router.post("/search-by-cover")
@@ -444,8 +452,7 @@ async def search_by_cover_upload(
             detail="Uploaded image exceeds size limit",
         )
     try:
-        pil_image = Image.open(BytesIO(image_bytes))
-        query_phash = str(imagehash.phash(pil_image))
+        query_phash = await asyncio.to_thread(_compute_phash, image_bytes)
     except Exception:
         raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

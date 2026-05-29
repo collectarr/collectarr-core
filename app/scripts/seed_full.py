@@ -14,7 +14,7 @@ import asyncio
 import hashlib
 import sys
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -31,7 +31,6 @@ from app.models.canonical import (
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ItemProviderLink,
     Franchise,
     ImageAsset,

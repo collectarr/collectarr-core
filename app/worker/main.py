@@ -34,6 +34,11 @@ class CatalogFingerprint:
     variant_updated_at: datetime | None
 
 
+def _compute_phash(image_data: bytes) -> str:
+    with Image.open(BytesIO(image_data)) as pil_image:
+        return str(imagehash.phash(pil_image))
+
+
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     item_count, item_updated_at = (
         await db.execute(select(func.count(Item.id), func.max(Item.updated_at)))
@@ -157,8 +162,7 @@ async def backfill_cover_phashes(limit: int = 50) -> int:
                     body, _ = await asyncio.to_thread(
                         storage.get_object, asset.storage_key
                     )
-                    pil_image = Image.open(BytesIO(body))
-                    asset.phash = str(imagehash.phash(pil_image))
+                    asset.phash = await asyncio.to_thread(_compute_phash, body)
                     updated += 1
                 except Exception:
                     logger.debug(

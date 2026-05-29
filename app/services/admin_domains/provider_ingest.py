@@ -29,7 +29,6 @@ from app.models.canonical import (
     Person,
     ProviderIngestJob,
     Series,
-    SeriesProviderLink,
     SeriesRelation,
     StoryArc,
     StoryArcItem,
@@ -1100,6 +1099,7 @@ class AdminProviderIngestService:
         if bundle_normalized is None:
             raise RuntimeError("Bundle ingest called without bundle payload")
         members = self._bundle_members_for_ingest(normalized)
+        metadata_repo = MetadataRepository(self.db)
         created_members: list[tuple[NormalizedBundleMember, Item, Volume | None, Series | None]] = []
         for index, member in enumerate(members, start=1):
             member_provider_item_id = self._bundle_member_provider_item_id(
@@ -1108,14 +1108,38 @@ class AdminProviderIngestService:
                 member,
                 index,
             )
-            member_item, member_volume, member_series = await self._create_catalog_item_from_normalized(
-                provider=provider,
-                provider_name=provider_name,
-                provider_item_id=member_provider_item_id,
-                provider_raw=provider_item.raw,
-                normalized=member.item,
-                ingest_related_collections=False,
+            existing_ref = await self._get_provider_id_value(
+                provider_name,
+                member_provider_item_id,
             )
+            member_item: Item | None = None
+            member_volume: Volume | None = None
+            member_series: Series | None = None
+            if existing_ref is not None:
+                if existing_ref.entity_type != "item":
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        code="provider_link_stale",
+                        detail="Provider link is stale",
+                    )
+                member_item = await metadata_repo.get_item(existing_ref.entity_id)
+                if member_item is None:
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        code="provider_link_stale",
+                        detail="Provider link is stale",
+                    )
+                member_volume = member_item.volume
+                member_series = member_volume.series if member_volume is not None else None
+            else:
+                member_item, member_volume, member_series = await self._create_catalog_item_from_normalized(
+                    provider=provider,
+                    provider_name=provider_name,
+                    provider_item_id=member_provider_item_id,
+                    provider_raw=provider_item.raw,
+                    normalized=member.item,
+                    ingest_related_collections=False,
+                )
             created_members.append((member, member_item, member_volume, member_series))
         primary_member = next(
             (

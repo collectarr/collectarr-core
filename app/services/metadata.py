@@ -63,6 +63,7 @@ from app.schemas.metadata import (
     bundle_release_detail_from_model,
     bundle_release_summary_from_model,
     item_response_from_model,
+    public_item_kind,
 )
 from app.search.client import SearchClient
 from app.services.provider_search_state import ProviderSearchState
@@ -319,7 +320,15 @@ class MetadataService:
             limit=limit,
         )
         if meili_results is not None and not barcode:
-            return [SearchResult(**result) for result in meili_results]
+            return [
+                SearchResult(
+                    **{
+                        **result,
+                        "kind": public_item_kind(result.get("kind")),
+                    }
+                )
+                for result in meili_results
+            ]
 
         items = await self.metadata.search_items(
             query=query,
@@ -501,7 +510,15 @@ class MetadataService:
         if should_refresh_cache:
             await self._store_provider_search_results(cache_key, results)
         results = await self._with_stable_provider_image_urls(results)
-        return [ProviderSearchResultResponse(**result.__dict__) for result in results]
+        return [
+            ProviderSearchResultResponse(
+                **{
+                    **result.__dict__,
+                    "kind": public_item_kind(getattr(result, "kind", None)),
+                }
+            )
+            for result in results
+        ]
 
     async def search_default_provider(
         self,
@@ -1340,7 +1357,7 @@ class MetadataService:
             bundle_release_ids = [str(bundle.id) for bundle in bundle_releases]
         return SearchResult(
             id=item.id,
-            kind=item.kind,
+            kind=public_item_kind(item.kind),
             title=item.title,
             item_number=item.item_number,
             synopsis=item.synopsis,
@@ -1895,7 +1912,7 @@ class MetadataService:
                     creator_id=creator_id,
                     item_id=item.id,
                     role=link.role,
-                    kind=item.kind,
+                    kind=public_item_kind(item.kind),
                     title=item.title,
                     item_number=item.item_number,
                     series_title=getattr(getattr(item.volume, "series", None), "title", None),
@@ -1938,7 +1955,7 @@ class MetadataService:
                 story_arc_id=story_arc_id,
                 item_id=link.item.id,
                 ordinal=link.ordinal,
-                kind=link.item.kind,
+                kind=public_item_kind(link.item.kind),
                 title=link.item.title,
                 item_number=link.item.item_number,
                 series_title=getattr(getattr(link.item.volume, "series", None), "title", None),
@@ -2140,7 +2157,7 @@ class MetadataService:
                 character_id=character_id,
                 item_id=link.item.id,
                 role=link.role,
-                kind=link.item.kind,
+                kind=public_item_kind(link.item.kind),
                 title=link.item.title,
                 item_number=link.item.item_number,
                 series_title=getattr(getattr(link.item.volume, "series", None), "title", None),

@@ -52,6 +52,7 @@ from app.schemas.metadata import (
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
+    public_item_kind,
 )
 from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
@@ -66,7 +67,11 @@ async def media_type_catalog() -> MediaCatalogResponse:
         contract_version=MEDIA_CATALOG_CONTRACT_VERSION,
         snapshot_schema_version=CATALOG_SNAPSHOT_SCHEMA_VERSION,
         default_kind=ItemKind.comic,
-        media_types=[_media_type_response(config) for config in media_types],
+        media_types=[
+            _media_type_response(config)
+            for config in media_types
+            if config.kind != ItemKind.tv
+        ],
     )
 
 
@@ -134,7 +139,7 @@ async def barcode_provider_search(
             provider=ExternalProvider(r.provider),
             provider_item_id=r.provider_item_id,
             title=r.title,
-            kind=r.kind,
+            kind=public_item_kind(r.kind),
             summary=r.summary,
             image_url=r.image_url,
             candidate_type=r.candidate_type,
@@ -438,7 +443,7 @@ async def _get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> I
 
 def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
     return MediaTypeResponse(
-        kind=config.kind,
+        kind=public_item_kind(config.kind),
         singular_label=config.singular_label,
         plural_label=config.plural_label,
         route_segments=list(config.route_segments),

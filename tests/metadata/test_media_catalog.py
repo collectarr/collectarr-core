@@ -27,6 +27,7 @@ def test_media_catalog_keeps_bluray_as_legacy_physical_format():
     # `anime` kind removed; video kinds are covered by `movie` and `tv`
 
     assert ItemKind.bluray not in top_level_kinds
+    assert ItemKind.tv not in top_level_kinds
     assert bluray is not None
     assert bluray.kind == ItemKind.bluray
     assert bluray.is_top_level is False
@@ -35,6 +36,8 @@ def test_media_catalog_keeps_bluray_as_legacy_physical_format():
     assert [format.id for format in bluray.physical_formats] == ["blu-ray"]
     assert movies is not None
     assert tv is not None
+    assert tv.is_top_level is False
+    assert tv.legacy_of == ItemKind.movie
     assert [format.id for format in movies.physical_formats] == [
         "dvd",
         "blu-ray",

@@ -60,6 +60,8 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("tv", "shows", "series"),
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
+        is_top_level=False,
+        legacy_of=ItemKind.movie,
         physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(

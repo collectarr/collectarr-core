@@ -9,6 +9,26 @@ from app.catalog.physical_formats import is_video_item_kind, physical_format_for
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
+def public_item_kind(kind: Any) -> ItemKind | None:
+    if kind is None:
+        return None
+    if isinstance(kind, str):
+        normalized = kind.strip().lower()
+        if normalized == "manga":
+            return ItemKind.comic
+        if normalized in {"anime", "tv"}:
+            return ItemKind.movie
+        try:
+            return ItemKind(normalized)
+        except ValueError:
+            return None
+    if kind == ItemKind.manga:
+        return ItemKind.comic
+    if kind in {ItemKind.anime, ItemKind.tv}:
+        return ItemKind.movie
+    return kind if isinstance(kind, ItemKind) else None
+
+
 class VariantResponse(BaseModel):
     id: UUID
     name: str
@@ -474,7 +494,7 @@ def item_response_from_model(
     base = ItemResponse.model_validate(
         {
             "id": getattr(item, "id", None),
-            "kind": getattr(item, "kind", None),
+            "kind": public_item_kind(getattr(item, "kind", None)),
             "title": getattr(item, "title", None),
             "title_extension": getattr(item, "title_extension", None),
             "item_number": getattr(item, "item_number", None),
@@ -660,7 +680,7 @@ def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSumma
     primary_count = sum(1 for member in items if getattr(member, "is_primary", False))
     return BundleReleaseSummaryResponse(
         id=bundle_release.id,
-        kind=bundle_release.kind,
+        kind=public_item_kind(getattr(bundle_release, "kind", None)),
         title=bundle_release.title,
         bundle_type=getattr(bundle_release, "bundle_type", None),
         format=getattr(bundle_release, "format", None),
@@ -725,7 +745,7 @@ def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetail
                 disc_label=getattr(member, "disc_label", None),
                 quantity=getattr(member, "quantity", 1),
                 is_primary=getattr(member, "is_primary", False),
-                kind=member.item.kind,
+                kind=public_item_kind(getattr(member.item, "kind", None)),
                 title=member.item.title,
                 item_number=getattr(member.item, "item_number", None),
                 series_id=getattr(getattr(getattr(member.item, "volume", None), "series", None), "id", None),

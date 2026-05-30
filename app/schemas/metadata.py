@@ -820,8 +820,7 @@ def _default_video_format(item: Any) -> str:
     kind = getattr(item, "kind", None)
     if kind == ItemKind.movie:
         return "Movie"
-    if kind == ItemKind.anime:
-        return "Anime"
+    # 'anime' kind merged into 'movie'; no separate label needed
     return "TV Series"
 
 

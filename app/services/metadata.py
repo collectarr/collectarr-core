@@ -914,7 +914,7 @@ class MetadataService:
         if provider_name != ExternalProvider.gcd or not results:
             return results
         target_kind = kind or ItemKind.comic
-        if target_kind not in {ItemKind.comic, ItemKind.manga}:
+        if target_kind != ItemKind.comic:
             return results
         if any(result.provider == ExternalProvider.comicvine.value for result in results):
             return results
@@ -976,7 +976,7 @@ class MetadataService:
         requested_provider: ExternalProvider,
     ) -> list[ProviderSearchResult]:
         target_kind = kind or ItemKind.comic
-        if target_kind not in {ItemKind.comic, ItemKind.manga}:
+        if target_kind != ItemKind.comic:
             return []
         plan = GCDProvider()._query_plan(query)
         if plan.is_series_search:
@@ -2191,7 +2191,7 @@ class MetadataService:
 
     async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
         item = await self.metadata.get_item(item_id)
-        if item is None or item.kind != ItemKind.manga:
+        if item is None or item.kind != ItemKind.comic:
             return None
         provider = self.providers.maybe_get(ExternalProvider.mangadex)
         if provider is None or not provider.capabilities.supports_search:
@@ -2206,7 +2206,7 @@ class MetadataService:
                 ExternalProvider.mangadex,
                 provider,
                 query,
-                ItemKind.manga,
+                ItemKind.comic,
             )
         except ApiHTTPException:
             logger.debug(
@@ -2246,7 +2246,7 @@ class MetadataService:
         best: ProviderSearchResult | None = None
         best_score = 0
         for index, result in enumerate(results[:10]):
-            if result.kind != ItemKind.manga or not result.provider_item_id:
+            if result.kind != ItemKind.comic or not result.provider_item_id:
                 continue
             score = self._manga_title_match_score(targets, result)
             if score <= 0:

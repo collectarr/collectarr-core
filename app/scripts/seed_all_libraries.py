@@ -24,8 +24,7 @@ from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 # ---------------------------------------------------------------------------
 _PROVIDER_FOR_KIND: dict[ItemKind, ExternalProvider] = {
     ItemKind.comic: ExternalProvider.comicvine,
-    ItemKind.manga: ExternalProvider.mangadex,
-    ItemKind.anime: ExternalProvider.anilist,
+    # 'manga' and 'anime' removed; provider mapping consolidated into existing kinds
     ItemKind.book: ExternalProvider.openlibrary,
     ItemKind.game: ExternalProvider.igdb,
     ItemKind.boardgame: ExternalProvider.bgg,
@@ -342,123 +341,7 @@ SEED_TV = [
     ),
 ]
 
-# ===================================================================
-#  ANIME (10)
-# ===================================================================
-SEED_ANIME = [
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Cowboy Bebop", publisher="Sunrise",
-        series="Cowboy Bebop", slug="cowboy-bebop",
-        volume="Cowboy Bebop", volume_number=1, start_year=1998,
-        item_number="1", title="Cowboy Bebop",
-        synopsis="A ragtag group of bounty hunters chase criminals across the solar system in 2071.",
-        release_date=date(1998, 4, 3), runtime_minutes=25, season_number=1,
-        editions=[
-            SeedEdition(title="Blu-ray Complete", fmt="Blu-ray", publisher="Funimation", release_date=date(2014, 12, 16),
-                        variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=4499, currency="USD")]),
-            SeedEdition(title="4K UHD Collector", fmt="4K UHD", publisher="Funimation", release_date=date(2023, 6, 27),
-                        variants=[SeedVariant(name="Collector's 4K", variant_type="physical", cover_price_cents=8999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Neon Genesis Evangelion", publisher="Gainax",
-        series="Neon Genesis Evangelion", slug="neon-genesis-evangelion",
-        volume="Neon Genesis Evangelion", volume_number=1, start_year=1995,
-        item_number="1", title="Neon Genesis Evangelion",
-        synopsis="Shinji Ikari is recruited by his father to pilot a giant mecha against monstrous beings called Angels.",
-        release_date=date(1995, 10, 4), runtime_minutes=24, season_number=1,
-        editions=[
-            SeedEdition(title="Ultimate Edition Blu-ray", fmt="Blu-ray", publisher="GKIDS", release_date=date(2021, 12, 7),
-                        variants=[SeedVariant(name="Ultimate Edition", variant_type="physical", cover_price_cents=19999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Studio Ghibli", publisher="Studio Ghibli",
-        series="Spirited Away", slug="spirited-away",
-        volume="Spirited Away", volume_number=1, start_year=2001,
-        item_number="1", title="Spirited Away",
-        synopsis="A young girl becomes trapped in a strange world of spirits and must find a way to free herself and her parents.",
-        release_date=date(2001, 7, 20), runtime_minutes=125,
-        editions=[
-            SeedEdition(title="DVD", fmt="DVD", publisher="Walt Disney Home", release_date=date(2003, 4, 15),
-                        variants=[SeedVariant(name="DVD", variant_type="physical")]),
-            SeedEdition(title="Blu-ray", fmt="Blu-ray", publisher="GKIDS / Shout Factory", release_date=date(2017, 10, 17),
-                        variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=2999, currency="USD")]),
-            SeedEdition(title="Steelbook", fmt="Blu-ray", publisher="GKIDS", release_date=date(2019, 11, 12),
-                        variants=[SeedVariant(name="Steelbook", variant_type="physical", cover_price_cents=3499, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Studio Ghibli", publisher="Studio Ghibli",
-        series="Princess Mononoke", slug="princess-mononoke",
-        volume="Princess Mononoke", volume_number=1, start_year=1997,
-        item_number="1", title="Princess Mononoke",
-        synopsis="A prince becomes embroiled in a struggle between forest gods and a mining colony.",
-        release_date=date(1997, 7, 12), runtime_minutes=134,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Fullmetal Alchemist", publisher="Bones",
-        series="Fullmetal Alchemist: Brotherhood", slug="fmab",
-        volume="Fullmetal Alchemist: Brotherhood", volume_number=1, start_year=2009,
-        item_number="1", title="Fullmetal Alchemist: Brotherhood",
-        synopsis="Two brothers use alchemy to search for the Philosopher's Stone to restore their bodies.",
-        release_date=date(2009, 4, 5), runtime_minutes=24, season_number=1,
-        editions=[
-            SeedEdition(title="Complete Blu-ray Box", fmt="Blu-ray", publisher="Funimation", release_date=date(2016, 8, 2),
-                        variants=[SeedVariant(name="Complete Box", variant_type="physical", cover_price_cents=5999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Attack on Titan", publisher="Wit Studio / MAPPA",
-        series="Attack on Titan", slug="attack-on-titan",
-        volume="Attack on Titan", volume_number=1, start_year=2013,
-        item_number="1", title="Attack on Titan",
-        synopsis="Humanity fights for survival against enormous humanoid creatures known as Titans.",
-        release_date=date(2013, 4, 7), runtime_minutes=24, season_number=1,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Steins;Gate", publisher="White Fox",
-        series="Steins;Gate", slug="steins-gate",
-        volume="Steins;Gate", volume_number=1, start_year=2011,
-        item_number="1", title="Steins;Gate",
-        synopsis="A self-proclaimed mad scientist accidentally creates a time machine using a microwave.",
-        release_date=date(2011, 4, 6), runtime_minutes=24, season_number=1,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Death Note", publisher="Madhouse",
-        series="Death Note", slug="death-note-anime",
-        volume="Death Note", volume_number=1, start_year=2006,
-        item_number="1", title="Death Note",
-        synopsis="A high school student discovers a supernatural notebook that can kill anyone whose name is written in it.",
-        release_date=date(2006, 10, 4), runtime_minutes=23, season_number=1,
-        editions=[
-            SeedEdition(title="Complete Series DVD", fmt="DVD", publisher="Viz Media", release_date=date(2008, 11, 18),
-                        variants=[SeedVariant(name="DVD Box", variant_type="physical")]),
-            SeedEdition(title="Complete Series Blu-ray", fmt="Blu-ray", publisher="Viz Media", release_date=date(2016, 10, 4),
-                        variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=3999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="One Punch Man", publisher="Madhouse",
-        series="One Punch Man", slug="one-punch-man",
-        volume="One Punch Man", volume_number=1, start_year=2015,
-        item_number="1", title="One Punch Man",
-        synopsis="A hero who can defeat any opponent with a single punch struggles with boredom.",
-        release_date=date(2015, 10, 5), runtime_minutes=24, season_number=1,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Akira", publisher="TMS Entertainment",
-        series="Akira", slug="akira",
-        volume="Akira", volume_number=1, start_year=1988,
-        item_number="1", title="Akira",
-        synopsis="A secret military project endangers Neo-Tokyo when it turns a biker gang member into a rampaging psychic.",
-        release_date=date(1988, 7, 16), runtime_minutes=124,
-        editions=[
-            SeedEdition(title="4K UHD Limited Edition", fmt="4K UHD", publisher="Funimation", release_date=date(2020, 12, 22),
-                        variants=[SeedVariant(name="4K Limited", variant_type="physical", cover_price_cents=3499, currency="USD")]),
-        ],
-    ),
-]
+# ANIME and MANGA seed data removed (kinds merged into movie/comic)
 
 # ===================================================================
 #  BOOKS (10)
@@ -576,115 +459,7 @@ SEED_BOOKS = [
     ),
 ]
 
-# ===================================================================
-#  MANGA (10)
-# ===================================================================
-SEED_MANGA = [
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Berserk", publisher="Hakusensha",
-        series="Berserk", slug="berserk",
-        volume="Berserk", volume_number=1, start_year=1989,
-        item_number="1", title="Berserk, Vol. 1",
-        synopsis="Guts, a lone mercenary, battles demons in a dark medieval fantasy world.",
-        release_date=date(1990, 11, 26), page_count=224,
-        editions=[
-            SeedEdition(title="Dark Horse English", fmt="Tankōbon", publisher="Dark Horse", language="en", release_date=date(2003, 10, 22),
-                        isbn="9781593070205",
-                        variants=[SeedVariant(name="Tankōbon", variant_type="physical", cover_price_cents=1499, currency="USD")]),
-            SeedEdition(title="Deluxe Edition", fmt="Hardcover", publisher="Dark Horse", language="en", release_date=date(2019, 3, 12),
-                        isbn="9781506711980",
-                        variants=[SeedVariant(name="Deluxe HC", variant_type="physical", cover_price_cents=4999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Berserk", publisher="Hakusensha",
-        series="Berserk", slug="berserk",
-        volume="Berserk", volume_number=1, start_year=1989,
-        item_number="2", title="Berserk, Vol. 2",
-        synopsis="Guts continues his relentless war against the demonic Apostles.",
-        release_date=date(1991, 6, 28), page_count=232,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Vagabond", publisher="Kodansha",
-        series="Vagabond", slug="vagabond",
-        volume="Vagabond", volume_number=1, start_year=1998,
-        item_number="1", title="Vagabond, Vol. 1",
-        synopsis="The story of Miyamoto Musashi's journey to become Japan's greatest swordsman.",
-        release_date=date(1999, 3, 24), page_count=240,
-        editions=[
-            SeedEdition(title="Viz English", fmt="Tankōbon", publisher="Viz Media", language="en", release_date=date(2002, 4, 2),
-                        variants=[SeedVariant(name="Tankōbon", variant_type="physical", cover_price_cents=995, currency="USD")]),
-            SeedEdition(title="VizBig Edition", fmt="Omnibus", publisher="Viz Media", language="en", release_date=date(2008, 9, 16),
-                        variants=[SeedVariant(name="VizBig", variant_type="physical", cover_price_cents=1999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="One Piece", publisher="Shueisha",
-        series="One Piece", slug="one-piece",
-        volume="One Piece", volume_number=1, start_year=1997,
-        item_number="1", title="One Piece, Vol. 1",
-        synopsis="Monkey D. Luffy sets out to become King of the Pirates.",
-        release_date=date(1997, 12, 24), page_count=208,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Vinland Saga", publisher="Kodansha",
-        series="Vinland Saga", slug="vinland-saga",
-        volume="Vinland Saga", volume_number=1, start_year=2005,
-        item_number="1", title="Vinland Saga, Vol. 1",
-        synopsis="Young Thorfinn vows revenge against the Viking leader who killed his father.",
-        release_date=date(2005, 7, 15), page_count=460,
-        editions=[
-            SeedEdition(title="Kodansha English", fmt="Hardcover", publisher="Kodansha Comics", language="en", release_date=date(2013, 10, 15),
-                        isbn="9781612624204",
-                        variants=[SeedVariant(name="Hardcover", variant_type="physical", cover_price_cents=1999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Monster", publisher="Shogakukan",
-        series="Monster", slug="monster-manga",
-        volume="Monster", volume_number=1, start_year=1994,
-        item_number="1", title="Monster, Vol. 1",
-        synopsis="A Japanese surgeon living in Germany discovers the boy whose life he saved has grown up to become a serial killer.",
-        release_date=date(1995, 6, 18), page_count=232,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Pluto", publisher="Shogakukan",
-        series="Pluto", slug="pluto",
-        volume="Pluto", volume_number=1, start_year=2003,
-        item_number="1", title="Pluto, Vol. 1",
-        synopsis="A retelling of Astro Boy's 'Greatest Robot on Earth' arc as a murder mystery.",
-        release_date=date(2004, 9, 30), page_count=200,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Chainsaw Man", publisher="Shueisha",
-        series="Chainsaw Man", slug="chainsaw-man",
-        volume="Chainsaw Man", volume_number=1, start_year=2018,
-        item_number="1", title="Chainsaw Man, Vol. 1",
-        synopsis="Denji, a poor young man, merges with his chainsaw devil pet to become Chainsaw Man.",
-        release_date=date(2019, 3, 4), page_count=192,
-        editions=[
-            SeedEdition(title="Viz English", fmt="Tankōbon", publisher="Viz Media", language="en", release_date=date(2020, 10, 6),
-                        isbn="9781974709939",
-                        variants=[SeedVariant(name="Tankōbon", variant_type="physical", cover_price_cents=999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="20th Century Boys", publisher="Shogakukan",
-        series="20th Century Boys", slug="20th-century-boys",
-        volume="20th Century Boys", volume_number=1, start_year=1999,
-        item_number="1", title="20th Century Boys, Vol. 1",
-        synopsis="A group of childhood friends discover their old fantasy stories are being used as a blueprint for world destruction.",
-        release_date=date(2000, 1, 1), page_count=216,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Slam Dunk", publisher="Shueisha",
-        series="Slam Dunk", slug="slam-dunk",
-        volume="Slam Dunk", volume_number=1, start_year=1990,
-        item_number="1", title="Slam Dunk, Vol. 1",
-        synopsis="A delinquent named Hanamichi Sakuragi joins his school's basketball team to impress a girl.",
-        release_date=date(1991, 2, 8), page_count=192,
-    ),
-]
+# MANGA seed data removed (merged into comics)
 
 # ===================================================================
 #  MUSIC (10)
@@ -1052,8 +827,8 @@ SEED_BOARDGAMES = [
 #  Collect all entries
 # ===================================================================
 ALL_SEED_ENTRIES: list[SeedEntry] = (
-    SEED_MOVIES + SEED_TV + SEED_ANIME + SEED_BOOKS
-    + SEED_MANGA + SEED_MUSIC + SEED_GAMES + SEED_BOARDGAMES
+    SEED_MOVIES + SEED_TV + SEED_BOOKS
+    + SEED_MUSIC + SEED_GAMES + SEED_BOARDGAMES
     + []  # comics are in seed_comics.py already
 )
 

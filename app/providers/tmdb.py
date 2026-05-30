@@ -25,7 +25,7 @@ class TMDbProvider:
     name = "tmdb"
     capabilities = ProviderCapabilities(
         kind=ItemKind.movie,
-        kinds=(ItemKind.movie, ItemKind.tv, ItemKind.anime, ItemKind.collection),
+        kinds=(ItemKind.movie, ItemKind.tv, ItemKind.collection),
         display_name="TMDb",
         supports_search=True,
         supports_ingest=True,
@@ -36,7 +36,7 @@ class TMDbProvider:
         terms_url="https://www.themoviedb.org/documentation/api/terms-of-use",
         attribution_url="https://www.themoviedb.org/",
         cache_policy=(
-            "Use TMDb as movie/TV/anime metadata source with attribution. Store provider "
+            "Use TMDb as movie/TV metadata source with attribution. Store provider "
             "IDs and public poster URLs; keep physical video releases as editions/variants."
         ),
     )
@@ -259,14 +259,15 @@ class TMDbProvider:
     def _tmdb_type(self, kind: ItemKind) -> str:
         if kind == ItemKind.collection:
             return "collection"
-        return "tv" if kind in {ItemKind.tv, ItemKind.anime} else "movie"
+        return "tv" if kind == ItemKind.tv else "movie"
 
     def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
         media_type = str(data.get("media_type") or "").strip().lower()
         if media_type == ItemKind.tv.value:
             return ItemKind.tv
+        # Treat 'anime' media type as 'movie' (anime kind removed)
         if media_type == ItemKind.anime.value:
-            return ItemKind.anime
+            return ItemKind.movie
         return ItemKind.movie
 
     def _target_kind(self, kind: ItemKind | None) -> ItemKind:
@@ -310,12 +311,10 @@ class TMDbProvider:
     def _edition_format(self, kind: ItemKind) -> str:
         if kind == ItemKind.movie:
             return "Movie"
-        if kind == ItemKind.anime:
-            return "Anime"
         return "TV Series"
 
     def _creators(self, data: Mapping[str, Any], kind: ItemKind) -> list[NormalizedCredit]:
-        if kind in {ItemKind.tv, ItemKind.anime}:
+        if kind == ItemKind.tv:
             return [
                 NormalizedCredit(name=name, role="Creator")
                 for name in self._names(data.get("created_by"))
@@ -412,7 +411,7 @@ class TMDbProvider:
         title: str,
         publisher: str | None,
     ) -> NormalizedBundleRelease | None:
-        if kind not in {ItemKind.tv, ItemKind.anime}:
+        if kind != ItemKind.tv:
             return None
         raw_seasons = data.get("seasons")
         if not isinstance(raw_seasons, list):

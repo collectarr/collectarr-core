@@ -62,7 +62,8 @@ _PHYSICAL_FORMATS_BY_ID = {
 video_item_kinds = frozenset({
     ItemKind.movie,
     ItemKind.tv,
-    ItemKind.anime,
+    # 'anime' merged into movie; treat as movie for video formats
+    ItemKind.movie,
     ItemKind.bluray,
 })
 

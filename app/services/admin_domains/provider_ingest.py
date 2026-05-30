@@ -916,7 +916,7 @@ class AdminProviderIngestService:
         self,
         normalized: NormalizedItem,
     ) -> NormalizedItem:
-        if normalized.cover_image_url or normalized.kind not in {ItemKind.comic, ItemKind.manga}:
+        if normalized.cover_image_url or normalized.kind not in {ItemKind.comic}:
             return normalized
         if normalized.variant_type == "variant":
             return normalized
@@ -1785,7 +1785,7 @@ class AdminProviderIngestService:
         series: Series,
         kind: ItemKind,
     ) -> None:
-        if kind not in (ItemKind.tv, ItemKind.anime):
+        if kind not in (ItemKind.tv, ItemKind.movie):
             return
         if not hasattr(provider, "get_seasons"):
             return
@@ -1845,7 +1845,7 @@ class AdminProviderIngestService:
         series: Series,
         kind: ItemKind,
     ) -> None:
-        if kind != ItemKind.manga:
+        if kind != ItemKind.comic:
             return
         try:
             volumes: list[NormalizedSeason] = await provider.get_volumes(provider_item_id)

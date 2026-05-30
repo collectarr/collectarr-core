@@ -143,7 +143,7 @@ async def test_anilist_provider_search_normalizes_results(monkeypatch):
 
     assert len(results) == 1
     assert results[0].provider_item_id == "30013"
-    assert results[0].kind == ItemKind.manga
+    assert results[0].kind == ItemKind.comic
     assert results[0].title == "One Piece"
     assert results[0].summary == "MANGA · RELEASING · 1997"
     assert results[0].image_url.endswith("30013.jpg")
@@ -161,7 +161,7 @@ async def test_anilist_provider_fetches_media_and_normalizes(monkeypatch):
     normalized = await AniListProvider().normalize(item.raw)
 
     assert item.provider_item_id == "30013"
-    assert normalized.kind == ItemKind.manga
+    assert normalized.kind == ItemKind.comic
     assert normalized.title == "One Piece"
     assert normalized.release_date.isoformat() == "1997-07-22"
     assert normalized.cover_image_url.endswith("30013.jpg")
@@ -209,14 +209,14 @@ async def test_anilist_provider_searches_and_normalizes_anime(monkeypatch):
 
     monkeypatch.setattr(AniListProvider, "_graphql", fake_graphql)
 
-    results = await AniListProvider().search(" One Piece ", ItemKind.anime)
+    results = await AniListProvider().search(" One Piece ", ItemKind.movie)
     item = await AniListProvider().get_item("anime:21")
     normalized = await AniListProvider().normalize(item.raw)
 
     assert results[0].provider_item_id == "anime:21"
-    assert results[0].kind == ItemKind.anime
+    assert results[0].kind == ItemKind.movie
     assert item.provider_item_id == "anime:21"
-    assert normalized.kind == ItemKind.anime
+    assert normalized.kind == ItemKind.movie
     assert normalized.release_date.isoformat() == "1999-10-20"
     assert normalized.runtime_minutes == 24
     assert normalized.edition_format == "TV"
@@ -275,11 +275,11 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
     assert response.status_code == 201
     body = response.json()
     assert body["created"] is True
-    assert body["item"]["kind"] == "manga"
+    assert body["item"]["kind"] == "comic"
     assert body["item"]["title"] == "One Piece"
 
     async with AsyncSessionLocal() as db:
-        item = await db.scalar(select(Item).where(Item.kind == ItemKind.manga))
+        item = await db.scalar(select(Item).where(Item.kind == ItemKind.comic))
         provider_ids = list(
             await db.scalars(
                 select(ItemProviderLink.provider_item_id).where(
@@ -318,12 +318,12 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
     assert response.status_code == 201
     body = response.json()
     assert body["created"] is True
-    assert body["item"]["kind"] == "anime"
+    assert body["item"]["kind"] == "movie"
     assert body["item"]["title"] == "One Piece"
 
     async with AsyncSessionLocal() as db:
         item_titles = list(
-            await db.scalars(select(Item.title).where(Item.kind == ItemKind.anime).order_by(Item.title))
+            await db.scalars(select(Item.title).where(Item.kind == ItemKind.movie).order_by(Item.title))
         )
         bundle = await db.scalar(select(BundleRelease).where(BundleRelease.bundle_type == "season_pack"))
         provider_ids = list(

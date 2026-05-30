@@ -48,7 +48,6 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
 
     assert response.status_code == 200
     body = response.json()
-    assert body["contract_version"] == 1
     assert body["cache_stats"] == {
         "search": {
             "hits": 0,

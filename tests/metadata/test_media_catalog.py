@@ -19,7 +19,7 @@ def test_media_catalog_covers_all_item_kinds():
     assert configured_kinds == set(ItemKind)
 
 
-def test_media_catalog_keeps_bluray_as_legacy_physical_format():
+def test_media_catalog_keeps_hidden_video_formats_off_top_level_routes():
     top_level_kinds = {media_type.kind for media_type in top_level_media_types}
     bluray = media_type_for_route("blu-ray")
     movies = media_type_for_kind(ItemKind.movie)
@@ -31,13 +31,11 @@ def test_media_catalog_keeps_bluray_as_legacy_physical_format():
     assert bluray is not None
     assert bluray.kind == ItemKind.bluray
     assert bluray.is_top_level is False
-    assert bluray.legacy_of == ItemKind.movie
     assert bluray.default_provider is None
     assert [format.id for format in bluray.physical_formats] == ["blu-ray"]
     assert movies is not None
     assert tv is not None
     assert tv.is_top_level is False
-    assert tv.legacy_of == ItemKind.movie
     assert [format.id for format in movies.physical_formats] == [
         "dvd",
         "blu-ray",

@@ -86,8 +86,6 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["contract_version"] == 1
-    assert body["snapshot_schema_version"] == 1
     assert body["default_kind"] == "comic"
     rows = {item["kind"]: item for item in body["media_types"]}
     assert rows["comic"]["default_provider"] == "gcd"
@@ -96,6 +94,7 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     assert "manga" not in rows
     assert "anime" not in rows
     assert "tv" not in rows
+    assert "bluray" not in rows
     assert rows["movie"]["providers"] == ["tmdb", "anilist"]
     assert [format["id"] for format in rows["movie"]["physical_formats"]] == [
         "dvd",
@@ -105,8 +104,6 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
         "laserdisc",
         "digital",
     ]
-    assert rows["bluray"]["is_top_level"] is False
-    assert rows["bluray"]["legacy_of"] == "movie"
 
 
 @pytest.mark.asyncio

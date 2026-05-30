@@ -295,13 +295,10 @@ class MediaTypeResponse(BaseModel):
     providers: list[ExternalProvider] = Field(default_factory=list)
     provider_search_policy: str
     is_top_level: bool = True
-    legacy_of: ItemKind | None = None
     physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)
 
 
 class MediaCatalogResponse(BaseModel):
-    contract_version: int
-    snapshot_schema_version: int
     default_kind: ItemKind
     media_types: list[MediaTypeResponse]
 

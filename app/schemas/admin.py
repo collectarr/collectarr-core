@@ -48,7 +48,6 @@ class ProviderCacheSummaryResponse(BaseModel):
 
 
 class ProviderStatusListResponse(BaseModel):
-    contract_version: int
     providers: list[ProviderStatusResponse]
     cache_stats: ProviderCacheSummaryResponse
 

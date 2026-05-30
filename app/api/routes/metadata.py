@@ -6,11 +6,9 @@ from fastapi.responses import RedirectResponse
 
 from app.api.deps import CurrentUser, DbSession
 from app.catalog.media_types import (
-    CATALOG_SNAPSHOT_SCHEMA_VERSION,
-    MEDIA_CATALOG_CONTRACT_VERSION,
     MediaTypeConfig,
     media_type_for_route,
-    media_types,
+    top_level_media_types,
 )
 from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.config import get_settings
@@ -64,13 +62,10 @@ router = APIRouter(tags=["metadata"])
 @router.get("/metadata/media-types", response_model=MediaCatalogResponse)
 async def media_type_catalog() -> MediaCatalogResponse:
     return MediaCatalogResponse(
-        contract_version=MEDIA_CATALOG_CONTRACT_VERSION,
-        snapshot_schema_version=CATALOG_SNAPSHOT_SCHEMA_VERSION,
         default_kind=ItemKind.comic,
         media_types=[
             _media_type_response(config)
-            for config in media_types
-            if config.kind != ItemKind.tv
+            for config in top_level_media_types
         ],
     )
 
@@ -451,7 +446,6 @@ def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
         providers=list(config.providers),
         provider_search_policy=config.provider_search_policy,
         is_top_level=config.is_top_level,
-        legacy_of=config.legacy_of,
         physical_formats=[_physical_format_response(row) for row in config.physical_formats],
     )
 

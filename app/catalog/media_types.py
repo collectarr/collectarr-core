@@ -4,8 +4,6 @@ from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_fo
 from app.models.base import ExternalProvider, ItemKind
 
 
-MEDIA_CATALOG_CONTRACT_VERSION = 1
-CATALOG_SNAPSHOT_SCHEMA_VERSION = 1
 DEFAULT_PROVIDER_SEARCH_POLICY = "core_miss_then_configured_providers"
 
 
@@ -19,7 +17,6 @@ class MediaTypeConfig:
     providers: tuple[ExternalProvider, ...] = ()
     item_number_sort_padding: int | None = None
     is_top_level: bool = True
-    legacy_of: ItemKind | None = None
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
     provider_search_policy: str = DEFAULT_PROVIDER_SEARCH_POLICY
 
@@ -61,7 +58,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
         is_top_level=False,
-        legacy_of=ItemKind.movie,
         physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
@@ -102,7 +98,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Legacy Blu-rays",
         route_segments=("blu-ray", "blu-rays", "bluray"),
         is_top_level=False,
-        legacy_of=ItemKind.movie,
         physical_formats=tuple(
             physical_format
             for physical_format in video_physical_formats

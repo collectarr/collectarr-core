@@ -165,6 +165,9 @@ class ItemResponse(BaseModel):
     barcode: str | None = None
     cover_date: date | None = None
     store_date: date | None = None
+    crossover: str | None = None
+    plot_summary: str | None = None
+    plot_description: str | None = None
     cover_price_cents: int | None = None
     currency: str | None = None
     catalog_number: str | None = None
@@ -172,6 +175,7 @@ class ItemResponse(BaseModel):
     tracks: list[dict[str, Any]] = []
     creators: list[MetadataCredit] = []
     characters: list[MetadataCredit] = []
+    character_details: list[MetadataCredit] = []
     story_arcs: list[MetadataCredit] = []
     tags: list[str] = Field(default_factory=list)
     platforms: list[str] = []
@@ -207,6 +211,9 @@ class SearchResult(BaseModel):
     release_year: int | None = None
     barcode: str | None = None
     variant: str | None = None
+    crossover: str | None = None
+    plot_summary: str | None = None
+    plot_description: str | None = None
     series_title: str | None = None
     volume_name: str | None = None
     track_count: int | None = None
@@ -214,6 +221,7 @@ class SearchResult(BaseModel):
     catalog_number: str | None = None
     creators: list[dict[str, Any]] | None = None
     characters: list[str] | None = None
+    character_details: list[dict[str, Any]] | None = None
     story_arcs: list[str] | None = None
     platforms: list[str] | None = None
     genres: list[str] | None = None
@@ -503,6 +511,9 @@ def item_response_from_model(
             "barcode": _barcode(item),
             "cover_date": _date_value(source.get("cover_date")),
             "store_date": _date_value(source.get("store_date")),
+            "crossover": _item_metadata_text(item, "crossover"),
+            "plot_summary": _item_metadata_text(item, "plot_summary"),
+            "plot_description": _item_metadata_text(item, "plot_description"),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
             "catalog_number": _optional_text(getattr(edition, "catalog_number", None)),
@@ -510,6 +521,7 @@ def item_response_from_model(
             "tracks": _tracks(normalized.get("tracks")),
             "creators": creators,
             "characters": characters,
+            "character_details": characters,
             "story_arcs": story_arcs,
             "platforms": _string_list(normalized.get("platforms")),
             "genres": _string_list(normalized.get("genres")),
@@ -814,6 +826,18 @@ def _source_item_metadata(item: Any) -> dict[str, Any]:
         if value is not None:
             source[key] = value
     return {key: value for key, value in source.items() if value is not None}
+
+
+def _item_metadata_text(item: Any, key: str) -> str | None:
+    metadata = getattr(item, "metadata_json", None) or {}
+    if not isinstance(metadata, dict):
+        return None
+    normalized = metadata.get("normalized")
+    if isinstance(normalized, dict):
+        value = _optional_text(normalized.get(key))
+        if value is not None:
+            return value
+    return _optional_text(metadata.get(key))
 
 
 def _default_video_format(item: Any) -> str:

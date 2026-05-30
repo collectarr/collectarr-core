@@ -1207,6 +1207,7 @@ class MetadataService:
         catalog_number: str | None = None
         creators: list[dict] | None = None
         characters: list[str] | None = None
+        character_details: list[dict] | None = None
         story_arcs: list[str] | None = None
         platforms: list[str] | None = None
         genres: list[str] | None = None
@@ -1251,6 +1252,27 @@ class MetadataService:
             ),
         )
         if character_links:
+            character_details = [
+                {
+                    "name": appearance.character.name,
+                    "role": appearance.role,
+                    "aliases": [
+                        str(alias).strip()
+                        for alias in (getattr(appearance.character, "aliases", None) or [])
+                        if str(alias).strip()
+                    ],
+                    "description": getattr(appearance.character, "description", None),
+                    "image_url": getattr(appearance.character, "image_url", None),
+                    "first_appearance_item_id": getattr(
+                        appearance.character,
+                        "first_appearance_item_id",
+                        None,
+                    ),
+                }
+                for appearance in character_links
+                if getattr(appearance, "character", None) is not None
+                and getattr(appearance.character, "name", None)
+            ] or None
             characters = [
                 appearance.character.name
                 for appearance in character_links
@@ -1333,6 +1355,11 @@ class MetadataService:
             release_year=release_year,
             barcode=barcode,
             variant=variant_name,
+            crossover=_metadata_text(getattr(item, "metadata_json", None), "crossover"),
+            plot_summary=_metadata_text(getattr(item, "metadata_json", None), "plot_summary"),
+            plot_description=_metadata_text(
+                getattr(item, "metadata_json", None), "plot_description"
+            ),
             series_title=series_title,
             volume_name=volume_name,
             track_count=track_count,
@@ -1340,6 +1367,7 @@ class MetadataService:
             catalog_number=catalog_number,
             creators=creators,
             characters=characters,
+            character_details=character_details,
             story_arcs=story_arcs,
             platforms=platforms,
             genres=genres,

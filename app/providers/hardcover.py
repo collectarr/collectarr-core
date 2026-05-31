@@ -133,8 +133,8 @@ class HardcoverProvider:
 
     name = "hardcover"
     capabilities = ProviderCapabilities(
-        kind=ItemKind.manga,
-        kinds=(ItemKind.manga, ItemKind.book),
+        kind=ItemKind.comic,
+        kinds=(ItemKind.comic, ItemKind.book),
         display_name="Hardcover",
         supports_search=True,
         supports_ingest=True,
@@ -225,7 +225,7 @@ class HardcoverProvider:
             ]
             image = doc.get("image") or {}
             image_url = image.get("url") if isinstance(image, Mapping) else None
-            result_kind = kind or ItemKind.manga
+            result_kind = kind or ItemKind.comic
             hits.append(
                 ProviderSearchResult(
                     provider=self.name,
@@ -436,17 +436,17 @@ class HardcoverProvider:
     def _parse_provider_item_id(self, provider_item_id: str) -> tuple[ItemKind, str]:
         raw = provider_item_id.strip()
         if not raw:
-            return ItemKind.manga, ""
+            return ItemKind.comic, ""
         prefix, separator, suffix = raw.partition(":")
-        if separator and prefix in {ItemKind.book.value, ItemKind.manga.value}:
+        if separator and prefix in {ItemKind.book.value, ItemKind.comic.value, "manga"}:
             return self._normalized_kind(prefix), suffix.strip()
-        return ItemKind.manga, raw
+        return ItemKind.comic, raw
 
     def _normalized_kind(self, value: Any) -> ItemKind:
         normalized = str(value or "").strip().lower()
         if normalized == ItemKind.book.value:
             return ItemKind.book
-        return ItemKind.manga
+        return ItemKind.comic  # manga also canonicalized to comic
 
     def _provider_item_id(self, book_id: Any, kind: ItemKind) -> str:
         return f"{kind.value}:{book_id}"

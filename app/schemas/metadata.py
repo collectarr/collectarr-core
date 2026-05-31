@@ -22,9 +22,7 @@ def public_item_kind(kind: Any) -> ItemKind | None:
             return ItemKind(normalized)
         except ValueError:
             return None
-    if kind == ItemKind.manga:
-        return ItemKind.comic
-    if kind in {ItemKind.anime, ItemKind.tv}:
+    if kind == ItemKind.tv:
         return ItemKind.movie
     return kind if isinstance(kind, ItemKind) else None
 

@@ -988,7 +988,7 @@ async def test_comicvine_provider_stub_search_uses_stable_slug(monkeypatch):
     assert len(results) == 1
     assert results[0].provider_item_id == "stub-comic-spider-man-vol-2"
     assert results[0].title == "Spider-Man: Vol. 2 (ComicVine stub)"
-    assert manga_results[0].provider_item_id == "stub-manga-one-piece"
+    assert manga_results[0].provider_item_id == "stub-comic-one-piece"
     assert manga_results[0].kind == ItemKind.comic
 
 
@@ -1678,7 +1678,7 @@ async def test_admin_series_tags_update_persists_series_level_tags(client, monke
                 .where(
                     EntityTag.entity_type == "series",
                     EntityTag.entity_id == UUID(series_id),
-                    Tag.kind == "series_tag:manga",
+                    Tag.kind == "series_tag:comic",
                 )
                 .order_by(Tag.name.asc())
             )

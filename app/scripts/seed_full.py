@@ -57,8 +57,6 @@ SEED_MARKER = "seed-full"  # prefix for provider IDs to identify seed data
 
 KINDS = [
     ItemKind.comic,
-    ItemKind.manga,
-    ItemKind.anime,
     ItemKind.book,
     ItemKind.movie,
     ItemKind.tv,
@@ -69,8 +67,6 @@ KINDS = [
 
 PROVIDER_FOR_KIND: dict[ItemKind, ExternalProvider] = {
     ItemKind.comic: ExternalProvider.comicvine,
-    ItemKind.manga: ExternalProvider.mangadex,
-    ItemKind.anime: ExternalProvider.anilist,
     ItemKind.book: ExternalProvider.openlibrary,
     ItemKind.movie: ExternalProvider.tmdb,
     ItemKind.tv: ExternalProvider.tmdb,
@@ -111,7 +107,7 @@ _KIND_DATA: dict[ItemKind, dict[str, Any]] = {
         "page_count_range": (22, 48),
         "price_range": (399, 999),
     },
-    ItemKind.manga: {
+    ItemKind.comic: {
         "franchises": ["Shonen Jump", "Kodansha", "Viz Media"],
         "series": [
             ("One Piece", "one-piece", "Shueisha", 1997),
@@ -137,7 +133,7 @@ _KIND_DATA: dict[ItemKind, dict[str, Any]] = {
         "page_count_range": (180, 220),
         "price_range": (999, 1499),
     },
-    ItemKind.anime: {
+    ItemKind.movie: {
         "franchises": ["Studio Ghibli", "Bones Studio", "Madhouse"],
         "series": [
             ("Fullmetal Alchemist: Brotherhood", "fma-brotherhood", "Bones", 2009),
@@ -337,13 +333,13 @@ _TITLE_TEMPLATES: dict[ItemKind, list[str]] = {
         "Infinite Crisis #{n}", "Secret Invasion #{n}", "Age of Ultron #{n}",
         "House of M #{n}",
     ],
-    ItemKind.manga: [
+    ItemKind.comic: [
         "Chapter {n}: New Beginning", "Chapter {n}: The Storm", "Chapter {n}: Resolve",
         "Chapter {n}: Awakening", "Chapter {n}: War Cry", "Chapter {n}: Rebirth",
         "Chapter {n}: Final Stand", "Chapter {n}: Shadow Falls", "Chapter {n}: Crimson Dawn",
         "Chapter {n}: Eternal Bond",
     ],
-    ItemKind.anime: [
+    ItemKind.movie: [
         "Episode {n}: Departure", "Episode {n}: Encounter", "Episode {n}: Turning Point",
         "Episode {n}: The Truth", "Episode {n}: Battle Begins", "Episode {n}: Sacrifice",
         "Episode {n}: Reunion", "Episode {n}: Final Battle", "Episode {n}: New World",
@@ -612,9 +608,6 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
         if kind == ItemKind.tv:
             season_num = (item_global_idx // 6) + 1
             episode_num = (item_global_idx % 6) + 1
-        if kind == ItemKind.anime:
-            season_num = (item_global_idx // 6) + 1
-            episode_num = (item_global_idx % 6) + 1
 
         cover_url, thumbnail_url = await resolve_seed_cover_urls(
             kind=kind,
@@ -686,7 +679,7 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
                     title=ed_title,
                     format=fmt,
                     publisher=ed_pub,
-                    isbn=_fake_isbn(series_idx, item_global_idx, ed_idx) if kind in (ItemKind.book, ItemKind.comic, ItemKind.manga) else None,
+                    isbn=_fake_isbn(series_idx, item_global_idx, ed_idx) if kind in (ItemKind.book, ItemKind.comic) else None,
                     upc=_fake_upc(series_idx, item_global_idx) if ed_idx == 0 else None,
                     language=language,
                     region=region,

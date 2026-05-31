@@ -94,7 +94,7 @@ class TMDbProvider:
         ]
 
     async def get_item(self, provider_item_id: str) -> ProviderItem:
-        kind, tmdb_id = self._provider_id(provider_item_id)
+        api_kind, tmdb_id = self._provider_id(provider_item_id)
         if tmdb_id is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -102,16 +102,19 @@ class TMDbProvider:
                 detail="Invalid TMDb id",
             )
         payload = await self._request(
-            f"{self._tmdb_type(kind)}/{tmdb_id}",
+            f"{self._tmdb_type(api_kind)}/{tmdb_id}",
             {
                 "append_to_response": "credits,external_ids,recommendations",
                 "language": self.settings.tmdb_language,
             },
         )
-        payload["media_type"] = kind.value
+        input_text = str(provider_item_id or "").strip()
+        raw_prefix = input_text.split(":")[0].lower() if ":" in input_text else api_kind.value
+        payload["media_type"] = raw_prefix
+        canonical_kind = self._kind_from_raw(payload)
         return ProviderItem(
             provider=self.name,
-            provider_item_id=self._provider_item_id(kind, tmdb_id),
+            provider_item_id=self._provider_item_id(canonical_kind, tmdb_id),
             raw=payload,
         )
 
@@ -119,6 +122,8 @@ class TMDbProvider:
         kind = self._kind_from_raw(data)
         tmdb_id = self._id(data.get("id"))
         provider_item_id = self._provider_item_id(kind, tmdb_id) if tmdb_id else ""
+        raw_media_type = str(data.get("media_type") or kind.value).strip().lower()
+        provenance_id = f"{raw_media_type}:{tmdb_id}" if tmdb_id else ""
         release_date = self._date(
             data.get("release_date") if kind == ItemKind.movie else data.get("first_air_date")
         )
@@ -154,7 +159,7 @@ class TMDbProvider:
             language=self._optional_text(data.get("original_language")),
             audience_rating=self._audience_rating(data.get("vote_average")),
             subtitle=self._optional_text(data.get("tagline")),
-            provider_ids={self.name: provider_item_id} if provider_item_id else {},
+            provider_ids={self.name: provenance_id} if provenance_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             relations=self._relations(data, kind),
             bundle_release=bundle_release,
@@ -244,6 +249,10 @@ class TMDbProvider:
         if not text:
             return ItemKind.movie, None
         normalized = text.lower()
+        # Handle "anime:" prefix by routing to the TV endpoint
+        for prefix_str in ("anime:", "anime-"):
+            if normalized.startswith(prefix_str):
+                return ItemKind.tv, self._id(text[len(prefix_str):])
         for kind in self.capabilities.supported_kinds:
             prefix = f"{kind.value}:"
             dash_prefix = f"{kind.value}-"
@@ -266,7 +275,7 @@ class TMDbProvider:
         if media_type == ItemKind.tv.value:
             return ItemKind.tv
         # Treat 'anime' media type as 'movie' (anime kind removed)
-        if media_type == ItemKind.anime.value:
+        if media_type == "anime":
             return ItemKind.movie
         return ItemKind.movie
 
@@ -438,7 +447,7 @@ class TMDbProvider:
                 volume_number=season_number,
                 volume_start_year=season_release_date.year if season_release_date else None,
                 edition_title=season_title,
-                edition_format="Anime Season" if kind == ItemKind.anime else "TV Season",
+                edition_format="TV Season",
                 publisher=publisher,
                 release_date=season_release_date,
                 cover_image_url=self._image_url(raw_season.get("poster_path")),
@@ -465,7 +474,7 @@ class TMDbProvider:
         return NormalizedBundleRelease(
             title=title,
             bundle_type="season_pack",
-            format="Anime Season" if kind == ItemKind.anime else "TV Season",
+            format="TV Season",
             packaging_type="digital",
             language=self._optional_text(data.get("original_language")),
             publisher=publisher,
@@ -532,7 +541,7 @@ class TMDbProvider:
 
     async def get_seasons(self, provider_item_id: str) -> list[NormalizedSeason]:
         kind, tmdb_id = self._provider_id(provider_item_id)
-        if tmdb_id is None or kind not in (ItemKind.tv, ItemKind.anime):
+        if tmdb_id is None or kind != ItemKind.tv:
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="tmdb_invalid_id",

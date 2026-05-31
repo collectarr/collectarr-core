@@ -139,7 +139,7 @@ async def test_tmdb_provider_searches_movies_tv_and_anime(monkeypatch):
     )
     assert tv[0].provider_item_id == "tv:1399"
     assert tv[0].kind == ItemKind.tv
-    assert anime[0].provider_item_id == "movie:1399"
+    assert anime[0].provider_item_id == "movie:603"
     assert anime[0].kind == ItemKind.movie
 
 

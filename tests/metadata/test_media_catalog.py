@@ -66,7 +66,7 @@ def test_media_catalog_maps_route_segments_and_default_providers():
     assert comics is not None
     assert comics.kind == ItemKind.comic
     assert comics.default_provider == ExternalProvider.gcd
-    assert comics.providers == (ExternalProvider.gcd, ExternalProvider.comicvine)
+    assert comics.providers == (ExternalProvider.gcd, ExternalProvider.comicvine, ExternalProvider.mangadex, ExternalProvider.anilist)
     # `manga` and `anime` kinds removed — mappings are folded into `comic`/`movie`
     assert manga is None
     assert anime is None
@@ -79,7 +79,7 @@ def test_provider_registry_can_filter_and_pick_media_defaults():
 
     comic_providers = registry.for_kind(ItemKind.comic)
 
-    assert [provider.name for provider in comic_providers] == ["comicvine", "gcd"]
+    assert [provider.name for provider in comic_providers] == ["comicvine", "gcd", "anilist", "mangadex"]
     assert registry.default_for_kind(ItemKind.comic).name == "gcd"
     assert registry.default_for_kind(ItemKind.game).name == "igdb"
     assert registry.default_for_kind(ItemKind.movie).name == "tmdb"

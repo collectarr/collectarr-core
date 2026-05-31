@@ -22,8 +22,8 @@ from app.providers.base import (
 class MangaDexProvider:
     name = "mangadex"
     capabilities = ProviderCapabilities(
-        kind=ItemKind.manga,
-        kinds=(ItemKind.manga,),
+        kind=ItemKind.comic,
+        kinds=(ItemKind.comic,),
         display_name="MangaDex",
         supports_search=True,
         supports_ingest=True,
@@ -112,7 +112,7 @@ class MangaDexProvider:
         cover_url = self._cover_url(manga_id, data.get("relationships"))
 
         return NormalizedItem(
-            kind=ItemKind.manga,
+            kind=ItemKind.comic,
             title=title,
             synopsis=self._description(attrs.get("description")),
             series_title=title,
@@ -262,7 +262,7 @@ class MangaDexProvider:
             provider=self.name,
             provider_item_id=manga_id,
             title=title,
-            kind=ItemKind.manga,
+            kind=ItemKind.comic,
             summary=" · ".join(p for p in summary_parts if p),
             image_url=self._cover_url(manga_id, item.get("relationships")),
         )
@@ -367,7 +367,7 @@ class MangaDexProvider:
                     title=title,
                     provider=self.name,
                     provider_id=self._optional_text(rel.get("id")),
-                    kind=ItemKind.manga,
+                    kind=ItemKind.comic,
                 )
             )
         return relations

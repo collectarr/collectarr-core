@@ -62,14 +62,14 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         }
         assert {
             "comic",
-            "manga",
-            "anime",
             "movie",
             "tv",
             "game",
             "boardgame",
             "book",
             "music",
+            "bluray",
+            "collection",
         }.issubset(enum_values)
 
         provider_values = {

@@ -125,7 +125,7 @@ class TMDbProvider:
         raw_media_type = str(data.get("media_type") or kind.value).strip().lower()
         provenance_id = f"{raw_media_type}:{tmdb_id}" if tmdb_id else ""
         release_date = self._date(
-            data.get("release_date") if kind == ItemKind.movie else data.get("first_air_date")
+            data.get("release_date") if kind == ItemKind.movie and raw_media_type not in {"anime", "tv"} else data.get("first_air_date")
         )
         title = self._title(data, kind)
         runtime_minutes = self._runtime(data, kind)
@@ -283,7 +283,8 @@ class TMDbProvider:
         return kind if kind in self.capabilities.supported_kinds else ItemKind.movie
 
     def _title(self, data: Mapping[str, Any], kind: ItemKind) -> str:
-        use_title = kind == ItemKind.movie
+        raw_media_type = str(data.get("media_type") or "").strip().lower()
+        use_title = kind == ItemKind.movie and raw_media_type not in {"anime", "tv"}
         return (
             self._optional_text(data.get("title" if use_title else "name"))
             or self._optional_text(
@@ -310,11 +311,12 @@ class TMDbProvider:
         return f"{numeric:.1f}".rstrip("0").rstrip(".")
 
     def _runtime(self, data: Mapping[str, Any], kind: ItemKind) -> int | None:
-        if kind == ItemKind.movie:
+        raw_media_type = str(data.get("media_type") or "").strip().lower()
+        if kind == ItemKind.movie and raw_media_type not in {"anime", "tv"}:
             return self._id(data.get("runtime"))
         runtimes = data.get("episode_run_time")
         if not isinstance(runtimes, list) or not runtimes:
-            return None
+            return self._id(data.get("runtime"))
         return self._id(runtimes[0])
 
     def _edition_format(self, kind: ItemKind) -> str:
@@ -323,7 +325,8 @@ class TMDbProvider:
         return "TV Series"
 
     def _creators(self, data: Mapping[str, Any], kind: ItemKind) -> list[NormalizedCredit]:
-        if kind == ItemKind.tv:
+        raw_media_type = str(data.get("media_type") or "").strip().lower()
+        if kind == ItemKind.tv or raw_media_type in {"anime", "tv"}:
             return [
                 NormalizedCredit(name=name, role="Creator")
                 for name in self._names(data.get("created_by"))

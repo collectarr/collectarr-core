@@ -104,6 +104,15 @@ media_types: tuple[MediaTypeConfig, ...] = (
             if physical_format.id == "blu-ray"
         ),
     ),
+    MediaTypeConfig(
+        kind=ItemKind.collection,
+        singular_label="Collection",
+        plural_label="Collections",
+        route_segments=("collections", "collection"),
+        default_provider=ExternalProvider.tmdb,
+        providers=(ExternalProvider.tmdb,),
+        is_top_level=False,
+    ),
 )
 
 top_level_media_types: tuple[MediaTypeConfig, ...] = tuple(

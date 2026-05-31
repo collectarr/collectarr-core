@@ -84,6 +84,7 @@ class Item(UuidMixin, TimestampMixin, Base):
     )
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    title_extension: Mapped[str | None] = mapped_column(String(255))
     item_number: Mapped[str | None] = mapped_column(String(64), index=True)
     sort_key: Mapped[str | None] = mapped_column(String(255), index=True)
     synopsis: Mapped[str | None] = mapped_column(Text)

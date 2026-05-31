@@ -6,11 +6,9 @@ from fastapi.responses import RedirectResponse
 
 from app.api.deps import CurrentUser, DbSession
 from app.catalog.media_types import (
-    CATALOG_SNAPSHOT_SCHEMA_VERSION,
-    MEDIA_CATALOG_CONTRACT_VERSION,
     MediaTypeConfig,
     media_type_for_route,
-    media_types,
+    top_level_media_types,
 )
 from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.config import get_settings
@@ -52,6 +50,7 @@ from app.schemas.metadata import (
     StoryArcItemResponse,
     StoryArcResponse,
     SeriesRelationResponse,
+    public_item_kind,
 )
 from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
@@ -63,10 +62,11 @@ router = APIRouter(tags=["metadata"])
 @router.get("/metadata/media-types", response_model=MediaCatalogResponse)
 async def media_type_catalog() -> MediaCatalogResponse:
     return MediaCatalogResponse(
-        contract_version=MEDIA_CATALOG_CONTRACT_VERSION,
-        snapshot_schema_version=CATALOG_SNAPSHOT_SCHEMA_VERSION,
         default_kind=ItemKind.comic,
-        media_types=[_media_type_response(config) for config in media_types],
+        media_types=[
+            _media_type_response(config)
+            for config in top_level_media_types
+        ],
     )
 
 
@@ -134,7 +134,7 @@ async def barcode_provider_search(
             provider=ExternalProvider(r.provider),
             provider_item_id=r.provider_item_id,
             title=r.title,
-            kind=r.kind,
+            kind=public_item_kind(r.kind),
             summary=r.summary,
             image_url=r.image_url,
             candidate_type=r.candidate_type,
@@ -438,7 +438,7 @@ async def _get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> I
 
 def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
     return MediaTypeResponse(
-        kind=config.kind,
+        kind=public_item_kind(config.kind),
         singular_label=config.singular_label,
         plural_label=config.plural_label,
         route_segments=list(config.route_segments),
@@ -446,7 +446,6 @@ def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
         providers=list(config.providers),
         provider_search_policy=config.provider_search_policy,
         is_top_level=config.is_top_level,
-        legacy_of=config.legacy_of,
         physical_formats=[_physical_format_response(row) for row in config.physical_formats],
     )
 

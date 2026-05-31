@@ -130,7 +130,7 @@ async def test_tmdb_provider_searches_movies_tv_and_anime(monkeypatch):
 
     movies = await TMDbProvider().search(" The Matrix ", ItemKind.movie)
     tv = await TMDbProvider().search(" The Matrix ", ItemKind.tv)
-    anime = await TMDbProvider().search(" The Matrix ", ItemKind.anime)
+    anime = await TMDbProvider().search(" The Matrix ", ItemKind.movie)
 
     assert movies[0].provider_item_id == "movie:603"
     assert movies[0].kind == ItemKind.movie
@@ -139,8 +139,8 @@ async def test_tmdb_provider_searches_movies_tv_and_anime(monkeypatch):
     )
     assert tv[0].provider_item_id == "tv:1399"
     assert tv[0].kind == ItemKind.tv
-    assert anime[0].provider_item_id == "anime:1399"
-    assert anime[0].kind == ItemKind.anime
+    assert anime[0].provider_item_id == "movie:603"
+    assert anime[0].kind == ItemKind.movie
 
 
 @pytest.mark.asyncio
@@ -238,13 +238,13 @@ async def test_tmdb_provider_fetches_and_normalizes_anime(monkeypatch):
     item = await TMDbProvider().get_item("anime:37854")
     normalized = await TMDbProvider().normalize(item.raw)
 
-    assert item.provider_item_id == "anime:37854"
-    assert normalized.kind == ItemKind.anime
+    assert item.provider_item_id == "movie:37854"
+    assert normalized.kind == ItemKind.movie
     assert normalized.title == "One Piece"
     assert normalized.publisher == "Toei Animation"
     assert normalized.release_date.isoformat() == "1999-10-20"
     assert normalized.runtime_minutes == 24
-    assert normalized.edition_format == "Anime"
+    assert normalized.edition_format == "Movie"
     assert normalized.creators[0].role == "Creator"
     assert normalized.provider_ids == {"tmdb": "anime:37854"}
 

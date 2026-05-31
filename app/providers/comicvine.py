@@ -123,7 +123,7 @@ class ComicVineProvider:
     name = "comicvine"
     capabilities = ProviderCapabilities(
         kind=ItemKind.comic,
-        kinds=(ItemKind.comic, ItemKind.manga),
+        kinds=(ItemKind.comic,),
         display_name="Comic Vine",
         requires_user_key=True,
         non_commercial_only=True,
@@ -267,10 +267,14 @@ class ComicVineProvider:
             )
 
         raw = dict(raw)
-        raw["media_type"] = target_kind.value
+        input_text = str(provider_item_id or "").strip()
+        raw_prefix = input_text.split(":")[0].lower() if ":" in input_text else None
+        if raw_prefix not in ("manga",):
+            raw_prefix = None
+        raw["media_type"] = raw_prefix or target_kind.value
         return ProviderItem(
             provider=self.name,
-            provider_item_id=self._provider_item_id(target_kind, canonical_id),
+            provider_item_id=self._provider_item_id(target_kind, canonical_id, raw_prefix=raw_prefix),
             raw=raw,
         )
 
@@ -416,14 +420,16 @@ class ComicVineProvider:
 
     async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem:
         kind = self._kind_from_raw(data)
+        raw_media_type = str(data.get("media_type") or "").strip().lower()
+        raw_prefix = raw_media_type if raw_media_type == "manga" else None
         provider_item_id = self._resource_id(data, "issue") or str(data.get("id") or "")
         if provider_item_id and provider_item_id.isdigit():
             provider_item_id = f"4000-{provider_item_id}"
-        provider_item_id = self._provider_item_id(kind, provider_item_id)
+        provider_item_id = self._provider_item_id(kind, provider_item_id, raw_prefix=raw_prefix)
 
         volume = data.get("volume") if isinstance(data.get("volume"), Mapping) else {}
         volume_name = str(volume.get("name") or "").strip() or None
-        volume_id = self._provider_item_id(kind, self._resource_id(volume, "volume"))
+        volume_id = self._provider_item_id(kind, self._resource_id(volume, "volume"), raw_prefix=raw_prefix)
 
         issue_name = str(data.get("name") or "").strip()
         issue_number = str(data.get("issue_number") or "").strip() or None
@@ -435,6 +441,7 @@ class ComicVineProvider:
         bundle_release = self._bundle_release(
             data=data,
             kind=kind,
+            raw_prefix=raw_prefix,
             provider_item_id=provider_item_id or None,
             volume_name=volume_name,
             issue_name=issue_name,
@@ -453,7 +460,7 @@ class ComicVineProvider:
             volume_start_year=self._year(data.get("cover_date") or data.get("store_date")),
             page_count=self._int_value(data.get("number_of_pages")),
             edition_title=edition_title,
-            edition_format="Single Issue" if kind == ItemKind.comic else "Manga Issue",
+            edition_format="Manga Issue" if raw_prefix == "manga" else "Single Issue",
             publisher=publisher,
             release_date=release_date,
             cover_image_url=cover_image_url,
@@ -471,6 +478,7 @@ class ComicVineProvider:
         *,
         data: Mapping[str, Any],
         kind: ItemKind,
+        raw_prefix: str | None,
         provider_item_id: str | None,
         volume_name: str | None,
         issue_name: str,
@@ -500,7 +508,7 @@ class ComicVineProvider:
                     volume_name=volume_name,
                     volume_start_year=release_date.year if release_date else None,
                     edition_title=f"Issue #{issue_number}",
-                    edition_format="Single Issue" if kind == ItemKind.comic else "Manga Issue",
+                    edition_format="Manga Issue" if raw_prefix == "manga" else "Single Issue",
                     publisher=publisher,
                     release_date=release_date,
                     cover_image_url=cover_image_url,
@@ -646,6 +654,8 @@ class ComicVineProvider:
         kind: ItemKind | None = None,
     ) -> ProviderSearchResult:
         target_kind = self._target_kind(kind)
+        raw_media_type = str(result.get("media_type") or "").strip().lower()
+        raw_prefix = raw_media_type if raw_media_type == "manga" else None
         volume = result.get("volume") if isinstance(result.get("volume"), Mapping) else {}
         volume_name = str(volume.get("name") or "").strip()
         issue_name = str(result.get("name") or "").strip()
@@ -661,7 +671,7 @@ class ComicVineProvider:
         story_arc_preview = self._preview_names(self._credits(result.get("story_arc_credits")))
         return ProviderSearchResult(
             provider=self.name,
-            provider_item_id=self._provider_item_id(target_kind, resource_id),
+            provider_item_id=self._provider_item_id(target_kind, resource_id, raw_prefix=raw_prefix),
             title=title,
             kind=target_kind,
             summary=self._clean_text(result.get("deck") or result.get("description")),
@@ -892,28 +902,28 @@ class ComicVineProvider:
         return kind if kind in self.capabilities.supported_kinds else ItemKind.comic
 
     def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
-        media_type = str(data.get("media_type") or data.get("kind") or "").strip().lower()
-        return ItemKind.manga if media_type == ItemKind.manga.value else ItemKind.comic
+        return ItemKind.comic
 
     def _kind_and_resource_id(self, provider_item_id: str) -> tuple[ItemKind, str]:
         text = str(provider_item_id or "").strip()
         normalized = text.lower()
-        for kind in (ItemKind.manga, ItemKind.comic):
+        for prefix_str in ("manga", "comic"):
             for separator in (":", "-"):
-                prefix = f"{kind.value}{separator}"
+                prefix = f"{prefix_str}{separator}"
                 if normalized.startswith(prefix):
-                    return kind, text[len(prefix) :]
+                    return ItemKind.comic, text[len(prefix) :]
         if normalized.startswith("stub-manga-"):
-            return ItemKind.manga, text
+            return ItemKind.comic, text
         return ItemKind.comic, text
 
-    def _provider_item_id(self, kind: ItemKind, resource_id: str | None) -> str:
+    def _provider_item_id(self, kind: ItemKind, resource_id: str | None, *, raw_prefix: str | None = None) -> str:
         if not resource_id:
             return ""
         _, stripped = self._kind_and_resource_id(resource_id)
-        if stripped.startswith("stub-") or kind == ItemKind.comic:
+        prefix = raw_prefix or kind.value
+        if stripped.startswith("stub-") or prefix == "comic":
             return stripped
-        return f"{kind.value}:{stripped}"
+        return f"{prefix}:{stripped}"
 
     def _slug(self, value: str) -> str:
         slug = _SLUG_RE.sub("-", value.lower()).strip("-")

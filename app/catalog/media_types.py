@@ -4,8 +4,6 @@ from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_fo
 from app.models.base import ExternalProvider, ItemKind
 
 
-MEDIA_CATALOG_CONTRACT_VERSION = 1
-CATALOG_SNAPSHOT_SCHEMA_VERSION = 1
 DEFAULT_PROVIDER_SEARCH_POLICY = "core_miss_then_configured_providers"
 
 
@@ -19,7 +17,6 @@ class MediaTypeConfig:
     providers: tuple[ExternalProvider, ...] = ()
     item_number_sort_padding: int | None = None
     is_top_level: bool = True
-    legacy_of: ItemKind | None = None
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
     provider_search_policy: str = DEFAULT_PROVIDER_SEARCH_POLICY
 
@@ -35,37 +32,22 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Comics",
         route_segments=("comics", "comic"),
         default_provider=ExternalProvider.gcd,
-        providers=(ExternalProvider.gcd, ExternalProvider.comicvine),
-        item_number_sort_padding=6,
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.manga,
-        singular_label="Manga",
-        plural_label="Manga",
-        route_segments=("manga",),
-        default_provider=ExternalProvider.mangadex,
         providers=(
+            ExternalProvider.gcd,
+            ExternalProvider.comicvine,
             ExternalProvider.mangadex,
             ExternalProvider.anilist,
-            ExternalProvider.comicvine,
         ),
+        item_number_sort_padding=6,
     ),
-    MediaTypeConfig(
-        kind=ItemKind.anime,
-        singular_label="Anime",
-        plural_label="Anime",
-        route_segments=("anime",),
-        default_provider=ExternalProvider.anilist,
-        providers=(ExternalProvider.anilist, ExternalProvider.tmdb),
-        physical_formats=video_physical_formats,
-    ),
+    # 'manga' and 'anime' removed — their provider support moved into comics/movies
     MediaTypeConfig(
         kind=ItemKind.movie,
         singular_label="Movie",
         plural_label="Movies",
         route_segments=("movies", "movie"),
         default_provider=ExternalProvider.tmdb,
-        providers=(ExternalProvider.tmdb,),
+        providers=(ExternalProvider.tmdb, ExternalProvider.anilist),
         physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
@@ -75,6 +57,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("tv", "shows", "series"),
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
+        is_top_level=False,
         physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
@@ -115,12 +98,20 @@ media_types: tuple[MediaTypeConfig, ...] = (
         plural_label="Legacy Blu-rays",
         route_segments=("blu-ray", "blu-rays", "bluray"),
         is_top_level=False,
-        legacy_of=ItemKind.movie,
         physical_formats=tuple(
             physical_format
             for physical_format in video_physical_formats
             if physical_format.id == "blu-ray"
         ),
+    ),
+    MediaTypeConfig(
+        kind=ItemKind.collection,
+        singular_label="Collection",
+        plural_label="Collections",
+        route_segments=("collections", "collection"),
+        default_provider=ExternalProvider.tmdb,
+        providers=(ExternalProvider.tmdb,),
+        is_top_level=False,
     ),
 )
 

@@ -65,7 +65,7 @@ Drift tables, but semantically they map to:
 - `ownership_status`: owned, wishlist.
 - `tracking_status`: planned, in_progress, completed, paused, dropped, repeating.
 - personal fields: purchase date, purchase price, grade, condition, rating, notes, personal tags,
-  storage box, quantity, signed-by, key item, grading company.
+    location, quantity, signed-by, key item, grading company.
 
 The local catalog cache stores denormalized metadata snapshots so the app can show the user's
 library offline even when the central catalog is unavailable.

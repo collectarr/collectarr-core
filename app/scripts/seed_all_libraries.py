@@ -1,4 +1,12 @@
-"""Seed data for ALL library types — 10 items each with varied editions/variants."""
+"""Seed data for ALL library types — 10 items each with varied editions/variants.
+
+All fields populated: creators, characters, story arcs, tags, publishers,
+edition details (imprint, series_group, age_rating, catalog_number,
+release_status), fully-populated series and volumes.
+
+Usage:
+    python -m app.scripts.seed_all_libraries
+"""
 
 import asyncio
 from dataclasses import dataclass, field
@@ -9,11 +17,21 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    Character,
+    CharacterAppearance,
     Edition,
+    EntityOrganization,
+    EntityPerson,
+    EntityTag,
     ItemProviderLink,
     Franchise,
     Item,
+    Organization,
+    Person,
     Series,
+    StoryArc,
+    StoryArcItem,
+    Tag,
     Variant,
     Volume,
 )
@@ -24,8 +42,7 @@ from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 # ---------------------------------------------------------------------------
 _PROVIDER_FOR_KIND: dict[ItemKind, ExternalProvider] = {
     ItemKind.comic: ExternalProvider.comicvine,
-    ItemKind.manga: ExternalProvider.mangadex,
-    ItemKind.anime: ExternalProvider.anilist,
+    # 'manga' and 'anime' removed; provider mapping consolidated into existing kinds
     ItemKind.book: ExternalProvider.openlibrary,
     ItemKind.game: ExternalProvider.igdb,
     ItemKind.boardgame: ExternalProvider.bgg,
@@ -38,6 +55,18 @@ _PROVIDER_FOR_KIND: dict[ItemKind, ExternalProvider] = {
 # ---------------------------------------------------------------------------
 # Generic seed entry
 # ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class SeedCreator:
+    name: str
+    role: str  # writer, artist, director, musician, designer, author, etc.
+
+
+@dataclass(frozen=True)
+class SeedCharacter:
+    name: str
+    role: str = "main"  # main, supporting, cameo, antagonist
+
+
 @dataclass(frozen=True)
 class SeedEntry:
     kind: ItemKind
@@ -52,12 +81,22 @@ class SeedEntry:
     title: str
     synopsis: str
     release_date: date
+    title_extension: str | None = None
     runtime_minutes: int | None = None
     page_count: int | None = None
     season_number: int | None = None
     episode_number: int | None = None
     metadata_json: dict | None = None
     editions: list["SeedEdition"] = field(default_factory=list)
+    creators: list[SeedCreator] = field(default_factory=list)
+    characters: list[SeedCharacter] = field(default_factory=list)
+    story_arcs: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    # Series-level overrides
+    series_original_title: str | None = None
+    series_status: str = "ongoing"
+    series_language: str = "en"
+    series_country: str = "US"
 
     @property
     def sort_key(self) -> str:
@@ -86,6 +125,12 @@ class SeedEdition:
     release_date: date | None = None
     upc: str | None = None
     isbn: str | None = None
+    imprint: str | None = None
+    subtitle: str | None = None
+    series_group: str | None = None
+    age_rating: str | None = None
+    catalog_number: str | None = None
+    release_status: str | None = None
     variants: list["SeedVariant"] = field(default_factory=list)
 
 
@@ -94,10 +139,14 @@ class SeedVariant:
     name: str
     variant_type: str | None = None
     barcode: str | None = None
+    isbn: str | None = None
+    sku: str | None = None
+    region: str | None = None
     is_primary: bool = True
     cover_price_cents: int | None = None
     currency: str | None = None
     platform: str | None = None
+    description: str | None = None
     metadata_json: dict | None = None
 
 
@@ -122,15 +171,26 @@ SEED_MOVIES = [
         kind=ItemKind.movie, franchise="The Dark Knight Trilogy", publisher="Warner Bros.",
         series="The Dark Knight Trilogy", slug="dark-knight-trilogy",
         volume="The Dark Knight Trilogy", volume_number=1, start_year=2005,
-        item_number="1", title="Batman Begins",
+        item_number="1", title="Batman Begins", title_extension="Year One",
         synopsis="After witnessing his parents' murder, Bruce Wayne trains to become a symbol of justice.",
         release_date=date(2005, 6, 15), runtime_minutes=140,
+        series_original_title="The Dark Knight Saga", series_status="completed", series_country="US",
+        creators=[SeedCreator("Christopher Nolan", "director"), SeedCreator("Hans Zimmer", "composer"),
+                  SeedCreator("David S. Goyer", "writer")],
+        characters=[SeedCharacter("Bruce Wayne", "main"), SeedCharacter("Ra's al Ghul", "antagonist"),
+                    SeedCharacter("Alfred Pennyworth", "supporting")],
+        story_arcs=["Batman's Origin"],
+        tags=["superhero", "action", "thriller", "origin story"],
         editions=[
             SeedEdition(title="DVD", fmt="DVD", publisher="Warner Bros.", release_date=date(2005, 10, 18),
-                        variants=[SeedVariant(name="DVD", variant_type="physical", cover_price_cents=1999, currency="USD")]),
+                        region="US", age_rating="PG-13", release_status="released",
+                        variants=[SeedVariant(name="DVD", variant_type="physical", cover_price_cents=1999, currency="USD",
+                                             barcode="012569593763", region="US")]),
             SeedEdition(title="Blu-ray", fmt="Blu-ray", publisher="Warner Bros.", release_date=date(2008, 7, 8),
+                        region="US", age_rating="PG-13",
                         variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=2499, currency="USD")]),
             SeedEdition(title="4K UHD", fmt="4K UHD", publisher="Warner Bros.", release_date=date(2017, 12, 19),
+                        region="US", imprint="DC Films", age_rating="PG-13",
                         variants=[SeedVariant(name="4K UHD", variant_type="physical", cover_price_cents=2999, currency="USD")]),
         ],
     ),
@@ -141,11 +201,20 @@ SEED_MOVIES = [
         item_number="2", title="The Dark Knight",
         synopsis="Batman faces the Joker, a criminal mastermind who seeks to plunge Gotham into anarchy.",
         release_date=date(2008, 7, 18), runtime_minutes=152,
+        creators=[SeedCreator("Christopher Nolan", "director"), SeedCreator("Hans Zimmer", "composer"),
+                  SeedCreator("Heath Ledger", "actor")],
+        characters=[SeedCharacter("Bruce Wayne", "main"), SeedCharacter("The Joker", "antagonist"),
+                    SeedCharacter("Harvey Dent", "supporting")],
+        story_arcs=["Gotham's Reckoning"],
+        tags=["superhero", "action", "crime", "thriller"],
         editions=[
             SeedEdition(title="Blu-ray", fmt="Blu-ray", publisher="Warner Bros.", release_date=date(2008, 12, 9),
+                        region="US", age_rating="PG-13",
                         variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=2499, currency="USD")]),
             SeedEdition(title="4K UHD Steelbook", fmt="4K UHD", publisher="Warner Bros.", release_date=date(2017, 12, 19),
-                        variants=[SeedVariant(name="Steelbook", variant_type="physical", cover_price_cents=3499, currency="USD")]),
+                        region="US", imprint="DC Films", series_group="The Dark Knight Collection",
+                        variants=[SeedVariant(name="Steelbook", variant_type="physical", cover_price_cents=3499, currency="USD",
+                                             description="Limited steelbook edition with IMAX sequences")]),
         ],
     ),
     SeedEntry(
@@ -155,6 +224,10 @@ SEED_MOVIES = [
         item_number="3", title="The Dark Knight Rises",
         synopsis="Eight years after the Joker's reign, Bane forces Batman out of exile.",
         release_date=date(2012, 7, 20), runtime_minutes=165,
+        creators=[SeedCreator("Christopher Nolan", "director"), SeedCreator("Tom Hardy", "actor")],
+        characters=[SeedCharacter("Bruce Wayne", "main"), SeedCharacter("Bane", "antagonist"),
+                    SeedCharacter("Selina Kyle", "supporting")],
+        tags=["superhero", "action", "epic"],
     ),
     SeedEntry(
         kind=ItemKind.movie, franchise="Blade Runner", publisher="Warner Bros.",
@@ -163,10 +236,19 @@ SEED_MOVIES = [
         item_number="1", title="Blade Runner",
         synopsis="A blade runner must pursue and terminate four replicants who have returned to Earth.",
         release_date=date(1982, 6, 25), runtime_minutes=117,
+        series_status="completed", series_country="US",
+        creators=[SeedCreator("Ridley Scott", "director"), SeedCreator("Vangelis", "composer"),
+                  SeedCreator("Hampton Fancher", "writer")],
+        characters=[SeedCharacter("Rick Deckard", "main"), SeedCharacter("Roy Batty", "antagonist"),
+                    SeedCharacter("Rachael", "supporting")],
+        story_arcs=["Replicant Hunt"],
+        tags=["sci-fi", "noir", "dystopia", "cyberpunk"],
         editions=[
             SeedEdition(title="The Final Cut", fmt="Blu-ray", publisher="Warner Bros.", release_date=date(2007, 12, 18),
+                        region="US", release_status="released",
                         variants=[SeedVariant(name="The Final Cut Blu-ray", variant_type="physical")]),
             SeedEdition(title="Director's Cut", fmt="DVD", publisher="Warner Bros.", release_date=date(1997, 9, 9),
+                        region="US",
                         variants=[SeedVariant(name="Director's Cut DVD", variant_type="physical")]),
         ],
     ),
@@ -177,6 +259,11 @@ SEED_MOVIES = [
         item_number="2", title="Blade Runner 2049",
         synopsis="A young blade runner's discovery of a secret leads him to seek out the former blade runner.",
         release_date=date(2017, 10, 6), runtime_minutes=164,
+        creators=[SeedCreator("Denis Villeneuve", "director"), SeedCreator("Roger Deakins", "cinematographer"),
+                  SeedCreator("Benjamin Wallfisch", "composer")],
+        characters=[SeedCharacter("Officer K", "main"), SeedCharacter("Rick Deckard", "supporting"),
+                    SeedCharacter("Niander Wallace", "antagonist")],
+        tags=["sci-fi", "noir", "cyberpunk"],
     ),
     SeedEntry(
         kind=ItemKind.movie, franchise="Interstellar", publisher="Paramount Pictures",
@@ -185,8 +272,15 @@ SEED_MOVIES = [
         item_number="1", title="Interstellar",
         synopsis="A team of explorers travel through a wormhole in space to ensure humanity's survival.",
         release_date=date(2014, 11, 7), runtime_minutes=169,
+        series_status="completed",
+        creators=[SeedCreator("Christopher Nolan", "director"), SeedCreator("Hans Zimmer", "composer"),
+                  SeedCreator("Kip Thorne", "consultant")],
+        characters=[SeedCharacter("Cooper", "main"), SeedCharacter("Murph", "supporting"),
+                    SeedCharacter("Dr. Brand", "supporting")],
+        tags=["sci-fi", "drama", "space", "time travel"],
         editions=[
             SeedEdition(title="IMAX Blu-ray", fmt="Blu-ray", publisher="Paramount", release_date=date(2015, 3, 31),
+                        region="US", subtitle="The IMAX Experience",
                         variants=[SeedVariant(name="IMAX Edition", variant_type="physical", cover_price_cents=2999, currency="USD")]),
         ],
     ),
@@ -197,8 +291,13 @@ SEED_MOVIES = [
         item_number="4", title="Mad Max: Fury Road",
         synopsis="In a post-apocalyptic wasteland, Max teams up with Furiosa to escape a tyrannical warlord.",
         release_date=date(2015, 5, 15), runtime_minutes=120,
+        creators=[SeedCreator("George Miller", "director"), SeedCreator("Tom Holkenborg", "composer")],
+        characters=[SeedCharacter("Max Rockatansky", "main"), SeedCharacter("Furiosa", "main"),
+                    SeedCharacter("Immortan Joe", "antagonist")],
+        tags=["action", "post-apocalyptic", "chase"],
         editions=[
             SeedEdition(title="Black & Chrome Edition", fmt="Blu-ray", publisher="Warner Bros.", release_date=date(2016, 12, 6),
+                        region="US", subtitle="Black & Chrome",
                         variants=[SeedVariant(name="B&W Blu-ray", variant_type="physical")]),
             SeedEdition(title="Standard Blu-ray", fmt="Blu-ray", publisher="Warner Bros.", release_date=date(2015, 9, 1),
                         variants=[SeedVariant(name="Blu-ray", variant_type="physical")]),
@@ -211,6 +310,12 @@ SEED_MOVIES = [
         item_number="1", title="Alien",
         synopsis="The crew of a commercial spacecraft encounters a deadly lifeform after investigating a distress signal.",
         release_date=date(1979, 5, 25), runtime_minutes=117,
+        creators=[SeedCreator("Ridley Scott", "director"), SeedCreator("Jerry Goldsmith", "composer"),
+                  SeedCreator("Dan O'Bannon", "writer")],
+        characters=[SeedCharacter("Ellen Ripley", "main"), SeedCharacter("Xenomorph", "antagonist"),
+                    SeedCharacter("Dallas", "supporting")],
+        story_arcs=["Xenomorph Saga"],
+        tags=["sci-fi", "horror", "survival"],
     ),
     SeedEntry(
         kind=ItemKind.movie, franchise="Alien", publisher="20th Century Fox",
@@ -219,6 +324,11 @@ SEED_MOVIES = [
         item_number="2", title="Aliens",
         synopsis="Ripley returns to the planet where her crew encountered the hostile alien creature.",
         release_date=date(1986, 7, 18), runtime_minutes=137,
+        creators=[SeedCreator("James Cameron", "director"), SeedCreator("James Horner", "composer")],
+        characters=[SeedCharacter("Ellen Ripley", "main"), SeedCharacter("Newt", "supporting"),
+                    SeedCharacter("Xenomorph Queen", "antagonist")],
+        story_arcs=["Xenomorph Saga"],
+        tags=["sci-fi", "action", "horror"],
     ),
     SeedEntry(
         kind=ItemKind.movie, franchise="The Matrix", publisher="Warner Bros.",
@@ -227,10 +337,17 @@ SEED_MOVIES = [
         item_number="1", title="The Matrix",
         synopsis="A computer hacker learns about the true nature of reality and his role in the war against its controllers.",
         release_date=date(1999, 3, 31), runtime_minutes=136,
+        creators=[SeedCreator("The Wachowskis", "director"), SeedCreator("Don Davis", "composer"),
+                  SeedCreator("Keanu Reeves", "actor")],
+        characters=[SeedCharacter("Neo", "main"), SeedCharacter("Morpheus", "supporting"),
+                    SeedCharacter("Agent Smith", "antagonist"), SeedCharacter("Trinity", "supporting")],
+        tags=["sci-fi", "action", "cyberpunk", "philosophy"],
         editions=[
             SeedEdition(title="DVD", fmt="DVD", publisher="Warner Bros.", release_date=date(1999, 9, 21),
+                        region="US", age_rating="R",
                         variants=[SeedVariant(name="DVD", variant_type="physical", cover_price_cents=1499, currency="USD")]),
             SeedEdition(title="4K UHD", fmt="4K UHD", publisher="Warner Bros.", release_date=date(2018, 5, 22),
+                        region="US", age_rating="R", catalog_number="WB-MATRIX-4K",
                         variants=[SeedVariant(name="4K UHD", variant_type="physical", cover_price_cents=2999, currency="USD")]),
         ],
     ),
@@ -244,33 +361,57 @@ SEED_TV = [
         kind=ItemKind.tv, franchise="Breaking Bad", publisher="AMC",
         series="Breaking Bad", slug="breaking-bad",
         volume="Breaking Bad", volume_number=1, start_year=2008,
-        item_number="1", title="Breaking Bad",
+        item_number="1", title="Breaking Bad", title_extension="Season 1",
         synopsis="A high school chemistry teacher turned methamphetamine manufacturer partners with a former student.",
         release_date=date(2008, 1, 20), runtime_minutes=49, season_number=1,
+        series_status="completed", series_country="US",
+        creators=[SeedCreator("Vince Gilligan", "creator"), SeedCreator("Bryan Cranston", "actor"),
+                  SeedCreator("Aaron Paul", "actor")],
+        characters=[SeedCharacter("Walter White", "main"), SeedCharacter("Jesse Pinkman", "main"),
+                    SeedCharacter("Hank Schrader", "supporting")],
+        story_arcs=["Heisenberg's Rise"],
+        tags=["drama", "crime", "thriller"],
         editions=[
             SeedEdition(title="Complete Series Blu-ray", fmt="Blu-ray", publisher="Sony", release_date=date(2014, 11, 25),
-                        variants=[SeedVariant(name="Barrel Set", variant_type="physical", cover_price_cents=7999, currency="USD")]),
+                        region="US", age_rating="TV-MA", series_group="Breaking Bad Universe",
+                        variants=[SeedVariant(name="Barrel Set", variant_type="physical", cover_price_cents=7999, currency="USD",
+                                             description="Special barrel-shaped collector packaging")]),
         ],
     ),
     SeedEntry(
         kind=ItemKind.tv, franchise="Breaking Bad", publisher="AMC",
         series="Better Call Saul", slug="better-call-saul",
         volume="Better Call Saul", volume_number=1, start_year=2015,
-        item_number="1", title="Better Call Saul",
+        item_number="1", title="Better Call Saul", title_extension="Season 1",
         synopsis="The transformation of Jimmy McGill into Saul Goodman, the morally challenged lawyer.",
         release_date=date(2015, 2, 8), runtime_minutes=53, season_number=1,
+        series_status="completed", series_country="US",
+        creators=[SeedCreator("Vince Gilligan", "creator"), SeedCreator("Peter Gould", "creator"),
+                  SeedCreator("Bob Odenkirk", "actor")],
+        characters=[SeedCharacter("Jimmy McGill", "main"), SeedCharacter("Kim Wexler", "main"),
+                    SeedCharacter("Mike Ehrmantraut", "supporting")],
+        story_arcs=["Heisenberg's Rise"],
+        tags=["drama", "crime", "legal"],
     ),
     SeedEntry(
         kind=ItemKind.tv, franchise="The Wire", publisher="HBO",
         series="The Wire", slug="the-wire",
         volume="The Wire", volume_number=1, start_year=2002,
-        item_number="1", title="The Wire",
+        item_number="1", title="The Wire", title_extension="Season 1",
         synopsis="Examines the Baltimore drug scene through the eyes of law enforcers and drug dealers.",
         release_date=date(2002, 6, 2), runtime_minutes=60, season_number=1,
+        series_status="completed",
+        creators=[SeedCreator("David Simon", "creator"), SeedCreator("Ed Burns", "creator"),
+                  SeedCreator("Dominic West", "actor")],
+        characters=[SeedCharacter("Jimmy McNulty", "main"), SeedCharacter("Omar Little", "supporting"),
+                    SeedCharacter("Avon Barksdale", "antagonist")],
+        tags=["drama", "crime", "social commentary"],
         editions=[
             SeedEdition(title="Complete Series DVD", fmt="DVD", publisher="HBO", release_date=date(2011, 6, 7),
+                        region="US", age_rating="TV-MA",
                         variants=[SeedVariant(name="DVD Box Set", variant_type="physical")]),
             SeedEdition(title="Complete Series Blu-ray", fmt="Blu-ray", publisher="HBO", release_date=date(2015, 6, 2),
+                        region="US", subtitle="Remastered in HD",
                         variants=[SeedVariant(name="Remastered Blu-ray", variant_type="physical", cover_price_cents=5999, currency="USD")]),
         ],
     ),
@@ -281,16 +422,28 @@ SEED_TV = [
         item_number="1", title="Chernobyl",
         synopsis="A dramatization of the 1986 nuclear accident and the unprecedented cleanup efforts that followed.",
         release_date=date(2019, 5, 6), runtime_minutes=65, season_number=1,
+        series_status="completed", series_country="GB",
+        creators=[SeedCreator("Craig Mazin", "creator"), SeedCreator("Jared Harris", "actor"),
+                  SeedCreator("Stellan Skarsgård", "actor")],
+        characters=[SeedCharacter("Valery Legasov", "main"), SeedCharacter("Boris Shcherbina", "main"),
+                    SeedCharacter("Ulana Khomyuk", "supporting")],
+        tags=["drama", "historical", "miniseries", "disaster"],
     ),
     SeedEntry(
         kind=ItemKind.tv, franchise="The Sopranos", publisher="HBO",
         series="The Sopranos", slug="the-sopranos",
         volume="The Sopranos", volume_number=1, start_year=1999,
-        item_number="1", title="The Sopranos",
+        item_number="1", title="The Sopranos", title_extension="Season 1",
         synopsis="New Jersey mob boss Tony Soprano deals with personal and professional issues in his family.",
         release_date=date(1999, 1, 10), runtime_minutes=55, season_number=1,
+        series_status="completed",
+        creators=[SeedCreator("David Chase", "creator"), SeedCreator("James Gandolfini", "actor")],
+        characters=[SeedCharacter("Tony Soprano", "main"), SeedCharacter("Carmela Soprano", "supporting"),
+                    SeedCharacter("Christopher Moltisanti", "supporting")],
+        tags=["drama", "crime", "mafia", "psychology"],
         editions=[
             SeedEdition(title="Complete Series Blu-ray", fmt="Blu-ray", publisher="HBO", release_date=date(2014, 11, 18),
+                        region="US", age_rating="TV-MA", catalog_number="HBO-SOPRANOS-BLU",
                         variants=[SeedVariant(name="Complete Blu-ray", variant_type="physical", cover_price_cents=8999, currency="USD")]),
         ],
     ),
@@ -298,9 +451,14 @@ SEED_TV = [
         kind=ItemKind.tv, franchise="True Detective", publisher="HBO",
         series="True Detective", slug="true-detective",
         volume="True Detective", volume_number=1, start_year=2014,
-        item_number="1", title="True Detective",
+        item_number="1", title="True Detective", title_extension="Season 1",
         synopsis="Two detectives trace a Louisiana serial murder case across seventeen years.",
         release_date=date(2014, 1, 12), runtime_minutes=58, season_number=1,
+        series_status="ongoing",
+        creators=[SeedCreator("Nic Pizzolatto", "creator"), SeedCreator("Matthew McConaughey", "actor"),
+                  SeedCreator("Woody Harrelson", "actor")],
+        characters=[SeedCharacter("Rust Cohle", "main"), SeedCharacter("Marty Hart", "main")],
+        tags=["drama", "crime", "mystery", "anthology"],
     ),
     SeedEntry(
         kind=ItemKind.tv, franchise="Band of Brothers", publisher="HBO",
@@ -309,10 +467,18 @@ SEED_TV = [
         item_number="1", title="Band of Brothers",
         synopsis="The story of Easy Company during World War II from their training to V-J Day.",
         release_date=date(2001, 9, 9), runtime_minutes=70,
+        series_status="completed",
+        creators=[SeedCreator("Steven Spielberg", "executive producer"), SeedCreator("Tom Hanks", "executive producer")],
+        characters=[SeedCharacter("Richard Winters", "main"), SeedCharacter("Lewis Nixon", "supporting"),
+                    SeedCharacter("Ronald Speirs", "supporting")],
+        story_arcs=["Easy Company's War"],
+        tags=["war", "historical", "drama", "miniseries"],
         editions=[
             SeedEdition(title="Blu-ray", fmt="Blu-ray", publisher="HBO", release_date=date(2008, 11, 11),
+                        region="US", age_rating="TV-MA",
                         variants=[SeedVariant(name="Blu-ray Box", variant_type="physical")]),
             SeedEdition(title="4K UHD", fmt="4K UHD", publisher="Warner Bros.", release_date=date(2023, 6, 6),
+                        region="US", subtitle="Remastered in 4K",
                         variants=[SeedVariant(name="4K UHD", variant_type="physical", cover_price_cents=5999, currency="USD")]),
         ],
     ),
@@ -320,145 +486,46 @@ SEED_TV = [
         kind=ItemKind.tv, franchise="Dark", publisher="Netflix",
         series="Dark", slug="dark-tv",
         volume="Dark", volume_number=1, start_year=2017,
-        item_number="1", title="Dark",
+        item_number="1", title="Dark", title_extension="Season 1",
         synopsis="A missing child triggers events that unravel the secrets of four interconnected families.",
         release_date=date(2017, 12, 1), runtime_minutes=52, season_number=1,
+        series_original_title="Dark", series_status="completed", series_language="de", series_country="DE",
+        creators=[SeedCreator("Baran bo Odar", "creator"), SeedCreator("Jantje Friese", "creator")],
+        characters=[SeedCharacter("Jonas Kahnwald", "main"), SeedCharacter("Martha Nielsen", "main"),
+                    SeedCharacter("Claudia Tiedemann", "supporting")],
+        story_arcs=["Winden Time Loop"],
+        tags=["sci-fi", "mystery", "time travel"],
     ),
     SeedEntry(
         kind=ItemKind.tv, franchise="Fargo", publisher="FX",
         series="Fargo", slug="fargo-tv",
         volume="Fargo", volume_number=1, start_year=2014,
-        item_number="1", title="Fargo",
+        item_number="1", title="Fargo", title_extension="Season 1",
         synopsis="An anthology series exploring deception, crime, and intrigue across the American Midwest.",
         release_date=date(2014, 4, 15), runtime_minutes=53, season_number=1,
+        series_status="ongoing",
+        creators=[SeedCreator("Noah Hawley", "creator"), SeedCreator("Billy Bob Thornton", "actor"),
+                  SeedCreator("Martin Freeman", "actor")],
+        characters=[SeedCharacter("Lorne Malvo", "antagonist"), SeedCharacter("Lester Nygaard", "main"),
+                    SeedCharacter("Molly Solverson", "main")],
+        tags=["crime", "dark comedy", "anthology", "thriller"],
     ),
     SeedEntry(
         kind=ItemKind.tv, franchise="Fleabag", publisher="BBC / Amazon",
         series="Fleabag", slug="fleabag",
         volume="Fleabag", volume_number=1, start_year=2016,
-        item_number="1", title="Fleabag",
+        item_number="1", title="Fleabag", title_extension="Season 1",
         synopsis="A dry-witted woman navigates life in London while dealing with loss and complicated relationships.",
         release_date=date(2016, 7, 21), runtime_minutes=27, season_number=1,
+        series_status="completed", series_country="GB",
+        creators=[SeedCreator("Phoebe Waller-Bridge", "creator"), SeedCreator("Phoebe Waller-Bridge", "actor")],
+        characters=[SeedCharacter("Fleabag", "main"), SeedCharacter("Claire", "supporting"),
+                    SeedCharacter("The Priest", "supporting")],
+        tags=["comedy", "drama", "fourth wall"],
     ),
 ]
 
-# ===================================================================
-#  ANIME (10)
-# ===================================================================
-SEED_ANIME = [
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Cowboy Bebop", publisher="Sunrise",
-        series="Cowboy Bebop", slug="cowboy-bebop",
-        volume="Cowboy Bebop", volume_number=1, start_year=1998,
-        item_number="1", title="Cowboy Bebop",
-        synopsis="A ragtag group of bounty hunters chase criminals across the solar system in 2071.",
-        release_date=date(1998, 4, 3), runtime_minutes=25, season_number=1,
-        editions=[
-            SeedEdition(title="Blu-ray Complete", fmt="Blu-ray", publisher="Funimation", release_date=date(2014, 12, 16),
-                        variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=4499, currency="USD")]),
-            SeedEdition(title="4K UHD Collector", fmt="4K UHD", publisher="Funimation", release_date=date(2023, 6, 27),
-                        variants=[SeedVariant(name="Collector's 4K", variant_type="physical", cover_price_cents=8999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Neon Genesis Evangelion", publisher="Gainax",
-        series="Neon Genesis Evangelion", slug="neon-genesis-evangelion",
-        volume="Neon Genesis Evangelion", volume_number=1, start_year=1995,
-        item_number="1", title="Neon Genesis Evangelion",
-        synopsis="Shinji Ikari is recruited by his father to pilot a giant mecha against monstrous beings called Angels.",
-        release_date=date(1995, 10, 4), runtime_minutes=24, season_number=1,
-        editions=[
-            SeedEdition(title="Ultimate Edition Blu-ray", fmt="Blu-ray", publisher="GKIDS", release_date=date(2021, 12, 7),
-                        variants=[SeedVariant(name="Ultimate Edition", variant_type="physical", cover_price_cents=19999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Studio Ghibli", publisher="Studio Ghibli",
-        series="Spirited Away", slug="spirited-away",
-        volume="Spirited Away", volume_number=1, start_year=2001,
-        item_number="1", title="Spirited Away",
-        synopsis="A young girl becomes trapped in a strange world of spirits and must find a way to free herself and her parents.",
-        release_date=date(2001, 7, 20), runtime_minutes=125,
-        editions=[
-            SeedEdition(title="DVD", fmt="DVD", publisher="Walt Disney Home", release_date=date(2003, 4, 15),
-                        variants=[SeedVariant(name="DVD", variant_type="physical")]),
-            SeedEdition(title="Blu-ray", fmt="Blu-ray", publisher="GKIDS / Shout Factory", release_date=date(2017, 10, 17),
-                        variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=2999, currency="USD")]),
-            SeedEdition(title="Steelbook", fmt="Blu-ray", publisher="GKIDS", release_date=date(2019, 11, 12),
-                        variants=[SeedVariant(name="Steelbook", variant_type="physical", cover_price_cents=3499, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Studio Ghibli", publisher="Studio Ghibli",
-        series="Princess Mononoke", slug="princess-mononoke",
-        volume="Princess Mononoke", volume_number=1, start_year=1997,
-        item_number="1", title="Princess Mononoke",
-        synopsis="A prince becomes embroiled in a struggle between forest gods and a mining colony.",
-        release_date=date(1997, 7, 12), runtime_minutes=134,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Fullmetal Alchemist", publisher="Bones",
-        series="Fullmetal Alchemist: Brotherhood", slug="fmab",
-        volume="Fullmetal Alchemist: Brotherhood", volume_number=1, start_year=2009,
-        item_number="1", title="Fullmetal Alchemist: Brotherhood",
-        synopsis="Two brothers use alchemy to search for the Philosopher's Stone to restore their bodies.",
-        release_date=date(2009, 4, 5), runtime_minutes=24, season_number=1,
-        editions=[
-            SeedEdition(title="Complete Blu-ray Box", fmt="Blu-ray", publisher="Funimation", release_date=date(2016, 8, 2),
-                        variants=[SeedVariant(name="Complete Box", variant_type="physical", cover_price_cents=5999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Attack on Titan", publisher="Wit Studio / MAPPA",
-        series="Attack on Titan", slug="attack-on-titan",
-        volume="Attack on Titan", volume_number=1, start_year=2013,
-        item_number="1", title="Attack on Titan",
-        synopsis="Humanity fights for survival against enormous humanoid creatures known as Titans.",
-        release_date=date(2013, 4, 7), runtime_minutes=24, season_number=1,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Steins;Gate", publisher="White Fox",
-        series="Steins;Gate", slug="steins-gate",
-        volume="Steins;Gate", volume_number=1, start_year=2011,
-        item_number="1", title="Steins;Gate",
-        synopsis="A self-proclaimed mad scientist accidentally creates a time machine using a microwave.",
-        release_date=date(2011, 4, 6), runtime_minutes=24, season_number=1,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Death Note", publisher="Madhouse",
-        series="Death Note", slug="death-note-anime",
-        volume="Death Note", volume_number=1, start_year=2006,
-        item_number="1", title="Death Note",
-        synopsis="A high school student discovers a supernatural notebook that can kill anyone whose name is written in it.",
-        release_date=date(2006, 10, 4), runtime_minutes=23, season_number=1,
-        editions=[
-            SeedEdition(title="Complete Series DVD", fmt="DVD", publisher="Viz Media", release_date=date(2008, 11, 18),
-                        variants=[SeedVariant(name="DVD Box", variant_type="physical")]),
-            SeedEdition(title="Complete Series Blu-ray", fmt="Blu-ray", publisher="Viz Media", release_date=date(2016, 10, 4),
-                        variants=[SeedVariant(name="Blu-ray", variant_type="physical", cover_price_cents=3999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="One Punch Man", publisher="Madhouse",
-        series="One Punch Man", slug="one-punch-man",
-        volume="One Punch Man", volume_number=1, start_year=2015,
-        item_number="1", title="One Punch Man",
-        synopsis="A hero who can defeat any opponent with a single punch struggles with boredom.",
-        release_date=date(2015, 10, 5), runtime_minutes=24, season_number=1,
-    ),
-    SeedEntry(
-        kind=ItemKind.anime, franchise="Akira", publisher="TMS Entertainment",
-        series="Akira", slug="akira",
-        volume="Akira", volume_number=1, start_year=1988,
-        item_number="1", title="Akira",
-        synopsis="A secret military project endangers Neo-Tokyo when it turns a biker gang member into a rampaging psychic.",
-        release_date=date(1988, 7, 16), runtime_minutes=124,
-        editions=[
-            SeedEdition(title="4K UHD Limited Edition", fmt="4K UHD", publisher="Funimation", release_date=date(2020, 12, 22),
-                        variants=[SeedVariant(name="4K Limited", variant_type="physical", cover_price_cents=3499, currency="USD")]),
-        ],
-    ),
-]
+# ANIME and MANGA seed data removed (kinds merged into movie/comic)
 
 # ===================================================================
 #  BOOKS (10)
@@ -471,12 +538,21 @@ SEED_BOOKS = [
         item_number="1", title="Dune",
         synopsis="A noble family becomes embroiled in a war for control of the most valuable substance in the universe.",
         release_date=date(1965, 8, 1), page_count=412,
+        series_status="completed", series_country="US",
+        creators=[SeedCreator("Frank Herbert", "author")],
+        characters=[SeedCharacter("Paul Atreides", "main"), SeedCharacter("Duke Leto Atreides", "supporting"),
+                    SeedCharacter("Baron Harkonnen", "antagonist"), SeedCharacter("Lady Jessica", "supporting")],
+        story_arcs=["Arrakis Saga"],
+        tags=["sci-fi", "politics", "ecology", "space opera"],
         editions=[
             SeedEdition(title="Mass Market Paperback", fmt="Paperback", publisher="Ace Books", release_date=date(1990, 9, 1),
-                        isbn="9780441172719",
-                        variants=[SeedVariant(name="Paperback", variant_type="physical", cover_price_cents=999, currency="USD")]),
+                        isbn="9780441172719", age_rating="Adult", release_status="released", imprint="Ace",
+                        variants=[SeedVariant(name="Paperback", variant_type="physical", cover_price_cents=999, currency="USD",
+                                             isbn="9780441172719")]),
             SeedEdition(title="Hardcover", fmt="Hardcover", publisher="Chilton Books", release_date=date(1965, 8, 1),
-                        variants=[SeedVariant(name="Hardcover", variant_type="physical")]),
+                        release_status="released",
+                        variants=[SeedVariant(name="Hardcover", variant_type="physical",
+                                             description="Original 1965 first edition hardcover")]),
         ],
     ),
     SeedEntry(
@@ -486,6 +562,11 @@ SEED_BOOKS = [
         item_number="2", title="Dune Messiah",
         synopsis="Paul Atreides faces a conspiracy to overthrow him twelve years after becoming Emperor.",
         release_date=date(1969, 10, 1), page_count=256,
+        creators=[SeedCreator("Frank Herbert", "author")],
+        characters=[SeedCharacter("Paul Atreides", "main"), SeedCharacter("Alia Atreides", "supporting"),
+                    SeedCharacter("Chani", "supporting")],
+        story_arcs=["Arrakis Saga"],
+        tags=["sci-fi", "politics", "religion"],
     ),
     SeedEntry(
         kind=ItemKind.book, franchise="Foundation", publisher="Gnome Press",
@@ -494,10 +575,15 @@ SEED_BOOKS = [
         item_number="1", title="Foundation",
         synopsis="A mathematician predicts the fall of the Galactic Empire and creates a plan to preserve knowledge.",
         release_date=date(1951, 5, 1), page_count=244,
+        series_status="completed",
+        creators=[SeedCreator("Isaac Asimov", "author")],
+        characters=[SeedCharacter("Hari Seldon", "main"), SeedCharacter("Salvor Hardin", "main")],
+        tags=["sci-fi", "psychohistory", "galactic empire"],
         editions=[
             SeedEdition(title="Paperback", fmt="Paperback", publisher="Bantam Spectra", release_date=date(2004, 6, 1),
-                        isbn="9780553293357",
-                        variants=[SeedVariant(name="Paperback", variant_type="physical", cover_price_cents=899, currency="USD")]),
+                        isbn="9780553293357", imprint="Spectra",
+                        variants=[SeedVariant(name="Paperback", variant_type="physical", cover_price_cents=899, currency="USD",
+                                             isbn="9780553293357")]),
         ],
     ),
     SeedEntry(
@@ -507,10 +593,18 @@ SEED_BOOKS = [
         item_number="1", title="1984",
         synopsis="In a totalitarian future, a man rebels against the oppressive government that controls every aspect of life.",
         release_date=date(1949, 6, 8), page_count=328,
+        series_status="completed", series_country="GB",
+        creators=[SeedCreator("George Orwell", "author")],
+        characters=[SeedCharacter("Winston Smith", "main"), SeedCharacter("Big Brother", "antagonist"),
+                    SeedCharacter("Julia", "supporting"), SeedCharacter("O'Brien", "antagonist")],
+        tags=["dystopia", "political fiction", "surveillance", "classic"],
         editions=[
             SeedEdition(title="Centennial Edition", fmt="Hardcover", publisher="Plume", release_date=date(2003, 5, 6),
-                        variants=[SeedVariant(name="Centennial HC", variant_type="physical")]),
+                        release_status="released",
+                        variants=[SeedVariant(name="Centennial HC", variant_type="physical",
+                                             description="Special centennial anniversary edition")]),
             SeedEdition(title="Penguin Paperback", fmt="Paperback", publisher="Penguin", release_date=date(1961, 1, 1),
+                        imprint="Penguin Classics",
                         variants=[SeedVariant(name="Penguin PB", variant_type="physical", cover_price_cents=1299, currency="USD")]),
         ],
     ),
@@ -521,6 +615,11 @@ SEED_BOOKS = [
         item_number="1", title="Neuromancer",
         synopsis="A washed-up computer hacker is hired for one last job in a world of artificial intelligence and mega-corporations.",
         release_date=date(1984, 7, 1), page_count=271,
+        series_status="completed",
+        creators=[SeedCreator("William Gibson", "author")],
+        characters=[SeedCharacter("Case", "main"), SeedCharacter("Molly Millions", "supporting"),
+                    SeedCharacter("Wintermute", "antagonist")],
+        tags=["cyberpunk", "sci-fi", "AI", "hacking"],
     ),
     SeedEntry(
         kind=ItemKind.book, franchise="Hitchhiker's Guide", publisher="Pan Books",
@@ -529,10 +628,16 @@ SEED_BOOKS = [
         item_number="1", title="The Hitchhiker's Guide to the Galaxy",
         synopsis="Seconds before Earth is destroyed, Arthur Dent is saved by his friend Ford Prefect, a researcher for the Guide.",
         release_date=date(1979, 10, 12), page_count=180,
+        series_status="completed", series_country="GB",
+        creators=[SeedCreator("Douglas Adams", "author")],
+        characters=[SeedCharacter("Arthur Dent", "main"), SeedCharacter("Ford Prefect", "main"),
+                    SeedCharacter("Zaphod Beeblebrox", "supporting"), SeedCharacter("Marvin", "supporting")],
+        tags=["sci-fi", "comedy", "satire", "absurdist"],
         editions=[
             SeedEdition(title="Illustrated Edition", fmt="Hardcover", publisher="Del Rey", release_date=date(2007, 4, 10),
-                        isbn="9780345453747",
-                        variants=[SeedVariant(name="Illustrated HC", variant_type="physical", cover_price_cents=2500, currency="USD")]),
+                        isbn="9780345453747", subtitle="The Illustrated Edition",
+                        variants=[SeedVariant(name="Illustrated HC", variant_type="physical", cover_price_cents=2500, currency="USD",
+                                             isbn="9780345453747")]),
         ],
     ),
     SeedEntry(
@@ -542,6 +647,12 @@ SEED_BOOKS = [
         item_number="1", title="The Fellowship of the Ring",
         synopsis="A hobbit inherits a ring of power and begins a journey to destroy it.",
         release_date=date(1954, 7, 29), page_count=423,
+        series_status="completed", series_country="GB",
+        creators=[SeedCreator("J.R.R. Tolkien", "author")],
+        characters=[SeedCharacter("Frodo Baggins", "main"), SeedCharacter("Gandalf", "supporting"),
+                    SeedCharacter("Aragorn", "supporting"), SeedCharacter("Sauron", "antagonist")],
+        story_arcs=["War of the Ring"],
+        tags=["fantasy", "epic", "quest", "classic"],
     ),
     SeedEntry(
         kind=ItemKind.book, franchise="Lord of the Rings", publisher="George Allen & Unwin",
@@ -550,6 +661,11 @@ SEED_BOOKS = [
         item_number="2", title="The Two Towers",
         synopsis="The fellowship is broken as war spreads and the quest to destroy the ring continues.",
         release_date=date(1954, 11, 11), page_count=352,
+        creators=[SeedCreator("J.R.R. Tolkien", "author")],
+        characters=[SeedCharacter("Frodo Baggins", "main"), SeedCharacter("Samwise Gamgee", "main"),
+                    SeedCharacter("Gollum", "antagonist"), SeedCharacter("Aragorn", "supporting")],
+        story_arcs=["War of the Ring"],
+        tags=["fantasy", "epic", "war"],
     ),
     SeedEntry(
         kind=ItemKind.book, franchise="Lord of the Rings", publisher="George Allen & Unwin",
@@ -558,6 +674,11 @@ SEED_BOOKS = [
         item_number="3", title="The Return of the King",
         synopsis="The final battle for Middle-earth begins while Frodo approaches Mount Doom.",
         release_date=date(1955, 10, 20), page_count=416,
+        creators=[SeedCreator("J.R.R. Tolkien", "author")],
+        characters=[SeedCharacter("Frodo Baggins", "main"), SeedCharacter("Aragorn", "main"),
+                    SeedCharacter("Sauron", "antagonist")],
+        story_arcs=["War of the Ring"],
+        tags=["fantasy", "epic", "coronation"],
     ),
     SeedEntry(
         kind=ItemKind.book, franchise="The Martian", publisher="Crown Publishing",
@@ -566,125 +687,24 @@ SEED_BOOKS = [
         item_number="1", title="The Martian",
         synopsis="An astronaut must rely on his ingenuity to survive alone on Mars after being presumed dead.",
         release_date=date(2011, 3, 1), page_count=369,
+        series_status="completed",
+        creators=[SeedCreator("Andy Weir", "author")],
+        characters=[SeedCharacter("Mark Watney", "main"), SeedCharacter("Melissa Lewis", "supporting")],
+        tags=["sci-fi", "survival", "hard science", "humor"],
         editions=[
             SeedEdition(title="Hardcover", fmt="Hardcover", publisher="Crown", release_date=date(2014, 2, 11),
-                        isbn="9780804139021",
-                        variants=[SeedVariant(name="Hardcover", variant_type="physical", cover_price_cents=2400, currency="USD")]),
+                        isbn="9780804139021", release_status="released",
+                        variants=[SeedVariant(name="Hardcover", variant_type="physical", cover_price_cents=2400, currency="USD",
+                                             isbn="9780804139021")]),
             SeedEdition(title="Audiobook", fmt="Audiobook", publisher="Podium Audio", release_date=date(2014, 3, 22),
-                        variants=[SeedVariant(name="Audiobook", variant_type="digital")]),
+                        catalog_number="PODIUM-MARTIAN-01",
+                        variants=[SeedVariant(name="Audiobook", variant_type="digital",
+                                             description="Narrated by R.C. Bray")]),
         ],
     ),
 ]
 
-# ===================================================================
-#  MANGA (10)
-# ===================================================================
-SEED_MANGA = [
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Berserk", publisher="Hakusensha",
-        series="Berserk", slug="berserk",
-        volume="Berserk", volume_number=1, start_year=1989,
-        item_number="1", title="Berserk, Vol. 1",
-        synopsis="Guts, a lone mercenary, battles demons in a dark medieval fantasy world.",
-        release_date=date(1990, 11, 26), page_count=224,
-        editions=[
-            SeedEdition(title="Dark Horse English", fmt="Tankōbon", publisher="Dark Horse", language="en", release_date=date(2003, 10, 22),
-                        isbn="9781593070205",
-                        variants=[SeedVariant(name="Tankōbon", variant_type="physical", cover_price_cents=1499, currency="USD")]),
-            SeedEdition(title="Deluxe Edition", fmt="Hardcover", publisher="Dark Horse", language="en", release_date=date(2019, 3, 12),
-                        isbn="9781506711980",
-                        variants=[SeedVariant(name="Deluxe HC", variant_type="physical", cover_price_cents=4999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Berserk", publisher="Hakusensha",
-        series="Berserk", slug="berserk",
-        volume="Berserk", volume_number=1, start_year=1989,
-        item_number="2", title="Berserk, Vol. 2",
-        synopsis="Guts continues his relentless war against the demonic Apostles.",
-        release_date=date(1991, 6, 28), page_count=232,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Vagabond", publisher="Kodansha",
-        series="Vagabond", slug="vagabond",
-        volume="Vagabond", volume_number=1, start_year=1998,
-        item_number="1", title="Vagabond, Vol. 1",
-        synopsis="The story of Miyamoto Musashi's journey to become Japan's greatest swordsman.",
-        release_date=date(1999, 3, 24), page_count=240,
-        editions=[
-            SeedEdition(title="Viz English", fmt="Tankōbon", publisher="Viz Media", language="en", release_date=date(2002, 4, 2),
-                        variants=[SeedVariant(name="Tankōbon", variant_type="physical", cover_price_cents=995, currency="USD")]),
-            SeedEdition(title="VizBig Edition", fmt="Omnibus", publisher="Viz Media", language="en", release_date=date(2008, 9, 16),
-                        variants=[SeedVariant(name="VizBig", variant_type="physical", cover_price_cents=1999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="One Piece", publisher="Shueisha",
-        series="One Piece", slug="one-piece",
-        volume="One Piece", volume_number=1, start_year=1997,
-        item_number="1", title="One Piece, Vol. 1",
-        synopsis="Monkey D. Luffy sets out to become King of the Pirates.",
-        release_date=date(1997, 12, 24), page_count=208,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Vinland Saga", publisher="Kodansha",
-        series="Vinland Saga", slug="vinland-saga",
-        volume="Vinland Saga", volume_number=1, start_year=2005,
-        item_number="1", title="Vinland Saga, Vol. 1",
-        synopsis="Young Thorfinn vows revenge against the Viking leader who killed his father.",
-        release_date=date(2005, 7, 15), page_count=460,
-        editions=[
-            SeedEdition(title="Kodansha English", fmt="Hardcover", publisher="Kodansha Comics", language="en", release_date=date(2013, 10, 15),
-                        isbn="9781612624204",
-                        variants=[SeedVariant(name="Hardcover", variant_type="physical", cover_price_cents=1999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Monster", publisher="Shogakukan",
-        series="Monster", slug="monster-manga",
-        volume="Monster", volume_number=1, start_year=1994,
-        item_number="1", title="Monster, Vol. 1",
-        synopsis="A Japanese surgeon living in Germany discovers the boy whose life he saved has grown up to become a serial killer.",
-        release_date=date(1995, 6, 18), page_count=232,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Pluto", publisher="Shogakukan",
-        series="Pluto", slug="pluto",
-        volume="Pluto", volume_number=1, start_year=2003,
-        item_number="1", title="Pluto, Vol. 1",
-        synopsis="A retelling of Astro Boy's 'Greatest Robot on Earth' arc as a murder mystery.",
-        release_date=date(2004, 9, 30), page_count=200,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Chainsaw Man", publisher="Shueisha",
-        series="Chainsaw Man", slug="chainsaw-man",
-        volume="Chainsaw Man", volume_number=1, start_year=2018,
-        item_number="1", title="Chainsaw Man, Vol. 1",
-        synopsis="Denji, a poor young man, merges with his chainsaw devil pet to become Chainsaw Man.",
-        release_date=date(2019, 3, 4), page_count=192,
-        editions=[
-            SeedEdition(title="Viz English", fmt="Tankōbon", publisher="Viz Media", language="en", release_date=date(2020, 10, 6),
-                        isbn="9781974709939",
-                        variants=[SeedVariant(name="Tankōbon", variant_type="physical", cover_price_cents=999, currency="USD")]),
-        ],
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="20th Century Boys", publisher="Shogakukan",
-        series="20th Century Boys", slug="20th-century-boys",
-        volume="20th Century Boys", volume_number=1, start_year=1999,
-        item_number="1", title="20th Century Boys, Vol. 1",
-        synopsis="A group of childhood friends discover their old fantasy stories are being used as a blueprint for world destruction.",
-        release_date=date(2000, 1, 1), page_count=216,
-    ),
-    SeedEntry(
-        kind=ItemKind.manga, franchise="Slam Dunk", publisher="Shueisha",
-        series="Slam Dunk", slug="slam-dunk",
-        volume="Slam Dunk", volume_number=1, start_year=1990,
-        item_number="1", title="Slam Dunk, Vol. 1",
-        synopsis="A delinquent named Hanamichi Sakuragi joins his school's basketball team to impress a girl.",
-        release_date=date(1991, 2, 8), page_count=192,
-    ),
-]
+# MANGA seed data removed (merged into comics)
 
 # ===================================================================
 #  MUSIC (10)
@@ -697,14 +717,23 @@ SEED_MUSIC = [
         item_number="3", title="OK Computer",
         synopsis="Radiohead's seminal third album exploring themes of modern alienation.",
         release_date=date(1997, 5, 21),
+        series_status="ongoing", series_country="GB",
         metadata_json={"track_count": 12},
+        creators=[SeedCreator("Thom Yorke", "vocalist"), SeedCreator("Jonny Greenwood", "guitarist"),
+                  SeedCreator("Nigel Godrich", "producer")],
+        tags=["alternative rock", "art rock", "electronic"],
         editions=[
             SeedEdition(title="CD", fmt="CD", publisher="Parlophone", release_date=date(1997, 6, 16),
-                        variants=[SeedVariant(name="CD", variant_type="physical", cover_price_cents=1399, currency="USD")]),
+                        region="US", catalog_number="CDNODATA 02", release_status="released",
+                        variants=[SeedVariant(name="CD", variant_type="physical", cover_price_cents=1399, currency="USD",
+                                             barcode="724385522925")]),
             SeedEdition(title="Vinyl LP", fmt="Vinyl", publisher="Parlophone", release_date=date(1997, 6, 16),
+                        region="US",
                         variants=[SeedVariant(name="LP", variant_type="physical", cover_price_cents=2499, currency="USD")]),
             SeedEdition(title="OKNOTOK Deluxe", fmt="Vinyl Box Set", publisher="XL Recordings", release_date=date(2017, 6, 23),
-                        variants=[SeedVariant(name="Deluxe Box", variant_type="physical", cover_price_cents=12999, currency="USD")]),
+                        subtitle="OKNOTOK 1997-2017", catalog_number="XLLP868BOX",
+                        variants=[SeedVariant(name="Deluxe Box", variant_type="physical", cover_price_cents=12999, currency="USD",
+                                             description="3xLP + cassette + art book + sketchbook")]),
         ],
     ),
     SeedEntry(
@@ -715,6 +744,8 @@ SEED_MUSIC = [
         synopsis="Radiohead's radical departure into electronic and experimental territory.",
         release_date=date(2000, 10, 2),
         metadata_json={"track_count": 10},
+        creators=[SeedCreator("Thom Yorke", "vocalist"), SeedCreator("Nigel Godrich", "producer")],
+        tags=["electronic", "experimental", "art rock"],
         editions=[
             SeedEdition(title="CD", fmt="CD", publisher="Parlophone", release_date=date(2000, 10, 2),
                         variants=[SeedVariant(name="CD", variant_type="physical")]),
@@ -729,11 +760,19 @@ SEED_MUSIC = [
         item_number="8", title="The Dark Side of the Moon",
         synopsis="A concept album exploring conflict, greed, time, death, and mental illness.",
         release_date=date(1973, 3, 1),
+        series_status="completed", series_country="GB",
         metadata_json={"track_count": 10},
+        creators=[SeedCreator("Roger Waters", "bassist"), SeedCreator("David Gilmour", "guitarist"),
+                  SeedCreator("Alan Parsons", "engineer")],
+        story_arcs=["The Human Condition"],
+        tags=["progressive rock", "art rock", "concept album"],
         editions=[
             SeedEdition(title="Vinyl LP", fmt="Vinyl", publisher="Harvest", release_date=date(1973, 3, 1),
-                        variants=[SeedVariant(name="Original LP", variant_type="physical")]),
+                        region="GB", catalog_number="SHVL 804",
+                        variants=[SeedVariant(name="Original LP", variant_type="physical",
+                                             description="Original UK pressing with posters and stickers")]),
             SeedEdition(title="SACD", fmt="SACD", publisher="EMI", release_date=date(2003, 3, 24),
+                        subtitle="30th Anniversary Edition",
                         variants=[SeedVariant(name="SACD", variant_type="physical", cover_price_cents=2499, currency="USD")]),
         ],
     ),
@@ -744,9 +783,15 @@ SEED_MUSIC = [
         item_number="2", title="good kid, m.A.A.d city",
         synopsis="A concept album following Kendrick's experiences growing up in Compton.",
         release_date=date(2012, 10, 22),
+        series_status="ongoing", series_country="US",
         metadata_json={"track_count": 12},
+        creators=[SeedCreator("Kendrick Lamar", "artist"), SeedCreator("Dr. Dre", "producer"),
+                  SeedCreator("Pharrell Williams", "producer")],
+        story_arcs=["Compton Chronicles"],
+        tags=["hip hop", "concept album", "west coast"],
         editions=[
             SeedEdition(title="Deluxe CD", fmt="CD", publisher="Interscope", release_date=date(2012, 10, 22),
+                        imprint="Top Dawg Entertainment", catalog_number="B001792502",
                         variants=[SeedVariant(name="Deluxe CD", variant_type="physical", cover_price_cents=1399, currency="USD")]),
         ],
     ),
@@ -758,6 +803,9 @@ SEED_MUSIC = [
         synopsis="An exploration of African-American culture, politics, and Kendrick's own struggles with fame.",
         release_date=date(2015, 3, 15),
         metadata_json={"track_count": 16},
+        creators=[SeedCreator("Kendrick Lamar", "artist"), SeedCreator("Flying Lotus", "producer"),
+                  SeedCreator("Thundercat", "bassist")],
+        tags=["hip hop", "funk", "jazz rap", "spoken word"],
     ),
     SeedEntry(
         kind=ItemKind.music, franchise="Daft Punk", publisher="Virgin",
@@ -766,9 +814,13 @@ SEED_MUSIC = [
         item_number="3", title="Discovery",
         synopsis="A landmark electronic album blending house music with pop, funk, and disco influences.",
         release_date=date(2001, 3, 12),
+        series_status="completed", series_country="FR", series_language="fr",
         metadata_json={"track_count": 14},
+        creators=[SeedCreator("Thomas Bangalter", "artist"), SeedCreator("Guy-Manuel de Homem-Christo", "artist")],
+        tags=["electronic", "house", "french touch", "disco"],
         editions=[
             SeedEdition(title="Vinyl LP", fmt="Vinyl", publisher="Virgin", release_date=date(2001, 3, 12),
+                        region="FR",
                         variants=[SeedVariant(name="2xLP", variant_type="physical", cover_price_cents=2999, currency="USD")]),
         ],
     ),
@@ -779,11 +831,18 @@ SEED_MUSIC = [
         item_number="5", title="Kind of Blue",
         synopsis="The best-selling jazz album of all time, a masterclass in modal jazz.",
         release_date=date(1959, 8, 17),
+        series_status="completed", series_country="US",
         metadata_json={"track_count": 5},
+        creators=[SeedCreator("Miles Davis", "artist"), SeedCreator("John Coltrane", "saxophonist"),
+                  SeedCreator("Bill Evans", "pianist")],
+        tags=["jazz", "modal jazz", "cool jazz"],
         editions=[
             SeedEdition(title="Original LP", fmt="Vinyl", publisher="Columbia", release_date=date(1959, 8, 17),
-                        variants=[SeedVariant(name="Mono LP", variant_type="physical")]),
+                        catalog_number="CL 1355",
+                        variants=[SeedVariant(name="Mono LP", variant_type="physical",
+                                             description="Original Columbia mono pressing")]),
             SeedEdition(title="Legacy Edition CD", fmt="CD", publisher="Columbia/Legacy", release_date=date(2009, 9, 29),
+                        subtitle="50th Anniversary Legacy Edition", catalog_number="88697-53891-2",
                         variants=[SeedVariant(name="2xCD", variant_type="physical", cover_price_cents=1999, currency="USD")]),
         ],
     ),
@@ -794,7 +853,11 @@ SEED_MUSIC = [
         item_number="3", title="Homogenic",
         synopsis="A dense, emotional album blending electronic beats with orchestral strings.",
         release_date=date(1997, 9, 22),
+        series_status="ongoing", series_country="IS", series_language="is",
         metadata_json={"track_count": 10},
+        creators=[SeedCreator("Björk", "artist"), SeedCreator("Mark Bell", "producer"),
+                  SeedCreator("Eumir Deodato", "orchestrator")],
+        tags=["electronic", "experimental", "trip hop", "orchestral"],
     ),
     SeedEntry(
         kind=ItemKind.music, franchise="Massive Attack", publisher="Wild Bunch / Virgin",
@@ -803,12 +866,19 @@ SEED_MUSIC = [
         item_number="3", title="Mezzanine",
         synopsis="A dark, brooding trip-hop masterpiece featuring Teardrop and Angel.",
         release_date=date(1998, 4, 20),
+        series_status="ongoing", series_country="GB",
         metadata_json={"track_count": 11},
+        creators=[SeedCreator("Robert Del Naja", "artist"), SeedCreator("Grant Marshall", "artist"),
+                  SeedCreator("Neil Davidge", "producer")],
+        tags=["trip hop", "electronic", "dark ambient"],
         editions=[
             SeedEdition(title="Vinyl LP", fmt="Vinyl", publisher="Virgin", release_date=date(1998, 4, 20),
+                        region="GB",
                         variants=[SeedVariant(name="2xLP", variant_type="physical")]),
             SeedEdition(title="Deluxe Remaster CD", fmt="CD", publisher="Virgin", release_date=date(2019, 2, 1),
-                        variants=[SeedVariant(name="2xCD Deluxe", variant_type="physical", cover_price_cents=1699, currency="USD")]),
+                        subtitle="20th Anniversary Deluxe Remaster", catalog_number="V2940DX",
+                        variants=[SeedVariant(name="2xCD Deluxe", variant_type="physical", cover_price_cents=1699, currency="USD",
+                                             description="Remastered with bonus disc of Mad Professor dub versions")]),
         ],
     ),
     SeedEntry(
@@ -818,7 +888,11 @@ SEED_MUSIC = [
         item_number="1", title="Dummy",
         synopsis="The definitive trip-hop debut, fusing hip-hop beats with cinematic string arrangements.",
         release_date=date(1994, 8, 22),
+        series_status="ongoing", series_country="GB",
         metadata_json={"track_count": 11},
+        creators=[SeedCreator("Beth Gibbons", "vocalist"), SeedCreator("Geoff Barrow", "producer"),
+                  SeedCreator("Adrian Utley", "guitarist")],
+        tags=["trip hop", "downtempo", "cinematic"],
     ),
 ]
 
@@ -833,12 +907,23 @@ SEED_GAMES = [
         item_number="3", title="The Witcher 3: Wild Hunt",
         synopsis="Geralt of Rivia sets out to find his adopted daughter in a war-torn fantasy world.",
         release_date=date(2015, 5, 19), metadata_json={"platforms": ["PC", "PS4", "Xbox One", "Switch"]},
+        series_status="completed",
+        creators=[SeedCreator("CD Projekt Red", "developer"), SeedCreator("Marcin Przybyłowicz", "composer"),
+                  SeedCreator("Konrad Tomaszkiewicz", "director")],
+        characters=[SeedCharacter("Geralt of Rivia", "main"), SeedCharacter("Ciri", "main"),
+                    SeedCharacter("Yennefer", "supporting"), SeedCharacter("The Wild Hunt", "antagonist")],
+        story_arcs=["Wild Hunt Pursuit"],
+        tags=["RPG", "open world", "fantasy", "action"],
         editions=[
             SeedEdition(title="Standard PC", fmt="PC", publisher="CD Projekt Red", release_date=date(2015, 5, 19),
-                        variants=[SeedVariant(name="PC", variant_type="physical", platform="PC")]),
+                        age_rating="M", release_status="released",
+                        variants=[SeedVariant(name="PC", variant_type="physical", platform="PC",
+                                             sku="WITCHER3-PC-STD")]),
             SeedEdition(title="Complete Edition Switch", fmt="Switch", publisher="CD Projekt Red", release_date=date(2019, 10, 15),
+                        subtitle="Complete Edition",
                         variants=[SeedVariant(name="Switch", variant_type="physical", platform="Switch", cover_price_cents=5999, currency="USD")]),
             SeedEdition(title="GOTY PS4", fmt="PS4", publisher="CD Projekt Red", release_date=date(2016, 8, 30),
+                        subtitle="Game of the Year Edition", age_rating="M",
                         variants=[SeedVariant(name="GOTY PS4", variant_type="physical", platform="PS4", cover_price_cents=4999, currency="USD")]),
         ],
     ),
@@ -849,8 +934,16 @@ SEED_GAMES = [
         item_number="1", title="Dark Souls",
         synopsis="An action RPG set in a dark fantasy world, known for its difficulty and deep lore.",
         release_date=date(2011, 9, 22), metadata_json={"platforms": ["PC", "PS3", "Xbox 360"]},
+        series_status="completed", series_country="JP", series_language="ja",
+        creators=[SeedCreator("Hidetaka Miyazaki", "director"), SeedCreator("FromSoftware", "developer"),
+                  SeedCreator("Motoi Sakuraba", "composer")],
+        characters=[SeedCharacter("Chosen Undead", "main"), SeedCharacter("Solaire", "supporting"),
+                    SeedCharacter("Gwyn", "antagonist")],
+        story_arcs=["Age of Fire"],
+        tags=["RPG", "action", "souls-like", "dark fantasy"],
         editions=[
             SeedEdition(title="Remastered PS4", fmt="PS4", publisher="Bandai Namco", release_date=date(2018, 5, 25),
+                        subtitle="Remastered", age_rating="T",
                         variants=[SeedVariant(name="PS4", variant_type="physical", platform="PS4", cover_price_cents=3999, currency="USD")]),
         ],
     ),
@@ -861,6 +954,11 @@ SEED_GAMES = [
         item_number="3", title="Dark Souls III",
         synopsis="The final entry in the Dark Souls trilogy, featuring faster combat and interconnected worlds.",
         release_date=date(2016, 3, 24), metadata_json={"platforms": ["PC", "PS4", "Xbox One"]},
+        creators=[SeedCreator("Hidetaka Miyazaki", "director"), SeedCreator("Yui Tanimura", "co-director")],
+        characters=[SeedCharacter("Ashen One", "main"), SeedCharacter("Fire Keeper", "supporting"),
+                    SeedCharacter("Soul of Cinder", "antagonist")],
+        story_arcs=["Age of Fire"],
+        tags=["RPG", "action", "souls-like"],
     ),
     SeedEntry(
         kind=ItemKind.game, franchise="Elden Ring", publisher="FromSoftware",
@@ -869,11 +967,20 @@ SEED_GAMES = [
         item_number="1", title="Elden Ring",
         synopsis="An open-world action RPG set in the Lands Between, created with George R. R. Martin.",
         release_date=date(2022, 2, 25), metadata_json={"platforms": ["PC", "PS5", "PS4", "Xbox Series", "Xbox One"]},
+        series_status="ongoing",
+        creators=[SeedCreator("Hidetaka Miyazaki", "director"), SeedCreator("George R.R. Martin", "world builder"),
+                  SeedCreator("FromSoftware", "developer")],
+        characters=[SeedCharacter("Tarnished", "main"), SeedCharacter("Melina", "supporting"),
+                    SeedCharacter("Radahn", "antagonist"), SeedCharacter("Ranni", "supporting")],
+        tags=["RPG", "open world", "souls-like", "dark fantasy"],
         editions=[
             SeedEdition(title="Standard PS5", fmt="PS5", publisher="Bandai Namco", release_date=date(2022, 2, 25),
+                        age_rating="M", release_status="released",
                         variants=[SeedVariant(name="PS5", variant_type="physical", platform="PS5", cover_price_cents=5999, currency="USD")]),
             SeedEdition(title="Collector's Edition", fmt="PS5", publisher="Bandai Namco", release_date=date(2022, 2, 25),
-                        variants=[SeedVariant(name="Collector PS5", variant_type="physical", platform="PS5", cover_price_cents=18999, currency="USD")]),
+                        subtitle="Collector's Edition", age_rating="M",
+                        variants=[SeedVariant(name="Collector PS5", variant_type="physical", platform="PS5", cover_price_cents=18999, currency="USD",
+                                             description="Includes statue, art book, steelbook, and digital soundtrack")]),
         ],
     ),
     SeedEntry(
@@ -883,6 +990,11 @@ SEED_GAMES = [
         item_number="1", title="Hollow Knight",
         synopsis="A 2D metroidvania through a vast underground kingdom of insects and heroes.",
         release_date=date(2017, 2, 24), metadata_json={"platforms": ["PC", "PS4", "Xbox One", "Switch"]},
+        series_status="ongoing", series_country="AU",
+        creators=[SeedCreator("Team Cherry", "developer"), SeedCreator("Christopher Larkin", "composer")],
+        characters=[SeedCharacter("The Knight", "main"), SeedCharacter("Hornet", "supporting"),
+                    SeedCharacter("The Hollow Knight", "antagonist"), SeedCharacter("The Radiance", "antagonist")],
+        tags=["metroidvania", "indie", "platformer", "atmospheric"],
     ),
     SeedEntry(
         kind=ItemKind.game, franchise="Disco Elysium", publisher="ZA/UM",
@@ -891,8 +1003,15 @@ SEED_GAMES = [
         item_number="1", title="Disco Elysium",
         synopsis="An amnesiac detective solves a murder in a city torn by political conflict.",
         release_date=date(2019, 10, 15), metadata_json={"platforms": ["PC", "PS5", "PS4", "Xbox Series", "Switch"]},
+        series_status="completed", series_country="EE",
+        creators=[SeedCreator("Robert Kurvitz", "designer"), SeedCreator("ZA/UM", "developer"),
+                  SeedCreator("British Sea Power", "composer")],
+        characters=[SeedCharacter("Harry Du Bois", "main"), SeedCharacter("Kim Kitsuragi", "supporting"),
+                    SeedCharacter("The Deserter", "antagonist")],
+        tags=["RPG", "detective", "narrative", "isometric"],
         editions=[
             SeedEdition(title="The Final Cut PC", fmt="PC", publisher="ZA/UM", release_date=date(2021, 3, 30),
+                        subtitle="The Final Cut", release_status="released",
                         variants=[SeedVariant(name="PC", variant_type="digital", platform="PC")]),
         ],
     ),
@@ -903,6 +1022,12 @@ SEED_GAMES = [
         item_number="1", title="Hades",
         synopsis="Zagreus, prince of the Underworld, tries to escape his father's domain in this roguelike.",
         release_date=date(2020, 9, 17), metadata_json={"platforms": ["PC", "PS5", "PS4", "Xbox Series", "Switch"]},
+        series_status="ongoing",
+        creators=[SeedCreator("Supergiant Games", "developer"), SeedCreator("Darren Korb", "composer"),
+                  SeedCreator("Greg Kasavin", "writer")],
+        characters=[SeedCharacter("Zagreus", "main"), SeedCharacter("Hades", "antagonist"),
+                    SeedCharacter("Megaera", "supporting"), SeedCharacter("Thanatos", "supporting")],
+        tags=["roguelike", "action", "mythology", "indie"],
     ),
     SeedEntry(
         kind=ItemKind.game, franchise="Outer Wilds", publisher="Mobius Digital",
@@ -911,6 +1036,10 @@ SEED_GAMES = [
         item_number="1", title="Outer Wilds",
         synopsis="An astronaut explores a solar system stuck in a time loop, uncovering the secrets of an ancient civilization.",
         release_date=date(2019, 5, 28), metadata_json={"platforms": ["PC", "PS4", "Xbox One"]},
+        series_status="completed",
+        creators=[SeedCreator("Mobius Digital", "developer"), SeedCreator("Andrew Prahlow", "composer")],
+        characters=[SeedCharacter("Hearthian", "main"), SeedCharacter("Solanum", "supporting")],
+        tags=["exploration", "puzzle", "time loop", "space"],
     ),
     SeedEntry(
         kind=ItemKind.game, franchise="Baldur's Gate", publisher="Larian Studios",
@@ -919,11 +1048,21 @@ SEED_GAMES = [
         item_number="3", title="Baldur's Gate 3",
         synopsis="A party-based RPG set in the Forgotten Realms, featuring a story of parasitic mind flayers.",
         release_date=date(2023, 8, 3), metadata_json={"platforms": ["PC", "PS5", "Xbox Series"]},
+        series_status="ongoing",
+        creators=[SeedCreator("Larian Studios", "developer"), SeedCreator("Swen Vincke", "director"),
+                  SeedCreator("Borislav Slavov", "composer")],
+        characters=[SeedCharacter("Tav", "main"), SeedCharacter("Shadowheart", "supporting"),
+                    SeedCharacter("Astarion", "supporting"), SeedCharacter("The Absolute", "antagonist")],
+        story_arcs=["Illithid Invasion"],
+        tags=["RPG", "turn-based", "D&D", "party-based"],
         editions=[
             SeedEdition(title="Standard PC", fmt="PC", publisher="Larian Studios", release_date=date(2023, 8, 3),
+                        release_status="released",
                         variants=[SeedVariant(name="PC", variant_type="digital", platform="PC")]),
             SeedEdition(title="Deluxe PS5", fmt="PS5", publisher="Larian Studios", release_date=date(2023, 9, 6),
-                        variants=[SeedVariant(name="Deluxe PS5", variant_type="physical", platform="PS5", cover_price_cents=7999, currency="USD")]),
+                        subtitle="Deluxe Edition", age_rating="M",
+                        variants=[SeedVariant(name="Deluxe PS5", variant_type="physical", platform="PS5", cover_price_cents=7999, currency="USD",
+                                             description="Includes map poster and sticker sheet")]),
         ],
     ),
     SeedEntry(
@@ -933,6 +1072,12 @@ SEED_GAMES = [
         item_number="1", title="Celeste",
         synopsis="A young woman named Madeline climbs Celeste Mountain while battling her inner demons.",
         release_date=date(2018, 1, 25), metadata_json={"platforms": ["PC", "PS4", "Xbox One", "Switch"]},
+        series_status="completed",
+        creators=[SeedCreator("Maddy Thorson", "designer"), SeedCreator("Lena Raine", "composer"),
+                  SeedCreator("Noel Berry", "programmer")],
+        characters=[SeedCharacter("Madeline", "main"), SeedCharacter("Badeline", "antagonist"),
+                    SeedCharacter("Theo", "supporting")],
+        tags=["platformer", "indie", "precision", "narrative"],
     ),
 ]
 
@@ -947,9 +1092,16 @@ SEED_BOARDGAMES = [
         item_number="1", title="Gloomhaven",
         synopsis="A cooperative dungeon-crawling board game with a branching narrative and tactical combat.",
         release_date=date(2017, 4, 1),
+        series_status="ongoing",
+        creators=[SeedCreator("Isaac Childres", "designer")],
+        characters=[SeedCharacter("Brute", "main"), SeedCharacter("Spellweaver", "main"),
+                    SeedCharacter("Scoundrel", "supporting")],
+        tags=["cooperative", "dungeon crawl", "campaign", "tactical"],
         editions=[
             SeedEdition(title="2nd Printing", fmt="Board Game", publisher="Cephalofair Games", release_date=date(2017, 10, 1),
-                        variants=[SeedVariant(name="Standard", variant_type="physical", cover_price_cents=14000, currency="USD")]),
+                        age_rating="14+", release_status="released",
+                        variants=[SeedVariant(name="Standard", variant_type="physical", cover_price_cents=14000, currency="USD",
+                                             description="20+ lb box with 95 scenarios")]),
         ],
     ),
     SeedEntry(
@@ -959,6 +1111,10 @@ SEED_BOARDGAMES = [
         item_number="2", title="Gloomhaven: Jaws of the Lion",
         synopsis="A standalone prequel to Gloomhaven with simplified rules and a built-in tutorial.",
         release_date=date(2020, 6, 18),
+        creators=[SeedCreator("Isaac Childres", "designer")],
+        characters=[SeedCharacter("Valrath Red Guard", "main"), SeedCharacter("Inox Hatchet", "main"),
+                    SeedCharacter("Human Voidwarden", "supporting")],
+        tags=["cooperative", "dungeon crawl", "introductory"],
     ),
     SeedEntry(
         kind=ItemKind.boardgame, franchise="Wingspan", publisher="Stonemaier Games",
@@ -967,11 +1123,18 @@ SEED_BOARDGAMES = [
         item_number="1", title="Wingspan",
         synopsis="A competitive bird-collection engine-building board game for nature enthusiasts.",
         release_date=date(2019, 3, 8),
+        series_status="ongoing",
+        creators=[SeedCreator("Elizabeth Hargrave", "designer"), SeedCreator("Natalia Rojas", "artist"),
+                  SeedCreator("Ana Maria Martinez Jaramillo", "artist")],
+        tags=["engine building", "card game", "nature", "educational"],
         editions=[
             SeedEdition(title="Core Game", fmt="Board Game", publisher="Stonemaier Games", release_date=date(2019, 3, 8),
+                        age_rating="10+", release_status="released",
                         variants=[SeedVariant(name="Standard", variant_type="physical", cover_price_cents=6500, currency="USD")]),
             SeedEdition(title="Nesting Box", fmt="Board Game Collector", publisher="Stonemaier Games", release_date=date(2020, 1, 1),
-                        variants=[SeedVariant(name="Collector Box", variant_type="physical", cover_price_cents=8500, currency="USD")]),
+                        subtitle="Nesting Box Collector's Edition",
+                        variants=[SeedVariant(name="Collector Box", variant_type="physical", cover_price_cents=8500, currency="USD",
+                                             description="Premium storage solution with all expansions space")]),
         ],
     ),
     SeedEntry(
@@ -981,6 +1144,11 @@ SEED_BOARDGAMES = [
         item_number="1", title="Pandemic",
         synopsis="A cooperative game where players work together to stop global outbreaks and find cures.",
         release_date=date(2008, 1, 1),
+        series_status="ongoing",
+        creators=[SeedCreator("Matt Leacock", "designer")],
+        characters=[SeedCharacter("Medic", "main"), SeedCharacter("Scientist", "main"),
+                    SeedCharacter("Researcher", "supporting")],
+        tags=["cooperative", "strategy", "disease", "global"],
     ),
     SeedEntry(
         kind=ItemKind.boardgame, franchise="Pandemic", publisher="Z-Man Games",
@@ -989,6 +1157,9 @@ SEED_BOARDGAMES = [
         item_number="2", title="Pandemic Legacy: Season 1",
         synopsis="A legacy-style Pandemic where each game permanently alters the board and rules.",
         release_date=date(2015, 10, 8),
+        creators=[SeedCreator("Matt Leacock", "designer"), SeedCreator("Rob Daviau", "designer")],
+        story_arcs=["Legacy Campaign"],
+        tags=["cooperative", "legacy", "campaign", "narrative"],
     ),
     SeedEntry(
         kind=ItemKind.boardgame, franchise="Terraforming Mars", publisher="FryxGames",
@@ -997,8 +1168,12 @@ SEED_BOARDGAMES = [
         item_number="1", title="Terraforming Mars",
         synopsis="Corporations compete to terraform Mars by raising temperature, oxygen, and ocean coverage.",
         release_date=date(2016, 10, 1),
+        series_status="ongoing", series_country="SE",
+        creators=[SeedCreator("Jacob Fryxelius", "designer")],
+        tags=["engine building", "science", "Mars", "corporate"],
         editions=[
             SeedEdition(title="Standard", fmt="Board Game", publisher="Stronghold Games", release_date=date(2016, 10, 1),
+                        age_rating="12+",
                         variants=[SeedVariant(name="Standard", variant_type="physical", cover_price_cents=6999, currency="USD")]),
         ],
     ),
@@ -1009,6 +1184,11 @@ SEED_BOARDGAMES = [
         item_number="1", title="Spirit Island",
         synopsis="Spirits of the land work together to drive off colonizing invaders in this cooperative strategy game.",
         release_date=date(2017, 9, 22),
+        series_status="ongoing",
+        creators=[SeedCreator("R. Eric Reuss", "designer")],
+        characters=[SeedCharacter("Lightning's Swift Strike", "main"), SeedCharacter("River Surges in Sunlight", "main"),
+                    SeedCharacter("Vital Strength of the Earth", "supporting")],
+        tags=["cooperative", "strategy", "anti-colonial", "asymmetric"],
     ),
     SeedEntry(
         kind=ItemKind.boardgame, franchise="Root", publisher="Leder Games",
@@ -1017,10 +1197,17 @@ SEED_BOARDGAMES = [
         item_number="1", title="Root",
         synopsis="An asymmetric war game where woodland factions battle for control of a vast forest.",
         release_date=date(2018, 8, 1),
+        series_status="ongoing",
+        creators=[SeedCreator("Cole Wehrle", "designer"), SeedCreator("Kyle Ferrin", "artist")],
+        characters=[SeedCharacter("Marquise de Cat", "main"), SeedCharacter("Eyrie Dynasties", "main"),
+                    SeedCharacter("Woodland Alliance", "main"), SeedCharacter("Vagabond", "main")],
+        tags=["asymmetric", "war game", "area control", "woodland"],
         editions=[
             SeedEdition(title="Standard", fmt="Board Game", publisher="Leder Games", release_date=date(2018, 8, 1),
+                        age_rating="10+", release_status="released",
                         variants=[SeedVariant(name="Standard", variant_type="physical", cover_price_cents=6000, currency="USD")]),
             SeedEdition(title="Marauder Expansion", fmt="Expansion", publisher="Leder Games", release_date=date(2022, 7, 1),
+                        subtitle="The Marauder Expansion",
                         variants=[SeedVariant(name="Marauder", variant_type="physical", cover_price_cents=4000, currency="USD")]),
         ],
     ),
@@ -1031,6 +1218,10 @@ SEED_BOARDGAMES = [
         item_number="1", title="Brass: Birmingham",
         synopsis="Build industries and networks in Birmingham during the industrial revolution.",
         release_date=date(2018, 12, 1),
+        series_status="completed", series_country="CA",
+        creators=[SeedCreator("Gavan Brown", "designer"), SeedCreator("Matt Tolman", "designer"),
+                  SeedCreator("Martin Wallace", "original designer")],
+        tags=["economic", "network building", "industrial", "strategy"],
     ),
     SeedEntry(
         kind=ItemKind.boardgame, franchise="Scythe", publisher="Stonemaier Games",
@@ -1039,11 +1230,18 @@ SEED_BOARDGAMES = [
         item_number="1", title="Scythe",
         synopsis="An alternate-history 1920s strategy game featuring mechs and farming in Eastern Europe.",
         release_date=date(2016, 8, 18),
+        series_status="ongoing",
+        creators=[SeedCreator("Jamey Stegmaier", "designer"), SeedCreator("Jakub Różalski", "artist")],
+        characters=[SeedCharacter("Anna & Wojtek", "main"), SeedCharacter("Gunter & Nacht", "main")],
+        tags=["strategy", "area control", "alternate history", "mechs"],
         editions=[
             SeedEdition(title="Standard", fmt="Board Game", publisher="Stonemaier Games", release_date=date(2016, 8, 18),
+                        age_rating="14+", release_status="released",
                         variants=[SeedVariant(name="Standard", variant_type="physical", cover_price_cents=8000, currency="USD")]),
             SeedEdition(title="Collector's Edition", fmt="Board Game Collector", publisher="Stonemaier Games", release_date=date(2016, 8, 18),
-                        variants=[SeedVariant(name="Collector", variant_type="physical", cover_price_cents=16500, currency="USD")]),
+                        subtitle="Collector's Edition",
+                        variants=[SeedVariant(name="Collector", variant_type="physical", cover_price_cents=16500, currency="USD",
+                                             description="Includes metal coins, realistic resources, and extended board")]),
         ],
     ),
 ]
@@ -1052,8 +1250,8 @@ SEED_BOARDGAMES = [
 #  Collect all entries
 # ===================================================================
 ALL_SEED_ENTRIES: list[SeedEntry] = (
-    SEED_MOVIES + SEED_TV + SEED_ANIME + SEED_BOOKS
-    + SEED_MANGA + SEED_MUSIC + SEED_GAMES + SEED_BOARDGAMES
+    SEED_MOVIES + SEED_TV + SEED_BOOKS
+    + SEED_MUSIC + SEED_GAMES + SEED_BOARDGAMES
     + []  # comics are in seed_comics.py already
 )
 
@@ -1083,6 +1281,11 @@ async def _get_or_create_series(db, entry: SeedEntry, franchise: Franchise) -> S
         title=entry.series,
         slug=entry.slug,
         description=f"Seed data for {entry.series}.",
+        original_title=entry.series_original_title,
+        start_date=date(entry.start_year, 1, 1),
+        status=entry.series_status,
+        language=entry.series_language,
+        country=entry.series_country,
     )
     db.add(series)
     await db.flush()
@@ -1099,6 +1302,8 @@ async def _get_or_create_volume(db, entry: SeedEntry, series: Series) -> Volume:
         name=entry.volume,
         volume_number=entry.volume_number,
         start_year=entry.start_year,
+        start_date=date(entry.start_year, 1, 1),
+        description=f"Volume {entry.volume_number} of {entry.series}.",
     )
     db.add(volume)
     await db.flush()
@@ -1116,6 +1321,7 @@ async def _get_or_create_item(db, entry: SeedEntry, volume: Volume) -> Item:
     item = result.scalar_one_or_none()
     if item is not None:
         item.title = entry.title
+        item.title_extension = entry.title_extension
         item.sort_key = entry.sort_key
         item.synopsis = entry.synopsis
         item.runtime_minutes = entry.runtime_minutes
@@ -1129,6 +1335,7 @@ async def _get_or_create_item(db, entry: SeedEntry, volume: Volume) -> Item:
         volume=volume,
         kind=entry.kind,
         title=entry.title,
+        title_extension=entry.title_extension,
         item_number=entry.item_number,
         sort_key=entry.sort_key,
         synopsis=entry.synopsis,
@@ -1171,6 +1378,12 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
                 release_date=ed_def.release_date or entry.release_date,
                 isbn=ed_def.isbn,
                 upc=ed_def.upc,
+                imprint=ed_def.imprint,
+                subtitle=ed_def.subtitle,
+                series_group=ed_def.series_group,
+                age_rating=ed_def.age_rating,
+                catalog_number=ed_def.catalog_number,
+                release_status=ed_def.release_status,
             )
             db.add(edition)
             await db.flush()
@@ -1180,6 +1393,12 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
             edition.language = ed_def.language
             edition.region = ed_def.region
             edition.release_date = ed_def.release_date or entry.release_date
+            edition.imprint = ed_def.imprint
+            edition.subtitle = ed_def.subtitle
+            edition.series_group = ed_def.series_group
+            edition.age_rating = ed_def.age_rating
+            edition.catalog_number = ed_def.catalog_number
+            edition.release_status = ed_def.release_status
 
         for var_def in ed_def.variants:
             result = await db.execute(
@@ -1195,10 +1414,14 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
                     name=var_def.name,
                     variant_type=var_def.variant_type,
                     barcode=var_def.barcode,
+                    isbn=var_def.isbn,
+                    sku=var_def.sku,
+                    region=var_def.region,
                     is_primary=var_def.is_primary,
                     cover_price_cents=var_def.cover_price_cents,
                     currency=var_def.currency,
                     platform=var_def.platform,
+                    description=var_def.description,
                     cover_image_url=cover_url,
                     thumbnail_image_url=thumbnail_url,
                     metadata_json=var_def.metadata_json,
@@ -1207,10 +1430,14 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
             else:
                 variant.variant_type = var_def.variant_type
                 variant.barcode = var_def.barcode
+                variant.isbn = var_def.isbn
+                variant.sku = var_def.sku
+                variant.region = var_def.region
                 variant.is_primary = var_def.is_primary
                 variant.cover_price_cents = var_def.cover_price_cents
                 variant.currency = var_def.currency
                 variant.platform = var_def.platform
+                variant.description = var_def.description
                 variant.cover_image_url = cover_url
                 variant.thumbnail_image_url = thumbnail_url
                 variant.metadata_json = var_def.metadata_json
@@ -1233,6 +1460,176 @@ async def _ensure_provider_id(db, entry: SeedEntry, item: Item) -> None:
 
 
 # ---------------------------------------------------------------------------
+#  Entity helpers – Person, Organization, Character, Tag, StoryArc
+# ---------------------------------------------------------------------------
+async def _get_or_create_person(db, name: str, _cache: dict[str, Person]) -> Person:
+    if name in _cache:
+        return _cache[name]
+    result = await db.execute(select(Person).where(Person.name == name))
+    person = result.scalar_one_or_none()
+    if person is None:
+        person = Person(name=name)
+        db.add(person)
+        await db.flush()
+    _cache[name] = person
+    return person
+
+
+async def _get_or_create_organization(
+    db, name: str, org_type: str | None, _cache: dict[str, Organization],
+) -> Organization:
+    if name in _cache:
+        return _cache[name]
+    result = await db.execute(select(Organization).where(Organization.name == name))
+    org = result.scalar_one_or_none()
+    if org is None:
+        org = Organization(name=name, type=org_type)
+        db.add(org)
+        await db.flush()
+    _cache[name] = org
+    return org
+
+
+async def _get_or_create_character(
+    db, name: str, _cache: dict[str, Character],
+) -> Character:
+    if name in _cache:
+        return _cache[name]
+    result = await db.execute(select(Character).where(Character.name == name))
+    char = result.scalar_one_or_none()
+    if char is None:
+        char = Character(name=name, canonical_name=name)
+        db.add(char)
+        await db.flush()
+    _cache[name] = char
+    return char
+
+
+async def _get_or_create_tag(
+    db, kind: str, name: str, _cache: dict[str, Tag],
+) -> Tag:
+    cache_key = f"{kind}:{name}"
+    if cache_key in _cache:
+        return _cache[cache_key]
+    result = await db.execute(select(Tag).where(Tag.kind == kind, Tag.name == name))
+    tag = result.scalar_one_or_none()
+    if tag is None:
+        tag = Tag(kind=kind, name=name)
+        db.add(tag)
+        await db.flush()
+    _cache[cache_key] = tag
+    return tag
+
+
+async def _get_or_create_story_arc(
+    db, name: str, publisher: str | None, _cache: dict[str, StoryArc],
+) -> StoryArc:
+    cache_key = f"{name}:{publisher or ''}"
+    if cache_key in _cache:
+        return _cache[cache_key]
+    result = await db.execute(
+        select(StoryArc).where(StoryArc.name == name, StoryArc.publisher == publisher)
+    )
+    arc = result.scalar_one_or_none()
+    if arc is None:
+        arc = StoryArc(name=name, publisher=publisher, description=f"Story arc: {name}")
+        db.add(arc)
+        await db.flush()
+    _cache[cache_key] = arc
+    return arc
+
+
+async def _ensure_creators(
+    db, entry: SeedEntry, item: Item, person_cache: dict[str, Person],
+) -> None:
+    for creator in entry.creators:
+        person = await _get_or_create_person(db, creator.name, person_cache)
+        result = await db.execute(
+            select(EntityPerson).where(
+                EntityPerson.entity_type == "item",
+                EntityPerson.entity_id == item.id,
+                EntityPerson.person_id == person.id,
+                EntityPerson.role == creator.role,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            db.add(EntityPerson(
+                entity_type="item", entity_id=item.id,
+                person_id=person.id, role=creator.role,
+            ))
+
+
+async def _ensure_publisher_org(
+    db, entry: SeedEntry, item: Item, org_cache: dict[str, Organization],
+) -> None:
+    org = await _get_or_create_organization(db, entry.publisher, "publisher", org_cache)
+    result = await db.execute(
+        select(EntityOrganization).where(
+            EntityOrganization.entity_type == "item",
+            EntityOrganization.entity_id == item.id,
+            EntityOrganization.organization_id == org.id,
+            EntityOrganization.role == "publisher",
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        db.add(EntityOrganization(
+            entity_type="item", entity_id=item.id,
+            organization_id=org.id, role="publisher",
+        ))
+
+
+async def _ensure_characters(
+    db, entry: SeedEntry, item: Item, char_cache: dict[str, Character],
+) -> None:
+    for ch in entry.characters:
+        character = await _get_or_create_character(db, ch.name, char_cache)
+        result = await db.execute(
+            select(CharacterAppearance).where(
+                CharacterAppearance.character_id == character.id,
+                CharacterAppearance.item_id == item.id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            db.add(CharacterAppearance(
+                character_id=character.id, item_id=item.id, role=ch.role,
+            ))
+
+
+async def _ensure_tags(
+    db, entry: SeedEntry, item: Item, tag_cache: dict[str, Tag],
+) -> None:
+    tag_kind = entry.kind.value  # "movie", "book", etc.
+    for tag_name in entry.tags:
+        tag = await _get_or_create_tag(db, tag_kind, tag_name, tag_cache)
+        result = await db.execute(
+            select(EntityTag).where(
+                EntityTag.entity_type == "item",
+                EntityTag.entity_id == item.id,
+                EntityTag.tag_id == tag.id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            db.add(EntityTag(
+                entity_type="item", entity_id=item.id, tag_id=tag.id,
+            ))
+
+
+async def _ensure_story_arcs(
+    db, entry: SeedEntry, item: Item, arc_cache: dict[str, StoryArc],
+) -> None:
+    for arc_name in entry.story_arcs:
+        arc = await _get_or_create_story_arc(db, arc_name, entry.publisher, arc_cache)
+        result = await db.execute(
+            select(StoryArcItem).where(
+                StoryArcItem.story_arc_id == arc.id,
+                StoryArcItem.item_id == item.id,
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            db.add(StoryArcItem(story_arc_id=arc.id, item_id=item.id))
+
+
+# ---------------------------------------------------------------------------
 #  Main seed function
 # ---------------------------------------------------------------------------
 async def seed() -> None:
@@ -1240,6 +1637,11 @@ async def seed() -> None:
         franchises: dict[str, Franchise] = {}
         series_by_slug: dict[str, Series] = {}
         volumes_by_name: dict[str, Volume] = {}
+        person_cache: dict[str, Person] = {}
+        org_cache: dict[str, Organization] = {}
+        char_cache: dict[str, Character] = {}
+        tag_cache: dict[str, Tag] = {}
+        arc_cache: dict[str, StoryArc] = {}
 
         for entry in ALL_SEED_ENTRIES:
             franchise = franchises.get(entry.franchise)
@@ -1260,9 +1662,16 @@ async def seed() -> None:
             item = await _get_or_create_item(db, entry, volume)
             await _ensure_editions_and_variants(db, entry, item)
             await _ensure_provider_id(db, entry, item)
+            await _ensure_publisher_org(db, entry, item, org_cache)
+            await _ensure_creators(db, entry, item, person_cache)
+            await _ensure_characters(db, entry, item, char_cache)
+            await _ensure_tags(db, entry, item, tag_cache)
+            await _ensure_story_arcs(db, entry, item, arc_cache)
 
         await db.commit()
         print(f"Seeded {len(ALL_SEED_ENTRIES)} items across all library types.")
+        print(f"  Persons: {len(person_cache)}, Organizations: {len(org_cache)}, "
+              f"Characters: {len(char_cache)}, Tags: {len(tag_cache)}, Story Arcs: {len(arc_cache)}")
 
 
 if __name__ == "__main__":

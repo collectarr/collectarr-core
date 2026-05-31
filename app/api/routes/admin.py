@@ -48,7 +48,6 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def providers(db: DbSession, user: CurrentAdmin) -> ProviderStatusListResponse:
     service = AdminMetadataService(db)
     return ProviderStatusListResponse(
-        contract_version=1,
         providers=await service.provider_statuses(),
         cache_stats=await service.provider_cache_stats(),
     )

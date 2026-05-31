@@ -63,6 +63,7 @@ from app.schemas.metadata import (
     bundle_release_detail_from_model,
     bundle_release_summary_from_model,
     item_response_from_model,
+    public_item_kind,
 )
 from app.search.client import SearchClient
 from app.services.provider_search_state import ProviderSearchState
@@ -319,7 +320,15 @@ class MetadataService:
             limit=limit,
         )
         if meili_results is not None and not barcode:
-            return [SearchResult(**result) for result in meili_results]
+            return [
+                SearchResult(
+                    **{
+                        **result,
+                        "kind": public_item_kind(result.get("kind")),
+                    }
+                )
+                for result in meili_results
+            ]
 
         items = await self.metadata.search_items(
             query=query,
@@ -501,7 +510,15 @@ class MetadataService:
         if should_refresh_cache:
             await self._store_provider_search_results(cache_key, results)
         results = await self._with_stable_provider_image_urls(results)
-        return [ProviderSearchResultResponse(**result.__dict__) for result in results]
+        return [
+            ProviderSearchResultResponse(
+                **{
+                    **result.__dict__,
+                    "kind": public_item_kind(getattr(result, "kind", None)),
+                }
+            )
+            for result in results
+        ]
 
     async def search_default_provider(
         self,
@@ -914,7 +931,7 @@ class MetadataService:
         if provider_name != ExternalProvider.gcd or not results:
             return results
         target_kind = kind or ItemKind.comic
-        if target_kind not in {ItemKind.comic, ItemKind.manga}:
+        if target_kind != ItemKind.comic:
             return results
         if any(result.provider == ExternalProvider.comicvine.value for result in results):
             return results
@@ -976,7 +993,7 @@ class MetadataService:
         requested_provider: ExternalProvider,
     ) -> list[ProviderSearchResult]:
         target_kind = kind or ItemKind.comic
-        if target_kind not in {ItemKind.comic, ItemKind.manga}:
+        if target_kind != ItemKind.comic:
             return []
         plan = GCDProvider()._query_plan(query)
         if plan.is_series_search:
@@ -1207,6 +1224,7 @@ class MetadataService:
         catalog_number: str | None = None
         creators: list[dict] | None = None
         characters: list[str] | None = None
+        character_details: list[dict] | None = None
         story_arcs: list[str] | None = None
         platforms: list[str] | None = None
         genres: list[str] | None = None
@@ -1251,6 +1269,27 @@ class MetadataService:
             ),
         )
         if character_links:
+            character_details = [
+                {
+                    "name": appearance.character.name,
+                    "role": appearance.role,
+                    "aliases": [
+                        str(alias).strip()
+                        for alias in (getattr(appearance.character, "aliases", None) or [])
+                        if str(alias).strip()
+                    ],
+                    "description": getattr(appearance.character, "description", None),
+                    "image_url": getattr(appearance.character, "image_url", None),
+                    "first_appearance_item_id": getattr(
+                        appearance.character,
+                        "first_appearance_item_id",
+                        None,
+                    ),
+                }
+                for appearance in character_links
+                if getattr(appearance, "character", None) is not None
+                and getattr(appearance.character, "name", None)
+            ] or None
             characters = [
                 appearance.character.name
                 for appearance in character_links
@@ -1318,7 +1357,7 @@ class MetadataService:
             bundle_release_ids = [str(bundle.id) for bundle in bundle_releases]
         return SearchResult(
             id=item.id,
-            kind=item.kind,
+            kind=public_item_kind(item.kind),
             title=item.title,
             item_number=item.item_number,
             synopsis=item.synopsis,
@@ -1333,6 +1372,11 @@ class MetadataService:
             release_year=release_year,
             barcode=barcode,
             variant=variant_name,
+            crossover=_metadata_text(getattr(item, "metadata_json", None), "crossover"),
+            plot_summary=_metadata_text(getattr(item, "metadata_json", None), "plot_summary"),
+            plot_description=_metadata_text(
+                getattr(item, "metadata_json", None), "plot_description"
+            ),
             series_title=series_title,
             volume_name=volume_name,
             track_count=track_count,
@@ -1340,6 +1384,7 @@ class MetadataService:
             catalog_number=catalog_number,
             creators=creators,
             characters=characters,
+            character_details=character_details,
             story_arcs=story_arcs,
             platforms=platforms,
             genres=genres,
@@ -1867,7 +1912,7 @@ class MetadataService:
                     creator_id=creator_id,
                     item_id=item.id,
                     role=link.role,
-                    kind=item.kind,
+                    kind=public_item_kind(item.kind),
                     title=item.title,
                     item_number=item.item_number,
                     series_title=getattr(getattr(item.volume, "series", None), "title", None),
@@ -1910,7 +1955,7 @@ class MetadataService:
                 story_arc_id=story_arc_id,
                 item_id=link.item.id,
                 ordinal=link.ordinal,
-                kind=link.item.kind,
+                kind=public_item_kind(link.item.kind),
                 title=link.item.title,
                 item_number=link.item.item_number,
                 series_title=getattr(getattr(link.item.volume, "series", None), "title", None),
@@ -2112,7 +2157,7 @@ class MetadataService:
                 character_id=character_id,
                 item_id=link.item.id,
                 role=link.role,
-                kind=link.item.kind,
+                kind=public_item_kind(link.item.kind),
                 title=link.item.title,
                 item_number=link.item.item_number,
                 series_title=getattr(getattr(link.item.volume, "series", None), "title", None),
@@ -2191,7 +2236,7 @@ class MetadataService:
 
     async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
         item = await self.metadata.get_item(item_id)
-        if item is None or item.kind != ItemKind.manga:
+        if item is None or item.kind != ItemKind.comic:
             return None
         provider = self.providers.maybe_get(ExternalProvider.mangadex)
         if provider is None or not provider.capabilities.supports_search:
@@ -2206,7 +2251,7 @@ class MetadataService:
                 ExternalProvider.mangadex,
                 provider,
                 query,
-                ItemKind.manga,
+                ItemKind.comic,
             )
         except ApiHTTPException:
             logger.debug(
@@ -2246,7 +2291,7 @@ class MetadataService:
         best: ProviderSearchResult | None = None
         best_score = 0
         for index, result in enumerate(results[:10]):
-            if result.kind != ItemKind.manga or not result.provider_item_id:
+            if result.kind != ItemKind.comic or not result.provider_item_id:
                 continue
             score = self._manga_title_match_score(targets, result)
             if score <= 0:

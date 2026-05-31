@@ -86,18 +86,16 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["contract_version"] == 1
-    assert body["snapshot_schema_version"] == 1
     assert body["default_kind"] == "comic"
     rows = {item["kind"]: item for item in body["media_types"]}
     assert rows["comic"]["default_provider"] == "gcd"
-    assert rows["comic"]["providers"] == ["gcd", "comicvine"]
+    assert rows["comic"]["providers"] == ["gcd", "comicvine", "mangadex", "anilist"]
     assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
-    assert rows["manga"]["default_provider"] == "mangadex"
-    assert rows["manga"]["providers"] == ["mangadex", "anilist", "comicvine"]
-    assert rows["anime"]["default_provider"] == "anilist"
-    assert rows["anime"]["providers"] == ["anilist", "tmdb"]
-    assert rows["movie"]["providers"] == ["tmdb"]
+    assert "manga" not in rows
+    assert "anime" not in rows
+    assert "tv" not in rows
+    assert "bluray" not in rows
+    assert rows["movie"]["providers"] == ["tmdb", "anilist"]
     assert [format["id"] for format in rows["movie"]["physical_formats"]] == [
         "dvd",
         "blu-ray",
@@ -106,8 +104,6 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
         "laserdisc",
         "digital",
     ]
-    assert rows["bluray"]["is_top_level"] is False
-    assert rows["bluray"]["legacy_of"] == "movie"
 
 
 @pytest.mark.asyncio
@@ -832,7 +828,7 @@ def test_item_response_from_model_synthesizes_video_release_when_missing_edition
     item_id = uuid4()
     item = SimpleNamespace(
         id=item_id,
-        kind=ItemKind.anime,
+        kind=ItemKind.movie,
         title="Spirited Away",
         item_number=None,
         sort_key=None,
@@ -843,10 +839,10 @@ def test_item_response_from_model_synthesizes_video_release_when_missing_edition
         runtime_minutes=125,
         page_count=None,
         metadata_json={
-            "provider": "tmdb",
-            "provider_item_id": "anime:129",
-            "normalized": {
-                "kind": "anime",
+                "provider": "tmdb",
+                "provider_item_id": "movie:129",
+                "normalized": {
+                    "kind": "movie",
                 "release_date": "2001-07-20",
                 "language": "ja",
                 "country": "JP",
@@ -1047,13 +1043,13 @@ def test_provider_search_query_prefers_album_field_for_music():
 async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatch):
     async def fake_search(self, query, kind=None):
         assert query == "One Piece"
-        assert kind == ItemKind.manga
+        assert kind == ItemKind.comic
         return [
             ProviderSearchResult(
                 provider="mangadex",
                 provider_item_id="mangadex-one-piece",
                 title="One Piece",
-                kind=ItemKind.manga,
+                kind=ItemKind.comic,
             )
         ]
 
@@ -1078,14 +1074,14 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
     monkeypatch.setattr("app.providers.mangadex.MangaDexProvider.get_volumes", fake_get_volumes)
 
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.manga, title="One Piece")
+        series = Series(kind=ItemKind.comic, title="One Piece")
         volume = Volume(
             series=series,
             name="One Piece (1997)",
             volume_number=1,
             start_year=1997,
         )
-        item = Item(kind=ItemKind.manga, title="One Piece", volume=volume)
+        item = Item(kind=ItemKind.comic, title="One Piece", volume=volume)
         edition = Edition(item=item, title="Tankobon", format="Manga")
         variant = Variant(edition=edition, name="Standard", is_primary=True)
         db.add_all([series, volume, item, edition, variant])

@@ -48,7 +48,6 @@ class ProviderCacheSummaryResponse(BaseModel):
 
 
 class ProviderStatusListResponse(BaseModel):
-    contract_version: int
     providers: list[ProviderStatusResponse]
     cache_stats: ProviderCacheSummaryResponse
 
@@ -210,6 +209,7 @@ class ProviderIngestJobSummaryResponse(BaseModel):
 
 class AdminMetadataCorrectionRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
+    title_extension: str | None = Field(default=None, max_length=255)
     item_number: str | None = Field(default=None, max_length=64)
     synopsis: str | None = None
     edition_title: str | None = Field(default=None, max_length=255)

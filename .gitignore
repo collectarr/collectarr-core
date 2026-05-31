@@ -17,3 +17,4 @@ meili_data/
 minio_data/
 sync_data/
 sync_service/*.db
+.github/skills/

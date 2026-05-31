@@ -9,6 +9,24 @@ from app.catalog.physical_formats import is_video_item_kind, physical_format_for
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
+def public_item_kind(kind: Any) -> ItemKind | None:
+    if kind is None:
+        return None
+    if isinstance(kind, str):
+        normalized = kind.strip().lower()
+        if normalized == "manga":
+            return ItemKind.comic
+        if normalized in {"anime", "tv"}:
+            return ItemKind.movie
+        try:
+            return ItemKind(normalized)
+        except ValueError:
+            return None
+    if kind == ItemKind.tv:
+        return ItemKind.movie
+    return kind if isinstance(kind, ItemKind) else None
+
+
 class VariantResponse(BaseModel):
     id: UUID
     name: str
@@ -146,6 +164,7 @@ class ItemResponse(BaseModel):
     id: UUID
     kind: ItemKind
     title: str
+    title_extension: str | None = None
     item_number: str | None
     sort_key: str | None
     synopsis: str | None
@@ -164,6 +183,9 @@ class ItemResponse(BaseModel):
     barcode: str | None = None
     cover_date: date | None = None
     store_date: date | None = None
+    crossover: str | None = None
+    plot_summary: str | None = None
+    plot_description: str | None = None
     cover_price_cents: int | None = None
     currency: str | None = None
     catalog_number: str | None = None
@@ -171,6 +193,7 @@ class ItemResponse(BaseModel):
     tracks: list[dict[str, Any]] = []
     creators: list[MetadataCredit] = []
     characters: list[MetadataCredit] = []
+    character_details: list[MetadataCredit] = []
     story_arcs: list[MetadataCredit] = []
     tags: list[str] = Field(default_factory=list)
     platforms: list[str] = []
@@ -206,6 +229,9 @@ class SearchResult(BaseModel):
     release_year: int | None = None
     barcode: str | None = None
     variant: str | None = None
+    crossover: str | None = None
+    plot_summary: str | None = None
+    plot_description: str | None = None
     series_title: str | None = None
     volume_name: str | None = None
     track_count: int | None = None
@@ -213,6 +239,7 @@ class SearchResult(BaseModel):
     catalog_number: str | None = None
     creators: list[dict[str, Any]] | None = None
     characters: list[str] | None = None
+    character_details: list[dict[str, Any]] | None = None
     story_arcs: list[str] | None = None
     platforms: list[str] | None = None
     genres: list[str] | None = None
@@ -266,13 +293,10 @@ class MediaTypeResponse(BaseModel):
     providers: list[ExternalProvider] = Field(default_factory=list)
     provider_search_policy: str
     is_top_level: bool = True
-    legacy_of: ItemKind | None = None
     physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)
 
 
 class MediaCatalogResponse(BaseModel):
-    contract_version: int
-    snapshot_schema_version: int
     default_kind: ItemKind
     media_types: list[MediaTypeResponse]
 
@@ -465,8 +489,9 @@ def item_response_from_model(
     base = ItemResponse.model_validate(
         {
             "id": getattr(item, "id", None),
-            "kind": getattr(item, "kind", None),
+            "kind": public_item_kind(getattr(item, "kind", None)),
             "title": getattr(item, "title", None),
+            "title_extension": getattr(item, "title_extension", None),
             "item_number": getattr(item, "item_number", None),
             "sort_key": getattr(item, "sort_key", None),
             "synopsis": getattr(item, "synopsis", None),
@@ -501,6 +526,9 @@ def item_response_from_model(
             "barcode": _barcode(item),
             "cover_date": _date_value(source.get("cover_date")),
             "store_date": _date_value(source.get("store_date")),
+            "crossover": _item_metadata_text(item, "crossover"),
+            "plot_summary": _item_metadata_text(item, "plot_summary"),
+            "plot_description": _item_metadata_text(item, "plot_description"),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
             "catalog_number": _optional_text(getattr(edition, "catalog_number", None)),
@@ -508,6 +536,7 @@ def item_response_from_model(
             "tracks": _tracks(normalized.get("tracks")),
             "creators": creators,
             "characters": characters,
+            "character_details": characters,
             "story_arcs": story_arcs,
             "platforms": _string_list(normalized.get("platforms")),
             "genres": _string_list(normalized.get("genres")),
@@ -646,7 +675,7 @@ def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSumma
     primary_count = sum(1 for member in items if getattr(member, "is_primary", False))
     return BundleReleaseSummaryResponse(
         id=bundle_release.id,
-        kind=bundle_release.kind,
+        kind=public_item_kind(getattr(bundle_release, "kind", None)),
         title=bundle_release.title,
         bundle_type=getattr(bundle_release, "bundle_type", None),
         format=getattr(bundle_release, "format", None),
@@ -711,7 +740,7 @@ def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetail
                 disc_label=getattr(member, "disc_label", None),
                 quantity=getattr(member, "quantity", 1),
                 is_primary=getattr(member, "is_primary", False),
-                kind=member.item.kind,
+                kind=public_item_kind(getattr(member.item, "kind", None)),
                 title=member.item.title,
                 item_number=getattr(member.item, "item_number", None),
                 series_id=getattr(getattr(getattr(member.item, "volume", None), "series", None), "id", None),
@@ -814,12 +843,23 @@ def _source_item_metadata(item: Any) -> dict[str, Any]:
     return {key: value for key, value in source.items() if value is not None}
 
 
+def _item_metadata_text(item: Any, key: str) -> str | None:
+    metadata = getattr(item, "metadata_json", None) or {}
+    if not isinstance(metadata, dict):
+        return None
+    normalized = metadata.get("normalized")
+    if isinstance(normalized, dict):
+        value = _optional_text(normalized.get(key))
+        if value is not None:
+            return value
+    return _optional_text(metadata.get(key))
+
+
 def _default_video_format(item: Any) -> str:
     kind = getattr(item, "kind", None)
     if kind == ItemKind.movie:
         return "Movie"
-    if kind == ItemKind.anime:
-        return "Anime"
+    # 'anime' kind merged into 'movie'; no separate label needed
     return "TV Series"
 
 

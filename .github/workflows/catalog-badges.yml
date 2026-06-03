@@ -28,6 +28,9 @@ jobs:
         shell: bash
         run: |
           args=(--output-dir docs/badges)
+          if [ -z "$COLLECTARR_BADGES_BASE_URL" ]; then
+            COLLECTARR_BADGES_BASE_URL="http://saitatter133.home.ro:8010"
+          fi
           if [ -n "$COLLECTARR_BADGES_BASE_URL" ]; then
             args+=(--base-url "$COLLECTARR_BADGES_BASE_URL")
           else

@@ -181,9 +181,9 @@ To switch from placeholder badges to live counts, configure:
 - `COLLECTARR_BADGES_BASE_URL` for the public Core base URL
 - `COLLECTARR_BADGES_TOKEN` for bearer-token access to `/admin/catalog/summary`
 
-For your current deployment, use:
+Example:
 
-- `COLLECTARR_BADGES_BASE_URL=http://saitatter133.home.ro:8010`
+- `COLLECTARR_BADGES_BASE_URL=http://localhost:8010`
 
 Or, instead of a static token:
 

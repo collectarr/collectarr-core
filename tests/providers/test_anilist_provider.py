@@ -4,7 +4,15 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import BundleRelease, BundleReleaseProviderLink, Item, ItemProviderLink, Person, Tag
+from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseProviderLink,
+    Character,
+    Item,
+    ItemProviderLink,
+    Person,
+    Tag,
+)
 from app.providers.anilist import AniListProvider
 from app.providers.base import ProviderItem
 from app.search.client import SearchClient
@@ -53,6 +61,21 @@ def _anilist_raw() -> dict:
                 }
             ]
         },
+        "characters": {
+            "edges": [
+                {
+                    "role": "MAIN",
+                    "node": {
+                        "name": {"full": "Monkey D. Luffy"},
+                        "siteUrl": "https://anilist.co/character/40/Monkey-D-Luffy",
+                        "image": {
+                            "large": "https://s4.anilist.co/file/anilistcdn/character/large/40.jpg",
+                            "medium": "https://s4.anilist.co/file/anilistcdn/character/medium/40.jpg",
+                        },
+                    },
+                }
+            ]
+        },
     }
 
 
@@ -86,6 +109,21 @@ def _anilist_anime_raw() -> dict:
                     "node": {
                         "name": {"full": "Eiichiro Oda"},
                         "siteUrl": "https://anilist.co/staff/96884/Eiichiro-Oda",
+                    },
+                }
+            ]
+        },
+        "characters": {
+            "edges": [
+                {
+                    "role": "MAIN",
+                    "node": {
+                        "name": {"full": "Monkey D. Luffy"},
+                        "siteUrl": "https://anilist.co/character/40/Monkey-D-Luffy",
+                        "image": {
+                            "large": "https://s4.anilist.co/file/anilistcdn/character/large/40.jpg",
+                            "medium": "https://s4.anilist.co/file/anilistcdn/character/medium/40.jpg",
+                        },
                     },
                 }
             ]
@@ -147,6 +185,7 @@ async def test_anilist_provider_search_normalizes_results(monkeypatch):
     assert results[0].title == "One Piece"
     assert results[0].summary == "MANGA · RELEASING · 1997"
     assert results[0].image_url.endswith("30013.jpg")
+    assert results[0].character_preview == ["Monkey D. Luffy"]
 
 
 @pytest.mark.asyncio
@@ -167,6 +206,7 @@ async def test_anilist_provider_fetches_media_and_normalizes(monkeypatch):
     assert normalized.cover_image_url.endswith("30013.jpg")
     assert normalized.creators[0].name == "Eiichiro Oda"
     assert normalized.creators[0].role == "Story & Art"
+    assert [credit.name for credit in normalized.characters] == ["Monkey D. Luffy"]
     assert [tag.name for tag in normalized.story_arcs] == ["Action", "Adventure"]
     assert normalized.provider_ids == {"anilist": "30013"}
 
@@ -220,6 +260,7 @@ async def test_anilist_provider_searches_and_normalizes_anime(monkeypatch):
     assert normalized.release_date.isoformat() == "1999-10-20"
     assert normalized.runtime_minutes == 24
     assert normalized.edition_format == "TV"
+    assert [credit.name for credit in normalized.characters] == ["Monkey D. Luffy"]
     assert normalized.provider_ids == {"anilist": "anime:21"}
 
 
@@ -288,12 +329,15 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
             )
         )
         creator = await db.scalar(select(Person.name))
+        character = await db.scalar(select(Character.name))
         tags = list(await db.scalars(select(Tag.name).order_by(Tag.name)))
 
     assert item is not None
     assert provider_ids == ["30013"]
     assert creator == "Eiichiro Oda"
-    assert tags == ["Action", "Adventure"]
+    assert character == "Monkey D. Luffy"
+    assert "Action" in tags
+    assert "Adventure" in tags
 
 
 @pytest.mark.asyncio

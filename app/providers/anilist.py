@@ -62,6 +62,21 @@ staff(perPage: 10) {
     }
   }
 }
+characters(perPage: 10) {
+    edges {
+        role
+        node {
+            name {
+                full
+            }
+            siteUrl
+            image {
+                large
+                medium
+            }
+        }
+    }
+}
 relations {
   edges {
     relationType
@@ -147,6 +162,15 @@ class AniListProvider:
                     large
                     medium
                   }}
+                                    characters(perPage: 3) {{
+                                        edges {{
+                                            node {{
+                                                name {{
+                                                    full
+                                                }}
+                                            }}
+                                        }}
+                                    }}
                 }}
               }}
             }}
@@ -226,6 +250,7 @@ class AniListProvider:
             release_date=start_date,
             cover_image_url=self._cover_url(data),
             creators=self._staff(data.get("staff")),
+            characters=self._characters(data.get("characters")),
             genres=genres,
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
@@ -306,6 +331,7 @@ class AniListProvider:
             kind=target_kind,
             summary=" · ".join(part for part in summary_parts if part),
             image_url=self._cover_url(item),
+            character_preview=self._character_preview(item.get("characters")),
         )
 
     def _target_kind(self, kind: ItemKind | None) -> ItemKind:
@@ -371,6 +397,39 @@ class AniListProvider:
                 )
             )
         return credits
+
+    def _characters(self, value: Any) -> list[NormalizedCredit]:
+        if not isinstance(value, Mapping):
+            return []
+        edges = value.get("edges")
+        if not isinstance(edges, list):
+            return []
+        credits: list[NormalizedCredit] = []
+        for edge in edges:
+            if not isinstance(edge, Mapping):
+                continue
+            node = edge.get("node") if isinstance(edge.get("node"), Mapping) else {}
+            name = node.get("name") if isinstance(node.get("name"), Mapping) else {}
+            full_name = self._optional_text(name.get("full"))
+            if not full_name:
+                continue
+            image = node.get("image") if isinstance(node.get("image"), Mapping) else {}
+            image_url = self._optional_text(image.get("large")) or self._optional_text(
+                image.get("medium")
+            )
+            credits.append(
+                NormalizedCredit(
+                    name=full_name,
+                    role=self._optional_text(edge.get("role")) or "Character",
+                    site_detail_url=self._optional_text(node.get("siteUrl")),
+                    image_url=image_url,
+                )
+            )
+        return credits
+
+    def _character_preview(self, value: Any) -> list[str]:
+        characters = self._characters(value)
+        return [character.name for character in characters[:3]]
 
     _ANILIST_RELATION_MAP: dict[str, str] = {
         "SEQUEL": "sequel",

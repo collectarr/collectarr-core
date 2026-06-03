@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 from datetime import UTC, datetime
@@ -32,6 +33,9 @@ def main() -> None:
     parser.add_argument("--token", default=os.getenv("COLLECTARR_BADGES_TOKEN"))
     parser.add_argument("--email", default=os.getenv("COLLECTARR_BADGES_EMAIL"))
     parser.add_argument("--password", default=os.getenv("COLLECTARR_BADGES_PASSWORD"))
+    parser.add_argument(
+        "--password-b64", default=os.getenv("COLLECTARR_BADGES_PASSWORD_B64")
+    )
     parser.add_argument("--output-dir", default="docs/badges")
     parser.add_argument("--placeholder", action="store_true")
     args = parser.parse_args()
@@ -47,13 +51,25 @@ def main() -> None:
             "mode": "placeholder",
         }
     else:
-        token = args.token or _login(args.base_url, args.email, args.password)
+        password = _resolve_password(args.password, args.password_b64)
+        token = args.token or _login(args.base_url, args.email, password)
         payload = _fetch_summary(args.base_url, token)
         payload["generated_at"] = datetime.now(UTC).isoformat()
         payload["mode"] = "live"
 
     _write_manifest(output_dir / "catalog-summary.json", payload)
     _write_badges(output_dir, payload)
+
+
+def _resolve_password(password: str | None, password_b64: str | None) -> str | None:
+    if password:
+        return password
+    if not password_b64:
+        return None
+    try:
+        return base64.b64decode(password_b64).decode("utf-8")
+    except Exception as exc:  # pragma: no cover
+        raise SystemExit("COLLECTARR_BADGES_PASSWORD_B64 is not valid base64.") from exc
 
 
 def _login(base_url: str, email: str | None, password: str | None) -> str:

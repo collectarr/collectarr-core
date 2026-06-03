@@ -1,7 +1,7 @@
 """add series relations
 
 Revision ID: 202605180001
-Revises: 202605150001
+Revises: 20260530_0001
 Create Date: 2026-05-18 10:00:00
 """
 
@@ -12,7 +12,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "202605180001"
-down_revision: str | None = "202605150001"
+down_revision: str | None = "20260530_0001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

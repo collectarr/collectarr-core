@@ -12,7 +12,7 @@ from app.models import Base
 
 
 BASELINE_REVISION = "20260529_0001"
-HEAD_REVISION = "20260529_0002"
+HEAD_REVISION = "202605180001"
 
 
 def _alembic_config() -> Config:

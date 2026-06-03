@@ -27,7 +27,6 @@ PostgreSQL, Redis, and Meilisearch stay internal to the Compose network.
 Create these directories on unRAID or update the paths in
 `.env.unraid.example` before deploying:
 
-- `/mnt/user/appdata/collectarr/web`
 - `/mnt/user/appdata/collectarr/postgres`
 - `/mnt/user/appdata/collectarr/meili`
 - `/mnt/user/appdata/collectarr/minio`
@@ -67,21 +66,25 @@ curl http://LAN_IP:8020/health
 
 ## Publish the web app
 
-The `app_web` service serves a static Flutter web build from `APP_WEB_ROOT`.
+The `app_web` service pulls a prebuilt static web image from GHCR.
 
-Current manual flow:
+Default image:
 
-1. Build web from `collectarr-app`:
+- `ghcr.io/collectarr/collectarr-app-web:latest`
 
-```bash
-flutter build web
+You can pin a specific release by setting `APP_WEB_IMAGE` in `.env.unraid`,
+for example:
+
+```env
+APP_WEB_IMAGE=ghcr.io/collectarr/collectarr-app-web:v1.0.0
 ```
 
-2. Copy the contents of `build/web/` into `APP_WEB_ROOT`.
-3. Open `http://LAN_IP:8080` in the browser.
+After changing image tags, redeploy the stack:
 
-The bundled nginx config keeps Flutter SPA routes working by falling back to
-`index.html`.
+```bash
+docker compose --env-file .env.unraid -f docker-compose.unraid.yml pull app_web
+docker compose --env-file .env.unraid -f docker-compose.unraid.yml up -d app_web
+```
 
 ## Pairing and clients
 

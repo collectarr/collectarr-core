@@ -1496,8 +1496,11 @@ async def _ensure_series_bundle_releases(
     if len(items) < 2:
         return
 
-    for bundle_index, start in enumerate(range(0, len(items), 3), start=1):
-        chunk = items[start : start + 3]
+    # Keep bundle composition deterministic even if incoming order drifts.
+    sorted_items = sorted(items, key=lambda item: item.sort_key or "")
+
+    for bundle_index, start in enumerate(range(0, len(sorted_items), 3), start=1):
+        chunk = sorted_items[start : start + 3]
         if len(chunk) < 2:
             continue
 
@@ -1579,6 +1582,14 @@ async def _ensure_series_bundle_releases(
             )
         else:
             bundle_provider_link.provider_item_id = bundle_provider_id
+            bundle_provider_link.site_url = (
+                "https://seed.collectarr.local/bundles/"
+                f"{entry.kind.value}/{entry.slug}/{bundle_index}"
+            )
+            bundle_provider_link.api_url = (
+                "https://seed.collectarr.local/api/providers/"
+                f"{entry.provider.value}/bundles/{bundle_provider_id}"
+            )
 
         for sequence, member in enumerate(chunk, start=1):
             member_result = await db.execute(
@@ -1587,21 +1598,27 @@ async def _ensure_series_bundle_releases(
                     BundleReleaseItem.item_id == member.id,
                 )
             )
-            if member_result.scalar_one_or_none() is not None:
-                continue
-            db.add(
-                BundleReleaseItem(
-                    bundle_release_id=bundle.id,
-                    item_id=member.id,
-                    role="included",
-                    sequence_number=sequence,
-                    disc_number=1,
-                    disc_label=f"Disc {sequence}",
-                    quantity=1,
-                    is_primary=(sequence == 1),
-                    metadata_json={"seed": True},
+            existing_member = member_result.scalar_one_or_none()
+            if existing_member is None:
+                db.add(
+                    BundleReleaseItem(
+                        bundle_release_id=bundle.id,
+                        item_id=member.id,
+                        role="included",
+                        sequence_number=sequence,
+                        disc_number=1,
+                        disc_label=f"Disc {sequence}",
+                        quantity=1,
+                        is_primary=(sequence == 1),
+                        metadata_json={"seed": True},
+                    )
                 )
-            )
+                continue
+
+            existing_member.sequence_number = sequence
+            existing_member.disc_label = f"Disc {sequence}"
+            existing_member.is_primary = (sequence == 1)
+            existing_member.metadata_json = {"seed": True}
 
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,6 @@
 ![Movies](docs/badges/catalog-movie.svg)
 ![TV](docs/badges/catalog-tv.svg)
 ![Music](docs/badges/catalog-music.svg)
-![Blu-ray](docs/badges/catalog-bluray.svg)
 
 > Shared metadata engine for Collectarr: canonical catalog, provider ingest, image delivery, admin tooling, and search infrastructure.
 
@@ -34,7 +33,7 @@ to clients.
 
 ### 📚 Canonical Catalog
 
-- Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, music, and physical media variants
+- Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
 - Canonical entities for series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and shared series tags
 - Typed item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
 - Shared editorial metadata that complements local-first personal data in the app
@@ -147,6 +146,13 @@ catalog/search/admin contract instead of inventing parallel app-only fields.
 
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 `workflow_dispatch`; pushing to `main` runs CI only and never auto-publishes.
+
+Current stable release: `v1.0.0`
+
+Current backend image tags:
+
+- `ghcr.io/collectarr/collectarr-core:v1.0.0`
+- `ghcr.io/collectarr/collectarr-core:latest`
 
 When a releasable version is detected, the workflow publishes a GitHub Release
 and pushes the backend container image to `ghcr.io/collectarr/collectarr-core`

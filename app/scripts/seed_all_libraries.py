@@ -17,6 +17,9 @@ from sqlalchemy import select
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseItem,
+    BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
     Edition,
@@ -1384,6 +1387,7 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
                 age_rating=ed_def.age_rating,
                 catalog_number=ed_def.catalog_number,
                 release_status=ed_def.release_status,
+                metadata_json={"seed": True},
             )
             db.add(edition)
             await db.flush()
@@ -1399,6 +1403,7 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
             edition.age_rating = ed_def.age_rating
             edition.catalog_number = ed_def.catalog_number
             edition.release_status = ed_def.release_status
+            edition.metadata_json = {"seed": True}
 
         for var_def in ed_def.variants:
             result = await db.execute(
@@ -1450,13 +1455,170 @@ async def _ensure_provider_id(db, entry: SeedEntry, item: Item) -> None:
             ItemProviderLink.provider_item_id == entry.provider_id,
         )
     )
-    if result.scalar_one_or_none() is not None:
+    existing = result.scalar_one_or_none()
+    site_url = f"https://seed.collectarr.local/{entry.kind.value}/{entry.slug}/{entry.item_number}"
+    api_url = (
+        "https://seed.collectarr.local/api/"
+        f"providers/{entry.provider.value}/items/{entry.provider_id}"
+    )
+    if existing is None:
+        db.add(ItemProviderLink(
+            provider=entry.provider,
+            provider_item_id=entry.provider_id,
+            item_id=item.id,
+            site_url=site_url,
+            api_url=api_url,
+        ))
         return
-    db.add(ItemProviderLink(
-        provider=entry.provider,
-        provider_item_id=entry.provider_id,
-        item_id=item.id,
-    ))
+
+    existing.site_url = site_url
+    existing.api_url = api_url
+
+
+def _bundle_format_for_kind(kind: ItemKind) -> str:
+    if kind in {ItemKind.music, ItemKind.tv, ItemKind.movie}:
+        return "Box Set"
+    if kind == ItemKind.game:
+        return "Collector Bundle"
+    if kind == ItemKind.boardgame:
+        return "Core + Expansion"
+    return "Collection"
+
+
+async def _ensure_series_bundle_releases(
+    db,
+    *,
+    entry: SeedEntry,
+    series: Series,
+    volume: Volume,
+    items: list[Item],
+) -> None:
+    if len(items) < 2:
+        return
+
+    # Keep bundle composition deterministic even if incoming order drifts.
+    sorted_items = sorted(items, key=lambda item: item.sort_key or "")
+
+    for bundle_index, start in enumerate(range(0, len(sorted_items), 3), start=1):
+        chunk = sorted_items[start : start + 3]
+        if len(chunk) < 2:
+            continue
+
+        bundle_title = f"{entry.series} Collection {bundle_index}"
+        bundle_provider_id = f"seed-{entry.slug}-bundle-{bundle_index}"
+        cover_url, thumb_url = await resolve_seed_cover_urls(
+            kind=entry.kind,
+            slug=entry.slug,
+            title=bundle_title,
+            series=entry.series,
+            fallback_key=f"collectarr-{entry.kind.value}-{entry.slug}-bundle-{bundle_index}",
+        )
+
+        result = await db.execute(
+            select(BundleRelease).where(
+                BundleRelease.kind == entry.kind,
+                BundleRelease.title == bundle_title,
+                BundleRelease.series_id == series.id,
+            )
+        )
+        bundle = result.scalar_one_or_none()
+        if bundle is None:
+            bundle = BundleRelease(
+                kind=entry.kind,
+                title=bundle_title,
+                bundle_type="collection",
+                franchise_id=series.franchise_id,
+                series_id=series.id,
+                volume_id=volume.id,
+                primary_item_id=chunk[0].id,
+                format=_bundle_format_for_kind(entry.kind),
+                variant_type="standard",
+                packaging_type="boxed",
+                region="US",
+                language=entry.series_language,
+                publisher=entry.publisher,
+                sku=f"SEED-{entry.slug.upper().replace('-', '')}-B{bundle_index:02d}",
+                barcode=f"9900{bundle_index:02d}{len(chunk):02d}{entry.start_year}",
+                release_date=entry.release_date,
+                cover_image_url=cover_url,
+                thumbnail_image_url=thumb_url,
+                metadata_json={"seed": True, "series_slug": entry.slug, "bundle_index": bundle_index},
+            )
+            db.add(bundle)
+            await db.flush()
+        else:
+            bundle.primary_item_id = chunk[0].id
+            bundle.cover_image_url = cover_url
+            bundle.thumbnail_image_url = thumb_url
+            bundle.release_date = entry.release_date
+            bundle.metadata_json = {
+                "seed": True,
+                "series_slug": entry.slug,
+                "bundle_index": bundle_index,
+            }
+
+        link_result = await db.execute(
+            select(BundleReleaseProviderLink).where(
+                BundleReleaseProviderLink.bundle_release_id == bundle.id,
+                BundleReleaseProviderLink.provider == entry.provider,
+            )
+        )
+        bundle_provider_link = link_result.scalar_one_or_none()
+        if bundle_provider_link is None:
+            db.add(
+                BundleReleaseProviderLink(
+                    bundle_release_id=bundle.id,
+                    provider=entry.provider,
+                    provider_item_id=bundle_provider_id,
+                    site_url=(
+                        "https://seed.collectarr.local/bundles/"
+                        f"{entry.kind.value}/{entry.slug}/{bundle_index}"
+                    ),
+                    api_url=(
+                        "https://seed.collectarr.local/api/providers/"
+                        f"{entry.provider.value}/bundles/{bundle_provider_id}"
+                    ),
+                )
+            )
+        else:
+            bundle_provider_link.provider_item_id = bundle_provider_id
+            bundle_provider_link.site_url = (
+                "https://seed.collectarr.local/bundles/"
+                f"{entry.kind.value}/{entry.slug}/{bundle_index}"
+            )
+            bundle_provider_link.api_url = (
+                "https://seed.collectarr.local/api/providers/"
+                f"{entry.provider.value}/bundles/{bundle_provider_id}"
+            )
+
+        for sequence, member in enumerate(chunk, start=1):
+            member_result = await db.execute(
+                select(BundleReleaseItem).where(
+                    BundleReleaseItem.bundle_release_id == bundle.id,
+                    BundleReleaseItem.item_id == member.id,
+                )
+            )
+            existing_member = member_result.scalar_one_or_none()
+            if existing_member is None:
+                db.add(
+                    BundleReleaseItem(
+                        bundle_release_id=bundle.id,
+                        item_id=member.id,
+                        role="included",
+                        sequence_number=sequence,
+                        disc_number=1,
+                        disc_label=f"Disc {sequence}",
+                        quantity=1,
+                        is_primary=(sequence == 1),
+                        metadata_json={"seed": True},
+                    )
+                )
+                continue
+
+            existing_member.sequence_number = sequence
+            existing_member.disc_label = f"Disc {sequence}"
+            existing_member.is_primary = (sequence == 1)
+            existing_member.metadata_json = {"seed": True}
 
 
 # ---------------------------------------------------------------------------
@@ -1642,6 +1804,8 @@ async def seed() -> None:
         char_cache: dict[str, Character] = {}
         tag_cache: dict[str, Tag] = {}
         arc_cache: dict[str, StoryArc] = {}
+        items_by_slug: dict[str, list[Item]] = {}
+        series_by_slug_context: dict[str, tuple[SeedEntry, Series, Volume]] = {}
 
         for entry in ALL_SEED_ENTRIES:
             franchise = franchises.get(entry.franchise)
@@ -1667,6 +1831,19 @@ async def seed() -> None:
             await _ensure_characters(db, entry, item, char_cache)
             await _ensure_tags(db, entry, item, tag_cache)
             await _ensure_story_arcs(db, entry, item, arc_cache)
+
+            items_by_slug.setdefault(entry.slug, []).append(item)
+            series_by_slug_context[entry.slug] = (entry, series, volume)
+
+        for slug, items in items_by_slug.items():
+            entry, series, volume = series_by_slug_context[slug]
+            await _ensure_series_bundle_releases(
+                db,
+                entry=entry,
+                series=series,
+                volume=volume,
+                items=items,
+            )
 
         await db.commit()
         print(f"Seeded {len(ALL_SEED_ENTRIES)} items across all library types.")

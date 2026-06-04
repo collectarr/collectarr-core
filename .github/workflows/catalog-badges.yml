@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   badges:
@@ -25,12 +26,10 @@ jobs:
           COLLECTARR_BADGES_TOKEN: ${{ secrets.COLLECTARR_BADGES_TOKEN }}
           COLLECTARR_BADGES_EMAIL: ${{ secrets.COLLECTARR_BADGES_EMAIL }}
           COLLECTARR_BADGES_PASSWORD: ${{ secrets.COLLECTARR_BADGES_PASSWORD }}
+          COLLECTARR_BADGES_PASSWORD_B64: ${{ secrets.COLLECTARR_BADGES_PASSWORD_B64 }}
         shell: bash
         run: |
           args=(--output-dir docs/badges)
-          if [ -z "$COLLECTARR_BADGES_BASE_URL" ]; then
-            COLLECTARR_BADGES_BASE_URL="http://saitatter133.home.ro:8010"
-          fi
           if [ -n "$COLLECTARR_BADGES_BASE_URL" ]; then
             args+=(--base-url "$COLLECTARR_BADGES_BASE_URL")
           else
@@ -45,17 +44,18 @@ jobs:
           if [ -n "$COLLECTARR_BADGES_PASSWORD" ]; then
             args+=(--password "$COLLECTARR_BADGES_PASSWORD")
           fi
+          if [ -n "$COLLECTARR_BADGES_PASSWORD_B64" ]; then
+            args+=(--password-b64 "$COLLECTARR_BADGES_PASSWORD_B64")
+          fi
           python scripts/generate_catalog_badges.py "${args[@]}"
 
-      - name: Commit badge updates
-        shell: bash
-        run: |
-          if git diff --quiet -- docs/badges; then
-            echo "No badge changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/badges
-          git commit -m "docs: refresh catalog badges"
-          git push
+      - name: Create badge refresh PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "docs: refresh catalog badges"
+          title: "docs: refresh catalog badges"
+          body: |
+            Automated catalog badge refresh from .github/workflows/catalog-badges.yml.
+          branch: chore/catalog-badges-refresh
+          delete-branch: true
+          add-paths: docs/badges

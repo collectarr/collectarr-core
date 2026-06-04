@@ -8,7 +8,6 @@ and port combinations such as `http://192.168.1.10:8010`.
 
 - `collectarr-app web` on `http://LAN_IP:8080`
 - `collectarr-core` on `http://LAN_IP:8010`
-- `collectarr-sync` on `http://LAN_IP:8020`
 - MinIO API on `http://LAN_IP:9000`
 - MinIO console on `http://LAN_IP:9001`
 
@@ -30,7 +29,6 @@ Create these directories on unRAID or update the paths in
 - `/mnt/user/appdata/collectarr/postgres`
 - `/mnt/user/appdata/collectarr/meili`
 - `/mnt/user/appdata/collectarr/minio`
-- `/mnt/user/appdata/collectarr/sync`
 
 ## Configure environment
 
@@ -61,8 +59,10 @@ Then verify:
 
 ```bash
 curl http://LAN_IP:8010/health
-curl http://LAN_IP:8020/health
 ```
+
+`collectarr-sync` is intentionally not bundled in this Core stack. If you need
+multi-device sync, deploy `collectarr-sync` separately from its own repository.
 
 ## Publish the web app
 
@@ -89,7 +89,7 @@ docker compose --env-file .env.unraid -f docker-compose.unraid.yml up -d app_web
 ## Pairing and clients
 
 - Desktop and Android clients should use `http://LAN_IP:8010` for metadata and
-  `http://LAN_IP:8020` for sync.
+  configure sync to point to your separate `collectarr-sync` deployment (if you run one).
 - Web clients should use the same IP-based endpoints.
 - Pairing codes are still useful on LAN, but they should only circulate inside
   your trusted environment.
@@ -100,7 +100,6 @@ Back up separately:
 
 - PostgreSQL data directory
 - MinIO data directory
-- Sync data directory
 - `.env.unraid`
 - exported web build if you want to restore the exact hosted UI revision
 

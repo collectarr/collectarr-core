@@ -56,24 +56,6 @@ services:
         condition: service_started
     logging: *default-logging
 
-  sync:
-    image: ${COLLECTARR_SYNC_IMAGE:-ghcr.io/collectarr/collectarr-sync:latest}
-    command: uvicorn collectarr_sync.main:app --host 0.0.0.0 --port 8020 --no-access-log
-    restart: unless-stopped
-    env_file:
-      - ${COLLECTARR_ENV_FILE:-.env.unraid}
-    ports:
-      - "${SYNC_API_PORT:-8020}:8020"
-    volumes:
-      - ${SYNC_DATA_DIR:-/mnt/user/appdata/collectarr/sync}:/data
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8020/health').read()\""]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
-    logging: *default-logging
-
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16-alpine}
     restart: unless-stopped

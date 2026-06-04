@@ -13,6 +13,15 @@
       const statusBox = $("status");
       const authStatus = $("authStatus");
 
+      function setActiveTab(name) {
+        document.querySelectorAll(".tab-button").forEach((button) => {
+          button.classList.toggle("active", button.dataset.tab === name);
+        });
+        document.querySelectorAll(".tab-panel").forEach((panel) => {
+          panel.classList.toggle("active", panel.dataset.tabPanel === name);
+        });
+      }
+
       function setStatus(message, type = "") {
         statusBox.className = `status ${type}`;
         statusBox.textContent = message;
@@ -557,6 +566,7 @@
       function searchProviderForProposal(item) {
         state.activeProposalId = item.id;
         state.activeProposalTitle = item.title || item.query || item.id;
+        setActiveTab("search");
         const provider = item.provider || $("provider").value;
         if (provider) {
           $("provider").value = provider;
@@ -651,6 +661,9 @@
       });
       $("proposalProvider").addEventListener("change", loadProposals);
       $("proposalSearch").addEventListener("input", () => renderProposals(state.proposals));
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+      });
       document.querySelectorAll("#proposalQuickFilters button").forEach((button) => {
         button.addEventListener("click", () => {
           $("proposalStatus").value = button.dataset.status;

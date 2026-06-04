@@ -1,29 +1,17 @@
 {
-  "duplicate_candidate_groups": 0,
-  "editions": 0,
-  "generated_at": "2026-06-04T00:05:59.253573+00:00",
-  "image_assets": 0,
-  "image_cache_entries": 0,
-  "items": 0,
+  "generated_at": "2026-06-04T00:29:21.191134+00:00",
+  "items": null,
   "items_by_kind": {
-    "bluray": 0,
-    "boardgame": 0,
-    "book": 0,
-    "collection": 0,
-    "comic": 0,
-    "game": 0,
-    "movie": 0,
-    "music": 0,
-    "tv": 0
+    "anime": null,
+    "bluray": null,
+    "boardgame": null,
+    "book": null,
+    "comic": null,
+    "game": null,
+    "manga": null,
+    "movie": null,
+    "music": null,
+    "tv": null
   },
-  "missing_cover_items": 0,
-  "missing_provider_link_items": 0,
-  "mode": "live",
-  "pending_proposals": 0,
-  "provider_ingest_failures": 0,
-  "provider_ingest_successes": 0,
-  "provider_links": 0,
-  "series": 0,
-  "variants": 0,
-  "volumes": 0
+  "mode": "placeholder"
 }

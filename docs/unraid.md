@@ -89,7 +89,7 @@ docker compose --env-file .env.unraid -f docker-compose.unraid.yml up -d app_web
 ## Pairing and clients
 
 - Desktop and Android clients should use `http://LAN_IP:8010` for metadata and
-  point sync to your separate `collectarr-sync` deployment only if you run one.
+  configure sync to point to your separate `collectarr-sync` deployment (if you run one).
 - Web clients should use the same IP-based endpoints.
 - Pairing codes are still useful on LAN, but they should only circulate inside
   your trusted environment.

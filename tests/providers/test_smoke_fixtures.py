@@ -153,12 +153,12 @@ async def test_mangadex_manga_search(monkeypatch):
         return _Resp()
 
     monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
-    results = await MangaDexProvider().search("One Piece", kind=ItemKind.comic)
+    results = await MangaDexProvider().search("One Piece", kind=ItemKind.manga)
 
     assert len(results) >= 1
     r = results[0]
     assert r.provider == "mangadex"
-    assert r.kind == ItemKind.comic
+    assert r.kind == ItemKind.manga
     assert "one piece" in r.title.lower()
 
 
@@ -209,12 +209,12 @@ async def test_anilist_manga_search(monkeypatch):
         return _Resp()
 
     monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
-    results = await AniListProvider().search("One Piece", kind=ItemKind.comic)
+    results = await AniListProvider().search("One Piece", kind=ItemKind.manga)
 
     assert len(results) >= 1
     r = results[0]
     assert r.provider == "anilist"
-    assert r.kind == ItemKind.comic
+    assert r.kind == ItemKind.manga
 
 
 @pytest.mark.asyncio
@@ -258,12 +258,12 @@ async def test_anilist_anime_search(monkeypatch):
         return _Resp()
 
     monkeypatch.setattr("httpx.AsyncClient.post", fake_post)
-    results = await AniListProvider().search("One Piece", kind=ItemKind.movie)
+    results = await AniListProvider().search("One Piece", kind=ItemKind.anime)
 
     assert len(results) >= 1
     r = results[0]
     assert r.provider == "anilist"
-    assert r.kind == ItemKind.movie
+    assert r.kind == ItemKind.anime
 
 
 # ---------------------------------------------------------------------------

@@ -30,12 +30,14 @@ class UuidMixin:
 
 
 class ItemKind(str, enum.Enum):
+    anime = "anime"
     boardgame = "boardgame"
     book = "book"
     bluray = "bluray"
     collection = "collection"
     comic = "comic"
     game = "game"
+    manga = "manga"
     movie = "movie"
     music = "music"
     tv = "tv"

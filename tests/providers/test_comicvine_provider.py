@@ -359,7 +359,7 @@ async def test_comicvine_get_item_and_normalize_preserves_requested_manga_kind(
     normalized = await provider.normalize(item.raw)
 
     assert item.provider_item_id == "manga:4000-12345"
-    assert normalized.kind == ItemKind.comic
+    assert normalized.kind == ItemKind.manga
     assert normalized.page_count == 55
     assert normalized.provider_ids == {"comicvine": "manga:4000-12345"}
     assert normalized.volume_provider_ids == {"comicvine": "manga:4050-6789"}

@@ -14,16 +14,10 @@ def public_item_kind(kind: Any) -> ItemKind | None:
         return None
     if isinstance(kind, str):
         normalized = kind.strip().lower()
-        if normalized == "manga":
-            return ItemKind.comic
-        if normalized in {"anime", "tv"}:
-            return ItemKind.movie
         try:
             return ItemKind(normalized)
         except ValueError:
             return None
-    if kind == ItemKind.tv:
-        return ItemKind.movie
     return kind if isinstance(kind, ItemKind) else None
 
 
@@ -859,7 +853,8 @@ def _default_video_format(item: Any) -> str:
     kind = getattr(item, "kind", None)
     if kind == ItemKind.movie:
         return "Movie"
-    # 'anime' kind merged into 'movie'; no separate label needed
+    if kind == ItemKind.anime:
+        return "Anime Season"
     return "TV Series"
 
 

@@ -45,7 +45,8 @@ from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 # ---------------------------------------------------------------------------
 _PROVIDER_FOR_KIND: dict[ItemKind, ExternalProvider] = {
     ItemKind.comic: ExternalProvider.comicvine,
-    # 'manga' and 'anime' removed; provider mapping consolidated into existing kinds
+    ItemKind.manga: ExternalProvider.hardcover,
+    ItemKind.anime: ExternalProvider.anilist,
     ItemKind.book: ExternalProvider.openlibrary,
     ItemKind.game: ExternalProvider.igdb,
     ItemKind.boardgame: ExternalProvider.bgg,
@@ -528,7 +529,7 @@ SEED_TV = [
     ),
 ]
 
-# ANIME and MANGA seed data removed (kinds merged into movie/comic)
+# ANIME and MANGA seed data can be added explicitly when needed.
 
 # ===================================================================
 #  BOOKS (10)

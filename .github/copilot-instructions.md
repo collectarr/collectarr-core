@@ -7,7 +7,7 @@
 
 ## Project Context
 
-- **collectarr-core** is a Python 3.13+ FastAPI backend for managing physical media collections.
+- **collectarr-core** is a Python 3.14+ FastAPI backend for managing physical media collections.
 - Serves the collectarr-app Flutter client via REST API.
 - Runs in Docker Compose (WSL2 Ubuntu) with PostgreSQL 16, Redis 7, Meilisearch v1.13, MinIO S3.
 - Entry point: `app/main.py`.
@@ -21,12 +21,14 @@ Franchise (optional) → Series → Volume → Item → Edition → Variant (+ R
 - Models in `app/models/canonical.py` (SQLAlchemy 2.x async, `mapped_column`)
 - Migrations: Alembic (`alembic/`)
 
-### 8 Metadata Providers (`app/providers/`)
+### 10 Metadata Providers (`app/providers/`)
 | Provider | File | Kinds | Auth |
 |----------|------|-------|------|
 | ComicVine | `comicvine.py` | comic, manga | API key |
 | GCD | `gcd.py` | comic | None |
+| Hardcover | `hardcover.py` | manga, book | API key |
 | AniList | `anilist.py` | anime, manga | None (GraphQL) |
+| MangaDex | `mangadex.py` | manga | None |
 | TMDB | `tmdb.py` | movie, tv, anime | API key |
 | OpenLibrary | `openlibrary.py` | book | None |
 | IGDB | `igdb.py` | game | Twitch creds |

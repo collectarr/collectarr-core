@@ -69,7 +69,7 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     providers = {item["name"]: item for item in body["providers"]}
     assert providers["comicvine"]["kind"] == "comic"
     assert providers["comicvine"]["status"] == "stub"
-    assert providers["comicvine"]["supported_kinds"] == ["comic"]
+    assert providers["comicvine"]["supported_kinds"] == ["comic", "manga"]
     assert providers["comicvine"]["non_commercial_only"] is True
     assert providers["gcd"]["kind"] == "comic"
     assert providers["gcd"]["status"] == "live"
@@ -80,11 +80,11 @@ async def test_admin_provider_statuses_require_admin_and_report_stubs(client, mo
     assert providers["igdb"]["non_commercial_only"] is True
     assert providers["tmdb"]["status"] == "stub"
     assert providers["tmdb"]["supports_ingest"] is True
-    assert providers["tmdb"]["supported_kinds"] == ["movie", "tv", "collection"]
-    assert providers["anilist"]["kind"] == "comic"
+    assert providers["tmdb"]["supported_kinds"] == ["movie", "tv", "anime", "collection"]
+    assert providers["anilist"]["kind"] == "manga"
     assert providers["anilist"]["status"] == "live"
     assert providers["anilist"]["supports_ingest"] is True
-    assert providers["anilist"]["supported_kinds"] == ["comic", "movie"]
+    assert providers["anilist"]["supported_kinds"] == ["manga", "anime"]
     assert providers["openlibrary"]["kind"] == "book"
     assert providers["bgg"]["kind"] == "boardgame"
     assert providers["bgg"]["status"] == "stub"

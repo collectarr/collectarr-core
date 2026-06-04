@@ -128,7 +128,7 @@ async def test_mangadex_search(monkeypatch):
     assert results[0].provider == "mangadex"
     assert results[0].provider_item_id == "a1c7c817-4e59-43b7-9365-09675a149a6f"
     assert results[0].title == "One Piece"
-    assert results[0].kind == ItemKind.comic
+    assert results[0].kind == ItemKind.manga
     assert "shounen" in results[0].summary
     assert "cover123.jpg" in results[0].image_url
 
@@ -145,7 +145,7 @@ async def test_mangadex_get_item_and_normalize(monkeypatch):
     normalized = await provider.normalize(item.raw)
 
     assert item.provider_item_id == "a1c7c817-4e59-43b7-9365-09675a149a6f"
-    assert normalized.kind == ItemKind.comic
+    assert normalized.kind == ItemKind.manga
     assert normalized.title == "One Piece"
     assert normalized.synopsis == "A pirate adventure."
     assert normalized.edition_format == "Manga"

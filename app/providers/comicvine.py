@@ -123,7 +123,7 @@ class ComicVineProvider:
     name = "comicvine"
     capabilities = ProviderCapabilities(
         kind=ItemKind.comic,
-        kinds=(ItemKind.comic,),
+        kinds=(ItemKind.comic, ItemKind.manga),
         display_name="Comic Vine",
         requires_user_key=True,
         non_commercial_only=True,
@@ -902,7 +902,8 @@ class ComicVineProvider:
         return kind if kind in self.capabilities.supported_kinds else ItemKind.comic
 
     def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
-        return ItemKind.comic
+        raw_media_type = str(data.get("media_type") or "").strip().lower()
+        return ItemKind.manga if raw_media_type == "manga" else ItemKind.comic
 
     def _kind_and_resource_id(self, provider_item_id: str) -> tuple[ItemKind, str]:
         text = str(provider_item_id or "").strip()
@@ -911,9 +912,10 @@ class ComicVineProvider:
             for separator in (":", "-"):
                 prefix = f"{prefix_str}{separator}"
                 if normalized.startswith(prefix):
-                    return ItemKind.comic, text[len(prefix) :]
+                    mapped_kind = ItemKind.manga if prefix_str == "manga" else ItemKind.comic
+                    return mapped_kind, text[len(prefix) :]
         if normalized.startswith("stub-manga-"):
-            return ItemKind.comic, text
+            return ItemKind.manga, text
         return ItemKind.comic, text
 
     def _provider_item_id(self, kind: ItemKind, resource_id: str | None, *, raw_prefix: str | None = None) -> str:

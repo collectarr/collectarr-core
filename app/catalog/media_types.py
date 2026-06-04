@@ -35,19 +35,38 @@ media_types: tuple[MediaTypeConfig, ...] = (
         providers=(
             ExternalProvider.gcd,
             ExternalProvider.comicvine,
-            ExternalProvider.mangadex,
-            ExternalProvider.anilist,
         ),
         item_number_sort_padding=6,
     ),
-    # 'manga' and 'anime' removed — their provider support moved into comics/movies
+    MediaTypeConfig(
+        kind=ItemKind.manga,
+        singular_label="Manga",
+        plural_label="Manga",
+        route_segments=("manga",),
+        default_provider=ExternalProvider.hardcover,
+        providers=(
+            ExternalProvider.hardcover,
+            ExternalProvider.comicvine,
+            ExternalProvider.anilist,
+            ExternalProvider.mangadex,
+        ),
+    ),
+    MediaTypeConfig(
+        kind=ItemKind.anime,
+        singular_label="Anime",
+        plural_label="Anime",
+        route_segments=("anime",),
+        default_provider=ExternalProvider.anilist,
+        providers=(ExternalProvider.anilist, ExternalProvider.tmdb),
+        physical_formats=video_physical_formats,
+    ),
     MediaTypeConfig(
         kind=ItemKind.movie,
         singular_label="Movie",
         plural_label="Movies",
         route_segments=("movies", "movie"),
         default_provider=ExternalProvider.tmdb,
-        providers=(ExternalProvider.tmdb, ExternalProvider.anilist),
+        providers=(ExternalProvider.tmdb,),
         physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(
@@ -57,7 +76,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("tv", "shows", "series"),
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
-        is_top_level=False,
         physical_formats=video_physical_formats,
     ),
     MediaTypeConfig(

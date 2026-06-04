@@ -89,13 +89,13 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     assert body["default_kind"] == "comic"
     rows = {item["kind"]: item for item in body["media_types"]}
     assert rows["comic"]["default_provider"] == "gcd"
-    assert rows["comic"]["providers"] == ["gcd", "comicvine", "mangadex", "anilist"]
+    assert rows["comic"]["providers"] == ["gcd", "comicvine"]
     assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
-    assert "manga" not in rows
-    assert "anime" not in rows
-    assert "tv" not in rows
+    assert rows["manga"]["providers"] == ["hardcover", "comicvine", "anilist", "mangadex"]
+    assert rows["anime"]["providers"] == ["anilist", "tmdb"]
+    assert rows["tv"]["providers"] == ["tmdb"]
     assert "bluray" not in rows
-    assert rows["movie"]["providers"] == ["tmdb", "anilist"]
+    assert rows["movie"]["providers"] == ["tmdb"]
     assert [format["id"] for format in rows["movie"]["physical_formats"]] == [
         "dvd",
         "blu-ray",

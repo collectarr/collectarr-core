@@ -485,12 +485,12 @@ async def test_comicvine_provider_can_tag_results_as_manga():
     raw = comicvine_issue_raw()
     raw["media_type"] = "manga"
 
-    search_result = ComicVineProvider()._search_result(raw, ItemKind.comic)
+    search_result = ComicVineProvider()._search_result(raw, ItemKind.manga)
     normalized = await ComicVineProvider().normalize(raw)
 
-    assert search_result.kind == ItemKind.comic
+    assert search_result.kind == ItemKind.manga
     assert search_result.provider_item_id == "manga:4000-12345"
-    assert normalized.kind == ItemKind.comic
+    assert normalized.kind == ItemKind.manga
     assert normalized.edition_format == "Manga Issue"
     assert normalized.provider_ids == {"comicvine": "manga:4000-12345"}
     assert normalized.volume_provider_ids == {"comicvine": "manga:4050-6789"}
@@ -983,13 +983,13 @@ async def test_comicvine_provider_stub_search_uses_stable_slug(monkeypatch):
     monkeypatch.setattr(settings, "comicvine_api_key", None)
 
     results = await ComicVineProvider().search("  Spider-Man: Vol. 2  ")
-    manga_results = await ComicVineProvider().search("  One Piece  ", ItemKind.comic)
+    manga_results = await ComicVineProvider().search("  One Piece  ", ItemKind.manga)
 
     assert len(results) == 1
     assert results[0].provider_item_id == "stub-comic-spider-man-vol-2"
     assert results[0].title == "Spider-Man: Vol. 2 (ComicVine stub)"
-    assert manga_results[0].provider_item_id == "stub-comic-one-piece"
-    assert manga_results[0].kind == ItemKind.comic
+    assert manga_results[0].provider_item_id == "stub-manga-one-piece"
+    assert manga_results[0].kind == ItemKind.manga
 
 
 @pytest.mark.asyncio
@@ -1171,7 +1171,7 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     body = summary.json()
     assert body["items"] == 2
     assert body["items_by_kind"]["comic"] == 2
-    assert "manga" not in body["items_by_kind"]
+    assert body["items_by_kind"]["manga"] == 0
     assert body["items_by_kind"]["movie"] == 0
     assert body["series"] == 1
     assert body["volumes"] == 1

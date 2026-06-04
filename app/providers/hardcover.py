@@ -133,8 +133,8 @@ class HardcoverProvider:
 
     name = "hardcover"
     capabilities = ProviderCapabilities(
-        kind=ItemKind.comic,
-        kinds=(ItemKind.comic, ItemKind.book),
+        kind=ItemKind.manga,
+        kinds=(ItemKind.manga, ItemKind.book),
         display_name="Hardcover",
         supports_search=True,
         supports_ingest=True,
@@ -436,17 +436,17 @@ class HardcoverProvider:
     def _parse_provider_item_id(self, provider_item_id: str) -> tuple[ItemKind, str]:
         raw = provider_item_id.strip()
         if not raw:
-            return ItemKind.comic, ""
+            return ItemKind.manga, ""
         prefix, separator, suffix = raw.partition(":")
-        if separator and prefix in {ItemKind.book.value, ItemKind.comic.value, "manga"}:
+        if separator and prefix in {ItemKind.book.value, ItemKind.manga.value, ItemKind.comic.value, "manga"}:
             return self._normalized_kind(prefix), suffix.strip()
-        return ItemKind.comic, raw
+        return ItemKind.manga, raw
 
     def _normalized_kind(self, value: Any) -> ItemKind:
         normalized = str(value or "").strip().lower()
         if normalized == ItemKind.book.value:
             return ItemKind.book
-        return ItemKind.comic  # manga also canonicalized to comic
+        return ItemKind.manga
 
     def _provider_item_id(self, book_id: Any, kind: ItemKind) -> str:
         return f"{kind.value}:{book_id}"

@@ -104,8 +104,8 @@ relations {
 class AniListProvider:
     name = "anilist"
     capabilities = ProviderCapabilities(
-        kind=ItemKind.comic,
-        kinds=(ItemKind.comic, ItemKind.movie),
+        kind=ItemKind.manga,
+        kinds=(ItemKind.manga, ItemKind.anime),
         display_name="AniList",
         supports_search=True,
         supports_ingest=True,
@@ -242,11 +242,11 @@ class AniListProvider:
             series_title=title,
             volume_name=title,
             volume_start_year=start_date.year if start_date else None,
-            runtime_minutes=self._int(data.get("duration")) if kind == ItemKind.movie else None,
+            runtime_minutes=self._int(data.get("duration")) if kind == ItemKind.anime else None,
             page_count=None,
             edition_title=title,
             edition_format=self._optional_text(data.get("format"))
-            or ("Anime" if kind == ItemKind.movie else "Manga"),
+            or ("Anime" if kind == ItemKind.anime else "Manga"),
             release_date=start_date,
             cover_image_url=self._cover_url(data),
             creators=self._staff(data.get("staff")),
@@ -335,30 +335,30 @@ class AniListProvider:
         )
 
     def _target_kind(self, kind: ItemKind | None) -> ItemKind:
-        return kind if kind in self.capabilities.supported_kinds else ItemKind.comic
+        return kind if kind in self.capabilities.supported_kinds else ItemKind.manga
 
     def _anilist_type(self, kind: ItemKind) -> str:
-        return "ANIME" if kind == ItemKind.movie else "MANGA"
+        return "ANIME" if kind == ItemKind.anime else "MANGA"
 
     def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
         media_type = str(data.get("media_type") or "").strip().lower()
         anilist_type = str(data.get("type") or "").strip().upper()
         if media_type == "anime" or anilist_type == "ANIME":
-            return ItemKind.movie
-        return ItemKind.comic
+            return ItemKind.anime
+        return ItemKind.manga
 
     def _kind_and_media_id(self, value: Any) -> tuple[ItemKind, int | None]:
         text = str(value or "").strip()
         normalized = text.lower()
-        for raw_prefix, mapped_kind in (("anime", ItemKind.movie), ("manga", ItemKind.comic)):
+        for raw_prefix, mapped_kind in (("anime", ItemKind.anime), ("manga", ItemKind.manga)):
             for separator in (":", "-"):
                 prefix = f"{raw_prefix}{separator}"
                 if normalized.startswith(prefix):
                     return mapped_kind, self._id(text[len(prefix) :])
-        return ItemKind.comic, self._id(text)
+        return ItemKind.manga, self._id(text)
 
     def _provider_item_id(self, kind: ItemKind, anilist_id: int) -> str:
-        if kind == ItemKind.comic:
+        if kind == ItemKind.manga:
             return str(anilist_id)
         return f"anime:{anilist_id}"
 
@@ -470,9 +470,9 @@ class AniListProvider:
             anilist_id = self._id(node.get("id"))
             node_type = str(node.get("type") or "").upper()
             if node_type == "ANIME":
-                node_kind = ItemKind.movie
+                node_kind = ItemKind.anime
             elif node_type == "MANGA":
-                node_kind = ItemKind.comic
+                node_kind = ItemKind.manga
             else:
                 node_kind = parent_kind
             start_date = (
@@ -547,14 +547,14 @@ class AniListProvider:
         title: str,
         start_date: date | None,
     ) -> NormalizedBundleRelease | None:
-        if kind == ItemKind.movie:
+        if kind == ItemKind.anime:
             return self._anime_bundle_release(
                 data=data,
                 provider_item_id=provider_item_id,
                 title=title,
                 start_date=start_date,
             )
-        if kind != ItemKind.comic:
+        if kind != ItemKind.manga:
             return None
         volume_count = self._int(data.get("volumes"))
         if volume_count is None or volume_count < 2:
@@ -633,7 +633,7 @@ class AniListProvider:
                     continue
                 candidates.append(
                     (
-                        self._provider_item_id(ItemKind.movie, node_id),
+                        self._provider_item_id(ItemKind.anime, node_id),
                         node_title,
                         self._date(node.get("startDate")),
                         self._cover_url(node),
@@ -666,7 +666,7 @@ class AniListProvider:
         members = [
             NormalizedBundleMember(
                 item=NormalizedItem(
-                    kind=ItemKind.movie,
+                    kind=ItemKind.anime,
                     title=candidate_title,
                     series_title=title,
                     volume_name=candidate_title,
@@ -710,7 +710,7 @@ class AniListProvider:
     async def get_volumes(self, provider_item_id: str) -> list[NormalizedSeason]:
         """Seed volumes from AniList volume count. No per-chapter data available."""
         kind, anilist_id = self._kind_and_media_id(provider_item_id)
-        if anilist_id is None or kind != ItemKind.comic:
+        if anilist_id is None or kind != ItemKind.manga:
             return []
         payload = await self._graphql(
             """

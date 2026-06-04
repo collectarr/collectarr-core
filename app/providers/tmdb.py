@@ -25,7 +25,7 @@ class TMDbProvider:
     name = "tmdb"
     capabilities = ProviderCapabilities(
         kind=ItemKind.movie,
-        kinds=(ItemKind.movie, ItemKind.tv, ItemKind.collection),
+        kinds=(ItemKind.movie, ItemKind.tv, ItemKind.anime, ItemKind.collection),
         display_name="TMDb",
         supports_search=True,
         supports_ingest=True,
@@ -249,10 +249,10 @@ class TMDbProvider:
         if not text:
             return ItemKind.movie, None
         normalized = text.lower()
-        # Handle "anime:" prefix by routing to the TV endpoint
+        # Handle "anime:" prefix by routing to the TV endpoint with anime item kind.
         for prefix_str in ("anime:", "anime-"):
             if normalized.startswith(prefix_str):
-                return ItemKind.tv, self._id(text[len(prefix_str):])
+                return ItemKind.anime, self._id(text[len(prefix_str):])
         for kind in self.capabilities.supported_kinds:
             prefix = f"{kind.value}:"
             dash_prefix = f"{kind.value}-"
@@ -268,15 +268,14 @@ class TMDbProvider:
     def _tmdb_type(self, kind: ItemKind) -> str:
         if kind == ItemKind.collection:
             return "collection"
-        return "tv" if kind == ItemKind.tv else "movie"
+        return "tv" if kind in {ItemKind.tv, ItemKind.anime} else "movie"
 
     def _kind_from_raw(self, data: Mapping[str, Any]) -> ItemKind:
         media_type = str(data.get("media_type") or "").strip().lower()
         if media_type == ItemKind.tv.value:
             return ItemKind.tv
-        # Treat 'anime' media type as 'movie' (anime kind removed)
         if media_type == "anime":
-            return ItemKind.movie
+            return ItemKind.anime
         return ItemKind.movie
 
     def _target_kind(self, kind: ItemKind | None) -> ItemKind:
@@ -322,6 +321,8 @@ class TMDbProvider:
     def _edition_format(self, kind: ItemKind) -> str:
         if kind == ItemKind.movie:
             return "Movie"
+        if kind == ItemKind.anime:
+            return "Anime Series"
         return "TV Series"
 
     def _creators(self, data: Mapping[str, Any], kind: ItemKind) -> list[NormalizedCredit]:

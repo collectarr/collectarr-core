@@ -8,11 +8,17 @@ from app.schemas.admin import (
     AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
+    AdminDeleteResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
     AdminMetadataCorrectionRequest,
+    AdminProviderPrefillResolveRequest,
+    AdminProviderPrefillResolveResponse,
+    AdminReleaseMediaMappingRuleCreateRequest,
+    AdminReleaseMediaMappingRuleResponse,
+    AdminReleaseMediaMappingRuleUpdateRequest,
     AdminSeriesTagsUpdateRequest,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
@@ -42,6 +48,67 @@ from app.schemas.metadata import BundleReleaseDetailResponse, ItemResponse, Seri
 from app.services.admin import AdminMetadataService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+@router.get(
+    "/metadata/mapping-rules",
+    response_model=list[AdminReleaseMediaMappingRuleResponse],
+)
+async def metadata_mapping_rules(
+    db: DbSession,
+    provider: ExternalProvider | None = None,
+    active: bool | None = Query(default=None),
+) -> list[AdminReleaseMediaMappingRuleResponse]:
+    return await AdminMetadataService(db).list_release_media_mapping_rules(provider, active)
+
+
+@router.post(
+    "/metadata/mapping-rules",
+    response_model=AdminReleaseMediaMappingRuleResponse,
+)
+async def metadata_mapping_rule_create(
+    payload: AdminReleaseMediaMappingRuleCreateRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> AdminReleaseMediaMappingRuleResponse:
+    return await AdminMetadataService(db, user).create_release_media_mapping_rule(payload)
+
+
+@router.patch(
+    "/metadata/mapping-rules/{rule_id}",
+    response_model=AdminReleaseMediaMappingRuleResponse,
+)
+async def metadata_mapping_rule_update(
+    rule_id: UUID,
+    payload: AdminReleaseMediaMappingRuleUpdateRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> AdminReleaseMediaMappingRuleResponse:
+    return await AdminMetadataService(db, user).update_release_media_mapping_rule(rule_id, payload)
+
+
+@router.delete(
+    "/metadata/mapping-rules/{rule_id}",
+    response_model=AdminDeleteResponse,
+)
+async def metadata_mapping_rule_delete(
+    rule_id: UUID,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> AdminDeleteResponse:
+    deleted = await AdminMetadataService(db, user).delete_release_media_mapping_rule(rule_id)
+    return AdminDeleteResponse(deleted=deleted)
+
+
+@router.post(
+    "/providers/prefill/resolve",
+    response_model=AdminProviderPrefillResolveResponse,
+)
+async def provider_prefill_resolve(
+    payload: AdminProviderPrefillResolveRequest,
+    db: DbSession,
+) -> AdminProviderPrefillResolveResponse:
+    return await AdminMetadataService(db).resolve_provider_prefill(payload)
 
 
 @router.get("/providers", response_model=ProviderStatusListResponse)

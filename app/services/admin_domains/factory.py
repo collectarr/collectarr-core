@@ -13,6 +13,7 @@ from app.services.admin_domains.duplicates import AdminDuplicateService
 from app.services.admin_domains.image_cache import AdminImageCacheService
 from app.services.admin_domains.overview import AdminOverviewService
 from app.services.admin_domains.provider_ingest import AdminProviderIngestService
+from app.services.admin_domains.rules import AdminRulesService
 from app.services.admin_domains.shared import character_role_rank, sort_key
 from app.services.admin_domains.support import AdminSupportService
 from app.services.admin_domains.users import AdminUserService
@@ -23,6 +24,7 @@ from app.services.provider_search_state import ProviderSearchState
 @dataclass(slots=True)
 class AdminDomainServices:
     provider_ingest_admin: AdminProviderIngestService
+    rules_admin: AdminRulesService
     catalog_admin: AdminCatalogService
     duplicates_admin: AdminDuplicateService
     overview_admin: AdminOverviewService
@@ -66,6 +68,10 @@ def build_admin_domain_services(
         actor_user_id=actor_user_id,
         comicvine_character_details=comicvine_character_details,
     )
+    rules_admin = AdminRulesService(
+        db=db,
+        ingest_history_reader=support_admin.ingest_history,
+    )
     catalog_admin = AdminCatalogService(
         db=db,
         item_response_loader=support_admin.item_response,
@@ -94,6 +100,7 @@ def build_admin_domain_services(
 
     return AdminDomainServices(
         provider_ingest_admin=provider_ingest_admin,
+        rules_admin=rules_admin,
         catalog_admin=catalog_admin,
         duplicates_admin=duplicates_admin,
         overview_admin=overview_admin,

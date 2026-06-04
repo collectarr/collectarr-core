@@ -140,6 +140,64 @@ class ProviderIngestHistoryEntry(BaseModel):
     error: str | None = None
 
 
+class AdminReleaseMediaMappingRuleCreateRequest(BaseModel):
+    provider: ExternalProvider | None = None
+    release_type: str = Field(min_length=1, max_length=64)
+    target_kind: ItemKind
+    priority: int = Field(default=100, ge=0, le=10000)
+    is_active: bool = True
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class AdminReleaseMediaMappingRuleUpdateRequest(BaseModel):
+    provider: ExternalProvider | None = None
+    release_type: str | None = Field(default=None, min_length=1, max_length=64)
+    target_kind: ItemKind | None = None
+    priority: int | None = Field(default=None, ge=0, le=10000)
+    is_active: bool | None = None
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class AdminReleaseMediaMappingRuleResponse(BaseModel):
+    id: UUID
+    provider: ExternalProvider | None = None
+    release_type: str
+    target_kind: ItemKind
+    priority: int
+    is_active: bool
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminProviderPrefillResolveRequest(BaseModel):
+    source: str = Field(pattern="^(proposal|ingest_history|manual)$")
+    provider: ExternalProvider | None = None
+    kind: ItemKind | None = None
+    query: str | None = Field(default=None, max_length=255)
+    provider_item_id: str | None = Field(default=None, max_length=255)
+    release_type: str | None = Field(default=None, max_length=64)
+    proposal_id: UUID | None = None
+    ingest_history_id: int | None = Field(default=None, ge=1)
+
+
+class AdminProviderPrefillResolveResponse(BaseModel):
+    source: str
+    provider: ExternalProvider | None = None
+    kind: ItemKind | None = None
+    query: str | None = None
+    provider_item_id: str | None = None
+    release_type: str | None = None
+    matched_rule: AdminReleaseMediaMappingRuleResponse | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class AdminDeleteResponse(BaseModel):
+    deleted: bool
+
+
 class ProviderBatchHydrateItem(BaseModel):
     provider_item_id: str = Field(min_length=1, max_length=255)
 

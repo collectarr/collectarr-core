@@ -10,6 +10,11 @@ from app.search.client import SearchClient
 from app.schemas.admin import (
     AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
+    AdminProviderPrefillResolveRequest,
+    AdminProviderPrefillResolveResponse,
+    AdminReleaseMediaMappingRuleCreateRequest,
+    AdminReleaseMediaMappingRuleResponse,
+    AdminReleaseMediaMappingRuleUpdateRequest,
     ProviderCacheSummaryResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
@@ -57,6 +62,7 @@ class AdminMetadataService:
             search_client_cls=SearchClient,
         )
         self.provider_ingest_admin = services.provider_ingest_admin
+        self.rules_admin = services.rules_admin
         self.catalog_admin = services.catalog_admin
         self.duplicates_admin = services.duplicates_admin
         self.overview_admin = services.overview_admin
@@ -66,6 +72,35 @@ class AdminMetadataService:
 
     async def provider_statuses(self) -> list[ProviderStatusResponse]:
         return await self.overview_admin.provider_statuses()
+
+    async def list_release_media_mapping_rules(
+        self,
+        provider_filter: ExternalProvider | None = None,
+        active_filter: bool | None = None,
+    ) -> list[AdminReleaseMediaMappingRuleResponse]:
+        return await self.rules_admin.list_release_media_mapping_rules(provider_filter, active_filter)
+
+    async def create_release_media_mapping_rule(
+        self,
+        payload: AdminReleaseMediaMappingRuleCreateRequest,
+    ) -> AdminReleaseMediaMappingRuleResponse:
+        return await self.rules_admin.create_release_media_mapping_rule(payload)
+
+    async def update_release_media_mapping_rule(
+        self,
+        rule_id: UUID,
+        payload: AdminReleaseMediaMappingRuleUpdateRequest,
+    ) -> AdminReleaseMediaMappingRuleResponse:
+        return await self.rules_admin.update_release_media_mapping_rule(rule_id, payload)
+
+    async def delete_release_media_mapping_rule(self, rule_id: UUID) -> bool:
+        return await self.rules_admin.delete_release_media_mapping_rule(rule_id)
+
+    async def resolve_provider_prefill(
+        self,
+        payload: AdminProviderPrefillResolveRequest,
+    ) -> AdminProviderPrefillResolveResponse:
+        return await self.rules_admin.resolve_provider_prefill(payload)
 
     async def provider_cache_stats(self) -> ProviderCacheSummaryResponse:
         return await self.overview_admin.provider_cache_stats()

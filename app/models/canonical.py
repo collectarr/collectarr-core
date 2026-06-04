@@ -635,6 +635,32 @@ class MetadataProposal(UuidMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
 
 
+class AdminReleaseMediaMappingRule(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "admin_release_media_mapping_rules"
+    __table_args__ = (
+        Index(
+            "ix_admin_release_media_mapping_rules_lookup",
+            "release_type",
+            "provider",
+            "is_active",
+            "priority",
+        ),
+    )
+
+    provider: Mapped[ExternalProvider | None] = mapped_column(
+        Enum(ExternalProvider, name="external_provider", create_type=False),
+        nullable=True,
+        index=True,
+    )
+    release_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    target_kind: Mapped[ItemKind] = mapped_column(
+        Enum(ItemKind, name="item_kind", create_type=False), nullable=False, index=True
+    )
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
 class SeriesRelation(UuidMixin, TimestampMixin, Base):
     __tablename__ = "series_relations"
     __table_args__ = (

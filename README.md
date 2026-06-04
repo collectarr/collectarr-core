@@ -202,6 +202,11 @@ The workflow logs in through `/auth/login` when a bearer token is not provided.
 See [docs/provider-support.md](docs/provider-support.md) for the generated
 support matrix derived from the provider registry.
 
+## 🧭 Library Parity Contract
+
+See [docs/library-parity-contract.md](docs/library-parity-contract.md) for the
+cross-repo active-kind/provider guarantees and enforcement points.
+
 ## 🗺️ Roadmap
 
 See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.

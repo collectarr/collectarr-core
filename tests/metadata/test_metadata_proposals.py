@@ -31,10 +31,10 @@ class FakeSearchCacheRedis:
 
 
 @pytest.mark.asyncio
-async def test_provider_search_requires_login(client):
+async def test_provider_search_is_public(client):
     response = await client.get("/metadata/providers/comicvine/search", params={"q": "spider"})
 
-    assert response.status_code == 401
+    assert response.status_code == 200
 
 
 @pytest.mark.asyncio

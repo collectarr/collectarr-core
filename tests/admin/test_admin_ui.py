@@ -33,9 +33,9 @@ async def test_admin_ui_is_served_without_api_token(client):
 
 
 @pytest.mark.asyncio
-async def test_admin_provider_statuses_require_admin_and_report_stubs(client, monkeypatch):
-    unauthorized = await client.get("/admin/providers")
-    assert unauthorized.status_code == 401
+async def test_admin_provider_statuses_are_public_and_report_stubs(client, monkeypatch):
+    response = await client.get("/admin/providers")
+    assert response.status_code == 200
 
     token = await admin_token(client, monkeypatch)
     response = await client.get("/admin/providers", headers={"Authorization": f"Bearer {token}"})

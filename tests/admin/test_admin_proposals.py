@@ -45,8 +45,8 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
         proposal_id = str(proposal.id)
         tmdb_proposal_id = str(tmdb_proposal.id)
 
-    unauthorized = await client.get("/admin/metadata/proposals")
-    assert unauthorized.status_code == 401
+    public = await client.get("/admin/metadata/proposals")
+    assert public.status_code == 200
 
     response = await client.get(
         "/admin/metadata/proposals",

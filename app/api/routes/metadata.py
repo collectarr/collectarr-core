@@ -182,7 +182,6 @@ async def default_provider_search(
 async def provider_search(
     provider: ExternalProvider,
     db: DbSession,
-    _user: CurrentUser,
     q: str | None = Query(default=None, min_length=1),
     kind: ItemKind | None = None,
     series: str | None = Query(default=None, min_length=1, max_length=255),

@@ -11,7 +11,7 @@ from fastapi.responses import Response
 from PIL import Image
 from sqlalchemy import func, or_, select, update
 
-from app.api.deps import CurrentAdmin, CurrentUser, DbSession
+from app.api.deps import CurrentAdmin, DbSession
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
@@ -49,7 +49,6 @@ _ENTITY_TYPES = {
 )
 async def download_image(
     db: DbSession,
-    user: CurrentUser,
     object_key: str = Query(min_length=1, max_length=512),
 ) -> Response:
     authorized_keys = await _authorized_image_object_keys(db, [object_key])
@@ -84,7 +83,6 @@ async def download_image(
 @router.post("/batch-download")
 async def batch_download_images(
     db: DbSession,
-    user: CurrentUser,
     object_keys: list[str] = Body(min_length=1, max_length=50),
 ) -> dict[str, str | None]:
     storage = ObjectStorage.shared()
@@ -190,7 +188,6 @@ async def _authorized_image_object_keys(db: DbSession, object_keys: list[str]) -
 @router.get("/entity/{entity_type}/{entity_id}")
 async def list_entity_images(
     db: DbSession,
-    user: CurrentUser,
     entity_type: str = Path(min_length=1, max_length=64),
     entity_id: UUID = Path(),
 ) -> list[dict]:
@@ -406,7 +403,6 @@ def _compute_phash(image_bytes: bytes) -> str:
 @router.post("/search-by-cover")
 async def search_by_cover(
     db: DbSession,
-    user: CurrentUser,
     phash: str = Query(min_length=1, max_length=128, description="Hex-encoded perceptual hash"),
     threshold: int = Query(default=12, ge=0, le=64, description="Max Hamming distance"),
     limit: int = Query(default=20, ge=1, le=100),
@@ -438,7 +434,6 @@ async def search_by_cover(
 @router.post("/search-by-cover-upload")
 async def search_by_cover_upload(
     db: DbSession,
-    user: CurrentUser,
     file: UploadFile,
     threshold: int = Query(default=12, ge=0, le=64),
     limit: int = Query(default=20, ge=1, le=100),

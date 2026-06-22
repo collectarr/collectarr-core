@@ -863,6 +863,71 @@ def test_item_response_from_model_synthesizes_video_release_when_missing_edition
     assert response.country is None
 
 
+def test_item_response_from_model_uses_item_level_metadata_without_editions():
+    item = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.movie,
+        title="Alien",
+        item_number=None,
+        sort_key="alien-1979",
+        synopsis=None,
+        release_type=None,
+        season_number=None,
+        episode_number=None,
+        runtime_minutes=117,
+        page_count=None,
+        metadata_json={
+            "localized_title": "Alien: Le huitieme passager",
+            "original_title": "Alien",
+            "search_aliases": ["Alien (1979)", "Alien Director's Cut"],
+            "crossover": "Alien Universe",
+            "plot_summary": "A crew faces a hostile life form.",
+            "plot_description": "A deep-space cargo crew discovers an organism that hunts them one by one.",
+            "trailer_urls": [{"url": "https://youtube.com/watch?v=jQ5lPt9edzQ"}],
+            "external_links": [{"url": "https://www.imdb.com/title/tt0078748/"}],
+            "normalized": {
+                "audience_rating": "R",
+                "genres": ["Sci-Fi", "Horror"],
+                "platforms": ["Blu-ray"],
+                "track_count": 1,
+                "tracks": [{"position": 1, "title": "Main feature"}],
+                "color": "Color",
+                "nr_discs": 2,
+                "screen_ratio": "2.39:1",
+                "audio_tracks": "English DTS-HD MA 5.1",
+                "subtitles": "English, Romanian",
+                "layers": "BD-50",
+            },
+        },
+        volume=None,
+        editions=[],
+        primary_bundle_releases=[],
+        organization_links=[],
+    )
+
+    response = item_response_from_model(item)
+
+    assert response.localized_title == "Alien: Le huitieme passager"
+    assert response.original_title == "Alien"
+    assert response.search_aliases == ["Alien (1979)", "Alien Director's Cut"]
+    assert response.crossover == "Alien Universe"
+    assert response.plot_summary == "A crew faces a hostile life form."
+    assert response.plot_description == "A deep-space cargo crew discovers an organism that hunts them one by one."
+    assert response.trailer_urls == [{"url": "https://youtube.com/watch?v=jQ5lPt9edzQ"}]
+    assert response.external_links == [{"url": "https://www.imdb.com/title/tt0078748/"}]
+    assert response.audience_rating == "R"
+    assert response.genres == ["Sci-Fi", "Horror"]
+    assert response.platforms == ["Blu-ray"]
+    assert response.track_count == 1
+    assert response.tracks == [{"position": 1, "title": "Main feature"}]
+    assert response.color == "Color"
+    assert response.nr_discs == 2
+    assert response.screen_ratio == "2.39:1"
+    assert response.audio_tracks == "English DTS-HD MA 5.1"
+    assert response.subtitles == "English, Romanian"
+    assert response.layers == "BD-50"
+
+
 def test_item_response_prefers_organization_links_for_publisher_and_imprint():
     item = SimpleNamespace(
         id=uuid4(),

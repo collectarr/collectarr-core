@@ -265,11 +265,23 @@ class ProviderIngestJobSummaryResponse(BaseModel):
     latest_failure_at: datetime | None = None
 
 
+class AdminMetadataCreditInput(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    role: str | None = Field(default=None, max_length=64)
+
+
 class AdminMetadataCorrectionRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     title_extension: str | None = Field(default=None, max_length=255)
+    sort_key: str | None = Field(default=None, max_length=255)
+    original_title: str | None = Field(default=None, max_length=255)
+    localized_title: str | None = Field(default=None, max_length=255)
+    search_aliases: list[str] | None = None
     item_number: str | None = Field(default=None, max_length=64)
     synopsis: str | None = None
+    crossover: str | None = Field(default=None, max_length=255)
+    plot_summary: str | None = None
+    plot_description: str | None = None
     edition_title: str | None = Field(default=None, max_length=255)
     page_count: int | None = Field(default=None, ge=0)
     runtime_minutes: int | None = Field(default=None, ge=0)
@@ -281,6 +293,21 @@ class AdminMetadataCorrectionRequest(BaseModel):
     country: str | None = Field(default=None, max_length=64)
     language: str | None = Field(default=None, max_length=32)
     age_rating: str | None = Field(default=None, max_length=64)
+    audience_rating: str | None = Field(default=None, max_length=32)
+    genres: list[str] | None = None
+    platforms: list[str] | None = None
+    tracks: list[dict[str, Any]] | None = None
+    creators: list[AdminMetadataCreditInput] | None = None
+    characters: list[str] | None = None
+    story_arcs: list[str] | None = None
+    color: str | None = Field(default=None, max_length=64)
+    nr_discs: int | None = Field(default=None, ge=0)
+    screen_ratio: str | None = Field(default=None, max_length=64)
+    audio_tracks: str | None = Field(default=None, max_length=255)
+    subtitles: str | None = Field(default=None, max_length=255)
+    layers: str | None = Field(default=None, max_length=64)
+    trailer_urls: list[dict[str, Any]] | None = None
+    external_links: list[dict[str, Any]] | None = None
     catalog_number: str | None = Field(default=None, max_length=100)
     release_status: str | None = Field(default=None, max_length=64)
     physical_format: str | None = Field(default=None, max_length=64)
@@ -339,6 +366,23 @@ class AdminCatalogSummaryResponse(BaseModel):
     duplicate_candidate_groups: int
     provider_ingest_successes: int = 0
     provider_ingest_failures: int = 0
+
+
+class AdminNormalizedMetadataDriftSample(BaseModel):
+    entity_type: str
+    entity_id: UUID
+    kind: ItemKind
+    issues: list[str] = Field(default_factory=list)
+    normalized_keys: list[str] = Field(default_factory=list)
+
+
+class AdminNormalizedMetadataDriftReportResponse(BaseModel):
+    expected_schema_version: int
+    scanned_entities: int = 0
+    entities_with_normalized: int = 0
+    drifted_entities: int = 0
+    issue_counts: dict[str, int] = Field(default_factory=dict)
+    samples: list[AdminNormalizedMetadataDriftSample] = Field(default_factory=list)
 
 
 class AdminSearchStatusResponse(BaseModel):

@@ -159,6 +159,9 @@ class ItemResponse(BaseModel):
     kind: ItemKind
     title: str
     title_extension: str | None = None
+    localized_title: str | None = None
+    original_title: str | None = None
+    search_aliases: list[str] = []
     item_number: str | None
     sort_key: str | None
     synopsis: str | None
@@ -196,6 +199,14 @@ class ItemResponse(BaseModel):
     language: str | None = None
     age_rating: str | None = None
     audience_rating: str | None = None
+    color: str | None = None
+    nr_discs: int | None = None
+    screen_ratio: str | None = None
+    audio_tracks: str | None = None
+    subtitles: str | None = None
+    layers: str | None = None
+    trailer_urls: list[dict[str, Any]] = []
+    external_links: list[dict[str, Any]] = []
     imprint: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
@@ -504,6 +515,8 @@ def item_response_from_model(
     variant = _primary_variant(item)
     source = _source_metadata(edition)
     normalized = _normalized_metadata(edition)
+    item_normalized = _normalized_item_metadata(item)
+    merged_normalized = _merged_normalized_metadata(item_normalized, normalized)
     creators = _creator_credits(item)
     characters = _character_credits(item)
     story_arcs = _story_arc_credits(item)
@@ -520,28 +533,39 @@ def item_response_from_model(
             "barcode": _barcode(item),
             "cover_date": _date_value(source.get("cover_date")),
             "store_date": _date_value(source.get("store_date")),
+            "localized_title": _item_metadata_text(item, "localized_title"),
+            "original_title": _item_metadata_text(item, "original_title"),
+            "search_aliases": _item_metadata_string_list(item, "search_aliases"),
             "crossover": _item_metadata_text(item, "crossover"),
             "plot_summary": _item_metadata_text(item, "plot_summary"),
             "plot_description": _item_metadata_text(item, "plot_description"),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
             "catalog_number": _optional_text(getattr(edition, "catalog_number", None)),
-            "track_count": _optional_int(normalized.get("track_count")),
-            "tracks": _tracks(normalized.get("tracks")),
+            "track_count": _optional_int(merged_normalized.get("track_count")),
+            "tracks": _tracks(merged_normalized.get("tracks")),
             "creators": creators,
             "characters": characters,
             "character_details": characters,
             "story_arcs": story_arcs,
-            "platforms": _string_list(normalized.get("platforms")),
-            "genres": _string_list(normalized.get("genres")),
+            "platforms": _string_list(merged_normalized.get("platforms")),
+            "genres": _string_list(merged_normalized.get("genres")),
             "country": _optional_text(getattr(edition, "region", None)),
             "language": _optional_text(getattr(edition, "language", None)),
             "age_rating": _optional_text(getattr(edition, "age_rating", None)),
-            "audience_rating": _optional_text(normalized.get("audience_rating")),
+            "audience_rating": _optional_text(merged_normalized.get("audience_rating")),
+            "color": _optional_text(merged_normalized.get("color")),
+            "nr_discs": _optional_int(merged_normalized.get("nr_discs")),
+            "screen_ratio": _optional_text(merged_normalized.get("screen_ratio")),
+            "audio_tracks": _optional_text(merged_normalized.get("audio_tracks")),
+            "subtitles": _optional_text(merged_normalized.get("subtitles")),
+            "layers": _optional_text(merged_normalized.get("layers")),
             "imprint": _imprint(item, edition),
             "subtitle": _optional_text(getattr(edition, "subtitle", None)),
             "series_group": _optional_text(getattr(edition, "series_group", None)),
             "release_status": _optional_text(getattr(edition, "release_status", None)),
+            "trailer_urls": _link_payload_list(item, "trailer_urls"),
+            "external_links": _link_payload_list(item, "external_links"),
             "provider_links": _provider_links(item, extra_provider_links=extra_provider_links),
         }
     )
@@ -821,6 +845,15 @@ def _normalized_item_metadata(item: Any) -> dict[str, Any]:
     return normalized if isinstance(normalized, dict) else {}
 
 
+def _merged_normalized_metadata(
+    item_normalized: dict[str, Any],
+    edition_normalized: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(item_normalized)
+    merged.update(edition_normalized)
+    return merged
+
+
 def _source_item_metadata(item: Any) -> dict[str, Any]:
     metadata = getattr(item, "metadata_json", None) or {}
     provider = metadata.get("provider") if isinstance(metadata, dict) else None
@@ -837,6 +870,29 @@ def _source_item_metadata(item: Any) -> dict[str, Any]:
     return {key: value for key, value in source.items() if value is not None}
 
 
+def _link_payload_list(item: Any, key: str) -> list[dict[str, Any]]:
+    metadata = getattr(item, "metadata_json", None)
+    if not isinstance(metadata, dict):
+        return []
+    values = metadata.get(key)
+    if not isinstance(values, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        url = _optional_text(value.get("url"))
+        if url is None:
+            continue
+        entry: dict[str, Any] = {"url": url}
+        for field in ("site", "name", "kind", "description"):
+            text = _optional_text(value.get(field))
+            if text is not None:
+                entry[field] = text
+        normalized.append(entry)
+    return normalized
+
+
 def _item_metadata_text(item: Any, key: str) -> str | None:
     metadata = getattr(item, "metadata_json", None) or {}
     if not isinstance(metadata, dict):
@@ -847,6 +903,18 @@ def _item_metadata_text(item: Any, key: str) -> str | None:
         if value is not None:
             return value
     return _optional_text(metadata.get(key))
+
+
+def _item_metadata_string_list(item: Any, key: str) -> list[str]:
+    metadata = getattr(item, "metadata_json", None) or {}
+    if not isinstance(metadata, dict):
+        return []
+    normalized = metadata.get("normalized")
+    if isinstance(normalized, dict):
+        values = _string_list(normalized.get(key))
+        if values:
+            return values
+    return _string_list(metadata.get(key))
 
 
 def _default_video_format(item: Any) -> str:
@@ -927,25 +995,33 @@ def _creator_credits(item: Any) -> list[MetadataCredit]:
             str(getattr(link, "id", "") or ""),
         ),
     )
-    return [
-        MetadataCredit(
-            name=link.person.name,
-            role=link.role,
-            api_detail_url=_optional_text(getattr(link.person, "metadata_json", {}).get("api_detail_url")),
-            site_detail_url=_optional_text(getattr(link.person, "metadata_json", {}).get("site_detail_url")),
-            image_url=_optional_text(getattr(link.person, "metadata_json", {}).get("image_url")),
+    credits: list[MetadataCredit] = []
+    for link in rows:
+        person = getattr(link, "person", None)
+        if person is None or not getattr(person, "name", None):
+            continue
+        person_metadata = getattr(person, "metadata_json", None)
+        if not isinstance(person_metadata, dict):
+            person_metadata = {}
+        credits.append(
+            MetadataCredit(
+                name=person.name,
+                role=link.role,
+                api_detail_url=_optional_text(person_metadata.get("api_detail_url")),
+                site_detail_url=_optional_text(person_metadata.get("site_detail_url")),
+                image_url=_optional_text(person_metadata.get("image_url")),
+            )
         )
-        for link in rows
-        if getattr(link, "person", None) is not None and getattr(link.person, "name", None)
-    ]
+    return credits
 
 
 def _character_credits(item: Any) -> list[MetadataCredit]:
     rows = sorted(
         _loaded_rows(item, "character_appearances"),
         key=lambda appearance: (
-            str(getattr(appearance, "role", "") or "").casefold(),
-            str(getattr(getattr(appearance, "character", None), "name", "") or "").casefold(),
+            getattr(appearance, "created_at", None) is None,
+            getattr(appearance, "created_at", None),
+            str(getattr(appearance, "id", "") or ""),
         ),
     )
     return [

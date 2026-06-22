@@ -12,13 +12,35 @@ from app.catalog.physical_formats import (
     physical_format_for_id,
 )
 from app.core.errors import ApiHTTPException
-from app.metadata_normalized import merge_normalized_metadata, set_normalized_metadata
+from app.metadata_normalized import (
+    NORMALIZED_SCHEMA_VERSION,
+    merge_normalized_metadata,
+    normalized_metadata_issues,
+    set_normalized_metadata,
+)
 from app.models.base import ItemKind
-from app.models.canonical import BundleReleaseItem, Edition, EntityOrganization, Item, Organization, Series, Variant
+from app.models.canonical import (
+    BundleRelease,
+    BundleReleaseItem,
+    Character,
+    CharacterAppearance,
+    Edition,
+    EntityPerson,
+    EntityOrganization,
+    Item,
+    Organization,
+    Person,
+    Series,
+    StoryArc,
+    StoryArcItem,
+    Variant,
+)
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     AdminBundleReleaseCorrectionRequest,
     AdminMetadataCorrectionRequest,
+    AdminNormalizedMetadataDriftReportResponse,
+    AdminNormalizedMetadataDriftSample,
     AdminSeriesTagsUpdateRequest,
 )
 from app.schemas.metadata import (
@@ -80,6 +102,119 @@ class AdminCatalogService:
         )
         return [await self._item_response_loader(item) for item in items]
 
+    async def normalized_metadata_drift_report(
+        self,
+        *,
+        sample_limit: int = 100,
+    ) -> AdminNormalizedMetadataDriftReportResponse:
+        issue_counts: dict[str, int] = {}
+        samples: list[AdminNormalizedMetadataDriftSample] = []
+        scanned_entities = 0
+        entities_with_normalized = 0
+        drifted_entities = 0
+
+        def _record(
+            *,
+            entity_type: str,
+            entity_id: UUID,
+            kind: ItemKind,
+            metadata_json: dict[str, Any] | None,
+        ) -> None:
+            nonlocal scanned_entities, entities_with_normalized, drifted_entities
+            scanned_entities += 1
+            if not isinstance(metadata_json, dict):
+                return
+            normalized = metadata_json.get("normalized")
+            if normalized is None:
+                return
+            entities_with_normalized += 1
+            issues = normalized_metadata_issues(normalized, kind=kind)
+            if not issues:
+                return
+            drifted_entities += 1
+            for issue in issues:
+                issue_counts[issue] = issue_counts.get(issue, 0) + 1
+            if len(samples) >= sample_limit:
+                return
+            normalized_keys = []
+            if isinstance(normalized, dict):
+                normalized_keys = sorted(str(key) for key in normalized.keys())
+            samples.append(
+                AdminNormalizedMetadataDriftSample(
+                    entity_type=entity_type,
+                    entity_id=entity_id,
+                    kind=kind,
+                    issues=issues,
+                    normalized_keys=normalized_keys,
+                )
+            )
+
+        item_rows = (
+            await self.db.execute(select(Item.id, Item.kind, Item.metadata_json).order_by(Item.id.asc()))
+        ).all()
+        for item_id, item_kind, metadata_json in item_rows:
+            _record(
+                entity_type="item",
+                entity_id=item_id,
+                kind=item_kind,
+                metadata_json=metadata_json,
+            )
+
+        edition_rows = (
+            await self.db.execute(
+                select(Edition.id, Item.kind, Edition.metadata_json)
+                .join(Item, Edition.item_id == Item.id)
+                .order_by(Edition.id.asc())
+            )
+        ).all()
+        for edition_id, item_kind, metadata_json in edition_rows:
+            _record(
+                entity_type="edition",
+                entity_id=edition_id,
+                kind=item_kind,
+                metadata_json=metadata_json,
+            )
+
+        variant_rows = (
+            await self.db.execute(
+                select(Variant.id, Item.kind, Variant.metadata_json)
+                .join(Edition, Variant.edition_id == Edition.id)
+                .join(Item, Edition.item_id == Item.id)
+                .order_by(Variant.id.asc())
+            )
+        ).all()
+        for variant_id, item_kind, metadata_json in variant_rows:
+            _record(
+                entity_type="variant",
+                entity_id=variant_id,
+                kind=item_kind,
+                metadata_json=metadata_json,
+            )
+
+        bundle_rows = (
+            await self.db.execute(
+                select(BundleRelease.id, BundleRelease.kind, BundleRelease.metadata_json).order_by(
+                    BundleRelease.id.asc()
+                )
+            )
+        ).all()
+        for bundle_id, bundle_kind, metadata_json in bundle_rows:
+            _record(
+                entity_type="bundle_release",
+                entity_id=bundle_id,
+                kind=bundle_kind,
+                metadata_json=metadata_json,
+            )
+
+        return AdminNormalizedMetadataDriftReportResponse(
+            expected_schema_version=NORMALIZED_SCHEMA_VERSION,
+            scanned_entities=scanned_entities,
+            entities_with_normalized=entities_with_normalized,
+            drifted_entities=drifted_entities,
+            issue_counts=dict(sorted(issue_counts.items())),
+            samples=samples,
+        )
+
     async def update_catalog_item(
         self,
         item_id: UUID,
@@ -94,10 +229,19 @@ class AdminCatalogService:
                 detail="Item not found",
             )
         update_data = payload.model_dump(exclude_unset=True)
+        item_metadata = dict(item.metadata_json or {}) if isinstance(item.metadata_json, dict) else {}
         before = {
             "title": item.title,
+            "title_extension": item.title_extension,
+            "sort_key": item.sort_key,
+            "original_title": item_metadata.get("original_title"),
+            "localized_title": item_metadata.get("localized_title"),
+            "search_aliases": item_metadata.get("search_aliases"),
             "item_number": item.item_number,
             "synopsis": item.synopsis,
+            "crossover": item_metadata.get("crossover"),
+            "plot_summary": item_metadata.get("plot_summary"),
+            "plot_description": item_metadata.get("plot_description"),
             "edition_title": None,
             "page_count": item.page_count,
             "runtime_minutes": item.runtime_minutes,
@@ -109,6 +253,21 @@ class AdminCatalogService:
             "country": None,
             "language": None,
             "age_rating": None,
+            "audience_rating": None,
+            "genres": None,
+            "platforms": None,
+            "tracks": None,
+            "creators": self._current_creators(item),
+            "characters": self._current_characters(item),
+            "story_arcs": self._current_story_arcs(item),
+            "color": None,
+            "nr_discs": None,
+            "screen_ratio": None,
+            "audio_tracks": None,
+            "subtitles": None,
+            "layers": None,
+            "trailer_urls": self._current_link_payload(item, "trailer_urls"),
+            "external_links": self._current_link_payload(item, "external_links"),
             "catalog_number": None,
             "release_status": None,
             "variant_name": None,
@@ -128,7 +287,48 @@ class AdminCatalogService:
             item.page_count = payload.page_count
         if "runtime_minutes" in update_data:
             item.runtime_minutes = payload.runtime_minutes
-        item.sort_key = self._sort_key_builder(item.kind, item.title, item.item_number)
+        if "sort_key" in update_data:
+            item.sort_key = self._normalize_optional_text(payload.sort_key)
+        else:
+            item.sort_key = self._sort_key_builder(item.kind, item.title, item.item_number)
+
+        item_metadata_updates: dict[str, Any] = {}
+        if "original_title" in update_data:
+            item_metadata_updates["original_title"] = self._normalize_optional_text(payload.original_title)
+        if "localized_title" in update_data:
+            item_metadata_updates["localized_title"] = self._normalize_optional_text(payload.localized_title)
+        if "search_aliases" in update_data:
+            item_metadata_updates["search_aliases"] = self._normalize_text_values(payload.search_aliases)
+        if "crossover" in update_data:
+            item_metadata_updates["crossover"] = self._normalize_optional_text(payload.crossover)
+        if "plot_summary" in update_data:
+            item_metadata_updates["plot_summary"] = self._normalize_optional_text(payload.plot_summary)
+        if "plot_description" in update_data:
+            item_metadata_updates["plot_description"] = self._normalize_optional_text(payload.plot_description)
+
+        normalized_updates: dict[str, Any] = {}
+        if "audience_rating" in update_data:
+            normalized_updates["audience_rating"] = payload.audience_rating
+        if "genres" in update_data:
+            normalized_updates["genres"] = self._normalize_text_values(payload.genres)
+        if "platforms" in update_data:
+            normalized_updates["platforms"] = self._normalize_text_values(payload.platforms)
+        if "tracks" in update_data:
+            tracks = self._normalize_tracks(payload.tracks)
+            normalized_updates["tracks"] = tracks
+            normalized_updates["track_count"] = len(tracks) if tracks else None
+        if "color" in update_data:
+            normalized_updates["color"] = payload.color
+        if "nr_discs" in update_data:
+            normalized_updates["nr_discs"] = payload.nr_discs
+        if "screen_ratio" in update_data:
+            normalized_updates["screen_ratio"] = payload.screen_ratio
+        if "audio_tracks" in update_data:
+            normalized_updates["audio_tracks"] = payload.audio_tracks
+        if "subtitles" in update_data:
+            normalized_updates["subtitles"] = payload.subtitles
+        if "layers" in update_data:
+            normalized_updates["layers"] = payload.layers
 
         edition = self._primary_edition_model(item)
         physical_format = None
@@ -140,6 +340,16 @@ class AdminCatalogService:
         if edition is not None:
             edition_metadata = dict(edition.metadata_json or {})
             normalized_metadata = dict(edition_metadata.get("normalized") or {})
+            before["audience_rating"] = normalized_metadata.get("audience_rating")
+            before["genres"] = normalized_metadata.get("genres")
+            before["platforms"] = normalized_metadata.get("platforms")
+            before["tracks"] = normalized_metadata.get("tracks")
+            before["color"] = normalized_metadata.get("color")
+            before["nr_discs"] = normalized_metadata.get("nr_discs")
+            before["screen_ratio"] = normalized_metadata.get("screen_ratio")
+            before["audio_tracks"] = normalized_metadata.get("audio_tracks")
+            before["subtitles"] = normalized_metadata.get("subtitles")
+            before["layers"] = normalized_metadata.get("layers")
             before["edition_title"] = edition.title
             before["publisher"] = self._organization_name(item, "publisher") or edition.publisher
             before["release_date"] = edition.release_date
@@ -173,15 +383,58 @@ class AdminCatalogService:
                 edition.catalog_number = payload.catalog_number
             if "release_status" in update_data:
                 edition.release_status = payload.release_status
-            cleaned_metadata = set_normalized_metadata(edition_metadata, normalized_metadata)
+            if normalized_updates:
+                normalized_metadata.update(normalized_updates)
+            cleaned_metadata = set_normalized_metadata(
+                edition_metadata,
+                normalized_metadata,
+                kind=item.kind,
+            )
             if cleaned_metadata != dict(edition.metadata_json or {}):
                 edition.metadata_json = cleaned_metadata
             if physical_format is not None:
-                self._apply_physical_format_to_edition(edition, physical_format)
+                self._apply_physical_format_to_edition(
+                    edition,
+                    physical_format,
+                    item_kind=item.kind,
+                )
             if "publisher" in update_data:
                 await self._replace_item_organization_link(item.id, "publisher", payload.publisher)
             if "imprint" in update_data:
                 await self._replace_item_organization_link(item.id, "imprint", payload.imprint)
+        elif normalized_updates:
+            item.metadata_json = merge_normalized_metadata(
+                item.metadata_json,
+                normalized_updates,
+                kind=item.kind,
+            )
+
+        if "creators" in update_data:
+            await self._replace_item_creator_links(item.id, payload.creators)
+        if "characters" in update_data:
+            await self._replace_item_character_links(item.id, payload.characters)
+        if "story_arcs" in update_data:
+            await self._replace_item_story_arc_links(item.id, payload.story_arcs)
+        if "trailer_urls" in update_data:
+            item.metadata_json = self._metadata_with_link_payload(
+                item.metadata_json,
+                key="trailer_urls",
+                values=payload.trailer_urls,
+            )
+        if "external_links" in update_data:
+            item.metadata_json = self._metadata_with_link_payload(
+                item.metadata_json,
+                key="external_links",
+                values=payload.external_links,
+            )
+        if normalized_updates:
+            item.metadata_json = merge_normalized_metadata(
+                item.metadata_json,
+                normalized_updates,
+                kind=item.kind,
+            )
+        if item_metadata_updates:
+            item.metadata_json = self._metadata_with_item_payload(item.metadata_json, item_metadata_updates)
 
         variant = self._primary_variant_model(item)
         if variant is not None:
@@ -198,11 +451,16 @@ class AdminCatalogService:
                 variant.metadata_json = self._metadata_with_cover(
                     variant.metadata_json,
                     payload.cover_image_url,
+                    item_kind=item.kind,
                 )
             if "thumbnail_image_url" in update_data:
                 variant.thumbnail_image_url = payload.thumbnail_image_url
             if physical_format is not None:
-                self._apply_physical_format_to_variant(variant, physical_format)
+                self._apply_physical_format_to_variant(
+                    variant,
+                    physical_format,
+                    item_kind=item.kind,
+                )
 
         metadata = dict(item.metadata_json or {})
         metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
@@ -220,7 +478,9 @@ class AdminCatalogService:
             },
         )
         await self.db.commit()
-        loaded_item = await MetadataRepository(self.db).get_item(item.id)
+        updated_item_id = item.id
+        self.db.expire_all()
+        loaded_item = await MetadataRepository(self.db).get_item(updated_item_id)
         if loaded_item:
             await SearchClient().index_documents_best_effort([item_search_document(loaded_item)])
         return await self._item_response_loader(loaded_item)
@@ -510,28 +770,36 @@ class AdminCatalogService:
         self,
         edition: Edition,
         physical_format: PhysicalFormatConfig,
+        *,
+        item_kind: ItemKind,
     ) -> None:
         edition.format = physical_format.label
         edition.metadata_json = self._metadata_with_physical_format(
             edition.metadata_json,
             physical_format,
+            item_kind=item_kind,
         )
 
     def _apply_physical_format_to_variant(
         self,
         variant: Variant,
         physical_format: PhysicalFormatConfig,
+        *,
+        item_kind: ItemKind,
     ) -> None:
         variant.variant_type = physical_format.variant_type
         variant.metadata_json = self._metadata_with_physical_format(
             variant.metadata_json,
             physical_format,
+            item_kind=item_kind,
         )
 
     def _metadata_with_physical_format(
         self,
         metadata_json: dict[str, Any] | None,
         physical_format: PhysicalFormatConfig,
+        *,
+        item_kind: ItemKind,
     ) -> dict[str, Any]:
         return merge_normalized_metadata(
             metadata_json,
@@ -541,12 +809,15 @@ class AdminCatalogService:
                 "physical_format_media_family": physical_format.media_family,
                 "physical_format_variant_type": physical_format.variant_type,
             },
+            kind=item_kind,
         )
 
     def _metadata_with_cover(
         self,
         metadata_json: dict[str, Any] | None,
         source_url: str | None,
+        *,
+        item_kind: ItemKind,
     ) -> dict[str, Any]:
         return merge_normalized_metadata(
             metadata_json,
@@ -561,6 +832,7 @@ class AdminCatalogService:
                     "external_url_default" if source_url else "generated_cover_fallback"
                 ),
             },
+            kind=item_kind,
         )
 
     def _primary_edition_model(self, item: Item) -> Edition | None:
@@ -628,6 +900,254 @@ class AdminCatalogService:
             tag = await self._get_or_create_tag(tag_kind, name)
             self.db.add(EntityTag(entity_type=entity_type, entity_id=entity_id, tag_id=tag.id))
         await self.db.flush()
+
+    def _current_creators(self, item: Item) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        for link in list(getattr(item, "creator_links", []) or []):
+            person = getattr(link, "person", None)
+            name = getattr(person, "name", None)
+            if not isinstance(name, str) or not name.strip():
+                continue
+            role = getattr(link, "role", None)
+            entry: dict[str, Any] = {"name": name.strip()}
+            if isinstance(role, str) and role.strip():
+                entry["role"] = role.strip()
+            entries.append(entry)
+        return entries
+
+    def _current_characters(self, item: Item) -> list[str]:
+        entries: list[str] = []
+        for link in list(getattr(item, "character_appearances", []) or []):
+            character = getattr(link, "character", None)
+            name = getattr(character, "name", None)
+            if not isinstance(name, str):
+                continue
+            value = name.strip()
+            if value:
+                entries.append(value)
+        return entries
+
+    def _current_story_arcs(self, item: Item) -> list[str]:
+        rows = sorted(
+            list(getattr(item, "story_arc_items", []) or []),
+            key=lambda row: (
+                getattr(row, "ordinal", None) is None,
+                getattr(row, "ordinal", None),
+                str(getattr(row, "id", "")),
+            ),
+        )
+        entries: list[str] = []
+        for row in rows:
+            story_arc = getattr(row, "story_arc", None)
+            name = getattr(story_arc, "name", None)
+            if not isinstance(name, str):
+                continue
+            value = name.strip()
+            if value:
+                entries.append(value)
+        return entries
+
+    def _current_link_payload(self, item: Item, key: str) -> list[dict[str, Any]]:
+        metadata = getattr(item, "metadata_json", None)
+        if not isinstance(metadata, dict):
+            return []
+        values = metadata.get(key)
+        if not isinstance(values, list):
+            return []
+        result: list[dict[str, Any]] = []
+        for row in values:
+            if not isinstance(row, dict):
+                continue
+            url = " ".join(str(row.get("url") or "").split()).strip()
+            if not url:
+                continue
+            entry: dict[str, Any] = {"url": url}
+            for field in ("site", "name", "kind", "description"):
+                value = " ".join(str(row.get(field) or "").split()).strip()
+                if value:
+                    entry[field] = value
+            result.append(entry)
+        return result
+
+    def _metadata_with_link_payload(
+        self,
+        metadata_json: dict[str, Any] | None,
+        *,
+        key: str,
+        values: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        metadata = dict(metadata_json or {})
+        normalized = self._current_link_values(values)
+        if normalized:
+            metadata[key] = normalized
+        else:
+            metadata.pop(key, None)
+        return metadata
+
+    def _current_link_values(self, values: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        for row in values or []:
+            if not isinstance(row, dict):
+                continue
+            url = " ".join(str(row.get("url") or "").split()).strip()
+            if not url:
+                continue
+            entry: dict[str, Any] = {"url": url}
+            for field in ("site", "name", "kind", "description"):
+                value = " ".join(str(row.get(field) or "").split()).strip()
+                if value:
+                    entry[field] = value
+            result.append(entry)
+        return result
+
+    def _metadata_with_item_payload(
+        self,
+        metadata_json: dict[str, Any] | None,
+        updates: dict[str, Any],
+    ) -> dict[str, Any]:
+        metadata = dict(metadata_json or {})
+        for key, value in updates.items():
+            if value is None or value == []:
+                metadata.pop(key, None)
+            else:
+                metadata[key] = value
+        return metadata
+
+    async def _replace_item_creator_links(
+        self,
+        item_id: UUID,
+        creators: list[Any] | None,
+    ) -> None:
+        existing = list(
+            (
+                await self.db.execute(
+                    select(EntityPerson).where(
+                        EntityPerson.entity_type == "item",
+                        EntityPerson.entity_id == item_id,
+                    )
+                )
+            ).scalars()
+        )
+        for row in existing:
+            await self.db.delete(row)
+        await self.db.flush()
+        for creator in creators or []:
+            name = " ".join(str(getattr(creator, "name", "") or "").split()).strip()
+            if not name:
+                continue
+            role = " ".join(str(getattr(creator, "role", "") or "").split()).strip() or "creator"
+            person = await self._get_or_create_person(name)
+            self.db.add(
+                EntityPerson(
+                    entity_type="item",
+                    entity_id=item_id,
+                    person_id=person.id,
+                    role=role,
+                )
+            )
+        await self.db.flush()
+
+    async def _replace_item_character_links(
+        self,
+        item_id: UUID,
+        characters: list[str] | None,
+    ) -> None:
+        existing = list(
+            (await self.db.execute(select(CharacterAppearance).where(CharacterAppearance.item_id == item_id))).scalars()
+        )
+        for row in existing:
+            await self.db.delete(row)
+        await self.db.flush()
+        for name in self._normalize_text_values(characters):
+            character = await self._get_or_create_character(name)
+            self.db.add(CharacterAppearance(character_id=character.id, item_id=item_id, role="appears"))
+        await self.db.flush()
+
+    async def _replace_item_story_arc_links(
+        self,
+        item_id: UUID,
+        story_arcs: list[str] | None,
+    ) -> None:
+        existing = list((await self.db.execute(select(StoryArcItem).where(StoryArcItem.item_id == item_id))).scalars())
+        for row in existing:
+            await self.db.delete(row)
+        await self.db.flush()
+        for index, name in enumerate(self._normalize_text_values(story_arcs), start=1):
+            story_arc = await self._get_or_create_story_arc(name)
+            self.db.add(
+                StoryArcItem(
+                    story_arc_id=story_arc.id,
+                    item_id=item_id,
+                    ordinal=index,
+                )
+            )
+        await self.db.flush()
+
+    async def _get_or_create_person(self, name: str) -> Person:
+        person = await self.db.scalar(select(Person).where(Person.name == name))
+        if person is None:
+            person = Person(name=name)
+            self.db.add(person)
+            await self.db.flush()
+        return person
+
+    async def _get_or_create_character(self, name: str) -> Character:
+        character = await self.db.scalar(select(Character).where(Character.name == name))
+        if character is None:
+            character = Character(name=name, canonical_name=name.casefold())
+            self.db.add(character)
+            await self.db.flush()
+        return character
+
+    async def _get_or_create_story_arc(self, name: str) -> StoryArc:
+        story_arc = await self.db.scalar(select(StoryArc).where(StoryArc.name == name))
+        if story_arc is None:
+            story_arc = StoryArc(name=name)
+            self.db.add(story_arc)
+            await self.db.flush()
+        return story_arc
+
+    def _normalize_text_values(self, values: list[str] | None) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in values or []:
+            value = " ".join(str(raw or "").split()).strip()
+            if not value:
+                continue
+            key = value.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(value)
+        return normalized
+
+    def _normalize_optional_text(self, value: str | None) -> str | None:
+        normalized = " ".join(str(value or "").split()).strip()
+        return normalized or None
+
+    def _normalize_tracks(self, values: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for raw in values or []:
+            if not isinstance(raw, dict):
+                continue
+            title = " ".join(str(raw.get("title") or "").split()).strip()
+            if not title:
+                continue
+            track: dict[str, Any] = {"title": title}
+            position = raw.get("position")
+            if isinstance(position, int):
+                track["position"] = position
+            duration_seconds = raw.get("duration_seconds")
+            if isinstance(duration_seconds, int):
+                track["duration_seconds"] = duration_seconds
+            artist = " ".join(str(raw.get("artist") or "").split()).strip()
+            if artist:
+                track["artist"] = artist
+            disc_number = raw.get("disc_number")
+            if isinstance(disc_number, int):
+                track["disc_number"] = disc_number
+            normalized.append(track)
+        return normalized
 
     def _normalize_admin_tags(self, tags: list[str]) -> list[str]:
         normalized: list[str] = []

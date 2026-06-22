@@ -89,8 +89,8 @@ from app.storage.images import ImageMirror
 logger = logging.getLogger(__name__)
 
 
-def _normalized_residual(values: dict[str, Any]) -> dict[str, Any]:
-    return clean_normalized_metadata(values)
+def _normalized_residual(values: dict[str, Any], *, kind: ItemKind) -> dict[str, Any]:
+    return clean_normalized_metadata(values, kind=kind)
 
 
 @dataclass(frozen=True)
@@ -898,6 +898,7 @@ class AdminProviderIngestService:
         provider_name: ExternalProvider,
         provider_item_id: str,
         *,
+        kind: ItemKind,
         normalized: dict[str, Any] | None = None,
         source: Any | None = None,
     ) -> dict[str, Any]:
@@ -905,7 +906,7 @@ class AdminProviderIngestService:
             "provider": provider_name.value,
             "provider_item_id": provider_item_id,
         }
-        normalized_payload = _normalized_residual(normalized or {})
+        normalized_payload = _normalized_residual(normalized or {}, kind=kind)
         if normalized_payload:
             metadata["normalized"] = normalized_payload
         if source is not None:
@@ -1077,6 +1078,7 @@ class AdminProviderIngestService:
                     metadata_json=self._provider_metadata_json(
                         provider_name,
                         cover.provider_item_id or provider_item_id,
+                        kind=normalized.kind,
                         normalized={
                             "associated_image_id": cover.source_id,
                             **cover_metadata,
@@ -1184,6 +1186,7 @@ class AdminProviderIngestService:
             metadata_json=self._provider_metadata_json(
                 provider_name,
                 provider_item.provider_item_id,
+                kind=normalized.kind,
                 normalized=cover_metadata,
                 source=provider_item.raw,
             ),
@@ -1290,6 +1293,7 @@ class AdminProviderIngestService:
             metadata_json=self._provider_metadata_json(
                 provider_name,
                 provider_item_id,
+                kind=normalized.kind,
                 normalized=cover_metadata,
             ),
         )
@@ -1311,6 +1315,7 @@ class AdminProviderIngestService:
             metadata_json=self._provider_metadata_json(
                 provider_name,
                 provider_item_id,
+                kind=normalized.kind,
                 normalized={
                     "physical_format": physical_format.id if physical_format else None,
                     "physical_format_label": physical_format.label if physical_format else None,
@@ -1350,6 +1355,7 @@ class AdminProviderIngestService:
             metadata_json=self._provider_metadata_json(
                 provider_name,
                 provider_item_id,
+                kind=normalized.kind,
                 normalized={
                     "physical_format": physical_format.id if physical_format else None,
                     "physical_format_label": physical_format.label if physical_format else None,

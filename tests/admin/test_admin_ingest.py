@@ -1510,9 +1510,17 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
         headers={"Authorization": f"Bearer {token}"},
         json={
             "title": "Absolute Batman Deluxe",
+            "title_extension": "Director's Noir Cut",
+            "sort_key": "batman-absolute-deluxe-custom",
+            "original_title": "Batman: Absolute Edition",
+            "localized_title": "Batman Absolut",
+            "search_aliases": ["Absolute Batman", "Batman Deluxe", "absolute batman"],
             "item_number": "1A",
             "edition_title": "Collector Edition",
             "publisher": "DC Black Label",
+            "crossover": "Absolute Universe",
+            "plot_summary": "Bruce Wayne reinvents Gotham.",
+            "plot_description": "An alternate continuity focused on noir storytelling.",
             "release_date": "2024-10-16",
             "imprint": "Black Label",
             "subtitle": "Noir Edition",
@@ -1522,17 +1530,21 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
             "country": "US",
             "language": "en",
             "age_rating": "Mature",
+            "audience_rating": "8.6",
             "cover_image_url": "https://cdn.example/new.jpg",
             "page_count": 52,
             "runtime_minutes": 0,
             "catalog_number": "ABS-BAT-DELUXE",
             "release_status": "announced",
+            "genres": ["Superhero", "Noir", "Superhero"],
         },
     )
 
     async with AsyncSessionLocal() as db:
+        refreshed_item = await db.get(Item, UUID(item_id))
         refreshed_edition = await db.scalar(select(Edition).where(Edition.item_id == UUID(item_id)))
 
+    assert refreshed_item is not None
     assert refreshed_edition is not None
     assert refreshed_edition.imprint == "Black Label"
     assert refreshed_edition.subtitle == "Noir Edition"
@@ -1542,10 +1554,22 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     assert refreshed_edition.age_rating == "Mature"
     assert refreshed_edition.catalog_number == "ABS-BAT-DELUXE"
     assert refreshed_edition.release_status == "announced"
+    item_metadata = dict(refreshed_item.metadata_json or {})
+    assert item_metadata.get("original_title") == "Batman: Absolute Edition"
+    assert item_metadata.get("localized_title") == "Batman Absolut"
+    assert item_metadata.get("search_aliases") == ["Absolute Batman", "Batman Deluxe"]
+    assert item_metadata.get("crossover") == "Absolute Universe"
+    assert item_metadata.get("plot_summary") == "Bruce Wayne reinvents Gotham."
+    assert item_metadata.get("plot_description") == "An alternate continuity focused on noir storytelling."
 
     assert updated.status_code == 200
     body = updated.json()
     assert body["title"] == "Absolute Batman Deluxe"
+    assert body["title_extension"] == "Director's Noir Cut"
+    assert body["sort_key"] == "batman-absolute-deluxe-custom"
+    assert body["original_title"] == "Batman: Absolute Edition"
+    assert body["localized_title"] == "Batman Absolut"
+    assert body["search_aliases"] == ["Absolute Batman", "Batman Deluxe"]
     assert body["item_number"] == "1A"
     assert body["runtime_minutes"] == 0
     assert body["publisher"] == "DC Black Label"
@@ -1556,8 +1580,13 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     assert body["country"] == "US"
     assert body["language"] == "en"
     assert body["age_rating"] == "Mature"
+    assert body["audience_rating"] == "8.6"
     assert body["catalog_number"] == "ABS-BAT-DELUXE"
     assert body["release_status"] == "announced"
+    assert body["crossover"] == "Absolute Universe"
+    assert body["plot_summary"] == "Bruce Wayne reinvents Gotham."
+    assert body["plot_description"] == "An alternate continuity focused on noir storytelling."
+    assert body["genres"] == ["Superhero", "Noir"]
     assert body["editions"][0]["title"] == "Collector Edition"
     assert body["editions"][0]["release_date"] == "2024-10-16"
     assert body["editions"][0]["imprint"] == "Black Label"
@@ -1585,6 +1614,209 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
 
     assert filtered.status_code == 200
     assert [row["id"] for row in filtered.json()] == [item_id]
+
+
+@pytest.mark.asyncio
+async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            kind=ItemKind.music,
+            title="Random Access Memories",
+            sort_key="random-access-memories",
+        )
+        edition = Edition(item=item, title="Standard Edition")
+        db.add_all([item, edition])
+        await db.flush()
+        item_uuid = item.id
+        item_id = str(item.id)
+        await db.commit()
+
+    updated = await client.patch(
+        f"/admin/catalog/items/music/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "audience_rating": "9.2",
+            "genres": ["Electronic", "  Nu Disco  ", "electronic"],
+            "tracks": [
+                {"position": 1, "title": "One More Time", "duration_seconds": 320},
+                {"position": 2, "title": "Aerodynamic", "duration_seconds": 212},
+            ],
+        },
+    )
+
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["audience_rating"] == "9.2"
+    assert body["genres"] == ["Electronic", "Nu Disco"]
+    assert body["track_count"] == 2
+    assert body["tracks"][0]["title"] == "One More Time"
+    assert body["tracks"][1]["title"] == "Aerodynamic"
+
+    async with AsyncSessionLocal() as db:
+        stored_item = await db.get(Item, item_uuid)
+        assert stored_item is not None
+        normalized = (stored_item.metadata_json or {}).get("normalized", {})
+        assert normalized.get("audience_rating") == "9.2"
+        assert normalized.get("genres") == ["Electronic", "Nu Disco"]
+        assert normalized.get("track_count") == 2
+        assert [track.get("title") for track in normalized.get("tracks", [])] == [
+            "One More Time",
+            "Aerodynamic",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_admin_catalog_correction_updates_game_platforms(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            kind=ItemKind.game,
+            title="The Witcher 3",
+            sort_key="witcher-3",
+        )
+        edition = Edition(item=item, title="Standard Edition")
+        db.add_all([item, edition])
+        await db.flush()
+        item_uuid = item.id
+        item_id = str(item.id)
+        await db.commit()
+
+    updated = await client.patch(
+        f"/admin/catalog/items/game/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"platforms": ["PC", "PlayStation 5", "pc"]},
+    )
+
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["platforms"] == ["PC", "PlayStation 5"]
+
+    async with AsyncSessionLocal() as db:
+        stored_item = await db.get(Item, item_uuid)
+        assert stored_item is not None
+        normalized = (stored_item.metadata_json or {}).get("normalized", {})
+        assert normalized.get("platforms") == ["PC", "PlayStation 5"]
+
+
+@pytest.mark.asyncio
+async def test_admin_catalog_correction_updates_relations_and_links(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            kind=ItemKind.comic,
+            title="Sandman",
+            sort_key="sandman",
+        )
+        edition = Edition(item=item, title="Standard Edition")
+        db.add_all([item, edition])
+        await db.flush()
+        item_uuid = item.id
+        item_id = str(item.id)
+        await db.commit()
+
+    updated = await client.patch(
+        f"/admin/catalog/items/comic/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "creators": [
+                {"name": "Neil Gaiman", "role": "writer"},
+                {"name": "Sam Kieth", "role": "artist"},
+            ],
+            "characters": ["Dream", "Death"],
+            "story_arcs": ["Preludes & Nocturnes", "The Doll's House"],
+            "external_links": [
+                {"url": "https://example.com/sandman", "site": "Official", "name": "Homepage"}
+            ],
+        },
+    )
+
+    assert updated.status_code == 200
+    body = updated.json()
+    assert [entry["name"] for entry in body["creators"]] == ["Neil Gaiman", "Sam Kieth"]
+    assert [entry["name"] for entry in body["characters"]] == ["Dream", "Death"]
+    assert [entry["name"] for entry in body["story_arcs"]] == [
+        "Preludes & Nocturnes",
+        "The Doll's House",
+    ]
+    assert body["external_links"][0]["url"] == "https://example.com/sandman"
+
+    async with AsyncSessionLocal() as db:
+        creator_links = list(
+            (
+                await db.execute(
+                    select(EntityPerson).where(
+                        EntityPerson.entity_type == "item",
+                        EntityPerson.entity_id == item_uuid,
+                    )
+                )
+            ).scalars()
+        )
+        character_links = list(
+            (await db.execute(select(CharacterAppearance).where(CharacterAppearance.item_id == item_uuid))).scalars()
+        )
+        story_arc_links = list(
+            (await db.execute(select(StoryArcItem).where(StoryArcItem.item_id == item_uuid))).scalars()
+        )
+        stored_item = await db.get(Item, item_uuid)
+        assert len(creator_links) == 2
+        assert len(character_links) == 2
+        assert len(story_arc_links) == 2
+        assert (stored_item.metadata_json or {}).get("external_links", [])[0]["url"] == (
+            "https://example.com/sandman"
+        )
+
+
+@pytest.mark.asyncio
+async def test_admin_catalog_correction_updates_video_specs(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            kind=ItemKind.movie,
+            title="Blade Runner",
+            sort_key="blade-runner",
+        )
+        edition = Edition(item=item, title="Standard Edition")
+        db.add_all([item, edition])
+        await db.flush()
+        item_uuid = item.id
+        item_id = str(item.id)
+        await db.commit()
+
+    updated = await client.patch(
+        f"/admin/catalog/items/movie/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "color": "Color",
+            "nr_discs": 2,
+            "screen_ratio": "2.39:1",
+            "audio_tracks": "Dolby Atmos",
+            "subtitles": "English, Romanian",
+            "layers": "BD-100",
+        },
+    )
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["color"] == "Color"
+    assert body["nr_discs"] == 2
+    assert body["screen_ratio"] == "2.39:1"
+    assert body["audio_tracks"] == "Dolby Atmos"
+    assert body["subtitles"] == "English, Romanian"
+    assert body["layers"] == "BD-100"
+
+    async with AsyncSessionLocal() as db:
+        stored_edition = await db.scalar(select(Edition).where(Edition.item_id == item_uuid))
+        normalized = (stored_edition.metadata_json or {}).get("normalized", {})
+        assert normalized.get("color") == "Color"
+        assert normalized.get("nr_discs") == 2
+        assert normalized.get("screen_ratio") == "2.39:1"
+        assert normalized.get("audio_tracks") == "Dolby Atmos"
+        assert normalized.get("subtitles") == "English, Romanian"
+        assert normalized.get("layers") == "BD-100"
 
 
 @pytest.mark.asyncio

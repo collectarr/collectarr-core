@@ -22,6 +22,7 @@ from app.schemas.admin import (
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
     AdminMetadataCorrectionRequest,
+    AdminNormalizedMetadataDriftReportResponse,
     AdminSeriesTagsUpdateRequest,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
@@ -107,6 +108,15 @@ class AdminMetadataService:
 
     async def catalog_summary(self) -> AdminCatalogSummaryResponse:
         return await self.overview_admin.catalog_summary()
+
+    async def normalized_metadata_drift_report(
+        self,
+        *,
+        sample_limit: int = 100,
+    ) -> AdminNormalizedMetadataDriftReportResponse:
+        return await self.catalog_admin.normalized_metadata_drift_report(
+            sample_limit=sample_limit
+        )
 
     async def search_status(self) -> AdminSearchStatusResponse:
         overview_admin_module.SearchClient = SearchClient

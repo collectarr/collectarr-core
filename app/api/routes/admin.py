@@ -14,6 +14,7 @@ from app.schemas.admin import (
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
     AdminMetadataCorrectionRequest,
+    AdminNormalizedMetadataDriftReportResponse,
     AdminProviderPrefillResolveRequest,
     AdminProviderPrefillResolveResponse,
     AdminReleaseMediaMappingRuleCreateRequest,
@@ -123,6 +124,19 @@ async def providers(db: DbSession) -> ProviderStatusListResponse:
 @router.get("/catalog/summary", response_model=AdminCatalogSummaryResponse)
 async def catalog_summary(db: DbSession) -> AdminCatalogSummaryResponse:
     return await AdminMetadataService(db).catalog_summary()
+
+
+@router.get(
+    "/catalog/normalized-metadata-drift",
+    response_model=AdminNormalizedMetadataDriftReportResponse,
+)
+async def catalog_normalized_metadata_drift(
+    db: DbSession,
+    sample_limit: int = Query(default=100, ge=1, le=500),
+) -> AdminNormalizedMetadataDriftReportResponse:
+    return await AdminMetadataService(db).normalized_metadata_drift_report(
+        sample_limit=sample_limit
+    )
 
 
 @router.get("/catalog/items", response_model=list[ItemResponse])

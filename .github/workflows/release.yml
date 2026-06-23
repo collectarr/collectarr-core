@@ -1,6 +1,8 @@
 name: Publish Release
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       build_only:
@@ -31,6 +33,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -59,6 +62,16 @@ jobs:
             version="${{ inputs.release_version }}"
             if [ -z "$version" ]; then
               echo "::error title=Missing release version::Set release_version when force_publish_existing is true."
+              exit 1
+            fi
+            echo "build_requested=true" >> "$GITHUB_OUTPUT"
+            echo "publish_release=true" >> "$GITHUB_OUTPUT"
+            echo "image_tag=$version" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "release" ] && [ "${{ github.event.action }}" = "published" ]; then
+            tag="${{ github.event.release.tag_name }}"
+            version="${tag#v}"
+            if [ -z "$version" ]; then
+              echo "::error title=Missing release tag::Could not resolve version from release tag."
               exit 1
             fi
             echo "build_requested=true" >> "$GITHUB_OUTPUT"
@@ -113,7 +126,7 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
 
       - name: Release
-        if: steps.release_mode.outputs.publish_release == 'true' && !inputs.force_publish_existing
+        if: steps.release_mode.outputs.publish_release == 'true' && !inputs.force_publish_existing && github.event_name != 'release'
         uses: cycjimmy/semantic-release-action@v6
         with:
           extra_plugins: |

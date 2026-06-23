@@ -54,6 +54,7 @@ from app.schemas.metadata import (
     MetadataProposalResponse,
     ProviderLink,
     ProviderSearchResultResponse,
+    EpisodeResponse,
     SeasonResponse,
     SearchResult,
     SeriesItemResponse,

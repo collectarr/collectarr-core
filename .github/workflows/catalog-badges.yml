@@ -50,7 +50,7 @@ jobs:
           python scripts/generate_catalog_badges.py "${args[@]}"
 
       - name: Create badge refresh PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "docs: refresh catalog badges"
           title: "docs: refresh catalog badges"

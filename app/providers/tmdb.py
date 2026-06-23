@@ -563,7 +563,7 @@ class TMDbProvider:
         for raw in raw_seasons:
             if not isinstance(raw, Mapping):
                 continue
-            season_number = raw.get("season_number")
+            season_number = self._id(raw.get("season_number"))
             if season_number is None:
                 continue
             season_detail = await self._request(
@@ -574,15 +574,18 @@ class TMDbProvider:
             for ep in season_detail.get("episodes") or []:
                 if not isinstance(ep, Mapping):
                     continue
-                ep_num = ep.get("episode_number")
+                ep_num = self._id(ep.get("episode_number"))
+                if ep_num is None:
+                    continue
                 ep_title = self._optional_text(ep.get("name")) or f"Episode {ep_num}"
                 episodes.append(
                     NormalizedEpisode(
                         episode_number=ep_num,
                         title=ep_title,
+                        provider_item_id=f"tv:{tmdb_id}:season:{season_number}:episode:{ep_num}",
                         overview=self._optional_text(ep.get("overview")),
                         air_date=self._date(ep.get("air_date")),
-                        runtime_minutes=ep.get("runtime"),
+                        runtime_minutes=self._id(ep.get("runtime")),
                         still_url=self._image_url(ep.get("still_path")),
                     )
                 )
@@ -590,9 +593,10 @@ class TMDbProvider:
                 NormalizedSeason(
                     season_number=season_number,
                     title=self._optional_text(raw.get("name")) or f"Season {season_number}",
+                    provider_item_id=f"tv:{tmdb_id}:season:{season_number}",
                     overview=self._optional_text(raw.get("overview")),
                     air_date=self._date(raw.get("air_date")),
-                    episode_count=raw.get("episode_count"),
+                    episode_count=self._id(raw.get("episode_count")),
                     poster_url=self._image_url(raw.get("poster_path")),
                     episodes=episodes,
                 )

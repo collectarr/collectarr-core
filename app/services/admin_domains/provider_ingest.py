@@ -1802,10 +1802,22 @@ class AdminProviderIngestService:
             return
         for season in seasons:
             volume_name = season.title or f"Season {season.season_number}"
-            result = await self.db.execute(
-                select(Volume).where(Volume.series_id == series.id, Volume.name == volume_name)
-            )
-            volume = result.scalar_one_or_none()
+            volume: Volume | None = None
+            if season.provider_item_id:
+                volume = await self.db.scalar(
+                    select(Volume)
+                    .join(VolumeProviderLink, VolumeProviderLink.volume_id == Volume.id)
+                    .where(
+                        Volume.series_id == series.id,
+                        VolumeProviderLink.provider == ExternalProvider(provider.name),
+                        VolumeProviderLink.provider_item_id == season.provider_item_id,
+                    )
+                )
+            if volume is None:
+                result = await self.db.execute(
+                    select(Volume).where(Volume.series_id == series.id, Volume.name == volume_name)
+                )
+                volume = result.scalar_one_or_none()
             if volume is None:
                 volume = Volume(
                     series=series,
@@ -1815,18 +1827,34 @@ class AdminProviderIngestService:
                 )
                 self.db.add(volume)
                 await self.db.flush()
-            for episode in season.episodes:
-                existing_episode = await self.db.scalar(
-                    select(Item.id).where(
-                        Item.volume_id == volume.id,
-                        Item.season_number == season.season_number,
-                        Item.episode_number == episode.episode_number,
-                    )
+            if season.provider_item_id:
+                await self._replace_volume_provider_links(
+                    volume.id,
+                    ExternalProvider(provider.name),
+                    {provider.name: season.provider_item_id},
                 )
-                if existing_episode:
-                    continue
-                self.db.add(
-                    Item(
+            for episode in season.episodes:
+                episode_item_id: UUID | None = None
+                if episode.provider_item_id:
+                    episode_item_id = await self.db.scalar(
+                        select(Item.id)
+                        .join(ItemProviderLink, ItemProviderLink.item_id == Item.id)
+                        .where(
+                            Item.volume_id == volume.id,
+                            ItemProviderLink.provider == ExternalProvider(provider.name),
+                            ItemProviderLink.provider_item_id == episode.provider_item_id,
+                        )
+                    )
+                if episode_item_id is None:
+                    episode_item_id = await self.db.scalar(
+                        select(Item.id).where(
+                            Item.volume_id == volume.id,
+                            Item.season_number == season.season_number,
+                            Item.episode_number == episode.episode_number,
+                        )
+                    )
+                if episode_item_id is None:
+                    episode_item = Item(
                         volume=volume,
                         kind=kind,
                         title=episode.title,
@@ -1841,7 +1869,15 @@ class AdminProviderIngestService:
                             "air_date": episode.air_date.isoformat() if episode.air_date else None,
                         },
                     )
-                )
+                    self.db.add(episode_item)
+                    await self.db.flush()
+                    episode_item_id = episode_item.id
+                if episode.provider_item_id:
+                    await self._replace_item_provider_links(
+                        episode_item_id,
+                        ExternalProvider(provider.name),
+                        {provider.name: episode.provider_item_id},
+                    )
         await self.db.flush()
 
     async def _ingest_volumes(

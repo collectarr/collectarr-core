@@ -28,6 +28,8 @@ from app.models.canonical import (
     Tag,
     Variant,
     Volume,
+    ItemProviderLink,
+    VolumeProviderLink,
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
@@ -1167,6 +1169,64 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
     assert body[0]["episodes"][0]["title"] == "Romance Dawn"
     assert body[0]["episodes"][0]["page_count"] == 53
     assert body[0]["episodes"][0]["runtime_minutes"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_item_seasons_prefers_catalog_mapped_seasons(client):
+    async with AsyncSessionLocal() as db:
+        series = Series(kind=ItemKind.tv, title="Example Show")
+        show_volume = Volume(series=series, name="Example Show", volume_number=0)
+        season_volume = Volume(series=series, name="Season 1", volume_number=1)
+        show_item = Item(kind=ItemKind.tv, title="Example Show", volume=show_volume)
+        episode_item = Item(
+            kind=ItemKind.tv,
+            title="Pilot",
+            volume=season_volume,
+            item_number="1",
+            season_number=1,
+            episode_number=1,
+            runtime_minutes=45,
+            metadata_json={"air_date": "2024-01-01"},
+        )
+        db.add_all([series, show_volume, season_volume, show_item, episode_item])
+        await db.flush()
+        db.add(
+            ItemProviderLink(
+                item_id=show_item.id,
+                provider=ExternalProvider.tmdb,
+                provider_item_id="tv:100",
+            )
+        )
+        db.add(
+            VolumeProviderLink(
+                volume_id=season_volume.id,
+                provider=ExternalProvider.tmdb,
+                provider_item_id="tv:100:season:1",
+            )
+        )
+        db.add(
+            ItemProviderLink(
+                item_id=episode_item.id,
+                provider=ExternalProvider.tmdb,
+                provider_item_id="tv:100:season:1:episode:1",
+            )
+        )
+        await db.commit()
+        show_item_id = str(show_item.id)
+
+    token = await register_and_login(client)
+    response = await client.get(
+        f"/metadata/items/{show_item_id}/seasons",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["season_number"] == 1
+    assert body[0]["provider_item_id"] == "tv:100:season:1"
+    assert body[0]["episodes"][0]["title"] == "Pilot"
+    assert body[0]["episodes"][0]["provider_item_id"] == "tv:100:season:1:episode:1"
 
 
 @pytest.mark.asyncio

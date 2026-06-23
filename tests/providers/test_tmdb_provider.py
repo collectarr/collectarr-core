@@ -199,6 +199,41 @@ async def test_tmdb_provider_fetches_and_normalizes_tv(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_tmdb_provider_get_seasons_includes_provider_item_ids(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "tmdb_api_read_access_token", "token")
+
+    async def fake_request(self, path, params=None):
+        if path == "tv/1399":
+            return _tv_raw()
+        if path == "tv/1399/season/1":
+            return {
+                "episodes": [
+                    {
+                        "episode_number": 1,
+                        "name": "Winter Is Coming",
+                        "overview": "The North remembers.",
+                        "air_date": "2011-04-17",
+                        "runtime": 62,
+                        "still_path": "/ep1.jpg",
+                    }
+                ]
+            }
+        if path == "tv/1399/season/2":
+            return {"episodes": []}
+        raise AssertionError(path)
+
+    monkeypatch.setattr(TMDbProvider, "_request", fake_request)
+
+    seasons = await TMDbProvider().get_seasons("tv:1399")
+
+    assert len(seasons) == 2
+    assert seasons[0].provider_item_id == "tv:1399:season:1"
+    assert seasons[0].episodes[0].provider_item_id == "tv:1399:season:1:episode:1"
+    assert seasons[0].episodes[0].runtime_minutes == 62
+
+
+@pytest.mark.asyncio
 async def test_tmdb_provider_emits_season_pack_bundle_for_multi_season_show(monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "tmdb_api_read_access_token", "token")

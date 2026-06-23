@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from dataclasses import replace
+from datetime import date
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -30,6 +31,7 @@ from app.models.canonical import (
     StoryArcItem,
     Tag,
     Volume,
+    VolumeProviderLink,
 )
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
@@ -84,6 +86,16 @@ def _metadata_text(metadata: dict[str, object] | None, key: str) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _metadata_date(metadata: dict[str, object] | None, key: str) -> date | None:
+    text = _metadata_text(metadata, key)
+    if text is None:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
 
 
 def _loaded_rows(item: object, attr_name: str) -> list[object]:
@@ -1598,6 +1610,7 @@ class MetadataService:
             SeasonResponse(
                 season_number=s.season_number,
                 title=s.title,
+                provider_item_id=s.provider_item_id,
                 overview=s.overview,
                 air_date=s.air_date,
                 episode_count=s.episode_count,
@@ -1606,6 +1619,7 @@ class MetadataService:
                     EpisodeResponse(
                         episode_number=ep.episode_number,
                         title=ep.title,
+                        provider_item_id=ep.provider_item_id,
                         overview=ep.overview,
                         air_date=ep.air_date,
                         runtime_minutes=ep.runtime_minutes,
@@ -1641,6 +1655,7 @@ class MetadataService:
             SeasonResponse(
                 season_number=v.season_number,
                 title=v.title,
+                provider_item_id=v.provider_item_id,
                 overview=v.overview,
                 air_date=v.air_date,
                 episode_count=v.episode_count,
@@ -1649,6 +1664,7 @@ class MetadataService:
                     EpisodeResponse(
                         episode_number=ep.episode_number,
                         title=ep.title,
+                        provider_item_id=ep.provider_item_id,
                         overview=ep.overview,
                         air_date=ep.air_date,
                         runtime_minutes=ep.runtime_minutes,
@@ -1698,6 +1714,7 @@ class MetadataService:
                 SeasonResponse(
                     season_number=v.season_number,
                     title=v.title,
+                    provider_item_id=v.provider_item_id,
                     overview=v.overview,
                     air_date=v.air_date,
                     episode_count=v.episode_count,
@@ -1706,6 +1723,7 @@ class MetadataService:
                         EpisodeResponse(
                             episode_number=ep.episode_number,
                             title=ep.title,
+                            provider_item_id=ep.provider_item_id,
                             overview=ep.overview,
                             air_date=ep.air_date,
                             runtime_minutes=ep.runtime_minutes,
@@ -1724,6 +1742,10 @@ class MetadataService:
         TV-capable provider (TMDB)."""
         from app.providers.base import NormalizedSeason
         from app.schemas.metadata import EpisodeResponse
+
+        catalog_seasons = await self._get_catalog_seasons(item_id)
+        if catalog_seasons:
+            return catalog_seasons
 
         _SEASON_PROVIDERS = [ExternalProvider.tmdb]
 
@@ -1753,6 +1775,7 @@ class MetadataService:
                 SeasonResponse(
                     season_number=s.season_number,
                     title=s.title,
+                    provider_item_id=s.provider_item_id,
                     overview=s.overview,
                     air_date=s.air_date,
                     episode_count=s.episode_count,
@@ -1761,6 +1784,7 @@ class MetadataService:
                         EpisodeResponse(
                             episode_number=ep.episode_number,
                             title=ep.title,
+                            provider_item_id=ep.provider_item_id,
                             overview=ep.overview,
                             air_date=ep.air_date,
                             runtime_minutes=ep.runtime_minutes,
@@ -1773,6 +1797,87 @@ class MetadataService:
             ]
 
         return []
+
+    async def _get_catalog_seasons(self, item_id: UUID) -> list[SeasonResponse]:
+        series_id = await self.db.scalar(
+            select(Volume.series_id).join(Item, Item.volume_id == Volume.id).where(Item.id == item_id)
+        )
+        if series_id is None:
+            return []
+
+        volume_rows = (
+            await self.db.execute(
+                select(Volume, VolumeProviderLink.provider_item_id)
+                .outerjoin(
+                    VolumeProviderLink,
+                    (VolumeProviderLink.volume_id == Volume.id)
+                    & (VolumeProviderLink.provider == ExternalProvider.tmdb),
+                )
+                .where(Volume.series_id == series_id)
+                .order_by(Volume.volume_number, Volume.name)
+            )
+        ).all()
+        if not volume_rows:
+            return []
+
+        volume_ids = [volume.id for volume, _ in volume_rows]
+        episode_rows = (
+            await self.db.execute(
+                select(Item, ItemProviderLink.provider_item_id)
+                .outerjoin(
+                    ItemProviderLink,
+                    (ItemProviderLink.item_id == Item.id)
+                    & (ItemProviderLink.provider == ExternalProvider.tmdb),
+                )
+                .where(
+                    Item.volume_id.in_(volume_ids),
+                    Item.season_number.is_not(None),
+                    Item.episode_number.is_not(None),
+                )
+                .order_by(Item.volume_id, Item.episode_number)
+            )
+        ).all()
+        if not episode_rows:
+            return []
+
+        episodes_by_volume: dict[UUID, list[tuple[Item, str | None]]] = {}
+        for episode_item, provider_item_id in episode_rows:
+            episodes_by_volume.setdefault(episode_item.volume_id, []).append(
+                (episode_item, provider_item_id)
+            )
+
+        seasons: list[SeasonResponse] = []
+        for volume, provider_item_id in volume_rows:
+            rows = episodes_by_volume.get(volume.id)
+            if not rows:
+                continue
+            first_episode = rows[0][0]
+            season_number = first_episode.season_number
+            if season_number is None:
+                continue
+            seasons.append(
+                SeasonResponse(
+                    season_number=season_number,
+                    title=volume.name or f"Season {season_number}",
+                    provider_item_id=provider_item_id,
+                    air_date=_metadata_date(first_episode.metadata_json, "air_date"),
+                    episode_count=len(rows),
+                    episodes=[
+                        EpisodeResponse(
+                            episode_number=int(episode.episode_number),
+                            title=episode.title,
+                            provider_item_id=episode_provider_item_id,
+                            overview=episode.synopsis,
+                            air_date=_metadata_date(episode.metadata_json, "air_date"),
+                            runtime_minutes=episode.runtime_minutes,
+                            page_count=episode.page_count,
+                        )
+                        for episode, episode_provider_item_id in rows
+                    ],
+                )
+            )
+
+        return seasons
 
     async def create_edition(
         self, item_id: UUID, *, title: str, **kwargs: object

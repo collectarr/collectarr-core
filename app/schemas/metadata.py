@@ -371,6 +371,7 @@ class SeriesRelationResponse(BaseModel):
 class EpisodeResponse(BaseModel):
     episode_number: int
     title: str
+    provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
     runtime_minutes: int | None = None
@@ -380,6 +381,7 @@ class EpisodeResponse(BaseModel):
 class SeasonResponse(BaseModel):
     season_number: int
     title: str
+    provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
     episode_count: int | None = None

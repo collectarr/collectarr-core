@@ -470,6 +470,15 @@ class MetadataProposalAdminResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MetadataProposalAdminUpdateRequest(BaseModel):
+    query: str | None = None
+    provider_item_id: str | None = None
+    title: str | None = None
+    summary: str | None = None
+    image_url: str | None = None
+    metadata_payload: dict[str, Any] | None = None
+
+
 class UserResponse(BaseModel):
     id: UUID
     email: str

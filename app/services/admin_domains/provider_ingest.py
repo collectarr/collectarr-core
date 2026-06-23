@@ -53,6 +53,7 @@ from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
+    MetadataProposalAdminUpdateRequest,
     MetadataProposalSummaryResponse,
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
@@ -173,6 +174,80 @@ class AdminProviderIngestService:
         return [
             MetadataProposalAdminResponse.model_validate(proposal) for proposal in result.scalars()
         ]
+
+    async def update_proposal(
+        self,
+        proposal_id: UUID,
+        payload: MetadataProposalAdminUpdateRequest,
+    ) -> MetadataProposalAdminResponse:
+        proposal = await self.db.get(MetadataProposal, proposal_id)
+        if proposal is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_proposal_not_found",
+                detail="Proposal not found",
+            )
+        if proposal.status != "pending":
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="metadata_proposal_not_pending",
+                detail="Only pending proposals can be edited",
+            )
+
+        changed_fields: list[str] = []
+
+        def _trimmed(value: str | None) -> str | None:
+            if value is None:
+                return None
+            normalized = value.strip()
+            return normalized if normalized else None
+
+        query = _trimmed(payload.query)
+        if query is not None and query != proposal.query:
+            proposal.query = query
+            changed_fields.append("query")
+
+        provider_item_id = _trimmed(payload.provider_item_id)
+        if payload.provider_item_id is not None and provider_item_id != proposal.provider_item_id:
+            proposal.provider_item_id = provider_item_id
+            changed_fields.append("provider_item_id")
+
+        title = _trimmed(payload.title)
+        if payload.title is not None and title != proposal.title:
+            proposal.title = title
+            changed_fields.append("title")
+
+        summary = _trimmed(payload.summary)
+        if payload.summary is not None and summary != proposal.summary:
+            proposal.summary = summary
+            changed_fields.append("summary")
+
+        image_url = _trimmed(payload.image_url)
+        if payload.image_url is not None and image_url != proposal.image_url:
+            proposal.image_url = image_url
+            changed_fields.append("image_url")
+
+        if (
+            payload.metadata_payload is not None
+            and payload.metadata_payload != proposal.metadata_payload
+        ):
+            proposal.metadata_payload = payload.metadata_payload
+            changed_fields.append("metadata_payload")
+
+        if changed_fields:
+            self._audit_recorder(
+                action="metadata_proposal.update",
+                entity_type="metadata_proposal",
+                entity_id=proposal.id,
+                details={
+                    "provider": proposal.provider,
+                    "provider_item_id": proposal.provider_item_id,
+                    "changed_fields": changed_fields,
+                },
+            )
+            await self.db.commit()
+            await self.db.refresh(proposal)
+        return MetadataProposalAdminResponse.model_validate(proposal)
 
     async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
         proposal = await self.db.get(MetadataProposal, proposal_id)

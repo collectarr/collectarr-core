@@ -39,6 +39,7 @@ from app.schemas.admin import (
     ProviderIngestResponse,
     ProviderPreviewResponse,
     MetadataProposalAdminResponse,
+    MetadataProposalAdminUpdateRequest,
     MetadataProposalSummaryResponse,
     ProviderSearchRequest,
     ProviderStatusResponse,
@@ -227,6 +228,11 @@ class AdminMetadataService:
         self, status_filter: str = "pending", provider_filter: ExternalProvider | None = None
     ) -> list[MetadataProposalAdminResponse]:
         return await self.provider_ingest_admin.list_proposals(status_filter, provider_filter)
+
+    async def update_proposal(
+        self, proposal_id: UUID, payload: MetadataProposalAdminUpdateRequest
+    ) -> MetadataProposalAdminResponse:
+        return await self.provider_ingest_admin.update_proposal(proposal_id, payload)
 
     async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
         return await self.provider_ingest_admin.approve_proposal(proposal_id)

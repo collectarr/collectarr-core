@@ -25,6 +25,7 @@ from app.schemas.admin import (
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
     MetadataProposalAdminResponse,
+    MetadataProposalAdminUpdateRequest,
     MetadataProposalSummaryResponse,
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
@@ -408,6 +409,19 @@ async def metadata_proposals_summary(
     db: DbSession,
 ) -> MetadataProposalSummaryResponse:
     return await AdminMetadataService(db).proposal_summary()
+
+
+@router.patch(
+    "/metadata/proposals/{proposal_id}",
+    response_model=MetadataProposalAdminResponse,
+)
+async def update_metadata_proposal(
+    proposal_id: UUID,
+    payload: MetadataProposalAdminUpdateRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> MetadataProposalAdminResponse:
+    return await AdminMetadataService(db, user).update_proposal(proposal_id, payload)
 
 
 @router.post(

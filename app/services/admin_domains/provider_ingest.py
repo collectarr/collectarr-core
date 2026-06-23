@@ -50,6 +50,7 @@ from app.providers.base import (
 from app.providers.comicvine import ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
+from app.proposal_payload import compact_metadata_payload
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
@@ -171,9 +172,14 @@ class AdminProviderIngestService:
         if provider_filter:
             stmt = stmt.where(MetadataProposal.provider == provider_filter)
         result = await self.db.execute(stmt.order_by(MetadataProposal.created_at.asc()))
-        return [
-            MetadataProposalAdminResponse.model_validate(proposal) for proposal in result.scalars()
-        ]
+        responses: list[MetadataProposalAdminResponse] = []
+        for proposal in result.scalars():
+            response = MetadataProposalAdminResponse.model_validate(proposal)
+            compacted_payload = compact_metadata_payload(response.metadata_payload)
+            if compacted_payload != response.metadata_payload:
+                response = response.model_copy(update={"metadata_payload": compacted_payload})
+            responses.append(response)
+        return responses
 
     async def update_proposal(
         self,
@@ -227,12 +233,11 @@ class AdminProviderIngestService:
             proposal.image_url = image_url
             changed_fields.append("image_url")
 
-        if (
-            payload.metadata_payload is not None
-            and payload.metadata_payload != proposal.metadata_payload
-        ):
-            proposal.metadata_payload = payload.metadata_payload
-            changed_fields.append("metadata_payload")
+        if payload.metadata_payload is not None:
+            compacted_payload = compact_metadata_payload(payload.metadata_payload)
+            if compacted_payload != proposal.metadata_payload:
+                proposal.metadata_payload = compacted_payload
+                changed_fields.append("metadata_payload")
 
         if changed_fields:
             self._audit_recorder(

@@ -24,6 +24,13 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
             provider_item_id="4000-12345",
             query="spider",
             title="The Amazing Spider-Man #1",
+            metadata_payload={
+                "kind": "comic",
+                "genres": None,
+                "platforms": None,
+                "cover_image_url": "https://example.test/spider.jpg",
+                "nested": {"a": None, "b": "ok"},
+            },
         )
         tmdb_proposal = MetadataProposal(
             provider=ExternalProvider.tmdb,
@@ -55,6 +62,12 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
     assert response.status_code == 200
     assert {item["id"] for item in response.json()} == {proposal_id, tmdb_proposal_id}
     assert {item["status"] for item in response.json()} == {"pending"}
+    payload_by_id = {item["id"]: item["metadata_payload"] for item in response.json()}
+    assert payload_by_id[proposal_id] == {
+        "kind": "comic",
+        "cover_image_url": "https://example.test/spider.jpg",
+        "nested": {"b": "ok"},
+    }
 
     comicvine_response = await client.get(
         "/admin/metadata/proposals?provider=comicvine",

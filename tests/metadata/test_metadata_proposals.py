@@ -521,6 +521,42 @@ async def test_metadata_proposal_is_saved_without_login(client):
 
 
 @pytest.mark.asyncio
+async def test_metadata_proposal_payload_is_compacted_on_create(client):
+    response = await client.post(
+        "/metadata/proposals",
+        json={
+            "provider": "anilist",
+            "provider_item_id": "anime:20",
+            "query": "naruto",
+            "title": "Naruto",
+            "metadata_payload": {
+                "kind": "anime",
+                "title": "Naruto",
+                "genres": None,
+                "platforms": None,
+                "tracks": None,
+                "cover_image_url": "https://example.test/cover.jpg",
+                "nested": {"a": None, "b": "ok"},
+                "editions": [],
+            },
+        },
+    )
+
+    assert response.status_code == 201
+    async with AsyncSessionLocal() as db:
+        proposal = await db.scalar(
+            select(MetadataProposal).where(MetadataProposal.query == "naruto")
+        )
+        assert proposal is not None
+        assert proposal.metadata_payload == {
+            "kind": "anime",
+            "title": "Naruto",
+            "cover_image_url": "https://example.test/cover.jpg",
+            "nested": {"b": "ok"},
+        }
+
+
+@pytest.mark.asyncio
 async def test_metadata_proposal_is_saved_without_user_collection_data(client):
     token = await register_and_login(client)
 

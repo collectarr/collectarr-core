@@ -37,6 +37,7 @@ from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
+from app.proposal_payload import compact_metadata_payload
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
     CharacterAppearanceResponse,
@@ -1157,7 +1158,7 @@ class MetadataService:
             title=payload.title,
             summary=payload.summary,
             image_url=payload.image_url,
-            metadata_payload=payload.metadata_payload,
+            metadata_payload=compact_metadata_payload(payload.metadata_payload),
         )
         self.db.add(proposal)
         await self.db.commit()

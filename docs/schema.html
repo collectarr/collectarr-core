@@ -270,6 +270,23 @@
         max-width: none;
       }
 
+      .diagram-error {
+        padding: 12px 16px;
+        color: #8a1f1f;
+        font-weight: 600;
+      }
+
+      .diagram-source {
+        margin: 0 16px 16px;
+        max-height: 320px;
+        overflow: auto;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        font-size: 12px;
+        white-space: pre;
+      }
+
       .domain-subgrid {
         display: grid;
         gap: 18px;
@@ -475,6 +492,8 @@
         startOnLoad: false,
         theme: "neutral",
         securityLevel: "loose",
+        maxTextSize: 200000,
+        maxEdges: 2000,
         er: { useMaxWidth: false },
       });
 
@@ -687,7 +706,23 @@
 
       const renderDiagram = async (targetId, definition) => {
         const container = document.getElementById(targetId);
-        const { svg, bindFunctions } = await mermaid.render(`render-${targetId}`, definition);
+        let svg;
+        let bindFunctions;
+        try {
+          ({ svg, bindFunctions } = await mermaid.render(`render-${targetId}`, definition));
+        } catch (error) {
+          // Never leave the viewer silently empty: surface the failure and the
+          // diagram source so the schema is still inspectable.
+          container.innerHTML =
+            '<div class="diagram-error">Could not render this diagram: ' +
+            String(error && error.message ? error.message : error) +
+            '</div><pre class="diagram-source"></pre>';
+          const pre = container.querySelector(".diagram-source");
+          if (pre) {
+            pre.textContent = definition;
+          }
+          return;
+        }
         container.innerHTML = svg;
         if (bindFunctions) {
           bindFunctions(container);
@@ -779,7 +814,7 @@
       renderDomains();
       bindDiagramControls();
       bindSearch();
-      await Promise.all(schemaData.domains.map((domain) => renderDiagram(`diagram-${domain.id}`, domain.diagram)));
+      await Promise.allSettled(schemaData.domains.map((domain) => renderDiagram(`diagram-${domain.id}`, domain.diagram)));
     </script>
   </body>
 </html>

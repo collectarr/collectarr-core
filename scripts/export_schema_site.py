@@ -310,25 +310,30 @@ def build_domain_diagram(domain: dict[str, Any], tables_by_name: dict[str, dict[
         lines.append("  }")
 
     included = set(table_names)
-    seen_edges: set[tuple[str, str, str]] = set()
+    # Merge multiple foreign keys between the same pair of entities into a
+    # single relationship line. Emitting parallel edges (e.g. SERIES has both
+    # source_series_id and target_series_id pointing at SERIES_RELATIONS) makes
+    # Mermaid's ER layout fail and renders an empty diagram.
+    edges: dict[tuple[str, str], dict[str, Any]] = {}
+    edge_order: list[tuple[str, str]] = []
     for table_name in table_names:
         table = tables_by_name[table_name]
         for foreign_key in table["constraints"]["foreign_keys"]:
             source_columns = ", ".join(foreign_key["columns"])
+            nullable = any(
+                tables_by_name[table_name]["column_lookup"][column]["nullable"]
+                for column in foreign_key["columns"]
+            )
             for target in foreign_key["targets"]:
                 target_table, _target_column = target.split(".", 1)
                 if target_table in included:
-                    edge = (target_table, table_name, source_columns)
-                    if edge in seen_edges:
-                        continue
-                    seen_edges.add(edge)
-                    left_cardinality = "||"
-                    nullable = any(tables_by_name[table_name]["column_lookup"][column]["nullable"] for column in foreign_key["columns"])
-                    if nullable:
-                        left_cardinality = "o|"
-                    lines.append(
-                        f"  {mermaid_entity_name(target_table)} {left_cardinality}--o{{ {mermaid_entity_name(table_name)} : {source_columns}"
-                    )
+                    key = (target_table, table_name)
+                    if key not in edges:
+                        edges[key] = {"labels": [], "nullable": False}
+                        edge_order.append(key)
+                    if source_columns not in edges[key]["labels"]:
+                        edges[key]["labels"].append(source_columns)
+                    edges[key]["nullable"] = edges[key]["nullable"] or nullable
                 else:
                     external_refs.append(
                         {
@@ -340,6 +345,17 @@ def build_domain_diagram(domain: dict[str, Any], tables_by_name: dict[str, dict[
                             "onupdate": foreign_key["onupdate"],
                         }
                     )
+
+    for target_table, table_name in edge_order:
+        info = edges[(target_table, table_name)]
+        left_cardinality = "o|" if info["nullable"] else "||"
+        label = ", ".join(info["labels"])
+        # Mermaid relationship labels containing separators must be quoted.
+        rendered_label = f'"{label}"' if ("," in label or " " in label) else label
+        lines.append(
+            f"  {mermaid_entity_name(target_table)} {left_cardinality}--o{{ "
+            f"{mermaid_entity_name(table_name)} : {rendered_label}"
+        )
 
     return "\n".join(lines), external_refs
 

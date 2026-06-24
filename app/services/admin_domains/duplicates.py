@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
+from app.metadata_normalized import item_kind_metadata_payload, upsert_item_kind_metadata
 from app.models.canonical import (
     CharacterAppearance,
     Edition,
@@ -197,6 +198,7 @@ class AdminDuplicateService:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.kind_metadata),
             )
             .where(Item.id.in_(unique_ids))
         )
@@ -405,6 +407,20 @@ class AdminDuplicateService:
         editions = await self.db.scalars(select(Edition).where(Edition.item_id == source_item.id))
         for edition in editions:
             edition.item = target_item
+
+        source_metadata = source_item.kind_metadata
+        target_metadata = target_item.kind_metadata
+        if source_metadata is not None:
+            if target_metadata is None:
+                source_metadata.item = target_item
+                source_metadata.item_id = target_item.id
+            else:
+                merged_payload = item_kind_metadata_payload(target_metadata)
+                for key, value in item_kind_metadata_payload(source_metadata).items():
+                    current = merged_payload.get(key)
+                    if current is None or current == [] or current == {}:
+                        merged_payload[key] = value
+                upsert_item_kind_metadata(target_item, merged_payload)
 
         provider_links = await self.db.scalars(
             select(ItemProviderLink).where(ItemProviderLink.item_id == source_item.id)

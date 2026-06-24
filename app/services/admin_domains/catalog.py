@@ -112,6 +112,7 @@ class AdminCatalogService:
         *,
         sample_limit: int = 100,
     ) -> AdminNormalizedMetadataDriftReportResponse:
+        schema_issue_keys = {"schema_version_missing", "schema_version_mismatch"}
         issue_counts: dict[str, int] = {}
         samples: list[AdminNormalizedMetadataDriftSample] = []
         scanned_entities = 0
@@ -266,6 +267,13 @@ class AdminCatalogService:
                 )
             )
 
+        schema_issue_count = sum(
+            count for issue, count in issue_counts.items() if issue in schema_issue_keys
+        )
+        blocking_issue_count = sum(
+            count for issue, count in issue_counts.items() if issue not in schema_issue_keys
+        )
+
         return AdminNormalizedMetadataDriftReportResponse(
             expected_schema_version=NORMALIZED_SCHEMA_VERSION,
             scanned_entities=scanned_entities,
@@ -273,7 +281,9 @@ class AdminCatalogService:
             drifted_entities=drifted_entities,
             typed_scanned_items=typed_scanned_items,
             typed_drifted_items=typed_drifted_items,
-            release_gate_ok=(drifted_entities == 0 and typed_drifted_items == 0),
+            schema_issue_count=schema_issue_count,
+            blocking_issue_count=blocking_issue_count,
+            release_gate_ok=(blocking_issue_count == 0),
             issue_counts=dict(sorted(issue_counts.items())),
             samples=samples,
         )

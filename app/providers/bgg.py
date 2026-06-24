@@ -8,7 +8,7 @@ from xml.etree import ElementTree
 import httpx
 from fastapi import status
 
-from app.core.config import get_settings
+from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
@@ -65,6 +65,8 @@ class BGGProvider:
         if not normalized_query:
             return []
         if not self.is_configured:
+            if not provider_stub_data_enabled():
+                return []
             return [
                 ProviderSearchResult(
                     provider=self.name,

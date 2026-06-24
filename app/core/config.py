@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     provider_search_retry_base_delay_seconds: float = Field(default=0.35, ge=0)
     provider_search_backoff_seconds: int = Field(default=5 * 60, ge=0)
     provider_search_comicvine_fallback_enabled: bool = True
+    dev_stub_providers: bool = False
     auth_rate_limit_requests: int = Field(default=20, ge=0)
     auth_rate_limit_window_seconds: int = Field(default=60, ge=0)
     admin_provider_rate_limit_requests: int = Field(default=60, ge=0)
@@ -165,3 +166,16 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def provider_stub_data_enabled() -> bool:
+    """Whether providers may return fabricated stub results when unconfigured.
+
+    Stub data keeps local development working without secrets, but it must never
+    leak into a real deployment as if it were genuine catalog metadata. It is
+    therefore enabled only for development/test environments or when explicitly
+    turned on via ``DEV_STUB_PROVIDERS``; production returns empty results plus a
+    "not configured" provider status instead.
+    """
+    settings = get_settings()
+    return settings.dev_stub_providers or settings.environment in {"development", "test"}

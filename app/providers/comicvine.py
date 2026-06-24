@@ -9,7 +9,7 @@ from typing import Any, Mapping
 import httpx
 from fastapi import status
 
-from app.core.config import get_settings
+from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.normalize import issue_sort_key, normalize_title, preview_names, title_aliases
@@ -150,6 +150,8 @@ class ComicVineProvider:
 
         target_kind = self._target_kind(kind)
         if not self._is_configured:
+            if not provider_stub_data_enabled():
+                return []
             return [
                 ProviderSearchResult(
                     provider=self.name,

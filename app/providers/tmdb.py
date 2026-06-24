@@ -4,7 +4,7 @@ from typing import Any, Mapping
 import httpx
 from fastapi import status
 
-from app.core.config import get_settings
+from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
@@ -67,6 +67,8 @@ class TMDbProvider:
 
         target_kind = self._target_kind(kind)
         if not self.is_configured:
+            if not provider_stub_data_enabled():
+                return []
             return [
                 ProviderSearchResult(
                     provider=self.name,

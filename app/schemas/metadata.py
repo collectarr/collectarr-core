@@ -5,7 +5,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from pydantic import BaseModel, Field
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
-from app.metadata_normalized import typed_kind_metadata_for_item
+from app.metadata_normalized import TYPED_KIND_METADATA_KEYS, typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
@@ -524,6 +524,8 @@ def item_response_from_model(
     variant = _primary_variant(item)
     source = _source_metadata(edition)
     typed_normalized = _typed_kind_metadata(item)
+    if not typed_normalized:
+        typed_normalized = _legacy_typed_normalized(item, edition)
     creators = _creator_credits(item)
     characters = _character_credits(item)
     story_arcs = _story_arc_credits(item)
@@ -854,6 +856,24 @@ def _normalized_item_metadata(item: Any) -> dict[str, Any]:
 
 def _typed_kind_metadata(item: Any) -> dict[str, Any]:
     return typed_kind_metadata_for_item(item)
+
+
+def _legacy_typed_normalized(item: Any, edition: Any | None) -> dict[str, Any]:
+    """Legacy bridge for items not migrated to typed kind_metadata tables.
+
+    Such items still carry their typed fields under ``metadata_json["normalized"]``
+    on the item or its primary edition. Read those so responses keep exposing the
+    fields until the catalog is fully re-ingested into the typed tables.
+    """
+    merged: dict[str, Any] = {}
+    for legacy in (_normalized_item_metadata(item), _normalized_metadata(edition)):
+        for key in TYPED_KIND_METADATA_KEYS:
+            if key in merged:
+                continue
+            value = legacy.get(key)
+            if value not in (None, [], {}):
+                merged[key] = value
+    return merged
 
 
 def _source_item_metadata(item: Any) -> dict[str, Any]:

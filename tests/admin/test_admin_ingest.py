@@ -26,6 +26,7 @@ from app.models.canonical import (
     ImageCacheEntry,
     Item,
     ItemKindMetadata,
+    ItemKindMetadataComic,
     ItemProviderLink,
     MetadataProposal,
     Organization,
@@ -1729,7 +1730,7 @@ async def test_admin_normalized_drift_report_includes_typed_metadata_mismatch(cl
                 }
             },
         )
-        typed = ItemKindMetadata(
+        typed = ItemKindMetadataComic(
             item=item,
             kind=ItemKind.comic,
             genres=["Noir"],

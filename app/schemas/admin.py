@@ -381,6 +381,8 @@ class AdminNormalizedMetadataDriftReportResponse(BaseModel):
     scanned_entities: int = 0
     entities_with_normalized: int = 0
     drifted_entities: int = 0
+    typed_scanned_items: int = 0
+    typed_drifted_items: int = 0
     issue_counts: dict[str, int] = Field(default_factory=dict)
     samples: list[AdminNormalizedMetadataDriftSample] = Field(default_factory=list)
 

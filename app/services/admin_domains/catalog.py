@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
@@ -18,6 +19,7 @@ from app.metadata_normalized import (
     normalized_metadata_issues,
     set_normalized_metadata,
     typed_kind_metadata_payload,
+    typed_kind_metadata_payload,
 )
 from app.models.base import ItemKind
 from app.models.canonical import (
@@ -29,6 +31,7 @@ from app.models.canonical import (
     EntityPerson,
     EntityOrganization,
     Item,
+    ItemKindMetadata,
     ItemKindMetadata,
     Organization,
     Person,
@@ -114,6 +117,8 @@ class AdminCatalogService:
         scanned_entities = 0
         entities_with_normalized = 0
         drifted_entities = 0
+        typed_scanned_items = 0
+        typed_drifted_items = 0
 
         def _record(
             *,
@@ -208,11 +213,66 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
+        typed_rows = (
+            await self.db.execute(
+                select(Item)
+                .options(
+                    selectinload(Item.editions),
+                    selectinload(Item.kind_metadata),
+                )
+                .order_by(Item.id.asc())
+            )
+        ).scalars()
+        for item in typed_rows:
+            typed_scanned_items += 1
+            item_metadata = (
+                dict(item.metadata_json or {}) if isinstance(item.metadata_json, dict) else {}
+            )
+            item_normalized = item_metadata.get("normalized")
+            normalized_merged = (
+                dict(item_normalized) if isinstance(item_normalized, dict) else {}
+            )
+            primary_edition = self._primary_edition_model(item)
+            if primary_edition is not None and isinstance(primary_edition.metadata_json, dict):
+                edition_normalized = primary_edition.metadata_json.get("normalized")
+                if isinstance(edition_normalized, dict):
+                    normalized_merged.update(dict(edition_normalized))
+            expected_typed = typed_kind_metadata_payload(normalized_merged, kind=item.kind)
+            actual_typed = self._item_kind_metadata_payload(item.kind_metadata)
+            issues: list[str] = []
+            for key in sorted(set(expected_typed) | set(actual_typed)):
+                if key not in actual_typed:
+                    issues.append(f"typed_missing:{key}")
+                    continue
+                if key not in expected_typed:
+                    issues.append(f"typed_extra:{key}")
+                    continue
+                if expected_typed[key] != actual_typed[key]:
+                    issues.append(f"typed_mismatch:{key}")
+            if not issues:
+                continue
+            typed_drifted_items += 1
+            for issue in issues:
+                issue_counts[issue] = issue_counts.get(issue, 0) + 1
+            if len(samples) >= sample_limit:
+                continue
+            samples.append(
+                AdminNormalizedMetadataDriftSample(
+                    entity_type="item_kind_metadata",
+                    entity_id=item.id,
+                    kind=item.kind,
+                    issues=issues,
+                    normalized_keys=sorted(set(expected_typed) | set(actual_typed)),
+                )
+            )
+
         return AdminNormalizedMetadataDriftReportResponse(
             expected_schema_version=NORMALIZED_SCHEMA_VERSION,
             scanned_entities=scanned_entities,
             entities_with_normalized=entities_with_normalized,
             drifted_entities=drifted_entities,
+            typed_scanned_items=typed_scanned_items,
+            typed_drifted_items=typed_drifted_items,
             issue_counts=dict(sorted(issue_counts.items())),
             samples=samples,
         )
@@ -1017,6 +1077,28 @@ class AdminCatalogService:
             else:
                 metadata[key] = value
         return metadata
+
+    def _item_kind_metadata_payload(self, value: ItemKindMetadata | None) -> dict[str, Any]:
+        if value is None:
+            return {}
+        raw = {
+            "audience_rating": value.audience_rating,
+            "genres": value.genres,
+            "platforms": value.platforms,
+            "color": value.color,
+            "nr_discs": value.nr_discs,
+            "screen_ratio": value.screen_ratio,
+            "audio_tracks": value.audio_tracks,
+            "subtitles": value.subtitles,
+            "layers": value.layers,
+            "track_count": value.track_count,
+            "tracks": value.tracks,
+        }
+        return {
+            key: row
+            for key, row in raw.items()
+            if row is not None and row != [] and row != {}
+        }
 
     def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
         typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)

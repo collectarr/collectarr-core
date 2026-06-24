@@ -10,6 +10,7 @@ from sqlalchemy import func, select, update
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.db.session import AsyncSessionLocal
+from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
@@ -1706,6 +1707,46 @@ async def test_admin_catalog_correction_updates_game_platforms(client, monkeypat
         assert stored_item is not None
         assert typed_metadata is not None
         assert typed_metadata.platforms == ["PC", "PlayStation 5"]
+
+
+@pytest.mark.asyncio
+async def test_admin_normalized_drift_report_includes_typed_metadata_mismatch(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            kind=ItemKind.comic,
+            title="Typed Drift Sample",
+            sort_key="typed-drift-sample",
+        )
+        edition = Edition(
+            item=item,
+            title="Standard",
+            metadata_json={
+                "normalized": {
+                    "schema_version": NORMALIZED_SCHEMA_VERSION,
+                    "genres": ["Heroic"],
+                }
+            },
+        )
+        typed = ItemKindMetadata(
+            item=item,
+            kind=ItemKind.comic,
+            genres=["Noir"],
+        )
+        db.add_all([item, edition, typed])
+        await db.commit()
+
+    response = await client.get(
+        "/admin/catalog/normalized-metadata-drift",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["typed_scanned_items"] >= 1
+    assert body["typed_drifted_items"] >= 1
+    assert body["issue_counts"].get("typed_mismatch:genres", 0) >= 1
 
 
 @pytest.mark.asyncio

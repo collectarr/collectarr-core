@@ -2,6 +2,7 @@
       const tokenKey = "collectarr.admin.token";
       const state = {
         token: sessionStorage.getItem(tokenKey) || "",
+        user: null,
         providers: [],
         proposals: [],
         activeProposalId: "",
@@ -12,8 +13,12 @@
       const responseBox = $("response");
       const statusBox = $("status");
       const authStatus = $("authStatus");
+      const authUserStatus = $("authUserStatus");
 
       function setActiveTab(name) {
+        if (!state.token && name !== "access") {
+          name = "access";
+        }
         document.querySelectorAll(".tab-button").forEach((button) => {
           button.classList.toggle("active", button.dataset.tab === name);
         });
@@ -93,6 +98,29 @@
       function updateAuthStatus() {
         authStatus.className = `status ${state.token ? "ok" : ""}`;
         authStatus.textContent = state.token ? "Admin token loaded." : "No token loaded.";
+        if (state.user) {
+          const role = String(state.user.role || "unknown");
+          const email = String(state.user.email || "unknown");
+          authUserStatus.textContent = `Session: ${email} (${role})`;
+        } else {
+          authUserStatus.textContent = state.token
+            ? "Session: validating..."
+            : "Session: signed out";
+        }
+      }
+
+      function clearSession({ message, isError = false, clearResponse = false } = {}) {
+        state.token = "";
+        state.user = null;
+        sessionStorage.removeItem(tokenKey);
+        updateAuthStatus();
+        if (clearResponse) {
+          setResponse("");
+        }
+        if (message) {
+          setStatus(message, isError ? "error" : "ok");
+        }
+        setActiveTab("access");
       }
 
       function safeStatusClass(status) {
@@ -131,7 +159,11 @@
         return value;
       }
 
-      async function request(path, options = {}) {
+      async function request(path, options = {}, requiresAuth = false) {
+        if (requiresAuth && !state.token) {
+          clearSession({ message: "Admin login required.", isError: true });
+          throw new Error("Admin login required.");
+        }
         let response;
         try {
           response = await fetch(path, options);
@@ -154,8 +186,24 @@
         }
         if (!response.ok) {
           const message = data?.detail || response.statusText;
+          if (requiresAuth && response.status === 401) {
+            clearSession({
+              message: "Session expired. Log in again.",
+              isError: true,
+              clearResponse: true,
+            });
+          }
           throw new Error(Array.isArray(message) ? JSON.stringify(message) : message);
         }
+        return data;
+      }
+
+      async function loadCurrentUser() {
+        const data = await request("/auth/me", {
+          headers: headers(true),
+        }, true);
+        state.user = data;
+        updateAuthStatus();
         return data;
       }
 
@@ -195,7 +243,7 @@
       async function refreshProviderCacheStats() {
         const data = await request("/admin/providers", {
           headers: headers(true),
-        });
+        }, true);
         renderProviderCacheStats(data.cache_stats);
         return data;
       }
@@ -401,10 +449,17 @@
             });
             state.token = data.access_token;
             sessionStorage.setItem(tokenKey, state.token);
+            state.user = null;
             updateAuthStatus();
+            await loadCurrentUser();
             setStatus("Logged in.", "ok");
             setResponse(data);
             logEvent("Admin login succeeded.");
+            await Promise.all([
+              loadProviders(),
+              loadProposalSummary(),
+              loadProposals(),
+            ]);
           } catch (error) {
             setStatus(error.message, "error");
           }
@@ -466,7 +521,7 @@
                 provider,
                 query: $("providerQuery").value,
               }),
-            });
+            }, true);
             renderProviderResults(data);
             setStatus(
               state.activeProposalId
@@ -504,7 +559,7 @@
         try {
           const data = await request("/admin/metadata/proposals/summary", {
             headers: headers(true),
-          });
+          }, true);
           setMetric("proposalMetric", data.pending);
           setMetric("approvedProposalMetric", data.approved);
           setMetric("rejectedProposalMetric", data.rejected);
@@ -531,7 +586,7 @@
               provider,
               provider_item_id: providerItemId,
             }),
-          });
+          }, true);
           setStatus(data.created ? "Metadata item ingested." : "Metadata item already exists.", "ok");
           setMetric("ingestMetric", data.created ? "new" : "exists");
           await refreshProviderCacheStats();
@@ -550,7 +605,7 @@
             const providerParam = provider ? `&provider=${encodeURIComponent(provider)}` : "";
             const data = await request(`/admin/metadata/proposals?status=${status}${providerParam}`, {
               headers: headers(true),
-            });
+            }, true);
             renderProposals(data);
             updateProposalQuickFilters($("proposalStatus").value);
             loadProposalSummary();
@@ -593,7 +648,7 @@
               provider,
               provider_item_id: providerItemId,
             }),
-          });
+          }, true);
           state.activeProposalId = "";
           state.activeProposalTitle = "";
           setStatus("Proposal approved with selected provider item.", "ok");
@@ -614,7 +669,7 @@
           const data = await request(`/admin/metadata/proposals/${id}/approve`, {
             method: "POST",
             headers: headers(true),
-          });
+          }, true);
           setStatus("Proposal approved and ingested.", "ok");
           setMetric("ingestMetric", "approved");
           await refreshProviderCacheStats();
@@ -632,7 +687,7 @@
           const data = await request(`/admin/metadata/proposals/${id}/reject`, {
             method: "POST",
             headers: headers(true),
-          });
+          }, true);
           setStatus("Proposal rejected.", "ok");
           setResponse(data);
           logEvent("Proposal rejected.");
@@ -644,10 +699,8 @@
       }
 
       $("loginButton").addEventListener("click", login);
-      $("clearTokenButton").addEventListener("click", () => {
-        state.token = "";
-        sessionStorage.removeItem(tokenKey);
-        updateAuthStatus();
+      $("logoutButton").addEventListener("click", () => {
+        clearSession({ message: "Logged out.", clearResponse: true });
       });
       $("healthButton").addEventListener("click", health);
       $("catalogButton").addEventListener("click", catalogSearch);
@@ -673,8 +726,12 @@
       });
       updateAuthStatus();
       if (state.token) {
-        loadProviders();
-        loadProposalSummary();
-        loadProposals();
+        loadCurrentUser()
+          .then(() => Promise.all([loadProviders(), loadProposalSummary(), loadProposals()]))
+          .catch(() => {
+            // session clearing is handled in request() for 401
+          });
+      } else {
+        setActiveTab("access");
       }
     

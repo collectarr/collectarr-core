@@ -147,9 +147,10 @@
           <label>Password <input id="password" type="password" autocomplete="current-password"></label>
           <div class="row">
             <button id="loginButton" class="primary" type="button">Login</button>
-            <button id="clearTokenButton" type="button">Clear token</button>
+            <button id="logoutButton" type="button">Logout</button>
           </div>
           <div id="authStatus" class="status">No token loaded.</div>
+          <div id="authUserStatus" class="muted">Session: signed out</div>
           <p class="muted">Tokens are stored in sessionStorage for this browser session only.</p>
         </div>
       </section>
@@ -157,4 +158,3 @@
     <script defer src="/admin/static/admin.js"></script>
   </body>
 </html>
-

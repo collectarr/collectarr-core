@@ -61,14 +61,11 @@
 	- Revisit Hardcover series positions before broader book/manga depth: current `volume_number` is integer-only and cannot represent fractional positions like `1.5` without schema/contract updates.
 
 ### 🧭 Admin UX / Operations
-- [ ] Improve static Admin Console auth UX
-	- Session gate on load (no hidden auth tab dependency), explicit logged-in user/role status, clear logout, and 401 session-expired handling.
-- [ ] Rich duplicate/merge tooling with confidence scoring
-	- Explainable confidence factors (aliases, provider IDs, barcode/UPC, release dates, creators, formats).
-	- Operator-reviewed merge suggestions + audit trail before any automation.
-- [ ] Public deployment hardening and stricter operator roles
-	- Split operational privileges more finely than viewer/editor/admin for internet-facing setups.
-	- Tighten production guidance for auth defaults, CORS, rate limits, job isolation, and secrets management.
+- [ ] Expand duplicate/merge operator workflow from confidence signals to full review queue
+	- Confidence factors + warnings are now exposed by API; next step is explicit queue decisions with richer audit context.
+- [ ] Continue public deployment hardening for internet-facing setups
+	- Admin read APIs now enforce authenticated editor/admin access in public envs by default.
+	- Continue tightening production guidance for auth defaults, CORS, rate limits, job isolation, and secrets management.
 
 ### 🧩 Scan-to-Identify Boundary
 - [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify

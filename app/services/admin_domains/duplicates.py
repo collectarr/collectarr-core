@@ -70,6 +70,11 @@ class AdminDuplicateService:
                 ids,
                 conflicts=conflicts,
             )
+            confidence_factors = await self._duplicate_confidence_factors(
+                ids,
+                conflicts=conflicts,
+            )
+            merge_warnings = self._duplicate_merge_warnings(conflicts)
             candidates.append(
                 AdminDuplicateCandidateResponse(
                     kind=kind.value if hasattr(kind, "value") else str(kind),
@@ -82,6 +87,8 @@ class AdminDuplicateService:
                     has_cover_conflicts=conflicts["cover"],
                     duplicate_score=duplicate_score,
                     recommended_target_item_id=recommended_target_item_id,
+                    confidence_factors=confidence_factors,
+                    merge_warnings=merge_warnings,
                 )
             )
         candidates.sort(
@@ -289,6 +296,39 @@ class AdminDuplicateService:
             ),
         ).id
         return min(score, 99), recommended_target_item_id
+
+    async def _duplicate_confidence_factors(
+        self,
+        item_ids: list[UUID],
+        *,
+        conflicts: dict[str, bool],
+    ) -> list[str]:
+        items = await self._items_by_ids(item_ids)
+        if len(items) < 2:
+            return []
+        provider_counts = await self._provider_link_counts_by_item(item_ids)
+        factors: list[str] = []
+        if not conflicts["provider"]:
+            factors.append("provider_ids_consistent")
+        if not conflicts["cover"]:
+            factors.append("cover_images_consistent")
+        if provider_counts:
+            factors.append("provider_links_present")
+        if len(provider_counts) == len(items):
+            factors.append("provider_links_present_for_all_items")
+        if self._duplicate_items_share_publisher(items):
+            factors.append("publisher_aligned")
+        if self._duplicate_items_share_release_marker(items):
+            factors.append("release_markers_aligned")
+        return factors
+
+    def _duplicate_merge_warnings(self, conflicts: dict[str, bool]) -> list[str]:
+        warnings: list[str] = []
+        if conflicts["provider"]:
+            warnings.append("provider_id_conflict")
+        if conflicts["cover"]:
+            warnings.append("cover_asset_conflict")
+        return warnings
 
     async def _provider_link_counts_by_item(self, item_ids: list[UUID]) -> dict[UUID, int]:
         result = await self.db.execute(

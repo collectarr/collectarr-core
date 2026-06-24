@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     auth_rate_limit_window_seconds: int = Field(default=60, ge=0)
     admin_provider_rate_limit_requests: int = Field(default=60, ge=0)
     admin_provider_rate_limit_window_seconds: int = Field(default=60, ge=0)
+    admin_read_requires_auth_in_public: bool = True
+    admin_ui_enabled: bool = True
     image_upload_rate_limit_requests: int = Field(default=30, ge=0)
     image_upload_rate_limit_window_seconds: int = Field(default=60, ge=0)
     image_max_per_entity: int = Field(default=20, ge=1)

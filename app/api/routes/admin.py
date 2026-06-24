@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import CurrentAdmin, DbSession
+from app.api.deps import CurrentAdmin, CurrentAdminReader, DbSession
 from app.core.rate_limit import admin_provider_rate_limit
 from app.schemas.admin import (
     AdminBundleReleaseCorrectionRequest,
@@ -58,6 +58,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 )
 async def metadata_mapping_rules(
     db: DbSession,
+    _reader: CurrentAdminReader,
     provider: ExternalProvider | None = None,
     active: bool | None = Query(default=None),
 ) -> list[AdminReleaseMediaMappingRuleResponse]:
@@ -109,12 +110,16 @@ async def metadata_mapping_rule_delete(
 async def provider_prefill_resolve(
     payload: AdminProviderPrefillResolveRequest,
     db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> AdminProviderPrefillResolveResponse:
     return await AdminMetadataService(db).resolve_provider_prefill(payload)
 
 
 @router.get("/providers", response_model=ProviderStatusListResponse)
-async def providers(db: DbSession) -> ProviderStatusListResponse:
+async def providers(
+    db: DbSession,
+    _reader: CurrentAdminReader,
+) -> ProviderStatusListResponse:
     service = AdminMetadataService(db)
     return ProviderStatusListResponse(
         providers=await service.provider_statuses(),
@@ -123,7 +128,10 @@ async def providers(db: DbSession) -> ProviderStatusListResponse:
 
 
 @router.get("/catalog/summary", response_model=AdminCatalogSummaryResponse)
-async def catalog_summary(db: DbSession) -> AdminCatalogSummaryResponse:
+async def catalog_summary(
+    db: DbSession,
+    _reader: CurrentAdminReader,
+) -> AdminCatalogSummaryResponse:
     return await AdminMetadataService(db).catalog_summary()
 
 
@@ -133,6 +141,7 @@ async def catalog_summary(db: DbSession) -> AdminCatalogSummaryResponse:
 )
 async def catalog_normalized_metadata_drift(
     db: DbSession,
+    _reader: CurrentAdminReader,
     sample_limit: int = Query(default=100, ge=1, le=500),
 ) -> AdminNormalizedMetadataDriftReportResponse:
     return await AdminMetadataService(db).normalized_metadata_drift_report(
@@ -143,6 +152,7 @@ async def catalog_normalized_metadata_drift(
 @router.get("/catalog/items", response_model=list[ItemResponse])
 async def catalog_items(
     db: DbSession,
+    _reader: CurrentAdminReader,
     q: str | None = Query(default=None, min_length=1, max_length=255),
     kind: ItemKind | None = None,
     publisher: str | None = Query(default=None, min_length=1, max_length=255),
@@ -207,7 +217,10 @@ async def catalog_bundle_release_update(
 
 
 @router.get("/search/status", response_model=AdminSearchStatusResponse)
-async def search_status(db: DbSession) -> AdminSearchStatusResponse:
+async def search_status(
+    db: DbSession,
+    _reader: CurrentAdminReader,
+) -> AdminSearchStatusResponse:
     return await AdminMetadataService(db).search_status()
 
 
@@ -217,13 +230,17 @@ async def search_reindex(db: DbSession, user: CurrentAdmin) -> AdminSearchReinde
 
 
 @router.get("/search/history", response_model=list[AdminSearchHistoryEntry])
-async def search_history(db: DbSession) -> list[AdminSearchHistoryEntry]:
+async def search_history(
+    db: DbSession,
+    _reader: CurrentAdminReader,
+) -> list[AdminSearchHistoryEntry]:
     return AdminMetadataService(db).search_history()
 
 
 @router.get("/audit/logs", response_model=list[AdminAuditLogResponse])
 async def audit_logs(
     db: DbSession,
+    _reader: CurrentAdminReader,
     action: str | None = Query(default=None, min_length=1, max_length=100),
     entity_type: str | None = Query(default=None, min_length=1, max_length=64),
     entity_id: UUID | None = Query(default=None),
@@ -240,6 +257,7 @@ async def audit_logs(
 @router.get("/duplicates", response_model=list[AdminDuplicateCandidateResponse])
 async def duplicate_candidates(
     db: DbSession,
+    _reader: CurrentAdminReader,
     limit: int = Query(default=10, ge=1, le=50),
 ) -> list[AdminDuplicateCandidateResponse]:
     return await AdminMetadataService(db).duplicate_candidates(limit)
@@ -264,7 +282,11 @@ async def merge_duplicate_candidate(
 
 
 @router.post("/providers/search", dependencies=[Depends(admin_provider_rate_limit)])
-async def provider_search(payload: ProviderSearchRequest, db: DbSession):
+async def provider_search(
+    payload: ProviderSearchRequest,
+    db: DbSession,
+    _reader: CurrentAdminReader,
+):
     return await AdminMetadataService(db).provider_search(payload)
 
 
@@ -274,7 +296,9 @@ async def provider_search(payload: ProviderSearchRequest, db: DbSession):
     dependencies=[Depends(admin_provider_rate_limit)],
 )
 async def provider_preview(
-    payload: ProviderIngestRequest, db: DbSession
+    payload: ProviderIngestRequest,
+    db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> ProviderPreviewResponse:
     return await AdminMetadataService(db).preview(payload)
 
@@ -284,7 +308,9 @@ async def provider_preview(
     response_model=ProviderBatchHydrateResponse,
 )
 async def provider_batch_hydrate(
-    payload: ProviderBatchHydrateRequest, db: DbSession
+    payload: ProviderBatchHydrateRequest,
+    db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> ProviderBatchHydrateResponse:
     return await AdminMetadataService(db).batch_hydrate(payload)
 
@@ -304,6 +330,7 @@ async def provider_ingest(
 @router.get("/providers/ingest/jobs", response_model=list[ProviderIngestJobResponse])
 async def provider_ingest_jobs(
     db: DbSession,
+    _reader: CurrentAdminReader,
     status: str | None = Query(default=None, pattern="^(queued|running|done|failed)$"),
     provider: ExternalProvider | None = Query(default=None),
     q: str | None = Query(default=None, min_length=1, max_length=255),
@@ -318,6 +345,7 @@ async def provider_ingest_jobs(
 )
 async def provider_ingest_jobs_summary(
     db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> ProviderIngestJobSummaryResponse:
     return await AdminMetadataService(db).ingest_job_summary()
 
@@ -378,6 +406,7 @@ async def provider_ingest_job_retry(
 @router.get("/providers/ingest/history", response_model=list[ProviderIngestHistoryEntry])
 async def provider_ingest_history(
     db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> list[ProviderIngestHistoryEntry]:
     return AdminMetadataService(db).ingest_history()
 
@@ -398,6 +427,7 @@ async def provider_ingest_retry(
 @router.get("/metadata/proposals", response_model=list[MetadataProposalAdminResponse])
 async def metadata_proposals(
     db: DbSession,
+    _reader: CurrentAdminReader,
     status: str = Query(default="pending", pattern="^(pending|approved|rejected)$"),
     provider: ExternalProvider | None = None,
 ) -> list[MetadataProposalAdminResponse]:
@@ -407,6 +437,7 @@ async def metadata_proposals(
 @router.get("/metadata/proposals/summary", response_model=MetadataProposalSummaryResponse)
 async def metadata_proposals_summary(
     db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> MetadataProposalSummaryResponse:
     return await AdminMetadataService(db).proposal_summary()
 
@@ -472,12 +503,12 @@ async def reject_metadata_proposal(
 
 
 @router.get("/users", response_model=list[UserResponse])
-async def list_users(db: DbSession) -> list[UserResponse]:
+async def list_users(db: DbSession, _user: CurrentAdmin) -> list[UserResponse]:
     return await AdminMetadataService(db).list_users()
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
-async def get_user(user_id: UUID, db: DbSession) -> UserResponse:
+async def get_user(user_id: UUID, db: DbSession, _user: CurrentAdmin) -> UserResponse:
     return await AdminMetadataService(db).get_user(user_id)
 
 
@@ -494,6 +525,7 @@ async def update_user(
 @router.get("/image-cache/stats", response_model=ImageCacheStatsResponse)
 async def image_cache_stats(
     db: DbSession,
+    _reader: CurrentAdminReader,
 ) -> ImageCacheStatsResponse:
     return await AdminMetadataService(db).image_cache_stats()
 

@@ -435,6 +435,8 @@ class AdminDuplicateCandidateResponse(BaseModel):
     has_cover_conflicts: bool = False
     duplicate_score: int = 0
     recommended_target_item_id: UUID | None = None
+    confidence_factors: list[str] = Field(default_factory=list)
+    merge_warnings: list[str] = Field(default_factory=list)
 
 
 class AdminDuplicateIgnoreRequest(BaseModel):

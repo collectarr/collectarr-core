@@ -10,11 +10,18 @@ from app.catalog.media_types import (
     media_type_for_route,
     top_level_media_types,
 )
+from app.catalog.metadata_fields import (
+    METADATA_FIELDS,
+    fields_for_kind,
+)
 from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import provider_search_rate_limit
-from app.metadata_normalized import normalized_metadata_manifest
+from app.metadata_normalized import (
+    NORMALIZED_SCHEMA_VERSION,
+    normalized_metadata_manifest,
+)
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.providers.mangadex import MangaDexProvider
@@ -41,6 +48,8 @@ from app.schemas.metadata import (
     ItemResponse,
     MediaCatalogResponse,
     MediaTypeResponse,
+    MetadataFieldSchemaResponse,
+    MetadataFieldSpecResponse,
     MetadataNormalizedManifestResponse,
     MetadataProposalCreate,
     MetadataProposalResponse,
@@ -89,6 +98,34 @@ async def metadata_normalized_manifest() -> MetadataNormalizedManifestResponse:
         common_fields=payload["common_fields"],
         kind_fields=kind_fields,
         value_types=payload["value_types"],
+    )
+
+
+@router.get(
+    "/metadata/field-schema",
+    response_model=MetadataFieldSchemaResponse,
+)
+async def metadata_field_schema() -> MetadataFieldSchemaResponse:
+    """Unified field registry consumed by the admin + app edit surfaces."""
+    fields = [
+        MetadataFieldSpecResponse(
+            key=spec.key,
+            value_type=spec.value_type,
+            label=spec.label,
+            common=spec.common,
+            typed=spec.typed,
+            kinds=sorted((kind for kind in spec.kinds), key=lambda k: k.value),
+        )
+        for spec in METADATA_FIELDS
+    ]
+    kind_fields = {
+        kind: [spec.key for spec in fields_for_kind(kind)]
+        for kind in ItemKind
+    }
+    return MetadataFieldSchemaResponse(
+        schema_version=NORMALIZED_SCHEMA_VERSION,
+        fields=fields,
+        kind_fields=kind_fields,
     )
 
 

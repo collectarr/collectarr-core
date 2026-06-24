@@ -313,6 +313,25 @@ class MetadataNormalizedManifestResponse(BaseModel):
     value_types: dict[str, str]
 
 
+class MetadataFieldSpecResponse(BaseModel):
+    """A single editable canonical metadata field, rendered from the registry."""
+
+    key: str
+    value_type: str
+    label: str
+    common: bool
+    typed: bool
+    kinds: list[ItemKind] = Field(default_factory=list)
+
+
+class MetadataFieldSchemaResponse(BaseModel):
+    """The unified field schema consumed by the admin + app edit surfaces."""
+
+    schema_version: int
+    fields: list[MetadataFieldSpecResponse]
+    kind_fields: dict[ItemKind, list[str]]
+
+
 class MetadataProposalCreate(BaseModel):
     provider: ExternalProvider
     provider_item_id: str | None = Field(default=None, max_length=255)

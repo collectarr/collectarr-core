@@ -123,6 +123,31 @@ async def test_metadata_normalized_manifest_exposes_schema_and_type_map(client):
 
 
 @pytest.mark.asyncio
+async def test_metadata_field_schema_exposes_registry(client):
+    response = await client.get("/metadata/field-schema")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == 1
+
+    by_key = {f["key"]: f for f in body["fields"]}
+    # Common field: shared by every kind, no kind scoping needed.
+    assert by_key["audience_rating"]["common"] is True
+    assert by_key["audience_rating"]["value_type"] == "string"
+    # Kind-scoped typed fields carry their kinds + types.
+    assert by_key["genres"]["typed"] is True
+    assert by_key["genres"]["value_type"] == "string_list"
+    assert set(by_key["platforms"]["kinds"]) == {"game", "boardgame"}
+    assert by_key["tracks"]["value_type"] == "track_list"
+
+    # Per-kind composition mirrors the normalized manifest.
+    assert "audience_rating" in body["kind_fields"]["comic"]
+    assert "tracks" in body["kind_fields"]["music"]
+    assert "color" in body["kind_fields"]["movie"]
+    assert "platforms" not in body["kind_fields"]["comic"]
+
+
+@pytest.mark.asyncio
 async def test_item_detail_and_series_expose_series_tags(client):
     token = await register_and_login(client)
     item_id, _, _ = await seed_comic()

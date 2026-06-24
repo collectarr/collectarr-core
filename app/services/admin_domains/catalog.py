@@ -1077,12 +1077,18 @@ class AdminCatalogService:
 
     def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
         upsert_item_kind_metadata(item, normalized_values)
+        if item.kind_metadata is not None:
+            self.db.add(item.kind_metadata)
 
     def _patch_item_kind_metadata(self, item: Item, typed_updates: dict[str, Any]) -> None:
         patch_item_kind_metadata(item, typed_updates)
         snapshot = self._item_kind_metadata_payload(item.kind_metadata)
         if not snapshot:
             item.kind_metadata = None
+        elif item.kind_metadata is not None:
+            # A freshly created polymorphic kind_metadata row is not guaranteed to
+            # be cascaded into the session, so attach it explicitly.
+            self.db.add(item.kind_metadata)
 
     async def _replace_item_creator_links(
         self,

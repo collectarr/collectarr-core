@@ -277,6 +277,7 @@ class AdminOverviewService:
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.kind_metadata),
                 selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
                 selectinload(Item.creator_links).selectinload(EntityPerson.person),
                 selectinload(Item.character_appearances).selectinload(CharacterAppearance.character),

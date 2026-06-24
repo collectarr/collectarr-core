@@ -170,7 +170,7 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
         UniqueConstraint("item_id", name="uq_item_kind_metadata_item_id"),
         Index("ix_item_kind_metadata_kind", "kind"),
     )
-    __mapper_args__ = {"polymorphic_on": "kind"}
+    __mapper_args__ = {"polymorphic_on": "kind", "with_polymorphic": "*"}
 
     item_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False

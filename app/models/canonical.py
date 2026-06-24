@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -15,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import Base, ExternalProvider, ItemKind, SeriesRelationType, TimestampMixin, UuidMixin
@@ -122,6 +123,11 @@ class Item(UuidMixin, TimestampMixin, Base):
         back_populates="item"
     )
     story_arc_items: Mapped[list["StoryArcItem"]] = relationship(back_populates="item")
+    kind_metadata: Mapped["ItemKindMetadata | None"] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
 
 class Edition(UuidMixin, TimestampMixin, Base):
@@ -148,6 +154,40 @@ class Edition(UuidMixin, TimestampMixin, Base):
 
     item: Mapped[Item] = relationship(back_populates="editions")
     variants: Mapped[list["Variant"]] = relationship(back_populates="edition")
+
+
+class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "item_kind_metadata"
+    __table_args__ = (
+        UniqueConstraint("item_id", name="uq_item_kind_metadata_item_id"),
+        CheckConstraint(
+            "nr_discs IS NULL OR nr_discs >= 0",
+            name="ck_item_kind_metadata_nr_discs_nonnegative",
+        ),
+        CheckConstraint(
+            "track_count IS NULL OR track_count >= 0",
+            name="ck_item_kind_metadata_track_count_nonnegative",
+        ),
+        Index("ix_item_kind_metadata_kind", "kind"),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
+    audience_rating: Mapped[str | None] = mapped_column(String(64), index=True)
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    color: Mapped[str | None] = mapped_column(String(64))
+    nr_discs: Mapped[int | None] = mapped_column(Integer)
+    screen_ratio: Mapped[str | None] = mapped_column(String(64))
+    audio_tracks: Mapped[str | None] = mapped_column(String(255))
+    subtitles: Mapped[str | None] = mapped_column(String(255))
+    layers: Mapped[str | None] = mapped_column(String(255))
+    track_count: Mapped[int | None] = mapped_column(Integer)
+    tracks: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+
+    item: Mapped[Item] = relationship(back_populates="kind_metadata")
 
 
 class Variant(UuidMixin, TimestampMixin, Base):

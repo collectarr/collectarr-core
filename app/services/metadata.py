@@ -125,6 +125,25 @@ def _organization_name(item: object, role: str) -> str | None:
     return None
 
 
+def _typed_kind_metadata(item: object) -> dict[str, object]:
+    row = getattr(item, "__dict__", {}).get("kind_metadata")
+    if row is None:
+        return {}
+    return {
+        "audience_rating": getattr(row, "audience_rating", None),
+        "genres": getattr(row, "genres", None),
+        "platforms": getattr(row, "platforms", None),
+        "color": getattr(row, "color", None),
+        "nr_discs": getattr(row, "nr_discs", None),
+        "screen_ratio": getattr(row, "screen_ratio", None),
+        "audio_tracks": getattr(row, "audio_tracks", None),
+        "subtitles": getattr(row, "subtitles", None),
+        "layers": getattr(row, "layers", None),
+        "track_count": getattr(row, "track_count", None),
+        "tracks": getattr(row, "tracks", None),
+    }
+
+
 class MetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -1233,15 +1252,36 @@ class MetadataService:
         volume_name = getattr(item, "volume_name", None) or (
             item.volume.name if hasattr(item, "volume") and item.volume else None
         )
-        track_count: int | None = None
-        tracks: list[dict] | None = None
+        typed_metadata = _typed_kind_metadata(item)
+        track_count: int | None = (
+            int(typed_metadata["track_count"])
+            if isinstance(typed_metadata.get("track_count"), int)
+            else None
+        )
+        tracks: list[dict] | None = (
+            typed_metadata.get("tracks")
+            if isinstance(typed_metadata.get("tracks"), list)
+            else None
+        )
         catalog_number: str | None = None
         creators: list[dict] | None = None
         characters: list[str] | None = None
         character_details: list[dict] | None = None
         story_arcs: list[str] | None = None
-        platforms: list[str] | None = None
-        genres: list[str] | None = None
+        platforms: list[str] | None = (
+            [
+                str(value).strip()
+                for value in typed_metadata.get("platforms", [])
+                if str(value).strip()
+            ]
+            if isinstance(typed_metadata.get("platforms"), list)
+            else None
+        )
+        genres: list[str] | None = (
+            [str(value).strip() for value in typed_metadata.get("genres", []) if str(value).strip()]
+            if isinstance(typed_metadata.get("genres"), list)
+            else None
+        )
         page_count: int | None = getattr(item, "page_count", None)
         runtime_minutes: int | None = getattr(item, "runtime_minutes", None)
         cover_price_cents: int | None = None

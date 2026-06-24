@@ -57,6 +57,20 @@ _NORMALIZED_VALUE_TYPES: dict[str, str] = {
     "tracks": "track_list",
 }
 
+TYPED_KIND_METADATA_KEYS = {
+    "audience_rating",
+    "genres",
+    "platforms",
+    "color",
+    "nr_discs",
+    "screen_ratio",
+    "audio_tracks",
+    "subtitles",
+    "layers",
+    "track_count",
+    "tracks",
+}
+
 ALLOWED_NORMALIZED_METADATA_KEYS = _COMMON_ALLOWED_KEYS | {
     key for keys in _KIND_ALLOWED_KEYS.values() for key in keys
 }
@@ -119,6 +133,20 @@ def normalized_metadata_manifest() -> dict[str, Any]:
         "common_fields": common_fields,
         "kind_fields": kind_fields,
         "value_types": value_types,
+    }
+
+
+def typed_kind_metadata_payload(
+    values: Mapping[str, Any] | None,
+    *,
+    kind: ItemKind | None,
+) -> dict[str, Any]:
+    cleaned = clean_normalized_metadata(values, kind=kind)
+    cleaned.pop("schema_version", None)
+    return {
+        key: cleaned.get(key)
+        for key in TYPED_KIND_METADATA_KEYS
+        if key in cleaned
     }
 
 

@@ -17,6 +17,7 @@ from app.metadata_normalized import (
     merge_normalized_metadata,
     normalized_metadata_issues,
     set_normalized_metadata,
+    typed_kind_metadata_payload,
 )
 from app.models.base import ItemKind
 from app.models.canonical import (
@@ -28,6 +29,7 @@ from app.models.canonical import (
     EntityPerson,
     EntityOrganization,
     Item,
+    ItemKindMetadata,
     Organization,
     Person,
     Series,
@@ -392,6 +394,7 @@ class AdminCatalogService:
             )
             if cleaned_metadata != dict(edition.metadata_json or {}):
                 edition.metadata_json = cleaned_metadata
+            self._upsert_item_kind_metadata(item, normalized_metadata)
             if physical_format is not None:
                 self._apply_physical_format_to_edition(
                     edition,
@@ -408,6 +411,8 @@ class AdminCatalogService:
                 normalized_updates,
                 kind=item.kind,
             )
+            normalized_metadata = dict((item.metadata_json or {}).get("normalized") or {})
+            self._upsert_item_kind_metadata(item, normalized_metadata)
 
         if "creators" in update_data:
             await self._replace_item_creator_links(item.id, payload.creators)
@@ -1012,6 +1017,28 @@ class AdminCatalogService:
             else:
                 metadata[key] = value
         return metadata
+
+    def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
+        typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
+        if not typed_payload:
+            item.kind_metadata = None
+            return
+        metadata = item.kind_metadata
+        if metadata is None:
+            metadata = ItemKindMetadata(item=item, kind=item.kind)
+            item.kind_metadata = metadata
+        metadata.kind = item.kind
+        metadata.audience_rating = typed_payload.get("audience_rating")
+        metadata.genres = typed_payload.get("genres")
+        metadata.platforms = typed_payload.get("platforms")
+        metadata.color = typed_payload.get("color")
+        metadata.nr_discs = typed_payload.get("nr_discs")
+        metadata.screen_ratio = typed_payload.get("screen_ratio")
+        metadata.audio_tracks = typed_payload.get("audio_tracks")
+        metadata.subtitles = typed_payload.get("subtitles")
+        metadata.layers = typed_payload.get("layers")
+        metadata.track_count = typed_payload.get("track_count")
+        metadata.tracks = typed_payload.get("tracks")
 
     async def _replace_item_creator_links(
         self,

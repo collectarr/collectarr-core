@@ -24,6 +24,7 @@ from app.models.canonical import (
     ExternalProviderId,
     ImageCacheEntry,
     Item,
+    ItemKindMetadata,
     ItemProviderLink,
     MetadataProposal,
     Organization,
@@ -1656,12 +1657,15 @@ async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, 
 
     async with AsyncSessionLocal() as db:
         stored_item = await db.get(Item, item_uuid)
+        typed_metadata = await db.scalar(
+            select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
+        )
         assert stored_item is not None
-        normalized = (stored_item.metadata_json or {}).get("normalized", {})
-        assert normalized.get("audience_rating") == "9.2"
-        assert normalized.get("genres") == ["Electronic", "Nu Disco"]
-        assert normalized.get("track_count") == 2
-        assert [track.get("title") for track in normalized.get("tracks", [])] == [
+        assert typed_metadata is not None
+        assert typed_metadata.audience_rating == "9.2"
+        assert typed_metadata.genres == ["Electronic", "Nu Disco"]
+        assert typed_metadata.track_count == 2
+        assert [track.get("title") for track in (typed_metadata.tracks or [])] == [
             "One More Time",
             "Aerodynamic",
         ]
@@ -1696,9 +1700,12 @@ async def test_admin_catalog_correction_updates_game_platforms(client, monkeypat
 
     async with AsyncSessionLocal() as db:
         stored_item = await db.get(Item, item_uuid)
+        typed_metadata = await db.scalar(
+            select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
+        )
         assert stored_item is not None
-        normalized = (stored_item.metadata_json or {}).get("normalized", {})
-        assert normalized.get("platforms") == ["PC", "PlayStation 5"]
+        assert typed_metadata is not None
+        assert typed_metadata.platforms == ["PC", "PlayStation 5"]
 
 
 @pytest.mark.asyncio

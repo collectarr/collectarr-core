@@ -40,6 +40,7 @@ class MetadataRepository:
         return select(Item).options(
             selectinload(Item.volume).selectinload(Volume.series),
             selectinload(Item.editions).selectinload(Edition.variants),
+            selectinload(Item.kind_metadata),
             selectinload(Item.provider_links),
             selectinload(Item.primary_bundle_releases),
             selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
@@ -94,6 +95,7 @@ class MetadataRepository:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.kind_metadata),
                 selectinload(Item.provider_links),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.organization_links).selectinload(EntityOrganization.organization),

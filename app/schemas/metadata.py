@@ -526,6 +526,9 @@ def item_response_from_model(
     normalized = _normalized_metadata(edition)
     item_normalized = _normalized_item_metadata(item)
     merged_normalized = _merged_normalized_metadata(item_normalized, normalized)
+    typed_normalized = _typed_kind_metadata(item)
+    if typed_normalized:
+        merged_normalized.update(typed_normalized)
     creators = _creator_credits(item)
     characters = _character_credits(item)
     story_arcs = _story_arc_credits(item)
@@ -861,6 +864,25 @@ def _merged_normalized_metadata(
     merged = dict(item_normalized)
     merged.update(edition_normalized)
     return merged
+
+
+def _typed_kind_metadata(item: Any) -> dict[str, Any]:
+    row = getattr(item, "__dict__", {}).get("kind_metadata")
+    if row is None:
+        return {}
+    return {
+        "audience_rating": getattr(row, "audience_rating", None),
+        "genres": getattr(row, "genres", None),
+        "platforms": getattr(row, "platforms", None),
+        "color": getattr(row, "color", None),
+        "nr_discs": getattr(row, "nr_discs", None),
+        "screen_ratio": getattr(row, "screen_ratio", None),
+        "audio_tracks": getattr(row, "audio_tracks", None),
+        "subtitles": getattr(row, "subtitles", None),
+        "layers": getattr(row, "layers", None),
+        "track_count": getattr(row, "track_count", None),
+        "tracks": getattr(row, "tracks", None),
+    }
 
 
 def _source_item_metadata(item: Any) -> dict[str, Any]:

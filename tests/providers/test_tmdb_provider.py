@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Edition, Item, ItemProviderLink, Organization, Person, Tag
+from app.models.canonical import Edition, Item, ItemKindMetadata, ItemProviderLink, Organization, Person, Tag
 from app.providers.base import ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
@@ -315,6 +315,7 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     async with AsyncSessionLocal() as db:
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.movie))
         edition = await db.scalar(select(Edition).join(Item).where(Item.kind == ItemKind.movie))
+        typed_metadata = await db.scalar(select(ItemKindMetadata).join(Item).where(Item.kind == ItemKind.movie))
         provider_ids = list(await db.scalars(select(ItemProviderLink.provider_item_id)))
         publisher = await db.scalar(select(Organization.name))
         creator = await db.scalar(select(Person.name))
@@ -322,8 +323,10 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
 
     assert item is not None
     assert edition is not None
+    assert typed_metadata is not None
     normalized = (edition.metadata_json or {}).get("normalized", {})
     assert normalized.get("audience_rating") == "8.7"
+    assert typed_metadata.audience_rating == "8.7"
     assert provider_ids == ["movie:603"]
     assert publisher == "Warner Bros. Pictures"
     assert creator == "Lana Wachowski"

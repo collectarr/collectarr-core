@@ -19,7 +19,12 @@ def item_search_document(item: Item) -> dict[str, Any]:
     creators: list[str] = []
     characters: list[str] = []
     story_arcs: list[str] = []
-    platforms: list[str] = []
+    typed_metadata = _typed_kind_metadata(item)
+    platforms: list[str] = (
+        _string_list(typed_metadata.get("platforms"))
+        if isinstance(typed_metadata.get("platforms"), list)
+        else []
+    )
     catalog_number = None
     release_status = None
     language = None
@@ -184,6 +189,15 @@ def _normalized_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     normalized = metadata.get("normalized")
     return normalized if isinstance(normalized, dict) else {}
+
+
+def _typed_kind_metadata(item: Item) -> dict[str, Any]:
+    row = getattr(item, "__dict__", {}).get("kind_metadata")
+    if row is None:
+        return {}
+    return {
+        "platforms": getattr(row, "platforms", None),
+    }
 
 
 def _physical_format_label(

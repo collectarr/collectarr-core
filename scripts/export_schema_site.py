@@ -305,7 +305,10 @@ def build_domain_diagram(domain: dict[str, Any], tables_by_name: dict[str, dict[
                 flags.append("FK")
             if column["unique"]:
                 flags.append("UK")
-            flags_suffix = f" {' '.join(flags)}" if flags else ""
+            # Mermaid ER attributes require multiple key constraints to be
+            # comma-separated (e.g. "PK, FK"); a space-separated list like
+            # "FK UK" is a parse error.
+            flags_suffix = f" {', '.join(flags)}" if flags else ""
             lines.append(f"    {mermaid_column_type(column)} {column['name']}{flags_suffix}")
         lines.append("  }")
 

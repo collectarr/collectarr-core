@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-24T17:21:33Z",
+  "generated_at": "2026-06-24T18:31:00Z",
   "generator": "scripts/export_schema_site.py",
   "source_modules": [
     "app/models/base.py",
@@ -39,7 +39,7 @@
         "bundle_release_items",
         "series_relations"
       ],
-      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_BOOK {\n    UUID id PK FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_BLURAY {\n    UUID id PK FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK FK\n    TEXT genres\n    INTEGER track_count\n    JSONB tracks\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOOK : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BLURAY : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  SERIES ||--o{ SERIES_RELATIONS : \"source_series_id, target_series_id\"",
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK, FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_BOOK {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_BLURAY {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK, FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK, FK\n    TEXT genres\n    INTEGER track_count\n    JSONB tracks\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOOK : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BLURAY : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  SERIES ||--o{ SERIES_RELATIONS : \"source_series_id, target_series_id\"",
       "external_references": []
     },
     {
@@ -6096,8 +6096,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_item_provider_links_item_id",
-            "ix_item_provider_links_item"
+            "ix_item_provider_links_item",
+            "ix_item_provider_links_item_id"
           ],
           "default": null,
           "server_default": null,
@@ -6247,17 +6247,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_item_provider_links_owner_provider",
-            "columns": [
-              "item_id",
-              "provider"
-            ]
-          },
-          {
             "name": "uq_item_provider_links_provider_item",
             "columns": [
               "provider",
               "provider_item_id"
+            ]
+          },
+          {
+            "name": "uq_item_provider_links_owner_provider",
+            "columns": [
+              "item_id",
+              "provider"
             ]
           }
         ],
@@ -6786,8 +6786,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_bundle_release_provider_links_bundle_release",
-            "ix_bundle_release_provider_links_bundle_release_id"
+            "ix_bundle_release_provider_links_bundle_release_id",
+            "ix_bundle_release_provider_links_bundle_release"
           ],
           "default": null,
           "server_default": null,
@@ -6937,17 +6937,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_bundle_release_provider_links_owner_provider",
-            "columns": [
-              "bundle_release_id",
-              "provider"
-            ]
-          },
-          {
             "name": "uq_bundle_release_provider_links_provider_item",
             "columns": [
               "provider",
               "provider_item_id"
+            ]
+          },
+          {
+            "name": "uq_bundle_release_provider_links_owner_provider",
+            "columns": [
+              "bundle_release_id",
+              "provider"
             ]
           }
         ],

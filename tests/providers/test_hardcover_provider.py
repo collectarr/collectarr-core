@@ -1,8 +1,24 @@
 import pytest
+from sqlalchemy import select
 
-from app.models.base import ItemKind
-from app.providers.base import NormalizedCredit
+from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal
+from app.models.base import ExternalProvider, ItemKind
+from app.models.canonical import ItemProviderLink, Volume
+from app.providers.base import NormalizedCredit, ProviderItem
 from app.providers.hardcover import HardcoverProvider
+from app.search.client import SearchClient
+
+
+async def _admin_token(client, monkeypatch) -> str:
+    settings = get_settings()
+    monkeypatch.setattr(settings, "bootstrap_admin_emails", {"admin@example.com"})
+    response = await client.post(
+        "/auth/register",
+        json={"email": "admin@example.com", "password": "password123", "display_name": "Admin"},
+    )
+    assert response.status_code == 201
+    return response.json()["access_token"]
 
 
 def _search_response() -> dict:
@@ -163,6 +179,45 @@ async def test_hardcover_get_volumes_preserves_requested_book_kind(monkeypatch):
     assert len(seasons) == 1
     assert seasons[0].title == "Middle-earth"
     assert seasons[0].episodes[0].title == "The Hobbit"
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeypatch):
+    token = await _admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        raw = _book_response()["data"]["books"][0]
+        return ProviderItem(provider="hardcover", provider_item_id="book:42", raw=raw)
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(HardcoverProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "hardcover", "provider_item_id": "book:42"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["item"]["kind"] == "book"
+    assert body["item"]["volume_number"] == 2
+
+    async with AsyncSessionLocal() as db:
+        provider_ids = list(
+            await db.scalars(
+                select(ItemProviderLink.provider_item_id).where(
+                    ItemProviderLink.provider == ExternalProvider.hardcover
+                )
+            )
+        )
+        volume_numbers = list(await db.scalars(select(Volume.volume_number).order_by(Volume.volume_number)))
+
+    assert provider_ids == ["book:42"]
+    assert volume_numbers == [2]
 
 
 @pytest.mark.asyncio

@@ -92,7 +92,7 @@ async def test_igdb_provider_fetches_game_and_normalizes(monkeypatch):
     assert normalized.release_date.isoformat() == "2017-03-03"
     assert normalized.edition_format == "Nintendo Switch"
     assert normalized.creators[0].name == "Nintendo EPD"
-    assert normalized.story_arcs[0].name == "Adventure"
+    assert normalized.story_arcs == []
     assert normalized.provider_ids == {"igdb": "1020"}
     assert normalized.platforms == ["Nintendo Switch", "Wii U"]
 
@@ -140,4 +140,4 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
     assert provider_ids == ["1020"]
     assert publisher == "Nintendo"
     assert developer == "Nintendo EPD"
-    assert tag == "Adventure"
+    assert tag is None

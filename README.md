@@ -211,6 +211,12 @@ cross-repo active-kind/provider guarantees and enforcement points.
 
 See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.
 
+Current active tracks:
+
+- shared metadata field contract between Core validation and client editors
+- static Admin Console auth/session UX hardening
+- duplicate/merge confidence tooling and public-deployment hardening
+
 ---
 
 ## Support

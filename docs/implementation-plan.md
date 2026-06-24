@@ -18,6 +18,7 @@
 - Provider candidates with typed comic identity fields (candidate_type, series_title, variant_name, etc.)
 - Short-lived hydrated preview caching avoids repeating upstream fetch/normalize work between preview and ingest
 - Preview/ingest flows preserve provider-native raw IDs while sharing hydrated provider data
+- Ingest persistence hardening for normalized metadata (`audience_rating`, `volume_number`) and comic-only story-arc fallback semantics
 
 ### 📚 Catalog
 - Series → items → editions → variants → releases → people → organizations → tags
@@ -49,35 +50,28 @@
 - Write endpoints (create edition, admin mutations) remain auth-protected
 - Keeps App usable without login for browsing/searching metadata
 
-## 🔜 Next Up
+## 🔜 Active Roadmap
 
-### 🎯 Provider Quality
-- [x] Deeper GCD + ComicVine matching: credits, story arcs, publisher imprints
-- [x] Barcode/UPC → provider item resolution for all media types
-- [x] Provider-specific enrichment for music (MusicBrainz releases) and games (IGDB platforms/editions)
-- [x] Scheduled catalog refresh for stale provider data
-- [x] Preserve provider-native raw IDs through preview/ingest normalization flows
+### 🎯 Metadata Contract + Ingest Reliability
+- [ ] Centralized field contract for admin/app metadata editing
+	- Publish a backend field manifest (kind-aware allowed keys + types) so UI field registries can stay aligned with Core validation.
+	- Add contract tests that fail when frontend field keys diverge from backend normalized metadata rules.
+- [ ] Continue per-media normalization depth
+	- Expand provider mapping where upstream data exists (video specs, richer book/manga edition signals, game release metadata).
+	- Revisit Hardcover series positions before broader book/manga depth: current `volume_number` is integer-only and cannot represent fractional positions like `1.5` without schema/contract updates.
 
-### 🛡️ Operations
-- [x] HTTPS + secrets rotation documentation
-- [x] Metrics/exporters for provider health and ingest throughput
-- [x] GHCR/private-registry image flow docs
-- [x] Backup/restore runbook for PostgreSQL + MinIO
-
-### 🧩 Post-MVP
+### 🧭 Admin UX / Operations
+- [ ] Improve static Admin Console auth UX
+	- Session gate on load (no hidden auth tab dependency), explicit logged-in user/role status, clear logout, and 401 session-expired handling.
 - [ ] Rich duplicate/merge tooling with confidence scoring
-	- Add explainable confidence factors so operators can see why two records were suggested as merge candidates (title aliases, provider IDs, barcode/UPC, release dates, creators, formats).
-	- Start with operator-reviewed merge suggestions and audit trails before any automatic merge behavior.
-	- Cover merge outcomes across canonical entities and provider IDs so ingest, search, and App snapshots keep stable references.
-- [ ] Per-media normalization: music releases, book editions, video physical releases, game platforms
-	- Expand normalization depth where providers already expose richer release structures: music labels/catalog numbers, book ISBN/edition/imprint, video format/runtime/region, and game platform/edition metadata.
-	- Keep the normalized contract stable enough that App can surface new fields without provider-specific branching in UI code.
-	- Revisit Hardcover series positions before expanding more book/manga normalization depth: the current `volume_number` model is integer-only and cannot represent fractional positions like `1.5` without schema and contract changes.
-- [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
-	- App now owns the local-first prototype: photo import, review/crop/rotate, on-device OCR where supported, safe fallback into normal search, and local reranking of candidates.
-	- Do not assume raw image upload to Core by default; only add a Core-side candidate-ranking path if real device validation shows that local OCR + reranking is not accurate or fast enough.
-	- If a Core endpoint is introduced later, keep it opt-in, never auto-ingest from low-confidence matches, and preserve a failure mode where App can fall back to ordinary provider search seeded by extracted hints.
+	- Explainable confidence factors (aliases, provider IDs, barcode/UPC, release dates, creators, formats).
+	- Operator-reviewed merge suggestions + audit trail before any automation.
 - [ ] Public deployment hardening and stricter operator roles
-	- Split operational privileges more finely than viewer/editor/admin where public-hosted deployments need safer ingest, merge, and cache controls.
-	- Tighten production guidance around auth defaults, CORS, rate limits, job isolation, and secrets management for internet-facing operators.
-- [x] DevStack orchestration entrypoint for local full-stack development
+	- Split operational privileges more finely than viewer/editor/admin for internet-facing setups.
+	- Tighten production guidance for auth defaults, CORS, rate limits, job isolation, and secrets management.
+
+### 🧩 Scan-to-Identify Boundary
+- [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
+	- Keep App as local-first default (import, review/crop/rotate, on-device OCR, safe fallback).
+	- Only add a Core-side ranking endpoint if measured device accuracy/latency proves local reranking insufficient.
+	- Preserve no-auto-ingest behavior for low-confidence matches.

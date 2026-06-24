@@ -151,7 +151,7 @@ async def test_mangadex_get_item_and_normalize(monkeypatch):
     assert normalized.edition_format == "Manga"
     assert any(c.name == "Eiichiro Oda" and c.role == "Author" for c in normalized.creators)
     assert any(c.name == "Eiichiro Oda" and c.role == "Artist" for c in normalized.creators)
-    assert any(a.name == "Action" for a in normalized.story_arcs)
+    assert normalized.story_arcs == []
 
 
 @pytest.mark.asyncio

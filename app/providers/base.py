@@ -201,7 +201,7 @@ class NormalizedItem:
     bundle_release: NormalizedBundleRelease | None = None
 
     def __post_init__(self) -> None:
-        if self.story_arcs or not self.genres:
+        if self.story_arcs or not self.genres or self.kind != ItemKind.comic:
             return
         object.__setattr__(
             self,

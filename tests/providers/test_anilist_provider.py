@@ -12,6 +12,7 @@ from app.models.canonical import (
     ItemProviderLink,
     Person,
     Tag,
+    Volume,
 )
 from app.providers.anilist import AniListProvider
 from app.providers.base import ProviderItem
@@ -207,7 +208,7 @@ async def test_anilist_provider_fetches_media_and_normalizes(monkeypatch):
     assert normalized.creators[0].name == "Eiichiro Oda"
     assert normalized.creators[0].role == "Story & Art"
     assert [credit.name for credit in normalized.characters] == ["Monkey D. Luffy"]
-    assert [tag.name for tag in normalized.story_arcs] == ["Action", "Adventure"]
+    assert normalized.story_arcs == []
     assert normalized.provider_ids == {"anilist": "30013"}
 
 
@@ -261,6 +262,8 @@ async def test_anilist_provider_searches_and_normalizes_anime(monkeypatch):
     assert normalized.runtime_minutes == 24
     assert normalized.edition_format == "TV"
     assert [credit.name for credit in normalized.characters] == ["Monkey D. Luffy"]
+    assert normalized.story_arcs == []
+    assert normalized.genres == ["Action", "Adventure"]
     assert normalized.provider_ids == {"anilist": "anime:21"}
 
 
@@ -336,8 +339,8 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
     assert provider_ids == ["30013"]
     assert creator == "Eiichiro Oda"
     assert character == "Monkey D. Luffy"
-    assert "Action" in tags
-    assert "Adventure" in tags
+    assert "Action" not in tags
+    assert "Adventure" not in tags
 
 
 @pytest.mark.asyncio
@@ -384,9 +387,17 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
                 .order_by(BundleReleaseProviderLink.provider_item_id)
             )
         )
+        volume_numbers = list(
+            await db.scalars(
+                select(Volume.volume_number)
+                .where(Volume.volume_number.is_not(None))
+                .order_by(Volume.volume_number)
+            )
+        )
 
     assert item_titles == ["One Piece", "One Piece Season 1", "One Piece Season 3"]
     assert bundle is not None
     assert bundle.title == "One Piece Seasons"
     assert bundle_provider_ids == ["anime:21"]
     assert [row[0] for row in provider_ids] == ["anime:20", "anime:21", "anime:22"]
+    assert volume_numbers == [1, 2, 3]

@@ -1359,6 +1359,7 @@ class AdminProviderIngestService:
             normalized.kind,
             normalized.series_title,
             normalized.volume_name,
+            normalized.volume_number,
             normalized.volume_start_year,
         )
         item = Item(
@@ -1415,6 +1416,7 @@ class AdminProviderIngestService:
                     or None,
                     "platforms": normalized.platforms or None,
                     "genres": normalized.genres or None,
+                    "audience_rating": normalized.audience_rating,
                     **cover_metadata,
                 },
                 source=provider_raw,
@@ -1496,6 +1498,7 @@ class AdminProviderIngestService:
         kind: ItemKind,
         series_title: str | None,
         volume_name: str | None,
+        volume_number: int | None,
         volume_start_year: int | None,
     ) -> tuple[Volume | None, Series | None]:
         if not series_title and not volume_name:
@@ -1506,11 +1509,18 @@ class AdminProviderIngestService:
         result = await self.db.execute(select(Volume).where(Volume.series_id == series.id, Volume.name == name))
         volume = result.scalar_one_or_none()
         if volume is None:
-            volume = Volume(series=series, name=name, start_year=volume_start_year)
+            volume = Volume(
+                series=series,
+                name=name,
+                volume_number=volume_number,
+                start_year=volume_start_year,
+            )
             self.db.add(volume)
             await self.db.flush()
         elif volume.start_year is None and volume_start_year:
             volume.start_year = volume_start_year
+        if volume.volume_number is None and volume_number is not None:
+            volume.volume_number = volume_number
         return volume, series
 
     async def _get_or_create_series(self, kind: ItemKind, title: str) -> Series:

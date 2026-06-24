@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Item, ItemProviderLink, Organization, Person, Tag
+from app.models.canonical import Edition, Item, ItemProviderLink, Organization, Person, Tag
 from app.providers.base import ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
@@ -167,7 +167,7 @@ async def test_tmdb_provider_fetches_and_normalizes_movie(monkeypatch):
     assert normalized.edition_format == "Movie"
     assert normalized.creators[0].name == "Lana Wachowski"
     assert normalized.characters[0].name == "Keanu Reeves"
-    assert normalized.story_arcs[0].name == "Science Fiction"
+    assert normalized.story_arcs == []
     assert normalized.audience_rating == "8.7"
     assert normalized.provider_ids == {"tmdb": "movie:603"}
 
@@ -310,20 +310,24 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert body["item"]["title"] == "The Matrix"
     assert body["item"]["publisher"] == "Warner Bros. Pictures"
     assert body["item"]["runtime_minutes"] == 136
+    assert body["item"]["audience_rating"] == "8.7"
 
     async with AsyncSessionLocal() as db:
         item = await db.scalar(select(Item).where(Item.kind == ItemKind.movie))
+        edition = await db.scalar(select(Edition).join(Item).where(Item.kind == ItemKind.movie))
         provider_ids = list(await db.scalars(select(ItemProviderLink.provider_item_id)))
         publisher = await db.scalar(select(Organization.name))
         creator = await db.scalar(select(Person.name))
         tags = set(await db.scalars(select(Tag.name)))
 
     assert item is not None
+    assert edition is not None
+    normalized = (edition.metadata_json or {}).get("normalized", {})
+    assert normalized.get("audience_rating") == "8.7"
     assert provider_ids == ["movie:603"]
     assert publisher == "Warner Bros. Pictures"
     assert creator == "Lana Wachowski"
     assert "Keanu Reeves" in tags
-    assert "Science Fiction" in tags
 
 
 @pytest.mark.asyncio

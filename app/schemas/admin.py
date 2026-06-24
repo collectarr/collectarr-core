@@ -378,6 +378,8 @@ class AdminNormalizedMetadataDriftSample(BaseModel):
 
 class AdminNormalizedMetadataDriftReportResponse(BaseModel):
     expected_schema_version: int
+    scan_limit: int | None = None
+    scan_limited: bool = False
     scanned_entities: int = 0
     entities_with_normalized: int = 0
     drifted_entities: int = 0

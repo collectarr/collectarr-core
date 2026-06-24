@@ -114,9 +114,11 @@ class AdminMetadataService:
         self,
         *,
         sample_limit: int = 100,
+        scan_limit: int | None = None,
     ) -> AdminNormalizedMetadataDriftReportResponse:
         return await self.catalog_admin.normalized_metadata_drift_report(
-            sample_limit=sample_limit
+            sample_limit=sample_limit,
+            scan_limit=scan_limit,
         )
 
     async def search_status(self) -> AdminSearchStatusResponse:

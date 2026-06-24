@@ -143,9 +143,11 @@ async def catalog_normalized_metadata_drift(
     db: DbSession,
     _reader: CurrentAdminReader,
     sample_limit: int = Query(default=100, ge=1, le=500),
+    scan_limit: int | None = Query(default=None, ge=100, le=100000),
 ) -> AdminNormalizedMetadataDriftReportResponse:
     return await AdminMetadataService(db).normalized_metadata_drift_report(
-        sample_limit=sample_limit
+        sample_limit=sample_limit,
+        scan_limit=scan_limit,
     )
 
 

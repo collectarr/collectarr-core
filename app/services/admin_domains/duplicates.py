@@ -67,12 +67,16 @@ class AdminDuplicateService:
             if await self._duplicate_group_is_ignored(ids):
                 continue
             conflicts = await self._duplicate_conflict_flags(ids)
-            duplicate_score, recommended_target_item_id = await self._score_duplicate_candidate(
-                ids,
+            items = await self._items_by_ids(ids)
+            provider_counts = await self._provider_link_counts_by_item(ids)
+            duplicate_score, recommended_target_item_id = self._score_duplicate_candidate(
+                items,
+                provider_counts,
                 conflicts=conflicts,
             )
-            confidence_factors = await self._duplicate_confidence_factors(
-                ids,
+            confidence_factors = self._duplicate_confidence_factors(
+                items,
+                provider_counts,
                 conflicts=conflicts,
             )
             merge_warnings = self._duplicate_merge_warnings(conflicts)
@@ -265,16 +269,15 @@ class AdminDuplicateService:
             "cover": len(cover_signatures) > 1,
         }
 
-    async def _score_duplicate_candidate(
+    def _score_duplicate_candidate(
         self,
-        item_ids: list[UUID],
+        items: list[Item],
+        provider_counts: dict[UUID, int],
         *,
         conflicts: dict[str, bool],
     ) -> tuple[int, UUID | None]:
-        items = await self._items_by_ids(item_ids)
         if len(items) < 2:
             return 0, None
-        provider_counts = await self._provider_link_counts_by_item(item_ids)
 
         score = 55
         if not conflicts["provider"]:
@@ -299,16 +302,15 @@ class AdminDuplicateService:
         ).id
         return min(score, 99), recommended_target_item_id
 
-    async def _duplicate_confidence_factors(
+    def _duplicate_confidence_factors(
         self,
-        item_ids: list[UUID],
+        items: list[Item],
+        provider_counts: dict[UUID, int],
         *,
         conflicts: dict[str, bool],
     ) -> list[str]:
-        items = await self._items_by_ids(item_ids)
         if len(items) < 2:
             return []
-        provider_counts = await self._provider_link_counts_by_item(item_ids)
         factors: list[str] = []
         if not conflicts["provider"]:
             factors.append("provider_ids_consistent")

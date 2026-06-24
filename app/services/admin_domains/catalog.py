@@ -111,6 +111,7 @@ class AdminCatalogService:
         self,
         *,
         sample_limit: int = 100,
+        scan_limit: int | None = None,
     ) -> AdminNormalizedMetadataDriftReportResponse:
         schema_issue_keys = {"schema_version_missing", "schema_version_mismatch"}
         issue_counts: dict[str, int] = {}
@@ -157,9 +158,10 @@ class AdminCatalogService:
                 )
             )
 
-        item_rows = (
-            await self.db.execute(select(Item.id, Item.kind, Item.metadata_json).order_by(Item.id.asc()))
-        ).all()
+        item_stmt = select(Item.id, Item.kind, Item.metadata_json).order_by(Item.id.asc())
+        if scan_limit is not None:
+            item_stmt = item_stmt.limit(scan_limit)
+        item_rows = (await self.db.execute(item_stmt)).all()
         for item_id, item_kind, metadata_json in item_rows:
             _record(
                 entity_type="item",
@@ -168,13 +170,14 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
-        edition_rows = (
-            await self.db.execute(
-                select(Edition.id, Item.kind, Edition.metadata_json)
-                .join(Item, Edition.item_id == Item.id)
-                .order_by(Edition.id.asc())
-            )
-        ).all()
+        edition_stmt = (
+            select(Edition.id, Item.kind, Edition.metadata_json)
+            .join(Item, Edition.item_id == Item.id)
+            .order_by(Edition.id.asc())
+        )
+        if scan_limit is not None:
+            edition_stmt = edition_stmt.limit(scan_limit)
+        edition_rows = (await self.db.execute(edition_stmt)).all()
         for edition_id, item_kind, metadata_json in edition_rows:
             _record(
                 entity_type="edition",
@@ -183,14 +186,15 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
-        variant_rows = (
-            await self.db.execute(
-                select(Variant.id, Item.kind, Variant.metadata_json)
-                .join(Edition, Variant.edition_id == Edition.id)
-                .join(Item, Edition.item_id == Item.id)
-                .order_by(Variant.id.asc())
-            )
-        ).all()
+        variant_stmt = (
+            select(Variant.id, Item.kind, Variant.metadata_json)
+            .join(Edition, Variant.edition_id == Edition.id)
+            .join(Item, Edition.item_id == Item.id)
+            .order_by(Variant.id.asc())
+        )
+        if scan_limit is not None:
+            variant_stmt = variant_stmt.limit(scan_limit)
+        variant_rows = (await self.db.execute(variant_stmt)).all()
         for variant_id, item_kind, metadata_json in variant_rows:
             _record(
                 entity_type="variant",
@@ -199,13 +203,12 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
-        bundle_rows = (
-            await self.db.execute(
-                select(BundleRelease.id, BundleRelease.kind, BundleRelease.metadata_json).order_by(
-                    BundleRelease.id.asc()
-                )
-            )
-        ).all()
+        bundle_stmt = select(BundleRelease.id, BundleRelease.kind, BundleRelease.metadata_json).order_by(
+            BundleRelease.id.asc()
+        )
+        if scan_limit is not None:
+            bundle_stmt = bundle_stmt.limit(scan_limit)
+        bundle_rows = (await self.db.execute(bundle_stmt)).all()
         for bundle_id, bundle_kind, metadata_json in bundle_rows:
             _record(
                 entity_type="bundle_release",
@@ -214,16 +217,17 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
-        typed_rows = (
-            await self.db.execute(
-                select(Item)
-                .options(
-                    selectinload(Item.editions),
-                    selectinload(Item.kind_metadata),
-                )
-                .order_by(Item.id.asc())
+        typed_stmt = (
+            select(Item)
+            .options(
+                selectinload(Item.editions),
+                selectinload(Item.kind_metadata),
             )
-        ).scalars()
+            .order_by(Item.id.asc())
+        )
+        if scan_limit is not None:
+            typed_stmt = typed_stmt.limit(scan_limit)
+        typed_rows = (await self.db.execute(typed_stmt)).scalars()
         for item in typed_rows:
             typed_scanned_items += 1
             item_metadata = (
@@ -276,6 +280,8 @@ class AdminCatalogService:
 
         return AdminNormalizedMetadataDriftReportResponse(
             expected_schema_version=NORMALIZED_SCHEMA_VERSION,
+            scan_limit=scan_limit,
+            scan_limited=scan_limit is not None,
             scanned_entities=scanned_entities,
             entities_with_normalized=entities_with_normalized,
             drifted_entities=drifted_entities,

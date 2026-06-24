@@ -28,6 +28,18 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         assert {
             "bundle_releases",
             "bundle_release_items",
+            "item_kind_metadata",
+            "item_kind_metadata_anime",
+            "item_kind_metadata_boardgame",
+            "item_kind_metadata_book",
+            "item_kind_metadata_bluray",
+            "item_kind_metadata_collection",
+            "item_kind_metadata_comic",
+            "item_kind_metadata_game",
+            "item_kind_metadata_manga",
+            "item_kind_metadata_movie",
+            "item_kind_metadata_music",
+            "item_kind_metadata_tv",
             "organizations",
             "persons",
             "entity_organizations",
@@ -62,6 +74,8 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         }
         assert {
             "comic",
+            "manga",
+            "anime",
             "movie",
             "tv",
             "game",

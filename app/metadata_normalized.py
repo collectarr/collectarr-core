@@ -1,6 +1,12 @@
 from collections.abc import Mapping
 from typing import Any
 
+from app.catalog.metadata_fields import (
+    common_field_keys,
+    kind_allowed_keys,
+    typed_field_keys,
+    value_types,
+)
 from app.models.base import ItemKind
 from app.models.canonical import (
     Item,
@@ -20,71 +26,15 @@ from app.models.canonical import (
 
 NORMALIZED_SCHEMA_VERSION = 1
 
-_COMMON_ALLOWED_KEYS = {
-    "associated_image_id",
-    "audience_rating",
-    "cover_delivery_url",
-    "cover_policy",
-    "cover_source_url",
-    "cover_status",
-    "cover_storage",
-    "physical_format",
-    "physical_format_label",
-    "physical_format_media_family",
-    "physical_format_variant_type",
-}
+# Derived from the single field registry in app.catalog.metadata_fields so the
+# allowed keys, value types and typed-column keys can never drift apart.
+_COMMON_ALLOWED_KEYS = common_field_keys()
 
-_KIND_ALLOWED_KEYS: dict[ItemKind, set[str]] = {
-    ItemKind.anime: {"genres", "color", "nr_discs", "screen_ratio", "audio_tracks", "subtitles", "layers"},
-    ItemKind.boardgame: {"genres", "platforms"},
-    ItemKind.book: {"genres"},
-    ItemKind.bluray: {"genres", "color", "nr_discs", "screen_ratio", "audio_tracks", "subtitles", "layers"},
-    ItemKind.collection: {"genres"},
-    ItemKind.comic: {"genres"},
-    ItemKind.game: {"genres", "platforms"},
-    ItemKind.manga: {"genres"},
-    ItemKind.movie: {"genres", "color", "nr_discs", "screen_ratio", "audio_tracks", "subtitles", "layers"},
-    ItemKind.music: {"genres", "track_count", "tracks"},
-    ItemKind.tv: {"genres", "color", "nr_discs", "screen_ratio", "audio_tracks", "subtitles", "layers"},
-}
+_KIND_ALLOWED_KEYS: dict[ItemKind, set[str]] = kind_allowed_keys()
 
-_NORMALIZED_VALUE_TYPES: dict[str, str] = {
-    "associated_image_id": "string",
-    "audience_rating": "string",
-    "cover_delivery_url": "string",
-    "cover_policy": "string",
-    "cover_source_url": "string",
-    "cover_status": "string",
-    "cover_storage": "string",
-    "physical_format": "string",
-    "physical_format_label": "string",
-    "physical_format_media_family": "string",
-    "physical_format_variant_type": "string",
-    "genres": "string_list",
-    "platforms": "string_list",
-    "color": "string",
-    "screen_ratio": "string",
-    "audio_tracks": "string",
-    "subtitles": "string",
-    "layers": "string",
-    "nr_discs": "integer",
-    "track_count": "integer",
-    "tracks": "track_list",
-}
+_NORMALIZED_VALUE_TYPES: dict[str, str] = value_types()
 
-TYPED_KIND_METADATA_KEYS = {
-    "audience_rating",
-    "genres",
-    "platforms",
-    "color",
-    "nr_discs",
-    "screen_ratio",
-    "audio_tracks",
-    "subtitles",
-    "layers",
-    "track_count",
-    "tracks",
-}
+TYPED_KIND_METADATA_KEYS = typed_field_keys()
 
 _KIND_METADATA_MODEL_BY_KIND: dict[ItemKind, type[ItemKindMetadata]] = {
     ItemKind.anime: ItemKindMetadataAnime,

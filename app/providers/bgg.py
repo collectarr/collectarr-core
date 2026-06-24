@@ -11,6 +11,7 @@ from fastapi import status
 from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
+from app.providers.http_base import BaseHttpProvider
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -23,7 +24,7 @@ from app.providers.base import (
 _BGG_ID_RE = re.compile(r"^\d+$")
 
 
-class BGGProvider:
+class BGGProvider(BaseHttpProvider):
     name = "bgg"
     capabilities = ProviderCapabilities(
         kind=ItemKind.boardgame,
@@ -305,8 +306,3 @@ class BGGProvider:
             return None
         text = str(value).strip()
         return text or None
-
-    def _slug(self, value: str) -> str:
-        return "-".join(
-            "".join(char.lower() if char.isalnum() else " " for char in value).split()
-        )

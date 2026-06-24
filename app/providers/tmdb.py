@@ -1,12 +1,12 @@
 from datetime import date
 from typing import Any, Mapping
 
-import httpx
 from fastapi import status
 
 from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
+from app.providers.http_base import BaseHttpProvider
 from app.providers.base import (
     NormalizedBundleMember,
     NormalizedBundleRelease,
@@ -21,7 +21,7 @@ from app.providers.base import (
 )
 
 
-class TMDbProvider:
+class TMDbProvider(BaseHttpProvider):
     name = "tmdb"
     capabilities = ProviderCapabilities(
         kind=ItemKind.movie,
@@ -190,40 +190,13 @@ class TMDbProvider:
         }
         if token:
             headers["Authorization"] = f"Bearer {token}"
-        try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.tmdb_timeout_seconds,
-                headers=headers,
-                follow_redirects=True,
-            ) as client:
-                response = await client.get(url, params=request_params)
-                response.raise_for_status()
-                payload = response.json()
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == status.HTTP_404_NOT_FOUND:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    code="tmdb_item_not_found",
-                    detail="TMDb item not found",
-                ) from exc
-            raise ApiHTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                code="tmdb_http_error",
-                detail=f"TMDb returned HTTP {exc.response.status_code}",
-            ) from exc
-        except (httpx.HTTPError, ValueError) as exc:
-            raise ApiHTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                code="tmdb_request_failed",
-                detail="TMDb request failed",
-            ) from exc
-        if not isinstance(payload, dict):
-            raise ApiHTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                code="tmdb_invalid_response",
-                detail="Invalid TMDb response",
-            )
-        return payload
+        return await self._request_json(
+            "tmdb",
+            url,
+            params=request_params,
+            headers=headers,
+            timeout=self.settings.tmdb_timeout_seconds,
+        )
 
     def _search_result(self, data: Mapping[str, Any], kind: ItemKind) -> ProviderSearchResult:
         tmdb_id = self._id(data.get("id"))
@@ -539,11 +512,6 @@ class TMDbProvider:
             return None
         text = str(value).strip()
         return text or None
-
-    def _slug(self, value: str) -> str:
-        return "-".join(
-            "".join(char.lower() if char.isalnum() else " " for char in value).split()
-        )
 
     async def get_seasons(self, provider_item_id: str) -> list[NormalizedSeason]:
         kind, tmdb_id = self._provider_id(provider_item_id)

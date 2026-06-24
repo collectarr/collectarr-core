@@ -4,6 +4,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
+from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.canonical import Item
 
 
@@ -183,12 +184,7 @@ def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _typed_kind_metadata(item: Item) -> dict[str, Any]:
-    row = getattr(item, "__dict__", {}).get("kind_metadata")
-    if row is None:
-        return {}
-    return {
-        "platforms": getattr(row, "platforms", None),
-    }
+    return typed_kind_metadata_for_item(item)
 
 
 def _physical_format_label(

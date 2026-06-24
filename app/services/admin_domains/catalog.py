@@ -15,9 +15,12 @@ from app.catalog.physical_formats import (
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import (
     NORMALIZED_SCHEMA_VERSION,
+    item_kind_metadata_payload,
     merge_normalized_metadata,
     normalized_metadata_issues,
+    patch_item_kind_metadata,
     typed_kind_metadata_payload,
+    upsert_item_kind_metadata,
 )
 from app.models.base import ItemKind
 from app.models.canonical import (
@@ -1054,79 +1057,14 @@ class AdminCatalogService:
         return metadata
 
     def _item_kind_metadata_payload(self, value: ItemKindMetadata | None) -> dict[str, Any]:
-        if value is None:
-            return {}
-        raw = {
-            "audience_rating": value.audience_rating,
-            "genres": value.genres,
-            "platforms": value.platforms,
-            "color": value.color,
-            "nr_discs": value.nr_discs,
-            "screen_ratio": value.screen_ratio,
-            "audio_tracks": value.audio_tracks,
-            "subtitles": value.subtitles,
-            "layers": value.layers,
-            "track_count": value.track_count,
-            "tracks": value.tracks,
-        }
-        return {
-            key: row
-            for key, row in raw.items()
-            if row is not None and row != [] and row != {}
-        }
+        return item_kind_metadata_payload(value)
 
     def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
-        typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
-        if not typed_payload:
-            item.kind_metadata = None
-            return
-        metadata = item.kind_metadata
-        if metadata is None:
-            metadata = ItemKindMetadata(item=item, kind=item.kind)
-            item.kind_metadata = metadata
-        metadata.kind = item.kind
-        metadata.audience_rating = typed_payload.get("audience_rating")
-        metadata.genres = typed_payload.get("genres")
-        metadata.platforms = typed_payload.get("platforms")
-        metadata.color = typed_payload.get("color")
-        metadata.nr_discs = typed_payload.get("nr_discs")
-        metadata.screen_ratio = typed_payload.get("screen_ratio")
-        metadata.audio_tracks = typed_payload.get("audio_tracks")
-        metadata.subtitles = typed_payload.get("subtitles")
-        metadata.layers = typed_payload.get("layers")
-        metadata.track_count = typed_payload.get("track_count")
-        metadata.tracks = typed_payload.get("tracks")
+        upsert_item_kind_metadata(item, normalized_values)
 
     def _patch_item_kind_metadata(self, item: Item, typed_updates: dict[str, Any]) -> None:
-        metadata = item.kind_metadata
-        if metadata is None:
-            metadata = ItemKindMetadata(item=item, kind=item.kind)
-            item.kind_metadata = metadata
-        metadata.kind = item.kind
-        for key, value in typed_updates.items():
-            if key == "audience_rating":
-                metadata.audience_rating = value
-            elif key == "genres":
-                metadata.genres = value
-            elif key == "platforms":
-                metadata.platforms = value
-            elif key == "color":
-                metadata.color = value
-            elif key == "nr_discs":
-                metadata.nr_discs = value
-            elif key == "screen_ratio":
-                metadata.screen_ratio = value
-            elif key == "audio_tracks":
-                metadata.audio_tracks = value
-            elif key == "subtitles":
-                metadata.subtitles = value
-            elif key == "layers":
-                metadata.layers = value
-            elif key == "track_count":
-                metadata.track_count = value
-            elif key == "tracks":
-                metadata.tracks = value
-        snapshot = self._item_kind_metadata_payload(metadata)
+        patch_item_kind_metadata(item, typed_updates)
+        snapshot = self._item_kind_metadata_payload(item.kind_metadata)
         if not snapshot:
             item.kind_metadata = None
 

@@ -161,34 +161,160 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
     __tablename__ = "item_kind_metadata"
     __table_args__ = (
         UniqueConstraint("item_id", name="uq_item_kind_metadata_item_id"),
-        CheckConstraint(
-            "nr_discs IS NULL OR nr_discs >= 0",
-            name="ck_item_kind_metadata_nr_discs_nonnegative",
-        ),
-        CheckConstraint(
-            "track_count IS NULL OR track_count >= 0",
-            name="ck_item_kind_metadata_track_count_nonnegative",
-        ),
         Index("ix_item_kind_metadata_kind", "kind"),
     )
+    __mapper_args__ = {"polymorphic_on": "kind"}
 
     item_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False
     )
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     audience_rating: Mapped[str | None] = mapped_column(String(64), index=True)
+
+    item: Mapped[Item] = relationship(back_populates="kind_metadata")
+
+
+class ItemKindMetadataAnime(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_anime"
+    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_anime_nr_discs_nonnegative"),)
+    __mapper_args__ = {"polymorphic_identity": ItemKind.anime}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
     genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-    platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
     nr_discs: Mapped[int | None] = mapped_column(Integer)
     screen_ratio: Mapped[str | None] = mapped_column(String(64))
     audio_tracks: Mapped[str | None] = mapped_column(String(255))
     subtitles: Mapped[str | None] = mapped_column(String(255))
     layers: Mapped[str | None] = mapped_column(String(255))
+
+
+class ItemKindMetadataBoardGame(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_boardgame"
+    __mapper_args__ = {"polymorphic_identity": ItemKind.boardgame}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+
+
+class ItemKindMetadataBook(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_book"
+    __mapper_args__ = {"polymorphic_identity": ItemKind.book}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+
+
+class ItemKindMetadataBluray(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_bluray"
+    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_bluray_nr_discs_nonnegative"),)
+    __mapper_args__ = {"polymorphic_identity": ItemKind.bluray}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    color: Mapped[str | None] = mapped_column(String(64))
+    nr_discs: Mapped[int | None] = mapped_column(Integer)
+    screen_ratio: Mapped[str | None] = mapped_column(String(64))
+    audio_tracks: Mapped[str | None] = mapped_column(String(255))
+    subtitles: Mapped[str | None] = mapped_column(String(255))
+    layers: Mapped[str | None] = mapped_column(String(255))
+
+
+class ItemKindMetadataCollection(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_collection"
+    __mapper_args__ = {"polymorphic_identity": ItemKind.collection}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+
+
+class ItemKindMetadataComic(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_comic"
+    __mapper_args__ = {"polymorphic_identity": ItemKind.comic}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+
+
+class ItemKindMetadataGame(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_game"
+    __mapper_args__ = {"polymorphic_identity": ItemKind.game}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+
+
+class ItemKindMetadataManga(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_manga"
+    __mapper_args__ = {"polymorphic_identity": ItemKind.manga}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+
+
+class ItemKindMetadataMovie(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_movie"
+    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_movie_nr_discs_nonnegative"),)
+    __mapper_args__ = {"polymorphic_identity": ItemKind.movie}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    color: Mapped[str | None] = mapped_column(String(64))
+    nr_discs: Mapped[int | None] = mapped_column(Integer)
+    screen_ratio: Mapped[str | None] = mapped_column(String(64))
+    audio_tracks: Mapped[str | None] = mapped_column(String(255))
+    subtitles: Mapped[str | None] = mapped_column(String(255))
+    layers: Mapped[str | None] = mapped_column(String(255))
+
+
+class ItemKindMetadataMusic(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_music"
+    __table_args__ = (CheckConstraint("track_count IS NULL OR track_count >= 0", name="ck_item_kind_metadata_music_track_count_nonnegative"),)
+    __mapper_args__ = {"polymorphic_identity": ItemKind.music}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     track_count: Mapped[int | None] = mapped_column(Integer)
     tracks: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
 
-    item: Mapped[Item] = relationship(back_populates="kind_metadata")
+
+class ItemKindMetadataTv(ItemKindMetadata):
+    __tablename__ = "item_kind_metadata_tv"
+    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_tv_nr_discs_nonnegative"),)
+    __mapper_args__ = {"polymorphic_identity": ItemKind.tv}
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
+    )
+    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    color: Mapped[str | None] = mapped_column(String(64))
+    nr_discs: Mapped[int | None] = mapped_column(Integer)
+    screen_ratio: Mapped[str | None] = mapped_column(String(64))
+    audio_tracks: Mapped[str | None] = mapped_column(String(255))
+    subtitles: Mapped[str | None] = mapped_column(String(255))
+    layers: Mapped[str | None] = mapped_column(String(255))
 
 
 class Variant(UuidMixin, TimestampMixin, Base):

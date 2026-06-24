@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, or_, select, update
 
 from app.catalog.physical_formats import PhysicalFormatConfig, is_video_item_kind, physical_format_for_id
 from app.core.errors import ApiHTTPException
-from app.metadata_normalized import clean_normalized_metadata, typed_kind_metadata_payload
+from app.metadata_normalized import clean_normalized_metadata, upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
     BundleRelease,
@@ -23,7 +23,6 @@ from app.models.canonical import (
     EntityTag,
     ExternalProviderId,
     Item,
-    ItemKindMetadata,
     ItemProviderLink,
     MetadataProposal,
     Organization,
@@ -995,26 +994,7 @@ class AdminProviderIngestService:
         return metadata
 
     def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
-        typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
-        if not typed_payload:
-            item.kind_metadata = None
-            return
-        metadata = item.kind_metadata
-        if metadata is None:
-            metadata = ItemKindMetadata(item=item, kind=item.kind)
-            item.kind_metadata = metadata
-        metadata.kind = item.kind
-        metadata.audience_rating = typed_payload.get("audience_rating")
-        metadata.genres = typed_payload.get("genres")
-        metadata.platforms = typed_payload.get("platforms")
-        metadata.color = typed_payload.get("color")
-        metadata.nr_discs = typed_payload.get("nr_discs")
-        metadata.screen_ratio = typed_payload.get("screen_ratio")
-        metadata.audio_tracks = typed_payload.get("audio_tracks")
-        metadata.subtitles = typed_payload.get("subtitles")
-        metadata.layers = typed_payload.get("layers")
-        metadata.track_count = typed_payload.get("track_count")
-        metadata.tracks = typed_payload.get("tracks")
+        upsert_item_kind_metadata(item, normalized_values)
 
     async def _enrich_missing_comic_cover(
         self,

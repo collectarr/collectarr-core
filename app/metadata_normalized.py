@@ -2,6 +2,21 @@ from collections.abc import Mapping
 from typing import Any
 
 from app.models.base import ItemKind
+from app.models.canonical import (
+    Item,
+    ItemKindMetadata,
+    ItemKindMetadataAnime,
+    ItemKindMetadataBoardGame,
+    ItemKindMetadataBook,
+    ItemKindMetadataBluray,
+    ItemKindMetadataCollection,
+    ItemKindMetadataComic,
+    ItemKindMetadataGame,
+    ItemKindMetadataManga,
+    ItemKindMetadataMovie,
+    ItemKindMetadataMusic,
+    ItemKindMetadataTv,
+)
 
 NORMALIZED_SCHEMA_VERSION = 1
 
@@ -69,6 +84,20 @@ TYPED_KIND_METADATA_KEYS = {
     "layers",
     "track_count",
     "tracks",
+}
+
+_KIND_METADATA_MODEL_BY_KIND: dict[ItemKind, type[ItemKindMetadata]] = {
+    ItemKind.anime: ItemKindMetadataAnime,
+    ItemKind.boardgame: ItemKindMetadataBoardGame,
+    ItemKind.book: ItemKindMetadataBook,
+    ItemKind.bluray: ItemKindMetadataBluray,
+    ItemKind.collection: ItemKindMetadataCollection,
+    ItemKind.comic: ItemKindMetadataComic,
+    ItemKind.game: ItemKindMetadataGame,
+    ItemKind.manga: ItemKindMetadataManga,
+    ItemKind.movie: ItemKindMetadataMovie,
+    ItemKind.music: ItemKindMetadataMusic,
+    ItemKind.tv: ItemKindMetadataTv,
 }
 
 ALLOWED_NORMALIZED_METADATA_KEYS = _COMMON_ALLOWED_KEYS | {
@@ -148,6 +177,43 @@ def typed_kind_metadata_payload(
         for key in TYPED_KIND_METADATA_KEYS
         if key in cleaned
     }
+
+
+def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]:
+    if value is None:
+        return {}
+    raw = {key: getattr(value, key, None) for key in TYPED_KIND_METADATA_KEYS}
+    return {
+        key: row
+        for key, row in raw.items()
+        if row is not None and row != [] and row != {}
+    }
+
+
+def typed_kind_metadata_for_item(item: object) -> dict[str, Any]:
+    return item_kind_metadata_payload(getattr(item, "kind_metadata", None))
+
+
+def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] | None) -> None:
+    typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
+    if not typed_payload:
+        item.kind_metadata = None
+        return
+    metadata = item.kind_metadata
+    metadata_model = _KIND_METADATA_MODEL_BY_KIND[item.kind]
+    if metadata is None or not isinstance(metadata, metadata_model):
+        metadata = metadata_model(item=item, kind=item.kind)
+        item.kind_metadata = metadata
+    metadata.kind = item.kind
+    for key in TYPED_KIND_METADATA_KEYS:
+        if hasattr(metadata, key):
+            setattr(metadata, key, typed_payload.get(key))
+
+
+def patch_item_kind_metadata(item: Item, typed_updates: Mapping[str, Any]) -> None:
+    current = item_kind_metadata_payload(item.kind_metadata)
+    current.update(dict(typed_updates))
+    upsert_item_kind_metadata(item, current)
 
 
 def normalized_metadata_issues(

@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
+from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     Character,
@@ -126,22 +127,7 @@ def _organization_name(item: object, role: str) -> str | None:
 
 
 def _typed_kind_metadata(item: object) -> dict[str, object]:
-    row = getattr(item, "__dict__", {}).get("kind_metadata")
-    if row is None:
-        return {}
-    return {
-        "audience_rating": getattr(row, "audience_rating", None),
-        "genres": getattr(row, "genres", None),
-        "platforms": getattr(row, "platforms", None),
-        "color": getattr(row, "color", None),
-        "nr_discs": getattr(row, "nr_discs", None),
-        "screen_ratio": getattr(row, "screen_ratio", None),
-        "audio_tracks": getattr(row, "audio_tracks", None),
-        "subtitles": getattr(row, "subtitles", None),
-        "layers": getattr(row, "layers", None),
-        "track_count": getattr(row, "track_count", None),
-        "tracks": getattr(row, "tracks", None),
-    }
+    return typed_kind_metadata_for_item(item)
 
 
 class MetadataService:

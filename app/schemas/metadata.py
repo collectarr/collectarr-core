@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
+from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
@@ -523,7 +524,6 @@ def item_response_from_model(
     edition = _primary_edition(item)
     variant = _primary_variant(item)
     source = _source_metadata(edition)
-    normalized = _normalized_metadata(edition)
     typed_normalized = _typed_kind_metadata(item)
     creators = _creator_credits(item)
     characters = _character_credits(item)
@@ -854,22 +854,7 @@ def _normalized_item_metadata(item: Any) -> dict[str, Any]:
 
 
 def _typed_kind_metadata(item: Any) -> dict[str, Any]:
-    row = getattr(item, "__dict__", {}).get("kind_metadata")
-    if row is None:
-        return {}
-    return {
-        "audience_rating": getattr(row, "audience_rating", None),
-        "genres": getattr(row, "genres", None),
-        "platforms": getattr(row, "platforms", None),
-        "color": getattr(row, "color", None),
-        "nr_discs": getattr(row, "nr_discs", None),
-        "screen_ratio": getattr(row, "screen_ratio", None),
-        "audio_tracks": getattr(row, "audio_tracks", None),
-        "subtitles": getattr(row, "subtitles", None),
-        "layers": getattr(row, "layers", None),
-        "track_count": getattr(row, "track_count", None),
-        "tracks": getattr(row, "tracks", None),
-    }
+    return typed_kind_metadata_for_item(item)
 
 
 def _source_item_metadata(item: Any) -> dict[str, Any]:

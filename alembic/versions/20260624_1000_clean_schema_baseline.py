@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from typing import Sequence, Union
 
-from alembic import op
-
 # revision identifiers, used by Alembic.
 revision: str = "20260624_1000"
 down_revision: str | None = None

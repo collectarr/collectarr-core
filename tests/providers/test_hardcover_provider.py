@@ -187,7 +187,11 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
 
     async def fake_get_item(self, provider_item_id):
         raw = _book_response()["data"]["books"][0]
-        return ProviderItem(provider="hardcover", provider_item_id="book:42", raw=raw)
+        return ProviderItem(
+            provider="hardcover",
+            provider_item_id="book:42",
+            raw={**raw, "_collectarr_kind": "book"},
+        )
 
     async def fake_index_documents(self, documents):
         return True

@@ -18,6 +18,24 @@ The active top-level library kinds are exactly:
 
 `ItemKind.bluray` and `ItemKind.collection` still exist as non-top-level legacy/internal kinds and are intentionally excluded from the active parity set.
 
+## Metadata field schema (single source of truth)
+
+The canonical editable metadata fields are declared **once** in
+`app/catalog/metadata_fields.py` as a registry of `MetadataFieldSpec` entries
+(key, value type, label, common/typed flags, applicable kinds). All derived
+lookups (`_COMMON_ALLOWED_KEYS`, `_KIND_ALLOWED_KEYS`, `_NORMALIZED_VALUE_TYPES`,
+`TYPED_KIND_METADATA_KEYS` in `app/metadata_normalized.py`) are computed from this
+registry so they can no longer drift apart.
+
+This registry is the schema that the **admin edit panel** and the **Flutter app
+edit dialog** render from. It is exposed over HTTP at `GET /metadata/field-schema`
+and documented in `docs/field-schema.md`.
+
+- Registry: `app/catalog/metadata_fields.py`
+- HTTP schema: `GET /metadata/field-schema`
+- Generated docs: `docs/field-schema.md` (re-run `python -m scripts.export_field_schema`)
+- Golden test: `tests/metadata/test_field_registry_contract.py`
+
 ## Contract guarantees
 
 1. Every active kind is top-level routable in the media catalog.

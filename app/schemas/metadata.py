@@ -1,7 +1,6 @@
-from uuid import UUID, NAMESPACE_URL, uuid5
-
 from datetime import date
 from typing import Any
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, Field
 
@@ -745,7 +744,7 @@ def bundle_release_member_sort_key(member: Any) -> tuple[bool, int, bool, int, s
 def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetailResponse:
     summary = bundle_release_summary_from_model(bundle_release)
     members = sorted(
-        list(getattr(bundle_release, "items", []) or []),
+        getattr(bundle_release, "items", []) or [],
         key=bundle_release_member_sort_key,
     )
     return BundleReleaseDetailResponse(

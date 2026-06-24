@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from fastapi import APIRouter
-from fastapi import HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
+
 from app.core.config import get_settings
 
 router = APIRouter(tags=["admin"])

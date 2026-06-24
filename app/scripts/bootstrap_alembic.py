@@ -3,12 +3,11 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect
 
+from alembic import command
 from app.db.session import engine
-
 
 BASELINE_REVISION = "20260624_1000"
 HEAD_REVISION = "20260624_1000"

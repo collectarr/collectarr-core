@@ -1,10 +1,11 @@
 import asyncio
 import logging
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from html import unescape
-from typing import Any, Mapping
+from typing import Any
 
 import httpx
 from fastapi import status
@@ -12,7 +13,6 @@ from fastapi import status
 from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.providers.normalize import issue_sort_key, normalize_title, preview_names, title_aliases
 from app.providers.base import (
     NormalizedBundleMember,
     NormalizedBundleRelease,
@@ -23,7 +23,7 @@ from app.providers.base import (
     ProviderItem,
     ProviderSearchResult,
 )
-
+from app.providers.normalize import issue_sort_key, normalize_title, preview_names, title_aliases
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _RESOURCE_ID_RE = re.compile(r"/(issue|volume)/(\d+-\d+)/?")

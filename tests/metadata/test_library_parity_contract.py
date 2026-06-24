@@ -2,7 +2,6 @@ from app.catalog.media_types import top_level_media_types
 from app.models.base import ItemKind
 from app.providers.registry import ProviderRegistry
 
-
 ACTIVE_PARITY_KINDS = {
     ItemKind.comic,
     ItemKind.manga,

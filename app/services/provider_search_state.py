@@ -12,7 +12,6 @@ from app.core.redis import redis_client
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import ProviderSearchResult
 
-
 logger = logging.getLogger(__name__)
 
 _PROVIDER_SEARCH_CACHE: dict[tuple[str, str, str], "_ProviderSearchCacheEntry"] = {}

@@ -1,9 +1,9 @@
 import pytest
 
 from app.core.config import get_settings
+from app.db.session import AsyncSessionLocal
 from app.models.base import UserRole
 from app.repositories.users import UserRepository
-from app.db.session import AsyncSessionLocal
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,5 @@
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (

@@ -1,6 +1,8 @@
+import contextlib
 import json
+from collections.abc import Mapping
 from datetime import date
-from typing import Any, ClassVar, Mapping
+from typing import Any, ClassVar
 
 import httpx
 from fastapi import status
@@ -249,12 +251,12 @@ class HardcoverProvider:
             )
         try:
             int_id = int(book_id)
-        except ValueError:
+        except ValueError as exc:
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="hardcover_invalid_id",
                 detail="Hardcover book id must be an integer",
-            )
+            ) from exc
         data = await self._graphql(_BOOK_DETAIL_QUERY, {"id": int_id})
         books = (data.get("data") or {}).get("books") or []
         if not books:
@@ -310,10 +312,8 @@ class HardcoverProvider:
                 series_title = series.get("name")
             pos = bs.get("position")
             if pos is not None:
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     volume_number = float(pos)
-                except (ValueError, TypeError):
-                    pass
 
         normalized_kind = self._normalized_kind(data.get("_collectarr_kind"))
         provider_id = self._provider_item_id(book_id, normalized_kind) if book_id else None

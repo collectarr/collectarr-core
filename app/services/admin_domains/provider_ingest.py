@@ -7,14 +7,18 @@ from uuid import UUID
 from fastapi import status
 from sqlalchemy import delete, func, or_, select, update
 
-from app.catalog.physical_formats import PhysicalFormatConfig, is_video_item_kind, physical_format_for_id
+from app.catalog.physical_formats import (
+    PhysicalFormatConfig,
+    is_video_item_kind,
+    physical_format_for_id,
+)
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import clean_normalized_metadata, upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
     BundleRelease,
-    BundleReleaseProviderLink,
     BundleReleaseItem,
+    BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
     Edition,
@@ -34,9 +38,10 @@ from app.models.canonical import (
     StoryArcItem,
     Tag,
     Variant,
-    VolumeProviderLink,
     Volume,
+    VolumeProviderLink,
 )
+from app.proposal_payload import compact_metadata_payload
 from app.providers.base import (
     MetadataProvider,
     NormalizedBundleMember,
@@ -50,7 +55,6 @@ from app.providers.base import (
 from app.providers.comicvine import ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
-from app.proposal_payload import compact_metadata_payload
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
@@ -65,8 +69,8 @@ from app.schemas.admin import (
     ProviderIngestJobRunResponse,
     ProviderIngestJobSummaryResponse,
     ProviderIngestRequest,
-    ProviderIngestRetryRequest,
     ProviderIngestResponse,
+    ProviderIngestRetryRequest,
     ProviderPreviewCredit,
     ProviderPreviewResponse,
     ProviderPreviewTrack,
@@ -86,7 +90,6 @@ from app.services.metadata import MetadataService
 from app.services.provider_preview_state import HydratedProviderPreview
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
-
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +155,7 @@ class AdminProviderIngestService:
                 MetadataProposal.status
             )
         )
-        counts = {status: count for status, count in result.all()}
+        counts = dict(result.all())
         pending = counts.get("pending", 0)
         approved = counts.get("approved", 0)
         rejected = counts.get("rejected", 0)

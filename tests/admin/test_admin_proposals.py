@@ -11,8 +11,8 @@ from app.providers.comicvine import ComicVineProvider
 from app.search.client import SearchClient
 from app.storage.images import ImageMirror
 
-from .test_admin_ui import admin_token
 from .test_admin_ingest import comicvine_issue_raw
+from .test_admin_ui import admin_token
 
 
 @pytest.mark.asyncio

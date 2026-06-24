@@ -1,6 +1,7 @@
 import re
+from collections.abc import Mapping
 from datetime import date
-from typing import Any, Mapping, TypedDict
+from typing import Any, TypedDict
 
 import httpx
 from fastapi import status
@@ -15,7 +16,6 @@ from app.providers.base import (
     ProviderItem,
     ProviderSearchResult,
 )
-
 
 _OLID_RE = re.compile(r"^(?P<id>OL\d+[MWA])$", re.IGNORECASE)
 _YEAR_RE = re.compile(r"\b(?P<year>\d{4})\b")

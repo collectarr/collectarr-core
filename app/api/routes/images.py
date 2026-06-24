@@ -16,8 +16,8 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
 from app.models.canonical import ImageAsset, ImageCacheEntry
-from app.storage.images import ImageMirror
 from app.storage.client import ObjectStorage
+from app.storage.images import ImageMirror
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,12 @@ async def download_image(
         body, content_type = await asyncio.to_thread(
             ObjectStorage.shared().get_object, object_key
         )
-    except Exception:
+    except Exception as exc:
         raise ApiHTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             code="image_not_found",
             detail="Image object not found",
-        )
+        ) from exc
     return Response(
         content=body,
         media_type=content_type,
@@ -231,12 +231,12 @@ async def add_entity_image(
 
     try:
         image_bytes = await asyncio.to_thread(base64.b64decode, image_data_base64)
-    except Exception:
+    except Exception as exc:
         raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             code="invalid_base64",
             detail="image_data_base64 is not valid base64",
-        )
+        ) from exc
 
     # Reject uploads exceeding max_image_bytes
     settings = get_settings()
@@ -448,12 +448,12 @@ async def search_by_cover_upload(
         )
     try:
         query_phash = await asyncio.to_thread(_compute_phash, image_bytes)
-    except Exception:
+    except Exception as exc:
         raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             code="invalid_image",
             detail="Could not process uploaded image",
-        )
+        ) from exc
 
     result = await db.scalars(
         select(ImageAsset).where(ImageAsset.phash.is_not(None))

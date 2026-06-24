@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 from urllib import error, request
 
-
 KIND_SPECS = [
     ("total", "Catalog items", "catalog-total.svg", "#2f6feb"),
     ("comic", "Comics", "catalog-comic.svg", "#d73a49"),

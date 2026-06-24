@@ -2,8 +2,8 @@ from app.models.base import Base, ExternalProvider, ItemKind
 from app.models.canonical import (
     AdminAuditLog,
     BundleRelease,
-    BundleReleaseProviderLink,
     BundleReleaseItem,
+    BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
     Edition,
@@ -26,8 +26,8 @@ from app.models.canonical import (
     StoryArcItem,
     Tag,
     Variant,
-    VolumeProviderLink,
     Volume,
+    VolumeProviderLink,
 )
 from app.models.user import User
 

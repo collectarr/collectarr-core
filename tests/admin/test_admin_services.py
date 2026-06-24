@@ -6,12 +6,12 @@ import pytest
 from fastapi import HTTPException, status
 
 from app.services.admin_domains.catalog import AdminCatalogService
-from app.services.admin_domains.support import AdminSupportService
 from app.services.admin_domains.overview import (
     _SEARCH_HISTORY,
-    _meili_document_count,
     AdminOverviewService,
+    _meili_document_count,
 )
+from app.services.admin_domains.support import AdminSupportService
 
 
 @pytest.mark.asyncio

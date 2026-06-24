@@ -1,7 +1,7 @@
-from collections import deque
-from collections.abc import Callable
 import hashlib
 import logging
+from collections import deque
+from collections.abc import Callable
 from threading import RLock
 from time import monotonic, time
 from uuid import uuid4
@@ -11,7 +11,6 @@ from fastapi import Request, status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.redis import redis_client
-
 
 logger = logging.getLogger(__name__)
 

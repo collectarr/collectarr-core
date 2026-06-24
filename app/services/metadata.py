@@ -34,37 +34,37 @@ from app.models.canonical import (
     Volume,
     VolumeProviderLink,
 )
+from app.proposal_payload import compact_metadata_payload
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
-from app.proposal_payload import compact_metadata_payload
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
+    BundleReleaseDetailResponse,
+    BundleReleaseSummaryResponse,
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
-    BundleReleaseDetailResponse,
-    BundleReleaseSummaryResponse,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
     EditionResponse,
+    EpisodeResponse,
     ItemResponse,
     MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
     ProviderLink,
     ProviderSearchResultResponse,
-    EpisodeResponse,
-    SeasonResponse,
     SearchResult,
+    SeasonResponse,
     SeriesItemResponse,
+    SeriesRelationResponse,
     SeriesResponse,
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
-    SeriesRelationResponse,
     bundle_release_detail_from_model,
     bundle_release_summary_from_model,
     item_response_from_model,
@@ -1365,7 +1365,7 @@ class MetadataService:
                 cover_price_cents = cover_price_cents or primary.cover_price_cents
                 item_currency = item_currency or primary.currency
         bundle_releases = sorted(
-            list(getattr(item, "primary_bundle_releases", []) or []),
+            getattr(item, "primary_bundle_releases", []) or [],
             key=lambda bundle: (
                 getattr(bundle, "release_date", None) is None,
                 -getattr(bundle, "release_date", None).toordinal()

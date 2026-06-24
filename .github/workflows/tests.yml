@@ -44,6 +44,10 @@ jobs:
       - name: Lint
         run: python -m ruff check .
 
+      - name: Type check (informational)
+        continue-on-error: true
+        run: python -m mypy app
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr_test

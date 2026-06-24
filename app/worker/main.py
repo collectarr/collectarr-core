@@ -1,8 +1,8 @@
 import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
-import logging
 from time import monotonic
 
 import imagehash
@@ -19,7 +19,6 @@ from app.search.client import SearchClient
 from app.search.documents import item_search_document
 from app.services.admin import AdminMetadataService
 from app.storage.client import ObjectStorage
-
 
 logger = logging.getLogger(__name__)
 

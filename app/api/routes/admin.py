@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentAdmin, CurrentAdminReader, DbSession
 from app.core.rate_limit import admin_provider_rate_limit
+from app.models.base import ExternalProvider, ItemKind
 from app.schemas.admin import (
-    AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
+    AdminBundleReleaseCorrectionRequest,
     AdminCatalogSummaryResponse,
     AdminDeleteResponse,
     AdminDuplicateActionResponse,
@@ -20,32 +21,31 @@ from app.schemas.admin import (
     AdminReleaseMediaMappingRuleCreateRequest,
     AdminReleaseMediaMappingRuleResponse,
     AdminReleaseMediaMappingRuleUpdateRequest,
-    AdminSeriesTagsUpdateRequest,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
+    AdminSeriesTagsUpdateRequest,
+    ImageCachePurgeResponse,
+    ImageCacheStatsResponse,
     MetadataProposalAdminResponse,
     MetadataProposalAdminUpdateRequest,
     MetadataProposalSummaryResponse,
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
+    ProviderIngestHistoryEntry,
     ProviderIngestJobCreateRequest,
     ProviderIngestJobResponse,
     ProviderIngestJobRunResponse,
     ProviderIngestJobSummaryResponse,
     ProviderIngestRequest,
-    ProviderIngestRetryRequest,
     ProviderIngestResponse,
-    ProviderIngestHistoryEntry,
+    ProviderIngestRetryRequest,
     ProviderPreviewResponse,
     ProviderSearchRequest,
     ProviderStatusListResponse,
-    ImageCacheStatsResponse,
-    ImageCachePurgeResponse,
     UserResponse,
     UserUpdateRequest,
 )
-from app.models.base import ExternalProvider, ItemKind
 from app.schemas.metadata import BundleReleaseDetailResponse, ItemResponse, SeriesResponse
 from app.services.admin import AdminMetadataService
 

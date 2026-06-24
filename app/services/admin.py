@@ -6,16 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import ExternalProvider, ItemKind
 from app.models.user import User
-from app.search.client import SearchClient
 from app.schemas.admin import (
-    AdminBundleReleaseCorrectionRequest,
     AdminAuditLogResponse,
-    AdminProviderPrefillResolveRequest,
-    AdminProviderPrefillResolveResponse,
-    AdminReleaseMediaMappingRuleCreateRequest,
-    AdminReleaseMediaMappingRuleResponse,
-    AdminReleaseMediaMappingRuleUpdateRequest,
-    ProviderCacheSummaryResponse,
+    AdminBundleReleaseCorrectionRequest,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -23,24 +16,30 @@ from app.schemas.admin import (
     AdminDuplicateMergeRequest,
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
-    AdminSeriesTagsUpdateRequest,
+    AdminProviderPrefillResolveRequest,
+    AdminProviderPrefillResolveResponse,
+    AdminReleaseMediaMappingRuleCreateRequest,
+    AdminReleaseMediaMappingRuleResponse,
+    AdminReleaseMediaMappingRuleUpdateRequest,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
+    AdminSeriesTagsUpdateRequest,
+    MetadataProposalAdminResponse,
+    MetadataProposalAdminUpdateRequest,
+    MetadataProposalSummaryResponse,
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
+    ProviderCacheSummaryResponse,
     ProviderIngestHistoryEntry,
     ProviderIngestJobCreateRequest,
     ProviderIngestJobResponse,
     ProviderIngestJobRunResponse,
     ProviderIngestJobSummaryResponse,
     ProviderIngestRequest,
-    ProviderIngestRetryRequest,
     ProviderIngestResponse,
+    ProviderIngestRetryRequest,
     ProviderPreviewResponse,
-    MetadataProposalAdminResponse,
-    MetadataProposalAdminUpdateRequest,
-    MetadataProposalSummaryResponse,
     ProviderSearchRequest,
     ProviderStatusResponse,
 )
@@ -48,6 +47,7 @@ from app.schemas.metadata import (
     BundleReleaseDetailResponse,
     SeriesResponse,
 )
+from app.search.client import SearchClient
 from app.services.admin_domains import overview as overview_admin_module
 from app.services.admin_domains.factory import build_admin_domain_services
 

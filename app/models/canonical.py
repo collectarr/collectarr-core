@@ -20,7 +20,14 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
-from app.models.base import Base, ExternalProvider, ItemKind, SeriesRelationType, TimestampMixin, UuidMixin
+from app.models.base import (
+    Base,
+    ExternalProvider,
+    ItemKind,
+    SeriesRelationType,
+    TimestampMixin,
+    UuidMixin,
+)
 
 
 class Franchise(UuidMixin, TimestampMixin, Base):

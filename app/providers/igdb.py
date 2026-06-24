@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, Mapping
+from typing import Any
 
 import httpx
 from fastapi import status
@@ -7,7 +8,6 @@ from fastapi import status
 from app.core.config import get_settings, provider_stub_data_enabled
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.providers.http_base import BaseHttpProvider
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -15,6 +15,7 @@ from app.providers.base import (
     ProviderItem,
     ProviderSearchResult,
 )
+from app.providers.http_base import BaseHttpProvider
 
 
 class IGDBProvider(BaseHttpProvider):

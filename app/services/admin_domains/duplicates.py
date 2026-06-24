@@ -342,7 +342,7 @@ class AdminDuplicateService:
             )
             .group_by(ItemProviderLink.item_id)
         )
-        return {entity_id: count for entity_id, count in result.all()}
+        return dict(result.all())
 
     def _duplicate_merge_target_score(
         self,

@@ -1,6 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Generic, Mapping, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 from app.models.base import ItemKind
 

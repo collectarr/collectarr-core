@@ -1,8 +1,6 @@
 from datetime import date
-from uuid import UUID
-from uuid import uuid4
-
 from types import SimpleNamespace
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
@@ -20,6 +18,7 @@ from app.models.canonical import (
     EntityPerson,
     EntityTag,
     Item,
+    ItemProviderLink,
     Organization,
     Person,
     Series,
@@ -28,7 +27,6 @@ from app.models.canonical import (
     Tag,
     Variant,
     Volume,
-    ItemProviderLink,
     VolumeProviderLink,
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult

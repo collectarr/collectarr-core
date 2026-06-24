@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_formats
 from app.models.base import ExternalProvider, ItemKind
 
-
 DEFAULT_PROVIDER_SEARCH_POLICY = "core_miss_then_configured_providers"
 
 

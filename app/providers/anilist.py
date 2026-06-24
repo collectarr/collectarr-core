@@ -1,7 +1,8 @@
 import re
+from collections.abc import Mapping
 from datetime import date
 from html import unescape
-from typing import Any, Mapping
+from typing import Any
 
 import httpx
 from fastapi import status
@@ -20,7 +21,6 @@ from app.providers.base import (
     ProviderItem,
     ProviderSearchResult,
 )
-
 
 _TAG_RE = re.compile(r"<[^>]+>")
 

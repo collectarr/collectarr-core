@@ -1,5 +1,6 @@
+from collections.abc import Mapping
 from datetime import date
-from typing import Any, Mapping
+from typing import Any
 
 import httpx
 from fastapi import status
@@ -9,10 +10,10 @@ from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
+    NormalizedEpisode,
     NormalizedItem,
     NormalizedRelation,
     NormalizedSeason,
-    NormalizedEpisode,
     ProviderCapabilities,
     ProviderItem,
     ProviderSearchResult,

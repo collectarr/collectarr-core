@@ -21,8 +21,10 @@ from app.providers.mangadex import MangaDexProvider
 from app.schemas.admin import (
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
-    ProviderIngestRequest as ProviderPreviewRequest,
     ProviderPreviewResponse,
+)
+from app.schemas.admin import (
+    ProviderIngestRequest as ProviderPreviewRequest,
 )
 from app.schemas.metadata import (
     BundleReleaseDetailResponse,
@@ -44,14 +46,14 @@ from app.schemas.metadata import (
     MetadataProposalResponse,
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
-    SeasonResponse,
     SearchResult,
+    SeasonResponse,
     SeriesItemResponse,
+    SeriesRelationResponse,
     SeriesResponse,
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
-    SeriesRelationResponse,
     public_item_kind,
 )
 from app.services.admin import AdminMetadataService

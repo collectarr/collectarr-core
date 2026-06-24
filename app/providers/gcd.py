@@ -1,9 +1,10 @@
 import logging
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any, Mapping
+from typing import Any
 from urllib.parse import quote, urlencode, urlparse
 
 import httpx
@@ -12,12 +13,6 @@ from fastapi import status
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.providers.normalize import (
-    canonical_credit_role,
-    normalize_title,
-    preview_names,
-    title_aliases,
-)
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
@@ -25,7 +20,12 @@ from app.providers.base import (
     ProviderItem,
     ProviderSearchResult,
 )
-
+from app.providers.normalize import (
+    canonical_credit_role,
+    normalize_title,
+    preview_names,
+    title_aliases,
+)
 
 _ISSUE_ID_RE = re.compile(r"/issue/(\d+)/?")
 _SERIES_ID_RE = re.compile(r"/series/(\d+)/?")

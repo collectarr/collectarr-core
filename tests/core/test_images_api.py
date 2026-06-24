@@ -8,7 +8,6 @@ from app.db.session import AsyncSessionLocal
 from app.models.base import UserRole
 from app.models.canonical import ImageAsset
 from app.repositories.users import UserRepository
-
 from tests.helpers import register_and_login
 
 

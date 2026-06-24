@@ -13,7 +13,6 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from app.core.config import get_settings
 from app.storage.client import ObjectStorage
 
-
 _SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 _SUPPORTED_IMAGE_TYPES = {
     "image/jpeg",
@@ -136,20 +135,19 @@ class ImageMirror:
 
         async with httpx.AsyncClient(
             timeout=self.settings.image_download_timeout_seconds
-        ) as client:
-            async with client.stream("GET", source_url, follow_redirects=True) as response:
-                response.raise_for_status()
-                content_type = (
-                    response.headers.get("content-type", "").split(";")[0].strip().lower()
-                )
-                if content_type not in _SUPPORTED_IMAGE_TYPES:
-                    raise ValueError("Downloaded content is not a supported image")
+        ) as client, client.stream("GET", source_url, follow_redirects=True) as response:
+            response.raise_for_status()
+            content_type = (
+                response.headers.get("content-type", "").split(";")[0].strip().lower()
+            )
+            if content_type not in _SUPPORTED_IMAGE_TYPES:
+                raise ValueError("Downloaded content is not a supported image")
 
-                image_bytes = bytearray()
-                async for chunk in response.aiter_bytes():
-                    image_bytes.extend(chunk)
-                    if len(image_bytes) > self.settings.max_image_bytes:
-                        raise ValueError("Image exceeds configured max size")
+            image_bytes = bytearray()
+            async for chunk in response.aiter_bytes():
+                image_bytes.extend(chunk)
+                if len(image_bytes) > self.settings.max_image_bytes:
+                    raise ValueError("Image exceeds configured max size")
 
         downloaded = bytes(image_bytes)
         self._validate_image_bytes(downloaded)

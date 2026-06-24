@@ -36,17 +36,7 @@ def main() -> None:
         kinds = ", ".join(kind.value for kind in row.supported_kinds)
         license_name = row.license_name or "-"
         lines.append(
-            "| {name} | {display_name} | {kinds} | {search} | {ingest} | {user_key} | {mirroring} | {attribution} | {license_name} |".format(
-                name=row.name,
-                display_name=row.display_name,
-                kinds=kinds,
-                search=_yes_no(row.supports_search),
-                ingest=_yes_no(row.supports_ingest),
-                user_key=_yes_no(row.requires_user_key),
-                mirroring=_yes_no(row.allows_image_mirroring),
-                attribution=_yes_no(row.requires_attribution),
-                license_name=license_name,
-            )
+            f"| {row.name} | {row.display_name} | {kinds} | {_yes_no(row.supports_search)} | {_yes_no(row.supports_ingest)} | {_yes_no(row.requires_user_key)} | {_yes_no(row.allows_image_mirroring)} | {_yes_no(row.requires_attribution)} | {license_name} |"
         )
 
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")

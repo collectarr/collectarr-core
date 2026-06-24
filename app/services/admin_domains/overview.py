@@ -1,8 +1,8 @@
 import asyncio
+import logging
 from collections import deque
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-import logging
 from typing import Any
 from uuid import UUID
 
@@ -29,8 +29,8 @@ from app.models.canonical import (
     SeriesProviderLink,
     StoryArcItem,
     Variant,
-    VolumeProviderLink,
     Volume,
+    VolumeProviderLink,
 )
 from app.schemas.admin import (
     AdminAuditLogResponse,
@@ -45,7 +45,6 @@ from app.schemas.admin import (
 )
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
-
 
 _SEARCH_HISTORY: deque[AdminSearchHistoryEntry] = deque(maxlen=20)
 logger = logging.getLogger(__name__)

@@ -4,7 +4,15 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Edition, Item, ItemKindMetadata, ItemProviderLink, Organization, Person, Tag
+from app.models.canonical import (
+    Edition,
+    Item,
+    ItemKindMetadata,
+    ItemProviderLink,
+    Organization,
+    Person,
+    Tag,
+)
 from app.providers.base import ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient

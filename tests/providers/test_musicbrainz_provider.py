@@ -18,7 +18,6 @@ from app.providers.base import ProviderItem
 from app.providers.musicbrainz import MusicBrainzProvider
 from app.search.client import SearchClient
 
-
 RELEASE_ID = "f9a4ef2d-b3ac-4d19-8d4e-5db0f35ec028"
 GROUP_ID = "6b9a3f23-2b8b-4f7a-9f36-5fb41a315f5c"
 

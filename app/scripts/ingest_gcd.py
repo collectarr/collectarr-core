@@ -15,7 +15,6 @@ from app.providers.gcd import GCDProvider
 from app.schemas.admin import ProviderIngestRequest
 from app.services.admin import AdminMetadataService
 
-
 DEFAULT_SEARCH_LIMIT = 20
 
 

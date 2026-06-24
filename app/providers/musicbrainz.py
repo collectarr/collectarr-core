@@ -1,6 +1,7 @@
 import re
+from collections.abc import Mapping
 from datetime import date
-from typing import Any, Mapping, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 import httpx
 from fastapi import status
@@ -18,7 +19,6 @@ from app.providers.base import (
     ProviderItem,
     ProviderSearchResult,
 )
-
 
 _MBID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"

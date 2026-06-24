@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
 import hashlib
 import json
 import logging
+from dataclasses import dataclass
+from datetime import date
 from threading import RLock
 from time import monotonic
 from typing import Final
@@ -22,7 +22,6 @@ from app.providers.base import (
     NormalizedVariantCover,
     ProviderItem,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +271,7 @@ class ProviderPreviewState:
             return 0
 
     def _redis_cache_key(self, provider: str, provider_item_id: str) -> str:
-        digest = hashlib.sha256(f"{provider}|{provider_item_id}".encode("utf-8")).hexdigest()
+        digest = hashlib.sha256(f"{provider}|{provider_item_id}".encode()).hexdigest()
         return f"{_PROVIDER_PREVIEW_CACHE_PREFIX}:{digest}"
 
     def _hydrated_preview_payload(self, value: HydratedProviderPreview) -> dict[str, object]:

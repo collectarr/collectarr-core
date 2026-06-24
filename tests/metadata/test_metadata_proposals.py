@@ -12,7 +12,6 @@ from app.providers.base import ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.storage.images import ImageMirror, MirroredImage
-
 from tests.admin.test_admin_ingest import comicvine_issue_raw
 from tests.helpers import register_and_login
 

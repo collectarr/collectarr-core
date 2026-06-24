@@ -29,8 +29,8 @@ from app.models.canonical import (
     Character,
     CharacterAppearance,
     Edition,
-    EntityPerson,
     EntityOrganization,
+    EntityPerson,
     Item,
     ItemKindMetadata,
     Organization,
@@ -147,7 +147,7 @@ class AdminCatalogService:
                 return
             normalized_keys = []
             if isinstance(normalized, dict):
-                normalized_keys = sorted(str(key) for key in normalized.keys())
+                normalized_keys = sorted(str(key) for key in normalized)
             samples.append(
                 AdminNormalizedMetadataDriftSample(
                     entity_type=entity_type,
@@ -988,7 +988,7 @@ class AdminCatalogService:
 
     def _current_story_arcs(self, item: Item) -> list[str]:
         rows = sorted(
-            list(getattr(item, "story_arc_items", []) or []),
+            getattr(item, "story_arc_items", []) or [],
             key=lambda row: (
                 getattr(row, "ordinal", None) is None,
                 getattr(row, "ordinal", None),

@@ -25,9 +25,9 @@ os.environ["IGDB_CLIENT_SECRET"] = ""
 os.environ["IGDB_ACCESS_TOKEN"] = ""
 os.environ["BGG_API_TOKEN"] = ""
 
+from app.core.rate_limit import reset_rate_limits  # noqa: E402
 from app.db.session import AsyncSessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.core.rate_limit import reset_rate_limits  # noqa: E402
 from app.models import Base  # noqa: E402
 from app.services.provider_preview_state import reset_provider_preview_state  # noqa: E402
 from app.services.provider_search_state import reset_provider_search_state  # noqa: E402

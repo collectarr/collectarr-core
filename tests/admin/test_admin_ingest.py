@@ -1746,6 +1746,7 @@ async def test_admin_normalized_drift_report_includes_typed_metadata_mismatch(cl
     body = response.json()
     assert body["typed_scanned_items"] >= 1
     assert body["typed_drifted_items"] >= 1
+    assert body["release_gate_ok"] is False
     assert body["issue_counts"].get("typed_mismatch:genres", 0) >= 1
 
 

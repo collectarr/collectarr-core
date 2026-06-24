@@ -18,7 +18,6 @@ from app.metadata_normalized import (
     merge_normalized_metadata,
     normalized_metadata_issues,
     typed_kind_metadata_payload,
-    typed_kind_metadata_payload,
 )
 from app.models.base import ItemKind
 from app.models.canonical import (
@@ -30,7 +29,6 @@ from app.models.canonical import (
     EntityPerson,
     EntityOrganization,
     Item,
-    ItemKindMetadata,
     ItemKindMetadata,
     Organization,
     Person,
@@ -272,6 +270,7 @@ class AdminCatalogService:
             drifted_entities=drifted_entities,
             typed_scanned_items=typed_scanned_items,
             typed_drifted_items=typed_drifted_items,
+            release_gate_ok=(drifted_entities == 0 and typed_drifted_items == 0),
             issue_counts=dict(sorted(issue_counts.items())),
             samples=samples,
         )

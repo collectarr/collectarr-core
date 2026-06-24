@@ -383,6 +383,7 @@ class AdminNormalizedMetadataDriftReportResponse(BaseModel):
     drifted_entities: int = 0
     typed_scanned_items: int = 0
     typed_drifted_items: int = 0
+    release_gate_ok: bool = True
     issue_counts: dict[str, int] = Field(default_factory=dict)
     samples: list[AdminNormalizedMetadataDriftSample] = Field(default_factory=list)
 

@@ -524,11 +524,7 @@ def item_response_from_model(
     variant = _primary_variant(item)
     source = _source_metadata(edition)
     normalized = _normalized_metadata(edition)
-    item_normalized = _normalized_item_metadata(item)
-    merged_normalized = _merged_normalized_metadata(item_normalized, normalized)
     typed_normalized = _typed_kind_metadata(item)
-    if typed_normalized:
-        merged_normalized.update(typed_normalized)
     creators = _creator_credits(item)
     characters = _character_credits(item)
     story_arcs = _story_arc_credits(item)
@@ -554,24 +550,24 @@ def item_response_from_model(
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
             "catalog_number": _optional_text(getattr(edition, "catalog_number", None)),
-            "track_count": _optional_int(merged_normalized.get("track_count")),
-            "tracks": _tracks(merged_normalized.get("tracks")),
+            "track_count": _optional_int(typed_normalized.get("track_count")),
+            "tracks": _tracks(typed_normalized.get("tracks")),
             "creators": creators,
             "characters": characters,
             "character_details": characters,
             "story_arcs": story_arcs,
-            "platforms": _string_list(merged_normalized.get("platforms")),
-            "genres": _string_list(merged_normalized.get("genres")),
+            "platforms": _string_list(typed_normalized.get("platforms")),
+            "genres": _string_list(typed_normalized.get("genres")),
             "country": _optional_text(getattr(edition, "region", None)),
             "language": _optional_text(getattr(edition, "language", None)),
             "age_rating": _optional_text(getattr(edition, "age_rating", None)),
-            "audience_rating": _optional_text(merged_normalized.get("audience_rating")),
-            "color": _optional_text(merged_normalized.get("color")),
-            "nr_discs": _optional_int(merged_normalized.get("nr_discs")),
-            "screen_ratio": _optional_text(merged_normalized.get("screen_ratio")),
-            "audio_tracks": _optional_text(merged_normalized.get("audio_tracks")),
-            "subtitles": _optional_text(merged_normalized.get("subtitles")),
-            "layers": _optional_text(merged_normalized.get("layers")),
+            "audience_rating": _optional_text(typed_normalized.get("audience_rating")),
+            "color": _optional_text(typed_normalized.get("color")),
+            "nr_discs": _optional_int(typed_normalized.get("nr_discs")),
+            "screen_ratio": _optional_text(typed_normalized.get("screen_ratio")),
+            "audio_tracks": _optional_text(typed_normalized.get("audio_tracks")),
+            "subtitles": _optional_text(typed_normalized.get("subtitles")),
+            "layers": _optional_text(typed_normalized.get("layers")),
             "imprint": _imprint(item, edition),
             "subtitle": _optional_text(getattr(edition, "subtitle", None)),
             "series_group": _optional_text(getattr(edition, "series_group", None)),
@@ -855,15 +851,6 @@ def _normalized_item_metadata(item: Any) -> dict[str, Any]:
     metadata = getattr(item, "metadata_json", None) or {}
     normalized = metadata.get("normalized") if isinstance(metadata, dict) else None
     return normalized if isinstance(normalized, dict) else {}
-
-
-def _merged_normalized_metadata(
-    item_normalized: dict[str, Any],
-    edition_normalized: dict[str, Any],
-) -> dict[str, Any]:
-    merged = dict(item_normalized)
-    merged.update(edition_normalized)
-    return merged
 
 
 def _typed_kind_metadata(item: Any) -> dict[str, Any]:

@@ -1451,21 +1451,6 @@ class AdminProviderIngestService:
                     "physical_format_label": physical_format.label if physical_format else None,
                     "physical_format_media_family": physical_format.media_family if physical_format else None,
                     "physical_format_variant_type": physical_format.variant_type if physical_format else None,
-                    "track_count": normalized.track_count,
-                    "tracks": [
-                        {
-                            "position": track.position,
-                            "title": track.title,
-                            "duration_seconds": track.duration_seconds,
-                            "artist": track.artist,
-                            "disc_number": track.disc_number,
-                        }
-                        for track in normalized.tracks
-                    ]
-                    or None,
-                    "platforms": normalized.platforms or None,
-                    "genres": normalized.genres or None,
-                    "audience_rating": normalized.audience_rating,
                     **cover_metadata,
                 },
                 source=provider_raw,

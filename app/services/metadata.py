@@ -1366,24 +1366,6 @@ class MetadataService:
                 and getattr(link.story_arc, "name", None)
             ] or None
         for edition in item.editions:
-            md = getattr(edition, "metadata_json", None)
-            if isinstance(md, dict):
-                norm = md.get("normalized", md)
-                if item.kind == ItemKind.music:
-                    track_count = track_count or norm.get("track_count")
-                    raw_tracks = norm.get("tracks")
-                    if isinstance(raw_tracks, list) and raw_tracks and tracks is None:
-                        tracks = raw_tracks
-                raw_platforms = norm.get("platforms")
-                if isinstance(raw_platforms, list) and raw_platforms and platforms is None:
-                    platforms = [
-                        str(value).strip()
-                        for value in raw_platforms
-                        if str(value).strip()
-                    ]
-                raw_genres = norm.get("genres")
-                if isinstance(raw_genres, list) and raw_genres and genres is None:
-                    genres = raw_genres
             catalog_number = catalog_number or getattr(edition, "catalog_number", None)
             release_status = release_status or getattr(edition, "release_status", None)
             country = country or getattr(edition, "region", None)

@@ -1857,14 +1857,16 @@ async def test_admin_catalog_correction_updates_video_specs(client, monkeypatch)
     assert body["layers"] == "BD-100"
 
     async with AsyncSessionLocal() as db:
-        stored_edition = await db.scalar(select(Edition).where(Edition.item_id == item_uuid))
-        normalized = (stored_edition.metadata_json or {}).get("normalized", {})
-        assert normalized.get("color") == "Color"
-        assert normalized.get("nr_discs") == 2
-        assert normalized.get("screen_ratio") == "2.39:1"
-        assert normalized.get("audio_tracks") == "Dolby Atmos"
-        assert normalized.get("subtitles") == "English, Romanian"
-        assert normalized.get("layers") == "BD-100"
+        typed_metadata = await db.scalar(
+            select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
+        )
+        assert typed_metadata is not None
+        assert typed_metadata.color == "Color"
+        assert typed_metadata.nr_discs == 2
+        assert typed_metadata.screen_ratio == "2.39:1"
+        assert typed_metadata.audio_tracks == "Dolby Atmos"
+        assert typed_metadata.subtitles == "English, Romanian"
+        assert typed_metadata.layers == "BD-100"
 
 
 @pytest.mark.asyncio

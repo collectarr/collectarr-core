@@ -324,8 +324,6 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert item is not None
     assert edition is not None
     assert typed_metadata is not None
-    normalized = (edition.metadata_json or {}).get("normalized", {})
-    assert normalized.get("audience_rating") == "8.7"
     assert typed_metadata.audience_rating == "8.7"
     assert provider_ids == ["movie:603"]
     assert publisher == "Warner Bros. Pictures"

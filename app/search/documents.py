@@ -108,7 +108,6 @@ def item_search_document(item: Item) -> dict[str, Any]:
         if edition.isbn:
             _append_unique(barcodes, _normalized_barcode(edition.isbn))
             barcode = barcode or _normalized_barcode(edition.isbn)
-        normalized = _normalized_metadata(edition.metadata_json)
         catalog_number = catalog_number or _optional_text(getattr(edition, "catalog_number", None))
         release_status = release_status or _optional_text(getattr(edition, "release_status", None))
         language = language or _optional_text(getattr(edition, "language", None))
@@ -116,7 +115,6 @@ def item_search_document(item: Item) -> dict[str, Any]:
         subtitle = subtitle or _optional_text(getattr(edition, "subtitle", None))
         series_group = series_group or _optional_text(getattr(edition, "series_group", None))
         age_rating = age_rating or _optional_text(getattr(edition, "age_rating", None))
-        platforms.extend(_string_list(normalized.get("platforms")))
         primary = next((row for row in edition.variants if row.is_primary), None)
         for variant_row in edition.variants:
             _append_unique(variant_names, variant_row.name)
@@ -182,13 +180,6 @@ def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     source = metadata.get("source")
     return source if isinstance(source, dict) else {}
-
-
-def _normalized_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(metadata, dict):
-        return {}
-    normalized = metadata.get("normalized")
-    return normalized if isinstance(normalized, dict) else {}
 
 
 def _typed_kind_metadata(item: Item) -> dict[str, Any]:

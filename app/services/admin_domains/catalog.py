@@ -17,7 +17,6 @@ from app.metadata_normalized import (
     NORMALIZED_SCHEMA_VERSION,
     merge_normalized_metadata,
     normalized_metadata_issues,
-    set_normalized_metadata,
     typed_kind_metadata_payload,
     typed_kind_metadata_payload,
 )
@@ -337,6 +336,17 @@ class AdminCatalogService:
             "cover_image_url": None,
             "thumbnail_image_url": None,
         }
+        typed_before = self._item_kind_metadata_payload(item.kind_metadata)
+        before["audience_rating"] = typed_before.get("audience_rating")
+        before["genres"] = typed_before.get("genres")
+        before["platforms"] = typed_before.get("platforms")
+        before["tracks"] = typed_before.get("tracks")
+        before["color"] = typed_before.get("color")
+        before["nr_discs"] = typed_before.get("nr_discs")
+        before["screen_ratio"] = typed_before.get("screen_ratio")
+        before["audio_tracks"] = typed_before.get("audio_tracks")
+        before["subtitles"] = typed_before.get("subtitles")
+        before["layers"] = typed_before.get("layers")
         if "title" in update_data and payload.title is not None:
             item.title = payload.title
         if "title_extension" in update_data:
@@ -368,29 +378,29 @@ class AdminCatalogService:
         if "plot_description" in update_data:
             item_metadata_updates["plot_description"] = self._normalize_optional_text(payload.plot_description)
 
-        normalized_updates: dict[str, Any] = {}
+        typed_updates: dict[str, Any] = {}
         if "audience_rating" in update_data:
-            normalized_updates["audience_rating"] = payload.audience_rating
+            typed_updates["audience_rating"] = payload.audience_rating
         if "genres" in update_data:
-            normalized_updates["genres"] = self._normalize_text_values(payload.genres)
+            typed_updates["genres"] = self._normalize_text_values(payload.genres)
         if "platforms" in update_data:
-            normalized_updates["platforms"] = self._normalize_text_values(payload.platforms)
+            typed_updates["platforms"] = self._normalize_text_values(payload.platforms)
         if "tracks" in update_data:
             tracks = self._normalize_tracks(payload.tracks)
-            normalized_updates["tracks"] = tracks
-            normalized_updates["track_count"] = len(tracks) if tracks else None
+            typed_updates["tracks"] = tracks
+            typed_updates["track_count"] = len(tracks) if tracks else None
         if "color" in update_data:
-            normalized_updates["color"] = payload.color
+            typed_updates["color"] = payload.color
         if "nr_discs" in update_data:
-            normalized_updates["nr_discs"] = payload.nr_discs
+            typed_updates["nr_discs"] = payload.nr_discs
         if "screen_ratio" in update_data:
-            normalized_updates["screen_ratio"] = payload.screen_ratio
+            typed_updates["screen_ratio"] = payload.screen_ratio
         if "audio_tracks" in update_data:
-            normalized_updates["audio_tracks"] = payload.audio_tracks
+            typed_updates["audio_tracks"] = payload.audio_tracks
         if "subtitles" in update_data:
-            normalized_updates["subtitles"] = payload.subtitles
+            typed_updates["subtitles"] = payload.subtitles
         if "layers" in update_data:
-            normalized_updates["layers"] = payload.layers
+            typed_updates["layers"] = payload.layers
 
         edition = self._primary_edition_model(item)
         physical_format = None
@@ -400,18 +410,6 @@ class AdminCatalogService:
                 payload.physical_format,
             )
         if edition is not None:
-            edition_metadata = dict(edition.metadata_json or {})
-            normalized_metadata = dict(edition_metadata.get("normalized") or {})
-            before["audience_rating"] = normalized_metadata.get("audience_rating")
-            before["genres"] = normalized_metadata.get("genres")
-            before["platforms"] = normalized_metadata.get("platforms")
-            before["tracks"] = normalized_metadata.get("tracks")
-            before["color"] = normalized_metadata.get("color")
-            before["nr_discs"] = normalized_metadata.get("nr_discs")
-            before["screen_ratio"] = normalized_metadata.get("screen_ratio")
-            before["audio_tracks"] = normalized_metadata.get("audio_tracks")
-            before["subtitles"] = normalized_metadata.get("subtitles")
-            before["layers"] = normalized_metadata.get("layers")
             before["edition_title"] = edition.title
             before["publisher"] = self._organization_name(item, "publisher") or edition.publisher
             before["release_date"] = edition.release_date
@@ -445,16 +443,6 @@ class AdminCatalogService:
                 edition.catalog_number = payload.catalog_number
             if "release_status" in update_data:
                 edition.release_status = payload.release_status
-            if normalized_updates:
-                normalized_metadata.update(normalized_updates)
-            cleaned_metadata = set_normalized_metadata(
-                edition_metadata,
-                normalized_metadata,
-                kind=item.kind,
-            )
-            if cleaned_metadata != dict(edition.metadata_json or {}):
-                edition.metadata_json = cleaned_metadata
-            self._upsert_item_kind_metadata(item, normalized_metadata)
             if physical_format is not None:
                 self._apply_physical_format_to_edition(
                     edition,
@@ -465,14 +453,6 @@ class AdminCatalogService:
                 await self._replace_item_organization_link(item.id, "publisher", payload.publisher)
             if "imprint" in update_data:
                 await self._replace_item_organization_link(item.id, "imprint", payload.imprint)
-        elif normalized_updates:
-            item.metadata_json = merge_normalized_metadata(
-                item.metadata_json,
-                normalized_updates,
-                kind=item.kind,
-            )
-            normalized_metadata = dict((item.metadata_json or {}).get("normalized") or {})
-            self._upsert_item_kind_metadata(item, normalized_metadata)
 
         if "creators" in update_data:
             await self._replace_item_creator_links(item.id, payload.creators)
@@ -492,12 +472,8 @@ class AdminCatalogService:
                 key="external_links",
                 values=payload.external_links,
             )
-        if normalized_updates:
-            item.metadata_json = merge_normalized_metadata(
-                item.metadata_json,
-                normalized_updates,
-                kind=item.kind,
-            )
+        if typed_updates:
+            self._patch_item_kind_metadata(item, typed_updates)
         if item_metadata_updates:
             item.metadata_json = self._metadata_with_item_payload(item.metadata_json, item_metadata_updates)
 
@@ -1121,6 +1097,39 @@ class AdminCatalogService:
         metadata.layers = typed_payload.get("layers")
         metadata.track_count = typed_payload.get("track_count")
         metadata.tracks = typed_payload.get("tracks")
+
+    def _patch_item_kind_metadata(self, item: Item, typed_updates: dict[str, Any]) -> None:
+        metadata = item.kind_metadata
+        if metadata is None:
+            metadata = ItemKindMetadata(item=item, kind=item.kind)
+            item.kind_metadata = metadata
+        metadata.kind = item.kind
+        for key, value in typed_updates.items():
+            if key == "audience_rating":
+                metadata.audience_rating = value
+            elif key == "genres":
+                metadata.genres = value
+            elif key == "platforms":
+                metadata.platforms = value
+            elif key == "color":
+                metadata.color = value
+            elif key == "nr_discs":
+                metadata.nr_discs = value
+            elif key == "screen_ratio":
+                metadata.screen_ratio = value
+            elif key == "audio_tracks":
+                metadata.audio_tracks = value
+            elif key == "subtitles":
+                metadata.subtitles = value
+            elif key == "layers":
+                metadata.layers = value
+            elif key == "track_count":
+                metadata.track_count = value
+            elif key == "tracks":
+                metadata.tracks = value
+        snapshot = self._item_kind_metadata_payload(metadata)
+        if not snapshot:
+            item.kind_metadata = None
 
     async def _replace_item_creator_links(
         self,

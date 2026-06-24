@@ -105,8 +105,19 @@ async def metadata_normalized_manifest() -> MetadataNormalizedManifestResponse:
     "/metadata/field-schema",
     response_model=MetadataFieldSchemaResponse,
 )
-async def metadata_field_schema() -> MetadataFieldSchemaResponse:
-    """Unified field registry consumed by the admin + app edit surfaces."""
+async def metadata_field_schema(
+    editable_only: bool = Query(default=True),
+) -> MetadataFieldSchemaResponse:
+    """Unified field registry consumed by the admin + app edit surfaces.
+
+    By default only user-editable fields are returned; pass
+    ``editable_only=false`` to include internal normalization bookkeeping fields.
+    """
+    specs = [
+        spec
+        for spec in METADATA_FIELDS
+        if spec.editable or not editable_only
+    ]
     fields = [
         MetadataFieldSpecResponse(
             key=spec.key,
@@ -114,18 +125,27 @@ async def metadata_field_schema() -> MetadataFieldSchemaResponse:
             label=spec.label,
             common=spec.common,
             typed=spec.typed,
+            normalized=spec.normalized,
+            editable=spec.editable,
+            section=spec.section,
+            input=spec.input,
             kinds=sorted((kind for kind in spec.kinds), key=lambda k: k.value),
         )
-        for spec in METADATA_FIELDS
+        for spec in specs
     ]
     kind_fields = {
-        kind: [spec.key for spec in fields_for_kind(kind)]
+        kind: [spec.key for spec in fields_for_kind(kind, editable_only=editable_only)]
         for kind in ItemKind
     }
+    sections: list[str] = []
+    for spec in specs:
+        if spec.section not in sections:
+            sections.append(spec.section)
     return MetadataFieldSchemaResponse(
         schema_version=NORMALIZED_SCHEMA_VERSION,
         fields=fields,
         kind_fields=kind_fields,
+        sections=sections,
     )
 
 

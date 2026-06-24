@@ -40,18 +40,20 @@ def main() -> None:
         "",
         "## Fields",
         "",
-        "| Key | Value type | Common | Typed column | Kinds |",
-        "| --- | --- | --- | --- | --- |",
+        "| Key | Value type | Section | Input | Editable | Normalized | Kinds |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
 
     for spec in METADATA_FIELDS:
         if spec.common:
             kinds = "_all_"
-        else:
+        elif spec.kinds:
             kinds = ", ".join(sorted(k.value for k in spec.kinds))
+        else:
+            kinds = "—"
         lines.append(
-            f"| `{spec.key}` | {spec.value_type} | {_yes_no(spec.common)} | "
-            f"{_yes_no(spec.typed)} | {kinds} |"
+            f"| `{spec.key}` | {spec.value_type} | {spec.section} | {spec.input} | "
+            f"{_yes_no(spec.editable)} | {_yes_no(spec.normalized)} | {kinds} |"
         )
 
     lines += ["", "## Fields per kind", ""]

@@ -131,20 +131,46 @@ async def test_metadata_field_schema_exposes_registry(client):
     assert body["schema_version"] == 1
 
     by_key = {f["key"]: f for f in body["fields"]}
-    # Common field: shared by every kind, no kind scoping needed.
+    # Editable-only by default: internal bookkeeping is excluded.
+    assert "cover_storage" not in by_key
+    assert "associated_image_id" not in by_key
+    # Common normalized field.
     assert by_key["audience_rating"]["common"] is True
-    assert by_key["audience_rating"]["value_type"] == "string"
-    # Kind-scoped typed fields carry their kinds + types.
+    assert by_key["audience_rating"]["normalized"] is True
+    assert by_key["audience_rating"]["section"] == "regional"
+    # Kind-scoped typed normalized fields carry their kinds + types.
     assert by_key["genres"]["typed"] is True
     assert by_key["genres"]["value_type"] == "string_list"
     assert set(by_key["platforms"]["kinds"]) == {"game", "boardgame"}
     assert by_key["tracks"]["value_type"] == "track_list"
+    # Editorial fields are exposed with their section + input hint.
+    assert by_key["title"]["section"] == "item"
+    assert by_key["title"]["normalized"] is False
+    assert by_key["synopsis"]["input"] == "multiline"
+    assert by_key["release_date"]["value_type"] == "date"
+    assert by_key["page_count"]["value_type"] == "integer"
 
-    # Per-kind composition mirrors the normalized manifest.
+    # Sections are exposed in render order.
+    assert "item" in body["sections"]
+    assert "internal" not in body["sections"]
+
+    # Per-kind composition.
     assert "audience_rating" in body["kind_fields"]["comic"]
     assert "tracks" in body["kind_fields"]["music"]
     assert "color" in body["kind_fields"]["movie"]
+    assert "page_count" in body["kind_fields"]["book"]
+    assert "page_count" not in body["kind_fields"]["movie"]
     assert "platforms" not in body["kind_fields"]["comic"]
+
+
+@pytest.mark.asyncio
+async def test_metadata_field_schema_can_include_internal_fields(client):
+    response = await client.get("/metadata/field-schema?editable_only=false")
+
+    assert response.status_code == 200
+    by_key = {f["key"]: f for f in response.json()["fields"]}
+    assert by_key["cover_storage"]["editable"] is False
+    assert by_key["cover_storage"]["section"] == "internal"
 
 
 @pytest.mark.asyncio

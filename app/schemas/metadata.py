@@ -321,6 +321,10 @@ class MetadataFieldSpecResponse(BaseModel):
     label: str
     common: bool
     typed: bool
+    normalized: bool
+    editable: bool
+    section: str
+    input: str
     kinds: list[ItemKind] = Field(default_factory=list)
 
 
@@ -330,6 +334,7 @@ class MetadataFieldSchemaResponse(BaseModel):
     schema_version: int
     fields: list[MetadataFieldSpecResponse]
     kind_fields: dict[ItemKind, list[str]]
+    sections: list[str] = Field(default_factory=list)
 
 
 class MetadataProposalCreate(BaseModel):

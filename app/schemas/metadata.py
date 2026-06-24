@@ -306,6 +306,13 @@ class MediaCatalogResponse(BaseModel):
     media_types: list[MediaTypeResponse]
 
 
+class MetadataNormalizedManifestResponse(BaseModel):
+    schema_version: int
+    common_fields: list[str]
+    kind_fields: dict[ItemKind, list[str]]
+    value_types: dict[str, str]
+
+
 class MetadataProposalCreate(BaseModel):
     provider: ExternalProvider
     provider_item_id: str | None = Field(default=None, max_length=255)

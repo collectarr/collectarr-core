@@ -14,6 +14,7 @@ from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import provider_search_rate_limit
+from app.metadata_normalized import normalized_metadata_manifest
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.providers.mangadex import MangaDexProvider
@@ -38,6 +39,7 @@ from app.schemas.metadata import (
     ItemResponse,
     MediaCatalogResponse,
     MediaTypeResponse,
+    MetadataNormalizedManifestResponse,
     MetadataProposalCreate,
     MetadataProposalResponse,
     PhysicalFormatResponse,
@@ -67,6 +69,24 @@ async def media_type_catalog() -> MediaCatalogResponse:
             _media_type_response(config)
             for config in top_level_media_types
         ],
+    )
+
+
+@router.get(
+    "/metadata/normalized-manifest",
+    response_model=MetadataNormalizedManifestResponse,
+)
+async def metadata_normalized_manifest() -> MetadataNormalizedManifestResponse:
+    payload = normalized_metadata_manifest()
+    kind_fields = {
+        ItemKind(kind): fields
+        for kind, fields in payload["kind_fields"].items()
+    }
+    return MetadataNormalizedManifestResponse(
+        schema_version=payload["schema_version"],
+        common_fields=payload["common_fields"],
+        kind_fields=kind_fields,
+        value_types=payload["value_types"],
     )
 
 

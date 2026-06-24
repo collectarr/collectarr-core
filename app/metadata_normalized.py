@@ -33,6 +33,30 @@ _KIND_ALLOWED_KEYS: dict[ItemKind, set[str]] = {
     ItemKind.tv: {"genres", "color", "nr_discs", "screen_ratio", "audio_tracks", "subtitles", "layers"},
 }
 
+_NORMALIZED_VALUE_TYPES: dict[str, str] = {
+    "associated_image_id": "string",
+    "audience_rating": "string",
+    "cover_delivery_url": "string",
+    "cover_policy": "string",
+    "cover_source_url": "string",
+    "cover_status": "string",
+    "cover_storage": "string",
+    "physical_format": "string",
+    "physical_format_label": "string",
+    "physical_format_media_family": "string",
+    "physical_format_variant_type": "string",
+    "genres": "string_list",
+    "platforms": "string_list",
+    "color": "string",
+    "screen_ratio": "string",
+    "audio_tracks": "string",
+    "subtitles": "string",
+    "layers": "string",
+    "nr_discs": "integer",
+    "track_count": "integer",
+    "tracks": "track_list",
+}
+
 ALLOWED_NORMALIZED_METADATA_KEYS = _COMMON_ALLOWED_KEYS | {
     key for keys in _KIND_ALLOWED_KEYS.values() for key in keys
 }
@@ -47,29 +71,14 @@ def _allowed_keys_for_kind(kind: ItemKind | None) -> set[str]:
 def _is_valid_normalized_value(key: str, value: Any) -> bool:
     if key == "schema_version":
         return isinstance(value, int) and value > 0
-    if key in {
-        "associated_image_id",
-        "audience_rating",
-        "cover_delivery_url",
-        "cover_policy",
-        "cover_source_url",
-        "cover_status",
-        "cover_storage",
-        "physical_format",
-        "physical_format_label",
-        "physical_format_media_family",
-        "physical_format_variant_type",
-    }:
+    value_type = _NORMALIZED_VALUE_TYPES.get(key)
+    if value_type == "string":
         return isinstance(value, str) and bool(value.strip())
-    if key in {"genres", "platforms"}:
+    if value_type == "string_list":
         return isinstance(value, list) and all(isinstance(entry, str) for entry in value)
-    if key in {"color", "screen_ratio", "audio_tracks", "subtitles", "layers"}:
-        return isinstance(value, str) and bool(value.strip())
-    if key == "nr_discs":
+    if value_type == "integer":
         return isinstance(value, int) and value >= 0
-    if key == "track_count":
-        return isinstance(value, int) and value >= 0
-    if key == "tracks":
+    if value_type == "track_list":
         if not isinstance(value, list):
             return False
         for entry in value:
@@ -92,6 +101,25 @@ def _is_valid_normalized_value(key: str, value: Any) -> bool:
                 return False
         return True
     return True
+
+
+def normalized_metadata_manifest() -> dict[str, Any]:
+    common_fields = sorted(_COMMON_ALLOWED_KEYS)
+    kind_fields = {
+        kind.value: sorted(keys)
+        for kind, keys in _KIND_ALLOWED_KEYS.items()
+    }
+    value_types = {
+        key: _NORMALIZED_VALUE_TYPES[key]
+        for key in sorted(ALLOWED_NORMALIZED_METADATA_KEYS)
+        if key in _NORMALIZED_VALUE_TYPES
+    }
+    return {
+        "schema_version": NORMALIZED_SCHEMA_VERSION,
+        "common_fields": common_fields,
+        "kind_fields": kind_fields,
+        "value_types": value_types,
+    }
 
 
 def normalized_metadata_issues(

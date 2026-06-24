@@ -109,6 +109,22 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
 
 
 @pytest.mark.asyncio
+async def test_metadata_normalized_manifest_exposes_schema_and_type_map(client):
+    response = await client.get("/metadata/normalized-manifest")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == 1
+    assert "audience_rating" in body["common_fields"]
+    assert "genres" in body["kind_fields"]["comic"]
+    assert "tracks" in body["kind_fields"]["music"]
+    assert body["value_types"]["audience_rating"] == "string"
+    assert body["value_types"]["nr_discs"] == "integer"
+    assert body["value_types"]["genres"] == "string_list"
+    assert body["value_types"]["tracks"] == "track_list"
+
+
+@pytest.mark.asyncio
 async def test_item_detail_and_series_expose_series_tags(client):
     token = await register_and_login(client)
     item_id, _, _ = await seed_comic()

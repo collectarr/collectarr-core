@@ -120,8 +120,6 @@ _INTERNAL_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
 
 # Editable normalized common fields.
 _EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    MetadataFieldSpec("audience_rating", VALUE_TYPE_STRING, "Audience rating",
-                      common=True, typed=True, normalized=True, section=SECTION_REGIONAL),
     MetadataFieldSpec("physical_format", VALUE_TYPE_STRING, "Physical format",
                       common=True, normalized=True, section=SECTION_PUBLISHING),
 )
@@ -206,6 +204,8 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
                       section=SECTION_REGIONAL, kinds=ALL_KINDS),
     MetadataFieldSpec("age_rating", VALUE_TYPE_STRING, "Age rating",
                       section=SECTION_REGIONAL, kinds=ALL_KINDS),
+    MetadataFieldSpec("audience_rating", VALUE_TYPE_STRING, "Audience rating",
+                      common=True, typed=True, normalized=True, section=SECTION_REGIONAL),
     MetadataFieldSpec("series_tags", VALUE_TYPE_STRING_LIST, "Series tags",
                       section=SECTION_REGIONAL, input=INPUT_LIST, kinds=ALL_KINDS),
     # Artwork & copy.

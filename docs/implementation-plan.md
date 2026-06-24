@@ -58,7 +58,7 @@
 	- Keep admin drift diagnostics (`typed_*` issue keys) as a release gate before ingest/correction changes.
 - [ ] Continue per-media normalization depth
 	- Expand provider mapping where upstream data exists (video specs, richer book/manga edition signals, game release metadata).
-	- Revisit Hardcover series positions before broader book/manga depth: current `volume_number` is integer-only and cannot represent fractional positions like `1.5` without schema/contract updates.
+	- Fractional `volume_number` support is now enabled end-to-end (`float` contract + ingest + preview) so providers like Hardcover can preserve positions like `1.5`.
 
 ### 🧭 Admin UX / Operations
 - [ ] Expand duplicate/merge operator workflow from confidence signals to full review queue

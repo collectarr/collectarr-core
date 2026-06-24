@@ -162,7 +162,7 @@ class NormalizedItem:
     synopsis: str | None = None
     series_title: str | None = None
     volume_name: str | None = None
-    volume_number: int | None = None
+    volume_number: float | None = None
     volume_start_year: int | None = None
     runtime_minutes: int | None = None
     page_count: int | None = None

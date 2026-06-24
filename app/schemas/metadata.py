@@ -89,7 +89,7 @@ class BundleReleaseMemberResponse(BaseModel):
     series_id: UUID | None = None
     series_title: str | None = None
     volume_name: str | None = None
-    volume_number: int | None = None
+    volume_number: float | None = None
 
 
 class BundleReleaseDetailResponse(BundleReleaseSummaryResponse):
@@ -174,7 +174,7 @@ class ItemResponse(BaseModel):
     series_id: UUID | None = None
     series_title: str | None = None
     volume_name: str | None = None
-    volume_number: int | None = None
+    volume_number: float | None = None
     volume_start_year: int | None = None
     publisher: str | None = None
     barcode: str | None = None
@@ -358,7 +358,7 @@ class SeriesItemResponse(BaseModel):
     title: str
     item_number: str | None = None
     volume_name: str | None = None
-    volume_number: int | None = None
+    volume_number: float | None = None
     cover_image_url: str | None = None
 
 

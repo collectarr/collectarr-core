@@ -8,6 +8,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -62,7 +63,7 @@ class Volume(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    volume_number: Mapped[int | None]
+    volume_number: Mapped[float | None] = mapped_column(Float)
     start_year: Mapped[int | None]
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)

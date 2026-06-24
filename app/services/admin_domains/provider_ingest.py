@@ -1558,7 +1558,7 @@ class AdminProviderIngestService:
         kind: ItemKind,
         series_title: str | None,
         volume_name: str | None,
-        volume_number: int | None,
+        volume_number: float | None,
         volume_start_year: int | None,
     ) -> tuple[Volume | None, Series | None]:
         if not series_title and not volume_name:

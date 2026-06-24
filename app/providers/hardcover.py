@@ -311,7 +311,7 @@ class HardcoverProvider:
             pos = bs.get("position")
             if pos is not None:
                 try:
-                    volume_number = int(float(pos))
+                    volume_number = float(pos)
                 except (ValueError, TypeError):
                     pass
 

@@ -95,7 +95,7 @@ class ProviderPreviewResponse(BaseModel):
     synopsis: str | None = None
     series_title: str | None = None
     volume_name: str | None = None
-    volume_number: int | None = None
+    volume_number: float | None = None
     volume_start_year: int | None = None
     publisher: str | None = None
     imprint: str | None = None

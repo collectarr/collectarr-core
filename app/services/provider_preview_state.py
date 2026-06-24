@@ -354,7 +354,7 @@ class ProviderPreviewState:
             synopsis=self._optional_text(payload.get("synopsis")),
             series_title=self._optional_text(payload.get("series_title")),
             volume_name=self._optional_text(payload.get("volume_name")),
-            volume_number=self._optional_int(payload.get("volume_number")),
+            volume_number=self._optional_float(payload.get("volume_number")),
             volume_start_year=self._optional_int(payload.get("volume_start_year")),
             runtime_minutes=self._optional_int(payload.get("runtime_minutes")),
             page_count=self._optional_int(payload.get("page_count")),
@@ -587,6 +587,11 @@ class ProviderPreviewState:
         if value is None or value == "":
             return None
         return int(value)
+
+    def _optional_float(self, value: object) -> float | None:
+        if value is None or value == "":
+            return None
+        return float(value)
 
     def _optional_bool(self, value: object) -> bool | None:
         if value is None:

@@ -197,6 +197,12 @@ class NormalizedItem:
     language: str | None = None
     age_rating: str | None = None
     audience_rating: str | None = None
+    color: str | None = None
+    nr_discs: int | None = None
+    screen_ratio: str | None = None
+    audio_tracks: str | None = None
+    subtitles: str | None = None
+    layers: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
     bundle_release: NormalizedBundleRelease | None = None

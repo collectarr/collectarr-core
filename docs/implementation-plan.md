@@ -53,9 +53,9 @@
 ## 🔜 Active Roadmap
 
 ### 🎯 Metadata Contract + Ingest Reliability
-- [ ] Centralized field contract for admin/app metadata editing
-	- Publish a backend field manifest (kind-aware allowed keys + types) so UI field registries can stay aligned with Core validation.
-	- Add contract tests that fail when frontend field keys diverge from backend normalized metadata rules.
+- [ ] Stabilize typed-per-kind metadata storage as canonical contract
+	- Keep `item_kind_metadata` parent + per-kind child tables as the only authority for typed normalized fields.
+	- Keep admin drift diagnostics (`typed_*` issue keys) as a release gate before ingest/correction changes.
 - [ ] Continue per-media normalization depth
 	- Expand provider mapping where upstream data exists (video specs, richer book/manga edition signals, game release metadata).
 	- Revisit Hardcover series positions before broader book/manga depth: current `volume_number` is integer-only and cannot represent fractional positions like `1.5` without schema/contract updates.

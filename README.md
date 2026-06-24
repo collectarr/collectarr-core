@@ -213,7 +213,7 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the full road
 
 Current active tracks:
 
-- shared metadata field contract between Core validation and client editors
+- typed-per-kind metadata contract hardening and typed drift diagnostics as release gate
 - static Admin Console auth/session UX hardening
 - duplicate/merge confidence tooling and public-deployment hardening
 

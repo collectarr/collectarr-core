@@ -11,8 +11,8 @@ from app.db.session import engine
 from app.models import Base
 
 
-BASELINE_REVISION = "20260529_0001"
-HEAD_REVISION = "202605180001"
+BASELINE_REVISION = "20260624_1000"
+HEAD_REVISION = "20260624_1000"
 
 
 def _alembic_config() -> Config:

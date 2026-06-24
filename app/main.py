@@ -1,12 +1,10 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.api.deps import DbSession
-from app.api.routes import admin, admin_ui, auth, images, metadata
+from app.api.routes import admin, auth, images, metadata
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -47,14 +45,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 register_exception_handlers(app)
-app.mount(
-    "/admin/static",
-    StaticFiles(directory=Path(__file__).resolve().parent / "static" / "admin"),
-    name="admin-static",
-)
 
 app.include_router(admin.router)
-app.include_router(admin_ui.router)
 app.include_router(auth.router)
 app.include_router(images.router)
 app.include_router(metadata.router)

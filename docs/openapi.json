@@ -350,6 +350,24 @@
               "default": 100,
               "title": "Sample Limit"
             }
+          },
+          {
+            "name": "scan_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100000,
+                  "minimum": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scan Limit"
+            }
           }
         ],
         "responses": {
@@ -2245,25 +2263,6 @@
         }
       }
     },
-    "/admin/ui": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Admin Ui",
-        "operationId": "admin_ui_admin_ui_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/auth/register": {
       "post": {
         "tags": [
@@ -2878,6 +2877,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MetadataNormalizedManifestResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/field-schema": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Metadata Field Schema",
+        "description": "Unified field registry consumed by the admin + app edit surfaces.\n\nBy default only user-editable fields are returned; pass\n``editable_only=false`` to include internal normalization bookkeeping fields.",
+        "operationId": "metadata_field_schema_metadata_field_schema_get",
+        "parameters": [
+          {
+            "name": "editable_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Editable Only"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataFieldSchemaResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -6099,6 +6142,22 @@
             "type": "integer",
             "title": "Expected Schema Version"
           },
+          "scan_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Limit"
+          },
+          "scan_limited": {
+            "type": "boolean",
+            "title": "Scan Limited",
+            "default": false
+          },
           "scanned_entities": {
             "type": "integer",
             "title": "Scanned Entities",
@@ -6122,6 +6181,16 @@
           "typed_drifted_items": {
             "type": "integer",
             "title": "Typed Drifted Items",
+            "default": 0
+          },
+          "schema_issue_count": {
+            "type": "integer",
+            "title": "Schema Issue Count",
+            "default": 0
+          },
+          "blocking_issue_count": {
+            "type": "integer",
+            "title": "Blocking Issue Count",
             "default": 0
           },
           "release_gate_ok": {
@@ -9101,6 +9170,110 @@
           "name"
         ],
         "title": "MetadataCredit"
+      },
+      "MetadataFieldSchemaResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "title": "Schema Version"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/MetadataFieldSpecResponse"
+            },
+            "type": "array",
+            "title": "Fields"
+          },
+          "kind_fields": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/ItemKind"
+            },
+            "type": "object",
+            "title": "Kind Fields"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "fields",
+          "kind_fields"
+        ],
+        "title": "MetadataFieldSchemaResponse",
+        "description": "The unified field schema consumed by the admin + app edit surfaces."
+      },
+      "MetadataFieldSpecResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value_type": {
+            "type": "string",
+            "title": "Value Type"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "common": {
+            "type": "boolean",
+            "title": "Common"
+          },
+          "typed": {
+            "type": "boolean",
+            "title": "Typed"
+          },
+          "normalized": {
+            "type": "boolean",
+            "title": "Normalized"
+          },
+          "editable": {
+            "type": "boolean",
+            "title": "Editable"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "input": {
+            "type": "string",
+            "title": "Input"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/ItemKind"
+            },
+            "type": "array",
+            "title": "Kinds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "value_type",
+          "label",
+          "common",
+          "typed",
+          "normalized",
+          "editable",
+          "section",
+          "input"
+        ],
+        "title": "MetadataFieldSpecResponse",
+        "description": "A single editable canonical metadata field, rendered from the registry."
       },
       "MetadataNormalizedManifestResponse": {
         "properties": {

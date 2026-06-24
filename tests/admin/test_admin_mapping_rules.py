@@ -6,7 +6,7 @@ from app.models.canonical import AdminReleaseMediaMappingRule, MetadataProposal
 from app.schemas.admin import ProviderIngestHistoryEntry
 from app.services.admin_domains import support as support_module
 
-from .test_admin_ui import admin_token
+from .test_admin_providers import admin_token
 
 
 @pytest.mark.asyncio

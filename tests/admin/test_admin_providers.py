@@ -17,22 +17,6 @@ async def admin_token(client, monkeypatch) -> str:
 
 
 @pytest.mark.asyncio
-async def test_admin_ui_is_served_without_api_token(client):
-    response = await client.get("/admin/ui")
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert "Collectarr Admin" in response.text
-    assert "Personal library data stays local" in response.text
-    assert "manual correction" in response.text
-    assert "Approved</span>" in response.text
-    assert "proposalQuickFilters" in response.text
-    assert "Catalog search" in response.text
-    assert "providersButton" in response.text
-    assert "providerCacheStats" in response.text
-
-
-@pytest.mark.asyncio
 async def test_admin_provider_statuses_are_public_and_report_stubs(client, monkeypatch):
     response = await client.get("/admin/providers")
     assert response.status_code == 200

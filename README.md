@@ -54,7 +54,7 @@ to clients.
 
 ### 🛠️ Admin And Operations
 
-- Admin console for provider health, ingest queues, duplicate review, user management, image cache stats, and audit logs
+- Admin dashboard in the Collectarr desktop app for provider health, ingest queues, duplicate review, user management, image cache stats, and audit logs
 - Role-based access with viewer / editor / admin permissions
 - OpenAPI docs at `/docs` for API exploration and schema-backed integration work
 - Daily-refreshable catalog badges and provider support docs generated from the live registry
@@ -135,7 +135,6 @@ catalog/search/admin contract instead of inventing parallel app-only fields.
 |---------|-----|
 | API | http://localhost:8010 |
 | API docs (Swagger) | http://localhost:8010/docs |
-| Admin console | http://localhost:8010/admin/ui |
 | Sync service | http://localhost:8020 |
 | Meilisearch | http://localhost:7700 |
 | MinIO console | http://localhost:9001 |

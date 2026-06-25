@@ -1,5 +1,6 @@
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+import re
 from typing import Any
 from uuid import UUID
 
@@ -33,8 +34,11 @@ from app.models.canonical import (
     EntityPerson,
     Item,
     ItemKindMetadata,
+    ItemKindMetadataTaxonomy,
     Organization,
     Person,
+    PhysicalFormatRef,
+    ReleaseStatus,
     Series,
     StoryArc,
     StoryArcItem,
@@ -56,6 +60,9 @@ from app.schemas.metadata import (
 )
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
+
+_LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
+_REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
 
 
 class AdminCatalogService:
@@ -99,11 +106,11 @@ class AdminCatalogService:
             imprint=imprint,
             subtitle=subtitle,
             series_group=series_group,
-            country=country,
-            language=language,
+            country=self._normalize_region(country),
+            language=self._normalize_language(language),
             age_rating=age_rating,
             catalog_number=catalog_number,
-            release_status=release_status,
+            release_status=self._normalize_release_status(release_status),
         )
         return [await self._item_response_loader(item) for item in items]
 
@@ -222,6 +229,9 @@ class AdminCatalogService:
             .options(
                 selectinload(Item.editions),
                 selectinload(Item.kind_metadata),
+                selectinload(Item.kind_metadata)
+                .selectinload(ItemKindMetadata.taxonomy_links)
+                .selectinload(ItemKindMetadataTaxonomy.taxonomy),
             )
             .order_by(Item.id.asc())
         )
@@ -410,6 +420,8 @@ class AdminCatalogService:
                 item.kind,
                 payload.physical_format,
             )
+            if physical_format is not None:
+                await self._ensure_physical_format_ref(physical_format)
         if edition is not None:
             before["edition_title"] = edition.title
             before["publisher"] = self._organization_name(item, "publisher") or edition.publisher
@@ -440,15 +452,17 @@ class AdminCatalogService:
             if "subtitle" in update_data:
                 edition.subtitle = payload.subtitle
             if "country" in update_data:
-                edition.region = payload.country
+                edition.region = self._normalize_region(payload.country)
             if "language" in update_data:
-                edition.language = payload.language
+                edition.language = self._normalize_language(payload.language)
             if "age_rating" in update_data:
                 edition.age_rating = payload.age_rating
             if "catalog_number" in update_data:
                 edition.catalog_number = payload.catalog_number
             if "release_status" in update_data:
-                edition.release_status = payload.release_status
+                edition.release_status = self._normalize_release_status(payload.release_status)
+                if edition.release_status is not None:
+                    await self._ensure_release_status(edition.release_status)
             if "nr_discs" in update_data:
                 edition.nr_discs = payload.nr_discs
             if "screen_ratio" in update_data:
@@ -1026,6 +1040,27 @@ class AdminCatalogService:
     def _item_kind_metadata_payload(self, value: ItemKindMetadata | None) -> dict[str, Any]:
         return item_kind_metadata_payload(value)
 
+    async def _ensure_release_status(self, status_value: str) -> None:
+        existing = await self.db.scalar(
+            select(ReleaseStatus).where(ReleaseStatus.code == status_value)
+        )
+        if existing is not None:
+            return
+        self.db.add(ReleaseStatus(code=status_value, label=status_value))
+
+    async def _ensure_physical_format_ref(self, config: PhysicalFormatConfig) -> None:
+        existing = await self.db.get(PhysicalFormatRef, config.id)
+        if existing is not None:
+            return
+        self.db.add(
+            PhysicalFormatRef(
+                id=config.id,
+                label=config.label,
+                media_family=config.media_family,
+                variant_type=config.variant_type,
+            )
+        )
+
     def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
         upsert_item_kind_metadata(item, normalized_values)
         if item.kind_metadata is not None:
@@ -1152,6 +1187,24 @@ class AdminCatalogService:
     def _normalize_optional_text(self, value: str | None) -> str | None:
         normalized = " ".join(str(value or "").split()).strip()
         return normalized or None
+
+    def _normalize_release_status(self, value: str | None) -> str | None:
+        normalized = self._normalize_optional_text(value)
+        return normalized.lower() if normalized is not None else None
+
+    def _normalize_language(self, value: str | None) -> str | None:
+        normalized = self._normalize_optional_text(value)
+        if normalized is None:
+            return None
+        lowered = normalized.lower()
+        return lowered if _LANGUAGE_RE.match(lowered) else None
+
+    def _normalize_region(self, value: str | None) -> str | None:
+        normalized = self._normalize_optional_text(value)
+        if normalized is None:
+            return None
+        upper = normalized.upper()
+        return upper if _REGION_RE.match(upper) else None
 
     def _normalize_tracks(self, values: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []

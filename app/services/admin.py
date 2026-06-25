@@ -40,6 +40,7 @@ from app.schemas.admin import (
     ProviderIngestResponse,
     ProviderIngestRetryRequest,
     ProviderPreviewResponse,
+    ProviderPayloadSnapshotPurgeResponse,
     ProviderSearchRequest,
     ProviderStatusResponse,
 )
@@ -318,3 +319,12 @@ class AdminMetadataService:
 
     async def purge_image_cache(self, provider: str | None = None) -> Any:
         return await self.image_cache_admin.purge_image_cache(provider=provider)
+
+    async def purge_expired_provider_snapshots(
+        self,
+        *,
+        limit: int = 5000,
+    ) -> ProviderPayloadSnapshotPurgeResponse:
+        purged = await self.provider_ingest_admin.purge_expired_provider_snapshots(limit=limit)
+        await self.provider_ingest_admin.db.commit()
+        return ProviderPayloadSnapshotPurgeResponse(purged=purged)

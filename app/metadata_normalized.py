@@ -23,7 +23,9 @@ from app.models.canonical import (
     ItemKindMetadataMovie,
     ItemKindMetadataMusic,
     ItemKindMetadataMusicTrack,
+    ItemKindMetadataTaxonomy,
     ItemKindMetadataTv,
+    MetadataTaxonomy,
 )
 
 NORMALIZED_SCHEMA_VERSION = 1
@@ -188,8 +190,12 @@ def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] |
     for key in TYPED_KIND_METADATA_KEYS:
         if key == "tracks":
             continue
+        if key in {"genres", "platforms"}:
+            continue
         if hasattr(metadata, key):
             setattr(metadata, key, typed_payload.get(key))
+    _set_taxonomy_values(metadata, "genre", typed_payload.get("genres"))
+    _set_taxonomy_values(metadata, "platform", typed_payload.get("platforms"))
     if isinstance(metadata, ItemKindMetadataMusic):
         if isinstance(tracks_payload, list):
             metadata.tracks = [
@@ -206,6 +212,43 @@ def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] |
             metadata.track_count = len(metadata.tracks) or None
         elif "track_count" in typed_payload:
             metadata.track_count = typed_payload.get("track_count")
+
+
+def _set_taxonomy_values(
+    metadata: ItemKindMetadata,
+    category: str,
+    values: list[str] | None,
+) -> None:
+    raw_values = values if isinstance(values, list) else []
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for raw in raw_values:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(text)
+    existing = [
+        row
+        for row in list(getattr(metadata, "taxonomy_links", []) or [])
+        if getattr(row, "category", None) != category
+    ]
+    new_links = [
+        ItemKindMetadataTaxonomy(
+            category=category,
+            position=index,
+            taxonomy=MetadataTaxonomy(
+                category=category,
+                name=text,
+                normalized_name=text.casefold(),
+            ),
+        )
+        for index, text in enumerate(deduped)
+    ]
+    metadata.taxonomy_links = [*existing, *new_links]
 
 
 def patch_item_kind_metadata(item: Item, typed_updates: Mapping[str, Any]) -> None:

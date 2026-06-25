@@ -34,6 +34,7 @@ from app.models.canonical import (
     Organization,
     Person,
     ProviderIngestJob,
+    ProviderPayloadSnapshot,
     Series,
     StoryArc,
     StoryArcItem,
@@ -143,6 +144,70 @@ async def test_get_or_create_character_prefers_provider_links_over_shared_name()
     assert second.id != existing.id
     assert second.canonical_name == "spider-man"
     assert len(all_characters) == 2
+
+
+@pytest.mark.asyncio
+async def test_purge_expired_provider_snapshots_redacts_payloads_only_for_expired_rows():
+    async def _reindex_items(_: set[UUID]) -> None:
+        return None
+
+    async with AsyncSessionLocal() as db:
+        service = AdminProviderIngestService(
+            db=db,
+            settings=get_settings(),
+            providers=ProviderRegistry(),
+            provider_preview_state=ProviderPreviewState(),
+            history_reader=lambda: [],
+            audit_recorder=lambda **_: None,
+            ingest_job_audit_details=lambda *_args, **_kwargs: {},
+            record_ingest_history=lambda *_args, **_kwargs: None,
+            is_retryable_ingest_error=lambda *_args, **_kwargs: False,
+            error_message=lambda exc: str(exc),
+            reindex_items=_reindex_items,
+            item_response_loader=lambda *_args, **_kwargs: None,
+            backoff_delay=lambda *_args, **_kwargs: 0,
+            actor_user_id=None,
+            comicvine_character_details={},
+        )
+        now = datetime.now(UTC)
+        expired = ProviderPayloadSnapshot(
+            provider=ExternalProvider.comicvine,
+            provider_item_id="4000-1",
+            entity_type="item",
+            entity_id=UUID("00000000-0000-0000-0000-000000000101"),
+            source_payload={"raw": "expired"},
+            normalized_payload={"n": "expired"},
+            expires_at=now - timedelta(days=1),
+        )
+        active = ProviderPayloadSnapshot(
+            provider=ExternalProvider.comicvine,
+            provider_item_id="4000-2",
+            entity_type="item",
+            entity_id=UUID("00000000-0000-0000-0000-000000000102"),
+            source_payload={"raw": "active"},
+            normalized_payload={"n": "active"},
+            expires_at=now + timedelta(days=1),
+        )
+        db.add_all([expired, active])
+        await db.flush()
+
+        purged = await service.purge_expired_provider_snapshots(limit=10)
+        await db.commit()
+
+        expired_db = await db.get(ProviderPayloadSnapshot, expired.id)
+        active_db = await db.get(ProviderPayloadSnapshot, active.id)
+        if expired_db is not None:
+            await db.refresh(expired_db)
+        if active_db is not None:
+            await db.refresh(active_db)
+
+    assert purged == 1
+    assert expired_db is not None and expired_db.source_payload is None
+    assert expired_db is not None and expired_db.normalized_payload is None
+    assert expired_db is not None and expired_db.purged_at is not None
+    assert active_db is not None and active_db.source_payload == {"raw": "active"}
+    assert active_db is not None and active_db.normalized_payload == {"n": "active"}
+    assert active_db is not None and active_db.purged_at is None
 
 
 class FakePreviewCacheRedis:

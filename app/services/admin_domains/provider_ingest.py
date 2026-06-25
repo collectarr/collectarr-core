@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -32,6 +33,9 @@ from app.models.canonical import (
     Organization,
     Person,
     ProviderIngestJob,
+    ProviderPayloadSnapshot,
+    PhysicalFormatRef,
+    ReleaseStatus,
     Series,
     SeriesRelation,
     StoryArc,
@@ -92,6 +96,9 @@ from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
 logger = logging.getLogger(__name__)
+_LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
+_REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
+_SNAPSHOT_TTL = timedelta(days=30)
 
 
 def _normalized_residual(values: dict[str, Any], *, kind: ItemKind) -> dict[str, Any]:
@@ -148,6 +155,36 @@ class AdminProviderIngestService:
             payload.kind,
         )
         return [result.model_dump(mode="json") for result in results]
+
+    async def purge_expired_provider_snapshots(self, *, limit: int = 5000) -> int:
+        now = datetime.now(UTC)
+        snapshot_ids = list(
+            (
+                await self.db.execute(
+                    select(ProviderPayloadSnapshot.id)
+                    .where(
+                        ProviderPayloadSnapshot.purged_at.is_(None),
+                        ProviderPayloadSnapshot.expires_at.is_not(None),
+                        ProviderPayloadSnapshot.expires_at <= now,
+                    )
+                    .order_by(ProviderPayloadSnapshot.expires_at.asc())
+                    .limit(limit)
+                )
+            ).scalars()
+        )
+        if not snapshot_ids:
+            return 0
+        await self.db.execute(
+            update(ProviderPayloadSnapshot)
+            .where(ProviderPayloadSnapshot.id.in_(snapshot_ids))
+            .values(
+                source_payload=None,
+                normalized_payload=None,
+                purged_at=now,
+            )
+        )
+        await self.db.flush()
+        return len(snapshot_ids)
 
     async def proposal_summary(self) -> MetadataProposalSummaryResponse:
         result = await self.db.execute(
@@ -996,6 +1033,65 @@ class AdminProviderIngestService:
             metadata["source"] = source
         return metadata
 
+    def _normalized_release_status(self, value: str | None) -> str | None:
+        text = " ".join(str(value or "").split()).strip().lower()
+        return text or None
+
+    def _normalized_language(self, value: str | None) -> str | None:
+        text = " ".join(str(value or "").split()).strip().lower()
+        if not text:
+            return None
+        return text if _LANGUAGE_RE.match(text) else None
+
+    def _normalized_region(self, value: str | None) -> str | None:
+        text = " ".join(str(value or "").split()).strip().upper()
+        if not text:
+            return None
+        return text if _REGION_RE.match(text) else None
+
+    async def _ensure_release_status(self, status_value: str) -> None:
+        existing = await self.db.scalar(
+            select(ReleaseStatus).where(ReleaseStatus.code == status_value)
+        )
+        if existing is not None:
+            return
+        self.db.add(ReleaseStatus(code=status_value, label=status_value))
+
+    async def _ensure_physical_format_ref(self, config: PhysicalFormatConfig) -> None:
+        existing = await self.db.get(PhysicalFormatRef, config.id)
+        if existing is not None:
+            return
+        self.db.add(
+            PhysicalFormatRef(
+                id=config.id,
+                label=config.label,
+                media_family=config.media_family,
+                variant_type=config.variant_type,
+            )
+        )
+
+    async def _record_provider_snapshot(
+        self,
+        *,
+        provider: ExternalProvider,
+        provider_item_id: str,
+        entity_type: str,
+        entity_id: UUID,
+        source: Any | None,
+        normalized: dict[str, Any] | None,
+    ) -> None:
+        self.db.add(
+            ProviderPayloadSnapshot(
+                provider=provider,
+                provider_item_id=provider_item_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                source_payload=source if isinstance(source, dict) else None,
+                normalized_payload=normalized if isinstance(normalized, dict) else None,
+                expires_at=datetime.now(UTC) + _SNAPSHOT_TTL,
+            )
+        )
+
     def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
         upsert_item_kind_metadata(item, normalized_values)
 
@@ -1125,15 +1221,46 @@ class AdminProviderIngestService:
             .limit(1)
         )
         if primary_edition is not None:
+            refresh_release_status = self._normalized_release_status(normalized.release_status)
+            if refresh_release_status is not None:
+                await self._ensure_release_status(refresh_release_status)
             primary_edition.nr_discs = normalized.nr_discs
             primary_edition.screen_ratio = normalized.screen_ratio
             primary_edition.audio_tracks = normalized.audio_tracks
             primary_edition.subtitles = normalized.subtitles
             primary_edition.layers = normalized.layers
+            primary_edition.release_status = refresh_release_status
+            primary_edition.language = self._normalized_language(normalized.language)
+            primary_edition.region = self._normalized_region(normalized.country)
         metadata = dict(item.metadata_json or {})
         metadata["source"] = provider_item.raw
         metadata["last_refresh"] = datetime.now(UTC).isoformat()
         item.metadata_json = metadata
+        await self._record_provider_snapshot(
+            provider=pid.provider,
+            provider_item_id=pid.provider_item_id,
+            entity_type="item",
+            entity_id=item.id,
+            source=provider_item.raw,
+            normalized={
+                "audience_rating": normalized.audience_rating,
+                "genres": normalized.genres,
+                "platforms": normalized.platforms,
+                "track_count": normalized.track_count,
+                "tracks": [
+                    {
+                        "position": track.position,
+                        "title": track.title,
+                        "duration_seconds": track.duration_seconds,
+                        "artist": track.artist,
+                        "disc_number": track.disc_number,
+                    }
+                    for track in normalized.tracks
+                ],
+                "color": normalized.color,
+                "release_status": normalized.release_status,
+            },
+        )
         self._upsert_item_kind_metadata(
             item,
             {
@@ -1294,8 +1421,8 @@ class AdminProviderIngestService:
             format=bundle_normalized.format,
             variant_type=bundle_normalized.variant_type,
             packaging_type=bundle_normalized.packaging_type,
-            region=bundle_normalized.region,
-            language=bundle_normalized.language,
+            region=self._normalized_region(bundle_normalized.region),
+            language=self._normalized_language(bundle_normalized.language),
             publisher=bundle_normalized.publisher or normalized.publisher,
             sku=bundle_normalized.sku,
             barcode=bundle_normalized.barcode,
@@ -1316,6 +1443,14 @@ class AdminProviderIngestService:
         )
         self.db.add(bundle)
         await self.db.flush()
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item.provider_item_id,
+            entity_type="bundle_release",
+            entity_id=bundle.id,
+            source=provider_item.raw,
+            normalized=cover_metadata,
+        )
         if mirrored_cover is not None:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         for index, (member, member_item, _, _) in enumerate(created_members, start=1):
@@ -1383,6 +1518,8 @@ class AdminProviderIngestService:
         ingest_related_collections: bool = True,
     ) -> tuple[Item, Volume | None, Series | None]:
         physical_format = self._physical_format_for_normalized(normalized)
+        if physical_format is not None:
+            await self._ensure_physical_format_ref(physical_format)
         edition_format = physical_format.label if physical_format else normalized.edition_format
         variant_name = normalized.variant_name or (
             physical_format.label if physical_format is not None else "Cover A"
@@ -1421,6 +1558,9 @@ class AdminProviderIngestService:
                 normalized=cover_metadata,
             ),
         )
+        release_status = self._normalized_release_status(normalized.release_status)
+        if release_status is not None:
+            await self._ensure_release_status(release_status)
         edition = Edition(
             item=item,
             title=normalized.edition_title or "Standard Edition",
@@ -1436,14 +1576,14 @@ class AdminProviderIngestService:
             series_group=normalized.series_group,
             age_rating=normalized.age_rating,
             catalog_number=normalized.catalog_number,
-            release_status=normalized.release_status,
+            release_status=release_status,
             nr_discs=normalized.nr_discs,
             screen_ratio=normalized.screen_ratio,
             audio_tracks=normalized.audio_tracks,
             subtitles=normalized.subtitles,
             layers=normalized.layers,
-            language=normalized.language,
-            region=normalized.country,
+            language=self._normalized_language(normalized.language),
+            region=self._normalized_region(normalized.country),
             release_date=normalized.release_date,
             metadata_json=self._provider_metadata_json(
                 provider_name,
@@ -1520,6 +1660,50 @@ class AdminProviderIngestService:
         )
         self.db.add_all([item, edition, variant, *additional_variants])
         await self.db.flush()
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="item",
+            entity_id=item.id,
+            source=provider_raw,
+            normalized={
+                "kind": normalized.kind.value,
+                "title": normalized.title,
+                "item_number": normalized.item_number,
+                "genres": normalized.genres,
+                "platforms": normalized.platforms,
+                "track_count": normalized.track_count,
+                "release_status": normalized.release_status,
+            },
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="edition",
+            entity_id=edition.id,
+            source=provider_raw,
+            normalized={
+                "format": edition.format,
+                "physical_format": edition.physical_format,
+                "release_status": edition.release_status,
+                "release_date": str(edition.release_date) if edition.release_date else None,
+                **cover_metadata,
+            },
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="variant",
+            entity_id=variant.id,
+            source=provider_raw,
+            normalized={
+                "name": variant.name,
+                "variant_type": variant.variant_type,
+                "physical_format": variant.physical_format,
+                "barcode": variant.barcode,
+                **cover_metadata,
+            },
+        )
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         for mirrored_variant_cover in additional_mirrored_covers:
@@ -1754,9 +1938,12 @@ class AdminProviderIngestService:
             return
         organization = await self._get_or_create_organization(imprint, "imprint")
         if publisher:
+            normalized_parent = " ".join(str(publisher).split()).strip() or None
+            if organization.parent_publisher != normalized_parent:
+                organization.parent_publisher = normalized_parent
             metadata = dict(organization.metadata_json or {})
-            if metadata.get("parent_publisher") != publisher:
-                metadata["parent_publisher"] = publisher
+            if metadata.get("parent_publisher") != normalized_parent:
+                metadata["parent_publisher"] = normalized_parent
                 organization.metadata_json = metadata
         exists = await self.db.scalar(
             select(EntityOrganization.id).where(
@@ -1927,12 +2114,10 @@ class AdminProviderIngestService:
                     source_series_id=source_series.id,
                     target_series_id=target_series.id,
                     relation_type=relation_type,
-                    metadata_json={
-                        "provider": rel.provider,
-                        "provider_id": rel.provider_id,
-                        "start_year": rel.start_year,
-                        "image_url": rel.image_url,
-                    },
+                    provider=rel.provider,
+                    provider_id=rel.provider_id,
+                    start_year=rel.start_year,
+                    image_url=rel.image_url,
                 )
             )
 
@@ -2015,11 +2200,8 @@ class AdminProviderIngestService:
                         synopsis=episode.overview,
                         season_number=season.season_number,
                         episode_number=episode.episode_number,
+                        air_date=episode.air_date,
                         runtime_minutes=episode.runtime_minutes,
-                        metadata_json={
-                            "season_title": season.title,
-                            "air_date": episode.air_date.isoformat() if episode.air_date else None,
-                        },
                     )
                     self.db.add(episode_item)
                     await self.db.flush()
@@ -2078,11 +2260,8 @@ class AdminProviderIngestService:
                         item_number=str(chapter.episode_number),
                         sort_key=sort_key(kind, chapter.title, str(chapter.episode_number)),
                         synopsis=chapter.overview,
+                        air_date=chapter.air_date,
                         page_count=chapter.runtime_minutes,
-                        metadata_json={
-                            "volume_title": volume_payload.title,
-                            "air_date": chapter.air_date.isoformat() if chapter.air_date else None,
-                        },
                     )
                 )
         await self.db.flush()
@@ -2109,28 +2288,27 @@ class AdminProviderIngestService:
         if person is None:
             person = Person(
                 name=display_name,
-                metadata_json={
-                    "api_detail_url": credit.api_detail_url,
-                    "site_detail_url": credit.site_detail_url,
-                    "image_url": credit.image_url,
-                },
+                api_detail_url=credit.api_detail_url,
+                site_detail_url=credit.site_detail_url,
+                image_url=credit.image_url,
             )
             self.db.add(person)
             await self.db.flush()
             return person
-        metadata = dict(person.metadata_json or {})
         updated = False
-        if not metadata.get("api_detail_url") and credit.api_detail_url:
-            metadata["api_detail_url"] = credit.api_detail_url
+        if not person.api_detail_url and credit.api_detail_url:
+            person.api_detail_url = credit.api_detail_url
             updated = True
-        if not metadata.get("site_detail_url") and credit.site_detail_url:
-            metadata["site_detail_url"] = credit.site_detail_url
+        if not person.site_detail_url and credit.site_detail_url:
+            person.site_detail_url = credit.site_detail_url
             updated = True
-        if not metadata.get("image_url") and credit.image_url:
-            metadata["image_url"] = credit.image_url
+        if not person.image_url and credit.image_url:
+            person.image_url = credit.image_url
             updated = True
-        if updated:
-            person.metadata_json = metadata
+        credit_description = getattr(credit, "description", None)
+        if not person.description and credit_description:
+            person.description = credit_description
+            updated = True
         return person
 
     async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:
@@ -2147,24 +2325,23 @@ class AdminProviderIngestService:
         if story_arc is None:
             story_arc = StoryArc(
                 name=name,
-                metadata_json={
-                    "api_detail_url": credit.api_detail_url,
-                    "site_detail_url": credit.site_detail_url,
-                },
+                api_detail_url=credit.api_detail_url,
+                site_detail_url=credit.site_detail_url,
             )
             self.db.add(story_arc)
             await self.db.flush()
             return story_arc
-        metadata = dict(story_arc.metadata_json or {})
         updated = False
-        if not metadata.get("api_detail_url") and credit.api_detail_url:
-            metadata["api_detail_url"] = credit.api_detail_url
+        if not story_arc.api_detail_url and credit.api_detail_url:
+            story_arc.api_detail_url = credit.api_detail_url
             updated = True
-        if not metadata.get("site_detail_url") and credit.site_detail_url:
-            metadata["site_detail_url"] = credit.site_detail_url
+        if not story_arc.site_detail_url and credit.site_detail_url:
+            story_arc.site_detail_url = credit.site_detail_url
             updated = True
-        if updated:
-            story_arc.metadata_json = metadata
+        credit_description = getattr(credit, "description", None)
+        if not story_arc.description and credit_description:
+            story_arc.description = credit_description
+            updated = True
         return story_arc
 
     async def _get_or_create_character(
@@ -2183,26 +2360,25 @@ class AdminProviderIngestService:
             character = Character(
                 name=name,
                 canonical_name=canonical_name,
-                metadata_json={
-                    "api_detail_url": credit.api_detail_url,
-                    "site_detail_url": credit.site_detail_url,
-                },
+                api_detail_url=credit.api_detail_url,
+                site_detail_url=credit.site_detail_url,
             )
             self.db.add(character)
             await self.db.flush()
             return character
         if not character.canonical_name and canonical_name:
             character.canonical_name = canonical_name
-        metadata = dict(character.metadata_json or {})
         updated = False
-        if not metadata.get("api_detail_url") and credit.api_detail_url:
-            metadata["api_detail_url"] = credit.api_detail_url
+        if not character.api_detail_url and credit.api_detail_url:
+            character.api_detail_url = credit.api_detail_url
             updated = True
-        if not metadata.get("site_detail_url") and credit.site_detail_url:
-            metadata["site_detail_url"] = credit.site_detail_url
+        if not character.site_detail_url and credit.site_detail_url:
+            character.site_detail_url = credit.site_detail_url
             updated = True
-        if updated:
-            character.metadata_json = metadata
+        credit_description = getattr(credit, "description", None)
+        if not character.description and credit_description:
+            character.description = credit_description
+            updated = True
         return character
 
     async def _character_by_provider_link(
@@ -2247,14 +2423,13 @@ class AdminProviderIngestService:
         return None
 
     def _character_matches_credit_urls(self, character: Character, credit: NormalizedCredit) -> bool:
-        metadata = dict(character.metadata_json or {})
         return any(
-            metadata.get(key) and metadata.get(key) == value
+            value and current == value
             for key, value in (
                 ("api_detail_url", credit.api_detail_url),
                 ("site_detail_url", credit.site_detail_url),
             )
-            if value
+            for current in [getattr(character, key, None)]
         )
 
     def _credit_has_identity_urls(self, credit: NormalizedCredit) -> bool:
@@ -2281,12 +2456,11 @@ class AdminProviderIngestService:
             detail.aliases,
             primary_name=character.name,
         )
-        metadata = dict(character.metadata_json or {})
-        metadata.setdefault("api_detail_url", detail.api_detail_url)
-        metadata.setdefault("site_detail_url", detail.site_detail_url)
-        metadata["comicvine_character_id"] = detail.provider_item_id
+        if not character.api_detail_url and detail.api_detail_url:
+            character.api_detail_url = detail.api_detail_url
+        if not character.site_detail_url and detail.site_detail_url:
+            character.site_detail_url = detail.site_detail_url
         if detail.first_appeared_in_issue_id:
-            metadata["comicvine_first_appeared_in_issue_id"] = detail.first_appeared_in_issue_id
             first_item_id = await self._local_item_id_for_provider_id(
                 ExternalProvider.comicvine,
                 detail.first_appeared_in_issue_id,
@@ -2298,7 +2472,6 @@ class AdminProviderIngestService:
                 current_item_id,
             ):
                 character.first_appearance_item_id = current_item_id
-        character.metadata_json = {key: value for key, value in metadata.items() if value is not None}
 
     async def _comicvine_character_detail(self, provider_item_id: str) -> Any | None:
         if provider_item_id in self._comicvine_character_details:

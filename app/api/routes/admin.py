@@ -41,6 +41,7 @@ from app.schemas.admin import (
     ProviderIngestResponse,
     ProviderIngestRetryRequest,
     ProviderPreviewResponse,
+    ProviderPayloadSnapshotPurgeResponse,
     ProviderSearchRequest,
     ProviderStatusListResponse,
     UserResponse,
@@ -539,3 +540,12 @@ async def purge_image_cache(
     provider: str | None = Query(None, description="Purge only entries for this provider"),
 ) -> ImageCachePurgeResponse:
     return await AdminMetadataService(db, user).purge_image_cache(provider=provider)
+
+
+@router.post("/providers/snapshots/purge-expired", response_model=ProviderPayloadSnapshotPurgeResponse)
+async def purge_expired_provider_snapshots(
+    db: DbSession,
+    user: CurrentAdmin,
+    limit: int = Query(default=5000, ge=1, le=50000),
+) -> ProviderPayloadSnapshotPurgeResponse:
+    return await AdminMetadataService(db, user).purge_expired_provider_snapshots(limit=limit)

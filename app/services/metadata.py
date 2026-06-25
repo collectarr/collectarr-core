@@ -101,6 +101,16 @@ def _metadata_date(metadata: dict[str, object] | None, key: str) -> date | None:
         return None
 
 
+def _model_text_or_metadata(model: object, attr: str, metadata_key: str | None = None) -> str | None:
+    value = getattr(model, attr, None)
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            return text
+    metadata = getattr(model, "metadata_json", None)
+    return _metadata_text(metadata, metadata_key or attr)
+
+
 def _loaded_rows(item: object, attr_name: str) -> list[object]:
     rows = getattr(item, "__dict__", {}).get(attr_name)
     if rows is None:
@@ -217,9 +227,9 @@ class MetadataService:
                 MetadataCredit(
                     name=person.name,
                     role=link.role,
-                    api_detail_url=_metadata_text(person.metadata_json, "api_detail_url"),
-                    site_detail_url=_metadata_text(person.metadata_json, "site_detail_url"),
-                    image_url=_metadata_text(person.metadata_json, "image_url"),
+                    api_detail_url=_model_text_or_metadata(person, "api_detail_url"),
+                    site_detail_url=_model_text_or_metadata(person, "site_detail_url"),
+                    image_url=_model_text_or_metadata(person, "image_url"),
                 )
                 for link, person in creator_rows
             ]
@@ -1294,9 +1304,9 @@ class MetadataService:
                 {
                     "name": link.person.name,
                     "role": link.role,
-                    "api_detail_url": _metadata_text(link.person.metadata_json, "api_detail_url"),
-                    "site_detail_url": _metadata_text(link.person.metadata_json, "site_detail_url"),
-                    "image_url": _metadata_text(link.person.metadata_json, "image_url"),
+                    "api_detail_url": _model_text_or_metadata(link.person, "api_detail_url"),
+                    "site_detail_url": _model_text_or_metadata(link.person, "site_detail_url"),
+                    "image_url": _model_text_or_metadata(link.person, "image_url"),
                 }
                 for link in creator_links
                 if getattr(link, "person", None) is not None and getattr(link.person, "name", None)
@@ -1505,10 +1515,10 @@ class MetadataService:
                 target_series_title=rel.target_series.title,
                 target_series_kind=rel.target_series.kind,
                 ordinal=rel.ordinal,
-                image_url=(rel.metadata_json or {}).get("image_url"),
-                start_year=(rel.metadata_json or {}).get("start_year"),
-                provider=(rel.metadata_json or {}).get("provider"),
-                provider_id=(rel.metadata_json or {}).get("provider_id"),
+                image_url=_model_text_or_metadata(rel, "image_url"),
+                start_year=rel.start_year if rel.start_year is not None else (rel.metadata_json or {}).get("start_year"),
+                provider=_model_text_or_metadata(rel, "provider"),
+                provider_id=_model_text_or_metadata(rel, "provider_id"),
             )
             for rel in relations
         ]
@@ -1868,7 +1878,7 @@ class MetadataService:
                     season_number=season_number,
                     title=volume.name or f"Season {season_number}",
                     provider_item_id=provider_item_id,
-                    air_date=_metadata_date(first_episode.metadata_json, "air_date"),
+                    air_date=first_episode.air_date or _metadata_date(first_episode.metadata_json, "air_date"),
                     episode_count=len(rows),
                     episodes=[
                         EpisodeResponse(
@@ -1876,7 +1886,7 @@ class MetadataService:
                             title=episode.title,
                             provider_item_id=episode_provider_item_id,
                             overview=episode.synopsis,
-                            air_date=_metadata_date(episode.metadata_json, "air_date"),
+                            air_date=episode.air_date or _metadata_date(episode.metadata_json, "air_date"),
                             runtime_minutes=episode.runtime_minutes,
                             page_count=episode.page_count,
                         )
@@ -1966,10 +1976,10 @@ class MetadataService:
             CreatorResponse(
                 id=person.id,
                 name=person.name,
-                description=_metadata_text(person.metadata_json, "description"),
-                image_url=_metadata_text(person.metadata_json, "image_url"),
-                api_detail_url=_metadata_text(person.metadata_json, "api_detail_url"),
-                site_detail_url=_metadata_text(person.metadata_json, "site_detail_url"),
+                description=_model_text_or_metadata(person, "description"),
+                image_url=_model_text_or_metadata(person, "image_url"),
+                api_detail_url=_model_text_or_metadata(person, "api_detail_url"),
+                site_detail_url=_model_text_or_metadata(person, "site_detail_url"),
                 item_count=int(item_count or 0),
             )
             for person, item_count in rows
@@ -2188,8 +2198,8 @@ class MetadataService:
                 CreatorFacetResponse(
                     id=person.id,
                     name=person.name,
-                    description=_metadata_text(person.metadata_json, "description"),
-                    image_url=_metadata_text(person.metadata_json, "image_url"),
+                    description=_model_text_or_metadata(person, "description"),
+                    image_url=_model_text_or_metadata(person, "image_url"),
                     item_count=len(facet_item_ids),
                     item_ids=facet_item_ids,
                     role_counts=role_counts if isinstance(role_counts, dict) else {},

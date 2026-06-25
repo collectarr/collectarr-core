@@ -19,7 +19,19 @@
 Franchise (optional) → Series → Volume → Item → Edition → Variant (+ Release)
 ```
 - Models in `app/models/canonical.py` (SQLAlchemy 2.x async, `mapped_column`)
-- Migrations: Alembic (`alembic/`)
+- Migrations: Alembic (`alembic/`). **Pre-1.0 policy: a single squashed baseline**
+  (`alembic/versions/20260624_1000_clean_schema_baseline.py`, which runs
+  `Base.metadata.create_all`). The server DB starts empty, so while the schema is
+  still evolving we regenerate the baseline and recreate the DB instead of adding
+  incremental migrations. `python -m app.scripts.bootstrap_alembic` builds a fresh
+  DB from the baseline. Do NOT stack new migration files until the schema
+  stabilizes — change the models and the baseline picks them up via `create_all`.
+- Schema integrity lives in the models: non-negative CHECKs, a one-primary-per-edition
+  partial unique index (`uq_variants_primary_per_edition`), and reverse foreign-key
+  indexes on the polymorphic `entity_*` link tables. (A matching
+  one-primary-per-bundle index on `bundle_release_items` is a known follow-up: it
+  needs the bundle-member update service to delete removed members before inserting
+  the new primary, otherwise the in-transaction primary swap trips the index.)
 
 ### 10 Metadata Providers (`app/providers/`)
 | Provider | File | Kinds | Auth |

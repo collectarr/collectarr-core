@@ -16,8 +16,9 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
+    text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -86,7 +87,17 @@ class Volume(UuidMixin, TimestampMixin, Base):
 
 class Item(UuidMixin, TimestampMixin, Base):
     __tablename__ = "items"
-    __table_args__ = (Index("ix_items_kind_title", "kind", "title"),)
+    __table_args__ = (
+        Index("ix_items_kind_title", "kind", "title"),
+        CheckConstraint(
+            "runtime_minutes IS NULL OR runtime_minutes >= 0",
+            name="ck_items_runtime_minutes_nonnegative",
+        ),
+        CheckConstraint(
+            "page_count IS NULL OR page_count >= 0",
+            name="ck_items_page_count_nonnegative",
+        ),
+    )
 
     volume_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="SET NULL"), index=True
@@ -95,7 +106,6 @@ class Item(UuidMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     original_title: Mapped[str | None] = mapped_column(String(255))
     localized_title: Mapped[str | None] = mapped_column(String(255))
-    search_aliases: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     title_extension: Mapped[str | None] = mapped_column(String(255))
     item_number: Mapped[str | None] = mapped_column(String(64), index=True)
     sort_key: Mapped[str | None] = mapped_column(String(255), index=True)
@@ -103,11 +113,10 @@ class Item(UuidMixin, TimestampMixin, Base):
     crossover: Mapped[str | None] = mapped_column(String(255))
     plot_summary: Mapped[str | None] = mapped_column(Text)
     plot_description: Mapped[str | None] = mapped_column(Text)
-    trailer_urls: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
-    external_links: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     release_type: Mapped[str | None] = mapped_column(String(64), index=True)
     season_number: Mapped[int | None] = mapped_column(Integer, index=True)
     episode_number: Mapped[int | None] = mapped_column(Integer, index=True)
+    air_date: Mapped[date | None] = mapped_column(Date, index=True)
     runtime_minutes: Mapped[int | None] = mapped_column(Integer)
     page_count: Mapped[int | None] = mapped_column(Integer)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -144,12 +153,175 @@ class Item(UuidMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    alias_entries: Mapped[list["ItemAlias"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by=lambda: (ItemAlias.position.asc(), ItemAlias.created_at.asc(), ItemAlias.id.asc()),
+    )
+    link_entries: Mapped[list["ItemLink"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by=lambda: (ItemLink.position.asc(), ItemLink.created_at.asc(), ItemLink.id.asc()),
+    )
+
+    @property
+    def search_aliases(self) -> list[str]:
+        aliases: list[str] = []
+        for row in list(self.__dict__.get("alias_entries") or []):
+            alias = str(getattr(row, "alias", "") or "").strip()
+            if alias:
+                aliases.append(alias)
+        return aliases
+
+    @search_aliases.setter
+    def search_aliases(self, values: list[str] | None) -> None:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in values or []:
+            alias = str(raw or "").strip()
+            if not alias:
+                continue
+            key = alias.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            normalized.append(alias)
+        self.alias_entries = [
+            ItemAlias(
+                alias=alias,
+                normalized_alias=alias.casefold(),
+                position=index,
+            )
+            for index, alias in enumerate(normalized)
+        ]
+
+    def _item_links_for_type(self, link_type: str) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for row in list(self.__dict__.get("link_entries") or []):
+            if getattr(row, "link_type", None) != link_type:
+                continue
+            url = str(getattr(row, "url", "") or "").strip()
+            if not url:
+                continue
+            entry: dict[str, Any] = {"url": url}
+            for field in ("site", "name", "kind", "description"):
+                value = str(getattr(row, field, "") or "").strip()
+                if value:
+                    entry[field] = value
+            normalized.append(entry)
+        return normalized
+
+    def _set_item_links_for_type(self, link_type: str, values: list[dict[str, Any]] | None) -> None:
+        kept = [
+            row
+            for row in list(self.__dict__.get("link_entries") or [])
+            if getattr(row, "link_type", None) != link_type
+        ]
+        normalized_rows: list[ItemLink] = []
+        for index, raw in enumerate(values or []):
+            if not isinstance(raw, dict):
+                continue
+            url = str(raw.get("url") or "").strip()
+            if not url:
+                continue
+            normalized_rows.append(
+                ItemLink(
+                    link_type=link_type,
+                    url=url,
+                    site=str(raw.get("site") or "").strip() or None,
+                    name=str(raw.get("name") or "").strip() or None,
+                    kind=str(raw.get("kind") or "").strip() or None,
+                    description=str(raw.get("description") or "").strip() or None,
+                    position=index,
+                )
+            )
+        self.link_entries = [*kept, *normalized_rows]
+
+    @property
+    def trailer_urls(self) -> list[dict[str, Any]]:
+        return self._item_links_for_type("trailer")
+
+    @trailer_urls.setter
+    def trailer_urls(self, values: list[dict[str, Any]] | None) -> None:
+        self._set_item_links_for_type("trailer", values)
+
+    @property
+    def external_links(self) -> list[dict[str, Any]]:
+        return self._item_links_for_type("external")
+
+    @external_links.setter
+    def external_links(self, values: list[dict[str, Any]] | None) -> None:
+        self._set_item_links_for_type("external", values)
+
+
+class ItemAlias(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "item_aliases"
+    __table_args__ = (
+        UniqueConstraint("item_id", "normalized_alias", name="uq_item_aliases_item_normalized_alias"),
+        Index("ix_item_aliases_item_position", "item_id", "position"),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    alias: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_alias: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    item: Mapped[Item] = relationship(back_populates="alias_entries")
+
+
+class ItemLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "item_links"
+    __table_args__ = (
+        CheckConstraint(
+            "link_type IN ('trailer', 'external')",
+            name="ck_item_links_link_type_valid",
+        ),
+        Index("ix_item_links_item_type_position", "item_id", "link_type", "position"),
+    )
+
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    link_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    site: Mapped[str | None] = mapped_column(String(255))
+    name: Mapped[str | None] = mapped_column(String(255))
+    kind: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    item: Mapped[Item] = relationship(back_populates="link_entries")
+
+
+class ReleaseStatus(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "release_statuses"
+
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+
+
+class PhysicalFormatRef(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "physical_format_refs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    media_family: Mapped[str] = mapped_column(String(64), nullable=False)
+    variant_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
 
 
 class Edition(UuidMixin, TimestampMixin, Base):
     __tablename__ = "editions"
     __table_args__ = (
         CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_editions_nr_discs_nonnegative"),
+        Index("ix_editions_release_date", "release_date"),
     )
 
     item_id: Mapped[uuid.UUID] = mapped_column(
@@ -157,7 +329,11 @@ class Edition(UuidMixin, TimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     format: Mapped[str | None] = mapped_column(String(100))
-    physical_format: Mapped[str | None] = mapped_column(String(64), index=True)
+    physical_format: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("physical_format_refs.id", ondelete="SET NULL"),
+        index=True,
+    )
     physical_format_label: Mapped[str | None] = mapped_column(String(64))
     physical_format_media_family: Mapped[str | None] = mapped_column(String(64))
     physical_format_variant_type: Mapped[str | None] = mapped_column(String(64))
@@ -182,6 +358,7 @@ class Edition(UuidMixin, TimestampMixin, Base):
 
     item: Mapped[Item] = relationship(back_populates="editions")
     variants: Mapped[list["Variant"]] = relationship(back_populates="edition")
+    physical_format_ref: Mapped[PhysicalFormatRef | None] = relationship()
 
 
 class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
@@ -199,6 +376,77 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
     audience_rating: Mapped[str | None] = mapped_column(String(64), index=True)
 
     item: Mapped[Item] = relationship(back_populates="kind_metadata")
+    taxonomy_links: Mapped[list["ItemKindMetadataTaxonomy"]] = relationship(
+        back_populates="item_kind_metadata",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by=lambda: (
+            ItemKindMetadataTaxonomy.category.asc(),
+            ItemKindMetadataTaxonomy.position.asc(),
+            ItemKindMetadataTaxonomy.created_at.asc(),
+            ItemKindMetadataTaxonomy.id.asc(),
+        ),
+    )
+
+    def _taxonomy_values(self, category: str) -> list[str]:
+        values: list[str] = []
+        for row in list(self.__dict__.get("taxonomy_links") or []):
+            if getattr(row, "category", None) != category:
+                continue
+            taxonomy = getattr(row, "taxonomy", None)
+            name = str(getattr(taxonomy, "name", "") or "").strip()
+            if name:
+                values.append(name)
+        return values
+
+    @property
+    def genres(self) -> list[str]:
+        return self._taxonomy_values("genre")
+
+    @genres.setter
+    def genres(self, values: list[str] | None) -> None:
+        self._set_taxonomy_values("genre", values)
+
+    @property
+    def platforms(self) -> list[str]:
+        return self._taxonomy_values("platform")
+
+    @platforms.setter
+    def platforms(self, values: list[str] | None) -> None:
+        self._set_taxonomy_values("platform", values)
+
+    def _set_taxonomy_values(self, category: str, values: list[str] | None) -> None:
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for raw in values or []:
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            key = text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(text)
+        existing_other_categories = [
+            row
+            for row in list(self.__dict__.get("taxonomy_links") or [])
+            if getattr(row, "category", None) != category
+        ]
+        self.taxonomy_links = [
+            *existing_other_categories,
+            *[
+                ItemKindMetadataTaxonomy(
+                    category=category,
+                    position=index,
+                    taxonomy=MetadataTaxonomy(
+                        category=category,
+                        name=text,
+                        normalized_name=text.casefold(),
+                    ),
+                )
+                for index, text in enumerate(deduped)
+            ],
+        ]
 
 
 class ItemKindMetadataAnime(ItemKindMetadata):
@@ -208,7 +456,6 @@ class ItemKindMetadataAnime(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
 
 
@@ -219,8 +466,6 @@ class ItemKindMetadataBoardGame(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-    platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
 
 
 class ItemKindMetadataBook(ItemKindMetadata):
@@ -230,7 +475,6 @@ class ItemKindMetadataBook(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
 
 
 class ItemKindMetadataCollection(ItemKindMetadata):
@@ -240,7 +484,6 @@ class ItemKindMetadataCollection(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
 
 
 class ItemKindMetadataComic(ItemKindMetadata):
@@ -250,7 +493,6 @@ class ItemKindMetadataComic(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
 
 
 class ItemKindMetadataGame(ItemKindMetadata):
@@ -260,8 +502,6 @@ class ItemKindMetadataGame(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-    platforms: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
 
 
 class ItemKindMetadataManga(ItemKindMetadata):
@@ -271,7 +511,6 @@ class ItemKindMetadataManga(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
 
 
 class ItemKindMetadataMovie(ItemKindMetadata):
@@ -281,7 +520,6 @@ class ItemKindMetadataMovie(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
 
 
@@ -293,7 +531,6 @@ class ItemKindMetadataMusic(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     track_count: Mapped[int | None] = mapped_column(Integer)
     tracks: Mapped[list["ItemKindMetadataMusicTrack"]] = relationship(
         back_populates="kind_metadata",
@@ -352,19 +589,84 @@ class ItemKindMetadataTv(ItemKindMetadata):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
+
+
+class MetadataTaxonomy(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "metadata_taxonomies"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('genre', 'platform')",
+            name="ck_metadata_taxonomies_category_valid",
+        ),
+    )
+
+    category: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+
+
+class ItemKindMetadataTaxonomy(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "item_kind_metadata_taxonomies"
+    __table_args__ = (
+        UniqueConstraint(
+            "item_kind_metadata_id",
+            "taxonomy_id",
+            "category",
+            name="uq_item_kind_metadata_taxonomy_link",
+        ),
+        Index(
+            "ix_item_kind_metadata_taxonomies_owner_category_position",
+            "item_kind_metadata_id",
+            "category",
+            "position",
+        ),
+    )
+
+    item_kind_metadata_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("item_kind_metadata.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    taxonomy_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("metadata_taxonomies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    item_kind_metadata: Mapped[ItemKindMetadata] = relationship(back_populates="taxonomy_links")
+    taxonomy: Mapped[MetadataTaxonomy] = relationship(lazy="joined")
 
 
 class Variant(UuidMixin, TimestampMixin, Base):
     __tablename__ = "variants"
+    __table_args__ = (
+        CheckConstraint(
+            "cover_price_cents IS NULL OR cover_price_cents >= 0",
+            name="ck_variants_cover_price_cents_nonnegative",
+        ),
+        Index(
+            "uq_variants_primary_per_edition",
+            "edition_id",
+            unique=True,
+            postgresql_where=text("is_primary"),
+        ),
+    )
 
     edition_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("editions.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     variant_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    physical_format: Mapped[str | None] = mapped_column(String(64), index=True)
+    physical_format: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("physical_format_refs.id", ondelete="SET NULL"),
+        index=True,
+    )
     physical_format_label: Mapped[str | None] = mapped_column(String(64))
     physical_format_media_family: Mapped[str | None] = mapped_column(String(64))
     physical_format_variant_type: Mapped[str | None] = mapped_column(String(64))
@@ -384,6 +686,7 @@ class Variant(UuidMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     edition: Mapped[Edition] = relationship(back_populates="variants")
+    physical_format_ref: Mapped[PhysicalFormatRef | None] = relationship()
 
 
 class BundleRelease(UuidMixin, TimestampMixin, Base):
@@ -599,12 +902,32 @@ class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     api_url: Mapped[str | None] = mapped_column(String(1024))
 
 
+class ProviderPayloadSnapshot(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "provider_payload_snapshots"
+    __table_args__ = (
+        Index("ix_provider_payload_snapshots_entity", "entity_type", "entity_id"),
+        Index("ix_provider_payload_snapshots_provider_item", "provider", "provider_item_id"),
+    )
+
+    provider: Mapped[ExternalProvider] = mapped_column(
+        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    )
+    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    source_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    normalized_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+
 class Organization(UuidMixin, TimestampMixin, Base):
     __tablename__ = "organizations"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     type: Mapped[str | None] = mapped_column(String(64), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)
+    parent_publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
@@ -612,6 +935,10 @@ class Person(UuidMixin, TimestampMixin, Base):
     __tablename__ = "persons"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
@@ -626,6 +953,7 @@ class EntityOrganization(UuidMixin, TimestampMixin, Base):
             name="uq_entity_organization_role",
         ),
         Index("ix_entity_organizations_entity", "entity_type", "entity_id"),
+        Index("ix_entity_organizations_organization", "organization_id"),
     )
 
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -649,6 +977,7 @@ class EntityPerson(UuidMixin, TimestampMixin, Base):
             name="uq_entity_person_role",
         ),
         Index("ix_entity_persons_entity", "entity_type", "entity_id"),
+        Index("ix_entity_persons_person", "person_id"),
     )
 
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -672,6 +1001,8 @@ class StoryArc(UuidMixin, TimestampMixin, Base):
     publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
+    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
@@ -703,6 +1034,8 @@ class Character(UuidMixin, TimestampMixin, Base):
     aliases: Mapped[list[str] | None] = mapped_column(JSONB)
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
+    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
     first_appearance_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
     )
@@ -742,6 +1075,7 @@ class EntityTag(UuidMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("entity_type", "entity_id", "tag_id", name="uq_entity_tag"),
         Index("ix_entity_tags_entity", "entity_type", "entity_id"),
+        Index("ix_entity_tags_tag", "tag_id"),
     )
 
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -894,6 +1228,10 @@ class SeriesRelation(UuidMixin, TimestampMixin, Base):
         index=True,
     )
     ordinal: Mapped[int | None] = mapped_column(Integer)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    start_year: Mapped[int | None] = mapped_column(Integer)
+    provider: Mapped[str | None] = mapped_column(String(64), index=True)
+    provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     source_series: Mapped[Series] = relationship(

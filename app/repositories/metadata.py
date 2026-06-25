@@ -13,6 +13,7 @@ from app.models.canonical import (
     EntityOrganization,
     EntityPerson,
     Item,
+    ItemKindMetadata,
     ItemKindMetadataAnime,
     ItemKindMetadataBoardGame,
     ItemKindMetadataBook,
@@ -23,6 +24,7 @@ from app.models.canonical import (
     ItemKindMetadataMovie,
     ItemKindMetadataMusic,
     ItemKindMetadataTv,
+    ItemKindMetadataTaxonomy,
     Series,
     StoryArcItem,
     Variant,
@@ -66,7 +68,12 @@ class MetadataRepository:
         return select(Item).options(
             selectinload(Item.volume).selectinload(Volume.series),
             selectinload(Item.editions).selectinload(Edition.variants),
+            selectinload(Item.alias_entries),
+            selectinload(Item.link_entries),
             self._kind_metadata_loader(),
+            selectinload(Item.kind_metadata).selectinload(ItemKindMetadata.taxonomy_links).selectinload(
+                ItemKindMetadataTaxonomy.taxonomy
+            ),
             selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
                 ItemKindMetadataMusic.tracks
             ),
@@ -124,7 +131,12 @@ class MetadataRepository:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.alias_entries),
+                selectinload(Item.link_entries),
                 self._kind_metadata_loader(),
+                selectinload(Item.kind_metadata).selectinload(ItemKindMetadata.taxonomy_links).selectinload(
+                    ItemKindMetadataTaxonomy.taxonomy
+                ),
                 selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
                     ItemKindMetadataMusic.tracks
                 ),

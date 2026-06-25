@@ -519,3 +519,7 @@ class ImageCacheStatsResponse(BaseModel):
 class ImageCachePurgeResponse(BaseModel):
     deleted_entries: int
     freed_bytes: int
+
+
+class ProviderPayloadSnapshotPurgeResponse(BaseModel):
+    purged: int

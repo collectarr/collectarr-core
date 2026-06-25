@@ -447,6 +447,7 @@
       <section class="card layout">
         <div class="toolbar">
           <input id="schema-search" class="search" type="search" placeholder="Filter tables, columns, constraints, enums, or references">
+          <div id="kind-nav" class="domain-nav"></div>
           <div id="domain-nav" class="domain-nav"></div>
         </div>
       </section>
@@ -460,6 +461,12 @@
         <h2 class="section-title">No Matches</h2>
         <p class="muted">Try a broader table name, column name, enum value, or constraint fragment.</p>
       </div>
+
+      <section class="card">
+        <h2 class="section-title">Kind Views</h2>
+        <p class="muted">Kind-focused slices for faster navigation of shared + kind-specific schema.</p>
+        <section id="kinds" class="domains" style="margin-top: 16px;"></section>
+      </section>
 
       <section id="domains" class="domains"></section>
 
@@ -657,24 +664,24 @@
         `;
       };
 
-      const renderDomains = () => {
-        const domainNav = document.getElementById("domain-nav");
-        domainNav.innerHTML = schemaData.domains.map((domain) => `
-          <a class="domain-link" href="#domain-${escapeHtml(domain.id)}">${escapeHtml(domain.title)}</a>
+      const renderSectionCollection = ({ sections, navId, containerId, prefix, dataAttribute }) => {
+        const nav = document.getElementById(navId);
+        nav.innerHTML = sections.map((section) => `
+          <a class="domain-link" href="#${prefix}-${escapeHtml(section.id)}">${escapeHtml(section.title)}</a>
         `).join("");
 
         const tablesByName = new Map(schemaData.tables.map((table) => [table.name, table]));
-        const domains = document.getElementById("domains");
-        domains.innerHTML = schemaData.domains.map((domain) => {
-          const tables = domain.tables.map((tableName) => tablesByName.get(tableName));
+        const container = document.getElementById(containerId);
+        container.innerHTML = sections.map((section) => {
+          const tables = section.tables.map((tableName) => tablesByName.get(tableName)).filter(Boolean);
           return `
-            <section id="domain-${escapeHtml(domain.id)}" class="domain" data-domain>
+            <section id="${prefix}-${escapeHtml(section.id)}" class="domain" ${dataAttribute}>
               <div class="domain-header">
                 <div>
-                  <h2 class="domain-title">${escapeHtml(domain.title)}</h2>
-                  <p class="domain-description">${escapeHtml(domain.description)}</p>
+                  <h2 class="domain-title">${escapeHtml(section.title)}</h2>
+                  <p class="domain-description">${escapeHtml(section.description)}</p>
                 </div>
-                <div class="diagram-controls" data-target="diagram-${escapeHtml(domain.id)}">
+                <div class="diagram-controls" data-target="diagram-${prefix}-${escapeHtml(section.id)}">
                   <button type="button" data-action="zoom-in">Zoom in</button>
                   <button type="button" data-action="zoom-out">Zoom out</button>
                   <button type="button" data-action="fit">Fit</button>
@@ -683,15 +690,15 @@
               </div>
 
               <div class="viewer-shell">
-                <div id="diagram-${escapeHtml(domain.id)}" class="diagram-viewer" aria-label="${escapeHtml(domain.title)} schema diagram"></div>
+                <div id="diagram-${prefix}-${escapeHtml(section.id)}" class="diagram-viewer" aria-label="${escapeHtml(section.title)} schema diagram"></div>
               </div>
 
               <div class="domain-subgrid">
-                ${domain.external_references.length ? `
+                ${section.external_references.length ? `
                   <div class="constraint-card">
                     <h4>Cross-domain references</h4>
                     <ul class="reference-list">
-                      ${domain.external_references.map((reference) => `<li><code>${escapeHtml(reference.from_table)}.${escapeHtml(reference.from_columns.join(", "))}</code> -> <code>${escapeHtml(reference.targets.join(", "))}</code></li>`).join("")}
+                      ${section.external_references.map((reference) => `<li><code>${escapeHtml(reference.from_table)}.${escapeHtml(reference.from_columns.join(", "))}</code> -> <code>${escapeHtml(reference.targets.join(", "))}</code></li>`).join("")}
                     </ul>
                   </div>
                 ` : ""}
@@ -703,6 +710,22 @@
           `;
         }).join("");
       };
+
+      const renderDomains = () => renderSectionCollection({
+        sections: schemaData.domains,
+        navId: "domain-nav",
+        containerId: "domains",
+        prefix: "domain",
+        dataAttribute: "data-domain",
+      });
+
+      const renderKinds = () => renderSectionCollection({
+        sections: schemaData.kinds || [],
+        navId: "kind-nav",
+        containerId: "kinds",
+        prefix: "kind",
+        dataAttribute: "data-kind",
+      });
 
       const renderDiagram = async (targetId, definition) => {
         const container = document.getElementById(targetId);
@@ -802,6 +825,10 @@
             const visibleInDomain = domain.querySelectorAll(".table-card:not(.hidden)").length;
             domain.classList.toggle("hidden", visibleInDomain === 0);
           });
+          document.querySelectorAll("[data-kind]").forEach((kindSection) => {
+            const visibleInKind = kindSection.querySelectorAll(".table-card:not(.hidden)").length;
+            kindSection.classList.toggle("hidden", visibleInKind === 0);
+          });
 
           emptyState.classList.toggle("hidden", visibleCards !== 0);
         });
@@ -811,10 +838,15 @@
       renderNotes();
       renderEnums();
       renderRelationships();
+      renderKinds();
       renderDomains();
       bindDiagramControls();
       bindSearch();
-      await Promise.allSettled(schemaData.domains.map((domain) => renderDiagram(`diagram-${domain.id}`, domain.diagram)));
+      const kindSections = schemaData.kinds || [];
+      await Promise.allSettled([
+        ...kindSections.map((kind) => renderDiagram(`diagram-kind-${kind.id}`, kind.diagram)),
+        ...schemaData.domains.map((domain) => renderDiagram(`diagram-domain-${domain.id}`, domain.diagram)),
+      ]);
     </script>
   </body>
 </html>

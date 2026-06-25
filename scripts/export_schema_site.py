@@ -103,6 +103,124 @@ TABLE_TO_DOMAIN = {
     for table_name in domain["tables"]
 }
 
+KIND_SPECS: list[dict[str, str]] = [
+    {"id": "comic", "title": "Comics", "description": "Comic-specific schema slice."},
+    {"id": "manga", "title": "Manga", "description": "Manga-specific schema slice."},
+    {"id": "anime", "title": "Anime", "description": "Anime-specific schema slice."},
+    {"id": "movie", "title": "Movies", "description": "Movie-specific schema slice."},
+    {"id": "tv", "title": "TV", "description": "TV-specific schema slice."},
+    {"id": "game", "title": "Games", "description": "Video game schema slice."},
+    {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
+    {"id": "book", "title": "Books", "description": "Books v1 work/edition schema slice."},
+    {"id": "music", "title": "Music", "description": "Music schema slice."},
+    {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
+]
+
+KIND_SHARED_TABLES = [
+    "franchises",
+    "series",
+    "volumes",
+    "organizations",
+    "persons",
+    "entity_organizations",
+    "entity_persons",
+    "tags",
+    "entity_tags",
+    "external_provider_ids",
+    "provider_payload_snapshots",
+]
+
+KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
+    "comic": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_comic",
+        "characters",
+        "character_appearances",
+        "story_arcs",
+        "story_arc_items",
+    ],
+    "manga": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_manga",
+        "characters",
+        "character_appearances",
+        "story_arcs",
+        "story_arc_items",
+    ],
+    "anime": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_anime",
+    ],
+    "movie": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_movie",
+        "bundle_releases",
+        "bundle_release_items",
+    ],
+    "tv": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_tv",
+        "bundle_releases",
+        "bundle_release_items",
+    ],
+    "game": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_game",
+    ],
+    "boardgame": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_boardgame",
+    ],
+    "book": [
+        "book_works",
+        "book_editions",
+        "book_printings",
+        "book_contributions",
+        "book_identifiers",
+        "book_series_memberships",
+    ],
+    "music": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_music",
+        "item_kind_metadata_music_tracks",
+        "bundle_releases",
+        "bundle_release_items",
+    ],
+    "collection": [
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_collection",
+        "bundle_releases",
+        "bundle_release_items",
+    ],
+}
+
 POLYMORPHIC_LINK_TABLES = {
     "entity_organizations",
     "entity_persons",
@@ -368,6 +486,20 @@ def format_markdown_value(value: str | None) -> str:
     return value.replace("|", "\\|")
 
 
+def build_kind_tables(kind_id: str, tables_by_name: dict[str, dict[str, Any]]) -> list[str]:
+    requested = [*KIND_SHARED_TABLES, *(KIND_SPECIFIC_TABLES.get(kind_id) or [])]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for table_name in requested:
+        if table_name not in tables_by_name:
+            continue
+        if table_name in seen:
+            continue
+        seen.add(table_name)
+        ordered.append(table_name)
+    return ordered
+
+
 def render_markdown(data: dict[str, Any]) -> str:
     lines = [
         "# Collectarr Core Full Schema Snapshot",
@@ -388,6 +520,18 @@ def render_markdown(data: dict[str, Any]) -> str:
         lines.append("")
         for value in enum_data["values"]:
             lines.append(f"- `{value}`")
+        lines.append("")
+
+    lines.extend(["## Kind-focused Views", ""])
+    for kind in data.get("kinds", []):
+        lines.append(f"### {kind['title']}")
+        lines.append("")
+        lines.append(kind["description"])
+        lines.append("")
+        lines.append("Tables:")
+        lines.append("")
+        for table_name in kind["tables"]:
+            lines.append(f"- `{table_name}`")
         lines.append("")
 
     tables_by_name = {table["name"]: table for table in data["tables"]}
@@ -495,16 +639,64 @@ def build_schema_data() -> dict[str, Any]:
 
     tables_by_name = {table["name"]: table for table in tables}
     domains = []
+    assigned_tables: set[str] = set()
     for domain in DOMAIN_SPECS:
+        domain_tables = [table_name for table_name in domain["tables"] if table_name in tables_by_name]
         diagram, external_refs = build_domain_diagram(domain, tables_by_name)
         domains.append(
             {
                 "id": domain["id"],
                 "title": domain["title"],
                 "description": domain["description"],
-                "tables": [table_name for table_name in domain["tables"] if table_name in tables_by_name],
+                "tables": domain_tables,
                 "diagram": diagram,
                 "external_references": external_refs,
+            }
+        )
+        assigned_tables.update(domain_tables)
+
+    remaining_tables = sorted(table_name for table_name in tables_by_name if table_name not in assigned_tables)
+    if remaining_tables:
+        misc_domain = {
+            "id": "misc",
+            "title": "Miscellaneous",
+            "description": "Tables not yet mapped to a primary domain bucket.",
+            "tables": remaining_tables,
+        }
+        diagram, external_refs = build_domain_diagram(misc_domain, tables_by_name)
+        domains.append(
+            {
+                "id": misc_domain["id"],
+                "title": misc_domain["title"],
+                "description": misc_domain["description"],
+                "tables": remaining_tables,
+                "diagram": diagram,
+                "external_references": external_refs,
+            }
+        )
+
+    kinds = []
+    for kind in KIND_SPECS:
+        kind_tables = build_kind_tables(kind["id"], tables_by_name)
+        if not kind_tables:
+            continue
+        kind_diagram, kind_external_refs = build_domain_diagram(
+            {
+                "id": f"kind-{kind['id']}",
+                "title": kind["title"],
+                "description": kind["description"],
+                "tables": kind_tables,
+            },
+            tables_by_name,
+        )
+        kinds.append(
+            {
+                "id": kind["id"],
+                "title": kind["title"],
+                "description": kind["description"],
+                "tables": kind_tables,
+                "diagram": kind_diagram,
+                "external_references": kind_external_refs,
             }
         )
 
@@ -521,6 +713,7 @@ def build_schema_data() -> dict[str, Any]:
         ],
         "notes": STATIC_NOTES,
         "domains": domains,
+        "kinds": kinds,
         "tables": tables,
         "enums": dict(sorted(enums.items())),
         "relationships": relationships,

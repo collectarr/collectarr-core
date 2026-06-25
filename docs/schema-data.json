@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-25T09:31:24Z",
+  "generated_at": "2026-06-25T11:01:26Z",
   "generator": "scripts/export_schema_site.py",
   "source_modules": [
     "app/models/base.py",
@@ -38,7 +38,7 @@
         "bundle_release_items",
         "series_relations"
       ],
-      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_BOOK {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK, FK\n    INTEGER track_count\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOOK : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  SERIES ||--o{ SERIES_RELATIONS : \"target_series_id, source_series_id\"",
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_BOOK {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK, FK\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK, FK\n    INTEGER track_count\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOOK : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  SERIES ||--o{ SERIES_RELATIONS : \"target_series_id, source_series_id\"",
       "external_references": [
         {
           "from_table": "editions",
@@ -154,6 +154,650 @@
           "to_table": "users",
           "targets": [
             "users.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "misc",
+      "title": "Miscellaneous",
+      "description": "Tables not yet mapped to a primary domain bucket.",
+      "tables": [
+        "admin_release_media_mapping_rules",
+        "book_contributions",
+        "book_editions",
+        "book_identifiers",
+        "book_printings",
+        "book_series_memberships",
+        "book_works",
+        "bundle_release_provider_links",
+        "item_aliases",
+        "item_kind_metadata_music_tracks",
+        "item_kind_metadata_taxonomies",
+        "item_links",
+        "item_provider_links",
+        "metadata_taxonomies",
+        "physical_format_refs",
+        "provider_payload_snapshots",
+        "release_statuses",
+        "series_provider_links",
+        "volume_provider_links"
+      ],
+      "diagram": "erDiagram\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID edition_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_EDITIONS {\n    UUID work_id FK\n    VARCHAR_255 display_title\n    VARCHAR_255 edition_statement\n    VARCHAR_100 format\n    VARCHAR_100 binding\n    DATE publication_date\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    VARCHAR_16 language\n    VARCHAR_32 region\n    INTEGER page_count\n    INTEGER audio_length_minutes\n    VARCHAR_64 age_rating\n    VARCHAR_64 release_status\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_PRINTINGS {\n    UUID edition_id FK\n    INTEGER printing_number\n    VARCHAR_255 printing_statement\n    INTEGER print_run\n    TEXT notes\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_WORKS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_255 subtitle\n    TEXT description\n    VARCHAR_16 original_language\n    DATE original_publication_date\n    DATE first_publication_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_PROVIDER_LINKS {\n    UUID bundle_release_id FK\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_ALIASES {\n    UUID item_id FK\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_MUSIC_TRACKS {\n    UUID item_kind_metadata_id FK\n    VARCHAR_255 title\n    INTEGER position\n    INTEGER duration_seconds\n    VARCHAR_255 artist\n    INTEGER disc_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_TAXONOMIES {\n    UUID item_kind_metadata_id FK\n    UUID taxonomy_id FK\n    VARCHAR_32 category\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_LINKS {\n    UUID item_id FK\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_PROVIDER_LINKS {\n    UUID item_id FK\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  METADATA_TAXONOMIES {\n    VARCHAR_32 category\n    VARCHAR_255 name\n    VARCHAR_255 normalized_name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_PROVIDER_LINKS {\n    UUID series_id FK\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUME_PROVIDER_LINKS {\n    UUID volume_id FK\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_EDITIONS o|--o{ BOOK_CONTRIBUTIONS : edition_id\n  BOOK_WORKS o|--o{ BOOK_CONTRIBUTIONS : work_id\n  BOOK_WORKS ||--o{ BOOK_EDITIONS : work_id\n  BOOK_EDITIONS ||--o{ BOOK_IDENTIFIERS : edition_id\n  BOOK_EDITIONS ||--o{ BOOK_PRINTINGS : edition_id\n  BOOK_WORKS ||--o{ BOOK_SERIES_MEMBERSHIPS : work_id\n  METADATA_TAXONOMIES ||--o{ ITEM_KIND_METADATA_TAXONOMIES : taxonomy_id",
+      "external_references": [
+        {
+          "from_table": "book_contributions",
+          "from_columns": [
+            "person_id"
+          ],
+          "to_table": "persons",
+          "targets": [
+            "persons.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "book_series_memberships",
+          "from_columns": [
+            "series_id"
+          ],
+          "to_table": "series",
+          "targets": [
+            "series.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "bundle_release_provider_links",
+          "from_columns": [
+            "bundle_release_id"
+          ],
+          "to_table": "bundle_releases",
+          "targets": [
+            "bundle_releases.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "item_aliases",
+          "from_columns": [
+            "item_id"
+          ],
+          "to_table": "items",
+          "targets": [
+            "items.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "item_kind_metadata_music_tracks",
+          "from_columns": [
+            "item_kind_metadata_id"
+          ],
+          "to_table": "item_kind_metadata_music",
+          "targets": [
+            "item_kind_metadata_music.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "item_kind_metadata_taxonomies",
+          "from_columns": [
+            "item_kind_metadata_id"
+          ],
+          "to_table": "item_kind_metadata",
+          "targets": [
+            "item_kind_metadata.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "item_links",
+          "from_columns": [
+            "item_id"
+          ],
+          "to_table": "items",
+          "targets": [
+            "items.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "item_provider_links",
+          "from_columns": [
+            "item_id"
+          ],
+          "to_table": "items",
+          "targets": [
+            "items.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "series_provider_links",
+          "from_columns": [
+            "series_id"
+          ],
+          "to_table": "series",
+          "targets": [
+            "series.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "volume_provider_links",
+          "from_columns": [
+            "volume_id"
+          ],
+          "to_table": "volumes",
+          "targets": [
+            "volumes.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        }
+      ]
+    }
+  ],
+  "kinds": [
+    {
+      "id": "comic",
+      "title": "Comics",
+      "description": "Comic-specific schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_comic",
+        "characters",
+        "character_appearances",
+        "story_arcs",
+        "story_arc_items"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK, FK\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    JSONB aliases\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID first_appearance_item_id FK\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    DATE end_date\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    UUID item_id FK\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEMS o|--o{ CHARACTERS : first_appearance_item_id\n  ITEMS ||--o{ CHARACTER_APPEARANCES : item_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  ITEMS ||--o{ STORY_ARC_ITEMS : item_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "manga",
+      "title": "Manga",
+      "description": "Manga-specific schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_manga",
+        "characters",
+        "character_appearances",
+        "story_arcs",
+        "story_arc_items"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK, FK\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    JSONB aliases\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID first_appearance_item_id FK\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    DATE end_date\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    UUID item_id FK\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEMS o|--o{ CHARACTERS : first_appearance_item_id\n  ITEMS ||--o{ CHARACTER_APPEARANCES : item_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  ITEMS ||--o{ STORY_ARC_ITEMS : item_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "anime",
+      "title": "Anime",
+      "description": "Anime-specific schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_anime"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "movie",
+      "title": "Movies",
+      "description": "Movie-specific schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_movie",
+        "bundle_releases",
+        "bundle_release_items"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "TV",
+      "description": "TV-specific schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_tv",
+        "bundle_releases",
+        "bundle_release_items"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK, FK\n    VARCHAR_64 color\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "game",
+      "title": "Games",
+      "description": "Video game schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_game"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK, FK\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "boardgame",
+      "title": "Board Games",
+      "description": "Board game schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_boardgame"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK, FK\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "book",
+      "title": "Books",
+      "description": "Books v1 work/edition schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "book_works",
+        "book_editions",
+        "book_printings",
+        "book_contributions",
+        "book_identifiers",
+        "book_series_memberships"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_WORKS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_255 subtitle\n    TEXT description\n    VARCHAR_16 original_language\n    DATE original_publication_date\n    DATE first_publication_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_EDITIONS {\n    UUID work_id FK\n    VARCHAR_255 display_title\n    VARCHAR_255 edition_statement\n    VARCHAR_100 format\n    VARCHAR_100 binding\n    DATE publication_date\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    VARCHAR_16 language\n    VARCHAR_32 region\n    INTEGER page_count\n    INTEGER audio_length_minutes\n    VARCHAR_64 age_rating\n    VARCHAR_64 release_status\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_PRINTINGS {\n    UUID edition_id FK\n    INTEGER printing_number\n    VARCHAR_255 printing_statement\n    INTEGER print_run\n    TEXT notes\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID edition_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  BOOK_WORKS ||--o{ BOOK_EDITIONS : work_id\n  BOOK_EDITIONS ||--o{ BOOK_PRINTINGS : edition_id\n  PERSONS ||--o{ BOOK_CONTRIBUTIONS : person_id\n  BOOK_EDITIONS o|--o{ BOOK_CONTRIBUTIONS : edition_id\n  BOOK_WORKS o|--o{ BOOK_CONTRIBUTIONS : work_id\n  BOOK_EDITIONS ||--o{ BOOK_IDENTIFIERS : edition_id\n  SERIES ||--o{ BOOK_SERIES_MEMBERSHIPS : series_id\n  BOOK_WORKS ||--o{ BOOK_SERIES_MEMBERSHIPS : work_id",
+      "external_references": []
+    },
+    {
+      "id": "music",
+      "title": "Music",
+      "description": "Music schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_music",
+        "item_kind_metadata_music_tracks",
+        "bundle_releases",
+        "bundle_release_items"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK, FK\n    INTEGER track_count\n  }\n  ITEM_KIND_METADATA_MUSIC_TRACKS {\n    UUID item_kind_metadata_id FK\n    VARCHAR_255 title\n    INTEGER position\n    INTEGER duration_seconds\n    VARCHAR_255 artist\n    INTEGER disc_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA_MUSIC ||--o{ ITEM_KIND_METADATA_MUSIC_TRACKS : item_kind_metadata_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        }
+      ]
+    },
+    {
+      "id": "collection",
+      "title": "Collections",
+      "description": "Collection schema slice.",
+      "tables": [
+        "franchises",
+        "series",
+        "volumes",
+        "organizations",
+        "persons",
+        "entity_organizations",
+        "entity_persons",
+        "tags",
+        "entity_tags",
+        "external_provider_ids",
+        "provider_payload_snapshots",
+        "items",
+        "editions",
+        "variants",
+        "item_kind_metadata",
+        "item_kind_metadata_collection",
+        "bundle_releases",
+        "bundle_release_items"
+      ],
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    DATE air_date\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format FK\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK, FK\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id",
+      "external_references": [
+        {
+          "from_table": "editions",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "variants",
+          "from_columns": [
+            "physical_format"
+          ],
+          "to_table": "physical_format_refs",
+          "targets": [
+            "physical_format_refs.id"
           ],
           "ondelete": "SET NULL",
           "onupdate": null
@@ -356,6 +1000,236 @@
             "name": "ix_admin_release_media_mapping_rules_target_kind",
             "columns": [
               "target_kind"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "book_works",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_works_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_works_sort_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "subtitle",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "original_language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_works_original_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "original_publication_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_works_original_publication_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "first_publication_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_works_first_publication_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_book_works_first_publication_date",
+            "columns": [
+              "first_publication_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_works_original_language",
+            "columns": [
+              "original_language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_works_original_publication_date",
+            "columns": [
+              "original_publication_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_works_sort_title",
+            "columns": [
+              "sort_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_works_title",
+            "columns": [
+              "title"
             ],
             "unique": false
           }
@@ -3489,6 +4363,461 @@
       "polymorphic_note": null
     },
     {
+      "name": "book_editions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "work_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_work_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "work_id",
+              "target_table": "book_works",
+              "target_column": "id",
+              "target": "book_works.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "display_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "edition_statement",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "format",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "binding",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_binding"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publication_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_publication_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_publisher"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "imprint",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_imprint"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_region"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "page_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "audio_length_minutes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "age_rating",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_age_rating"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_status",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_editions_release_status"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "work_id"
+            ],
+            "targets": [
+              "book_works.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_book_editions_age_rating",
+            "columns": [
+              "age_rating"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_binding",
+            "columns": [
+              "binding"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_format",
+            "columns": [
+              "format"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_imprint",
+            "columns": [
+              "imprint"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_language",
+            "columns": [
+              "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_publication_date",
+            "columns": [
+              "publication_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_publisher",
+            "columns": [
+              "publisher"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_region",
+            "columns": [
+              "region"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_release_status",
+            "columns": [
+              "release_status"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_work_id",
+            "columns": [
+              "work_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_editions_work_publication",
+            "columns": [
+              "work_id",
+              "publication_date"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
       "name": "entity_organizations",
       "domain": "editorial",
       "columns": [
@@ -4334,6 +5663,932 @@
       "polymorphic_note": null
     },
     {
+      "name": "book_contributions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "work_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_contributions_work_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "work_id",
+              "target_table": "book_works",
+              "target_column": "id",
+              "target": "book_works.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "edition_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_contributions_edition_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "edition_id",
+              "target_table": "book_editions",
+              "target_column": "id",
+              "target": "book_editions.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "person_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_contributions_person_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "person_id",
+              "target_table": "persons",
+              "target_column": "id",
+              "target": "persons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_contributions_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "person_id"
+            ],
+            "targets": [
+              "persons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "edition_id"
+            ],
+            "targets": [
+              "book_editions.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "work_id"
+            ],
+            "targets": [
+              "book_works.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [
+          {
+            "name": "ck_book_contributions_work_xor_edition",
+            "sqltext": "((work_id IS NOT NULL AND edition_id IS NULL) OR (work_id IS NULL AND edition_id IS NOT NULL))"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_book_contributions_edition_id",
+            "columns": [
+              "edition_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_contributions_edition_role_sequence",
+            "columns": [
+              "edition_id",
+              "role",
+              "sequence"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_contributions_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_contributions_work_id",
+            "columns": [
+              "work_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_contributions_work_role_sequence",
+            "columns": [
+              "work_id",
+              "role",
+              "sequence"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "book_identifiers",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "edition_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_identifiers_edition_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "edition_id",
+              "target_table": "book_editions",
+              "target_column": "id",
+              "target": "book_editions.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "identifier_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_identifiers_identifier_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "normalized_value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_provider",
+          "type": "external_provider",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_identifiers_source_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "edition_id"
+            ],
+            "targets": [
+              "book_editions.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_book_identifiers_edition_type_normalized",
+            "columns": [
+              "edition_id",
+              "identifier_type",
+              "normalized_value"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_book_identifiers_edition_id",
+            "columns": [
+              "edition_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_identifiers_identifier_type",
+            "columns": [
+              "identifier_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_identifiers_source_provider",
+            "columns": [
+              "source_provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_identifiers_type_value",
+            "columns": [
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "book_printings",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "edition_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_printings_edition_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "edition_id",
+              "target_table": "book_editions",
+              "target_column": "id",
+              "target": "book_editions.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "printing_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_printings_printing_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "printing_statement",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "print_run",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "notes",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "edition_id"
+            ],
+            "targets": [
+              "book_editions.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_book_printings_edition_id",
+            "columns": [
+              "edition_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_printings_printing_number",
+            "columns": [
+              "printing_number"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "book_series_memberships",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "work_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_series_memberships_work_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "work_id",
+              "target_table": "book_works",
+              "target_column": "id",
+              "target": "book_works.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "series_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_book_series_memberships_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "series_id",
+              "target_table": "series",
+              "target_column": "id",
+              "target": "series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "sequence",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "display_number",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "series_id"
+            ],
+            "targets": [
+              "series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "work_id"
+            ],
+            "targets": [
+              "book_works.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_book_series_memberships_work_series",
+            "columns": [
+              "work_id",
+              "series_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_book_series_memberships_series_id",
+            "columns": [
+              "series_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_series_memberships_series_sequence",
+            "columns": [
+              "series_id",
+              "sequence"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_series_memberships_work_id",
+            "columns": [
+              "work_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
       "name": "series_provider_links",
       "domain": "misc",
       "columns": [
@@ -4346,8 +6601,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_series_provider_links_series",
-            "ix_series_provider_links_series_id"
+            "ix_series_provider_links_series_id",
+            "ix_series_provider_links_series"
           ],
           "default": null,
           "server_default": null,
@@ -4497,17 +6752,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_series_provider_links_owner_provider",
-            "columns": [
-              "series_id",
-              "provider"
-            ]
-          },
-          {
             "name": "uq_series_provider_links_provider_item",
             "columns": [
               "provider",
               "provider_item_id"
+            ]
+          },
+          {
+            "name": "uq_series_provider_links_owner_provider",
+            "columns": [
+              "series_id",
+              "provider"
             ]
           }
         ],
@@ -5532,8 +7787,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_volume_provider_links_volume_id",
-            "ix_volume_provider_links_volume"
+            "ix_volume_provider_links_volume",
+            "ix_volume_provider_links_volume_id"
           ],
           "default": null,
           "server_default": null,
@@ -5683,17 +7938,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_volume_provider_links_provider_item",
-            "columns": [
-              "provider",
-              "provider_item_id"
-            ]
-          },
-          {
             "name": "uq_volume_provider_links_owner_provider",
             "columns": [
               "volume_id",
               "provider"
+            ]
+          },
+          {
+            "name": "uq_volume_provider_links_provider_item",
+            "columns": [
+              "provider",
+              "provider_item_id"
             ]
           }
         ],
@@ -6173,28 +8428,6 @@
           {
             "name": null,
             "columns": [
-              "volume_id"
-            ],
-            "targets": [
-              "volumes.id"
-            ],
-            "ondelete": "SET NULL",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
-              "franchise_id"
-            ],
-            "targets": [
-              "franchises.id"
-            ],
-            "ondelete": "SET NULL",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
               "primary_item_id"
             ],
             "targets": [
@@ -6210,6 +8443,28 @@
             ],
             "targets": [
               "series.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "volume_id"
+            ],
+            "targets": [
+              "volumes.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "franchise_id"
+            ],
+            "targets": [
+              "franchises.id"
             ],
             "ondelete": "SET NULL",
             "onupdate": null
@@ -7932,17 +10187,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_item_provider_links_owner_provider",
-            "columns": [
-              "item_id",
-              "provider"
-            ]
-          },
-          {
             "name": "uq_item_provider_links_provider_item",
             "columns": [
               "provider",
               "provider_item_id"
+            ]
+          },
+          {
+            "name": "uq_item_provider_links_owner_provider",
+            "columns": [
+              "item_id",
+              "provider"
             ]
           }
         ],
@@ -8383,10 +10638,10 @@
           {
             "name": null,
             "columns": [
-              "item_id"
+              "bundle_release_id"
             ],
             "targets": [
-              "items.id"
+              "bundle_releases.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -8394,10 +10649,10 @@
           {
             "name": null,
             "columns": [
-              "bundle_release_id"
+              "item_id"
             ],
             "targets": [
-              "bundle_releases.id"
+              "items.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -8802,10 +11057,10 @@
           {
             "name": null,
             "columns": [
-              "character_id"
+              "item_id"
             ],
             "targets": [
-              "characters.id"
+              "items.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -8813,10 +11068,10 @@
           {
             "name": null,
             "columns": [
-              "item_id"
+              "character_id"
             ],
             "targets": [
-              "items.id"
+              "characters.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -10379,16 +12634,16 @@
         "unique_constraints": [],
         "check_constraints": [
           {
+            "name": "ck_item_kind_metadata_music_tracks_position_nonnegative",
+            "sqltext": "position IS NULL OR position >= 0"
+          },
+          {
             "name": "ck_item_kind_metadata_music_tracks_disc_nonnegative",
             "sqltext": "disc_number IS NULL OR disc_number >= 0"
           },
           {
             "name": "ck_item_kind_metadata_music_tracks_duration_nonnegative",
             "sqltext": "duration_seconds IS NULL OR duration_seconds >= 0"
-          },
-          {
-            "name": "ck_item_kind_metadata_music_tracks_position_nonnegative",
-            "sqltext": "position IS NULL OR position >= 0"
           }
         ],
         "indexes": [
@@ -10482,6 +12737,18 @@
       "onupdate": null
     },
     {
+      "from_table": "book_editions",
+      "from_columns": [
+        "work_id"
+      ],
+      "to_targets": [
+        "book_works.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "entity_organizations",
       "from_columns": [
         "organization_id"
@@ -10527,6 +12794,90 @@
       ],
       "name": null,
       "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_contributions",
+      "from_columns": [
+        "person_id"
+      ],
+      "to_targets": [
+        "persons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_contributions",
+      "from_columns": [
+        "edition_id"
+      ],
+      "to_targets": [
+        "book_editions.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_contributions",
+      "from_columns": [
+        "work_id"
+      ],
+      "to_targets": [
+        "book_works.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_identifiers",
+      "from_columns": [
+        "edition_id"
+      ],
+      "to_targets": [
+        "book_editions.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_printings",
+      "from_columns": [
+        "edition_id"
+      ],
+      "to_targets": [
+        "book_editions.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_series_memberships",
+      "from_columns": [
+        "series_id"
+      ],
+      "to_targets": [
+        "series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "book_series_memberships",
+      "from_columns": [
+        "work_id"
+      ],
+      "to_targets": [
+        "book_works.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
       "onupdate": null
     },
     {
@@ -10604,30 +12955,6 @@
     {
       "from_table": "bundle_releases",
       "from_columns": [
-        "volume_id"
-      ],
-      "to_targets": [
-        "volumes.id"
-      ],
-      "name": null,
-      "ondelete": "SET NULL",
-      "onupdate": null
-    },
-    {
-      "from_table": "bundle_releases",
-      "from_columns": [
-        "franchise_id"
-      ],
-      "to_targets": [
-        "franchises.id"
-      ],
-      "name": null,
-      "ondelete": "SET NULL",
-      "onupdate": null
-    },
-    {
-      "from_table": "bundle_releases",
-      "from_columns": [
         "primary_item_id"
       ],
       "to_targets": [
@@ -10644,6 +12971,30 @@
       ],
       "to_targets": [
         "series.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "volume_id"
+      ],
+      "to_targets": [
+        "volumes.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "franchise_id"
+      ],
+      "to_targets": [
+        "franchises.id"
       ],
       "name": null,
       "ondelete": "SET NULL",
@@ -10760,10 +13111,10 @@
     {
       "from_table": "bundle_release_items",
       "from_columns": [
-        "item_id"
+        "bundle_release_id"
       ],
       "to_targets": [
-        "items.id"
+        "bundle_releases.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -10772,10 +13123,10 @@
     {
       "from_table": "bundle_release_items",
       "from_columns": [
-        "bundle_release_id"
+        "item_id"
       ],
       "to_targets": [
-        "bundle_releases.id"
+        "items.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -10796,10 +13147,10 @@
     {
       "from_table": "character_appearances",
       "from_columns": [
-        "character_id"
+        "item_id"
       ],
       "to_targets": [
-        "characters.id"
+        "items.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -10808,10 +13159,10 @@
     {
       "from_table": "character_appearances",
       "from_columns": [
-        "item_id"
+        "character_id"
       ],
       "to_targets": [
-        "items.id"
+        "characters.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -10999,11 +13350,11 @@
     }
   ],
   "summary": {
-    "tables": 50,
-    "columns": 437,
-    "foreign_keys": 44,
-    "indexes": 169,
-    "unique_constraints": 25,
-    "check_constraints": 10
+    "tables": 56,
+    "columns": 505,
+    "foreign_keys": 52,
+    "indexes": 200,
+    "unique_constraints": 27,
+    "check_constraints": 11
   }
 }

@@ -308,19 +308,18 @@ class AdminCatalogService:
                 detail="Item not found",
             )
         update_data = payload.model_dump(exclude_unset=True)
-        item_metadata = dict(item.metadata_json or {}) if isinstance(item.metadata_json, dict) else {}
         before = {
             "title": item.title,
             "title_extension": item.title_extension,
             "sort_key": item.sort_key,
-            "original_title": item_metadata.get("original_title"),
-            "localized_title": item_metadata.get("localized_title"),
-            "search_aliases": item_metadata.get("search_aliases"),
+            "original_title": item.original_title,
+            "localized_title": item.localized_title,
+            "search_aliases": list(item.search_aliases or []),
             "item_number": item.item_number,
             "synopsis": item.synopsis,
-            "crossover": item_metadata.get("crossover"),
-            "plot_summary": item_metadata.get("plot_summary"),
-            "plot_description": item_metadata.get("plot_description"),
+            "crossover": item.crossover,
+            "plot_summary": item.plot_summary,
+            "plot_description": item.plot_description,
             "edition_title": None,
             "page_count": item.page_count,
             "runtime_minutes": item.runtime_minutes,
@@ -360,11 +359,6 @@ class AdminCatalogService:
         before["platforms"] = typed_before.get("platforms")
         before["tracks"] = typed_before.get("tracks")
         before["color"] = typed_before.get("color")
-        before["nr_discs"] = typed_before.get("nr_discs")
-        before["screen_ratio"] = typed_before.get("screen_ratio")
-        before["audio_tracks"] = typed_before.get("audio_tracks")
-        before["subtitles"] = typed_before.get("subtitles")
-        before["layers"] = typed_before.get("layers")
         if "title" in update_data and payload.title is not None:
             item.title = payload.title
         if "title_extension" in update_data:
@@ -382,19 +376,18 @@ class AdminCatalogService:
         else:
             item.sort_key = self._sort_key_builder(item.kind, item.title, item.item_number)
 
-        item_metadata_updates: dict[str, Any] = {}
         if "original_title" in update_data:
-            item_metadata_updates["original_title"] = self._normalize_optional_text(payload.original_title)
+            item.original_title = self._normalize_optional_text(payload.original_title)
         if "localized_title" in update_data:
-            item_metadata_updates["localized_title"] = self._normalize_optional_text(payload.localized_title)
+            item.localized_title = self._normalize_optional_text(payload.localized_title)
         if "search_aliases" in update_data:
-            item_metadata_updates["search_aliases"] = self._normalize_text_values(payload.search_aliases)
+            item.search_aliases = self._normalize_text_values(payload.search_aliases)
         if "crossover" in update_data:
-            item_metadata_updates["crossover"] = self._normalize_optional_text(payload.crossover)
+            item.crossover = self._normalize_optional_text(payload.crossover)
         if "plot_summary" in update_data:
-            item_metadata_updates["plot_summary"] = self._normalize_optional_text(payload.plot_summary)
+            item.plot_summary = self._normalize_optional_text(payload.plot_summary)
         if "plot_description" in update_data:
-            item_metadata_updates["plot_description"] = self._normalize_optional_text(payload.plot_description)
+            item.plot_description = self._normalize_optional_text(payload.plot_description)
 
         typed_updates: dict[str, Any] = {}
         if "audience_rating" in update_data:
@@ -409,16 +402,6 @@ class AdminCatalogService:
             typed_updates["track_count"] = len(tracks) if tracks else None
         if "color" in update_data:
             typed_updates["color"] = payload.color
-        if "nr_discs" in update_data:
-            typed_updates["nr_discs"] = payload.nr_discs
-        if "screen_ratio" in update_data:
-            typed_updates["screen_ratio"] = payload.screen_ratio
-        if "audio_tracks" in update_data:
-            typed_updates["audio_tracks"] = payload.audio_tracks
-        if "subtitles" in update_data:
-            typed_updates["subtitles"] = payload.subtitles
-        if "layers" in update_data:
-            typed_updates["layers"] = payload.layers
 
         edition = self._primary_edition_model(item)
         physical_format = None
@@ -439,6 +422,11 @@ class AdminCatalogService:
             before["age_rating"] = edition.age_rating
             before["catalog_number"] = edition.catalog_number
             before["release_status"] = edition.release_status
+            before["nr_discs"] = edition.nr_discs
+            before["screen_ratio"] = edition.screen_ratio
+            before["audio_tracks"] = edition.audio_tracks
+            before["subtitles"] = edition.subtitles
+            before["layers"] = edition.layers
             if "edition_title" in update_data:
                 edition.title = payload.edition_title
             if "publisher" in update_data:
@@ -461,6 +449,16 @@ class AdminCatalogService:
                 edition.catalog_number = payload.catalog_number
             if "release_status" in update_data:
                 edition.release_status = payload.release_status
+            if "nr_discs" in update_data:
+                edition.nr_discs = payload.nr_discs
+            if "screen_ratio" in update_data:
+                edition.screen_ratio = payload.screen_ratio
+            if "audio_tracks" in update_data:
+                edition.audio_tracks = payload.audio_tracks
+            if "subtitles" in update_data:
+                edition.subtitles = payload.subtitles
+            if "layers" in update_data:
+                edition.layers = payload.layers
             if physical_format is not None:
                 self._apply_physical_format_to_edition(
                     edition,
@@ -479,22 +477,11 @@ class AdminCatalogService:
         if "story_arcs" in update_data:
             await self._replace_item_story_arc_links(item.id, payload.story_arcs)
         if "trailer_urls" in update_data:
-            item.metadata_json = self._metadata_with_link_payload(
-                item.metadata_json,
-                key="trailer_urls",
-                values=payload.trailer_urls,
-            )
+            item.trailer_urls = self._current_link_values(payload.trailer_urls)
         if "external_links" in update_data:
-            item.metadata_json = self._metadata_with_link_payload(
-                item.metadata_json,
-                key="external_links",
-                values=payload.external_links,
-            )
+            item.external_links = self._current_link_values(payload.external_links)
         if typed_updates:
             self._patch_item_kind_metadata(item, typed_updates)
-        if item_metadata_updates:
-            item.metadata_json = self._metadata_with_item_payload(item.metadata_json, item_metadata_updates)
-
         variant = self._primary_variant_model(item)
         if variant is not None:
             before["variant_name"] = variant.name
@@ -833,6 +820,10 @@ class AdminCatalogService:
         item_kind: ItemKind,
     ) -> None:
         edition.format = physical_format.label
+        edition.physical_format = physical_format.id
+        edition.physical_format_label = physical_format.label
+        edition.physical_format_media_family = physical_format.media_family
+        edition.physical_format_variant_type = physical_format.variant_type
         edition.metadata_json = self._metadata_with_physical_format(
             edition.metadata_json,
             physical_format,
@@ -847,6 +838,10 @@ class AdminCatalogService:
         item_kind: ItemKind,
     ) -> None:
         variant.variant_type = physical_format.variant_type
+        variant.physical_format = physical_format.id
+        variant.physical_format_label = physical_format.label
+        variant.physical_format_media_family = physical_format.media_family
+        variant.physical_format_variant_type = physical_format.variant_type
         variant.metadata_json = self._metadata_with_physical_format(
             variant.metadata_json,
             physical_format,
@@ -1007,41 +1002,10 @@ class AdminCatalogService:
         return entries
 
     def _current_link_payload(self, item: Item, key: str) -> list[dict[str, Any]]:
-        metadata = getattr(item, "metadata_json", None)
-        if not isinstance(metadata, dict):
-            return []
-        values = metadata.get(key)
+        values = getattr(item, key, None)
         if not isinstance(values, list):
             return []
-        result: list[dict[str, Any]] = []
-        for row in values:
-            if not isinstance(row, dict):
-                continue
-            url = " ".join(str(row.get("url") or "").split()).strip()
-            if not url:
-                continue
-            entry: dict[str, Any] = {"url": url}
-            for field in ("site", "name", "kind", "description"):
-                value = " ".join(str(row.get(field) or "").split()).strip()
-                if value:
-                    entry[field] = value
-            result.append(entry)
-        return result
-
-    def _metadata_with_link_payload(
-        self,
-        metadata_json: dict[str, Any] | None,
-        *,
-        key: str,
-        values: list[dict[str, Any]] | None,
-    ) -> dict[str, Any]:
-        metadata = dict(metadata_json or {})
-        normalized = self._current_link_values(values)
-        if normalized:
-            metadata[key] = normalized
-        else:
-            metadata.pop(key, None)
-        return metadata
+        return self._current_link_values(values)
 
     def _current_link_values(self, values: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = []
@@ -1058,19 +1022,6 @@ class AdminCatalogService:
                     entry[field] = value
             result.append(entry)
         return result
-
-    def _metadata_with_item_payload(
-        self,
-        metadata_json: dict[str, Any] | None,
-        updates: dict[str, Any],
-    ) -> dict[str, Any]:
-        metadata = dict(metadata_json or {})
-        for key, value in updates.items():
-            if value is None or value == []:
-                metadata.pop(key, None)
-            else:
-                metadata[key] = value
-        return metadata
 
     def _item_kind_metadata_payload(self, value: ItemKindMetadata | None) -> dict[str, Any]:
         return item_kind_metadata_payload(value)

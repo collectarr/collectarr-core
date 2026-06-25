@@ -13,6 +13,16 @@ from app.models.canonical import (
     EntityOrganization,
     EntityPerson,
     Item,
+    ItemKindMetadataAnime,
+    ItemKindMetadataBoardGame,
+    ItemKindMetadataBook,
+    ItemKindMetadataCollection,
+    ItemKindMetadataComic,
+    ItemKindMetadataGame,
+    ItemKindMetadataManga,
+    ItemKindMetadataMovie,
+    ItemKindMetadataMusic,
+    ItemKindMetadataTv,
     Series,
     StoryArcItem,
     Variant,
@@ -23,6 +33,22 @@ from app.models.canonical import (
 class MetadataRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    def _kind_metadata_loader(self):
+        return selectinload(Item.kind_metadata).selectin_polymorphic(
+            [
+                ItemKindMetadataAnime,
+                ItemKindMetadataBoardGame,
+                ItemKindMetadataBook,
+                ItemKindMetadataCollection,
+                ItemKindMetadataComic,
+                ItemKindMetadataGame,
+                ItemKindMetadataManga,
+                ItemKindMetadataMovie,
+                ItemKindMetadataMusic,
+                ItemKindMetadataTv,
+            ]
+        )
 
     def _bundle_release_detail_stmt(self) -> Select[tuple[BundleRelease]]:
         return select(BundleRelease).options(
@@ -40,7 +66,10 @@ class MetadataRepository:
         return select(Item).options(
             selectinload(Item.volume).selectinload(Volume.series),
             selectinload(Item.editions).selectinload(Edition.variants),
-            selectinload(Item.kind_metadata),
+            self._kind_metadata_loader(),
+            selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
+                ItemKindMetadataMusic.tracks
+            ),
             selectinload(Item.provider_links),
             selectinload(Item.primary_bundle_releases),
             selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
@@ -95,7 +124,10 @@ class MetadataRepository:
             .options(
                 selectinload(Item.volume).selectinload(Volume.series),
                 selectinload(Item.editions).selectinload(Edition.variants),
-                selectinload(Item.kind_metadata),
+                self._kind_metadata_loader(),
+                selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
+                    ItemKindMetadataMusic.tracks
+                ),
                 selectinload(Item.provider_links),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.organization_links).selectinload(EntityOrganization.organization),

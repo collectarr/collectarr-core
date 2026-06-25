@@ -17,7 +17,7 @@ from app.catalog.metadata_fields import (
 )
 from app.models.base import ItemKind
 
-VIDEO = ("anime", "bluray", "movie", "tv")
+VIDEO = ("anime", "movie", "tv")
 PRINT = ("book", "comic", "manga")
 ALL = tuple(sorted(k.value for k in ItemKind))
 
@@ -35,18 +35,18 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     "cover_storage": ("string", True, False, "internal", ()),
     # Editable normalized common.
     "audience_rating": ("string", True, True, "regional", ()),
-    "physical_format": ("string", True, True, "publishing", ()),
+    "physical_format": ("string", False, True, "publishing", ()),
     # Editable normalized kind-scoped.
     "genres": ("string_list", True, True, "relations", ALL),
     "platforms": ("string_list", True, True, "relations", ("boardgame", "game")),
     "track_count": ("integer", True, True, "technical", ("music",)),
     "tracks": ("track_list", True, True, "technical", ("music",)),
     "color": ("string", True, True, "technical", VIDEO),
-    "nr_discs": ("integer", True, True, "technical", VIDEO),
-    "screen_ratio": ("string", True, True, "technical", VIDEO),
-    "audio_tracks": ("string", True, True, "technical", VIDEO),
-    "subtitles": ("string", True, True, "technical", VIDEO),
-    "layers": ("string", True, True, "technical", VIDEO),
+    "nr_discs": ("integer", False, True, "technical", VIDEO),
+    "screen_ratio": ("string", False, True, "technical", VIDEO),
+    "audio_tracks": ("string", False, True, "technical", VIDEO),
+    "subtitles": ("string", False, True, "technical", VIDEO),
+    "layers": ("string", False, True, "technical", VIDEO),
     # Editorial (not normalized).
     "title": ("string", False, True, "item", ALL),
     "original_title": ("string", False, True, "item", ALL),
@@ -79,7 +79,7 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     "plot_description": ("string", False, True, "artwork", ALL),
     "trailer_urls": (
         "link_list", False, True, "relations",
-        ("anime", "bluray", "game", "movie", "tv"),
+        ("anime", "game", "movie", "tv"),
     ),
     "external_links": ("link_list", False, True, "relations", ALL),
 }
@@ -103,18 +103,16 @@ def test_normalized_derivations_are_byte_for_byte_stable():
     """The normalization lookups must not change when editorial fields are added."""
     assert common_field_keys() == {
         "associated_image_id", "audience_rating", "cover_delivery_url", "cover_policy",
-        "cover_source_url", "cover_status", "cover_storage", "physical_format",
-        "physical_format_label", "physical_format_media_family",
+        "cover_source_url", "cover_status", "cover_storage", "physical_format_label", "physical_format_media_family",
         "physical_format_variant_type",
     }
     assert typed_field_keys() == {
-        "audience_rating", "genres", "platforms", "color", "nr_discs", "screen_ratio",
-        "audio_tracks", "subtitles", "layers", "track_count", "tracks",
+        "audience_rating", "genres", "platforms", "color", "track_count", "tracks",
     }
     vt = value_types()
     assert vt["genres"] == "string_list"
-    assert vt["nr_discs"] == "integer"
     assert vt["tracks"] == "track_list"
+    assert "nr_discs" not in vt
     # Editorial fields must NOT leak into the normalized value-type map.
     assert "title" not in vt
     assert "synopsis" not in vt

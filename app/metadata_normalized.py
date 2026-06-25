@@ -1,6 +1,8 @@
 from collections.abc import Mapping
 from typing import Any
 
+from sqlalchemy import inspect as sa_inspect
+
 from app.catalog.metadata_fields import (
     common_field_keys,
     kind_allowed_keys,
@@ -12,7 +14,6 @@ from app.models.canonical import (
     Item,
     ItemKindMetadata,
     ItemKindMetadataAnime,
-    ItemKindMetadataBluray,
     ItemKindMetadataBoardGame,
     ItemKindMetadataBook,
     ItemKindMetadataCollection,
@@ -21,6 +22,7 @@ from app.models.canonical import (
     ItemKindMetadataManga,
     ItemKindMetadataMovie,
     ItemKindMetadataMusic,
+    ItemKindMetadataMusicTrack,
     ItemKindMetadataTv,
 )
 
@@ -40,7 +42,6 @@ _KIND_METADATA_MODEL_BY_KIND: dict[ItemKind, type[ItemKindMetadata]] = {
     ItemKind.anime: ItemKindMetadataAnime,
     ItemKind.boardgame: ItemKindMetadataBoardGame,
     ItemKind.book: ItemKindMetadataBook,
-    ItemKind.bluray: ItemKindMetadataBluray,
     ItemKind.collection: ItemKindMetadataCollection,
     ItemKind.comic: ItemKindMetadataComic,
     ItemKind.game: ItemKindMetadataGame,
@@ -132,7 +133,35 @@ def typed_kind_metadata_payload(
 def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]:
     if value is None:
         return {}
-    raw = {key: getattr(value, key, None) for key in TYPED_KIND_METADATA_KEYS}
+    unloaded: set[str] = set()
+    state_dict: dict[str, Any] | None = None
+    try:
+        state = sa_inspect(value)
+        unloaded = set(state.unloaded) | set(getattr(state, "expired_attributes", set()))
+        state_dict = dict(state.dict)
+    except Exception:
+        state = None
+
+    raw: dict[str, Any] = {}
+    for key in TYPED_KIND_METADATA_KEYS:
+        if key == "tracks" or key in unloaded:
+            continue
+        if state_dict is not None and key in state_dict:
+            raw[key] = state_dict.get(key)
+        else:
+            raw[key] = getattr(value, key, None)
+    if isinstance(value, ItemKindMetadataMusic):
+        tracks_loaded = "tracks" not in unloaded
+        raw["tracks"] = [
+            {
+                "position": row.position,
+                "title": row.title,
+                "duration_seconds": row.duration_seconds,
+                "artist": row.artist,
+                "disc_number": row.disc_number,
+            }
+            for row in (list(getattr(value, "tracks", []) or []) if tracks_loaded else [])
+        ]
     return {
         key: row
         for key, row in raw.items()
@@ -149,6 +178,7 @@ def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] |
     if not typed_payload:
         item.kind_metadata = None
         return
+    tracks_payload = typed_payload.pop("tracks", None)
     metadata = item.kind_metadata
     metadata_model = _KIND_METADATA_MODEL_BY_KIND[item.kind]
     if metadata is None or not isinstance(metadata, metadata_model):
@@ -156,8 +186,26 @@ def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] |
         item.kind_metadata = metadata
     metadata.kind = item.kind
     for key in TYPED_KIND_METADATA_KEYS:
+        if key == "tracks":
+            continue
         if hasattr(metadata, key):
             setattr(metadata, key, typed_payload.get(key))
+    if isinstance(metadata, ItemKindMetadataMusic):
+        if isinstance(tracks_payload, list):
+            metadata.tracks = [
+                ItemKindMetadataMusicTrack(
+                    title=str(row.get("title")),
+                    position=row.get("position"),
+                    duration_seconds=row.get("duration_seconds"),
+                    artist=row.get("artist"),
+                    disc_number=row.get("disc_number"),
+                )
+                for row in tracks_payload
+                if isinstance(row, Mapping) and str(row.get("title") or "").strip()
+            ]
+            metadata.track_count = len(metadata.tracks) or None
+        elif "track_count" in typed_payload:
+            metadata.track_count = typed_payload.get("track_count")
 
 
 def patch_item_kind_metadata(item: Item, typed_updates: Mapping[str, Any]) -> None:

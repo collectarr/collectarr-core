@@ -96,6 +96,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
             edition.metadata_json,
             fallback_format=edition.format,
             kind=item.kind,
+            preferred=getattr(edition, "physical_format", None),
         )
         if physical_format:
             _append_unique(variant_names, physical_format)
@@ -192,8 +193,9 @@ def _physical_format_label(
     *,
     fallback_format: str | None,
     kind: Any,
+    preferred: str | None = None,
 ) -> str | None:
-    config = None
+    config = physical_format_for_id(preferred) if preferred else None
     if isinstance(metadata, dict):
         normalized = metadata.get("normalized")
         if isinstance(normalized, dict) and normalized.get("physical_format"):

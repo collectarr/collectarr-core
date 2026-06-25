@@ -21,7 +21,6 @@ KIND_SPECS = [
     ("movie", "Movies", "catalog-movie.svg", "#c2410c"),
     ("tv", "TV", "catalog-tv.svg", "#2563eb"),
     ("music", "Music", "catalog-music.svg", "#db2777"),
-    ("bluray", "Blu-ray", "catalog-bluray.svg", "#1d4ed8"),
 ]
 LEFT_COLOR = "#555"
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-24T18:31:00Z",
+  "generated_at": "2026-06-25T07:52:02Z",
   "generator": "scripts/export_schema_site.py",
   "source_modules": [
     "app/models/base.py",
@@ -25,7 +25,6 @@
         "item_kind_metadata_anime",
         "item_kind_metadata_boardgame",
         "item_kind_metadata_book",
-        "item_kind_metadata_bluray",
         "item_kind_metadata_collection",
         "item_kind_metadata_comic",
         "item_kind_metadata_game",
@@ -39,7 +38,7 @@
         "bundle_release_items",
         "series_relations"
       ],
-      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK, FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_BOOK {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_BLURAY {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK, FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK, FK\n    TEXT genres\n    INTEGER track_count\n    JSONB tracks\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOOK : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BLURAY : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  SERIES ||--o{ SERIES_RELATIONS : \"source_series_id, target_series_id\"",
+      "diagram": "erDiagram\n  FRANCHISES {\n    VARCHAR_255 name UK\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES {\n    UUID franchise_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VOLUMES {\n    UUID series_id FK\n    VARCHAR_255 name\n    FLOAT volume_number\n    INTEGER start_year\n    DATE start_date\n    DATE end_date\n    TEXT description\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEMS {\n    UUID volume_id FK\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 localized_title\n    TEXT search_aliases\n    VARCHAR_255 title_extension\n    VARCHAR_64 item_number\n    VARCHAR_255 sort_key\n    TEXT synopsis\n    VARCHAR_255 crossover\n    TEXT plot_summary\n    TEXT plot_description\n    JSONB trailer_urls\n    JSONB external_links\n    VARCHAR_64 release_type\n    INTEGER season_number\n    INTEGER episode_number\n    INTEGER runtime_minutes\n    INTEGER page_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA {\n    UUID item_id FK, UK\n    item_kind kind\n    VARCHAR_64 audience_rating\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ITEM_KIND_METADATA_ANIME {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n  }\n  ITEM_KIND_METADATA_BOARDGAME {\n    UUID id PK, FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_BOOK {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_COLLECTION {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_COMIC {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_GAME {\n    UUID id PK, FK\n    TEXT genres\n    TEXT platforms\n  }\n  ITEM_KIND_METADATA_MANGA {\n    UUID id PK, FK\n    TEXT genres\n  }\n  ITEM_KIND_METADATA_MOVIE {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n  }\n  ITEM_KIND_METADATA_MUSIC {\n    UUID id PK, FK\n    TEXT genres\n    INTEGER track_count\n    JSONB tracks\n  }\n  ITEM_KIND_METADATA_TV {\n    UUID id PK, FK\n    TEXT genres\n    VARCHAR_64 color\n  }\n  EDITIONS {\n    UUID item_id FK\n    VARCHAR_255 title\n    VARCHAR_100 format\n    VARCHAR_64 physical_format\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_255 publisher\n    VARCHAR_32 isbn\n    VARCHAR_32 upc\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_255 imprint\n    VARCHAR_255 subtitle\n    VARCHAR_255 series_group\n    VARCHAR_64 age_rating\n    VARCHAR_100 catalog_number\n    VARCHAR_64 release_status\n    INTEGER nr_discs\n    VARCHAR_64 screen_ratio\n    VARCHAR_255 audio_tracks\n    VARCHAR_255 subtitles\n    VARCHAR_255 layers\n    DATE release_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  VARIANTS {\n    UUID edition_id FK\n    VARCHAR_255 name\n    VARCHAR_64 variant_type\n    VARCHAR_64 physical_format\n    VARCHAR_64 physical_format_label\n    VARCHAR_64 physical_format_media_family\n    VARCHAR_64 physical_format_variant_type\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    VARCHAR_32 isbn\n    VARCHAR_32 region\n    VARCHAR_64 platform\n    INTEGER cover_price_cents\n    VARCHAR_3 currency\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    TEXT description\n    JSONB metadata_json\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    UUID franchise_id FK\n    UUID series_id FK\n    UUID volume_id FK\n    UUID primary_item_id FK\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASE_ITEMS {\n    UUID bundle_release_id FK\n    UUID item_id FK\n    VARCHAR_32 role\n    INTEGER sequence_number\n    INTEGER disc_number\n    VARCHAR_255 disc_label\n    INTEGER quantity\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  FRANCHISES o|--o{ SERIES : franchise_id\n  SERIES ||--o{ VOLUMES : series_id\n  VOLUMES o|--o{ ITEMS : volume_id\n  ITEMS ||--o{ ITEM_KIND_METADATA : item_id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_ANIME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOARDGAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_BOOK : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COLLECTION : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_COMIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_GAME : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MANGA : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MOVIE : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_MUSIC : id\n  ITEM_KIND_METADATA ||--o{ ITEM_KIND_METADATA_TV : id\n  ITEMS ||--o{ EDITIONS : item_id\n  EDITIONS ||--o{ VARIANTS : edition_id\n  VOLUMES o|--o{ BUNDLE_RELEASES : volume_id\n  FRANCHISES o|--o{ BUNDLE_RELEASES : franchise_id\n  ITEMS o|--o{ BUNDLE_RELEASES : primary_item_id\n  SERIES o|--o{ BUNDLE_RELEASES : series_id\n  BUNDLE_RELEASES ||--o{ BUNDLE_RELEASE_ITEMS : bundle_release_id\n  ITEMS ||--o{ BUNDLE_RELEASE_ITEMS : item_id\n  SERIES ||--o{ SERIES_RELATIONS : \"source_series_id, target_series_id\"",
       "external_references": []
     },
     {
@@ -4174,6 +4173,51 @@
           "enum": null
         },
         {
+          "name": "original_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "localized_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "search_aliases",
+          "type": "TEXT[]",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
           "name": "title_extension",
           "type": "VARCHAR(255)",
           "nullable": true,
@@ -4225,6 +4269,81 @@
         {
           "name": "synopsis",
           "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "crossover",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "plot_summary",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "plot_description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "trailer_urls",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "external_links",
+          "type": "JSONB",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -4627,17 +4746,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_volume_provider_links_provider_item",
-            "columns": [
-              "provider",
-              "provider_item_id"
-            ]
-          },
-          {
             "name": "uq_volume_provider_links_owner_provider",
             "columns": [
               "volume_id",
               "provider"
+            ]
+          },
+          {
+            "name": "uq_volume_provider_links_provider_item",
+            "columns": [
+              "provider",
+              "provider_item_id"
             ]
           }
         ],
@@ -5117,28 +5236,6 @@
           {
             "name": null,
             "columns": [
-              "primary_item_id"
-            ],
-            "targets": [
-              "items.id"
-            ],
-            "ondelete": "SET NULL",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
-              "series_id"
-            ],
-            "targets": [
-              "series.id"
-            ],
-            "ondelete": "SET NULL",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
               "volume_id"
             ],
             "targets": [
@@ -5154,6 +5251,28 @@
             ],
             "targets": [
               "franchises.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "primary_item_id"
+            ],
+            "targets": [
+              "items.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "series_id"
+            ],
+            "targets": [
+              "series.id"
             ],
             "ondelete": "SET NULL",
             "onupdate": null
@@ -5562,6 +5681,68 @@
           "enum": null
         },
         {
+          "name": "physical_format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_editions_physical_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format_label",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format_media_family",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format_variant_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
           "name": "publisher",
           "type": "VARCHAR(255)",
           "nullable": true,
@@ -5747,6 +5928,81 @@
           "enum": null
         },
         {
+          "name": "nr_discs",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "screen_ratio",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "audio_tracks",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "subtitles",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "layers",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
           "name": "release_date",
           "type": "DATE",
           "nullable": true,
@@ -5843,7 +6099,12 @@
           }
         ],
         "unique_constraints": [],
-        "check_constraints": [],
+        "check_constraints": [
+          {
+            "name": "ck_editions_nr_discs_nonnegative",
+            "sqltext": "nr_discs IS NULL OR nr_discs >= 0"
+          }
+        ],
         "indexes": [
           {
             "name": "ix_editions_age_rating",
@@ -5884,6 +6145,13 @@
             "name": "ix_editions_language",
             "columns": [
               "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_editions_physical_format",
+            "columns": [
+              "physical_format"
             ],
             "unique": false
           },
@@ -6096,8 +6364,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_item_provider_links_item",
-            "ix_item_provider_links_item_id"
+            "ix_item_provider_links_item_id",
+            "ix_item_provider_links_item"
           ],
           "default": null,
           "server_default": null,
@@ -6698,10 +6966,10 @@
           {
             "name": null,
             "columns": [
-              "item_id"
+              "bundle_release_id"
             ],
             "targets": [
-              "items.id"
+              "bundle_releases.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -6709,10 +6977,10 @@
           {
             "name": null,
             "columns": [
-              "bundle_release_id"
+              "item_id"
             ],
             "targets": [
-              "bundle_releases.id"
+              "items.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -6786,8 +7054,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_bundle_release_provider_links_bundle_release_id",
-            "ix_bundle_release_provider_links_bundle_release"
+            "ix_bundle_release_provider_links_bundle_release",
+            "ix_bundle_release_provider_links_bundle_release_id"
           ],
           "default": null,
           "server_default": null,
@@ -6937,17 +7205,17 @@
         ],
         "unique_constraints": [
           {
-            "name": "uq_bundle_release_provider_links_provider_item",
-            "columns": [
-              "provider",
-              "provider_item_id"
-            ]
-          },
-          {
             "name": "uq_bundle_release_provider_links_owner_provider",
             "columns": [
               "bundle_release_id",
               "provider"
+            ]
+          },
+          {
+            "name": "uq_bundle_release_provider_links_provider_item",
+            "columns": [
+              "provider",
+              "provider_item_id"
             ]
           }
         ],
@@ -7231,81 +7499,6 @@
           "autoincrement": true,
           "foreign_keys": [],
           "enum": null
-        },
-        {
-          "name": "nr_discs",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "screen_ratio",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitles",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "layers",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
         }
       ],
       "constraints": {
@@ -7329,178 +7522,7 @@
           }
         ],
         "unique_constraints": [],
-        "check_constraints": [
-          {
-            "name": "ck_item_kind_metadata_anime_nr_discs_nonnegative",
-            "sqltext": "nr_discs IS NULL OR nr_discs >= 0"
-          }
-        ],
-        "indexes": []
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "item_kind_metadata_bluray",
-      "domain": "catalog",
-      "columns": [
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "id",
-              "target_table": "item_kind_metadata",
-              "target_column": "id",
-              "target": "item_kind_metadata.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "genres",
-          "type": "TEXT[]",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "color",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "nr_discs",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "screen_ratio",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitles",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "layers",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "id"
-            ],
-            "targets": [
-              "item_kind_metadata.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [],
-        "check_constraints": [
-          {
-            "name": "ck_item_kind_metadata_bluray_nr_discs_nonnegative",
-            "sqltext": "nr_discs IS NULL OR nr_discs >= 0"
-          }
-        ],
+        "check_constraints": [],
         "indexes": []
       },
       "polymorphic_note": null
@@ -8019,81 +8041,6 @@
           "autoincrement": true,
           "foreign_keys": [],
           "enum": null
-        },
-        {
-          "name": "nr_discs",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "screen_ratio",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitles",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "layers",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
         }
       ],
       "constraints": {
@@ -8117,12 +8064,7 @@
           }
         ],
         "unique_constraints": [],
-        "check_constraints": [
-          {
-            "name": "ck_item_kind_metadata_movie_nr_discs_nonnegative",
-            "sqltext": "nr_discs IS NULL OR nr_discs >= 0"
-          }
-        ],
+        "check_constraints": [],
         "indexes": []
       },
       "polymorphic_note": null
@@ -8291,81 +8233,6 @@
           "autoincrement": true,
           "foreign_keys": [],
           "enum": null
-        },
-        {
-          "name": "nr_discs",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "screen_ratio",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitles",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "layers",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
         }
       ],
       "constraints": {
@@ -8389,12 +8256,7 @@
           }
         ],
         "unique_constraints": [],
-        "check_constraints": [
-          {
-            "name": "ck_item_kind_metadata_tv_nr_discs_nonnegative",
-            "sqltext": "nr_discs IS NULL OR nr_discs >= 0"
-          }
-        ],
+        "check_constraints": [],
         "indexes": []
       },
       "polymorphic_note": null
@@ -8456,6 +8318,68 @@
           "indexes": [
             "ix_variants_variant_type"
           ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_variants_physical_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format_label",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format_media_family",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format_variant_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -8773,6 +8697,13 @@
             "unique": false
           },
           {
+            "name": "ix_variants_physical_format",
+            "columns": [
+              "physical_format"
+            ],
+            "unique": false
+          },
+          {
             "name": "ix_variants_platform",
             "columns": [
               "platform"
@@ -8827,7 +8758,6 @@
         "anime",
         "boardgame",
         "book",
-        "bluray",
         "collection",
         "comic",
         "game",
@@ -8997,30 +8927,6 @@
     {
       "from_table": "bundle_releases",
       "from_columns": [
-        "primary_item_id"
-      ],
-      "to_targets": [
-        "items.id"
-      ],
-      "name": null,
-      "ondelete": "SET NULL",
-      "onupdate": null
-    },
-    {
-      "from_table": "bundle_releases",
-      "from_columns": [
-        "series_id"
-      ],
-      "to_targets": [
-        "series.id"
-      ],
-      "name": null,
-      "ondelete": "SET NULL",
-      "onupdate": null
-    },
-    {
-      "from_table": "bundle_releases",
-      "from_columns": [
         "volume_id"
       ],
       "to_targets": [
@@ -9037,6 +8943,30 @@
       ],
       "to_targets": [
         "franchises.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "primary_item_id"
+      ],
+      "to_targets": [
+        "items.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "bundle_releases",
+      "from_columns": [
+        "series_id"
+      ],
+      "to_targets": [
+        "series.id"
       ],
       "name": null,
       "ondelete": "SET NULL",
@@ -9117,10 +9047,10 @@
     {
       "from_table": "bundle_release_items",
       "from_columns": [
-        "item_id"
+        "bundle_release_id"
       ],
       "to_targets": [
-        "items.id"
+        "bundle_releases.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -9129,10 +9059,10 @@
     {
       "from_table": "bundle_release_items",
       "from_columns": [
-        "bundle_release_id"
+        "item_id"
       ],
       "to_targets": [
-        "bundle_releases.id"
+        "items.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -9176,18 +9106,6 @@
     },
     {
       "from_table": "item_kind_metadata_anime",
-      "from_columns": [
-        "id"
-      ],
-      "to_targets": [
-        "item_kind_metadata.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "item_kind_metadata_bluray",
       "from_columns": [
         "id"
       ],
@@ -9320,11 +9238,11 @@
     }
   ],
   "summary": {
-    "tables": 43,
-    "columns": 375,
-    "foreign_keys": 38,
-    "indexes": 131,
+    "tables": 42,
+    "columns": 373,
+    "foreign_keys": 37,
+    "indexes": 133,
     "unique_constraints": 22,
-    "check_constraints": 5
+    "check_constraints": 2
   }
 }

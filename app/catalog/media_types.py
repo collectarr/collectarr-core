@@ -110,18 +110,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         providers=(ExternalProvider.musicbrainz,),
     ),
     MediaTypeConfig(
-        kind=ItemKind.bluray,
-        singular_label="Legacy Blu-ray",
-        plural_label="Legacy Blu-rays",
-        route_segments=("blu-ray", "blu-rays", "bluray"),
-        is_top_level=False,
-        physical_formats=tuple(
-            physical_format
-            for physical_format in video_physical_formats
-            if physical_format.id == "blu-ray"
-        ),
-    ),
-    MediaTypeConfig(
         kind=ItemKind.collection,
         singular_label="Collection",
         plural_label="Collections",

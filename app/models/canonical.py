@@ -93,10 +93,18 @@ class Item(UuidMixin, TimestampMixin, Base):
     )
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    original_title: Mapped[str | None] = mapped_column(String(255))
+    localized_title: Mapped[str | None] = mapped_column(String(255))
+    search_aliases: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     title_extension: Mapped[str | None] = mapped_column(String(255))
     item_number: Mapped[str | None] = mapped_column(String(64), index=True)
     sort_key: Mapped[str | None] = mapped_column(String(255), index=True)
     synopsis: Mapped[str | None] = mapped_column(Text)
+    crossover: Mapped[str | None] = mapped_column(String(255))
+    plot_summary: Mapped[str | None] = mapped_column(Text)
+    plot_description: Mapped[str | None] = mapped_column(Text)
+    trailer_urls: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    external_links: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     release_type: Mapped[str | None] = mapped_column(String(64), index=True)
     season_number: Mapped[int | None] = mapped_column(Integer, index=True)
     episode_number: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -140,12 +148,19 @@ class Item(UuidMixin, TimestampMixin, Base):
 
 class Edition(UuidMixin, TimestampMixin, Base):
     __tablename__ = "editions"
+    __table_args__ = (
+        CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_editions_nr_discs_nonnegative"),
+    )
 
     item_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     format: Mapped[str | None] = mapped_column(String(100))
+    physical_format: Mapped[str | None] = mapped_column(String(64), index=True)
+    physical_format_label: Mapped[str | None] = mapped_column(String(64))
+    physical_format_media_family: Mapped[str | None] = mapped_column(String(64))
+    physical_format_variant_type: Mapped[str | None] = mapped_column(String(64))
     publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     isbn: Mapped[str | None] = mapped_column(String(32), index=True)
     upc: Mapped[str | None] = mapped_column(String(32), index=True)
@@ -157,6 +172,11 @@ class Edition(UuidMixin, TimestampMixin, Base):
     age_rating: Mapped[str | None] = mapped_column(String(64), index=True)
     catalog_number: Mapped[str | None] = mapped_column(String(100), index=True)
     release_status: Mapped[str | None] = mapped_column(String(64), index=True)
+    nr_discs: Mapped[int | None] = mapped_column(Integer)
+    screen_ratio: Mapped[str | None] = mapped_column(String(64))
+    audio_tracks: Mapped[str | None] = mapped_column(String(255))
+    subtitles: Mapped[str | None] = mapped_column(String(255))
+    layers: Mapped[str | None] = mapped_column(String(255))
     release_date: Mapped[date | None] = mapped_column(Date)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -183,7 +203,6 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
 
 class ItemKindMetadataAnime(ItemKindMetadata):
     __tablename__ = "item_kind_metadata_anime"
-    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_anime_nr_discs_nonnegative"),)
     __mapper_args__ = {"polymorphic_identity": ItemKind.anime}
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -191,11 +210,6 @@ class ItemKindMetadataAnime(ItemKindMetadata):
     )
     genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
-    nr_discs: Mapped[int | None] = mapped_column(Integer)
-    screen_ratio: Mapped[str | None] = mapped_column(String(64))
-    audio_tracks: Mapped[str | None] = mapped_column(String(255))
-    subtitles: Mapped[str | None] = mapped_column(String(255))
-    layers: Mapped[str | None] = mapped_column(String(255))
 
 
 class ItemKindMetadataBoardGame(ItemKindMetadata):
@@ -217,23 +231,6 @@ class ItemKindMetadataBook(ItemKindMetadata):
         UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
     )
     genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-
-
-class ItemKindMetadataBluray(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_bluray"
-    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_bluray_nr_discs_nonnegative"),)
-    __mapper_args__ = {"polymorphic_identity": ItemKind.bluray}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
-    genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
-    color: Mapped[str | None] = mapped_column(String(64))
-    nr_discs: Mapped[int | None] = mapped_column(Integer)
-    screen_ratio: Mapped[str | None] = mapped_column(String(64))
-    audio_tracks: Mapped[str | None] = mapped_column(String(255))
-    subtitles: Mapped[str | None] = mapped_column(String(255))
-    layers: Mapped[str | None] = mapped_column(String(255))
 
 
 class ItemKindMetadataCollection(ItemKindMetadata):
@@ -279,7 +276,6 @@ class ItemKindMetadataManga(ItemKindMetadata):
 
 class ItemKindMetadataMovie(ItemKindMetadata):
     __tablename__ = "item_kind_metadata_movie"
-    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_movie_nr_discs_nonnegative"),)
     __mapper_args__ = {"polymorphic_identity": ItemKind.movie}
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -287,11 +283,6 @@ class ItemKindMetadataMovie(ItemKindMetadata):
     )
     genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
-    nr_discs: Mapped[int | None] = mapped_column(Integer)
-    screen_ratio: Mapped[str | None] = mapped_column(String(64))
-    audio_tracks: Mapped[str | None] = mapped_column(String(255))
-    subtitles: Mapped[str | None] = mapped_column(String(255))
-    layers: Mapped[str | None] = mapped_column(String(255))
 
 
 class ItemKindMetadataMusic(ItemKindMetadata):
@@ -304,12 +295,58 @@ class ItemKindMetadataMusic(ItemKindMetadata):
     )
     genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     track_count: Mapped[int | None] = mapped_column(Integer)
-    tracks: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    tracks: Mapped[list["ItemKindMetadataMusicTrack"]] = relationship(
+        back_populates="kind_metadata",
+        cascade="all, delete-orphan",
+        order_by=lambda: (
+            ItemKindMetadataMusicTrack.disc_number.asc().nullslast(),
+            ItemKindMetadataMusicTrack.position.asc().nullslast(),
+            ItemKindMetadataMusicTrack.created_at.asc(),
+            ItemKindMetadataMusicTrack.id.asc(),
+        ),
+    )
+
+
+class ItemKindMetadataMusicTrack(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "item_kind_metadata_music_tracks"
+    __table_args__ = (
+        CheckConstraint(
+            "duration_seconds IS NULL OR duration_seconds >= 0",
+            name="ck_item_kind_metadata_music_tracks_duration_nonnegative",
+        ),
+        CheckConstraint(
+            "disc_number IS NULL OR disc_number >= 0",
+            name="ck_item_kind_metadata_music_tracks_disc_nonnegative",
+        ),
+        CheckConstraint(
+            "position IS NULL OR position >= 0",
+            name="ck_item_kind_metadata_music_tracks_position_nonnegative",
+        ),
+        Index("ix_item_kind_metadata_music_tracks_owner", "item_kind_metadata_id"),
+        Index(
+            "ix_item_kind_metadata_music_tracks_sequence",
+            "item_kind_metadata_id",
+            "disc_number",
+            "position",
+        ),
+    )
+
+    item_kind_metadata_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("item_kind_metadata_music.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    position: Mapped[int | None] = mapped_column(Integer)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    artist: Mapped[str | None] = mapped_column(String(255))
+    disc_number: Mapped[int | None] = mapped_column(Integer)
+
+    kind_metadata: Mapped[ItemKindMetadataMusic] = relationship(back_populates="tracks")
 
 
 class ItemKindMetadataTv(ItemKindMetadata):
     __tablename__ = "item_kind_metadata_tv"
-    __table_args__ = (CheckConstraint("nr_discs IS NULL OR nr_discs >= 0", name="ck_item_kind_metadata_tv_nr_discs_nonnegative"),)
     __mapper_args__ = {"polymorphic_identity": ItemKind.tv}
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -317,11 +354,6 @@ class ItemKindMetadataTv(ItemKindMetadata):
     )
     genres: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     color: Mapped[str | None] = mapped_column(String(64))
-    nr_discs: Mapped[int | None] = mapped_column(Integer)
-    screen_ratio: Mapped[str | None] = mapped_column(String(64))
-    audio_tracks: Mapped[str | None] = mapped_column(String(255))
-    subtitles: Mapped[str | None] = mapped_column(String(255))
-    layers: Mapped[str | None] = mapped_column(String(255))
 
 
 class Variant(UuidMixin, TimestampMixin, Base):
@@ -332,6 +364,10 @@ class Variant(UuidMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     variant_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    physical_format: Mapped[str | None] = mapped_column(String(64), index=True)
+    physical_format_label: Mapped[str | None] = mapped_column(String(64))
+    physical_format_media_family: Mapped[str | None] = mapped_column(String(64))
+    physical_format_variant_type: Mapped[str | None] = mapped_column(String(64))
     sku: Mapped[str | None] = mapped_column(String(100), index=True)
     barcode: Mapped[str | None] = mapped_column(String(32), index=True)
     isbn: Mapped[str | None] = mapped_column(String(32), index=True)

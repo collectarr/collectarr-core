@@ -55,7 +55,7 @@ INPUT_LIST = "list"
 
 # Kinds that carry the physical video/disc spec fields.
 VIDEO_KINDS: frozenset[ItemKind] = frozenset(
-    {ItemKind.anime, ItemKind.bluray, ItemKind.movie, ItemKind.tv}
+    {ItemKind.anime, ItemKind.movie, ItemKind.tv}
 )
 # Print kinds (page count, imprint, series group).
 PRINT_KINDS: frozenset[ItemKind] = frozenset(
@@ -63,7 +63,7 @@ PRINT_KINDS: frozenset[ItemKind] = frozenset(
 )
 # Kinds that have trailers (video + interactive).
 TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
-# Every active + legacy kind (genres applies to all of them).
+# Every configured kind (genres applies to all of them).
 ALL_KINDS: frozenset[ItemKind] = frozenset(ItemKind)
 
 
@@ -121,7 +121,7 @@ _INTERNAL_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
 # Editable normalized common fields.
 _EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("physical_format", VALUE_TYPE_STRING, "Physical format",
-                      common=True, normalized=True, section=SECTION_PUBLISHING),
+                      common=True, normalized=False, section=SECTION_PUBLISHING),
 )
 
 # --- Normalized kind-scoped, typed fields ------------------------------------
@@ -138,17 +138,6 @@ _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
                       section=SECTION_TECHNICAL, input=INPUT_LIST,
                       kinds=frozenset({ItemKind.music})),
     MetadataFieldSpec("color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("nr_discs", VALUE_TYPE_INTEGER, "Number of discs", typed=True,
-                      normalized=True, section=SECTION_TECHNICAL, input=INPUT_NUMBER,
-                      kinds=VIDEO_KINDS),
-    MetadataFieldSpec("screen_ratio", VALUE_TYPE_STRING, "Screen ratio", typed=True,
-                      normalized=True, section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("audio_tracks", VALUE_TYPE_STRING, "Audio tracks", typed=True,
-                      normalized=True, section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("subtitles", VALUE_TYPE_STRING, "Subtitles", typed=True, normalized=True,
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("layers", VALUE_TYPE_STRING, "Layers", typed=True, normalized=True,
                       section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
 )
 
@@ -197,6 +186,16 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
                       section=SECTION_TECHNICAL, kinds=ALL_KINDS),
     MetadataFieldSpec("release_status", VALUE_TYPE_STRING, "Release status",
                       section=SECTION_TECHNICAL, kinds=ALL_KINDS),
+    MetadataFieldSpec("nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
+                      section=SECTION_TECHNICAL, input=INPUT_NUMBER, kinds=VIDEO_KINDS),
+    MetadataFieldSpec("screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
+                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
+    MetadataFieldSpec("audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
+                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
+    MetadataFieldSpec("subtitles", VALUE_TYPE_STRING, "Subtitles",
+                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
+    MetadataFieldSpec("layers", VALUE_TYPE_STRING, "Layers",
+                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
     # Regional.
     MetadataFieldSpec("country", VALUE_TYPE_STRING, "Country",
                       section=SECTION_REGIONAL, kinds=ALL_KINDS),

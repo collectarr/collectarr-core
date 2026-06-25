@@ -1394,11 +1394,9 @@ class MetadataService:
             release_year=release_year,
             barcode=barcode,
             variant=variant_name,
-            crossover=_metadata_text(getattr(item, "metadata_json", None), "crossover"),
-            plot_summary=_metadata_text(getattr(item, "metadata_json", None), "plot_summary"),
-            plot_description=_metadata_text(
-                getattr(item, "metadata_json", None), "plot_description"
-            ),
+            crossover=getattr(item, "crossover", None),
+            plot_summary=getattr(item, "plot_summary", None),
+            plot_description=getattr(item, "plot_description", None),
             series_title=series_title,
             volume_name=volume_name,
             track_count=track_count,

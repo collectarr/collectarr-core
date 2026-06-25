@@ -5,7 +5,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from pydantic import BaseModel, Field
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
-from app.metadata_normalized import TYPED_KIND_METADATA_KEYS, typed_kind_metadata_for_item
+from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
 
@@ -548,8 +548,7 @@ def item_response_from_model(
     variant = _primary_variant(item)
     source = _source_metadata(edition)
     typed_normalized = _typed_kind_metadata(item)
-    if not typed_normalized:
-        typed_normalized = _legacy_typed_normalized(item, edition)
+    edition_normalized = _normalized_metadata(edition)
     creators = _creator_credits(item)
     characters = _character_credits(item)
     story_arcs = _story_arc_credits(item)
@@ -566,12 +565,12 @@ def item_response_from_model(
             "barcode": _barcode(item),
             "cover_date": _date_value(source.get("cover_date")),
             "store_date": _date_value(source.get("store_date")),
-            "localized_title": _item_metadata_text(item, "localized_title"),
-            "original_title": _item_metadata_text(item, "original_title"),
-            "search_aliases": _item_metadata_string_list(item, "search_aliases"),
-            "crossover": _item_metadata_text(item, "crossover"),
-            "plot_summary": _item_metadata_text(item, "plot_summary"),
-            "plot_description": _item_metadata_text(item, "plot_description"),
+            "localized_title": _optional_text(getattr(item, "localized_title", None)),
+            "original_title": _optional_text(getattr(item, "original_title", None)),
+            "search_aliases": _string_list(getattr(item, "search_aliases", None)),
+            "crossover": _optional_text(getattr(item, "crossover", None)),
+            "plot_summary": _optional_text(getattr(item, "plot_summary", None)),
+            "plot_description": _optional_text(getattr(item, "plot_description", None)),
             "cover_price_cents": getattr(variant, "cover_price_cents", None),
             "currency": getattr(variant, "currency", None),
             "catalog_number": _optional_text(getattr(edition, "catalog_number", None)),
@@ -588,11 +587,26 @@ def item_response_from_model(
             "age_rating": _optional_text(getattr(edition, "age_rating", None)),
             "audience_rating": _optional_text(typed_normalized.get("audience_rating")),
             "color": _optional_text(typed_normalized.get("color")),
-            "nr_discs": _optional_int(typed_normalized.get("nr_discs")),
-            "screen_ratio": _optional_text(typed_normalized.get("screen_ratio")),
-            "audio_tracks": _optional_text(typed_normalized.get("audio_tracks")),
-            "subtitles": _optional_text(typed_normalized.get("subtitles")),
-            "layers": _optional_text(typed_normalized.get("layers")),
+            "nr_discs": (
+                _optional_int(getattr(edition, "nr_discs", None))
+                or _optional_int(edition_normalized.get("nr_discs"))
+            ),
+            "screen_ratio": (
+                _optional_text(getattr(edition, "screen_ratio", None))
+                or _optional_text(edition_normalized.get("screen_ratio"))
+            ),
+            "audio_tracks": (
+                _optional_text(getattr(edition, "audio_tracks", None))
+                or _optional_text(edition_normalized.get("audio_tracks"))
+            ),
+            "subtitles": (
+                _optional_text(getattr(edition, "subtitles", None))
+                or _optional_text(edition_normalized.get("subtitles"))
+            ),
+            "layers": (
+                _optional_text(getattr(edition, "layers", None))
+                or _optional_text(edition_normalized.get("layers"))
+            ),
             "imprint": _imprint(item, edition),
             "subtitle": _optional_text(getattr(edition, "subtitle", None)),
             "series_group": _optional_text(getattr(edition, "series_group", None)),
@@ -817,6 +831,10 @@ def _enrich_physical_formats(base: dict[str, Any], item: Any) -> None:
             getattr(source_edition, "metadata_json", None),
             fallback_format=getattr(source_edition, "format", None),
             kind=kind,
+            preferred={
+                "physical_format": getattr(source_edition, "physical_format", None),
+                "physical_format_label": getattr(source_edition, "physical_format_label", None),
+            },
         )
         if physical_format is not None:
             response_edition.update(physical_format)
@@ -835,6 +853,10 @@ def _enrich_physical_formats(base: dict[str, Any], item: Any) -> None:
                 getattr(source_variant, "metadata_json", None),
                 fallback_format=None,
                 kind=kind,
+                preferred={
+                    "physical_format": getattr(source_variant, "physical_format", None),
+                    "physical_format_label": getattr(source_variant, "physical_format_label", None),
+                },
             )
             if variant_format is None:
                 variant_format = physical_format
@@ -847,9 +869,23 @@ def _physical_format_payload(
     *,
     fallback_format: str | None,
     kind: Any,
+    preferred: dict[str, Any] | None = None,
 ) -> dict[str, str] | None:
-    metadata_format = _metadata_physical_format(metadata)
-    config = physical_format_for_id(metadata_format) if metadata_format else None
+    preferred_format = _optional_text((preferred or {}).get("physical_format"))
+    preferred_label = _optional_text((preferred or {}).get("physical_format_label"))
+    if preferred_format:
+        config = physical_format_for_id(preferred_format)
+        if config is not None:
+            return {
+                "physical_format": config.id,
+                "physical_format_label": config.label,
+            }
+        if preferred_label:
+            return {
+                "physical_format": preferred_format,
+                "physical_format_label": preferred_label,
+            }
+    config = None
     if config is None and fallback_format and is_video_item_kind(kind):
         config = physical_format_for_id(fallback_format)
     if config is None:
@@ -860,18 +896,6 @@ def _physical_format_payload(
     }
 
 
-def _metadata_physical_format(metadata: dict[str, Any] | None) -> str | None:
-    if not isinstance(metadata, dict):
-        return None
-    normalized = metadata.get("normalized")
-    if isinstance(normalized, dict):
-        physical_format = normalized.get("physical_format")
-        if physical_format:
-            return str(physical_format)
-    physical_format = metadata.get("physical_format")
-    return str(physical_format) if physical_format else None
-
-
 def _normalized_item_metadata(item: Any) -> dict[str, Any]:
     metadata = getattr(item, "metadata_json", None) or {}
     normalized = metadata.get("normalized") if isinstance(metadata, dict) else None
@@ -880,24 +904,6 @@ def _normalized_item_metadata(item: Any) -> dict[str, Any]:
 
 def _typed_kind_metadata(item: Any) -> dict[str, Any]:
     return typed_kind_metadata_for_item(item)
-
-
-def _legacy_typed_normalized(item: Any, edition: Any | None) -> dict[str, Any]:
-    """Legacy bridge for items not migrated to typed kind_metadata tables.
-
-    Such items still carry their typed fields under ``metadata_json["normalized"]``
-    on the item or its primary edition. Read those so responses keep exposing the
-    fields until the catalog is fully re-ingested into the typed tables.
-    """
-    merged: dict[str, Any] = {}
-    for legacy in (_normalized_item_metadata(item), _normalized_metadata(edition)):
-        for key in TYPED_KIND_METADATA_KEYS:
-            if key in merged:
-                continue
-            value = legacy.get(key)
-            if value not in (None, [], {}):
-                merged[key] = value
-    return merged
 
 
 def _source_item_metadata(item: Any) -> dict[str, Any]:
@@ -917,10 +923,7 @@ def _source_item_metadata(item: Any) -> dict[str, Any]:
 
 
 def _link_payload_list(item: Any, key: str) -> list[dict[str, Any]]:
-    metadata = getattr(item, "metadata_json", None)
-    if not isinstance(metadata, dict):
-        return []
-    values = metadata.get(key)
+    values = getattr(item, key, None)
     if not isinstance(values, list):
         return []
     normalized: list[dict[str, Any]] = []
@@ -937,30 +940,6 @@ def _link_payload_list(item: Any, key: str) -> list[dict[str, Any]]:
                 entry[field] = text
         normalized.append(entry)
     return normalized
-
-
-def _item_metadata_text(item: Any, key: str) -> str | None:
-    metadata = getattr(item, "metadata_json", None) or {}
-    if not isinstance(metadata, dict):
-        return None
-    normalized = metadata.get("normalized")
-    if isinstance(normalized, dict):
-        value = _optional_text(normalized.get(key))
-        if value is not None:
-            return value
-    return _optional_text(metadata.get(key))
-
-
-def _item_metadata_string_list(item: Any, key: str) -> list[str]:
-    metadata = getattr(item, "metadata_json", None) or {}
-    if not isinstance(metadata, dict):
-        return []
-    normalized = metadata.get("normalized")
-    if isinstance(normalized, dict):
-        values = _string_list(normalized.get(key))
-        if values:
-            return values
-    return _string_list(metadata.get(key))
 
 
 def _default_video_format(item: Any) -> str:

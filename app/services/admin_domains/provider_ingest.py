@@ -1114,6 +1114,22 @@ class AdminProviderIngestService:
         item.synopsis = normalized.synopsis
         item.runtime_minutes = normalized.runtime_minutes
         item.page_count = normalized.page_count
+        primary_edition = await self.db.scalar(
+            select(Edition)
+            .where(Edition.item_id == item.id)
+            .order_by(
+                Edition.release_date.desc().nullslast(),
+                Edition.created_at.asc(),
+                Edition.id.asc(),
+            )
+            .limit(1)
+        )
+        if primary_edition is not None:
+            primary_edition.nr_discs = normalized.nr_discs
+            primary_edition.screen_ratio = normalized.screen_ratio
+            primary_edition.audio_tracks = normalized.audio_tracks
+            primary_edition.subtitles = normalized.subtitles
+            primary_edition.layers = normalized.layers
         metadata = dict(item.metadata_json or {})
         metadata["source"] = provider_item.raw
         metadata["last_refresh"] = datetime.now(UTC).isoformat()
@@ -1137,11 +1153,6 @@ class AdminProviderIngestService:
                 ]
                 or None,
                 "color": normalized.color,
-                "nr_discs": normalized.nr_discs,
-                "screen_ratio": normalized.screen_ratio,
-                "audio_tracks": normalized.audio_tracks,
-                "subtitles": normalized.subtitles,
-                "layers": normalized.layers,
             },
         )
         pid.updated_at = datetime.now(UTC)
@@ -1414,6 +1425,10 @@ class AdminProviderIngestService:
             item=item,
             title=normalized.edition_title or "Standard Edition",
             format=edition_format,
+            physical_format=physical_format.id if physical_format else None,
+            physical_format_label=physical_format.label if physical_format else None,
+            physical_format_media_family=physical_format.media_family if physical_format else None,
+            physical_format_variant_type=physical_format.variant_type if physical_format else None,
             publisher=normalized.publisher,
             isbn=normalized.isbn,
             imprint=normalized.imprint,
@@ -1422,6 +1437,11 @@ class AdminProviderIngestService:
             age_rating=normalized.age_rating,
             catalog_number=normalized.catalog_number,
             release_status=normalized.release_status,
+            nr_discs=normalized.nr_discs,
+            screen_ratio=normalized.screen_ratio,
+            audio_tracks=normalized.audio_tracks,
+            subtitles=normalized.subtitles,
+            layers=normalized.layers,
             language=normalized.language,
             region=normalized.country,
             release_date=normalized.release_date,
@@ -1443,6 +1463,10 @@ class AdminProviderIngestService:
             edition=edition,
             name=variant_name,
             variant_type=variant_type,
+            physical_format=physical_format.id if physical_format else None,
+            physical_format_label=physical_format.label if physical_format else None,
+            physical_format_media_family=physical_format.media_family if physical_format else None,
+            physical_format_variant_type=physical_format.variant_type if physical_format else None,
             barcode=normalized.barcode,
             isbn=normalized.isbn,
             cover_price_cents=normalized.cover_price_cents,
@@ -1484,11 +1508,6 @@ class AdminProviderIngestService:
                 "genres": normalized.genres or None,
                 "audience_rating": normalized.audience_rating,
                 "color": normalized.color,
-                "nr_discs": normalized.nr_discs,
-                "screen_ratio": normalized.screen_ratio,
-                "audio_tracks": normalized.audio_tracks,
-                "subtitles": normalized.subtitles,
-                "layers": normalized.layers,
             },
         )
         additional_variants, additional_mirrored_covers = await self._comicvine_associated_variants(

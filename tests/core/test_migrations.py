@@ -32,7 +32,6 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "item_kind_metadata_anime",
             "item_kind_metadata_boardgame",
             "item_kind_metadata_book",
-            "item_kind_metadata_bluray",
             "item_kind_metadata_collection",
             "item_kind_metadata_comic",
             "item_kind_metadata_game",
@@ -82,7 +81,6 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "boardgame",
             "book",
             "music",
-            "bluray",
             "collection",
         }.issubset(enum_values)
 

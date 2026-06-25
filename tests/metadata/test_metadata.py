@@ -117,7 +117,7 @@ async def test_metadata_normalized_manifest_exposes_schema_and_type_map(client):
     assert "genres" in body["kind_fields"]["comic"]
     assert "tracks" in body["kind_fields"]["music"]
     assert body["value_types"]["audience_rating"] == "string"
-    assert body["value_types"]["nr_discs"] == "integer"
+    assert "nr_discs" not in body["value_types"]
     assert body["value_types"]["genres"] == "string_list"
     assert body["value_types"]["tracks"] == "track_list"
 
@@ -712,6 +712,7 @@ async def test_search_document_indexes_bundle_release_metadata():
 
 
 def test_item_response_from_model_exposes_normalized_metadata_fields():
+    kind_metadata = SimpleNamespace(platforms=["PC", "Xbox One", "PlayStation 4"])
     item = SimpleNamespace(
         id=uuid4(),
         kind=ItemKind.game,
@@ -725,6 +726,7 @@ def test_item_response_from_model_exposes_normalized_metadata_fields():
         runtime_minutes=92,
         page_count=None,
         metadata_json=None,
+        kind_metadata=kind_metadata,
         volume=SimpleNamespace(
             id=uuid4(),
             name="Legendary Edition",
@@ -775,20 +777,6 @@ def test_item_response_from_model_exposes_normalized_metadata_fields():
                         "series_group": "Stale Group",
                         "age_rating": "Everyone",
                         "platforms": ["PC", "Xbox One", "PlayStation 4"],
-                        "track_count": 2,
-                        "tracks": [
-                            {
-                                "position": 1,
-                                "title": "Main Theme",
-                                "duration_seconds": 180,
-                            },
-                            {
-                                "position": 2,
-                                "title": "Suicide Mission",
-                                "duration_seconds": 215,
-                                "disc_number": 1,
-                            },
-                        ],
                     },
                 },
                 variants=[
@@ -820,16 +808,6 @@ def test_item_response_from_model_exposes_normalized_metadata_fields():
     assert response.publisher == "Electronic Arts"
     assert response.barcode == "014633742207"
     assert response.catalog_number == "ME-LE-2021"
-    assert response.track_count == 2
-    assert response.tracks == [
-        {"position": 1, "title": "Main Theme", "duration_seconds": 180},
-        {
-            "position": 2,
-            "title": "Suicide Mission",
-            "duration_seconds": 215,
-            "disc_number": 1,
-        },
-    ]
     assert response.platforms == ["PC", "Xbox One", "PlayStation 4"]
     assert response.release_status == "Released"
     assert response.language == "en"
@@ -931,6 +909,11 @@ def test_item_response_from_model_synthesizes_video_release_when_missing_edition
 
 
 def test_item_response_from_model_uses_item_level_metadata_without_editions():
+    kind_metadata = SimpleNamespace(
+        audience_rating="R",
+        genres=["Sci-Fi", "Horror"],
+        color="Color",
+    )
     item = SimpleNamespace(
         id=uuid4(),
         kind=ItemKind.movie,
@@ -944,28 +927,17 @@ def test_item_response_from_model_uses_item_level_metadata_without_editions():
         runtime_minutes=117,
         page_count=None,
         metadata_json={
-            "localized_title": "Alien: Le huitieme passager",
-            "original_title": "Alien",
-            "search_aliases": ["Alien (1979)", "Alien Director's Cut"],
-            "crossover": "Alien Universe",
-            "plot_summary": "A crew faces a hostile life form.",
-            "plot_description": "A deep-space cargo crew discovers an organism that hunts them one by one.",
-            "trailer_urls": [{"url": "https://youtube.com/watch?v=jQ5lPt9edzQ"}],
-            "external_links": [{"url": "https://www.imdb.com/title/tt0078748/"}],
-            "normalized": {
-                "audience_rating": "R",
-                "genres": ["Sci-Fi", "Horror"],
-                "platforms": ["Blu-ray"],
-                "track_count": 1,
-                "tracks": [{"position": 1, "title": "Main feature"}],
-                "color": "Color",
-                "nr_discs": 2,
-                "screen_ratio": "2.39:1",
-                "audio_tracks": "English DTS-HD MA 5.1",
-                "subtitles": "English, Romanian",
-                "layers": "BD-50",
-            },
+            "provider": "tmdb",
         },
+        original_title="Alien",
+        localized_title="Alien: Le huitieme passager",
+        search_aliases=["Alien (1979)", "Alien Director's Cut"],
+        crossover="Alien Universe",
+        plot_summary="A crew faces a hostile life form.",
+        plot_description="A deep-space cargo crew discovers an organism that hunts them one by one.",
+        trailer_urls=[{"url": "https://youtube.com/watch?v=jQ5lPt9edzQ"}],
+        external_links=[{"url": "https://www.imdb.com/title/tt0078748/"}],
+        kind_metadata=kind_metadata,
         volume=None,
         editions=[],
         primary_bundle_releases=[],
@@ -984,15 +956,15 @@ def test_item_response_from_model_uses_item_level_metadata_without_editions():
     assert response.external_links == [{"url": "https://www.imdb.com/title/tt0078748/"}]
     assert response.audience_rating == "R"
     assert response.genres == ["Sci-Fi", "Horror"]
-    assert response.platforms == ["Blu-ray"]
-    assert response.track_count == 1
-    assert response.tracks == [{"position": 1, "title": "Main feature"}]
+    assert response.platforms == []
+    assert response.track_count is None
+    assert response.tracks == []
     assert response.color == "Color"
-    assert response.nr_discs == 2
-    assert response.screen_ratio == "2.39:1"
-    assert response.audio_tracks == "English DTS-HD MA 5.1"
-    assert response.subtitles == "English, Romanian"
-    assert response.layers == "BD-50"
+    assert response.nr_discs is None
+    assert response.screen_ratio is None
+    assert response.audio_tracks is None
+    assert response.subtitles is None
+    assert response.layers is None
 
 
 def test_item_response_prefers_organization_links_for_publisher_and_imprint():

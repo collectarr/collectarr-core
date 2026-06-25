@@ -63,7 +63,6 @@ video_item_kinds = frozenset({
     ItemKind.anime,
     ItemKind.movie,
     ItemKind.tv,
-    ItemKind.bluray,
 })
 
 

@@ -6,6 +6,7 @@ from uuid import UUID
 import pytest
 from fastapi import HTTPException, status
 from sqlalchemy import func, select, update
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
@@ -27,6 +28,7 @@ from app.models.canonical import (
     Item,
     ItemKindMetadata,
     ItemKindMetadataComic,
+    ItemKindMetadataMusic,
     ItemProviderLink,
     MetadataProposal,
     Organization,
@@ -1557,13 +1559,12 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     assert refreshed_edition.age_rating == "Mature"
     assert refreshed_edition.catalog_number == "ABS-BAT-DELUXE"
     assert refreshed_edition.release_status == "announced"
-    item_metadata = dict(refreshed_item.metadata_json or {})
-    assert item_metadata.get("original_title") == "Batman: Absolute Edition"
-    assert item_metadata.get("localized_title") == "Batman Absolut"
-    assert item_metadata.get("search_aliases") == ["Absolute Batman", "Batman Deluxe"]
-    assert item_metadata.get("crossover") == "Absolute Universe"
-    assert item_metadata.get("plot_summary") == "Bruce Wayne reinvents Gotham."
-    assert item_metadata.get("plot_description") == "An alternate continuity focused on noir storytelling."
+    assert refreshed_item.original_title == "Batman: Absolute Edition"
+    assert refreshed_item.localized_title == "Batman Absolut"
+    assert refreshed_item.search_aliases == ["Absolute Batman", "Batman Deluxe"]
+    assert refreshed_item.crossover == "Absolute Universe"
+    assert refreshed_item.plot_summary == "Bruce Wayne reinvents Gotham."
+    assert refreshed_item.plot_description == "An alternate continuity focused on noir storytelling."
 
     assert updated.status_code == 200
     body = updated.json()
@@ -1660,14 +1661,16 @@ async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, 
     async with AsyncSessionLocal() as db:
         stored_item = await db.get(Item, item_uuid)
         typed_metadata = await db.scalar(
-            select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
+            select(ItemKindMetadataMusic)
+            .options(selectinload(ItemKindMetadataMusic.tracks))
+            .where(ItemKindMetadataMusic.item_id == item_uuid)
         )
         assert stored_item is not None
         assert typed_metadata is not None
         assert typed_metadata.audience_rating == "9.2"
         assert typed_metadata.genres == ["Electronic", "Nu Disco"]
         assert typed_metadata.track_count == 2
-        assert [track.get("title") for track in (typed_metadata.tracks or [])] == [
+        assert [track.title for track in (typed_metadata.tracks or [])] == [
             "One More Time",
             "Aerodynamic",
         ]
@@ -1815,9 +1818,7 @@ async def test_admin_catalog_correction_updates_relations_and_links(client, monk
         assert len(creator_links) == 2
         assert len(character_links) == 2
         assert len(story_arc_links) == 2
-        assert (stored_item.metadata_json or {}).get("external_links", [])[0]["url"] == (
-            "https://example.com/sandman"
-        )
+        assert (stored_item.external_links or [])[0]["url"] == "https://example.com/sandman"
 
 
 @pytest.mark.asyncio
@@ -1862,13 +1863,15 @@ async def test_admin_catalog_correction_updates_video_specs(client, monkeypatch)
         typed_metadata = await db.scalar(
             select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
         )
+        stored_edition = await db.scalar(select(Edition).where(Edition.item_id == item_uuid))
+        assert stored_edition is not None
         assert typed_metadata is not None
         assert typed_metadata.color == "Color"
-        assert typed_metadata.nr_discs == 2
-        assert typed_metadata.screen_ratio == "2.39:1"
-        assert typed_metadata.audio_tracks == "Dolby Atmos"
-        assert typed_metadata.subtitles == "English, Romanian"
-        assert typed_metadata.layers == "BD-100"
+        assert stored_edition.nr_discs == 2
+        assert stored_edition.screen_ratio == "2.39:1"
+        assert stored_edition.audio_tracks == "Dolby Atmos"
+        assert stored_edition.subtitles == "English, Romanian"
+        assert stored_edition.layers == "BD-100"
 
 
 @pytest.mark.asyncio
@@ -1914,9 +1917,11 @@ async def test_admin_catalog_correction_updates_video_physical_format(client, mo
         assert stored_edition is not None
         assert stored_variant is not None
         assert stored_edition.format == "4K UHD"
-        assert stored_edition.metadata_json["normalized"]["physical_format"] == "4k-uhd"
+        assert stored_edition.physical_format == "4k-uhd"
+        assert stored_edition.physical_format_label == "4K UHD"
         assert stored_variant.variant_type == "physical"
-        assert stored_variant.metadata_json["normalized"]["physical_format"] == "4k-uhd"
+        assert stored_variant.physical_format == "4k-uhd"
+        assert stored_variant.physical_format_label == "4K UHD"
 
     invalid_format = await client.patch(
         f"/admin/catalog/items/movie/{item_id}",

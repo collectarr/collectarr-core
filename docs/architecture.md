@@ -122,9 +122,8 @@ maps to TMDb's TV endpoint because TMDb models anime series as TV records.
 
 Movies and TV shows are canonical video works. DVD, Blu-ray, 4K UHD, VHS,
 LaserDisc, and digital purchases are physical/digital formats represented by
-edition and variant records under those works. Legacy `bluray` routes can remain
-for compatibility while new provider work targets movie/TV records plus exact
-physical release variants.
+edition and variant records under those works; provider work targets movie/TV
+records plus exact physical release variants.
 Admin corrections can set the normalized physical format before a dedicated
 release schema exists; Core stores that as edition/variant metadata and returns
 the normalized ID plus display label to Flutter.

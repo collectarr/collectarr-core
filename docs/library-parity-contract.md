@@ -16,7 +16,7 @@ The active top-level library kinds are exactly:
 - `tv`
 - `music`
 
-`ItemKind.bluray` and `ItemKind.collection` still exist as non-top-level legacy/internal kinds and are intentionally excluded from the active parity set.
+`ItemKind.collection` remains a non-top-level internal kind and is intentionally excluded from the active parity set.
 
 ## Metadata field schema (single source of truth)
 

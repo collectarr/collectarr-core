@@ -28,10 +28,6 @@ Supported media kinds are:
 
 `anime`, `boardgame`, `book`, `comic`, `game`, `manga`, `movie`, `music`, `tv`.
 
-`bluray` remains a pre-release compatibility enum/route only. New video catalog
-work should store Blu-ray, DVD, 4K UHD, VHS, LaserDisc, and digital purchases as
-edition/variant formats under `movie` or `tv` records.
-
 Until a release schema is finalized, normalized video format IDs are stored in
 `editions.metadata_json.normalized.physical_format` and mirrored onto the
 primary variant metadata. `editions.format` keeps the display label, while

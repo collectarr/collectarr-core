@@ -19,21 +19,16 @@ def test_media_catalog_covers_all_item_kinds():
     assert configured_kinds == set(ItemKind)
 
 
-def test_media_catalog_keeps_hidden_video_formats_off_top_level_routes():
+def test_media_catalog_keeps_video_formats_within_active_top_level_routes():
     top_level_kinds = {media_type.kind for media_type in top_level_media_types}
-    bluray = media_type_for_route("blu-ray")
     anime = media_type_for_kind(ItemKind.anime)
     movies = media_type_for_kind(ItemKind.movie)
     tv = media_type_for_kind(ItemKind.tv)
 
-    assert ItemKind.bluray not in top_level_kinds
     assert ItemKind.tv in top_level_kinds
     assert ItemKind.anime in top_level_kinds
-    assert bluray is not None
-    assert bluray.kind == ItemKind.bluray
-    assert bluray.is_top_level is False
-    assert bluray.default_provider is None
-    assert [format.id for format in bluray.physical_formats] == ["blu-ray"]
+    assert media_type_for_route("blu-ray") is None
+    assert media_type_for_route("bluray") is None
     assert movies is not None
     assert tv is not None
     assert tv.is_top_level is True
@@ -87,7 +82,6 @@ def test_provider_registry_can_filter_and_pick_media_defaults():
     assert registry.default_for_kind(ItemKind.game).name == "igdb"
     assert registry.default_for_kind(ItemKind.movie).name == "tmdb"
     assert registry.default_for_kind(ItemKind.tv).name == "tmdb"
-    assert registry.default_for_kind(ItemKind.bluray) is None
     assert registry.default_for_kind(ItemKind.book).name == "openlibrary"
     # Removed kinds: no defaults for `manga`/`anime`
     assert registry.default_for_kind(ItemKind.boardgame).name == "bgg"

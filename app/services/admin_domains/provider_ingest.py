@@ -38,9 +38,9 @@ from app.models.canonical import (
     MetadataProposal,
     Organization,
     Person,
+    PhysicalFormatRef,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
-    PhysicalFormatRef,
     ReleaseStatus,
     Series,
     SeriesRelation,
@@ -66,8 +66,6 @@ from app.providers.comicvine import ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
-from app.search.client import SearchClient
-from app.search.documents import book_work_search_document
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
     MetadataProposalAdminUpdateRequest,
@@ -88,6 +86,8 @@ from app.schemas.admin import (
     ProviderPreviewTrack,
     ProviderSearchRequest,
 )
+from app.search.client import SearchClient
+from app.search.documents import book_work_search_document
 from app.services.admin_domains.shared import (
     character_appearance_role,
     character_role_rank,
@@ -2564,20 +2564,15 @@ class AdminProviderIngestService:
             self.db.add(person)
             await self.db.flush()
             return person
-        updated = False
         if not person.api_detail_url and credit.api_detail_url:
             person.api_detail_url = credit.api_detail_url
-            updated = True
         if not person.site_detail_url and credit.site_detail_url:
             person.site_detail_url = credit.site_detail_url
-            updated = True
         if not person.image_url and credit.image_url:
             person.image_url = credit.image_url
-            updated = True
         credit_description = getattr(credit, "description", None)
         if not person.description and credit_description:
             person.description = credit_description
-            updated = True
         return person
 
     async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:
@@ -2600,17 +2595,13 @@ class AdminProviderIngestService:
             self.db.add(story_arc)
             await self.db.flush()
             return story_arc
-        updated = False
         if not story_arc.api_detail_url and credit.api_detail_url:
             story_arc.api_detail_url = credit.api_detail_url
-            updated = True
         if not story_arc.site_detail_url and credit.site_detail_url:
             story_arc.site_detail_url = credit.site_detail_url
-            updated = True
         credit_description = getattr(credit, "description", None)
         if not story_arc.description and credit_description:
             story_arc.description = credit_description
-            updated = True
         return story_arc
 
     async def _get_or_create_character(
@@ -2637,17 +2628,13 @@ class AdminProviderIngestService:
             return character
         if not character.canonical_name and canonical_name:
             character.canonical_name = canonical_name
-        updated = False
         if not character.api_detail_url and credit.api_detail_url:
             character.api_detail_url = credit.api_detail_url
-            updated = True
         if not character.site_detail_url and credit.site_detail_url:
             character.site_detail_url = credit.site_detail_url
-            updated = True
         credit_description = getattr(credit, "description", None)
         if not character.description and credit_description:
             character.description = credit_description
-            updated = True
         return character
 
     async def _character_by_provider_link(

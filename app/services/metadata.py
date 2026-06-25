@@ -314,7 +314,7 @@ class MetadataService:
             contributors=[
                 self._book_contributor_response(row, scope="edition")
                 for row in sorted(
-                    list(edition.contributions or []),
+                    edition.contributions or [],
                     key=lambda c: (
                         c.sequence is None,
                         c.sequence or 0,
@@ -326,7 +326,7 @@ class MetadataService:
             identifiers=[
                 self._book_identifier_response(row)
                 for row in sorted(
-                    list(edition.identifiers or []),
+                    edition.identifiers or [],
                     key=lambda i: (
                         i.identifier_type.casefold(),
                         i.normalized_value.casefold(),
@@ -338,7 +338,7 @@ class MetadataService:
 
     def _book_work_response(self, work: BookWork) -> BookWorkV1Response:
         editions = sorted(
-            list(work.editions or []),
+            work.editions or [],
             key=lambda e: (
                 e.publication_date is None,
                 e.publication_date or date.max,
@@ -358,7 +358,7 @@ class MetadataService:
             contributors=[
                 self._book_contributor_response(row, scope="work")
                 for row in sorted(
-                    list(work.contributions or []),
+                    work.contributions or [],
                     key=lambda c: (
                         c.sequence is None,
                         c.sequence or 0,

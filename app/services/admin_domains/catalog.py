@@ -1,6 +1,6 @@
+import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-import re
 from typing import Any
 from uuid import UUID
 

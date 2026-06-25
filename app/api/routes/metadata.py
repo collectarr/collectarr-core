@@ -34,7 +34,6 @@ from app.schemas.admin import (
     ProviderIngestRequest as ProviderPreviewRequest,
 )
 from app.schemas.metadata import (
-    BookWorkV1Response,
     BookEditionV1Response,
     BookWorkV1Response,
     BundleReleaseDetailResponse,

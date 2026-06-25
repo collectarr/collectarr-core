@@ -180,7 +180,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
 
 def book_work_search_document(work: BookWork) -> dict[str, Any]:
     editions = sorted(
-        list(getattr(work, "editions", []) or []),
+        getattr(work, "editions", []) or [],
         key=lambda row: (
             getattr(row, "publication_date", None) is None,
             getattr(row, "publication_date", None),
@@ -196,7 +196,7 @@ def book_work_search_document(work: BookWork) -> dict[str, Any]:
         if variant:
             _append_unique(variant_names, variant)
         for contribution in sorted(
-            list(getattr(edition, "contributions", []) or []),
+            getattr(edition, "contributions", []) or [],
             key=lambda row: (
                 getattr(row, "sequence", None) is None,
                 getattr(row, "sequence", None) or 0,

@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
-from app.schemas.metadata import ItemResponse
+from app.schemas.metadata import BookWorkV1Response, ItemResponse
 
 
 class ProviderStatusResponse(BaseModel):
@@ -67,7 +67,7 @@ class ProviderSearchRequest(BaseModel):
 class ProviderIngestResponse(BaseModel):
     item_id: UUID
     created: bool
-    item: ItemResponse
+    item: ItemResponse | BookWorkV1Response
 
 
 class ProviderPreviewCredit(BaseModel):

@@ -17,6 +17,10 @@ from app.core.errors import ApiHTTPException
 from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    BookContribution,
+    BookEdition,
+    BookIdentifier,
+    BookWork,
     Character,
     CharacterAppearance,
     Edition,
@@ -41,6 +45,10 @@ from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
+    BookContributorResponse,
+    BookEditionV1Response,
+    BookIdentifierResponse,
+    BookWorkV1Response,
     BundleReleaseDetailResponse,
     BundleReleaseSummaryResponse,
     CharacterAppearanceResponse,
@@ -168,7 +176,9 @@ class MetadataService:
             for row in result.scalars()
         ]
 
-    async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse:
+    async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse | BookWorkV1Response:
+        if kind == ItemKind.book:
+            return await self.get_book_work(item_id)
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
             raise ApiHTTPException(
@@ -184,6 +194,66 @@ class MetadataService:
         await self._enrich_item_metadata_facets(response, item.id, series_id=series_id)
         return response
 
+    async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
+        work = await self.db.scalar(
+            select(BookWork)
+            .where(BookWork.id == work_id)
+            .options(
+                selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.editions)
+                .selectinload(BookEdition.contributions)
+                .selectinload(BookContribution.person),
+                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
+            )
+        )
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="book_work_not_found",
+                detail="Book work not found",
+            )
+        return self._book_work_response(work)
+
+    async def get_book_work_editions(self, work_id: UUID) -> list[BookEditionV1Response]:
+        work = await self.db.scalar(select(BookWork.id).where(BookWork.id == work_id))
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="book_work_not_found",
+                detail="Book work not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(BookEdition)
+                    .where(BookEdition.work_id == work_id)
+                    .options(
+                        selectinload(BookEdition.contributions).selectinload(BookContribution.person),
+                        selectinload(BookEdition.identifiers),
+                    )
+                    .order_by(BookEdition.publication_date.asc().nullslast(), BookEdition.created_at.asc())
+                )
+            ).scalars()
+        )
+        return [self._book_edition_response(row) for row in rows]
+
+    async def get_book_edition(self, edition_id: UUID) -> BookEditionV1Response:
+        edition = await self.db.scalar(
+            select(BookEdition)
+            .where(BookEdition.id == edition_id)
+            .options(
+                selectinload(BookEdition.contributions).selectinload(BookContribution.person),
+                selectinload(BookEdition.identifiers),
+            )
+        )
+        if edition is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="book_edition_not_found",
+                detail="Book edition not found",
+            )
+        return self._book_edition_response(edition)
+
     async def get_bundle_releases_for_item(self, item_id: UUID) -> list[BundleReleaseSummaryResponse]:
         item = await self.metadata.get_item(item_id)
         if item is None:
@@ -194,6 +264,111 @@ class MetadataService:
             )
         bundle_releases = await self.metadata.get_bundle_releases_for_item(item_id)
         return [bundle_release_summary_from_model(bundle) for bundle in bundle_releases]
+
+    def _book_contributor_response(
+        self,
+        contribution: BookContribution,
+        *,
+        scope: str,
+    ) -> BookContributorResponse:
+        person = contribution.person
+        return BookContributorResponse(
+            person_id=contribution.person_id,
+            name=person.name if person is not None else "",
+            role=contribution.role,
+            sequence=contribution.sequence,
+            scope=scope,
+        )
+
+    def _book_identifier_response(self, identifier: BookIdentifier) -> BookIdentifierResponse:
+        return BookIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            normalized_value=identifier.normalized_value,
+            is_primary=identifier.is_primary,
+            source_provider=identifier.source_provider,
+        )
+
+    def _book_edition_response(self, edition: BookEdition) -> BookEditionV1Response:
+        return BookEditionV1Response(
+            id=edition.id,
+            work_id=edition.work_id,
+            display_title=edition.display_title,
+            edition_statement=edition.edition_statement,
+            format=edition.format,
+            binding=edition.binding,
+            publication_date=edition.publication_date,
+            publisher=edition.publisher,
+            imprint=edition.imprint,
+            language=edition.language,
+            region=edition.region,
+            page_count=edition.page_count,
+            audio_length_minutes=edition.audio_length_minutes,
+            age_rating=edition.age_rating,
+            release_status=edition.release_status,
+            cover_image_url=edition.cover_image_url,
+            cover_image_key=edition.cover_image_key,
+            description=edition.description,
+            metadata_json=edition.metadata_json,
+            contributors=[
+                self._book_contributor_response(row, scope="edition")
+                for row in sorted(
+                    list(edition.contributions or []),
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._book_identifier_response(row)
+                for row in sorted(
+                    list(edition.identifiers or []),
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        i.normalized_value.casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+        )
+
+    def _book_work_response(self, work: BookWork) -> BookWorkV1Response:
+        editions = sorted(
+            list(work.editions or []),
+            key=lambda e: (
+                e.publication_date is None,
+                e.publication_date or date.max,
+                str(e.id),
+            ),
+        )
+        return BookWorkV1Response(
+            id=work.id,
+            title=work.title,
+            sort_title=work.sort_title,
+            subtitle=work.subtitle,
+            description=work.description,
+            original_language=work.original_language,
+            original_publication_date=work.original_publication_date,
+            first_publication_date=work.first_publication_date,
+            metadata_json=work.metadata_json,
+            contributors=[
+                self._book_contributor_response(row, scope="work")
+                for row in sorted(
+                    list(work.contributions or []),
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            editions=[self._book_edition_response(row) for row in editions],
+        )
 
     async def get_bundle_release(self, bundle_release_id: UUID) -> BundleReleaseDetailResponse:
         bundle_release = await self.metadata.get_bundle_release(bundle_release_id)

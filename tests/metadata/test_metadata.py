@@ -9,6 +9,10 @@ from sqlalchemy.orm import selectinload
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    BookContribution,
+    BookEdition,
+    BookIdentifier,
+    BookWork,
     BundleRelease,
     BundleReleaseItem,
     Character,
@@ -78,6 +82,54 @@ async def _attach_bundle_release(
         )
         await db.commit()
         return bundle.id
+
+
+async def _seed_book_v1() -> tuple[UUID, UUID]:
+    async with AsyncSessionLocal() as db:
+        person = Person(name="J.R.R. Tolkien")
+        db.add(person)
+        await db.flush()
+        work = BookWork(
+            title="The Fellowship of the Ring",
+            sort_title="fellowship of the ring",
+            description="A hobbit begins the journey.",
+            original_language="en",
+            first_publication_date=date(1954, 7, 29),
+        )
+        db.add(work)
+        await db.flush()
+        book_edition = BookEdition(
+            work_id=work.id,
+            display_title="The Fellowship of the Ring",
+            format="Hardcover",
+            publication_date=date(1954, 7, 29),
+            publisher="George Allen & Unwin",
+            language="en",
+            page_count=423,
+            release_status="released",
+        )
+        db.add(book_edition)
+        await db.flush()
+        db.add(
+            BookContribution(
+                edition_id=book_edition.id,
+                person_id=person.id,
+                role="author",
+                sequence=1,
+            )
+        )
+        db.add(
+            BookIdentifier(
+                edition_id=book_edition.id,
+                identifier_type="isbn13",
+                value="9780261103573",
+                normalized_value="9780261103573",
+                is_primary=True,
+                source_provider=ExternalProvider.openlibrary,
+            )
+        )
+        await db.commit()
+        return work.id, book_edition.id
 
 
 @pytest.mark.asyncio
@@ -171,6 +223,38 @@ async def test_metadata_field_schema_can_include_internal_fields(client):
     by_key = {f["key"]: f for f in response.json()["fields"]}
     assert by_key["cover_storage"]["editable"] is False
     assert by_key["cover_storage"]["section"] == "internal"
+
+
+@pytest.mark.asyncio
+async def test_books_v1_work_and_edition_endpoints(client):
+    work_id, edition_id = await _seed_book_v1()
+
+    work_response = await client.get(f"/metadata/books/works/{work_id}")
+    assert work_response.status_code == 200
+    work_body = work_response.json()
+    assert work_body["id"] == str(work_id)
+    assert work_body["title"] == "The Fellowship of the Ring"
+    assert len(work_body["editions"]) == 1
+    assert work_body["editions"][0]["id"] == str(edition_id)
+    assert work_body["editions"][0]["identifiers"][0]["identifier_type"] == "isbn13"
+
+    list_response = await client.get(f"/metadata/books/works/{work_id}/editions")
+    assert list_response.status_code == 200
+    list_body = list_response.json()
+    assert len(list_body) == 1
+    assert list_body[0]["id"] == str(edition_id)
+    assert list_body[0]["contributors"][0]["name"] == "J.R.R. Tolkien"
+
+    edition_response = await client.get(f"/metadata/books/editions/{edition_id}")
+    assert edition_response.status_code == 200
+    edition_body = edition_response.json()
+    assert edition_body["id"] == str(edition_id)
+    assert edition_body["publication_date"] == "1954-07-29"
+    assert edition_body["identifiers"][0]["value"] == "9780261103573"
+
+    route_response = await client.get(f"/books/{work_id}")
+    assert route_response.status_code == 200
+    assert route_response.json()["id"] == str(work_id)
 
 
 @pytest.mark.asyncio

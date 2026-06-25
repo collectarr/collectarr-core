@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.orm import selectinload
 
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
@@ -17,6 +18,11 @@ from app.core.errors import ApiHTTPException
 from app.metadata_normalized import clean_normalized_metadata, upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
+    BookContribution,
+    BookEdition,
+    BookIdentifier,
+    BookSeriesMembership,
+    BookWork,
     BundleRelease,
     BundleReleaseItem,
     BundleReleaseProviderLink,
@@ -60,6 +66,8 @@ from app.providers.comicvine import ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
+from app.search.client import SearchClient
+from app.search.documents import book_work_search_document
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
     MetadataProposalAdminUpdateRequest,
@@ -778,7 +786,9 @@ class AdminProviderIngestService:
                 await self.provider_preview_state.invalidate(
                     payload.provider.value,
                     payload.provider_item_id,
-                    response.item.provider_links[0].provider_item_id if response.item.provider_links else None,
+                    response.item.provider_links[0].provider_item_id
+                    if hasattr(response.item, "provider_links") and getattr(response.item, "provider_links", None)
+                    else None,
                 )
                 return response
             except Exception as exc:
@@ -818,6 +828,30 @@ class AdminProviderIngestService:
                 provider_name=payload.provider,
                 provider_item=provider_item,
                 normalized=normalized,
+            )
+            await self.db.commit()
+            loaded_item = await MetadataRepository(self.db).get_item(item.id)
+            if loaded_item:
+                await self._reindex_items({item.id})
+            return ProviderIngestResponse(
+                item_id=item.id,
+                created=True,
+                item=await self._item_response(loaded_item),
+            )
+        if normalized.kind == ItemKind.book:
+            work = await self._create_book_work_from_normalized(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item_id=provider_item.provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=normalized,
+            )
+            await self.db.commit()
+            await self._reindex_book_work(work.id)
+            return ProviderIngestResponse(
+                item_id=work.id,
+                created=True,
+                item=await MetadataService(self.db).get_book_work(work.id),
             )
         else:
             item, _, _ = await self._create_catalog_item_from_normalized(
@@ -925,6 +959,20 @@ class AdminProviderIngestService:
         provider: ExternalProvider,
         provider_item_id: str,
     ) -> CatalogProviderLinkRef | None:
+        external_ref = await self.db.execute(
+            select(ExternalProviderId.entity_type, ExternalProviderId.entity_id).where(
+                ExternalProviderId.provider == provider,
+                ExternalProviderId.provider_item_id == provider_item_id,
+                ExternalProviderId.entity_type.in_(["item", "bundle_release", "book_work"]),
+            )
+        )
+        external_row = external_ref.first()
+        if external_row is not None:
+            return CatalogProviderLinkRef(
+                entity_type=str(external_row[0]),
+                entity_id=external_row[1],
+                provider_item_id=provider_item_id,
+            )
         catalog_tables = (
             ("bundle_release", BundleReleaseProviderLink, BundleReleaseProviderLink.bundle_release_id),
             ("item", ItemProviderLink, ItemProviderLink.item_id),
@@ -955,6 +1003,19 @@ class AdminProviderIngestService:
                     detail="Provider link is stale",
                 )
             item = await MetadataRepository(self.db).get_item(item_id)
+        elif provider_id.entity_type == "book_work":
+            book_work = await self.db.get(BookWork, provider_id.entity_id)
+            if book_work is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="provider_link_stale",
+                    detail="Provider link is stale",
+                )
+            return ProviderIngestResponse(
+                item_id=book_work.id,
+                created=False,
+                item=await MetadataService(self.db).get_book_work(book_work.id),
+            )
         else:
             item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
         if item is None:
@@ -1995,6 +2056,214 @@ class AdminProviderIngestService:
                     person.id,
                     provider_urls={provider.value: credit_provider_urls(credit) or {}},
                 )
+
+    async def _create_book_work_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> BookWork:
+        volume, series = await self._upsert_volume(
+            ItemKind.book,
+            normalized.series_title,
+            normalized.volume_name,
+            normalized.volume_number,
+            normalized.volume_start_year,
+        )
+
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        work = BookWork(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.book, normalized.title, normalized.item_number),
+            subtitle=normalized.subtitle,
+            description=normalized.synopsis,
+            original_language=self._normalized_language(normalized.language),
+            first_publication_date=normalized.release_date,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.book,
+                normalized={"series_title": normalized.series_title},
+            ),
+        )
+        self.db.add(work)
+        await self.db.flush()
+
+        edition = BookEdition(
+            work_id=work.id,
+            display_title=normalized.edition_title or normalized.title,
+            edition_statement=None,
+            format=normalized.edition_format,
+            binding=normalized.variant_type,
+            publication_date=normalized.release_date,
+            publisher=normalized.publisher,
+            imprint=normalized.imprint,
+            language=self._normalized_language(normalized.language),
+            region=self._normalized_region(normalized.country),
+            page_count=normalized.page_count,
+            audio_length_minutes=(
+                normalized.runtime_minutes
+                if normalized.edition_format and "audio" in normalized.edition_format.lower()
+                else None
+            ),
+            age_rating=normalized.age_rating,
+            release_status=self._normalized_release_status(normalized.release_status),
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            description=normalized.synopsis,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.book,
+                normalized={
+                    "cover_storage": "mirror" if mirrored_cover else "provider",
+                },
+            ),
+        )
+        self.db.add(edition)
+        await self.db.flush()
+
+        for index, credit in enumerate(normalized.creators, start=1):
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                BookContribution(
+                    work_id=None,
+                    edition_id=edition.id,
+                    person_id=person.id,
+                    role=(credit.role or "author").strip().lower(),
+                    sequence=index,
+                )
+            )
+
+        identifiers: list[tuple[str, str, bool]] = []
+        if normalized.isbn:
+            identifiers.append((self._book_identifier_type("isbn", normalized.isbn), normalized.isbn, True))
+        if normalized.barcode:
+            identifiers.append((self._book_identifier_type("upc", normalized.barcode), normalized.barcode, False))
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in normalized.provider_ids.items():
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                BookIdentifier(
+                    edition_id=edition.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
+
+        if series is not None:
+            sequence: float | None = None
+            if normalized.item_number:
+                try:
+                    sequence = float(normalized.item_number)
+                except ValueError:
+                    sequence = None
+            self.db.add(
+                BookSeriesMembership(
+                    work_id=work.id,
+                    series_id=series.id,
+                    sequence=sequence if sequence is not None else normalized.volume_number,
+                    display_number=normalized.item_number,
+                    metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
+                )
+            )
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+            provider_name,
+            provider_ids,
+            "book_work",
+            work.id,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="book_work",
+            entity_id=work.id,
+            source=provider_raw,
+            normalized={
+                "title": work.title,
+                "series_title": normalized.series_title,
+                "original_language": work.original_language,
+            },
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="book_edition",
+            entity_id=edition.id,
+            source=provider_raw,
+            normalized={
+                "format": edition.format,
+                "publication_date": str(edition.publication_date) if edition.publication_date else None,
+                "publisher": edition.publisher,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return work
+
+    async def _reindex_book_work(self, work_id: UUID) -> None:
+        work = await self.db.scalar(
+            select(BookWork)
+            .where(BookWork.id == work_id)
+            .options(
+                selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.editions)
+                .selectinload(BookEdition.contributions)
+                .selectinload(BookContribution.person),
+                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
+            )
+        )
+        if work is None:
+            return
+        await SearchClient().index_documents_best_effort([book_work_search_document(work)])
+
+    def _book_identifier_type(self, base_type: str, value: str) -> str:
+        normalized = self._normalized_identifier(value)
+        if base_type == "isbn":
+            if len(normalized) == 10:
+                return "isbn10"
+            if len(normalized) == 13:
+                return "isbn13"
+            return "isbn13"
+        if base_type == "upc":
+            if len(normalized) == 13:
+                return "ean"
+            return "upc"
+        return base_type
+
+    def _normalized_identifier(self, value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", str(value).strip().lower())
 
     async def _link_story_arcs(
         self,

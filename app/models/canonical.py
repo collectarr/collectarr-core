@@ -892,6 +892,287 @@ class TVReleaseIdentifier(UuidMixin, TimestampMixin, Base):
 
 
 # ========================
+# Music v1 Schema
+# ========================
+
+
+class MusicRelease(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "music_releases"
+    __table_args__ = (
+        Index("idx_music_releases_barcode", "barcode"),
+        Index("idx_music_releases_created_at", "created_at"),
+    )
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
+    release_type: Mapped[str | None] = mapped_column(String(64))
+    release_date: Mapped[date | None] = mapped_column(Date)
+    media_count: Mapped[int | None] = mapped_column(Integer)
+    track_count: Mapped[int | None] = mapped_column(Integer)
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    publisher: Mapped[str | None] = mapped_column(String(255))
+    country_code: Mapped[str | None] = mapped_column(String(2))
+    language: Mapped[str | None] = mapped_column(String(2))
+    barcode: Mapped[str | None] = mapped_column(String(100), index=True)
+    catalog_number: Mapped[str | None] = mapped_column(String(100))
+    audience_rating: Mapped[float | None] = mapped_column(Float)
+    rating_count: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    media: Mapped[list["MusicMedia"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+    )
+    contributions: Mapped[list["MusicReleaseContribution"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+    )
+    identifiers: Mapped[list["MusicReleaseIdentifier"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+    )
+
+
+class MusicMedia(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "music_media"
+    __table_args__ = (
+        UniqueConstraint("release_id", "media_number", name="unique_music_media"),
+        Index("idx_music_media_release_id", "release_id"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    media_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    media_type: Mapped[str | None] = mapped_column(String(64))
+    title: Mapped[str | None] = mapped_column(String(255))
+    track_count: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    release: Mapped[MusicRelease] = relationship(back_populates="media")
+    tracks: Mapped[list["MusicTrack"]] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
+
+
+class MusicTrack(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "music_tracks"
+    __table_args__ = (
+        UniqueConstraint("media_id", "position", name="unique_music_track"),
+        Index("idx_music_tracks_release_id", "release_id"),
+    )
+
+    media_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_media.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    position: Mapped[str] = mapped_column(String(16), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    media: Mapped[MusicMedia] = relationship(back_populates="tracks")
+    release: Mapped[MusicRelease] = relationship()
+
+
+class MusicReleaseContribution(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "music_release_contributions"
+    __table_args__ = (
+        UniqueConstraint("release_id", "person_id", "role", name="unique_music_release_contribution"),
+        Index("idx_music_release_contributions_release_id", "release_id"),
+        Index("idx_music_release_contributions_role", "release_id", "role"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sequence: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    release: Mapped[MusicRelease] = relationship(back_populates="contributions")
+    person: Mapped["Person"] = relationship()
+
+
+class MusicReleaseIdentifier(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "music_release_identifiers"
+    __table_args__ = (
+        UniqueConstraint("release_id", "identifier_type", "value", name="unique_music_release_identifier"),
+        Index("idx_music_release_identifiers_release_id", "release_id"),
+        Index("idx_music_release_identifiers_type_value", "identifier_type", "value"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str | None] = mapped_column(String(255))
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_provider: Mapped[ExternalProvider | None] = mapped_column(
+        Enum(ExternalProvider, name="external_provider", create_type=False),
+        index=True,
+    )
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    release: Mapped[MusicRelease] = relationship(back_populates="identifiers")
+
+
+# ========================
+# Movie v1 Schema
+# ========================
+
+
+class MovieWork(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "movie_works"
+    __table_args__ = (
+        Index("idx_movie_works_created_at", "created_at"),
+    )
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
+    subtitle: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    original_language: Mapped[str | None] = mapped_column(String(2))
+    original_title: Mapped[str | None] = mapped_column(String(255))
+    original_release_date: Mapped[date | None] = mapped_column(Date)
+    runtime_minutes: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str | None] = mapped_column(String(64))
+    budget_usd: Mapped[int | None] = mapped_column(Integer)
+    revenue_usd: Mapped[int | None] = mapped_column(Integer)
+    audience_rating: Mapped[float | None] = mapped_column(Float)
+    rating_count: Mapped[int | None] = mapped_column(Integer)
+    poster_image_url: Mapped[str | None] = mapped_column(String(2048))
+    poster_image_key: Mapped[str | None] = mapped_column(String(512))
+    backdrop_image_url: Mapped[str | None] = mapped_column(String(2048))
+    backdrop_image_key: Mapped[str | None] = mapped_column(String(512))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    releases: Mapped[list["MovieRelease"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+    )
+    contributions: Mapped[list["MovieWorkContribution"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+    )
+    identifiers: Mapped[list["MovieWorkIdentifier"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+    )
+
+
+class MovieRelease(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "movie_releases"
+    __table_args__ = (
+        UniqueConstraint("work_id", "region_code", "format", name="unique_movie_release"),
+        Index("idx_movie_releases_work_id", "work_id"),
+        Index("idx_movie_releases_barcode", "barcode"),
+        Index("idx_movie_releases_created_at", "created_at"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    format: Mapped[str] = mapped_column(String(64), nullable=False)
+    region_code: Mapped[str | None] = mapped_column(String(2))
+    release_date: Mapped[date | None] = mapped_column(Date)
+    release_type: Mapped[str | None] = mapped_column(String(64))
+    certification: Mapped[str | None] = mapped_column(String(64))
+    publisher: Mapped[str | None] = mapped_column(String(255))
+    sku: Mapped[str | None] = mapped_column(String(100), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(100), index=True)
+    media_count: Mapped[int | None] = mapped_column(Integer)
+    runtime_minutes: Mapped[int | None] = mapped_column(Integer)
+    language_audio: Mapped[list[str] | None] = mapped_column(postgresql.ARRAY(String))
+    language_subtitles: Mapped[list[str] | None] = mapped_column(postgresql.ARRAY(String))
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    work: Mapped[MovieWork] = relationship(back_populates="releases")
+    media: Mapped[list["MovieReleaseMedia"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+    )
+
+
+class MovieReleaseMedia(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "movie_release_media"
+    __table_args__ = (
+        UniqueConstraint("release_id", "media_number", name="unique_movie_release_media"),
+        Index("idx_movie_release_media_release_id", "release_id"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("movie_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    media_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    media_type: Mapped[str | None] = mapped_column(String(64))
+    title: Mapped[str | None] = mapped_column(String(255))
+    aspect_ratio: Mapped[str | None] = mapped_column(String(16))
+    color: Mapped[str | None] = mapped_column(String(64))
+    nr_layers: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    release: Mapped[MovieRelease] = relationship(back_populates="media")
+
+
+class MovieWorkContribution(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "movie_work_contributions"
+    __table_args__ = (
+        UniqueConstraint("work_id", "person_id", "role", name="unique_movie_work_contribution"),
+        Index("idx_movie_work_contributions_work_id", "work_id"),
+        Index("idx_movie_work_contributions_role", "work_id", "role"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    character_name: Mapped[str | None] = mapped_column(String(255))
+    sequence: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    work: Mapped[MovieWork] = relationship(back_populates="contributions")
+    person: Mapped["Person"] = relationship()
+
+
+class MovieWorkIdentifier(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "movie_work_identifiers"
+    __table_args__ = (
+        UniqueConstraint("work_id", "identifier_type", "value", name="unique_movie_work_identifier"),
+        Index("idx_movie_work_identifiers_work_id", "work_id"),
+        Index("idx_movie_work_identifiers_type_value", "identifier_type", "value"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str | None] = mapped_column(String(255))
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_provider: Mapped[ExternalProvider | None] = mapped_column(
+        Enum(ExternalProvider, name="external_provider", create_type=False),
+        index=True,
+    )
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    work: Mapped[MovieWork] = relationship(back_populates="identifiers")
+
+
+# ========================
 # Manga v1 Schema
 # ========================
 
@@ -1174,126 +1455,6 @@ class AnimeCharacterAppearance(UuidMixin, TimestampMixin, Base):
     character: Mapped["Character"] = relationship()
 
 
-# ========================
-# Movie v1 Schema
-# ========================
-
-
-class MovieWork(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "movie_works"
-
-    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
-    description: Mapped[str | None] = mapped_column(Text)
-    original_language: Mapped[str | None] = mapped_column(String(16))
-    release_date: Mapped[date | None] = mapped_column(Date)
-    runtime_minutes: Mapped[int | None]
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    releases: Mapped[list["MovieRelease"]] = relationship(
-        back_populates="work", cascade="all, delete-orphan", lazy="selectin"
-    )
-    contributions: Mapped[list["MovieContribution"]] = relationship(
-        back_populates="work", cascade="all, delete-orphan", lazy="selectin"
-    )
-    identifiers: Mapped[list["MovieIdentifier"]] = relationship(
-        back_populates="work", cascade="all, delete-orphan", lazy="selectin"
-    )
-    character_appearances: Mapped[list["MovieCharacterAppearance"]] = relationship(
-        back_populates="work", cascade="all, delete-orphan", lazy="selectin"
-    )
-
-
-class MovieRelease(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "movie_releases"
-
-    work_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    release_title: Mapped[str | None] = mapped_column(String(255))
-    release_date: Mapped[date | None] = mapped_column(Date)
-    region: Mapped[str | None] = mapped_column(String(64))
-    format: Mapped[str | None] = mapped_column(String(64))
-    language: Mapped[str | None] = mapped_column(String(16))
-    description: Mapped[str | None] = mapped_column(Text)
-    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
-    cover_image_key: Mapped[str | None] = mapped_column(String(255))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    work: Mapped[MovieWork] = relationship(back_populates="releases")
-
-
-class MovieContribution(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "movie_contributions"
-
-    work_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    person_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    work: Mapped[MovieWork] = relationship(back_populates="contributions")
-    person: Mapped["Person"] = relationship()
-
-
-class MovieIdentifier(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "movie_identifiers"
-    __table_args__ = (
-        UniqueConstraint(
-            "work_id",
-            "identifier_type",
-            "normalized_value",
-            name="uq_movie_identifiers_work_type_normalized",
-        ),
-        Index("ix_movie_identifiers_type_value", "identifier_type", "normalized_value"),
-    )
-
-    work_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
-    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        index=True,
-    )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    work: Mapped[MovieWork] = relationship(back_populates="identifiers")
-
-
-class MovieCharacterAppearance(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "movie_character_appearances"
-    __table_args__ = (
-        UniqueConstraint(
-            "work_id",
-            "character_id",
-            "role",
-            name="uq_movie_character_appearances_work_character_role",
-        ),
-        Index("ix_movie_character_appearances_work_role", "work_id", "role"),
-    )
-
-    work_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("movie_works.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    character_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    role: Mapped[str] = mapped_column(String(64), nullable=False, default="featured", index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    work: Mapped[MovieWork] = relationship(back_populates="character_appearances")
-    character: Mapped["Character"] = relationship()
-
-
-# ========================
 # TV v1 Schema
 # ========================
 

@@ -53,11 +53,10 @@ from app.models.canonical import (
     MangaIdentifier,
     MangaWork,
     MetadataProposal,
-    MovieCharacterAppearance,
-    MovieContribution,
-    MovieIdentifier,
     MovieRelease,
     MovieWork,
+    MovieWorkContribution,
+    MovieWorkIdentifier,
     Organization,
     Person,
     PhysicalFormatRef,
@@ -3166,7 +3165,7 @@ class AdminProviderIngestService:
             sort_title=sort_key(ItemKind.movie, normalized.title, None),
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
-            release_date=normalized.release_date,
+            original_release_date=normalized.release_date,
             runtime_minutes=normalized.runtime_minutes,
             metadata_json=self._provider_metadata_json(
                 provider_name,
@@ -3181,12 +3180,10 @@ class AdminProviderIngestService:
         # Create single release from this normalized item
         release = MovieRelease(
             work_id=work.id,
-            release_title=normalized.edition_title or normalized.title,
+            format=normalized.physical_format or normalized.edition_format or "digital",
+            region_code=self._normalized_region(normalized.country),
             release_date=normalized.release_date,
-            region=self._normalized_region(normalized.country),
-            format=normalized.physical_format or normalized.edition_format,
-            language=self._normalized_language(normalized.language),
-            description=normalized.synopsis,
+            release_type=normalized.edition_format,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             metadata_json=self._provider_metadata_json(
@@ -3202,7 +3199,7 @@ class AdminProviderIngestService:
         for index, credit in enumerate(normalized.creators, start=1):
             person = await self._get_or_create_person(credit.name, credit)
             self.db.add(
-                MovieContribution(
+                MovieWorkContribution(
                     work_id=work.id,
                     person_id=person.id,
                     role=(credit.role or "creator").strip().lower(),
@@ -3225,7 +3222,7 @@ class AdminProviderIngestService:
                 continue
             seen_identifier_keys.add(dedupe_key)
             self.db.add(
-                MovieIdentifier(
+                MovieWorkIdentifier(
                     work_id=work.id,
                     identifier_type=identifier_type,
                     value=value,
@@ -3251,13 +3248,14 @@ class AdminProviderIngestService:
                 provider=provider_name,
                 provider_item_id=None,
             )
-            self.db.add(
-                MovieCharacterAppearance(
-                    work_id=work.id,
-                    character_id=character.id,
-                    role=role,
-                )
-            )
+            # Character appearances not supported in v1 Movie schema
+            # self.db.add(
+            #     MovieCharacterAppearance(
+            #         work_id=work.id,
+            #         character_id=character.id,
+            #         role=role,
+            #     )
+            # )
 
         provider_ids = dict(normalized.provider_ids or {})
         provider_ids[provider_name.value] = provider_item_id
@@ -3361,10 +3359,9 @@ class AdminProviderIngestService:
             select(MovieWork)
             .where(MovieWork.id == work_id)
             .options(
-                selectinload(MovieWork.contributions).selectinload(MovieContribution.person),
+                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
                 selectinload(MovieWork.releases),
                 selectinload(MovieWork.identifiers),
-                selectinload(MovieWork.character_appearances).selectinload(MovieCharacterAppearance.character),
             )
         )
         if work is None:

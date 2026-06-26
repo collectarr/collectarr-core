@@ -16,7 +16,7 @@ from app.models.canonical import (
     Item,
     MangaContribution,
     MangaWork,
-    MovieContribution,
+    MovieWorkContribution,
     MovieWork,
 )
 
@@ -557,7 +557,7 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
             str(getattr(row, "id", "")),
         ),
     ):
-        if not isinstance(contribution, MovieContribution):
+        if not isinstance(contribution, MovieWorkContribution):
             continue
         person = getattr(contribution, "person", None)
         person_name = _optional_text(getattr(person, "name", None))
@@ -578,12 +578,12 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
     release_date = (
         primary_release.release_date.isoformat()
         if primary_release is not None and primary_release.release_date is not None
-        else work.release_date.isoformat() if work.release_date is not None else None
+        else work.original_release_date.isoformat() if work.original_release_date is not None else None
     )
     release_year = (
         primary_release.release_date.year
         if primary_release is not None and primary_release.release_date is not None
-        else work.release_date.year if work.release_date is not None else None
+        else work.original_release_date.year if work.original_release_date is not None else None
     )
 
     return {
@@ -596,7 +596,7 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
         "thumbnail_image_url": None,
         "publisher": None,
         "release_date": release_date,
-        "region": primary_release.region if primary_release is not None else None,
+        "region": primary_release.region_code if primary_release is not None else None,
         "release_year": release_year,
         "barcode": None,
         "barcodes": [],
@@ -612,7 +612,7 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
         "story_arcs": [],
         "platforms": [],
         "release_status": None,
-        "language": primary_release.language if primary_release is not None else work.original_language,
+        "language": work.original_language,
         "imprint": None,
         "subtitle": None,
         "series_group": None,

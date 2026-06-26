@@ -46,11 +46,10 @@ from app.models.canonical import (
     MangaIdentifier,
     MangaWork,
     MetadataProposal,
-    MovieCharacterAppearance,
-    MovieContribution,
-    MovieIdentifier,
     MovieRelease,
     MovieWork,
+    MovieWorkContribution,
+    MovieWorkIdentifier,
     Person,
     Series,
     SeriesRelation,
@@ -736,82 +735,50 @@ class MetadataService:
             sort_title=work.sort_title,
             description=work.description,
             original_language=work.original_language,
-            release_date=work.release_date,
+            release_date=work.original_release_date,
             runtime_minutes=work.runtime_minutes,
             releases=[self._movie_release_response(row) for row in releases],
-            contributions=[
-                self._movie_contributor_response(row)
-                for row in sorted(
-                    work.contributions or [],
-                    key=lambda c: (
-                        c.sequence is None,
-                        c.sequence or 0,
-                        c.role.casefold(),
-                        str(c.person_id),
-                    ),
-                )
-            ],
-            identifiers=[
-                self._movie_identifier_response(row)
-                for row in sorted(
-                    work.identifiers or [],
-                    key=lambda i: (
-                        i.identifier_type.casefold(),
-                        i.normalized_value.casefold(),
-                        str(i.id),
-                    ),
-                )
-            ],
-            character_appearances=[
-                self._movie_character_response(row)
-                for row in sorted(
-                    work.character_appearances or [],
-                    key=lambda c: (
-                        c.role.casefold(),
-                        str(c.character_id),
-                    ),
-                )
-            ],
+            contributions=[],  # TODO: implement contributor responses for v1
+            identifiers=[],  # TODO: implement identifier responses for v1
+            character_appearances=[],  # Not supported in v1 schema
         )
 
     def _movie_release_response(self, release: MovieRelease) -> MovieReleaseV1Response:
         return MovieReleaseV1Response(
             id=release.id,
             work_id=release.work_id,
-            release_title=release.release_title,
             release_date=release.release_date,
-            region=release.region,
+            region=release.region_code,
             format=release.format,
-            language=release.language,
-            description=release.description,
             cover_image_url=release.cover_image_url,
             cover_image_key=release.cover_image_key,
         )
 
-    def _movie_contributor_response(self, contrib: MovieContribution) -> MovieContributorResponse:
-        return MovieContributorResponse(
-            id=contrib.id,
-            person_id=contrib.person_id,
-            person_name=contrib.person.name if contrib.person is not None else "",
-            role=contrib.role,
-            sequence=contrib.sequence,
-        )
-
-    def _movie_identifier_response(self, identifier: MovieIdentifier) -> MovieIdentifierResponse:
-        return MovieIdentifierResponse(
-            id=identifier.id,
-            identifier_type=identifier.identifier_type,
-            value=identifier.value,
-            is_primary=identifier.is_primary,
-        )
-
-    def _movie_character_response(self, char: MovieCharacterAppearance) -> MovieCharacterResponse:
-        return MovieCharacterResponse(
-            id=char.id,
-            character_id=char.character_id,
-            character_name=char.character.name if char.character is not None else "",
-            role=char.role,
-        )
+    # Movie v1 helper methods - TODO: implement proper v1 support
+    # def _movie_contributor_response(self, contrib: MovieWorkContribution) -> MovieContributorResponse:
+    #     return MovieContributorResponse(
+    #         id=contrib.id,
+    #         person_id=contrib.person_id,
+    #         person_name=contrib.person.name if contrib.person is not None else "",
+    #         role=contrib.role,
+    #         sequence=contrib.sequence,
+    #     )
+    #
+    # def _movie_identifier_response(self, identifier: MovieWorkIdentifier) -> MovieIdentifierResponse:
+    #     return MovieIdentifierResponse(
+    #         id=identifier.id,
+    #         identifier_type=identifier.identifier_type,
+    #         value=identifier.value,
+    #         is_primary=identifier.is_primary,
+    #     )
+    #
+    # def _movie_character_response(self, char: MovieCharacterAppearance) -> MovieCharacterResponse:
+    #     return MovieCharacterResponse(
+    #         id=char.id,
+    #         character_id=char.character_id,
+    #         character_name=char.character.name if char.character is not None else "",
+    #         role=char.role,
+    #     )
 
     # TV v1 helper methods commented out - legacy TV model removed
     # TODO: Implement TVRelease response helpers
@@ -1046,12 +1013,9 @@ class MetadataService:
             select(MovieWork)
             .where(MovieWork.id == work_id)
             .options(
-                selectinload(MovieWork.contributions).selectinload(MovieContribution.person),
+                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
                 selectinload(MovieWork.releases),
                 selectinload(MovieWork.identifiers),
-                selectinload(MovieWork.character_appearances).selectinload(
-                    MovieCharacterAppearance.character
-                ),
             )
         )
         if work is None:

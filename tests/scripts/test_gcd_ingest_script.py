@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Item, ItemProviderLink, VolumeProviderLink
+from app.models.canonical import ComicIssue, ComicWork, ExternalProviderId, VolumeProviderLink
 from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.gcd import GCDProvider
 from app.scripts import ingest_gcd
@@ -118,16 +118,18 @@ async def test_ingest_gcd_imports_issue_and_skips_existing(monkeypatch):
     assert output[-1] == "SKIPPED gcd:256114 already linked"
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Item)) == 1
+        # For comics v1, we check for ComicWork and ComicIssue, not Item
+        issue_count = await db.scalar(select(func.count()).select_from(ComicIssue))
         provider_ids = await db.scalars(
-            select(ItemProviderLink.provider_item_id).order_by(
-                ItemProviderLink.provider_item_id
-            )
+            select(ExternalProviderId.provider_item_id)
+            .where(ExternalProviderId.entity_type == "comic_issue")
+            .order_by(ExternalProviderId.provider_item_id)
         )
         volume_provider_ids = await db.scalars(
             select(VolumeProviderLink.provider_item_id).order_by(
                 VolumeProviderLink.provider_item_id
             )
         )
+        assert issue_count == 1
         assert list(provider_ids) == ["256114"]
         assert list(volume_provider_ids) == ["6139"]

@@ -653,24 +653,60 @@ class AdminProviderIngestService:
         stale_days = self.settings.worker_catalog_refresh_stale_days
         cutoff = datetime.now(UTC) - timedelta(days=stale_days)
         result = await self.db.execute(
-            select(ItemProviderLink)
+            select(ExternalProviderId)
             .where(
-                ItemProviderLink.updated_at < cutoff,
+                ExternalProviderId.updated_at < cutoff,
             )
-            .order_by(ItemProviderLink.updated_at.asc())
+            .order_by(ExternalProviderId.updated_at.asc())
             .limit(limit)
         )
         provider_ids = result.scalars().all()
         refreshed = 0
         for pid in provider_ids:
             try:
-                await self._refresh_item_from_provider(pid)
+                await self._refresh_external_provider_id(pid)
                 refreshed += 1
             except Exception:
                 pass
         if refreshed:
             await self.db.commit()
         return refreshed
+
+    async def _refresh_external_provider_id(self, pid: ExternalProviderId) -> None:
+        """Refresh metadata for an external provider ID by re-ingesting and updating fields."""
+        registry = ProviderRegistry()
+        provider = registry.get(pid.provider)
+        if provider is None or not provider.is_configured:
+            pid.updated_at = datetime.now(UTC)
+            return
+         
+        # Get the entity and refresh its data
+        if pid.entity_type == "comic_issue":
+            issue = await self.db.get(ComicIssue, pid.entity_id)
+            if issue is None:
+                return
+            provider_item = await provider.get_item(pid.provider_item_id)
+            normalized = await provider.normalize(provider_item.raw)
+            # Update issue fields from provider data
+            issue.display_title = normalized.edition_title or normalized.title
+            issue.publication_date = normalized.release_date
+            issue.release_date = normalized.release_date
+            issue.publisher = normalized.publisher
+            issue.imprint = normalized.imprint
+            issue.page_count = normalized.page_count
+            issue.cover_price_cents = normalized.cover_price_cents
+            issue.currency = (normalized.currency or "").upper()[:8] or None
+            issue.description = normalized.synopsis
+        else:
+            # For other entity types, re-ingest
+            await self.ingest(
+                ProviderIngestRequest(
+                    provider=pid.provider,
+                    provider_item_id=pid.provider_item_id,
+                )
+            )
+         
+        pid.updated_at = datetime.now(UTC)
 
     async def retry_ingest(self, payload: ProviderIngestRetryRequest) -> ProviderIngestResponse:
         entry = next((entry for entry in self._history_reader() if entry.id == payload.history_id), None)
@@ -874,7 +910,7 @@ class AdminProviderIngestService:
                 item=await self._item_response(loaded_item),
             )
         if normalized.kind == ItemKind.comic:
-            work = await self._create_comic_work_from_normalized(
+            work, work_created = await self._create_comic_work_from_normalized(
                 provider=provider,
                 provider_name=payload.provider,
                 provider_item_id=provider_item.provider_item_id,
@@ -885,7 +921,7 @@ class AdminProviderIngestService:
             await self._reindex_comic_work(work.id)
             return ProviderIngestResponse(
                 item_id=work.id,
-                created=True,
+                created=work_created,
                 item=await MetadataService(self.db).get_comic_work(work.id),
             )
         if normalized.kind == ItemKind.manga:
@@ -2206,7 +2242,11 @@ class AdminProviderIngestService:
         provider_item_id: str,
         provider_raw: Any | None,
         normalized: NormalizedItem,
-    ) -> ComicWork:
+    ) -> tuple[ComicWork, bool]:
+        """
+        Create or reuse a ComicWork from normalized provider data.
+        Returns: (work, created) where created=True if work was newly created, False if reused.
+        """
         volume, series = await self._upsert_volume(
             ItemKind.comic,
             normalized.series_title,
@@ -2231,6 +2271,7 @@ class AdminProviderIngestService:
             )
 
         # Only create new ComicWork if one doesn't already exist for this volume
+        work_created = False
         if work is None:
             work_title = normalized.series_title or normalized.title
             work = ComicWork(
@@ -2250,162 +2291,183 @@ class AdminProviderIngestService:
             )
             self.db.add(work)
             await self.db.flush()
+            work_created = True
 
         release_status = self._normalized_release_status(normalized.release_status)
         if release_status is not None:
             await self._ensure_release_status(release_status)
-        issue = ComicIssue(
-            work_id=work.id,
-            issue_number=normalized.item_number,
-            display_title=normalized.edition_title or normalized.title,
-            publication_date=normalized.release_date,
-            release_date=normalized.release_date,
-            publisher=normalized.publisher,
-            imprint=normalized.imprint,
-            language=self._normalized_language(normalized.language),
-            region=self._normalized_region(normalized.country),
-            page_count=normalized.page_count,
-            cover_price_cents=normalized.cover_price_cents,
-            currency=(normalized.currency or "").upper()[:8] or None,
-            release_status=release_status,
-            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
-            cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            description=normalized.synopsis,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.comic,
-                normalized={"cover_storage": "mirror" if mirrored_cover else "provider"},
-            ),
+        
+        # Check if issue already exists by provider_item_id
+        issue = None
+        existing_provider_id = await self.db.scalar(
+            select(ExternalProviderId).where(
+                ExternalProviderId.provider_item_id == provider_item_id,
+                ExternalProviderId.entity_type == "comic_issue",
+                ExternalProviderId.provider == provider_name,
+            )
         )
-        self.db.add(issue)
-        await self.db.flush()
-
-        for index, credit in enumerate(normalized.creators, start=1):
-            person = await self._get_or_create_person(credit.name, credit)
-            self.db.add(
-                ComicContribution(
-                    issue_id=issue.id,
-                    person_id=person.id,
-                    role=(credit.role or "creator").strip().lower(),
-                    sequence=index,
-                )
+        if existing_provider_id:
+            issue = await self.db.scalar(
+                select(ComicIssue).where(ComicIssue.id == existing_provider_id.entity_id)
             )
-
-        identifiers: list[tuple[str, str, bool]] = []
-        if normalized.isbn:
-            identifiers.append(
-                (self._comic_identifier_type("isbn", normalized.isbn), normalized.isbn, True)
-            )
-        if normalized.barcode:
-            identifiers.append(
-                (self._comic_identifier_type("upc", normalized.barcode), normalized.barcode, False)
-            )
-        identifiers.append(("provider_item_id", provider_item_id, False))
-        for _, provider_value in normalized.provider_ids.items():
-            if provider_value:
-                identifiers.append(("provider_item_id", provider_value, False))
-        seen_identifier_keys: set[tuple[str, str]] = set()
-        for identifier_type, value, is_primary in identifiers:
-            normalized_value = self._normalized_identifier(value)
-            if not normalized_value:
-                continue
-            dedupe_key = (identifier_type, normalized_value)
-            if dedupe_key in seen_identifier_keys:
-                continue
-            seen_identifier_keys.add(dedupe_key)
-            self.db.add(
-                ComicIdentifier(
-                    issue_id=issue.id,
-                    identifier_type=identifier_type,
-                    value=value,
-                    normalized_value=normalized_value,
-                    is_primary=is_primary,
-                    source_provider=provider_name,
-                )
-            )
-
-        seen_story_arcs: set[str] = set()
-        for index, credit in enumerate(normalized.story_arcs, start=1):
-            name = credit.name.strip()
-            if not name:
-                continue
-            key = name.casefold()
-            if key in seen_story_arcs:
-                continue
-            seen_story_arcs.add(key)
-            story_arc = await self._get_or_create_story_arc(name, credit)
-            self.db.add(
-                ComicStoryArcMembership(
-                    issue_id=issue.id,
-                    story_arc_id=story_arc.id,
-                    ordinal=index,
-                )
-            )
-            story_arc_provider_id = comicvine_credit_provider_id(credit, resource="story_arc")
-            if provider_name == ExternalProvider.comicvine and story_arc_provider_id:
-                await self._add_provider_links(
+        
+        # Only create new issue if one doesn't already exist
+        if issue is None:
+            issue = ComicIssue(
+                work_id=work.id,
+                issue_number=normalized.item_number,
+                display_title=normalized.edition_title or normalized.title,
+                publication_date=normalized.release_date,
+                release_date=normalized.release_date,
+                publisher=normalized.publisher,
+                imprint=normalized.imprint,
+                language=self._normalized_language(normalized.language),
+                region=self._normalized_region(normalized.country),
+                page_count=normalized.page_count,
+                cover_price_cents=normalized.cover_price_cents,
+                currency=(normalized.currency or "").upper()[:8] or None,
+                release_status=release_status,
+                cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+                cover_image_key=mirrored_cover.key if mirrored_cover else None,
+                description=normalized.synopsis,
+                metadata_json=self._provider_metadata_json(
                     provider_name,
-                    {provider_name.value: story_arc_provider_id},
-                    "story_arc",
-                    story_arc.id,
-                    provider_urls={provider_name.value: credit_provider_urls(credit) or {}},
-                )
+                    provider_item_id,
+                    kind=ItemKind.comic,
+                    normalized={"cover_storage": "mirror" if mirrored_cover else "provider"},
+                ),
+            )
+            self.db.add(issue)
+            await self.db.flush()
 
-        seen_characters: set[tuple[str, str]] = set()
-        for credit in normalized.characters:
-            name = credit.name.strip()
-            if not name:
-                continue
-            role = character_appearance_role(credit.role)
-            dedupe_key = (name.casefold(), role.casefold())
-            if dedupe_key in seen_characters:
-                continue
-            seen_characters.add(dedupe_key)
-            character_provider_id = comicvine_credit_provider_id(credit, resource="character")
-            character = await self._get_or_create_character(
-                name,
-                credit,
-                provider=provider_name,
-                provider_item_id=character_provider_id,
-            )
-            self.db.add(
-                ComicCharacterAppearance(
-                    issue_id=issue.id,
-                    character_id=character.id,
-                    role=role,
-                )
-            )
-
-        if series is not None:
-            # Check if series membership already exists
-            existing_membership = await self.db.scalar(
-                select(ComicSeriesMembership).where(
-                    ComicSeriesMembership.work_id == work.id,
-                    ComicSeriesMembership.series_id == series.id,
-                )
-            )
-            if existing_membership is None:
-                sequence: float | None = None
-                if normalized.item_number:
-                    try:
-                        sequence = float(normalized.item_number)
-                    except ValueError:
-                        sequence = None
+        # Only add contributions, identifiers, and other relations if issue was newly created
+        if issue and not existing_provider_id:
+            for index, credit in enumerate(normalized.creators, start=1):
+                person = await self._get_or_create_person(credit.name, credit)
                 self.db.add(
-                    ComicSeriesMembership(
-                        work_id=work.id,
-                        series_id=series.id,
-                        sequence=sequence,
-                        display_number=normalized.item_number,
-                        metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
+                    ComicContribution(
+                        issue_id=issue.id,
+                        person_id=person.id,
+                        role=(credit.role or "creator").strip().lower(),
+                        sequence=index,
                     )
                 )
+
+            identifiers: list[tuple[str, str, bool]] = []
+            if normalized.isbn:
+                identifiers.append(
+                    (self._comic_identifier_type("isbn", normalized.isbn), normalized.isbn, True)
+                )
+            if normalized.barcode:
+                identifiers.append(
+                    (self._comic_identifier_type("upc", normalized.barcode), normalized.barcode, False)
+                )
+            identifiers.append(("provider_item_id", provider_item_id, False))
+            for _, provider_value in normalized.provider_ids.items():
+                if provider_value:
+                    identifiers.append(("provider_item_id", provider_value, False))
+            seen_identifier_keys: set[tuple[str, str]] = set()
+            for identifier_type, value, is_primary in identifiers:
+                normalized_value = self._normalized_identifier(value)
+                if not normalized_value:
+                    continue
+                dedupe_key = (identifier_type, normalized_value)
+                if dedupe_key in seen_identifier_keys:
+                    continue
+                seen_identifier_keys.add(dedupe_key)
+                self.db.add(
+                    ComicIdentifier(
+                        issue_id=issue.id,
+                        identifier_type=identifier_type,
+                        value=value,
+                        normalized_value=normalized_value,
+                        is_primary=is_primary,
+                        source_provider=provider_name,
+                    )
+                )
+
+            seen_story_arcs: set[str] = set()
+            for index, credit in enumerate(normalized.story_arcs, start=1):
+                name = credit.name.strip()
+                if not name:
+                    continue
+                key = name.casefold()
+                if key in seen_story_arcs:
+                    continue
+                seen_story_arcs.add(key)
+                story_arc = await self._get_or_create_story_arc(name, credit)
+                self.db.add(
+                    ComicStoryArcMembership(
+                        issue_id=issue.id,
+                        story_arc_id=story_arc.id,
+                        ordinal=index,
+                    )
+                )
+                story_arc_provider_id = comicvine_credit_provider_id(credit, resource="story_arc")
+                if provider_name == ExternalProvider.comicvine and story_arc_provider_id:
+                    await self._add_provider_links(
+                        provider_name,
+                        {provider_name.value: story_arc_provider_id},
+                        "story_arc",
+                        story_arc.id,
+                        provider_urls={provider_name.value: credit_provider_urls(credit) or {}},
+                    )
+
+            seen_characters: set[tuple[str, str]] = set()
+            for credit in normalized.characters:
+                name = credit.name.strip()
+                if not name:
+                    continue
+                role = character_appearance_role(credit.role)
+                dedupe_key = (name.casefold(), role.casefold())
+                if dedupe_key in seen_characters:
+                    continue
+                seen_characters.add(dedupe_key)
+                character_provider_id = comicvine_credit_provider_id(credit, resource="character")
+                character = await self._get_or_create_character(
+                    name,
+                    credit,
+                    provider=provider_name,
+                    provider_item_id=character_provider_id,
+                )
+                self.db.add(
+                    ComicCharacterAppearance(
+                        issue_id=issue.id,
+                        character_id=character.id,
+                        role=role,
+                    )
+                )
+
+            if series is not None:
+                # Check if series membership already exists
+                existing_membership = await self.db.scalar(
+                    select(ComicSeriesMembership).where(
+                        ComicSeriesMembership.work_id == work.id,
+                        ComicSeriesMembership.series_id == series.id,
+                    )
+                )
+                if existing_membership is None:
+                    sequence: float | None = None
+                    if normalized.item_number:
+                        try:
+                            sequence = float(normalized.item_number)
+                        except ValueError:
+                            sequence = None
+                    self.db.add(
+                        ComicSeriesMembership(
+                            work_id=work.id,
+                            series_id=series.id,
+                            sequence=sequence,
+                            display_number=normalized.item_number,
+                            metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
+                        )
+                    )
 
         provider_ids = dict(normalized.provider_ids or {})
         provider_ids[provider_name.value] = provider_item_id
         
         # Provider links should be for the issue (the actual ingested item), not the work
+        # We only store one entry per provider_item_id, so store it for the issue which is more specific
         await self._add_provider_links(
             provider_name,
             provider_ids,
@@ -2453,7 +2515,7 @@ class AdminProviderIngestService:
                 normalized.volume_provider_ids,
             )
         
-        return work
+        return work, work_created
 
     async def _create_book_work_from_normalized(
         self,
@@ -2628,6 +2690,15 @@ class AdminProviderIngestService:
         )
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        
+        # Add volume provider links if volume exists
+        if volume:
+            await self._replace_volume_provider_links(
+                volume.id,
+                provider_name,
+                normalized.volume_provider_ids,
+            )
+        
         return work
 
     async def _create_manga_work_from_normalized(

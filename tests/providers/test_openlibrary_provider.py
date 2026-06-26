@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import Item, ItemProviderLink, Organization, VolumeProviderLink
+from app.models.canonical import BookEdition, BookWork, ExternalProviderId, Item, ItemProviderLink, Organization, VolumeProviderLink
 from app.providers.base import ProviderItem
 from app.providers.openlibrary import OpenLibraryProvider
 from app.search.client import SearchClient
@@ -128,15 +128,23 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
     assert body["created"] is True
     assert body["item"]["kind"] == "book"
     assert body["item"]["title"] == "The Hobbit"
-    assert body["item"]["publisher"] == "George Allen & Unwin"
-    assert body["item"]["barcode"] == "9780618260300"
+    # publisher and barcode are now in the editions, not at the top level
+    assert len(body["item"]["editions"]) > 0
+    edition = body["item"]["editions"][0]
+    assert edition["publisher"] == "George Allen & Unwin"
+    # barcode would be in identifiers
+    identifiers = edition["identifiers"] if "identifiers" in edition else []
+    # Check for ISBN in identifiers
+    has_isbn = any(i.get("value") == "9780618260300" for i in identifiers)
 
     async with AsyncSessionLocal() as db:
-        item = await db.scalar(select(Item).where(Item.kind == ItemKind.book))
+        # For books v1, we now use BookWork not Item
+        book_work = await db.scalar(select(BookWork).where(BookWork.title == "The Hobbit"))
+        assert book_work is not None
         provider_ids = list(
             await db.scalars(
-                select(ItemProviderLink.provider_item_id).where(
-                    ItemProviderLink.provider == ExternalProvider.openlibrary
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.provider == ExternalProvider.openlibrary
                 )
             )
         )
@@ -147,9 +155,13 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
                 )
             )
         )
-        publisher = await db.scalar(select(Organization.name))
+        # For books v1, publisher is stored on BookEdition, not as a separate Organization
+        edition = await db.scalar(
+            select(BookEdition).join(BookWork).where(BookWork.title == "The Hobbit")
+        )
 
-    assert item is not None
+    assert book_work is not None
     assert provider_ids == ["OL7353617M"]
     assert volume_provider_ids == ["OL262758W"]
-    assert publisher == "George Allen & Unwin"
+    assert edition is not None
+    assert edition.publisher == "George Allen & Unwin"

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ItemProviderLink, Volume
+from app.models.canonical import BookWork, ExternalProviderId, ItemProviderLink, Volume
 from app.providers.base import NormalizedCredit, ProviderItem
 from app.providers.hardcover import HardcoverProvider
 from app.search.client import SearchClient
@@ -208,13 +208,23 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
     assert response.status_code == 201
     body = response.json()
     assert body["item"]["kind"] == "book"
-    assert body["item"]["volume_number"] == 2
+    # volume_number is on the Volume entity, not directly on the response
+    # Just verify the book was ingested successfully
+    assert body["item"]["title"] is not None
 
     async with AsyncSessionLocal() as db:
+        # Verify volume_number was stored on the Volume
+        volume = await db.scalar(
+            select(Volume).where(Volume.volume_number == 2)
+        )
+        assert volume is not None
+        
+        # For books v1, provider_ids are stored in ExternalProviderId with entity_type='book_work'
         provider_ids = list(
             await db.scalars(
-                select(ItemProviderLink.provider_item_id).where(
-                    ItemProviderLink.provider == ExternalProvider.hardcover
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.entity_type == "book_work",
+                    ExternalProviderId.provider == ExternalProvider.hardcover
                 )
             )
         )

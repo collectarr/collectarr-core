@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider
-from app.models.canonical import Item, MetadataProposal
+from app.models.canonical import ComicWork, Item, MetadataProposal
 from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
 from app.search.client import SearchClient
@@ -146,4 +146,8 @@ async def test_admin_can_approve_manual_proposal_with_provider_item(client, monk
         assert proposal.status == "approved"
         assert proposal.provider == ExternalProvider.comicvine
         assert proposal.provider_item_id == "4000-12345"
-        assert await db.scalar(select(Item.title)) == "The Amazing Spider-Man"
+        # For comics v1, we now create ComicWork instead of Item
+        # Check that a ComicWork was created with the right title
+        comic_work = await db.scalar(select(ComicWork))
+        assert comic_work is not None
+        assert comic_work.title == "The Amazing Spider-Man"

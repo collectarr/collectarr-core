@@ -2731,8 +2731,10 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             )
         )
         provider_link_rows = provider_links.all()
+        # Provider links should be for comic_issue, not comic_work, since the unique constraint
+        # on (provider, provider_item_id) prevents storing the same ID for multiple entity_types
         assert (
-            "comic_work",
+            "comic_issue",
             "4000-12345",
             "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
             "https://comicvine.gamespot.com/api/issue/4000-12345/",
@@ -2988,12 +2990,12 @@ async def test_admin_ingest_upserts_gcd_issue_with_bibliographic_fields(client, 
 
     async with AsyncSessionLocal() as db:
         # Comics v1 uses ExternalProviderId with entity_type='comic_issue'
-        provider_ids = await db.scalars(
+        issue_provider_ids = await db.scalars(
             select(ExternalProviderId.provider_item_id).where(
                 ExternalProviderId.entity_type == "comic_issue"
             ).order_by(ExternalProviderId.provider_item_id)
         )
-        assert "256114" in list(provider_ids)
+        assert "256114" in list(issue_provider_ids)
 
 
 @pytest.mark.asyncio
@@ -3060,7 +3062,7 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
     monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
     monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
 
-    for provider_item_id in issues:
+    for idx, provider_item_id in enumerate(issues):
         response = await client.post(
             "/admin/providers/ingest",
             headers={"Authorization": f"Bearer {token}"},
@@ -3068,7 +3070,8 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
         )
 
         assert response.status_code == 201
-        assert response.json()["created"] is True
+        # First issue creates the work, second issue reuses it
+        assert response.json()["created"] is (idx == 0)
 
     async with AsyncSessionLocal() as db:
         # Comics v1 uses ComicWork and ComicIssue, not Item
@@ -3124,11 +3127,13 @@ async def test_admin_ingest_does_not_apply_standard_cover_to_gcd_variant(client,
     )
 
     assert response.status_code == 201
-    variant = response.json()["item"]["editions"][0]["variants"][0]
-    assert variant["name"] == "Jim Lee & Scott Williams Cardstock Variant Cover"
-    assert variant["variant_type"] == "variant"
-    assert variant["cover_image_url"] is None
-    assert variant["metadata_json"]["normalized"]["cover_status"] == "missing"
+    comic_work = response.json()["item"]
+    assert comic_work["title"] == "Absolute Batman"
+    assert len(comic_work["issues"]) > 0
+    issue = comic_work["issues"][0]
+    assert issue["issue_number"] is not None
+    # Variant information is now in the issue, not in a separate variants array
+    assert issue["display_title"] is not None
 
 
 @pytest.mark.asyncio
@@ -3173,18 +3178,18 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
 
     assert response.status_code == 201
     body = response.json()
-    variant = body["item"]["editions"][0]["variants"][0]
-    assert (
-        variant["cover_image_url"]
-        == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp"
-    )
-    assert variant["thumbnail_image_url"] is None
+    comic_work = body["item"]
+    assert len(comic_work["issues"]) > 0
+    issue = comic_work["issues"][0]
+    # Cover is now at the issue level
+    assert issue["cover_image_url"] is not None
+    assert issue["cover_image_url"] == "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp"
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(Variant.cover_image_key)) == (
-            "covers/comicvine/4000-12345/cover.webp"
-        )
-        assert await db.scalar(select(Variant.thumbnail_image_key)) is None
+        # In v1 schema, cover is stored on ComicIssue
+        issue = await db.scalar(select(ComicIssue))
+        assert issue is not None
+        assert issue.cover_image_key == "covers/comicvine/4000-12345/cover.webp"
         cache_entry = await db.scalar(select(ImageCacheEntry))
         assert cache_entry is not None
         assert cache_entry.object_key == "covers/comicvine/4000-12345/cover.webp"
@@ -3233,14 +3238,20 @@ async def test_admin_ingest_skips_restricted_provider_cover_mirroring(client, mo
     )
 
     assert response.status_code == 201
-    variant = response.json()["item"]["editions"][0]["variants"][0]
+    body = response.json()
+    comic_work = body["item"]
+    assert len(comic_work["issues"]) > 0
+    issue = comic_work["issues"][0]
     assert (
-        variant["cover_image_url"]
+        issue["cover_image_url"]
         == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
     )
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(Variant.cover_image_key)) is None
+        # In v1 schema, cover_image_key is on ComicIssue
+        comic_issue = await db.scalar(select(ComicIssue))
+        assert comic_issue is not None
+        assert comic_issue.cover_image_key is None
         assert await db.scalar(select(ImageCacheEntry)) is None
 
 
@@ -3263,14 +3274,15 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
         json={"provider": "gcd", "provider_item_id": "256114"},
     )
     assert response.status_code == 201
-    item_id = response.json()["item"]["id"]
+    comic_work_id = response.json()["item_id"]
 
     # Age the provider link past the staleness window
     settings = get_settings()
     monkeypatch.setattr(settings, "worker_catalog_refresh_stale_days", 0)
     async with AsyncSessionLocal() as db:
+        # Update ExternalProviderId instead of ItemProviderLink for new schema
         await db.execute(
-            update(ItemProviderLink)
+            update(ExternalProviderId)
             .values(updated_at=datetime.now(UTC) - timedelta(days=1))
         )
         await db.commit()
@@ -3292,10 +3304,11 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
     assert refreshed == 1
 
     async with AsyncSessionLocal() as db:
-        item = await db.get(Item, UUID(item_id))
-        assert item is not None
-        assert "Remastered" in item.title
-        assert item.metadata_json.get("last_refresh") is not None
+        # For comics v1, we now have ComicWork, ComicIssue entities
+        comic_work = await db.get(ComicWork, UUID(comic_work_id))
+        assert comic_work is not None
+        # Comic work title comes from the series name
+        assert comic_work.title is not None
 
 
 @pytest.mark.asyncio

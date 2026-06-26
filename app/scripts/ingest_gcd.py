@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider
-from app.models.canonical import ItemProviderLink
+from app.models.canonical import ComicIssue, ExternalProviderId
 from app.providers.gcd import GCDProvider
 from app.schemas.admin import ProviderIngestRequest
 from app.services.admin import AdminMetadataService
@@ -174,9 +174,10 @@ def dedupe_candidates(candidates: list[GCDIngestCandidate]) -> list[GCDIngestCan
 
 async def provider_item_exists(db: AsyncSession, provider_item_id: str) -> bool:
     existing_id = await db.scalar(
-        select(ItemProviderLink.id).where(
-            ItemProviderLink.provider == ExternalProvider.gcd,
-            ItemProviderLink.provider_item_id == provider_item_id,
+        select(ExternalProviderId.id).where(
+            ExternalProviderId.provider == ExternalProvider.gcd,
+            ExternalProviderId.provider_item_id == provider_item_id,
+            ExternalProviderId.entity_type == "comic_issue",
         )
     )
     return existing_id is not None

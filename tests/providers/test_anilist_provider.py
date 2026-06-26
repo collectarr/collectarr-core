@@ -8,8 +8,10 @@ from app.models.canonical import (
     BundleRelease,
     BundleReleaseProviderLink,
     Character,
+    ExternalProviderId,
     Item,
     ItemProviderLink,
+    MangaWork,
     Person,
     Tag,
     Volume,
@@ -323,11 +325,11 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
     assert body["item"]["title"] == "One Piece"
 
     async with AsyncSessionLocal() as db:
-        item = await db.scalar(select(Item).where(Item.kind == ItemKind.manga))
+        manga_work = await db.scalar(select(MangaWork).where(MangaWork.title == "One Piece"))
         provider_ids = list(
             await db.scalars(
-                select(ItemProviderLink.provider_item_id).where(
-                    ItemProviderLink.provider == ExternalProvider.anilist
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.provider == ExternalProvider.anilist
                 )
             )
         )
@@ -335,7 +337,7 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
         character = await db.scalar(select(Character.name))
         tags = list(await db.scalars(select(Tag.name).order_by(Tag.name)))
 
-    assert item is not None
+    assert manga_work is not None
     assert provider_ids == ["30013"]
     assert creator == "Eiichiro Oda"
     assert character == "Monkey D. Luffy"

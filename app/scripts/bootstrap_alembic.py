@@ -10,7 +10,7 @@ from alembic import command
 from app.db.session import engine
 
 BASELINE_REVISION = "20260624_1000"
-HEAD_REVISION = "20260624_1000"
+HEAD_REVISION = "20260626_1100"
 
 
 def _alembic_config() -> Config:

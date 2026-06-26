@@ -69,12 +69,11 @@ from app.models.canonical import (
     StoryArc,
     StoryArcItem,
     Tag,
-    TVCharacterAppearance,
-    TVContribution,
+    TVRelease,
+    TVReleaseContribution,
+    TVReleaseIdentifier,
+    TVReleaseMedia,
     TVEpisode,
-    TVIdentifier,
-    TVSeason,
-    TVSeries,
     Variant,
     Volume,
     VolumeProviderLink,
@@ -121,7 +120,6 @@ from app.search.documents import (
     comic_work_search_document,
     manga_work_search_document,
     movie_work_search_document,
-    tv_series_search_document,
 )
 from app.services.admin_domains.shared import (
     character_appearance_role,
@@ -2701,6 +2699,153 @@ class AdminProviderIngestService:
         
         return work
 
+    async def _create_tv_series_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> TVRelease:
+        """Create TVRelease from normalized item representing a physical TV release."""
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        # Create the TVRelease (represents the physical edition/box set)
+        release = TVRelease(
+            title=normalized.edition_title or normalized.title,
+            sort_title=sort_key(ItemKind.tv, normalized.title, None),
+            description=normalized.synopsis,
+            format=normalized.edition_format or "dvd",
+            region_code=self._normalized_region(normalized.country),
+            release_date=normalized.release_date,
+            publisher=normalized.publisher,
+            sku=normalized.barcode,
+            runtime_minutes=normalized.runtime_minutes,
+            content_rating=normalized.age_rating,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.tv,
+                normalized={"series_title": normalized.series_title},
+            ),
+        )
+        self.db.add(release)
+        await self.db.flush()
+
+        # Create a single media entry (for simplicity; could be split into multiple)
+        media = TVReleaseMedia(
+            release_id=release.id,
+            media_number=1,
+            media_type=normalized.edition_format or "dvd",
+            title=normalized.edition_title,
+            metadata_json={},
+        )
+        self.db.add(media)
+        await self.db.flush()
+
+        # Create episode entries if available
+        # Note: Episodes will be populated when provider normalizers support them
+        # For now, create a placeholder episode per the series
+        if normalized.series_title:
+            episode = TVEpisode(
+                release_id=release.id,
+                media_id=media.id,
+                series_title=normalized.series_title,
+                season_number=1,
+                episode_number=1,
+                title=normalized.title,
+                overview=normalized.synopsis,
+                duration_seconds=normalized.runtime_minutes * 60 if normalized.runtime_minutes else None,
+                metadata_json={},
+            )
+            self.db.add(episode)
+
+        # Add contributions (cast/crew)
+        for index, credit in enumerate(normalized.creators, start=1):
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                TVReleaseContribution(
+                    release_id=release.id,
+                    person_id=person.id,
+                    role=(credit.role or "cast").strip().lower(),
+                    sequence=index,
+                )
+            )
+
+        # Add identifiers (provider IDs, SKU, etc.)
+        identifiers: list[tuple[str, str, bool]] = []
+        if normalized.barcode:
+            identifiers.append(("barcode", normalized.barcode, True))
+        if normalized.isbn:
+            identifiers.append(("isbn", normalized.isbn, False))
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in (normalized.provider_ids or {}).items():
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
+
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                TVReleaseIdentifier(
+                    release_id=release.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
+
+        # Add provider links
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+            provider_name,
+            provider_ids,
+            "tv_release",
+            release.id,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+
+        # Record provider snapshot
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="tv_release",
+            entity_id=release.id,
+            source=provider_raw,
+            normalized={
+                "title": release.title,
+                "series_title": normalized.series_title,
+                "format": release.format,
+            },
+        )
+
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+
+        return release
+
     async def _create_manga_work_from_normalized(
         self,
         *,
@@ -3143,168 +3288,6 @@ class AdminProviderIngestService:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         return work
 
-    async def _create_tv_series_from_normalized(
-        self,
-        *,
-        provider: MetadataProvider,
-        provider_name: ExternalProvider,
-        provider_item_id: str,
-        provider_raw: Any | None,
-        normalized: NormalizedItem,
-    ) -> TVSeries:
-        """Create TVSeries from normalized item with seasons/episodes, contributions, identifiers, and character appearances."""
-        mirrored_cover = None
-        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
-            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
-                source_url=normalized.cover_image_url,
-                provider=provider_name,
-                provider_item_id=provider_item_id,
-            )
-
-        series = TVSeries(
-            title=normalized.title,
-            sort_title=sort_key(ItemKind.tv, normalized.title, None),
-            description=normalized.synopsis,
-            original_language=self._normalized_language(normalized.language),
-            original_air_date=normalized.release_date,
-            status=normalized.release_status or "unknown",
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.tv,
-                normalized={},
-            ),
-        )
-        self.db.add(series)
-        await self.db.flush()
-
-        # Create single season and episode from this normalized item
-        tv_season = TVSeason(
-            series_id=series.id,
-            season_number=int(normalized.volume_number) if normalized.volume_number and isinstance(normalized.volume_number, int) else 1,
-            air_date=normalized.release_date,
-            description=normalized.synopsis,
-            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
-            cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.tv,
-                normalized={"season_number": normalized.volume_number},
-            ),
-        )
-        self.db.add(tv_season)
-        await self.db.flush()
-
-        # Create single episode within that season
-        tv_episode = TVEpisode(
-            season_id=tv_season.id,
-            episode_number=int(normalized.item_number) if normalized.item_number and normalized.item_number.isdigit() else None,
-            episode_title=normalized.edition_title or normalized.title,
-            air_date=normalized.release_date,
-            description=normalized.synopsis,
-            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
-            cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            runtime_minutes=normalized.runtime_minutes,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.tv,
-                normalized={"episode_number": normalized.item_number},
-            ),
-        )
-        self.db.add(tv_episode)
-        await self.db.flush()
-
-        for index, credit in enumerate(normalized.creators, start=1):
-            person = await self._get_or_create_person(credit.name, credit)
-            self.db.add(
-                TVContribution(
-                    series_id=series.id,
-                    episode_id=None,
-                    person_id=person.id,
-                    role=(credit.role or "creator").strip().lower(),
-                    sequence=index,
-                )
-            )
-
-        identifiers: list[tuple[str, str, bool]] = []
-        identifiers.append(("provider_item_id", provider_item_id, False))
-        for _, provider_value in normalized.provider_ids.items():
-            if provider_value:
-                identifiers.append(("provider_item_id", provider_value, False))
-        seen_identifier_keys: set[tuple[str, str]] = set()
-        for identifier_type, value, is_primary in identifiers:
-            normalized_value = self._normalized_identifier(value)
-            if not normalized_value:
-                continue
-            dedupe_key = (identifier_type, normalized_value)
-            if dedupe_key in seen_identifier_keys:
-                continue
-            seen_identifier_keys.add(dedupe_key)
-            self.db.add(
-                TVIdentifier(
-                    series_id=series.id,
-                    identifier_type=identifier_type,
-                    value=value,
-                    normalized_value=normalized_value,
-                    is_primary=is_primary,
-                    source_provider=provider_name,
-                )
-            )
-
-        seen_characters: set[tuple[str, str]] = set()
-        for credit in normalized.characters:
-            name = credit.name.strip()
-            if not name:
-                continue
-            role = character_appearance_role(credit.role)
-            dedupe_key = (name.casefold(), role.casefold())
-            if dedupe_key in seen_characters:
-                continue
-            seen_characters.add(dedupe_key)
-            character = await self._get_or_create_character(
-                name,
-                credit,
-                provider=provider_name,
-                provider_item_id=None,
-            )
-            self.db.add(
-                TVCharacterAppearance(
-                    series_id=series.id,
-                    character_id=character.id,
-                    role=role,
-                )
-            )
-
-        provider_ids = dict(normalized.provider_ids or {})
-        provider_ids[provider_name.value] = provider_item_id
-        await self._add_provider_links(
-            provider_name,
-            provider_ids,
-            "tv_series",
-            series.id,
-            provider_urls=provider_link_urls_for_provider(
-                provider_name,
-                provider_ids,
-                provider_raw,
-            ),
-        )
-        await self._record_provider_snapshot(
-            provider=provider_name,
-            provider_item_id=provider_item_id,
-            entity_type="tv_series",
-            entity_id=series.id,
-            source=provider_raw,
-            normalized={
-                "title": series.title,
-                "original_language": series.original_language,
-            },
-        )
-        if mirrored_cover:
-            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
-        return series
-
     async def _reindex_comic_work(self, work_id: UUID) -> None:
         work = await self.db.scalar(
             select(ComicWork)
@@ -3389,19 +3372,19 @@ class AdminProviderIngestService:
         await SearchClient().index_documents_best_effort([movie_work_search_document(work)])
 
     async def _reindex_tv_series(self, series_id: UUID) -> None:
-        series = await self.db.scalar(
-            select(TVSeries)
-            .where(TVSeries.id == series_id)
+        # TV v1 model: TVRelease
+        release = await self.db.scalar(
+            select(TVRelease)
+            .where(TVRelease.id == series_id)
             .options(
-                selectinload(TVSeries.contributions).selectinload(TVContribution.person),
-                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.identifiers),
-                selectinload(TVSeries.character_appearances).selectinload(TVCharacterAppearance.character),
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.episodes),
+                selectinload(TVRelease.identifiers),
             )
         )
-        if series is None:
+        if release is not None:
+            # Index TV release (simplified for now - no search document yet)
             return
-        await SearchClient().index_documents_best_effort([tv_series_search_document(series)])
 
     def _comic_identifier_type(self, base_type: str, value: str) -> str:
         return self._book_identifier_type(base_type, value)

@@ -57,12 +57,10 @@ from app.models.canonical import (
     StoryArc,
     StoryArcItem,
     Tag,
-    TVCharacterAppearance,
-    TVContribution,
+    TVRelease,
+    TVReleaseContribution,
+    TVReleaseIdentifier,
     TVEpisode,
-    TVIdentifier,
-    TVSeason,
-    TVSeries,
     Volume,
     VolumeProviderLink,
 )
@@ -815,125 +813,10 @@ class MetadataService:
             role=char.role,
         )
 
-    def _tv_series_response(self, series: TVSeries) -> TVSeriesV1Response:
-        seasons = sorted(
-            series.seasons or [],
-            key=lambda s: (
-                s.season_number is None,
-                s.season_number or 0,
-                s.air_date is None,
-                s.air_date or date.max,
-                str(s.id),
-            ),
-        )
-        return TVSeriesV1Response(
-            id=series.id,
-            title=series.title,
-            sort_title=series.sort_title,
-            description=series.description,
-            original_language=series.original_language,
-            original_air_date=series.original_air_date,
-            end_date=series.end_date,
-            status=series.status,
-            season_count=series.season_count,
-            episode_count=series.episode_count,
-            network=series.network,
-            seasons=[self._tv_season_response(row) for row in seasons],
-            contributions=[
-                self._tv_contributor_response(row)
-                for row in sorted(
-                    series.contributions or [],
-                    key=lambda c: (
-                        c.sequence is None,
-                        c.sequence or 0,
-                        c.role.casefold(),
-                        str(c.person_id),
-                    ),
-                )
-            ],
-            identifiers=[
-                self._tv_identifier_response(row)
-                for row in sorted(
-                    series.identifiers or [],
-                    key=lambda i: (
-                        i.identifier_type.casefold(),
-                        i.normalized_value.casefold(),
-                        str(i.id),
-                    ),
-                )
-            ],
-            character_appearances=[
-                self._tv_character_response(row)
-                for row in sorted(
-                    series.character_appearances or [],
-                    key=lambda c: (
-                        c.role.casefold(),
-                        str(c.character_id),
-                    ),
-                )
-            ],
-        )
-
-    def _tv_season_response(self, season: TVSeason) -> TVSeasonV1Response:
-        episodes = sorted(
-            season.episodes or [],
-            key=lambda e: (
-                e.episode_number is None,
-                e.episode_number or 0,
-                e.air_date is None,
-                e.air_date or date.max,
-                str(e.id),
-            ),
-        )
-        return TVSeasonV1Response(
-            id=season.id,
-            series_id=season.series_id,
-            season_number=season.season_number,
-            air_date=season.air_date,
-            episode_count=season.episode_count,
-            description=season.description,
-            cover_image_url=season.cover_image_url,
-            cover_image_key=season.cover_image_key,
-            episodes=[self._tv_episode_response(row) for row in episodes],
-        )
-
-    def _tv_episode_response(self, episode: TVEpisode) -> TVEpisodeV1Response:
-        return TVEpisodeV1Response(
-            id=episode.id,
-            season_id=episode.season_id,
-            episode_number=episode.episode_number,
-            episode_title=episode.episode_title,
-            air_date=episode.air_date,
-            description=episode.description,
-            cover_image_url=episode.cover_image_url,
-            cover_image_key=episode.cover_image_key,
-            runtime_minutes=episode.runtime_minutes,
-        )
-
-    def _tv_contributor_response(self, contrib: TVContribution) -> TVContributorResponse:
-        return TVContributorResponse(
-            id=contrib.id,
-            person_id=contrib.person_id,
-            person_name=contrib.person.name if contrib.person is not None else "",
-            role=contrib.role,
-            sequence=contrib.sequence,
-        )
-
-    def _tv_identifier_response(self, identifier: TVIdentifier) -> TVIdentifierResponse:
-        return TVIdentifierResponse(
-            id=identifier.id,
-            identifier_type=identifier.identifier_type,
-            value=identifier.value,
-            is_primary=identifier.is_primary,
-        )
-
-    def _tv_character_response(self, char: TVCharacterAppearance) -> TVCharacterResponse:
-        return TVCharacterResponse(
-            id=char.id,
-            character_id=char.character_id,
-            character_name=char.character.name if char.character is not None else "",
-            role=char.role,
-        )
+    # TV v1 helper methods commented out - legacy TV model removed
+    # TODO: Implement TVRelease response helpers
+    # def _tv_series_response(self, series: TVSeries) -> TVSeriesV1Response:
+    # ... (deprecated methods)
 
     def _comic_work_response(self, work: ComicWork) -> ComicWorkV1Response:
         issues = sorted(
@@ -1211,35 +1094,45 @@ class MetadataService:
             )
         return self._movie_release_response(release)
 
-    async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
-        series = await self.db.scalar(
-            select(TVSeries)
-            .where(TVSeries.id == series_id)
+    async def get_tv_series(self, series_id: UUID) -> dict[str, Any]:
+        """Get TV release as dict response (v1 model)."""
+        release = await self.db.scalar(
+            select(TVRelease)
+            .where(TVRelease.id == series_id)
             .options(
-                selectinload(TVSeries.contributions).selectinload(TVContribution.person),
-                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.identifiers),
-                selectinload(TVSeries.character_appearances).selectinload(
-                    TVCharacterAppearance.character
-                ),
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.episodes),
+                selectinload(TVRelease.identifiers),
             )
         )
-        if series is None:
+        if release is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                code="tv_series_not_found",
-                detail="TV series not found",
+                code="tv_release_not_found",
+                detail="TV release not found",
             )
-        return self._tv_series_response(series)
+        # Return basic dict response (full v1 DTO to be implemented)
+        return {
+            "id": str(release.id),
+            "title": release.title,
+            "format": release.format,
+            "release_date": release.release_date.isoformat() if release.release_date else None,
+        }
 
-    async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
-        series = await self.db.scalar(select(TVSeries.id).where(TVSeries.id == series_id))
-        if series is None:
+    async def get_tv_series_seasons(self, series_id: UUID) -> list[dict[str, Any]]:
+        """Get TV release episodes as seasons (v1 model)."""
+        release = await self.db.scalar(
+            select(TVRelease).where(TVRelease.id == series_id)
+            .options(selectinload(TVRelease.episodes))
+        )
+        if release is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                code="tv_series_not_found",
-                detail="TV series not found",
+                code="tv_release_not_found",
+                detail="TV release not found",
             )
+        # Return basic list (full v1 DTO to be implemented)
+        return [{"id": str(ep.id), "title": ep.title} for ep in (release.episodes or [])]
         rows = list(
             (
                 await self.db.execute(

@@ -3163,10 +3163,13 @@ class AdminProviderIngestService:
         work = MovieWork(
             title=normalized.title,
             sort_title=sort_key(ItemKind.movie, normalized.title, None),
+            subtitle=normalized.subtitle,
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             original_release_date=normalized.release_date,
             runtime_minutes=normalized.runtime_minutes,
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
             metadata_json=self._provider_metadata_json(
                 provider_name,
                 provider_item_id,
@@ -3184,6 +3187,7 @@ class AdminProviderIngestService:
             region_code=self._normalized_region(normalized.country),
             release_date=normalized.release_date,
             release_type=normalized.edition_format,
+            distributor=normalized.distributor,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             metadata_json=self._provider_metadata_json(

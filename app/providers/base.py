@@ -99,6 +99,8 @@ class NormalizedTrack:
     duration_seconds: int | None = None
     artist: str | None = None
     disc_number: int | None = None
+    instrument: str | None = None
+    composition: str | None = None
 
 
 @dataclass(frozen=True)
@@ -205,6 +207,14 @@ class NormalizedItem:
     layers: str | None = None
     subtitle: str | None = None
     series_group: str | None = None
+    distributor: str | None = None
+    studio: str | None = None
+    recording_date: date | None = None
+    extras: str | None = None
+    vinyl_color: str | None = None
+    vinyl_weight: str | None = None
+    rpm: int | None = None
+    spars: str | None = None
     bundle_release: NormalizedBundleRelease | None = None
 
     def __post_init__(self) -> None:

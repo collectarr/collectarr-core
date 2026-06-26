@@ -109,6 +109,9 @@ from app.schemas.metadata import (
     MovieIdentifierResponse,
     MovieReleaseV1Response,
     MovieWorkV1Response,
+    MusicMediaV1Response,
+    MusicReleaseV1Response,
+    MusicTrackV1Response,
     ProviderLink,
     ProviderSearchResultResponse,
     SearchResult,
@@ -733,10 +736,13 @@ class MetadataService:
             id=work.id,
             title=work.title,
             sort_title=work.sort_title,
+            subtitle=work.subtitle,
             description=work.description,
             original_language=work.original_language,
             release_date=work.original_release_date,
             runtime_minutes=work.runtime_minutes,
+            age_rating=work.age_rating,
+            audience_rating=work.audience_rating,
             releases=[self._movie_release_response(row) for row in releases],
             contributions=[],  # TODO: implement contributor responses for v1
             identifiers=[],  # TODO: implement identifier responses for v1
@@ -750,6 +756,7 @@ class MetadataService:
             release_date=release.release_date,
             region=release.region_code,
             format=release.format,
+            distributor=release.distributor,
             cover_image_url=release.cover_image_url,
             cover_image_key=release.cover_image_key,
         )

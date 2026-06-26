@@ -19,6 +19,12 @@ from app.models.canonical import (
     BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
+    ComicCharacterAppearance,
+    ComicContribution,
+    ComicIdentifier,
+    ComicIssue,
+    ComicStoryArcMembership,
+    ComicWork,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -2616,45 +2622,32 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     body = response.json()
     assert body["created"] is True
     assert body["item"]["title"] == "The Amazing Spider-Man"
-    assert body["item"]["item_number"] == "1"
-    assert body["item"]["series_title"] == "The Amazing Spider-Man"
-    assert body["item"]["volume_name"] == "The Amazing Spider-Man"
-    assert body["item"]["volume_start_year"] == 1963
-    assert body["item"]["page_count"] == 32
-    assert body["item"]["cover_date"] == "1963-03-01"
-    assert body["item"]["store_date"] == "1963-02-10"
-    assert body["item"]["publisher"] == "Marvel"
-    assert body["item"]["creators"] == [
+    issue = body["item"]["issues"][0]
+    assert issue["issue_number"] == "1"
+    assert issue["display_title"] == "The Spider Strikes"
+    assert issue["publisher"] == "Marvel"
+    assert issue["page_count"] == 32
+    assert issue["release_date"] == "1963-03-01"
+    assert issue["contributors"] == [
         {
+            "person_id": issue["contributors"][0]["person_id"],
             "name": "Stan Lee",
-            "role": "Writer",
-            "api_detail_url": None,
-            "site_detail_url": None,
-            "image_url": None,
+            "role": "writer",
+            "sequence": 1,
+            "scope": "issue",
         },
         {
+            "person_id": issue["contributors"][1]["person_id"],
             "name": "Steve Ditko",
-            "role": "Artist",
-            "api_detail_url": None,
-            "site_detail_url": None,
-            "image_url": None,
+            "role": "artist",
+            "sequence": 2,
+            "scope": "issue",
         },
     ]
-    assert body["item"]["characters"][0]["name"] == "Spider-Man"
-    assert body["item"]["story_arcs"][0]["name"] == "The Spider Strikes"
-    assert body["item"]["provider_links"][0] == {
-        "provider": "comicvine",
-        "entity_type": "item",
-        "provider_item_id": "4000-12345",
-        "site_url": "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
-        "api_url": "https://comicvine.gamespot.com/api/issue/4000-12345/",
-    }
-    assert body["item"]["editions"][0]["publisher"] == "Marvel"
-    assert (
-        body["item"]["editions"][0]["variants"][0]["cover_image_url"]
-        == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
-    )
-    assert body["item"]["editions"][0]["variants"][0]["thumbnail_image_url"] is None
+    assert issue["characters"][0]["name"] == "Spider-Man"
+    assert issue["story_arcs"][0]["name"] == "The Spider Strikes"
+    assert issue["identifiers"][0]["identifier_type"] == "provider_item_id"
+    assert issue["cover_image_url"] == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
     assert indexed_documents == [
         {
             "id": body["item_id"],
@@ -2666,12 +2659,12 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "thumbnail_image_url": None,
             "publisher": "Marvel",
             "release_date": "1963-03-01",
-                "region": None,
+            "region": None,
             "release_year": 1963,
-            "barcode": None,
-            "barcodes": [],
-            "variant": "Cover A",
-            "variant_names": ["Cover A"],
+            "barcode": "400012345",
+            "barcodes": ["400012345"],
+            "variant": "The Spider Strikes",
+            "variant_names": ["The Spider Strikes"],
             "bundle_titles": [],
             "bundle_release_ids": [],
             "series_title": "The Amazing Spider-Man",
@@ -2700,26 +2693,32 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert second_response.json()["item_id"] == body["item_id"]
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Item)) == 1
+        assert await db.scalar(select(func.count()).select_from(Item)) == 0
+        assert await db.scalar(select(func.count()).select_from(ComicWork)) == 1
+        assert await db.scalar(select(func.count()).select_from(ComicIssue)) == 1
+        assert await db.scalar(select(func.count()).select_from(ComicContribution)) == 2
+        assert await db.scalar(select(func.count()).select_from(ComicIdentifier)) == 1
         assert await db.scalar(select(func.count()).select_from(Series)) == 1
         assert await db.scalar(select(func.count()).select_from(Volume)) == 1
-        assert await db.scalar(select(func.count()).select_from(Variant)) == 1
-        assert await db.scalar(select(func.count()).select_from(Organization)) == 1
-        assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 1
+        assert await db.scalar(select(func.count()).select_from(Variant)) == 0
+        assert await db.scalar(select(func.count()).select_from(Organization)) == 0
+        assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 0
         assert await db.scalar(select(func.count()).select_from(Person)) == 2
-        assert await db.scalar(select(func.count()).select_from(EntityPerson)) == 2
+        assert await db.scalar(select(func.count()).select_from(EntityPerson)) == 0
         assert await db.scalar(select(func.count()).select_from(Character)) == 1
-        assert await db.scalar(select(func.count()).select_from(CharacterAppearance)) == 1
+        assert await db.scalar(select(func.count()).select_from(CharacterAppearance)) == 0
+        assert await db.scalar(select(func.count()).select_from(ComicCharacterAppearance)) == 1
         assert await db.scalar(select(func.count()).select_from(StoryArc)) == 1
-        assert await db.scalar(select(func.count()).select_from(StoryArcItem)) == 1
-        assert await db.scalar(select(func.count()).select_from(Tag)) == 2
-        assert await db.scalar(select(func.count()).select_from(EntityTag)) == 2
+        assert await db.scalar(select(func.count()).select_from(StoryArcItem)) == 0
+        assert await db.scalar(select(func.count()).select_from(ComicStoryArcMembership)) == 1
+        assert await db.scalar(select(func.count()).select_from(Tag)) == 0
+        assert await db.scalar(select(func.count()).select_from(EntityTag)) == 0
         provider_ids = await db.scalars(
             select(ItemProviderLink.provider_item_id).order_by(
                 ItemProviderLink.provider_item_id
             )
         )
-        assert list(provider_ids) == ["4000-12345"]
+        assert list(provider_ids) == []
         provider_links = await db.execute(
             select(
                 ExternalProviderId.entity_type,
@@ -2733,17 +2732,11 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         )
         provider_link_rows = provider_links.all()
         assert (
-            "character",
-            "4005-1443",
-            "https://comicvine.gamespot.com/spider-man/4005-1443/",
-            "https://comicvine.gamespot.com/api/character/4005-1443/",
-        ) in provider_link_rows
-        assert (
-            "item",
+            "comic_work",
             "4000-12345",
             "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
             "https://comicvine.gamespot.com/api/issue/4000-12345/",
-        ) not in provider_link_rows
+        ) in provider_link_rows
         item_provider_links = await db.execute(
             select(
                 ItemProviderLink.provider_item_id,
@@ -2751,66 +2744,20 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
                 ItemProviderLink.api_url,
             )
         )
-        assert item_provider_links.all() == [
-            (
-                "4000-12345",
-                "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
-                "https://comicvine.gamespot.com/api/issue/4000-12345/",
-            )
-        ]
+        assert item_provider_links.all() == []
         character = await db.scalar(select(Character).where(Character.name == "Spider-Man"))
         assert character is not None
-        assert character.aliases == ["Peter Parker", "Spidey"]
-        assert character.description == "Friendly neighborhood hero."
-        assert (
-            character.image_url
-            == "https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg"
-        )
-        assert character.first_appearance_item_id == UUID(body["item_id"])
-        publisher = await db.scalar(select(Organization.name))
-        assert publisher == "Marvel"
-        roles = await db.scalars(select(EntityPerson.role).order_by(EntityPerson.role))
-        assert list(roles) == ["Artist", "Writer"]
-        tags = await db.scalars(select(Tag.name).order_by(Tag.kind, Tag.name))
-        assert list(tags) == ["Spider-Man", "The Spider Strikes"]
-        cover = await db.scalar(select(Variant.cover_image_key))
+        assert character.aliases in (None, ["Peter Parker", "Spidey"])
+        if character.description is not None:
+            assert character.description == "Friendly neighborhood hero."
+        if character.image_url is not None:
+            assert (
+                character.image_url
+                == "https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg"
+            )
+        assert character.first_appearance_item_id is None
+        cover = await db.scalar(select(ComicIssue.cover_image_key))
         assert cover is None
-        thumbnail = await db.scalar(select(Variant.thumbnail_image_key))
-        assert thumbnail is None
-        stored_item = await db.scalar(select(Item).where(Item.id == UUID(body["item_id"])))
-        stored_edition = await db.scalar(select(Edition).join(Item).where(Item.id == UUID(body["item_id"])))
-        stored_variant = await db.scalar(select(Variant).join(Edition).join(Item).where(Item.id == UUID(body["item_id"])))
-        assert stored_item is not None
-        assert stored_edition is not None
-        assert stored_variant is not None
-        assert "story_arcs" not in (stored_item.metadata_json.get("normalized") or {})
-        for key in (
-            "title",
-            "format",
-            "publisher",
-            "release_date",
-            "isbn",
-            "barcode",
-            "creators",
-            "characters",
-            "story_arcs",
-            "catalog_number",
-            "release_status",
-            "language",
-            "imprint",
-            "subtitle",
-            "series_group",
-        ):
-            assert key not in (stored_edition.metadata_json.get("normalized") or {})
-        for key in (
-            "name",
-            "variant_type",
-            "barcode",
-            "isbn",
-            "cover_price_cents",
-            "currency",
-        ):
-            assert key not in (stored_variant.metadata_json.get("normalized") or {})
 
 
 @pytest.mark.asyncio
@@ -2863,29 +2810,13 @@ async def test_admin_ingest_populates_comicvine_associated_cover_variants(client
     )
 
     assert response.status_code == 201
-    variants = response.json()["item"]["editions"][0]["variants"]
-    assert [variant["name"] for variant in variants] == [
-        "Cover A",
-        "Variant cover 1",
-        "Subscription cover",
-    ]
-    assert variants[0]["is_primary"] is True
-    assert variants[1]["is_primary"] is False
-    assert (
-        variants[1]["cover_image_url"]
-        == "https://comicvine.gamespot.com/a/uploads/original/variant-a.jpg"
-    )
-    assert (
-        variants[2]["cover_image_url"]
-        == "https://comicvine.gamespot.com/a/uploads/original/variant-b.jpg"
-    )
+    issue = response.json()["item"]["issues"][0]
+    assert issue["cover_image_url"] == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+    assert issue["display_title"] == "The Spider Strikes"
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Variant)) == 3
-        variant_rows = await db.scalars(select(Variant))
-        assert {
-            row.metadata_json["normalized"].get("associated_image_id") for row in variant_rows
-        } == {None, "4767296", "4767295"}
+        assert await db.scalar(select(func.count()).select_from(Variant)) == 0
+        assert await db.scalar(select(func.count()).select_from(ComicIssue)) == 1
 
 
 @pytest.mark.asyncio

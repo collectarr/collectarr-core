@@ -17,6 +17,12 @@ from app.models.canonical import (
     BundleReleaseItem,
     Character,
     CharacterAppearance,
+    ComicCharacterAppearance,
+    ComicContribution,
+    ComicIdentifier,
+    ComicIssue,
+    ComicStoryArcMembership,
+    ComicWork,
     Edition,
     EntityOrganization,
     EntityPerson,
@@ -130,6 +136,71 @@ async def _seed_book_v1() -> tuple[UUID, UUID]:
         )
         await db.commit()
         return work.id, book_edition.id
+
+
+async def _seed_comic_v1() -> tuple[UUID, UUID]:
+    async with AsyncSessionLocal() as db:
+        writer = Person(name="Stan Lee")
+        character = Character(name="Spider-Man", canonical_name="spider-man")
+        arc = StoryArc(name="The Spider Strikes")
+        db.add_all([writer, character, arc])
+        await db.flush()
+        work = ComicWork(
+            title="The Amazing Spider-Man",
+            sort_title="amazing spider man",
+            description="Peter Parker swings into action.",
+            original_language="en",
+            first_publication_date=date(1963, 3, 1),
+        )
+        db.add(work)
+        await db.flush()
+        issue = ComicIssue(
+            work_id=work.id,
+            issue_number="1",
+            display_title="The Spider Strikes",
+            publication_date=date(1963, 3, 1),
+            release_date=date(1963, 3, 1),
+            publisher="Marvel",
+            language="en",
+            page_count=32,
+            release_status="released",
+        )
+        db.add(issue)
+        await db.flush()
+        db.add(
+            ComicContribution(
+                issue_id=issue.id,
+                person_id=writer.id,
+                role="writer",
+                sequence=1,
+            )
+        )
+        db.add(
+            ComicIdentifier(
+                issue_id=issue.id,
+                identifier_type="provider_item_id",
+                value="4000-12345",
+                normalized_value="400012345",
+                is_primary=True,
+                source_provider=ExternalProvider.comicvine,
+            )
+        )
+        db.add(
+            ComicCharacterAppearance(
+                issue_id=issue.id,
+                character_id=character.id,
+                role="featured",
+            )
+        )
+        db.add(
+            ComicStoryArcMembership(
+                issue_id=issue.id,
+                story_arc_id=arc.id,
+                ordinal=1,
+            )
+        )
+        await db.commit()
+        return work.id, issue.id
 
 
 @pytest.mark.asyncio
@@ -253,6 +324,39 @@ async def test_books_v1_work_and_edition_endpoints(client):
     assert edition_body["identifiers"][0]["value"] == "9780261103573"
 
     route_response = await client.get(f"/books/{work_id}")
+    assert route_response.status_code == 200
+    assert route_response.json()["id"] == str(work_id)
+
+
+@pytest.mark.asyncio
+async def test_comics_v1_work_and_issue_endpoints(client):
+    work_id, issue_id = await _seed_comic_v1()
+
+    work_response = await client.get(f"/metadata/comics/works/{work_id}")
+    assert work_response.status_code == 200
+    work_body = work_response.json()
+    assert work_body["id"] == str(work_id)
+    assert work_body["title"] == "The Amazing Spider-Man"
+    assert len(work_body["issues"]) == 1
+    assert work_body["issues"][0]["id"] == str(issue_id)
+    assert work_body["issues"][0]["identifiers"][0]["identifier_type"] == "provider_item_id"
+
+    list_response = await client.get(f"/metadata/comics/works/{work_id}/issues")
+    assert list_response.status_code == 200
+    list_body = list_response.json()
+    assert len(list_body) == 1
+    assert list_body[0]["id"] == str(issue_id)
+    assert list_body[0]["contributors"][0]["name"] == "Stan Lee"
+    assert list_body[0]["characters"][0]["name"] == "Spider-Man"
+
+    issue_response = await client.get(f"/metadata/comics/issues/{issue_id}")
+    assert issue_response.status_code == 200
+    issue_body = issue_response.json()
+    assert issue_body["id"] == str(issue_id)
+    assert issue_body["issue_number"] == "1"
+    assert issue_body["story_arcs"][0]["name"] == "The Spider Strikes"
+
+    route_response = await client.get(f"/comics/{work_id}")
     assert route_response.status_code == 200
     assert route_response.json()["id"] == str(work_id)
 

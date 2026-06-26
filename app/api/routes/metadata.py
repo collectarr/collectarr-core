@@ -41,6 +41,8 @@ from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    ComicIssueV1Response,
+    ComicWorkV1Response,
     CreateEditionRequest,
     CreatorCreditResponse,
     CreatorFacetResponse,
@@ -519,21 +521,47 @@ async def get_book_edition(
     return await MetadataService(db).get_book_edition(edition_id)
 
 
-@router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response)
-async def get_metadata_item(media_type: str, item_id: UUID, db: DbSession) -> ItemResponse | BookWorkV1Response:
+@router.get("/metadata/comics/works/{work_id}", response_model=ComicWorkV1Response)
+async def get_comic_work(
+    work_id: UUID,
+    db: DbSession,
+) -> ComicWorkV1Response:
+    return await MetadataService(db).get_comic_work(work_id)
+
+
+@router.get("/metadata/comics/works/{work_id}/issues", response_model=list[ComicIssueV1Response])
+async def get_comic_work_issues(
+    work_id: UUID,
+    db: DbSession,
+) -> list[ComicIssueV1Response]:
+    return await MetadataService(db).get_comic_work_issues(work_id)
+
+
+@router.get("/metadata/comics/issues/{issue_id}", response_model=ComicIssueV1Response)
+async def get_comic_issue(
+    issue_id: UUID,
+    db: DbSession,
+) -> ComicIssueV1Response:
+    return await MetadataService(db).get_comic_issue(issue_id)
+
+
+@router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response | ComicWorkV1Response)
+async def get_metadata_item(
+    media_type: str, item_id: UUID, db: DbSession
+) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
     return await _get_metadata_item(media_type, item_id, db)
 
 
-@router.get("/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response)
+@router.get("/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response | ComicWorkV1Response)
 async def get_metadata_item_alias(
     media_type: str, item_id: UUID, db: DbSession
-) -> ItemResponse | BookWorkV1Response:
+) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
     return await _get_metadata_item(media_type, item_id, db)
 
 
 async def _get_metadata_item(
     media_type: str, item_id: UUID, db: DbSession
-) -> ItemResponse | BookWorkV1Response:
+) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
     media_config = media_type_for_route(media_type)
     if media_config is None:
         raise ApiHTTPException(

@@ -4242,6 +4242,139 @@
         }
       }
     },
+    "/metadata/comics/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Comic Work",
+        "operationId": "get_comic_work_metadata_comics_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/comics/works/{work_id}/issues": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Comic Work Issues",
+        "operationId": "get_comic_work_issues_metadata_comics_works__work_id__issues_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComicIssueV1Response"
+                  },
+                  "title": "Response Get Comic Work Issues Metadata Comics Works  Work Id  Issues Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/comics/issues/{issue_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Comic Issue",
+        "operationId": "get_comic_issue_metadata_comics_issues__issue_id__get",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicIssueV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metadata/{media_type}/{item_id}": {
       "get": {
         "tags": [
@@ -4282,6 +4415,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/BookWorkV1Response"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ComicWorkV1Response"
                     }
                   ],
                   "title": "Response Get Metadata Item Metadata  Media Type   Item Id  Get"
@@ -4342,6 +4478,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/BookWorkV1Response"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ComicWorkV1Response"
                     }
                   ],
                   "title": "Response Get Metadata Item Alias  Media Type   Item Id  Get"
@@ -8319,6 +8458,472 @@
         ],
         "title": "CharacterResponse"
       },
+      "ComicCharacterResponse": {
+        "properties": {
+          "character_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Character Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "character_id",
+          "name",
+          "role"
+        ],
+        "title": "ComicCharacterResponse"
+      },
+      "ComicContributorResponse": {
+        "properties": {
+          "person_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "role",
+          "scope"
+        ],
+        "title": "ComicContributorResponse"
+      },
+      "ComicIdentifierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "identifier_type": {
+            "type": "string",
+            "title": "Identifier Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "normalized_value": {
+            "type": "string",
+            "title": "Normalized Value"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          },
+          "source_provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExternalProvider"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identifier_type",
+          "value",
+          "normalized_value",
+          "is_primary"
+        ],
+        "title": "ComicIdentifierResponse"
+      },
+      "ComicIssueV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "work_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Work Id"
+          },
+          "issue_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Number"
+          },
+          "display_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Title"
+          },
+          "publication_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Date"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "imprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imprint"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "cover_price_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Price Cents"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "release_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Status"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "metadata_json": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata Json"
+          },
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/ComicContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributors"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/ComicIdentifierResponse"
+            },
+            "type": "array",
+            "title": "Identifiers"
+          },
+          "characters": {
+            "items": {
+              "$ref": "#/components/schemas/ComicCharacterResponse"
+            },
+            "type": "array",
+            "title": "Characters"
+          },
+          "story_arcs": {
+            "items": {
+              "$ref": "#/components/schemas/ComicStoryArcResponse"
+            },
+            "type": "array",
+            "title": "Story Arcs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "work_id"
+        ],
+        "title": "ComicIssueV1Response"
+      },
+      "ComicStoryArcResponse": {
+        "properties": {
+          "story_arc_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Story Arc Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ordinal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ordinal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "story_arc_id",
+          "name"
+        ],
+        "title": "ComicStoryArcResponse"
+      },
+      "ComicWorkV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "first_publication_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Publication Date"
+          },
+          "metadata_json": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata Json"
+          },
+          "contributors": {
+            "items": {
+              "$ref": "#/components/schemas/ComicContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributors"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ComicIssueV1Response"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "ComicWorkV1Response"
+      },
       "CreateEditionRequest": {
         "properties": {
           "title": {
@@ -10793,6 +11398,9 @@
               },
               {
                 "$ref": "#/components/schemas/BookWorkV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/ComicWorkV1Response"
               }
             ],
             "title": "Item"

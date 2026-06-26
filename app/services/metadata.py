@@ -3,6 +3,7 @@ import logging
 import re
 from dataclasses import replace
 from datetime import date
+from typing import Any
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -23,6 +24,12 @@ from app.models.canonical import (
     BookWork,
     Character,
     CharacterAppearance,
+    ComicCharacterAppearance,
+    ComicContribution,
+    ComicIdentifier,
+    ComicIssue,
+    ComicStoryArcMembership,
+    ComicWork,
     Edition,
     EntityPerson,
     EntityTag,
@@ -54,6 +61,12 @@ from app.schemas.metadata import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
+    ComicCharacterResponse,
+    ComicContributorResponse,
+    ComicIdentifierResponse,
+    ComicIssueV1Response,
+    ComicStoryArcResponse,
+    ComicWorkV1Response,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
@@ -176,9 +189,17 @@ class MetadataService:
             for row in result.scalars()
         ]
 
-    async def get_item(self, item_id: UUID, kind: ItemKind) -> ItemResponse | BookWorkV1Response:
+    async def get_item(
+        self, item_id: UUID, kind: ItemKind
+    ) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
         if kind == ItemKind.book:
             return await self.get_book_work(item_id)
+        if kind == ItemKind.comic:
+            try:
+                return await self.get_comic_work(item_id)
+            except ApiHTTPException as exc:
+                if exc.code != "comic_work_not_found":
+                    raise
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
             raise ApiHTTPException(
@@ -370,6 +391,222 @@ class MetadataService:
             editions=[self._book_edition_response(row) for row in editions],
         )
 
+    def _comic_contributor_response(
+        self,
+        contribution: ComicContribution,
+        *,
+        scope: str,
+    ) -> ComicContributorResponse:
+        person = contribution.person
+        return ComicContributorResponse(
+            person_id=contribution.person_id,
+            name=person.name if person is not None else "",
+            role=contribution.role,
+            sequence=contribution.sequence,
+            scope=scope,
+        )
+
+    def _comic_identifier_response(self, identifier: ComicIdentifier) -> ComicIdentifierResponse:
+        return ComicIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            normalized_value=identifier.normalized_value,
+            is_primary=identifier.is_primary,
+            source_provider=identifier.source_provider,
+        )
+
+    def _comic_issue_response(self, issue: ComicIssue) -> ComicIssueV1Response:
+        return ComicIssueV1Response(
+            id=issue.id,
+            work_id=issue.work_id,
+            issue_number=issue.issue_number,
+            display_title=issue.display_title,
+            publication_date=issue.publication_date,
+            release_date=issue.release_date,
+            publisher=issue.publisher,
+            imprint=issue.imprint,
+            language=issue.language,
+            region=issue.region,
+            page_count=issue.page_count,
+            cover_price_cents=issue.cover_price_cents,
+            currency=issue.currency,
+            release_status=issue.release_status,
+            cover_image_url=issue.cover_image_url,
+            cover_image_key=issue.cover_image_key,
+            description=issue.description,
+            metadata_json=issue.metadata_json,
+            contributors=[
+                self._comic_contributor_response(row, scope="issue")
+                for row in sorted(
+                    issue.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._comic_identifier_response(row)
+                for row in sorted(
+                    issue.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        i.normalized_value.casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+            characters=[
+                ComicCharacterResponse(
+                    character_id=row.character_id,
+                    name=row.character.name if row.character is not None else "",
+                    role=row.role,
+                )
+                for row in sorted(
+                    issue.character_appearances or [],
+                    key=lambda c: (
+                        c.role.casefold(),
+                        str(c.character_id),
+                    ),
+                )
+            ],
+            story_arcs=[
+                ComicStoryArcResponse(
+                    story_arc_id=row.story_arc_id,
+                    name=row.story_arc.name if row.story_arc is not None else "",
+                    ordinal=row.ordinal,
+                )
+                for row in sorted(
+                    issue.story_arc_memberships or [],
+                    key=lambda a: (
+                        a.ordinal is None,
+                        a.ordinal or 0,
+                        str(a.story_arc_id),
+                    ),
+                )
+            ],
+        )
+
+    def _comic_work_response(self, work: ComicWork) -> ComicWorkV1Response:
+        issues = sorted(
+            work.issues or [],
+            key=lambda i: (
+                i.publication_date is None,
+                i.publication_date or date.max,
+                i.issue_number is None,
+                i.issue_number or "",
+                str(i.id),
+            ),
+        )
+        return ComicWorkV1Response(
+            id=work.id,
+            title=work.title,
+            sort_title=work.sort_title,
+            subtitle=work.subtitle,
+            description=work.description,
+            original_language=work.original_language,
+            first_publication_date=work.first_publication_date,
+            metadata_json=work.metadata_json,
+            contributors=[
+                self._comic_contributor_response(row, scope="work")
+                for row in sorted(
+                    work.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            issues=[self._comic_issue_response(row) for row in issues],
+        )
+
+    async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
+        work = await self.db.scalar(
+            select(ComicWork)
+            .where(ComicWork.id == work_id)
+            .options(
+                selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.contributions)
+                .selectinload(ComicContribution.person),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.character_appearances)
+                .selectinload(ComicCharacterAppearance.character),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.story_arc_memberships)
+                .selectinload(ComicStoryArcMembership.story_arc),
+            )
+        )
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="comic_work_not_found",
+                detail="Comic work not found",
+            )
+        return self._comic_work_response(work)
+
+    async def get_comic_work_issues(self, work_id: UUID) -> list[ComicIssueV1Response]:
+        work = await self.db.scalar(select(ComicWork.id).where(ComicWork.id == work_id))
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="comic_work_not_found",
+                detail="Comic work not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(ComicIssue)
+                    .where(ComicIssue.work_id == work_id)
+                    .options(
+                        selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
+                        selectinload(ComicIssue.identifiers),
+                        selectinload(ComicIssue.character_appearances).selectinload(
+                            ComicCharacterAppearance.character
+                        ),
+                        selectinload(ComicIssue.story_arc_memberships).selectinload(
+                            ComicStoryArcMembership.story_arc
+                        ),
+                    )
+                    .order_by(
+                        ComicIssue.publication_date.asc().nullslast(),
+                        ComicIssue.issue_number.asc().nullslast(),
+                        ComicIssue.created_at.asc(),
+                    )
+                )
+            ).scalars()
+        )
+        return [self._comic_issue_response(row) for row in rows]
+
+    async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
+        issue = await self.db.scalar(
+            select(ComicIssue)
+            .where(ComicIssue.id == issue_id)
+            .options(
+                selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
+                selectinload(ComicIssue.identifiers),
+                selectinload(ComicIssue.character_appearances).selectinload(
+                    ComicCharacterAppearance.character
+                ),
+                selectinload(ComicIssue.story_arc_memberships).selectinload(
+                    ComicStoryArcMembership.story_arc
+                ),
+            )
+        )
+        if issue is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="comic_issue_not_found",
+                detail="Comic issue not found",
+            )
+        return self._comic_issue_response(issue)
+
     async def get_bundle_release(self, bundle_release_id: UUID) -> BundleReleaseDetailResponse:
         bundle_release = await self.metadata.get_bundle_release(bundle_release_id)
         if bundle_release is None:
@@ -533,6 +770,22 @@ class MetadataService:
                 )
                 for result in meili_results
             ]
+        if kind == ItemKind.comic:
+            comic_results = await self._search_comic_works(
+                query=query,
+                series=series,
+                issue_number=issue_number,
+                publisher=publisher,
+                imprint=imprint,
+                language=language,
+                country=country,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
+            )
+            if comic_results:
+                return comic_results
 
         items = await self.metadata.search_items(
             query=query,
@@ -573,6 +826,10 @@ class MetadataService:
         return results
 
     async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:
+        if kind == ItemKind.comic:
+            match = await self._comic_work_by_barcode(barcode)
+            if match is not None:
+                return self._comic_search_result(match[0], issue=match[1])
         item = await self.metadata.find_item_by_barcode(barcode, kind)
         if item is None:
             raise ApiHTTPException(
@@ -591,6 +848,181 @@ class MetadataService:
             thumbnail_url,
             preferred_variant=preferred_variant,
         )
+
+    async def _search_comic_works(
+        self,
+        *,
+        query: str | None,
+        series: str | None,
+        issue_number: str | None,
+        publisher: str | None,
+        imprint: str | None,
+        language: str | None,
+        country: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(ComicWork)
+            .options(
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.contributions)
+                .selectinload(ComicContribution.person),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.character_appearances)
+                .selectinload(ComicCharacterAppearance.character),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.story_arc_memberships)
+                .selectinload(ComicStoryArcMembership.story_arc),
+            )
+            .order_by(ComicWork.sort_title.asc().nullslast(), ComicWork.title.asc())
+            .limit(limit)
+        )
+        pattern = f"%{query.strip()}%" if query and query.strip() else None
+        if pattern:
+            stmt = stmt.where(
+                or_(
+                    ComicWork.title.ilike(pattern),
+                    ComicIssue.issue_number.ilike(pattern),
+                    ComicIssue.display_title.ilike(pattern),
+                    ComicIssue.publisher.ilike(pattern),
+                    ComicIssue.imprint.ilike(pattern),
+                )
+            )
+        if series and series.strip():
+            stmt = stmt.where(ComicWork.title.ilike(f"%{series.strip()}%"))
+        if issue_number and issue_number.strip():
+            stmt = stmt.where(ComicIssue.issue_number.ilike(f"%{issue_number.strip()}%"))
+        if publisher and publisher.strip():
+            stmt = stmt.where(ComicIssue.publisher.ilike(f"%{publisher.strip()}%"))
+        if imprint and imprint.strip():
+            stmt = stmt.where(ComicIssue.imprint.ilike(f"%{imprint.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(ComicIssue.language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(ComicIssue.region.ilike(f"%{country.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(ComicIssue.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(func.extract("year", ComicIssue.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.where(
+                self._normalized_barcode_expr(ComicIdentifier.value) == normalized
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    stmt.join(ComicWork.issues, isouter=True).join(ComicIssue.identifiers, isouter=True)
+                )
+            )
+            .scalars()
+            .unique()
+        )
+        return [self._comic_search_result(work) for work in rows]
+
+    def _comic_search_result(self, work: ComicWork, *, issue: ComicIssue | None = None) -> SearchResult:
+        issues = sorted(
+            work.issues or [],
+            key=lambda row: (
+                row.publication_date is None,
+                row.publication_date or date.max,
+                row.issue_number is None,
+                row.issue_number or "",
+                str(row.id),
+            ),
+        )
+        primary = issue or (issues[0] if issues else None)
+        creators: list[dict[str, Any]] = []
+        if primary is not None:
+            for row in primary.contributions or []:
+                if row.person is None:
+                    continue
+                creators.append({"name": row.person.name, "role": row.role})
+        return SearchResult(
+            id=work.id,
+            kind=ItemKind.comic,
+            title=work.title,
+            item_number=primary.issue_number if primary is not None else None,
+            synopsis=work.description,
+            cover_image_url=primary.cover_image_url if primary is not None else None,
+            publisher=primary.publisher if primary is not None else None,
+            release_date=primary.release_date if primary is not None else None,
+            release_year=primary.release_date.year if primary is not None and primary.release_date else None,
+            barcode=next(
+                (
+                    identifier.value
+                    for identifier in (primary.identifiers or [])
+                    if identifier.identifier_type in {"upc", "ean", "isbn10", "isbn13", "provider_item_id"}
+                ),
+                None,
+            )
+            if primary is not None
+            else None,
+            variant=primary.display_title if primary is not None else None,
+            series_title=work.title,
+            volume_name=work.title,
+            creators=creators or None,
+            characters=[
+                row.character.name
+                for row in (primary.character_appearances or [])
+                if row.character is not None and row.character.name
+            ]
+            if primary is not None
+            else None,
+            story_arcs=[
+                row.story_arc.name
+                for row in (primary.story_arc_memberships or [])
+                if row.story_arc is not None and row.story_arc.name
+            ]
+            if primary is not None
+            else None,
+            page_count=primary.page_count if primary is not None else None,
+            cover_price_cents=primary.cover_price_cents if primary is not None else None,
+            currency=primary.currency if primary is not None else None,
+            country=primary.region if primary is not None else None,
+            release_status=primary.release_status if primary is not None else None,
+            language=primary.language if primary is not None else None,
+            imprint=primary.imprint if primary is not None else None,
+        )
+
+    async def _comic_work_by_barcode(self, barcode: str) -> tuple[ComicWork, ComicIssue | None] | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        row = (
+            await self.db.execute(
+                select(ComicWork, ComicIssue)
+                .join(ComicWork.issues)
+                .join(ComicIssue.identifiers)
+                .where(self._normalized_barcode_expr(ComicIdentifier.value) == normalized)
+                .options(
+                    selectinload(ComicWork.issues)
+                    .selectinload(ComicIssue.contributions)
+                    .selectinload(ComicContribution.person),
+                    selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
+                    selectinload(ComicWork.issues)
+                    .selectinload(ComicIssue.character_appearances)
+                    .selectinload(ComicCharacterAppearance.character),
+                    selectinload(ComicWork.issues)
+                    .selectinload(ComicIssue.story_arc_memberships)
+                    .selectinload(ComicStoryArcMembership.story_arc),
+                )
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        return row[0], row[1]
+
+    def _normalized_barcode_expr(self, column: Any) -> Any:
+        return func.replace(func.replace(func.replace(column, "-", ""), " ", ""), ".", "")
+
+    def _normalized_barcode(self, value: str) -> str:
+        return value.strip().replace("-", "").replace(" ", "").replace(".", "")
 
     async def barcode_provider_search(
         self,

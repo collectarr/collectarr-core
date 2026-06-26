@@ -18,6 +18,11 @@ from app.core.errors import ApiHTTPException
 from app.metadata_normalized import clean_normalized_metadata, upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
+    AnimeCharacterAppearance,
+    AnimeContribution,
+    AnimeEpisode,
+    AnimeIdentifier,
+    AnimeSeries,
     BookContribution,
     BookEdition,
     BookIdentifier,
@@ -42,7 +47,17 @@ from app.models.canonical import (
     ExternalProviderId,
     Item,
     ItemProviderLink,
+    MangaChapter,
+    MangaCharacterAppearance,
+    MangaContribution,
+    MangaIdentifier,
+    MangaWork,
     MetadataProposal,
+    MovieCharacterAppearance,
+    MovieContribution,
+    MovieIdentifier,
+    MovieRelease,
+    MovieWork,
     Organization,
     Person,
     PhysicalFormatRef,
@@ -54,6 +69,12 @@ from app.models.canonical import (
     StoryArc,
     StoryArcItem,
     Tag,
+    TVCharacterAppearance,
+    TVContribution,
+    TVEpisode,
+    TVIdentifier,
+    TVSeason,
+    TVSeries,
     Variant,
     Volume,
     VolumeProviderLink,
@@ -94,7 +115,14 @@ from app.schemas.admin import (
     ProviderSearchRequest,
 )
 from app.search.client import SearchClient
-from app.search.documents import book_work_search_document, comic_work_search_document
+from app.search.documents import (
+    anime_series_search_document,
+    book_work_search_document,
+    comic_work_search_document,
+    manga_work_search_document,
+    movie_work_search_document,
+    tv_series_search_document,
+)
 from app.services.admin_domains.shared import (
     character_appearance_role,
     character_role_rank,
@@ -860,6 +888,66 @@ class AdminProviderIngestService:
                 created=True,
                 item=await MetadataService(self.db).get_comic_work(work.id),
             )
+        if normalized.kind == ItemKind.manga:
+            work = await self._create_manga_work_from_normalized(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item_id=provider_item.provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=normalized,
+            )
+            await self.db.commit()
+            await self._reindex_manga_work(work.id)
+            return ProviderIngestResponse(
+                item_id=work.id,
+                created=True,
+                item=await MetadataService(self.db).get_manga_work(work.id),
+            )
+        if normalized.kind == ItemKind.anime:
+            series = await self._create_anime_series_from_normalized(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item_id=provider_item.provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=normalized,
+            )
+            await self.db.commit()
+            await self._reindex_anime_series(series.id)
+            return ProviderIngestResponse(
+                item_id=series.id,
+                created=True,
+                item=await MetadataService(self.db).get_anime_series(series.id),
+            )
+        if normalized.kind == ItemKind.movie:
+            work = await self._create_movie_work_from_normalized(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item_id=provider_item.provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=normalized,
+            )
+            await self.db.commit()
+            await self._reindex_movie_work(work.id)
+            return ProviderIngestResponse(
+                item_id=work.id,
+                created=True,
+                item=await MetadataService(self.db).get_movie_work(work.id),
+            )
+        if normalized.kind == ItemKind.tv:
+            series = await self._create_tv_series_from_normalized(
+                provider=provider,
+                provider_name=payload.provider,
+                provider_item_id=provider_item.provider_item_id,
+                provider_raw=provider_item.raw,
+                normalized=normalized,
+            )
+            await self.db.commit()
+            await self._reindex_tv_series(series.id)
+            return ProviderIngestResponse(
+                item_id=series.id,
+                created=True,
+                item=await MetadataService(self.db).get_tv_series(series.id),
+            )
         if normalized.kind == ItemKind.book:
             work = await self._create_book_work_from_normalized(
                 provider=provider,
@@ -985,7 +1073,10 @@ class AdminProviderIngestService:
             select(ExternalProviderId.entity_type, ExternalProviderId.entity_id).where(
                 ExternalProviderId.provider == provider,
                 ExternalProviderId.provider_item_id == provider_item_id,
-                ExternalProviderId.entity_type.in_(["item", "bundle_release", "book_work", "comic_work"]),
+                ExternalProviderId.entity_type.in_([
+                    "item", "bundle_release", "book_work", "comic_work",
+                    "manga_work", "anime_series", "movie_work", "tv_series"
+                ]),
             )
         )
         external_row = external_ref.first()
@@ -1899,6 +1990,8 @@ class AdminProviderIngestService:
                 select(ExternalProviderId).where(
                     ExternalProviderId.provider == provider_enum,
                     ExternalProviderId.provider_item_id == provider_id,
+                    ExternalProviderId.entity_type == entity_type,
+                    ExternalProviderId.entity_id == entity_id,
                 )
             )
             if existing:
@@ -1907,6 +2000,19 @@ class AdminProviderIngestService:
                 if api_url and api_url != existing.api_url:
                     existing.api_url = api_url
                 continue
+            
+            # Check if any entry with same provider/provider_item_id already exists
+            # (could be for a different entity_type, which violates unique constraint)
+            existing_any = await self.db.scalar(
+                select(ExternalProviderId).where(
+                    ExternalProviderId.provider == provider_enum,
+                    ExternalProviderId.provider_item_id == provider_id,
+                )
+            )
+            if existing_any:
+                # Entry exists for different entity, skip to avoid unique constraint violation
+                continue
+            
             self.db.add(
                 ExternalProviderId(
                     provider=provider_enum,
@@ -2109,6 +2215,13 @@ class AdminProviderIngestService:
             normalized.volume_start_year,
         )
 
+        # Check if ComicWork already exists for this volume
+        work = None
+        if volume is not None:
+            work = await self.db.scalar(
+                select(ComicWork).where(ComicWork.volume_id == volume.id)
+            )
+
         mirrored_cover = None
         if normalized.cover_image_url and self._should_mirror_provider_images(provider):
             mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
@@ -2117,24 +2230,26 @@ class AdminProviderIngestService:
                 provider_item_id=provider_item_id,
             )
 
-        work_title = normalized.series_title or normalized.title
-        work = ComicWork(
-            volume_id=volume.id if volume is not None else None,
-            title=work_title,
-            sort_title=sort_key(ItemKind.comic, work_title, None),
-            subtitle=normalized.subtitle,
-            description=normalized.synopsis,
-            original_language=self._normalized_language(normalized.language),
-            first_publication_date=normalized.release_date,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.comic,
-                normalized={"series_title": normalized.series_title},
-            ),
-        )
-        self.db.add(work)
-        await self.db.flush()
+        # Only create new ComicWork if one doesn't already exist for this volume
+        if work is None:
+            work_title = normalized.series_title or normalized.title
+            work = ComicWork(
+                volume_id=volume.id if volume is not None else None,
+                title=work_title,
+                sort_title=sort_key(ItemKind.comic, work_title, None),
+                subtitle=normalized.subtitle,
+                description=normalized.synopsis,
+                original_language=self._normalized_language(normalized.language),
+                first_publication_date=normalized.release_date,
+                metadata_json=self._provider_metadata_json(
+                    provider_name,
+                    provider_item_id,
+                    kind=ItemKind.comic,
+                    normalized={"series_title": normalized.series_title},
+                ),
+            )
+            self.db.add(work)
+            await self.db.flush()
 
         release_status = self._normalized_release_status(normalized.release_status)
         if release_status is not None:
@@ -2263,29 +2378,39 @@ class AdminProviderIngestService:
             )
 
         if series is not None:
-            sequence: float | None = None
-            if normalized.item_number:
-                try:
-                    sequence = float(normalized.item_number)
-                except ValueError:
-                    sequence = None
-            self.db.add(
-                ComicSeriesMembership(
-                    work_id=work.id,
-                    series_id=series.id,
-                    sequence=sequence,
-                    display_number=normalized.item_number,
-                    metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
+            # Check if series membership already exists
+            existing_membership = await self.db.scalar(
+                select(ComicSeriesMembership).where(
+                    ComicSeriesMembership.work_id == work.id,
+                    ComicSeriesMembership.series_id == series.id,
                 )
             )
+            if existing_membership is None:
+                sequence: float | None = None
+                if normalized.item_number:
+                    try:
+                        sequence = float(normalized.item_number)
+                    except ValueError:
+                        sequence = None
+                self.db.add(
+                    ComicSeriesMembership(
+                        work_id=work.id,
+                        series_id=series.id,
+                        sequence=sequence,
+                        display_number=normalized.item_number,
+                        metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
+                    )
+                )
 
         provider_ids = dict(normalized.provider_ids or {})
         provider_ids[provider_name.value] = provider_item_id
+        
+        # Provider links should be for the issue (the actual ingested item), not the work
         await self._add_provider_links(
             provider_name,
             provider_ids,
-            "comic_work",
-            work.id,
+            "comic_issue",
+            issue.id,
             provider_urls=provider_link_urls_for_provider(
                 provider_name,
                 provider_ids,
@@ -2319,6 +2444,15 @@ class AdminProviderIngestService:
         )
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        
+        # Add volume provider links if volume exists
+        if volume:
+            await self._replace_volume_provider_links(
+                volume.id,
+                provider_name,
+                normalized.volume_provider_ids,
+            )
+        
         return work
 
     async def _create_book_work_from_normalized(
@@ -2496,6 +2630,610 @@ class AdminProviderIngestService:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         return work
 
+    async def _create_manga_work_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> MangaWork:
+        """Create MangaWork from normalized item with chapters, contributions, identifiers, and character appearances."""
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        work = MangaWork(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.manga, normalized.title, normalized.item_number),
+            subtitle=normalized.subtitle,
+            description=normalized.synopsis,
+            original_language=self._normalized_language(normalized.language),
+            first_publication_date=normalized.release_date,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.manga,
+                normalized={"series_title": normalized.series_title},
+            ),
+        )
+        self.db.add(work)
+        await self.db.flush()
+
+        # Create single chapter from this normalized item
+        chapter = MangaChapter(
+            work_id=work.id,
+            chapter_number=float(normalized.item_number) if normalized.item_number else None,
+            chapter_title=normalized.edition_title or normalized.title,
+            publication_date=normalized.release_date,
+            page_count=normalized.page_count,
+            description=normalized.synopsis,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.manga,
+                normalized={"chapter_number": normalized.item_number},
+            ),
+        )
+        self.db.add(chapter)
+        await self.db.flush()
+
+        for index, credit in enumerate(normalized.creators, start=1):
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                MangaContribution(
+                    work_id=work.id,
+                    chapter_id=None,
+                    person_id=person.id,
+                    role=(credit.role or "creator").strip().lower(),
+                    sequence=index,
+                )
+            )
+
+        identifiers: list[tuple[str, str, bool]] = []
+        if normalized.isbn:
+            identifiers.append(
+                (self._book_identifier_type("isbn", normalized.isbn), normalized.isbn, True)
+            )
+        if normalized.barcode:
+            identifiers.append(
+                (self._book_identifier_type("upc", normalized.barcode), normalized.barcode, False)
+            )
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in normalized.provider_ids.items():
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                MangaIdentifier(
+                    work_id=work.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
+
+        seen_characters: set[tuple[str, str]] = set()
+        for credit in normalized.characters:
+            name = credit.name.strip()
+            if not name:
+                continue
+            role = character_appearance_role(credit.role)
+            dedupe_key = (name.casefold(), role.casefold())
+            if dedupe_key in seen_characters:
+                continue
+            seen_characters.add(dedupe_key)
+            character = await self._get_or_create_character(
+                name,
+                credit,
+                provider=provider_name,
+                provider_item_id=None,
+            )
+            self.db.add(
+                MangaCharacterAppearance(
+                    work_id=work.id,
+                    character_id=character.id,
+                    role=role,
+                )
+            )
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+            provider_name,
+            provider_ids,
+            "manga_work",
+            work.id,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="manga_work",
+            entity_id=work.id,
+            source=provider_raw,
+            normalized={
+                "title": work.title,
+                "series_title": normalized.series_title,
+                "original_language": work.original_language,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return work
+
+    async def _create_anime_series_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> AnimeSeries:
+        """Create AnimeSeries from normalized item with episodes, contributions, identifiers, and character appearances."""
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        series = AnimeSeries(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.anime, normalized.title, None),
+            description=normalized.synopsis,
+            original_language=self._normalized_language(normalized.language),
+            original_air_date=normalized.release_date,
+            status=normalized.release_status or "unknown",
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.anime,
+                normalized={},
+            ),
+        )
+        self.db.add(series)
+        await self.db.flush()
+
+        # Create single episode from this normalized item
+        episode = AnimeEpisode(
+            series_id=series.id,
+            episode_number=int(normalized.item_number) if normalized.item_number and normalized.item_number.isdigit() else None,
+            episode_title=normalized.edition_title or normalized.title,
+            air_date=normalized.release_date,
+            description=normalized.synopsis,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            runtime_minutes=normalized.runtime_minutes,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.anime,
+                normalized={"episode_number": normalized.item_number},
+            ),
+        )
+        self.db.add(episode)
+        await self.db.flush()
+
+        for index, credit in enumerate(normalized.creators, start=1):
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                AnimeContribution(
+                    series_id=series.id,
+                    episode_id=None,
+                    person_id=person.id,
+                    role=(credit.role or "creator").strip().lower(),
+                    sequence=index,
+                )
+            )
+
+        identifiers: list[tuple[str, str, bool]] = []
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in normalized.provider_ids.items():
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                AnimeIdentifier(
+                    series_id=series.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
+
+        seen_characters: set[tuple[str, str]] = set()
+        for credit in normalized.characters:
+            name = credit.name.strip()
+            if not name:
+                continue
+            role = character_appearance_role(credit.role)
+            dedupe_key = (name.casefold(), role.casefold())
+            if dedupe_key in seen_characters:
+                continue
+            seen_characters.add(dedupe_key)
+            character = await self._get_or_create_character(
+                name,
+                credit,
+                provider=provider_name,
+                provider_item_id=None,
+            )
+            self.db.add(
+                AnimeCharacterAppearance(
+                    series_id=series.id,
+                    character_id=character.id,
+                    role=role,
+                )
+            )
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+            provider_name,
+            provider_ids,
+            "anime_series",
+            series.id,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="anime_series",
+            entity_id=series.id,
+            source=provider_raw,
+            normalized={
+                "title": series.title,
+                "original_language": series.original_language,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return series
+
+    async def _create_movie_work_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> MovieWork:
+        """Create MovieWork from normalized item with releases, contributions, identifiers, and character appearances."""
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        work = MovieWork(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.movie, normalized.title, None),
+            description=normalized.synopsis,
+            original_language=self._normalized_language(normalized.language),
+            release_date=normalized.release_date,
+            runtime_minutes=normalized.runtime_minutes,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.movie,
+                normalized={},
+            ),
+        )
+        self.db.add(work)
+        await self.db.flush()
+
+        # Create single release from this normalized item
+        release = MovieRelease(
+            work_id=work.id,
+            release_title=normalized.edition_title or normalized.title,
+            release_date=normalized.release_date,
+            region=self._normalized_region(normalized.country),
+            format=normalized.physical_format or normalized.edition_format,
+            language=self._normalized_language(normalized.language),
+            description=normalized.synopsis,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.movie,
+                normalized={"format": normalized.physical_format},
+            ),
+        )
+        self.db.add(release)
+        await self.db.flush()
+
+        for index, credit in enumerate(normalized.creators, start=1):
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                MovieContribution(
+                    work_id=work.id,
+                    person_id=person.id,
+                    role=(credit.role or "creator").strip().lower(),
+                    sequence=index,
+                )
+            )
+
+        identifiers: list[tuple[str, str, bool]] = []
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in normalized.provider_ids.items():
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                MovieIdentifier(
+                    work_id=work.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
+
+        seen_characters: set[tuple[str, str]] = set()
+        for credit in normalized.characters:
+            name = credit.name.strip()
+            if not name:
+                continue
+            role = character_appearance_role(credit.role)
+            dedupe_key = (name.casefold(), role.casefold())
+            if dedupe_key in seen_characters:
+                continue
+            seen_characters.add(dedupe_key)
+            character = await self._get_or_create_character(
+                name,
+                credit,
+                provider=provider_name,
+                provider_item_id=None,
+            )
+            self.db.add(
+                MovieCharacterAppearance(
+                    work_id=work.id,
+                    character_id=character.id,
+                    role=role,
+                )
+            )
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+            provider_name,
+            provider_ids,
+            "movie_work",
+            work.id,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="movie_work",
+            entity_id=work.id,
+            source=provider_raw,
+            normalized={
+                "title": work.title,
+                "original_language": work.original_language,
+                "runtime_minutes": work.runtime_minutes,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return work
+
+    async def _create_tv_series_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> TVSeries:
+        """Create TVSeries from normalized item with seasons/episodes, contributions, identifiers, and character appearances."""
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        series = TVSeries(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.tv, normalized.title, None),
+            description=normalized.synopsis,
+            original_language=self._normalized_language(normalized.language),
+            original_air_date=normalized.release_date,
+            status=normalized.release_status or "unknown",
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.tv,
+                normalized={},
+            ),
+        )
+        self.db.add(series)
+        await self.db.flush()
+
+        # Create single season and episode from this normalized item
+        tv_season = TVSeason(
+            series_id=series.id,
+            season_number=int(normalized.volume_number) if normalized.volume_number and isinstance(normalized.volume_number, int) else 1,
+            air_date=normalized.release_date,
+            description=normalized.synopsis,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.tv,
+                normalized={"season_number": normalized.volume_number},
+            ),
+        )
+        self.db.add(tv_season)
+        await self.db.flush()
+
+        # Create single episode within that season
+        tv_episode = TVEpisode(
+            season_id=tv_season.id,
+            episode_number=int(normalized.item_number) if normalized.item_number and normalized.item_number.isdigit() else None,
+            episode_title=normalized.edition_title or normalized.title,
+            air_date=normalized.release_date,
+            description=normalized.synopsis,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            runtime_minutes=normalized.runtime_minutes,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.tv,
+                normalized={"episode_number": normalized.item_number},
+            ),
+        )
+        self.db.add(tv_episode)
+        await self.db.flush()
+
+        for index, credit in enumerate(normalized.creators, start=1):
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                TVContribution(
+                    series_id=series.id,
+                    episode_id=None,
+                    person_id=person.id,
+                    role=(credit.role or "creator").strip().lower(),
+                    sequence=index,
+                )
+            )
+
+        identifiers: list[tuple[str, str, bool]] = []
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in normalized.provider_ids.items():
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                TVIdentifier(
+                    series_id=series.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
+
+        seen_characters: set[tuple[str, str]] = set()
+        for credit in normalized.characters:
+            name = credit.name.strip()
+            if not name:
+                continue
+            role = character_appearance_role(credit.role)
+            dedupe_key = (name.casefold(), role.casefold())
+            if dedupe_key in seen_characters:
+                continue
+            seen_characters.add(dedupe_key)
+            character = await self._get_or_create_character(
+                name,
+                credit,
+                provider=provider_name,
+                provider_item_id=None,
+            )
+            self.db.add(
+                TVCharacterAppearance(
+                    series_id=series.id,
+                    character_id=character.id,
+                    role=role,
+                )
+            )
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+            provider_name,
+            provider_ids,
+            "tv_series",
+            series.id,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="tv_series",
+            entity_id=series.id,
+            source=provider_raw,
+            normalized={
+                "title": series.title,
+                "original_language": series.original_language,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return series
+
     async def _reindex_comic_work(self, work_id: UUID) -> None:
         work = await self.db.scalar(
             select(ComicWork)
@@ -2533,6 +3271,66 @@ class AdminProviderIngestService:
         if work is None:
             return
         await SearchClient().index_documents_best_effort([book_work_search_document(work)])
+
+    async def _reindex_manga_work(self, work_id: UUID) -> None:
+        work = await self.db.scalar(
+            select(MangaWork)
+            .where(MangaWork.id == work_id)
+            .options(
+                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
+                selectinload(MangaWork.chapters),
+                selectinload(MangaWork.identifiers),
+                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
+            )
+        )
+        if work is None:
+            return
+        await SearchClient().index_documents_best_effort([manga_work_search_document(work)])
+
+    async def _reindex_anime_series(self, series_id: UUID) -> None:
+        series = await self.db.scalar(
+            select(AnimeSeries)
+            .where(AnimeSeries.id == series_id)
+            .options(
+                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
+                selectinload(AnimeSeries.episodes),
+                selectinload(AnimeSeries.identifiers),
+                selectinload(AnimeSeries.character_appearances).selectinload(AnimeCharacterAppearance.character),
+            )
+        )
+        if series is None:
+            return
+        await SearchClient().index_documents_best_effort([anime_series_search_document(series)])
+
+    async def _reindex_movie_work(self, work_id: UUID) -> None:
+        work = await self.db.scalar(
+            select(MovieWork)
+            .where(MovieWork.id == work_id)
+            .options(
+                selectinload(MovieWork.contributions).selectinload(MovieContribution.person),
+                selectinload(MovieWork.releases),
+                selectinload(MovieWork.identifiers),
+                selectinload(MovieWork.character_appearances).selectinload(MovieCharacterAppearance.character),
+            )
+        )
+        if work is None:
+            return
+        await SearchClient().index_documents_best_effort([movie_work_search_document(work)])
+
+    async def _reindex_tv_series(self, series_id: UUID) -> None:
+        series = await self.db.scalar(
+            select(TVSeries)
+            .where(TVSeries.id == series_id)
+            .options(
+                selectinload(TVSeries.contributions).selectinload(TVContribution.person),
+                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                selectinload(TVSeries.identifiers),
+                selectinload(TVSeries.character_appearances).selectinload(TVCharacterAppearance.character),
+            )
+        )
+        if series is None:
+            return
+        await SearchClient().index_documents_best_effort([tv_series_search_document(series)])
 
     def _comic_identifier_type(self, base_type: str, value: str) -> str:
         return self._book_identifier_type(base_type, value)

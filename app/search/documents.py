@@ -6,7 +6,21 @@ from sqlalchemy.orm.attributes import NO_VALUE
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ItemKind
-from app.models.canonical import BookContribution, BookWork, ComicContribution, ComicWork, Item
+from app.models.canonical import (
+    AnimeContribution,
+    AnimeSeries,
+    BookContribution,
+    BookWork,
+    ComicContribution,
+    ComicWork,
+    Item,
+    MangaContribution,
+    MangaWork,
+    MovieContribution,
+    MovieWork,
+    TVContribution,
+    TVSeries,
+)
 
 
 def item_search_document(item: Item) -> dict[str, Any]:
@@ -347,6 +361,360 @@ def comic_work_search_document(work: ComicWork) -> dict[str, Any]:
         "language": primary_issue.language if primary_issue is not None else None,
         "imprint": primary_issue.imprint if primary_issue is not None else None,
         "subtitle": work.subtitle,
+        "series_group": None,
+        "age_rating": None,
+    }
+
+
+def manga_work_search_document(work: MangaWork) -> dict[str, Any]:
+    chapters = sorted(
+        getattr(work, "chapters", []) or [],
+        key=lambda row: (
+            getattr(row, "publication_date", None) is None,
+            getattr(row, "publication_date", None),
+            getattr(row, "chapter_number", None) is None,
+            getattr(row, "chapter_number", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_chapter = chapters[0] if chapters else None
+    creators: list[str] = []
+    characters: list[str] = []
+
+    for contribution in sorted(
+        getattr(work, "contributions", []) or [],
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    ):
+        if not isinstance(contribution, MangaContribution):
+            continue
+        person = getattr(contribution, "person", None)
+        person_name = _optional_text(getattr(person, "name", None))
+        if person_name:
+            _append_unique(creators, person_name)
+
+    for char_app in sorted(
+        getattr(work, "character_appearances", []) or [],
+        key=lambda row: (
+            str(getattr(getattr(row, "character", None), "name", "") or "").casefold(),
+        ),
+    ):
+        character = getattr(char_app, "character", None)
+        character_name = _optional_text(getattr(character, "name", None))
+        if character_name:
+            _append_unique(characters, character_name)
+
+    release_date = (
+        primary_chapter.publication_date.isoformat()
+        if primary_chapter is not None and primary_chapter.publication_date is not None
+        else None
+    )
+    release_year = (
+        primary_chapter.publication_date.year
+        if primary_chapter is not None and primary_chapter.publication_date is not None
+        else None
+    )
+
+    return {
+        "id": str(work.id),
+        "kind": ItemKind.manga.value,
+        "title": work.title,
+        "item_number": None,
+        "runtime_minutes": None,
+        "cover_image_url": primary_chapter.cover_image_url if primary_chapter is not None else None,
+        "thumbnail_image_url": None,
+        "publisher": None,
+        "release_date": release_date,
+        "region": None,
+        "release_year": release_year,
+        "barcode": None,
+        "barcodes": [],
+        "variant": None,
+        "variant_names": [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": None,
+        "volume_name": None,
+        "catalog_number": None,
+        "creators": creators,
+        "characters": characters,
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": None,
+        "language": work.original_language,
+        "imprint": None,
+        "subtitle": work.subtitle,
+        "series_group": None,
+        "age_rating": None,
+    }
+
+
+def anime_series_search_document(series: AnimeSeries) -> dict[str, Any]:
+    episodes = sorted(
+        getattr(series, "episodes", []) or [],
+        key=lambda row: (
+            getattr(row, "air_date", None) is None,
+            getattr(row, "air_date", None),
+            getattr(row, "episode_number", None) is None,
+            getattr(row, "episode_number", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_episode = episodes[0] if episodes else None
+    creators: list[str] = []
+    characters: list[str] = []
+
+    for contribution in sorted(
+        getattr(series, "contributions", []) or [],
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    ):
+        if not isinstance(contribution, AnimeContribution):
+            continue
+        person = getattr(contribution, "person", None)
+        person_name = _optional_text(getattr(person, "name", None))
+        if person_name:
+            _append_unique(creators, person_name)
+
+    for char_app in sorted(
+        getattr(series, "character_appearances", []) or [],
+        key=lambda row: (
+            str(getattr(getattr(row, "character", None), "name", "") or "").casefold(),
+        ),
+    ):
+        character = getattr(char_app, "character", None)
+        character_name = _optional_text(getattr(character, "name", None))
+        if character_name:
+            _append_unique(characters, character_name)
+
+    release_date = (
+        primary_episode.air_date.isoformat()
+        if primary_episode is not None and primary_episode.air_date is not None
+        else None
+    )
+    release_year = (
+        primary_episode.air_date.year
+        if primary_episode is not None and primary_episode.air_date is not None
+        else None
+    )
+
+    return {
+        "id": str(series.id),
+        "kind": ItemKind.anime.value,
+        "title": series.title,
+        "item_number": None,
+        "runtime_minutes": primary_episode.runtime_minutes if primary_episode is not None else None,
+        "cover_image_url": primary_episode.cover_image_url if primary_episode is not None else None,
+        "thumbnail_image_url": None,
+        "publisher": None,
+        "release_date": release_date,
+        "region": None,
+        "release_year": release_year,
+        "barcode": None,
+        "barcodes": [],
+        "variant": None,
+        "variant_names": [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": series.title,
+        "volume_name": None,
+        "catalog_number": None,
+        "creators": creators,
+        "characters": characters,
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": series.status,
+        "language": series.original_language,
+        "imprint": None,
+        "subtitle": None,
+        "series_group": None,
+        "age_rating": None,
+    }
+
+
+def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
+    releases = sorted(
+        getattr(work, "releases", []) or [],
+        key=lambda row: (
+            getattr(row, "release_date", None) is None,
+            getattr(row, "release_date", None),
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_release = releases[0] if releases else None
+    creators: list[str] = []
+    characters: list[str] = []
+
+    for contribution in sorted(
+        getattr(work, "contributions", []) or [],
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    ):
+        if not isinstance(contribution, MovieContribution):
+            continue
+        person = getattr(contribution, "person", None)
+        person_name = _optional_text(getattr(person, "name", None))
+        if person_name:
+            _append_unique(creators, person_name)
+
+    for char_app in sorted(
+        getattr(work, "character_appearances", []) or [],
+        key=lambda row: (
+            str(getattr(getattr(row, "character", None), "name", "") or "").casefold(),
+        ),
+    ):
+        character = getattr(char_app, "character", None)
+        character_name = _optional_text(getattr(character, "name", None))
+        if character_name:
+            _append_unique(characters, character_name)
+
+    release_date = (
+        primary_release.release_date.isoformat()
+        if primary_release is not None and primary_release.release_date is not None
+        else work.release_date.isoformat() if work.release_date is not None else None
+    )
+    release_year = (
+        primary_release.release_date.year
+        if primary_release is not None and primary_release.release_date is not None
+        else work.release_date.year if work.release_date is not None else None
+    )
+
+    return {
+        "id": str(work.id),
+        "kind": ItemKind.movie.value,
+        "title": work.title,
+        "item_number": None,
+        "runtime_minutes": work.runtime_minutes,
+        "cover_image_url": primary_release.cover_image_url if primary_release is not None else None,
+        "thumbnail_image_url": None,
+        "publisher": None,
+        "release_date": release_date,
+        "region": primary_release.region if primary_release is not None else None,
+        "release_year": release_year,
+        "barcode": None,
+        "barcodes": [],
+        "variant": primary_release.format if primary_release is not None else None,
+        "variant_names": [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": None,
+        "volume_name": None,
+        "catalog_number": None,
+        "creators": creators,
+        "characters": characters,
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": None,
+        "language": primary_release.language if primary_release is not None else work.original_language,
+        "imprint": None,
+        "subtitle": None,
+        "series_group": None,
+        "age_rating": None,
+    }
+
+
+def tv_series_search_document(series: TVSeries) -> dict[str, Any]:
+    seasons = sorted(
+        getattr(series, "seasons", []) or [],
+        key=lambda row: (
+            getattr(row, "season_number", None) is None,
+            getattr(row, "season_number", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_season = seasons[0] if seasons else None
+    primary_episode = None
+    if primary_season is not None:
+        episodes = sorted(
+            getattr(primary_season, "episodes", []) or [],
+            key=lambda row: (
+                getattr(row, "air_date", None) is None,
+                getattr(row, "air_date", None),
+                getattr(row, "episode_number", None) is None,
+                getattr(row, "episode_number", None) or 0,
+                str(getattr(row, "id", "")),
+            ),
+        )
+        primary_episode = episodes[0] if episodes else None
+
+    creators: list[str] = []
+    characters: list[str] = []
+
+    for contribution in sorted(
+        getattr(series, "contributions", []) or [],
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    ):
+        if not isinstance(contribution, TVContribution):
+            continue
+        person = getattr(contribution, "person", None)
+        person_name = _optional_text(getattr(person, "name", None))
+        if person_name:
+            _append_unique(creators, person_name)
+
+    for char_app in sorted(
+        getattr(series, "character_appearances", []) or [],
+        key=lambda row: (
+            str(getattr(getattr(row, "character", None), "name", "") or "").casefold(),
+        ),
+    ):
+        character = getattr(char_app, "character", None)
+        character_name = _optional_text(getattr(character, "name", None))
+        if character_name:
+            _append_unique(characters, character_name)
+
+    release_date = (
+        primary_episode.air_date.isoformat()
+        if primary_episode is not None and primary_episode.air_date is not None
+        else None
+    )
+    release_year = (
+        primary_episode.air_date.year
+        if primary_episode is not None and primary_episode.air_date is not None
+        else None
+    )
+
+    return {
+        "id": str(series.id),
+        "kind": ItemKind.tv.value,
+        "title": series.title,
+        "item_number": None,
+        "runtime_minutes": primary_episode.runtime_minutes if primary_episode is not None else None,
+        "cover_image_url": primary_episode.cover_image_url if primary_episode is not None else None,
+        "thumbnail_image_url": None,
+        "publisher": None,
+        "release_date": release_date,
+        "region": None,
+        "release_year": release_year,
+        "barcode": None,
+        "barcodes": [],
+        "variant": None,
+        "variant_names": [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": series.title,
+        "volume_name": None,
+        "catalog_number": None,
+        "creators": creators,
+        "characters": characters,
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": series.status,
+        "language": series.original_language,
+        "imprint": None,
+        "subtitle": None,
         "series_group": None,
         "age_rating": None,
     }

@@ -312,6 +312,7 @@ class BookWorkV1Response(BaseModel):
     original_language: str | None = None
     original_publication_date: date | None = None
     first_publication_date: date | None = None
+    kind: ItemKind = ItemKind.book
     metadata_json: dict[str, Any] | None = None
     contributors: list[BookContributorResponse] = Field(default_factory=list)
     editions: list[BookEditionV1Response] = Field(default_factory=list)
@@ -379,9 +380,250 @@ class ComicWorkV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     first_publication_date: date | None = None
+    kind: ItemKind = ItemKind.comic
     metadata_json: dict[str, Any] | None = None
     contributors: list[ComicContributorResponse] = Field(default_factory=list)
     issues: list[ComicIssueV1Response] = Field(default_factory=list)
+
+
+# Manga DTOs
+class MangaContributorResponse(BaseModel):
+    id: UUID
+    person_id: UUID
+    person_name: str
+    role: str
+    sequence: int | None = None
+
+
+class MangaIdentifierResponse(BaseModel):
+    id: UUID
+    identifier_type: str
+    value: str
+    is_primary: bool
+
+
+class MangaCharacterResponse(BaseModel):
+    id: UUID
+    character_id: UUID
+    character_name: str
+    role: str
+
+
+class MangaChapterV1Response(BaseModel):
+    id: UUID
+    work_id: UUID
+    chapter_number: float | None = None
+    chapter_title: str | None = None
+    publication_date: date | None = None
+    page_count: int | None = None
+    description: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class MangaWorkV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    subtitle: str | None = None
+    description: str | None = None
+    original_language: str | None = None
+    original_publication_date: date | None = None
+    first_publication_date: date | None = None
+    status: str | None = None
+    kind: ItemKind = ItemKind.manga
+    chapters: list[MangaChapterV1Response] = Field(default_factory=list)
+    contributions: list[MangaContributorResponse] = Field(default_factory=list)
+    identifiers: list[MangaIdentifierResponse] = Field(default_factory=list)
+    character_appearances: list[MangaCharacterResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+# Anime DTOs
+class AnimeContributorResponse(BaseModel):
+    id: UUID
+    person_id: UUID
+    person_name: str
+    role: str
+    sequence: int | None = None
+
+
+class AnimeIdentifierResponse(BaseModel):
+    id: UUID
+    identifier_type: str
+    value: str
+    is_primary: bool
+
+
+class AnimeCharacterResponse(BaseModel):
+    id: UUID
+    character_id: UUID
+    character_name: str
+    role: str
+
+
+class AnimeEpisodeV1Response(BaseModel):
+    id: UUID
+    series_id: UUID
+    episode_number: float | None = None
+    episode_title: str | None = None
+    air_date: date | None = None
+    description: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    runtime_minutes: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class AnimeSeriesV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    description: str | None = None
+    original_language: str | None = None
+    original_air_date: date | None = None
+    end_date: date | None = None
+    status: str | None = None
+    anime_type: str | None = None
+    episode_count: int | None = None
+    kind: ItemKind = ItemKind.anime
+    episodes: list[AnimeEpisodeV1Response] = Field(default_factory=list)
+    contributions: list[AnimeContributorResponse] = Field(default_factory=list)
+    identifiers: list[AnimeIdentifierResponse] = Field(default_factory=list)
+    character_appearances: list[AnimeCharacterResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+# Movie DTOs
+class MovieContributorResponse(BaseModel):
+    id: UUID
+    person_id: UUID
+    person_name: str
+    role: str
+    sequence: int | None = None
+
+
+class MovieIdentifierResponse(BaseModel):
+    id: UUID
+    identifier_type: str
+    value: str
+    is_primary: bool
+
+
+class MovieCharacterResponse(BaseModel):
+    id: UUID
+    character_id: UUID
+    character_name: str
+    role: str
+
+
+class MovieReleaseV1Response(BaseModel):
+    id: UUID
+    work_id: UUID
+    release_title: str | None = None
+    release_date: date | None = None
+    region: str | None = None
+    format: str | None = None
+    language: str | None = None
+    description: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class MovieWorkV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    description: str | None = None
+    original_language: str | None = None
+    release_date: date | None = None
+    runtime_minutes: int | None = None
+    kind: ItemKind = ItemKind.movie
+    releases: list[MovieReleaseV1Response] = Field(default_factory=list)
+    contributions: list[MovieContributorResponse] = Field(default_factory=list)
+    identifiers: list[MovieIdentifierResponse] = Field(default_factory=list)
+    character_appearances: list[MovieCharacterResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+# TV DTOs
+class TVContributorResponse(BaseModel):
+    id: UUID
+    person_id: UUID
+    person_name: str
+    role: str
+    sequence: int | None = None
+
+
+class TVIdentifierResponse(BaseModel):
+    id: UUID
+    identifier_type: str
+    value: str
+    is_primary: bool
+
+
+class TVCharacterResponse(BaseModel):
+    id: UUID
+    character_id: UUID
+    character_name: str
+    role: str
+
+
+class TVEpisodeV1Response(BaseModel):
+    id: UUID
+    season_id: UUID
+    episode_number: float | None = None
+    episode_title: str | None = None
+    air_date: date | None = None
+    description: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    runtime_minutes: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class TVSeasonV1Response(BaseModel):
+    id: UUID
+    series_id: UUID
+    season_number: int | None = None
+    air_date: date | None = None
+    episode_count: int | None = None
+    description: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    episodes: list[TVEpisodeV1Response] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+class TVSeriesV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    description: str | None = None
+    original_language: str | None = None
+    original_air_date: date | None = None
+    end_date: date | None = None
+    status: str | None = None
+    season_count: int | None = None
+    episode_count: int | None = None
+    network: str | None = None
+    kind: ItemKind = ItemKind.tv
+    seasons: list[TVSeasonV1Response] = Field(default_factory=list)
+    contributions: list[TVContributorResponse] = Field(default_factory=list)
+    identifiers: list[TVIdentifierResponse] = Field(default_factory=list)
+    character_appearances: list[TVCharacterResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
 
 
 class ProviderSearchResultResponse(BaseModel):

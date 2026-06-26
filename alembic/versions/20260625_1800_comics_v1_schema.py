@@ -37,7 +37,6 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["volume_id"], ["volumes.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("volume_id", name="uq_comic_works_volume_id"),
     )
     op.create_index("ix_comic_works_volume_id", "comic_works", ["volume_id"], unique=False)
     op.create_index("ix_comic_works_title", "comic_works", ["title"], unique=False)

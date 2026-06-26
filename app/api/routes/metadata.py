@@ -34,6 +34,8 @@ from app.schemas.admin import (
     ProviderIngestRequest as ProviderPreviewRequest,
 )
 from app.schemas.metadata import (
+    AnimeEpisodeV1Response,
+    AnimeSeriesV1Response,
     BookEditionV1Response,
     BookWorkV1Response,
     BundleReleaseDetailResponse,
@@ -50,6 +52,8 @@ from app.schemas.metadata import (
     EditionResponse,
     FacetItemIdsRequest,
     ItemResponse,
+    MangaChapterV1Response,
+    MangaWorkV1Response,
     MediaCatalogResponse,
     MediaTypeResponse,
     MetadataFieldSchemaResponse,
@@ -57,6 +61,8 @@ from app.schemas.metadata import (
     MetadataNormalizedManifestResponse,
     MetadataProposalCreate,
     MetadataProposalResponse,
+    MovieReleaseV1Response,
+    MovieWorkV1Response,
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
     SearchResult,
@@ -67,6 +73,9 @@ from app.schemas.metadata import (
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
+    TVEpisodeV1Response,
+    TVSeasonV1Response,
+    TVSeriesV1Response,
     public_item_kind,
 )
 from app.services.admin import AdminMetadataService
@@ -543,6 +552,109 @@ async def get_comic_issue(
     db: DbSession,
 ) -> ComicIssueV1Response:
     return await MetadataService(db).get_comic_issue(issue_id)
+
+
+@router.get("/metadata/manga/works/{work_id}", response_model=MangaWorkV1Response)
+async def get_manga_work(
+    work_id: UUID,
+    db: DbSession,
+) -> MangaWorkV1Response:
+    return await MetadataService(db).get_manga_work(work_id)
+
+
+@router.get("/metadata/manga/works/{work_id}/chapters", response_model=list[MangaChapterV1Response])
+async def get_manga_work_chapters(
+    work_id: UUID,
+    db: DbSession,
+) -> list[MangaChapterV1Response]:
+    return await MetadataService(db).get_manga_work_chapters(work_id)
+
+
+@router.get("/metadata/manga/chapters/{chapter_id}", response_model=MangaChapterV1Response)
+async def get_manga_chapter(
+    chapter_id: UUID,
+    db: DbSession,
+) -> MangaChapterV1Response:
+    return await MetadataService(db).get_manga_chapter(chapter_id)
+
+
+@router.get("/metadata/anime/series/{series_id}", response_model=AnimeSeriesV1Response)
+async def get_anime_series(
+    series_id: UUID,
+    db: DbSession,
+) -> AnimeSeriesV1Response:
+    return await MetadataService(db).get_anime_series(series_id)
+
+
+@router.get(
+    "/metadata/anime/series/{series_id}/episodes",
+    response_model=list[AnimeEpisodeV1Response]
+)
+async def get_anime_series_episodes(
+    series_id: UUID,
+    db: DbSession,
+) -> list[AnimeEpisodeV1Response]:
+    return await MetadataService(db).get_anime_series_episodes(series_id)
+
+
+
+@router.get("/metadata/anime/episodes/{episode_id}", response_model=AnimeEpisodeV1Response)
+async def get_anime_episode(
+    episode_id: UUID,
+    db: DbSession,
+) -> AnimeEpisodeV1Response:
+    return await MetadataService(db).get_anime_episode(episode_id)
+
+
+@router.get("/metadata/movies/works/{work_id}", response_model=MovieWorkV1Response)
+async def get_movie_work(
+    work_id: UUID,
+    db: DbSession,
+) -> MovieWorkV1Response:
+    return await MetadataService(db).get_movie_work(work_id)
+
+
+@router.get(
+    "/metadata/movies/works/{work_id}/releases",
+    response_model=list[MovieReleaseV1Response]
+)
+async def get_movie_work_releases(
+    work_id: UUID,
+    db: DbSession,
+) -> list[MovieReleaseV1Response]:
+    return await MetadataService(db).get_movie_work_releases(work_id)
+
+
+@router.get("/metadata/movies/releases/{release_id}", response_model=MovieReleaseV1Response)
+async def get_movie_release(
+    release_id: UUID,
+    db: DbSession,
+) -> MovieReleaseV1Response:
+    return await MetadataService(db).get_movie_release(release_id)
+
+
+@router.get("/metadata/tv/series/{series_id}", response_model=TVSeriesV1Response)
+async def get_tv_series(
+    series_id: UUID,
+    db: DbSession,
+) -> TVSeriesV1Response:
+    return await MetadataService(db).get_tv_series(series_id)
+
+
+@router.get("/metadata/tv/series/{series_id}/seasons", response_model=list[TVSeasonV1Response])
+async def get_tv_series_seasons(
+    series_id: UUID,
+    db: DbSession,
+) -> list[TVSeasonV1Response]:
+    return await MetadataService(db).get_tv_series_seasons(series_id)
+
+
+@router.get("/metadata/tv/episodes/{episode_id}", response_model=TVEpisodeV1Response)
+async def get_tv_episode(
+    episode_id: UUID,
+    db: DbSession,
+) -> TVEpisodeV1Response:
+    return await MetadataService(db).get_tv_episode(episode_id)
 
 
 @router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response | ComicWorkV1Response)

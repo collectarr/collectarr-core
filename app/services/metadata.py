@@ -18,6 +18,11 @@ from app.core.errors import ApiHTTPException
 from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
+    AnimeCharacterAppearance,
+    AnimeContribution,
+    AnimeEpisode,
+    AnimeIdentifier,
+    AnimeSeries,
     BookContribution,
     BookEdition,
     BookIdentifier,
@@ -35,13 +40,29 @@ from app.models.canonical import (
     EntityTag,
     Item,
     ItemProviderLink,
+    MangaChapter,
+    MangaCharacterAppearance,
+    MangaContribution,
+    MangaIdentifier,
+    MangaWork,
     MetadataProposal,
+    MovieCharacterAppearance,
+    MovieContribution,
+    MovieIdentifier,
+    MovieRelease,
+    MovieWork,
     Person,
     Series,
     SeriesRelation,
     StoryArc,
     StoryArcItem,
     Tag,
+    TVCharacterAppearance,
+    TVContribution,
+    TVEpisode,
+    TVIdentifier,
+    TVSeason,
+    TVSeries,
     Volume,
     VolumeProviderLink,
 )
@@ -52,6 +73,11 @@ from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import (
+    AnimeCharacterResponse,
+    AnimeContributorResponse,
+    AnimeEpisodeV1Response,
+    AnimeIdentifierResponse,
+    AnimeSeriesV1Response,
     BookContributorResponse,
     BookEditionV1Response,
     BookIdentifierResponse,
@@ -73,9 +99,19 @@ from app.schemas.metadata import (
     EditionResponse,
     EpisodeResponse,
     ItemResponse,
+    MangaChapterV1Response,
+    MangaCharacterResponse,
+    MangaContributorResponse,
+    MangaIdentifierResponse,
+    MangaWorkV1Response,
     MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
+    MovieCharacterResponse,
+    MovieContributorResponse,
+    MovieIdentifierResponse,
+    MovieReleaseV1Response,
+    MovieWorkV1Response,
     ProviderLink,
     ProviderSearchResultResponse,
     SearchResult,
@@ -86,6 +122,12 @@ from app.schemas.metadata import (
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
+    TVCharacterResponse,
+    TVContributorResponse,
+    TVEpisodeV1Response,
+    TVIdentifierResponse,
+    TVSeasonV1Response,
+    TVSeriesV1Response,
     bundle_release_detail_from_model,
     bundle_release_summary_from_model,
     item_response_from_model,
@@ -490,6 +532,409 @@ class MetadataService:
             ],
         )
 
+    def _manga_work_response(self, work: MangaWork) -> MangaWorkV1Response:
+        chapters = sorted(
+            work.chapters or [],
+            key=lambda c: (
+                c.chapter_number is None,
+                c.chapter_number or 0,
+                c.publication_date is None,
+                c.publication_date or date.max,
+                str(c.id),
+            ),
+        )
+        return MangaWorkV1Response(
+            id=work.id,
+            title=work.title,
+            sort_title=work.sort_title,
+            subtitle=work.subtitle,
+            description=work.description,
+            original_language=work.original_language,
+            original_publication_date=work.original_publication_date,
+            first_publication_date=work.first_publication_date,
+            status=work.status,
+            chapters=[self._manga_chapter_response(row) for row in chapters],
+            contributions=[
+                self._manga_contributor_response(row)
+                for row in sorted(
+                    work.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._manga_identifier_response(row)
+                for row in sorted(
+                    work.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        i.normalized_value.casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+            character_appearances=[
+                self._manga_character_response(row)
+                for row in sorted(
+                    work.character_appearances or [],
+                    key=lambda c: (
+                        c.role.casefold(),
+                        str(c.character_id),
+                    ),
+                )
+            ],
+        )
+
+    def _manga_chapter_response(self, chapter: MangaChapter) -> MangaChapterV1Response:
+        return MangaChapterV1Response(
+            id=chapter.id,
+            work_id=chapter.work_id,
+            chapter_number=chapter.chapter_number,
+            chapter_title=chapter.chapter_title,
+            publication_date=chapter.publication_date,
+            page_count=chapter.page_count,
+            description=chapter.description,
+            cover_image_url=chapter.cover_image_url,
+            cover_image_key=chapter.cover_image_key,
+        )
+
+    def _manga_contributor_response(self, contrib: MangaContribution) -> MangaContributorResponse:
+        return MangaContributorResponse(
+            id=contrib.id,
+            person_id=contrib.person_id,
+            person_name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
+
+    def _manga_identifier_response(self, identifier: MangaIdentifier) -> MangaIdentifierResponse:
+        return MangaIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            is_primary=identifier.is_primary,
+        )
+
+    def _manga_character_response(self, char: MangaCharacterAppearance) -> MangaCharacterResponse:
+        return MangaCharacterResponse(
+            id=char.id,
+            character_id=char.character_id,
+            character_name=char.character.name if char.character is not None else "",
+            role=char.role,
+        )
+
+    def _anime_series_response(self, series: AnimeSeries) -> AnimeSeriesV1Response:
+        episodes = sorted(
+            series.episodes or [],
+            key=lambda e: (
+                e.episode_number is None,
+                e.episode_number or 0,
+                e.air_date is None,
+                e.air_date or date.max,
+                str(e.id),
+            ),
+        )
+        return AnimeSeriesV1Response(
+            id=series.id,
+            title=series.title,
+            sort_title=series.sort_title,
+            description=series.description,
+            original_language=series.original_language,
+            original_air_date=series.original_air_date,
+            end_date=series.end_date,
+            status=series.status,
+            anime_type=series.anime_type,
+            episode_count=series.episode_count,
+            episodes=[self._anime_episode_response(row) for row in episodes],
+            contributions=[
+                self._anime_contributor_response(row)
+                for row in sorted(
+                    series.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._anime_identifier_response(row)
+                for row in sorted(
+                    series.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        i.normalized_value.casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+            character_appearances=[
+                self._anime_character_response(row)
+                for row in sorted(
+                    series.character_appearances or [],
+                    key=lambda c: (
+                        c.role.casefold(),
+                        str(c.character_id),
+                    ),
+                )
+            ],
+        )
+
+    def _anime_episode_response(self, episode: AnimeEpisode) -> AnimeEpisodeV1Response:
+        return AnimeEpisodeV1Response(
+            id=episode.id,
+            series_id=episode.series_id,
+            episode_number=episode.episode_number,
+            episode_title=episode.episode_title,
+            air_date=episode.air_date,
+            description=episode.description,
+            cover_image_url=episode.cover_image_url,
+            cover_image_key=episode.cover_image_key,
+            runtime_minutes=episode.runtime_minutes,
+        )
+
+    def _anime_contributor_response(self, contrib: AnimeContribution) -> AnimeContributorResponse:
+        return AnimeContributorResponse(
+            id=contrib.id,
+            person_id=contrib.person_id,
+            person_name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
+
+    def _anime_identifier_response(self, identifier: AnimeIdentifier) -> AnimeIdentifierResponse:
+        return AnimeIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            is_primary=identifier.is_primary,
+        )
+
+    def _anime_character_response(self, char: AnimeCharacterAppearance) -> AnimeCharacterResponse:
+        return AnimeCharacterResponse(
+            id=char.id,
+            character_id=char.character_id,
+            character_name=char.character.name if char.character is not None else "",
+            role=char.role,
+        )
+
+    def _movie_work_response(self, work: MovieWork) -> MovieWorkV1Response:
+        releases = sorted(
+            work.releases or [],
+            key=lambda r: (
+                r.release_date is None,
+                r.release_date or date.max,
+                str(r.id),
+            ),
+        )
+        return MovieWorkV1Response(
+            id=work.id,
+            title=work.title,
+            sort_title=work.sort_title,
+            description=work.description,
+            original_language=work.original_language,
+            release_date=work.release_date,
+            runtime_minutes=work.runtime_minutes,
+            releases=[self._movie_release_response(row) for row in releases],
+            contributions=[
+                self._movie_contributor_response(row)
+                for row in sorted(
+                    work.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._movie_identifier_response(row)
+                for row in sorted(
+                    work.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        i.normalized_value.casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+            character_appearances=[
+                self._movie_character_response(row)
+                for row in sorted(
+                    work.character_appearances or [],
+                    key=lambda c: (
+                        c.role.casefold(),
+                        str(c.character_id),
+                    ),
+                )
+            ],
+        )
+
+    def _movie_release_response(self, release: MovieRelease) -> MovieReleaseV1Response:
+        return MovieReleaseV1Response(
+            id=release.id,
+            work_id=release.work_id,
+            release_title=release.release_title,
+            release_date=release.release_date,
+            region=release.region,
+            format=release.format,
+            language=release.language,
+            description=release.description,
+            cover_image_url=release.cover_image_url,
+            cover_image_key=release.cover_image_key,
+        )
+
+    def _movie_contributor_response(self, contrib: MovieContribution) -> MovieContributorResponse:
+        return MovieContributorResponse(
+            id=contrib.id,
+            person_id=contrib.person_id,
+            person_name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
+
+    def _movie_identifier_response(self, identifier: MovieIdentifier) -> MovieIdentifierResponse:
+        return MovieIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            is_primary=identifier.is_primary,
+        )
+
+    def _movie_character_response(self, char: MovieCharacterAppearance) -> MovieCharacterResponse:
+        return MovieCharacterResponse(
+            id=char.id,
+            character_id=char.character_id,
+            character_name=char.character.name if char.character is not None else "",
+            role=char.role,
+        )
+
+    def _tv_series_response(self, series: TVSeries) -> TVSeriesV1Response:
+        seasons = sorted(
+            series.seasons or [],
+            key=lambda s: (
+                s.season_number is None,
+                s.season_number or 0,
+                s.air_date is None,
+                s.air_date or date.max,
+                str(s.id),
+            ),
+        )
+        return TVSeriesV1Response(
+            id=series.id,
+            title=series.title,
+            sort_title=series.sort_title,
+            description=series.description,
+            original_language=series.original_language,
+            original_air_date=series.original_air_date,
+            end_date=series.end_date,
+            status=series.status,
+            season_count=series.season_count,
+            episode_count=series.episode_count,
+            network=series.network,
+            seasons=[self._tv_season_response(row) for row in seasons],
+            contributions=[
+                self._tv_contributor_response(row)
+                for row in sorted(
+                    series.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._tv_identifier_response(row)
+                for row in sorted(
+                    series.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        i.normalized_value.casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+            character_appearances=[
+                self._tv_character_response(row)
+                for row in sorted(
+                    series.character_appearances or [],
+                    key=lambda c: (
+                        c.role.casefold(),
+                        str(c.character_id),
+                    ),
+                )
+            ],
+        )
+
+    def _tv_season_response(self, season: TVSeason) -> TVSeasonV1Response:
+        episodes = sorted(
+            season.episodes or [],
+            key=lambda e: (
+                e.episode_number is None,
+                e.episode_number or 0,
+                e.air_date is None,
+                e.air_date or date.max,
+                str(e.id),
+            ),
+        )
+        return TVSeasonV1Response(
+            id=season.id,
+            series_id=season.series_id,
+            season_number=season.season_number,
+            air_date=season.air_date,
+            episode_count=season.episode_count,
+            description=season.description,
+            cover_image_url=season.cover_image_url,
+            cover_image_key=season.cover_image_key,
+            episodes=[self._tv_episode_response(row) for row in episodes],
+        )
+
+    def _tv_episode_response(self, episode: TVEpisode) -> TVEpisodeV1Response:
+        return TVEpisodeV1Response(
+            id=episode.id,
+            season_id=episode.season_id,
+            episode_number=episode.episode_number,
+            episode_title=episode.episode_title,
+            air_date=episode.air_date,
+            description=episode.description,
+            cover_image_url=episode.cover_image_url,
+            cover_image_key=episode.cover_image_key,
+            runtime_minutes=episode.runtime_minutes,
+        )
+
+    def _tv_contributor_response(self, contrib: TVContribution) -> TVContributorResponse:
+        return TVContributorResponse(
+            id=contrib.id,
+            person_id=contrib.person_id,
+            person_name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
+
+    def _tv_identifier_response(self, identifier: TVIdentifier) -> TVIdentifierResponse:
+        return TVIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            is_primary=identifier.is_primary,
+        )
+
+    def _tv_character_response(self, char: TVCharacterAppearance) -> TVCharacterResponse:
+        return TVCharacterResponse(
+            id=char.id,
+            character_id=char.character_id,
+            character_name=char.character.name if char.character is not None else "",
+            role=char.role,
+        )
+
     def _comic_work_response(self, work: ComicWork) -> ComicWorkV1Response:
         issues = sorted(
             work.issues or [],
@@ -606,6 +1051,216 @@ class MetadataService:
                 detail="Comic issue not found",
             )
         return self._comic_issue_response(issue)
+
+    async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
+        work = await self.db.scalar(
+            select(MangaWork)
+            .where(MangaWork.id == work_id)
+            .options(
+                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
+                selectinload(MangaWork.chapters),
+                selectinload(MangaWork.identifiers),
+                selectinload(MangaWork.character_appearances).selectinload(
+                    MangaCharacterAppearance.character
+                ),
+            )
+        )
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="manga_work_not_found",
+                detail="Manga work not found",
+            )
+        return self._manga_work_response(work)
+
+    async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
+        work = await self.db.scalar(select(MangaWork.id).where(MangaWork.id == work_id))
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="manga_work_not_found",
+                detail="Manga work not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(MangaChapter)
+                    .where(MangaChapter.work_id == work_id)
+                    .order_by(
+                        MangaChapter.chapter_number.asc().nullslast(),
+                        MangaChapter.created_at.asc()
+                    )
+                )
+            ).scalars()
+        )
+        return [self._manga_chapter_response(chapter) for chapter in rows]
+
+    async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
+        chapter = await self.db.scalar(select(MangaChapter).where(MangaChapter.id == chapter_id))
+        if chapter is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="manga_chapter_not_found",
+                detail="Manga chapter not found",
+            )
+        return self._manga_chapter_response(chapter)
+
+    async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
+        series = await self.db.scalar(
+            select(AnimeSeries)
+            .where(AnimeSeries.id == series_id)
+            .options(
+                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
+                selectinload(AnimeSeries.episodes),
+                selectinload(AnimeSeries.identifiers),
+                selectinload(AnimeSeries.character_appearances).selectinload(
+                    AnimeCharacterAppearance.character
+                ),
+            )
+        )
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="anime_series_not_found",
+                detail="Anime series not found",
+            )
+        return self._anime_series_response(series)
+
+    async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
+        series = await self.db.scalar(select(AnimeSeries.id).where(AnimeSeries.id == series_id))
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="anime_series_not_found",
+                detail="Anime series not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(AnimeEpisode)
+                    .where(AnimeEpisode.series_id == series_id)
+                    .order_by(
+                        AnimeEpisode.episode_number.asc().nullslast(),
+                        AnimeEpisode.created_at.asc()
+                    )
+                )
+            ).scalars()
+        )
+        return [self._anime_episode_response(episode) for episode in rows]
+
+    async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
+        episode = await self.db.scalar(select(AnimeEpisode).where(AnimeEpisode.id == episode_id))
+        if episode is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="anime_episode_not_found",
+                detail="Anime episode not found",
+            )
+        return self._anime_episode_response(episode)
+
+    async def get_movie_work(self, work_id: UUID) -> MovieWorkV1Response:
+        work = await self.db.scalar(
+            select(MovieWork)
+            .where(MovieWork.id == work_id)
+            .options(
+                selectinload(MovieWork.contributions).selectinload(MovieContribution.person),
+                selectinload(MovieWork.releases),
+                selectinload(MovieWork.identifiers),
+                selectinload(MovieWork.character_appearances).selectinload(
+                    MovieCharacterAppearance.character
+                ),
+            )
+        )
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="movie_work_not_found",
+                detail="Movie work not found",
+            )
+        return self._movie_work_response(work)
+
+    async def get_movie_work_releases(self, work_id: UUID) -> list[MovieReleaseV1Response]:
+        work = await self.db.scalar(select(MovieWork.id).where(MovieWork.id == work_id))
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="movie_work_not_found",
+                detail="Movie work not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(MovieRelease)
+                    .where(MovieRelease.work_id == work_id)
+                    .order_by(
+                        MovieRelease.release_date.asc().nullslast(),
+                        MovieRelease.created_at.asc()
+                    )
+                )
+            ).scalars()
+        )
+        return [self._movie_release_response(release) for release in rows]
+
+    async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
+        release = await self.db.scalar(select(MovieRelease).where(MovieRelease.id == release_id))
+        if release is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="movie_release_not_found",
+                detail="Movie release not found",
+            )
+        return self._movie_release_response(release)
+
+    async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
+        series = await self.db.scalar(
+            select(TVSeries)
+            .where(TVSeries.id == series_id)
+            .options(
+                selectinload(TVSeries.contributions).selectinload(TVContribution.person),
+                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                selectinload(TVSeries.identifiers),
+                selectinload(TVSeries.character_appearances).selectinload(
+                    TVCharacterAppearance.character
+                ),
+            )
+        )
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="tv_series_not_found",
+                detail="TV series not found",
+            )
+        return self._tv_series_response(series)
+
+    async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
+        series = await self.db.scalar(select(TVSeries.id).where(TVSeries.id == series_id))
+        if series is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="tv_series_not_found",
+                detail="TV series not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(TVSeason)
+                    .where(TVSeason.series_id == series_id)
+                    .options(selectinload(TVSeason.episodes))
+                    .order_by(TVSeason.season_number.asc().nullslast(), TVSeason.created_at.asc())
+                )
+            ).scalars()
+        )
+        return [self._tv_season_response(season) for season in rows]
+
+    async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
+        episode = await self.db.scalar(select(TVEpisode).where(TVEpisode.id == episode_id))
+        if episode is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="tv_episode_not_found",
+                detail="TV episode not found",
+            )
+        return self._tv_episode_response(episode)
 
     async def get_bundle_release(self, bundle_release_id: UUID) -> BundleReleaseDetailResponse:
         bundle_release = await self.metadata.get_bundle_release(bundle_release_id)

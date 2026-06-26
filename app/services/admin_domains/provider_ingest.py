@@ -57,6 +57,11 @@ from app.models.canonical import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
+    MusicMedia,
+    MusicRelease,
+    MusicReleaseContribution,
+    MusicReleaseIdentifier,
+    MusicTrack,
     Organization,
     Person,
     PhysicalFormatRef,
@@ -996,14 +1001,28 @@ class AdminProviderIngestService:
                 created=True,
                 item=await MetadataService(self.db).get_book_work(work.id),
             )
-        else:
-            item, _, _ = await self._create_catalog_item_from_normalized(
+        if normalized.kind == ItemKind.music:
+           release = await self._create_music_release_from_normalized(
                 provider=provider,
                 provider_name=payload.provider,
                 provider_item_id=provider_item.provider_item_id,
                 provider_raw=provider_item.raw,
                 normalized=normalized,
             )
+           await self.db.commit()
+           return ProviderIngestResponse(
+               item_id=release.id,
+               created=True,
+               item=await MetadataService(self.db).get_music_release(release.id),
+           )
+        else:
+           item, _, _ = await self._create_catalog_item_from_normalized(
+               provider=provider,
+               provider_name=payload.provider,
+               provider_item_id=provider_item.provider_item_id,
+               provider_raw=provider_item.raw,
+               normalized=normalized,
+           )
         await self.db.commit()
         loaded_item = await MetadataRepository(self.db).get_item(item.id)
         if loaded_item:
@@ -3289,6 +3308,179 @@ class AdminProviderIngestService:
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         return work
+
+    async def _create_music_release_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> MusicRelease:
+        """Create MusicRelease from normalized item with media, tracks, contributions, identifiers, and provider links."""
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+           mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+               source_url=normalized.cover_image_url,
+               provider=provider_name,
+               provider_item_id=provider_item_id,
+           )
+
+        # Create MusicRelease (represents the published product/album)
+        release = MusicRelease(
+           title=normalized.title,
+           sort_title=sort_key(ItemKind.music, normalized.title, None),
+           subtitle=normalized.subtitle,
+           release_date=normalized.release_date,
+           catalog_number=normalized.catalog_number,
+           release_status=normalized.release_status,
+           publisher=normalized.publisher,
+           studio=normalized.studio,
+           recording_date=normalized.recording_date,
+           barcode=normalized.barcode,
+           country_code=normalized.country,
+           language=self._normalized_language(normalized.language),
+           extras=normalized.extras,
+           cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+           cover_image_key=mirrored_cover.key if mirrored_cover else None,
+           metadata_json=self._provider_metadata_json(
+               provider_name,
+               provider_item_id,
+               kind=ItemKind.music,
+               normalized={},
+           ),
+        )
+        self.db.add(release)
+        await self.db.flush()
+
+        # Create MusicMedia (represents physical media, typically discs)
+        # Group tracks by disc_number if available
+        from itertools import groupby
+        
+        discs: dict[int | None, list[NormalizedTrack]] = {}
+        for track in (normalized.tracks or []):
+           disc_num = track.disc_number or 1
+           if disc_num not in discs:
+               discs[disc_num] = []
+           discs[disc_num].append(track)
+        
+        # If no tracks, create a single media entry
+        if not discs:
+           discs = {1: []}
+        
+        for media_number, disc_tracks in sorted(discs.items()):
+           media = MusicMedia(
+               release_id=release.id,
+               media_number=media_number,
+               media_type=normalized.physical_format or normalized.edition_format or "digital",
+               packaging=normalized.packaging,
+               media_condition=normalized.media_condition,
+               sound_type=normalized.sound_type,
+               vinyl_color=normalized.vinyl_color,
+               vinyl_weight=normalized.vinyl_weight,
+               rpm=normalized.rpm,
+               spars=normalized.spars,
+               metadata_json=self._provider_metadata_json(
+                   provider_name,
+                   provider_item_id,
+                   kind=ItemKind.music,
+                   normalized={"format": normalized.physical_format or normalized.edition_format},
+               ),
+           )
+           self.db.add(media)
+           await self.db.flush()
+
+           # Create MusicTrack entities for this disc
+           for track_index, track in enumerate(disc_tracks, start=1):
+               music_track = MusicTrack(
+                   media_id=media.id,
+                   release_id=release.id,
+                   position=str(track.position or track_index),
+                   title=track.title,
+                   duration_ms=(track.duration_seconds * 1000) if track.duration_seconds else None,
+                   instrument=track.instrument,
+                   composition=track.composition,
+                   metadata_json={},
+               )
+               self.db.add(music_track)
+
+        # Add contributions (artists, composers, producers)
+        for index, credit in enumerate(normalized.creators, start=1):
+           person = await self._get_or_create_person(credit.name, credit)
+           self.db.add(
+               MusicReleaseContribution(
+                   release_id=release.id,
+                   person_id=person.id,
+                   role=(credit.role or "artist").strip().lower(),
+                   sequence=index,
+               )
+           )
+
+        # Add identifiers (provider IDs, ISRC, catalog number, barcode)
+        identifiers: list[tuple[str, str, bool]] = []
+        if normalized.catalog_number:
+           identifiers.append(("catalog_number", normalized.catalog_number, True))
+        if normalized.barcode:
+           identifiers.append(("barcode", normalized.barcode, False))
+        identifiers.append(("provider_item_id", provider_item_id, False))
+        for _, provider_value in (normalized.provider_ids or {}).items():
+           if provider_value:
+               identifiers.append(("provider_item_id", provider_value, False))
+
+        seen_identifier_keys: set[tuple[str, str]] = set()
+        for identifier_type, value, is_primary in identifiers:
+           normalized_value = self._normalized_identifier(value)
+           if not normalized_value:
+               continue
+           dedupe_key = (identifier_type, normalized_value)
+           if dedupe_key in seen_identifier_keys:
+               continue
+           seen_identifier_keys.add(dedupe_key)
+           self.db.add(
+               MusicReleaseIdentifier(
+                   release_id=release.id,
+                   identifier_type=identifier_type,
+                   value=value,
+                   normalized_value=normalized_value,
+                   is_primary=is_primary,
+                   source_provider=provider_name,
+               )
+           )
+
+        # Add provider links
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._add_provider_links(
+           provider_name,
+           provider_ids,
+           "music_release",
+           release.id,
+           provider_urls=provider_link_urls_for_provider(
+               provider_name,
+               provider_ids,
+               provider_raw,
+           ),
+        )
+
+        # Record provider snapshot
+        await self._record_provider_snapshot(
+           provider=provider_name,
+           provider_item_id=provider_item_id,
+           entity_type="music_release",
+           entity_id=release.id,
+           source=provider_raw,
+           normalized={
+               "title": release.title,
+               "language": release.language,
+               "track_count": len(normalized.tracks) if normalized.tracks else 0,
+           },
+        )
+
+        if mirrored_cover:
+           await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+
+        return release
 
     async def _reindex_comic_work(self, work_id: UUID) -> None:
         work = await self.db.scalar(

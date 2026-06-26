@@ -50,6 +50,11 @@ from app.models.canonical import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
+    MusicMedia,
+    MusicRelease,
+    MusicReleaseContribution,
+    MusicReleaseIdentifier,
+    MusicTrack,
     Person,
     Series,
     SeriesRelation,
@@ -761,6 +766,64 @@ class MetadataService:
             cover_image_key=release.cover_image_key,
         )
 
+    def _music_release_response(self, release: MusicRelease) -> MusicReleaseV1Response:
+        media_list = []
+        if release.media:
+            for m in release.media:
+                tracks = []
+                if m.tracks:
+                    for t in m.tracks:
+                        tracks.append(
+                            MusicTrackV1Response(
+                                id=t.id,
+                                media_id=t.media_id,
+                                position=t.position,
+                                title=t.title,
+                                duration_ms=t.duration_ms,
+                                instrument=t.instrument,
+                                composition=t.composition,
+                            )
+                        )
+                media_list.append(
+                    MusicMediaV1Response(
+                        id=m.id,
+                        release_id=m.release_id,
+                        media_number=m.media_number,
+                        media_type=m.media_type,
+                        title=m.title,
+                        track_count=m.track_count,
+                        packaging=m.packaging,
+                        media_condition=m.media_condition,
+                        sound_type=m.sound_type,
+                        vinyl_color=m.vinyl_color,
+                        vinyl_weight=m.vinyl_weight,
+                        rpm=m.rpm,
+                        spars=m.spars,
+                        tracks=tracks,
+                    )
+                )
+        return MusicReleaseV1Response(
+            id=release.id,
+            title=release.title,
+            sort_title=release.sort_title,
+            subtitle=release.subtitle,
+            release_status=release.release_status,
+            release_date=release.release_date,
+            recording_date=release.recording_date,
+            publisher=release.publisher,
+            studio=release.studio,
+            catalog_number=release.catalog_number,
+            barcode=release.barcode,
+            country_code=release.country_code,
+            language=release.language,
+            cover_image_url=release.cover_image_url,
+            cover_image_key=release.cover_image_key,
+            extras=release.extras,
+            media=media_list,
+            contributions=[],  # Placeholder
+            identifiers=[],  # Placeholder
+        )
+
     # Movie v1 helper methods - TODO: implement proper v1 support
     # def _movie_contributor_response(self, contrib: MovieWorkContribution) -> MovieContributorResponse:
     #     return MovieContributorResponse(
@@ -1064,6 +1127,24 @@ class MetadataService:
                 detail="Movie release not found",
             )
         return self._movie_release_response(release)
+
+    async def get_music_release(self, release_id: UUID) -> MusicReleaseV1Response:
+        release = await self.db.scalar(
+            select(MusicRelease)
+            .where(MusicRelease.id == release_id)
+            .options(
+                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
+                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
+                selectinload(MusicRelease.identifiers),
+            )
+        )
+        if release is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="music_release_not_found",
+                detail="Music release not found",
+            )
+        return self._music_release_response(release)
 
     async def get_tv_series(self, series_id: UUID) -> dict[str, Any]:
         """Get TV release as dict response (v1 model)."""

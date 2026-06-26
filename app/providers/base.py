@@ -211,6 +211,9 @@ class NormalizedItem:
     studio: str | None = None
     recording_date: date | None = None
     extras: str | None = None
+    packaging: str | None = None
+    media_condition: str | None = None
+    sound_type: str | None = None
     vinyl_color: str | None = None
     vinyl_weight: str | None = None
     rpm: int | None = None

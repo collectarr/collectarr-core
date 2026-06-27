@@ -238,6 +238,7 @@ class MusicBrainzProvider:
             catalog_number=catalog_number,
             country=self._optional_text(data.get("country")),
             release_status=self._optional_text(data.get("status")),
+            packaging=self._optional_text(data.get("packaging")),
             language=self._optional_text(
                 (data.get("text-representation") or {}).get("language")
                 if isinstance(data.get("text-representation"), Mapping)

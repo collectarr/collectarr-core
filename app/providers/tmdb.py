@@ -161,6 +161,8 @@ class TMDbProvider(BaseHttpProvider):
             genres=genres,
             language=self._optional_text(data.get("original_language")),
             audience_rating=self._audience_rating(data.get("vote_average")),
+            age_rating=self._age_rating(data),
+            distributor=self._distributor(data),
             subtitle=self._optional_text(data.get("tagline")),
             provider_ids={self.name: provenance_id} if provenance_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
@@ -284,6 +286,42 @@ class TMDbProvider(BaseHttpProvider):
         if numeric <= 0:
             return None
         return f"{numeric:.1f}".rstrip("0").rstrip(".")
+
+    def _age_rating(self, data: Mapping[str, Any]) -> str | None:
+        """Extract age rating (certification) from TMDB release_dates."""
+        release_dates = data.get("release_dates")
+        if not isinstance(release_dates, list):
+            return None
+        # Look for US release first, then any release with a certification
+        for entry in release_dates:
+            if not isinstance(entry, Mapping):
+                continue
+            if entry.get("iso_3166_1") == "US":
+                cert = self._optional_text(entry.get("certification"))
+                if cert:
+                    return cert
+        # Fallback to first release with certification
+        for entry in release_dates:
+            if not isinstance(entry, Mapping):
+                continue
+            cert = self._optional_text(entry.get("certification"))
+            if cert:
+                return cert
+        return None
+
+    def _distributor(self, data: Mapping[str, Any]) -> str | None:
+        """Extract distributor from TMDB production_companies."""
+        companies = data.get("production_companies")
+        if not isinstance(companies, list):
+            return None
+        # Return the first production company (usually the main distributor)
+        for company in companies:
+            if isinstance(company, Mapping):
+                name = self._optional_text(company.get("name"))
+                if name:
+                    return name
+        return None
+
 
     def _runtime(self, data: Mapping[str, Any], kind: ItemKind) -> int | None:
         raw_media_type = str(data.get("media_type") or "").strip().lower()

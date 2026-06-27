@@ -903,7 +903,32 @@ def item_response_from_model(
         "runtime_minutes": getattr(item, "runtime_minutes", None),
         "page_count": getattr(item, "page_count", None),
         "metadata_json": getattr(item, "metadata_json", None),
-        "editions": list(getattr(item, "editions", []) or []),
+        "editions": [
+            {
+                "id": str(getattr(ed, "id", None)) if getattr(ed, "id", None) else None,
+                "title": getattr(ed, "title", None),
+                "format": getattr(ed, "format", None),
+                "publisher": getattr(ed, "publisher", None),
+                "isbn": getattr(ed, "isbn", None),
+                "upc": getattr(ed, "upc", None),
+                "language": getattr(ed, "language", None),
+                "region": getattr(ed, "region", None),
+                "imprint": getattr(ed, "imprint", None),
+                "subtitle": getattr(ed, "subtitle", None),
+                "series_group": getattr(ed, "series_group", None),
+                "age_rating": getattr(ed, "age_rating", None),
+                "catalog_number": getattr(ed, "catalog_number", None),
+                "release_status": getattr(ed, "release_status", None),
+                "nr_discs": getattr(ed, "nr_discs", None),
+                "screen_ratio": getattr(ed, "screen_ratio", None),
+                "audio_tracks": getattr(ed, "audio_tracks", None),
+                "subtitles": getattr(ed, "subtitles", None),
+                "layers": getattr(ed, "layers", None),
+                "release_date": getattr(ed, "release_date", None),
+                "metadata_json": getattr(ed, "metadata_json", None),
+            }
+            for ed in (getattr(item, "editions", []) or [])
+        ],
     }
     _enrich_physical_formats(base, item)
     _apply_organization_overrides(base, item)

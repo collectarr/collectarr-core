@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 import httpx
@@ -51,7 +52,6 @@ from app.schemas.metadata import (
     CreatorResponse,
     EditionResponse,
     FacetItemIdsRequest,
-    ItemResponse,
     MangaChapterV1Response,
     MangaWorkV1Response,
     MediaCatalogResponse,
@@ -657,23 +657,23 @@ async def get_tv_episode(
     return await MetadataService(db).get_tv_episode(episode_id)
 
 
-@router.get("/metadata/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response | ComicWorkV1Response)
+@router.get("/metadata/{media_type}/{item_id}", response_model=dict[str, Any] | BookWorkV1Response | ComicWorkV1Response)
 async def get_metadata_item(
     media_type: str, item_id: UUID, db: DbSession
-) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
+) -> dict[str, Any] | BookWorkV1Response | ComicWorkV1Response:
     return await _get_metadata_item(media_type, item_id, db)
 
 
-@router.get("/{media_type}/{item_id}", response_model=ItemResponse | BookWorkV1Response | ComicWorkV1Response)
+@router.get("/{media_type}/{item_id}", response_model=dict[str, Any] | BookWorkV1Response | ComicWorkV1Response)
 async def get_metadata_item_alias(
     media_type: str, item_id: UUID, db: DbSession
-) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
+) -> dict[str, Any] | BookWorkV1Response | ComicWorkV1Response:
     return await _get_metadata_item(media_type, item_id, db)
 
 
 async def _get_metadata_item(
     media_type: str, item_id: UUID, db: DbSession
-) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
+) -> dict[str, Any] | BookWorkV1Response | ComicWorkV1Response:
     media_config = media_type_for_route(media_type)
     if media_config is None:
         raise ApiHTTPException(

@@ -38,6 +38,7 @@ from app.models.canonical import (
     Edition,
     EntityPerson,
     EntityTag,
+    ExternalProviderId,
     Item,
     ItemProviderLink,
     MangaChapter,
@@ -100,7 +101,6 @@ from app.schemas.metadata import (
     CreatorResponse,
     EditionResponse,
     EpisodeResponse,
-    ItemResponse,
     MangaChapterV1Response,
     MangaCharacterResponse,
     MangaContributorResponse,
@@ -219,16 +219,17 @@ class MetadataService:
 
     async def _provider_links_for_item(self, item_id: UUID) -> list[ProviderLink]:
         result = await self.db.execute(
-            select(ItemProviderLink)
+            select(ExternalProviderId)
             .where(
-                ItemProviderLink.item_id == item_id,
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id == item_id,
             )
-            .order_by(ItemProviderLink.provider, ItemProviderLink.provider_item_id)
+            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
         return [
             ProviderLink(
                 provider=row.provider,
-                entity_type="item",
+                entity_type=row.entity_type,
                 provider_item_id=row.provider_item_id,
                 site_url=row.site_url,
                 api_url=row.api_url,
@@ -238,7 +239,7 @@ class MetadataService:
 
     async def get_item(
         self, item_id: UUID, kind: ItemKind
-    ) -> ItemResponse | BookWorkV1Response | ComicWorkV1Response:
+    ) -> BookWorkV1Response | ComicWorkV1Response | dict[str, Any]:
         if kind == ItemKind.book:
             return await self.get_book_work(item_id)
         if kind == ItemKind.comic:
@@ -1219,7 +1220,7 @@ class MetadataService:
 
     async def _enrich_item_metadata_facets(
         self,
-        response: ItemResponse,
+        response: dict[str, Any],
         item_id: UUID,
         series_id: UUID | None = None,
     ) -> None:
@@ -2912,8 +2913,9 @@ class MetadataService:
         rows = (
             (
                 await self.db.execute(
-                    select(ItemProviderLink).where(
-                        ItemProviderLink.item_id == item_id,
+                    select(ExternalProviderId).where(
+                        ExternalProviderId.entity_type == "item",
+                        ExternalProviderId.entity_id == item_id,
                     )
                 )
             )
@@ -2977,8 +2979,9 @@ class MetadataService:
         rows = (
             (
                 await self.db.execute(
-                    select(ItemProviderLink).where(
-                        ItemProviderLink.item_id == item_id,
+                    select(ExternalProviderId).where(
+                        ExternalProviderId.entity_type == "item",
+                        ExternalProviderId.entity_id == item_id,
                     )
                 )
             )
@@ -3032,11 +3035,12 @@ class MetadataService:
 
         volume_rows = (
             await self.db.execute(
-                select(Volume, VolumeProviderLink.provider_item_id)
+                select(Volume, ExternalProviderId.provider_item_id)
                 .outerjoin(
-                    VolumeProviderLink,
-                    (VolumeProviderLink.volume_id == Volume.id)
-                    & (VolumeProviderLink.provider == ExternalProvider.tmdb),
+                    ExternalProviderId,
+                    (ExternalProviderId.entity_id == Volume.id)
+                    & (ExternalProviderId.entity_type == "volume")
+                    & (ExternalProviderId.provider == ExternalProvider.tmdb),
                 )
                 .where(Volume.series_id == series_id)
                 .order_by(Volume.volume_number, Volume.name)
@@ -3048,11 +3052,12 @@ class MetadataService:
         volume_ids = [volume.id for volume, _ in volume_rows]
         episode_rows = (
             await self.db.execute(
-                select(Item, ItemProviderLink.provider_item_id)
+                select(Item, ExternalProviderId.provider_item_id)
                 .outerjoin(
-                    ItemProviderLink,
-                    (ItemProviderLink.item_id == Item.id)
-                    & (ItemProviderLink.provider == ExternalProvider.tmdb),
+                    ExternalProviderId,
+                    (ExternalProviderId.entity_id == Item.id)
+                    & (ExternalProviderId.entity_type == "item")
+                    & (ExternalProviderId.provider == ExternalProvider.tmdb),
                 )
                 .where(
                     Item.volume_id.in_(volume_ids),

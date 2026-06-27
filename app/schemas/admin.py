@@ -9,7 +9,6 @@ from app.schemas.metadata import (
     AnimeSeriesV1Response,
     BookWorkV1Response,
     ComicWorkV1Response,
-    ItemResponse,
     MangaWorkV1Response,
     MovieWorkV1Response,
     MusicReleaseV1Response,
@@ -77,7 +76,7 @@ class ProviderIngestResponse(BaseModel):
     item_id: UUID
     created: bool
     item: (
-        ItemResponse
+        dict[str, Any]
         | BookWorkV1Response
         | ComicWorkV1Response
         | MangaWorkV1Response
@@ -473,7 +472,7 @@ class AdminDuplicateMergeRequest(BaseModel):
 class AdminDuplicateActionResponse(BaseModel):
     ok: bool
     affected_items: int
-    item: ItemResponse | None = None
+    item: dict[str, Any] | None = None
 
 
 class MetadataProposalSummaryResponse(BaseModel):

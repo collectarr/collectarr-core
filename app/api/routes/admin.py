@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -47,7 +48,7 @@ from app.schemas.admin import (
     UserResponse,
     UserUpdateRequest,
 )
-from app.schemas.metadata import BundleReleaseDetailResponse, ItemResponse, SeriesResponse
+from app.schemas.metadata import BundleReleaseDetailResponse, SeriesResponse
 from app.services.admin import AdminMetadataService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -152,7 +153,7 @@ async def catalog_normalized_metadata_drift(
     )
 
 
-@router.get("/catalog/items", response_model=list[ItemResponse])
+@router.get("/catalog/items", response_model=list[dict[str, Any]])
 async def catalog_items(
     db: DbSession,
     _reader: CurrentAdminReader,
@@ -168,7 +169,7 @@ async def catalog_items(
     catalog_number: str | None = Query(default=None, min_length=1, max_length=100),
     release_status: str | None = Query(default=None, min_length=1, max_length=64),
     limit: int = Query(default=25, ge=1, le=100),
-) -> list[ItemResponse]:
+) -> list[dict[str, Any]]:
     return await AdminMetadataService(db).catalog_items(
         q,
         kind,
@@ -185,14 +186,14 @@ async def catalog_items(
     )
 
 
-@router.patch("/catalog/items/{kind}/{item_id}", response_model=ItemResponse)
+@router.patch("/catalog/items/{kind}/{item_id}", response_model=dict[str, Any])
 async def catalog_item_update(
     kind: ItemKind,
     item_id: UUID,
     payload: AdminMetadataCorrectionRequest,
     db: DbSession,
     user: CurrentAdmin,
-) -> ItemResponse:
+) -> dict[str, Any]:
     return await AdminMetadataService(db, user).update_catalog_item(item_id, payload, kind)
 
 

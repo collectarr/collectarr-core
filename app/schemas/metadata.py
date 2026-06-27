@@ -109,16 +109,6 @@ class MetadataCredit(BaseModel):
     model_config = {"extra": "allow"}
 
 
-class ProviderLink(BaseModel):
-    provider: ExternalProvider
-    entity_type: str
-    provider_item_id: str
-    site_url: str | None = None
-    api_url: str | None = None
-
-    model_config = {"from_attributes": True}
-
-
 class EditionResponse(BaseModel):
     id: UUID
     title: str
@@ -143,6 +133,17 @@ class EditionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProviderLink(BaseModel):
+    """Provider link for BundleReleaseDetailResponse. Note: For v1 schemas, use ExternalProviderId."""
+    provider: ExternalProvider
+    entity_type: str
+    provider_item_id: str
+    site_url: str | None = None
+    api_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class CreateEditionRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     format: str | None = None
@@ -152,69 +153,6 @@ class CreateEditionRequest(BaseModel):
     language: str | None = None
     region: str | None = None
     release_date: date | None = None
-
-
-class ItemResponse(BaseModel):
-    id: UUID
-    kind: ItemKind
-    title: str
-    title_extension: str | None = None
-    localized_title: str | None = None
-    original_title: str | None = None
-    search_aliases: list[str] = []
-    item_number: str | None
-    sort_key: str | None
-    synopsis: str | None
-    release_type: str | None
-    season_number: int | None
-    episode_number: int | None
-    runtime_minutes: int | None
-    page_count: int | None
-    metadata_json: dict[str, Any] | None
-    series_id: UUID | None = None
-    series_title: str | None = None
-    volume_name: str | None = None
-    volume_number: float | None = None
-    volume_start_year: int | None = None
-    publisher: str | None = None
-    barcode: str | None = None
-    cover_date: date | None = None
-    store_date: date | None = None
-    crossover: str | None = None
-    plot_summary: str | None = None
-    plot_description: str | None = None
-    cover_price_cents: int | None = None
-    currency: str | None = None
-    catalog_number: str | None = None
-    track_count: int | None = None
-    tracks: list[dict[str, Any]] = []
-    creators: list[MetadataCredit] = []
-    characters: list[MetadataCredit] = []
-    character_details: list[MetadataCredit] = []
-    story_arcs: list[MetadataCredit] = []
-    tags: list[str] = Field(default_factory=list)
-    platforms: list[str] = []
-    genres: list[str] = []
-    country: str | None = None
-    language: str | None = None
-    age_rating: str | None = None
-    audience_rating: str | None = None
-    color: str | None = None
-    nr_discs: int | None = None
-    screen_ratio: str | None = None
-    audio_tracks: str | None = None
-    subtitles: str | None = None
-    layers: str | None = None
-    trailer_urls: list[dict[str, Any]] = []
-    external_links: list[dict[str, Any]] = []
-    imprint: str | None = None
-    subtitle: str | None = None
-    series_group: str | None = None
-    release_status: str | None = None
-    provider_links: list[ProviderLink] = []
-    editions: list[EditionResponse] = []
-
-    model_config = {"from_attributes": True}
 
 
 class SearchResult(BaseModel):
@@ -948,26 +886,25 @@ class CharacterAppearanceResponse(BaseModel):
 
 
 def item_response_from_model(
-    item: Any, extra_provider_links: list[ProviderLink] | None = None
-) -> ItemResponse:
-    base = ItemResponse.model_validate(
-        {
-            "id": getattr(item, "id", None),
-            "kind": public_item_kind(getattr(item, "kind", None)),
-            "title": getattr(item, "title", None),
-            "title_extension": getattr(item, "title_extension", None),
-            "item_number": getattr(item, "item_number", None),
-            "sort_key": getattr(item, "sort_key", None),
-            "synopsis": getattr(item, "synopsis", None),
-            "release_type": getattr(item, "release_type", None),
-            "season_number": getattr(item, "season_number", None),
-            "episode_number": getattr(item, "episode_number", None),
-            "runtime_minutes": getattr(item, "runtime_minutes", None),
-            "page_count": getattr(item, "page_count", None),
-            "metadata_json": getattr(item, "metadata_json", None),
-            "editions": list(getattr(item, "editions", []) or []),
-        }
-    ).model_dump()
+    item: Any, extra_provider_links: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """DEPRECATED: Converts v0 Item model to dictionary response. Used only for games/boardgames."""
+    base = {
+        "id": getattr(item, "id", None),
+        "kind": public_item_kind(getattr(item, "kind", None)),
+        "title": getattr(item, "title", None),
+        "title_extension": getattr(item, "title_extension", None),
+        "item_number": getattr(item, "item_number", None),
+        "sort_key": getattr(item, "sort_key", None),
+        "synopsis": getattr(item, "synopsis", None),
+        "release_type": getattr(item, "release_type", None),
+        "season_number": getattr(item, "season_number", None),
+        "episode_number": getattr(item, "episode_number", None),
+        "runtime_minutes": getattr(item, "runtime_minutes", None),
+        "page_count": getattr(item, "page_count", None),
+        "metadata_json": getattr(item, "metadata_json", None),
+        "editions": list(getattr(item, "editions", []) or []),
+    }
     _enrich_physical_formats(base, item)
     _apply_organization_overrides(base, item)
     edition = _primary_edition(item)
@@ -1042,7 +979,8 @@ def item_response_from_model(
             "provider_links": _provider_links(item, extra_provider_links=extra_provider_links),
         }
     )
-    return ItemResponse(**base)
+    return base
+
 
 
 def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> None:

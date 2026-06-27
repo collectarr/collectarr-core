@@ -8,8 +8,10 @@ from app.models.canonical import (
     BundleRelease,
     BundleReleaseItem,
     BundleReleaseProviderLink,
+    ExternalProviderId,
     Item,
     ItemProviderLink,
+    MusicRelease,
     Organization,
     Person,
     VolumeProviderLink,
@@ -281,28 +283,21 @@ async def test_admin_ingest_upserts_musicbrainz_release(client, monkeypatch):
     assert body["item"]["barcode"] == "074646493525"
 
     async with AsyncSessionLocal() as db:
-        item = await db.scalar(select(Item).where(Item.kind == ItemKind.music))
+        release = await db.scalar(select(MusicRelease))
         provider_ids = list(
             await db.scalars(
-                select(ItemProviderLink.provider_item_id).where(
-                    ItemProviderLink.provider == ExternalProvider.musicbrainz
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.provider == ExternalProvider.musicbrainz,
+                    ExternalProviderId.entity_type == "music_release",
                 )
             )
         )
-        volume_provider_ids = list(
-            await db.scalars(
-                select(VolumeProviderLink.provider_item_id).where(
-                    VolumeProviderLink.provider == ExternalProvider.musicbrainz
-                )
-            )
-        )
-        publisher = await db.scalar(select(Organization.name))
         artist = await db.scalar(select(Person.name))
 
-    assert item is not None
+    assert release is not None
+    assert release.publisher == "Columbia"
+    assert release.barcode == "074646493525"
     assert provider_ids == [RELEASE_ID]
-    assert volume_provider_ids == [GROUP_ID]
-    assert publisher == "Columbia"
     assert artist == "Miles Davis"
 
 

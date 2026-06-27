@@ -12,6 +12,7 @@ from app.schemas.metadata import (
     ItemResponse,
     MangaWorkV1Response,
     MovieWorkV1Response,
+    MusicReleaseV1Response,
     TVSeriesV1Response,
 )
 
@@ -82,6 +83,7 @@ class ProviderIngestResponse(BaseModel):
         | MangaWorkV1Response
         | AnimeSeriesV1Response
         | MovieWorkV1Response
+        | MusicReleaseV1Response
         | TVSeriesV1Response
     )
 

@@ -1003,34 +1003,24 @@ class AdminProviderIngestService:
             )
         if normalized.kind == ItemKind.music:
            release = await self._create_music_release_from_normalized(
-                provider=provider,
-                provider_name=payload.provider,
-                provider_item_id=provider_item.provider_item_id,
-                provider_raw=provider_item.raw,
-                normalized=normalized,
-            )
-           await self.db.commit()
-           return ProviderIngestResponse(
-               item_id=release.id,
-               created=True,
-               item=await MetadataService(self.db).get_music_release(release.id),
-           )
-        else:
-           item, _, _ = await self._create_catalog_item_from_normalized(
                provider=provider,
                provider_name=payload.provider,
                provider_item_id=provider_item.provider_item_id,
                provider_raw=provider_item.raw,
                normalized=normalized,
            )
-        await self.db.commit()
-        loaded_item = await MetadataRepository(self.db).get_item(item.id)
-        if loaded_item:
-            await self._reindex_items({item.id})
-        return ProviderIngestResponse(
-            item_id=item.id,
-            created=True,
-            item=await self._item_response(loaded_item),
+           await self.db.commit()
+           return ProviderIngestResponse(
+               item_id=release.id,
+               created=True,
+               item=await MetadataService(self.db).get_music_release(release.id),
+           )
+        return await self._ingest_legacy_item_v0(
+           provider=provider,
+           provider_name=payload.provider,
+           provider_item_id=provider_item.provider_item_id,
+           provider_raw=provider_item.raw,
+           normalized=normalized,
         )
 
     async def _hydrated_provider_preview(
@@ -1121,13 +1111,14 @@ class AdminProviderIngestService:
         provider: ExternalProvider,
         provider_item_id: str,
     ) -> CatalogProviderLinkRef | None:
+        # Query ExternalProviderId (v0 and v1 entity types)
         external_ref = await self.db.execute(
             select(ExternalProviderId.entity_type, ExternalProviderId.entity_id).where(
                 ExternalProviderId.provider == provider,
                 ExternalProviderId.provider_item_id == provider_item_id,
                 ExternalProviderId.entity_type.in_([
                     "item", "bundle_release", "book_work", "comic_work",
-                    "manga_work", "anime_series", "movie_work", "tv_series"
+                    "manga_work", "anime_series", "movie_work", "tv_series", "music_release"
                 ]),
             )
         )
@@ -1138,23 +1129,6 @@ class AdminProviderIngestService:
                 entity_id=external_row[1],
                 provider_item_id=provider_item_id,
             )
-        catalog_tables = (
-            ("bundle_release", BundleReleaseProviderLink, BundleReleaseProviderLink.bundle_release_id),
-            ("item", ItemProviderLink, ItemProviderLink.item_id),
-        )
-        for entity_type, model, owner_column in catalog_tables:
-            entity_id = await self.db.scalar(
-                select(owner_column).where(
-                    model.provider == provider,
-                    model.provider_item_id == provider_item_id,
-                )
-            )
-            if entity_id is not None:
-                return CatalogProviderLinkRef(
-                    entity_type=entity_type,
-                    entity_id=entity_id,
-                    provider_item_id=provider_item_id,
-                )
         return None
 
     async def _existing_response(self, provider_id: CatalogProviderLinkRef) -> ProviderIngestResponse:
@@ -1745,6 +1719,34 @@ class AdminProviderIngestService:
         if candidate:
             return candidate
         return f"{bundle_provider_item_id}#member-{index}"
+
+    async def _ingest_legacy_item_v0(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any,
+        normalized: NormalizedItem,
+    ) -> ProviderIngestResponse:
+        # DEPRECATED: Used only for games/boardgames. Will be removed in Phase 2 after v1 migration.
+        # All other kinds (book, comic, manga, anime, movie, tv, music) have been migrated to v1 schemas.
+        item, _, _ = await self._create_catalog_item_from_normalized(
+            provider=provider,
+            provider_name=provider_name,
+            provider_item_id=provider_item_id,
+            provider_raw=provider_raw,
+            normalized=normalized,
+        )
+        await self.db.commit()
+        loaded_item = await MetadataRepository(self.db).get_item(item.id)
+        if loaded_item:
+            await self._reindex_items({item.id})
+        return ProviderIngestResponse(
+            item_id=item.id,
+            created=True,
+            item=await self._item_response(loaded_item),
+        )
 
     async def _create_catalog_item_from_normalized(
         self,

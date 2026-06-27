@@ -50,22 +50,18 @@ from app.models.canonical import (
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
-    MovieWorkIdentifier,
     MusicMedia,
     MusicRelease,
     MusicReleaseContribution,
-    MusicReleaseIdentifier,
-    MusicTrack,
     Person,
     Series,
     SeriesRelation,
     StoryArc,
     StoryArcItem,
     Tag,
+    TVEpisode,
     TVRelease,
     TVReleaseContribution,
-    TVReleaseIdentifier,
-    TVEpisode,
     Volume,
     VolumeProviderLink,
 )
@@ -109,9 +105,6 @@ from app.schemas.metadata import (
     MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
-    MovieCharacterResponse,
-    MovieContributorResponse,
-    MovieIdentifierResponse,
     MovieReleaseV1Response,
     MovieWorkV1Response,
     MusicMediaV1Response,
@@ -127,12 +120,7 @@ from app.schemas.metadata import (
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
-    TVCharacterResponse,
-    TVContributorResponse,
     TVEpisodeV1Response,
-    TVIdentifierResponse,
-    TVSeasonV1Response,
-    TVSeriesV1Response,
     bundle_release_detail_from_model,
     bundle_release_summary_from_model,
     item_response_from_model,
@@ -1186,17 +1174,6 @@ class MetadataService:
             )
         # Return basic list (full v1 DTO to be implemented)
         return [{"id": str(ep.id), "title": ep.title} for ep in (release.episodes or [])]
-        rows = list(
-            (
-                await self.db.execute(
-                    select(TVSeason)
-                    .where(TVSeason.series_id == series_id)
-                    .options(selectinload(TVSeason.episodes))
-                    .order_by(TVSeason.season_number.asc().nullslast(), TVSeason.created_at.asc())
-                )
-            ).scalars()
-        )
-        return [self._tv_season_response(season) for season in rows]
 
     async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
         episode = await self.db.scalar(select(TVEpisode).where(TVEpisode.id == episode_id))
@@ -1236,7 +1213,7 @@ class MetadataService:
             )
         ).all()
         if creator_rows:
-            response.creators = [
+            response["creators"] = [
                 MetadataCredit(
                     name=person.name,
                     role=link.role,
@@ -1256,7 +1233,7 @@ class MetadataService:
             )
         ).all()
         if character_rows:
-            response.characters = [
+            response["characters"] = [
                 MetadataCredit(
                     name=character.name,
                     role=appearance.role,
@@ -1279,7 +1256,7 @@ class MetadataService:
             )
         ).all()
         if arc_rows:
-            response.story_arcs = [
+            response["story_arcs"] = [
                 MetadataCredit(
                     name=arc.name,
                     description=arc.description,
@@ -1289,7 +1266,7 @@ class MetadataService:
                 for link, arc in arc_rows
             ]
         if series_id is not None:
-            response.tags = await self._entity_tags("series", series_id)
+            response["tags"] = await self._entity_tags("series", series_id)
 
     async def _entity_tags(self, entity_type: str, entity_id: UUID) -> list[str]:
         rows = await self.db.scalars(
@@ -3035,12 +3012,23 @@ class MetadataService:
 
         volume_rows = (
             await self.db.execute(
-                select(Volume, ExternalProviderId.provider_item_id)
+                select(
+                    Volume,
+                    func.coalesce(
+                        ExternalProviderId.provider_item_id,
+                        VolumeProviderLink.provider_item_id,
+                    ),
+                )
                 .outerjoin(
                     ExternalProviderId,
                     (ExternalProviderId.entity_id == Volume.id)
                     & (ExternalProviderId.entity_type == "volume")
                     & (ExternalProviderId.provider == ExternalProvider.tmdb),
+                )
+                .outerjoin(
+                    VolumeProviderLink,
+                    (VolumeProviderLink.volume_id == Volume.id)
+                    & (VolumeProviderLink.provider == ExternalProvider.tmdb),
                 )
                 .where(Volume.series_id == series_id)
                 .order_by(Volume.volume_number, Volume.name)
@@ -3052,12 +3040,23 @@ class MetadataService:
         volume_ids = [volume.id for volume, _ in volume_rows]
         episode_rows = (
             await self.db.execute(
-                select(Item, ExternalProviderId.provider_item_id)
+                select(
+                    Item,
+                    func.coalesce(
+                        ExternalProviderId.provider_item_id,
+                        ItemProviderLink.provider_item_id,
+                    ),
+                )
                 .outerjoin(
                     ExternalProviderId,
                     (ExternalProviderId.entity_id == Item.id)
                     & (ExternalProviderId.entity_type == "item")
                     & (ExternalProviderId.provider == ExternalProvider.tmdb),
+                )
+                .outerjoin(
+                    ItemProviderLink,
+                    (ItemProviderLink.item_id == Item.id)
+                    & (ItemProviderLink.provider == ExternalProvider.tmdb),
                 )
                 .where(
                     Item.volume_id.in_(volume_ids),

@@ -3647,7 +3647,7 @@ async def test_admin_ingest_creates_bundle_release_from_provider_package(monkeyp
         )
 
     assert response.created is True
-    assert response.item.title == "Album One"
+    assert response.item["title"] == "Album One"
     assert second_response.created is False
     assert second_response.item_id == response.item_id
 

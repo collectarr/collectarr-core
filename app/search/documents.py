@@ -16,8 +16,8 @@ from app.models.canonical import (
     Item,
     MangaContribution,
     MangaWork,
-    MovieWorkContribution,
     MovieWork,
+    MovieWorkContribution,
 )
 
 

@@ -12,9 +12,7 @@ from app.models.canonical import (
     Item,
     ItemProviderLink,
     MusicRelease,
-    Organization,
     Person,
-    VolumeProviderLink,
 )
 from app.providers.base import ProviderItem
 from app.providers.musicbrainz import MusicBrainzProvider

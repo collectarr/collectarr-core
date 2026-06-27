@@ -8,6 +8,7 @@ Create Date: 2026-06-25 20:00:00.000000
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import suppress
 
 from alembic import op
 
@@ -20,16 +21,12 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # Drop unique constraint if it exists (uq_comic_works_volume_id)
-    try:
+    with suppress(Exception):
         op.drop_constraint("uq_comic_works_volume_id", "comic_works")
-    except Exception:
-        pass
-    
+
     # Drop unique index if it exists (ix_comic_works_volume_id_unique)
-    try:
+    with suppress(Exception):
         op.drop_index("ix_comic_works_volume_id_unique", "comic_works")
-    except Exception:
-        pass
 
 
 def downgrade() -> None:

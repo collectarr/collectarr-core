@@ -4,7 +4,12 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import BookEdition, BookWork, ExternalProviderId, Item, ItemProviderLink, Organization, VolumeProviderLink
+from app.models.canonical import (
+    BookEdition,
+    BookWork,
+    ExternalProviderId,
+    VolumeProviderLink,
+)
 from app.providers.base import ProviderItem
 from app.providers.openlibrary import OpenLibraryProvider
 from app.search.client import SearchClient
@@ -133,10 +138,6 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
     edition = body["item"]["editions"][0]
     assert edition["publisher"] == "George Allen & Unwin"
     # barcode would be in identifiers
-    identifiers = edition["identifiers"] if "identifiers" in edition else []
-    # Check for ISBN in identifiers
-    has_isbn = any(i.get("value") == "9780618260300" for i in identifiers)
-
     async with AsyncSessionLocal() as db:
         # For books v1, we now use BookWork not Item
         book_work = await db.scalar(select(BookWork).where(BookWork.title == "The Hobbit"))

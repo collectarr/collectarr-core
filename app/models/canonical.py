@@ -18,8 +18,8 @@ from sqlalchemy import (
     and_,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID, ARRAY
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (

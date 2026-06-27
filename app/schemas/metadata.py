@@ -885,6 +885,24 @@ class CharacterAppearanceResponse(BaseModel):
     cover_image_url: str | None = None
 
 
+class AttrDict(dict):
+    def __getattr__(self, item: str) -> Any:
+        try:
+            return self[item]
+        except KeyError as exc:
+            raise AttributeError(item) from exc
+
+    __setattr__ = dict.__setitem__
+
+
+def _attr_dict(value: Any) -> Any:
+    if isinstance(value, dict):
+        return AttrDict({key: _attr_dict(inner) for key, inner in value.items()})
+    if isinstance(value, list):
+        return [_attr_dict(entry) for entry in value]
+    return value
+
+
 def item_response_from_model(
     item: Any, extra_provider_links: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -926,6 +944,28 @@ def item_response_from_model(
                 "layers": getattr(ed, "layers", None),
                 "release_date": getattr(ed, "release_date", None),
                 "metadata_json": getattr(ed, "metadata_json", None),
+                "variants": [
+                    {
+                        "id": str(getattr(variant, "id", None)) if getattr(variant, "id", None) else None,
+                        "name": getattr(variant, "name", None),
+                        "variant_type": getattr(variant, "variant_type", None),
+                        "sku": getattr(variant, "sku", None),
+                        "barcode": getattr(variant, "barcode", None),
+                        "isbn": getattr(variant, "isbn", None),
+                        "region": getattr(variant, "region", None),
+                        "platform": getattr(variant, "platform", None),
+                        "cover_price_cents": getattr(variant, "cover_price_cents", None),
+                        "currency": getattr(variant, "currency", None),
+                        "cover_image_url": getattr(variant, "cover_image_url", None),
+                        "thumbnail_image_url": getattr(variant, "thumbnail_image_url", None),
+                        "description": getattr(variant, "description", None),
+                        "physical_format": getattr(variant, "physical_format", None),
+                        "physical_format_label": getattr(variant, "physical_format_label", None),
+                        "metadata_json": getattr(variant, "metadata_json", None),
+                        "is_primary": getattr(variant, "is_primary", False),
+                    }
+                    for variant in (getattr(ed, "variants", []) or [])
+                ],
             }
             for ed in (getattr(item, "editions", []) or [])
         ],
@@ -1004,7 +1044,7 @@ def item_response_from_model(
             "provider_links": _provider_links(item, extra_provider_links=extra_provider_links),
         }
     )
-    return base
+    return _attr_dict(base)
 
 
 

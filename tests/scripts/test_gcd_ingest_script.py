@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import ComicIssue, ComicWork, ExternalProviderId, VolumeProviderLink
+from app.models.canonical import ComicIssue, ExternalProviderId, VolumeProviderLink
 from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.gcd import GCDProvider
 from app.scripts import ingest_gcd

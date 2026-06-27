@@ -73,11 +73,11 @@ from app.models.canonical import (
     StoryArc,
     StoryArcItem,
     Tag,
+    TVEpisode,
     TVRelease,
     TVReleaseContribution,
     TVReleaseIdentifier,
     TVReleaseMedia,
-    TVEpisode,
     Variant,
     Volume,
     VolumeProviderLink,
@@ -90,6 +90,7 @@ from app.providers.base import (
     NormalizedItem,
     NormalizedRelation,
     NormalizedSeason,
+    NormalizedTrack,
     NormalizedVariantCover,
     ProviderItem,
 )
@@ -1129,6 +1130,45 @@ class AdminProviderIngestService:
                 entity_id=external_row[1],
                 provider_item_id=provider_item_id,
             )
+        legacy_item = await self.db.execute(
+            select(ItemProviderLink.item_id).where(
+                ItemProviderLink.provider == provider,
+                ItemProviderLink.provider_item_id == provider_item_id,
+            )
+        )
+        legacy_item_id = legacy_item.scalar_one_or_none()
+        if legacy_item_id is not None:
+            return CatalogProviderLinkRef(
+                entity_type="item",
+                entity_id=legacy_item_id,
+                provider_item_id=provider_item_id,
+            )
+        legacy_volume = await self.db.execute(
+            select(VolumeProviderLink.volume_id).where(
+                VolumeProviderLink.provider == provider,
+                VolumeProviderLink.provider_item_id == provider_item_id,
+            )
+        )
+        legacy_volume_id = legacy_volume.scalar_one_or_none()
+        if legacy_volume_id is not None:
+            return CatalogProviderLinkRef(
+                entity_type="volume",
+                entity_id=legacy_volume_id,
+                provider_item_id=provider_item_id,
+            )
+        legacy_bundle = await self.db.execute(
+            select(BundleReleaseProviderLink.bundle_release_id).where(
+                BundleReleaseProviderLink.provider == provider,
+                BundleReleaseProviderLink.provider_item_id == provider_item_id,
+            )
+        )
+        legacy_bundle_id = legacy_bundle.scalar_one_or_none()
+        if legacy_bundle_id is not None:
+            return CatalogProviderLinkRef(
+                entity_type="bundle_release",
+                entity_id=legacy_bundle_id,
+                provider_item_id=provider_item_id,
+            )
         return None
 
     async def _existing_response(self, provider_id: CatalogProviderLinkRef) -> ProviderIngestResponse:
@@ -2164,6 +2204,14 @@ class AdminProviderIngestService:
         )
         owner_field = owner_column.key
         for row in rows:
+            existing_any = await self.db.scalar(
+                select(model).where(
+                    model.provider == row["provider"],
+                    model.provider_item_id == row["provider_item_id"],
+                )
+            )
+            if existing_any:
+                continue
             self.db.add(model(**{owner_field: owner_id, **row}))
 
     async def _link_publisher(self, item_id: UUID, publisher: str | None) -> None:
@@ -3267,7 +3315,7 @@ class AdminProviderIngestService:
             if dedupe_key in seen_characters:
                 continue
             seen_characters.add(dedupe_key)
-            character = await self._get_or_create_character(
+            await self._get_or_create_character(
                 name,
                 credit,
                 provider=provider_name,
@@ -3358,44 +3406,42 @@ class AdminProviderIngestService:
 
         # Create MusicMedia (represents physical media, typically discs)
         # Group tracks by disc_number if available
-        from itertools import groupby
-        
         discs: dict[int | None, list[NormalizedTrack]] = {}
         for track in (normalized.tracks or []):
-           disc_num = track.disc_number or 1
-           if disc_num not in discs:
-               discs[disc_num] = []
-           discs[disc_num].append(track)
-        
+            disc_num = track.disc_number or 1
+            if disc_num not in discs:
+                discs[disc_num] = []
+            discs[disc_num].append(track)
+
         # If no tracks, create a single media entry
         if not discs:
-           discs = {1: []}
-        
-        for media_number, disc_tracks in sorted(discs.items()):
-           media = MusicMedia(
-               release_id=release.id,
-               media_number=media_number,
-               media_type=normalized.physical_format or normalized.edition_format or "digital",
-               packaging=normalized.packaging,
-               media_condition=normalized.media_condition,
-               sound_type=normalized.sound_type,
-               vinyl_color=normalized.vinyl_color,
-               vinyl_weight=normalized.vinyl_weight,
-               rpm=normalized.rpm,
-               spars=normalized.spars,
-               metadata_json=self._provider_metadata_json(
-                   provider_name,
-                   provider_item_id,
-                   kind=ItemKind.music,
-                   normalized={"format": normalized.physical_format or normalized.edition_format},
-               ),
-           )
-           self.db.add(media)
-           await self.db.flush()
+            discs = {1: []}
 
-           # Create MusicTrack entities for this disc
-           for track_index, track in enumerate(disc_tracks, start=1):
-               music_track = MusicTrack(
+        for media_number, disc_tracks in sorted(discs.items()):
+            media = MusicMedia(
+                release_id=release.id,
+                media_number=media_number,
+                media_type=normalized.physical_format or normalized.edition_format or "digital",
+                packaging=normalized.packaging,
+                media_condition=normalized.media_condition,
+                sound_type=normalized.sound_type,
+                vinyl_color=normalized.vinyl_color,
+                vinyl_weight=normalized.vinyl_weight,
+                rpm=normalized.rpm,
+                spars=normalized.spars,
+                metadata_json=self._provider_metadata_json(
+                    provider_name,
+                    provider_item_id,
+                    kind=ItemKind.music,
+                    normalized={"format": normalized.physical_format or normalized.edition_format},
+                ),
+            )
+            self.db.add(media)
+            await self.db.flush()
+
+            # Create MusicTrack entities for this disc
+            for track_index, track in enumerate(disc_tracks, start=1):
+                music_track = MusicTrack(
                    media_id=media.id,
                    release_id=release.id,
                    position=str(track.position or track_index),
@@ -3404,51 +3450,51 @@ class AdminProviderIngestService:
                    instrument=track.instrument,
                    composition=track.composition,
                    metadata_json={},
-               )
-               self.db.add(music_track)
+                )
+                self.db.add(music_track)
 
         # Add contributions (artists, composers, producers)
         for index, credit in enumerate(normalized.creators, start=1):
-           person = await self._get_or_create_person(credit.name, credit)
-           self.db.add(
-               MusicReleaseContribution(
-                   release_id=release.id,
-                   person_id=person.id,
-                   role=(credit.role or "artist").strip().lower(),
-                   sequence=index,
-               )
-           )
+            person = await self._get_or_create_person(credit.name, credit)
+            self.db.add(
+                MusicReleaseContribution(
+                    release_id=release.id,
+                    person_id=person.id,
+                    role=(credit.role or "artist").strip().lower(),
+                    sequence=index,
+                )
+            )
 
         # Add identifiers (provider IDs, ISRC, catalog number, barcode)
         identifiers: list[tuple[str, str, bool]] = []
         if normalized.catalog_number:
-           identifiers.append(("catalog_number", normalized.catalog_number, True))
+            identifiers.append(("catalog_number", normalized.catalog_number, True))
         if normalized.barcode:
-           identifiers.append(("barcode", normalized.barcode, False))
+            identifiers.append(("barcode", normalized.barcode, False))
         identifiers.append(("provider_item_id", provider_item_id, False))
         for _, provider_value in (normalized.provider_ids or {}).items():
-           if provider_value:
-               identifiers.append(("provider_item_id", provider_value, False))
+            if provider_value:
+                identifiers.append(("provider_item_id", provider_value, False))
 
         seen_identifier_keys: set[tuple[str, str]] = set()
         for identifier_type, value, is_primary in identifiers:
-           normalized_value = self._normalized_identifier(value)
-           if not normalized_value:
-               continue
-           dedupe_key = (identifier_type, normalized_value)
-           if dedupe_key in seen_identifier_keys:
-               continue
-           seen_identifier_keys.add(dedupe_key)
-           self.db.add(
-               MusicReleaseIdentifier(
-                   release_id=release.id,
-                   identifier_type=identifier_type,
-                   value=value,
-                   normalized_value=normalized_value,
-                   is_primary=is_primary,
-                   source_provider=provider_name,
-               )
-           )
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            dedupe_key = (identifier_type, normalized_value)
+            if dedupe_key in seen_identifier_keys:
+                continue
+            seen_identifier_keys.add(dedupe_key)
+            self.db.add(
+                MusicReleaseIdentifier(
+                    release_id=release.id,
+                    identifier_type=identifier_type,
+                    value=value,
+                    normalized_value=normalized_value,
+                    is_primary=is_primary,
+                    source_provider=provider_name,
+                )
+            )
 
         # Add provider links
         provider_ids = dict(normalized.provider_ids or {})

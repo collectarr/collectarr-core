@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import BookWork, ExternalProviderId, ItemProviderLink, Volume
+from app.models.canonical import ExternalProviderId, Volume
 from app.providers.base import NormalizedCredit, ProviderItem
 from app.providers.hardcover import HardcoverProvider
 from app.search.client import SearchClient

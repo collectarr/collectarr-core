@@ -367,7 +367,6 @@ class MetadataService:
             cover_image_url=edition.cover_image_url,
             cover_image_key=edition.cover_image_key,
             description=edition.description,
-            metadata_json=edition.metadata_json,
             contributors=[
                 self._book_contributor_response(row, scope="edition")
                 for row in sorted(
@@ -411,7 +410,6 @@ class MetadataService:
             original_language=work.original_language,
             original_publication_date=work.original_publication_date,
             first_publication_date=work.first_publication_date,
-            metadata_json=work.metadata_json,
             contributors=[
                 self._book_contributor_response(row, scope="work")
                 for row in sorted(
@@ -471,7 +469,6 @@ class MetadataService:
             cover_image_url=issue.cover_image_url,
             cover_image_key=issue.cover_image_key,
             description=issue.description,
-            metadata_json=issue.metadata_json,
             contributors=[
                 self._comic_contributor_response(row, scope="issue")
                 for row in sorted(
@@ -863,7 +860,6 @@ class MetadataService:
             description=work.description,
             original_language=work.original_language,
             first_publication_date=work.first_publication_date,
-            metadata_json=work.metadata_json,
             contributors=[
                 self._comic_contributor_response(row, scope="work")
                 for row in sorted(

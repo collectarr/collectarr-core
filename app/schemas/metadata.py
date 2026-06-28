@@ -37,7 +37,6 @@ class VariantResponse(BaseModel):
     description: str | None
     physical_format: str | None = None
     physical_format_label: str | None = None
-    metadata_json: dict[str, Any] | None
     is_primary: bool
 
     model_config = {"from_attributes": True}
@@ -94,7 +93,6 @@ class BundleReleaseMemberResponse(BaseModel):
 
 class BundleReleaseDetailResponse(BundleReleaseSummaryResponse):
     franchise_id: UUID | None = None
-    metadata_json: dict[str, Any] | None = None
     provider_links: list["ProviderLink"] = Field(default_factory=list)
     members: list[BundleReleaseMemberResponse] = Field(default_factory=list)
 
@@ -127,7 +125,6 @@ class EditionResponse(BaseModel):
     release_date: date | None
     physical_format: str | None = None
     physical_format_label: str | None = None
-    metadata_json: dict[str, Any] | None
     variants: list[VariantResponse] = []
 
     model_config = {"from_attributes": True}
@@ -236,7 +233,6 @@ class BookEditionV1Response(BaseModel):
     cover_image_url: str | None = None
     cover_image_key: str | None = None
     description: str | None = None
-    metadata_json: dict[str, Any] | None = None
     contributors: list[BookContributorResponse] = Field(default_factory=list)
     identifiers: list[BookIdentifierResponse] = Field(default_factory=list)
 
@@ -251,7 +247,6 @@ class BookWorkV1Response(BaseModel):
     original_publication_date: date | None = None
     first_publication_date: date | None = None
     kind: ItemKind = ItemKind.book
-    metadata_json: dict[str, Any] | None = None
     contributors: list[BookContributorResponse] = Field(default_factory=list)
     editions: list[BookEditionV1Response] = Field(default_factory=list)
 
@@ -303,7 +298,6 @@ class ComicIssueV1Response(BaseModel):
     cover_image_url: str | None = None
     cover_image_key: str | None = None
     description: str | None = None
-    metadata_json: dict[str, Any] | None = None
     contributors: list[ComicContributorResponse] = Field(default_factory=list)
     identifiers: list[ComicIdentifierResponse] = Field(default_factory=list)
     characters: list[ComicCharacterResponse] = Field(default_factory=list)
@@ -319,7 +313,6 @@ class ComicWorkV1Response(BaseModel):
     original_language: str | None = None
     first_publication_date: date | None = None
     kind: ItemKind = ItemKind.comic
-    metadata_json: dict[str, Any] | None = None
     contributors: list[ComicContributorResponse] = Field(default_factory=list)
     issues: list[ComicIssueV1Response] = Field(default_factory=list)
 
@@ -920,7 +913,6 @@ def item_response_from_model(
         "episode_number": getattr(item, "episode_number", None),
         "runtime_minutes": getattr(item, "runtime_minutes", None),
         "page_count": getattr(item, "page_count", None),
-        "metadata_json": getattr(item, "metadata_json", None),
         "editions": [
             {
                 "id": str(getattr(ed, "id", None)) if getattr(ed, "id", None) else None,
@@ -943,7 +935,6 @@ def item_response_from_model(
                 "subtitles": getattr(ed, "subtitles", None),
                 "layers": getattr(ed, "layers", None),
                 "release_date": getattr(ed, "release_date", None),
-                "metadata_json": getattr(ed, "metadata_json", None),
                 "variants": [
                     {
                         "id": str(getattr(variant, "id", None)) if getattr(variant, "id", None) else None,
@@ -961,7 +952,6 @@ def item_response_from_model(
                         "description": getattr(variant, "description", None),
                         "physical_format": getattr(variant, "physical_format", None),
                         "physical_format_label": getattr(variant, "physical_format_label", None),
-                        "metadata_json": getattr(variant, "metadata_json", None),
                         "is_primary": getattr(variant, "is_primary", False),
                     }
                     for variant in (getattr(ed, "variants", []) or [])
@@ -1102,24 +1092,6 @@ def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> Non
         "catalog_number": _optional_text(normalized_item.get("catalog_number")),
         "release_status": _optional_text(normalized_item.get("release_status")),
         "release_date": _date_value(normalized_item.get("release_date")),
-        "metadata_json": {
-            "provider": _optional_text(source_item.get("provider")),
-            "provider_item_id": _optional_text(source_item.get("provider_item_id")),
-            "normalized": {
-                "title": release_title,
-                "format": fallback_format,
-                "physical_format": normalized_physical_format,
-                "physical_format_label": (
-                    physical_payload.get("physical_format_label") if physical_payload else None
-                ),
-                "publisher": _optional_text(normalized_item.get("publisher")),
-                "release_date": _optional_text(normalized_item.get("release_date")),
-                "barcode": _optional_text(normalized_item.get("barcode")),
-                "cover_image_url": cover_image_url,
-                "thumbnail_image_url": thumbnail_image_url,
-            },
-            "source": source_item or None,
-        },
         "variants": [
             {
                 "id": variant_id,
@@ -1135,22 +1107,6 @@ def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> Non
                 "cover_image_url": cover_image_url,
                 "thumbnail_image_url": thumbnail_image_url,
                 "description": None,
-                "metadata_json": {
-                    "normalized": {
-                        "name": variant_name,
-                        "variant_type": _optional_text(normalized_item.get("variant_type")),
-                        "physical_format": normalized_physical_format,
-                        "physical_format_label": (
-                            physical_payload.get("physical_format_label") if physical_payload else None
-                        ),
-                        "barcode": _optional_text(normalized_item.get("barcode")),
-                        "isbn": _optional_text(normalized_item.get("isbn")),
-                        "cover_price_cents": _optional_int(normalized_item.get("cover_price_cents")),
-                        "currency": _optional_text(normalized_item.get("currency")),
-                        "cover_image_url": cover_image_url,
-                        "thumbnail_image_url": thumbnail_image_url,
-                    }
-                },
                 "is_primary": True,
             }
         ],
@@ -1219,7 +1175,6 @@ def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetail
     return BundleReleaseDetailResponse(
         **summary.model_dump(),
         franchise_id=getattr(bundle_release, "franchise_id", None),
-        metadata_json=getattr(bundle_release, "metadata_json", None),
         provider_links=_provider_links_from_models(
             getattr(bundle_release, "provider_links", []),
             entity_type="bundle_release",

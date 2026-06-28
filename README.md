@@ -223,9 +223,11 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the full road
 
 Current active tracks:
 
-- typed-per-kind metadata contract hardening and typed drift diagnostics as release gate
-- per-media normalization depth (video/book/manga/game provider mapping)
-- duplicate/merge review workflow on top of confidence signals + public-deployment hardening
+- stabilize typed-per-kind metadata storage as the canonical contract
+- deepen per-media normalization where provider data still has gaps
+- expand duplicate/merge review into a full operator queue
+- continue public-deployment hardening for internet-facing setups
+- re-evaluate whether Core should own any comic cover-photo recognition / scan-to-identify work
 
 ---
 

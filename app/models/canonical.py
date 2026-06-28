@@ -73,7 +73,7 @@ class Volume(UuidMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     volume_number: Mapped[float | None] = mapped_column(Float)
-    start_year: Mapped[int | None]
+    start_year: Mapped[int | None] = mapped_column(Integer)
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
     description: Mapped[str | None] = mapped_column(Text)

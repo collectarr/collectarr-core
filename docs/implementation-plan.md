@@ -54,21 +54,17 @@
 
 ### 🎯 Metadata Contract + Ingest Reliability
 - [ ] Stabilize typed-per-kind metadata storage as canonical contract
-	- Keep `item_kind_metadata` parent + per-kind child tables as the only authority for typed normalized fields.
-	- Keep admin drift diagnostics (`typed_*` issue keys) as a release gate before ingest/correction changes.
+	- Keep the typed parent/child tables as the only authority for normalized typed fields.
+	- Keep admin drift diagnostics (`typed_*` issue keys) as the release gate.
 - [ ] Continue per-media normalization depth
-	- Expand provider mapping where upstream data exists (video specs, richer book/manga edition signals, game release metadata).
-	- Fractional `volume_number` support is now enabled end-to-end (`float` contract + ingest + preview) so providers like Hardcover can preserve positions like `1.5`.
+	- Expand provider mapping where upstream data still exists for video, book/manga, and game metadata.
 
 ### 🧭 Admin UX / Operations
 - [ ] Expand duplicate/merge operator workflow from confidence signals to full review queue
-	- Confidence factors + warnings are now exposed by API; next step is explicit queue decisions with richer audit context.
+	- Turn confidence factors/warnings into explicit queue decisions with richer audit context.
 - [ ] Continue public deployment hardening for internet-facing setups
-	- Admin read APIs now enforce authenticated editor/admin access in public envs by default.
-	- Continue tightening production guidance for auth defaults, CORS, rate limits, job isolation, and secrets management.
+	- Keep tightening auth defaults, CORS, rate limits, job isolation, and secrets guidance.
 
 ### 🧩 Scan-to-Identify Boundary
 - [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
-	- Keep App as local-first default (import, review/crop/rotate, on-device OCR, safe fallback).
-	- Only add a Core-side ranking endpoint if measured device accuracy/latency proves local reranking insufficient.
-	- Preserve no-auto-ingest behavior for low-confidence matches.
+	- Keep the app local-first by default and only add Core ranking if it proves necessary.

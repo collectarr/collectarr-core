@@ -1,8 +1,6 @@
 from collections.abc import Mapping
 from typing import Any
 
-from sqlalchemy import inspect as sa_inspect
-
 from app.catalog.metadata_fields import (
     common_field_keys,
     kind_allowed_keys,
@@ -22,7 +20,6 @@ from app.models.canonical import (
     ItemKindMetadataManga,
     ItemKindMetadataMovie,
     ItemKindMetadataMusic,
-    ItemKindMetadataMusicTrack,
     ItemKindMetadataTaxonomy,
     ItemKindMetadataTv,
     MetadataTaxonomy,
@@ -135,39 +132,20 @@ def typed_kind_metadata_payload(
 def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]:
     if value is None:
         return {}
-    unloaded: set[str] = set()
-    state_dict: dict[str, Any] | None = None
-    try:
-        state = sa_inspect(value)
-        unloaded = set(state.unloaded) | set(getattr(state, "expired_attributes", set()))
-        state_dict = dict(state.dict)
-    except Exception:
-        state = None
-
     raw: dict[str, Any] = {}
+    metadata_json = value.metadata_json if isinstance(value.metadata_json, dict) else {}
     for key in TYPED_KIND_METADATA_KEYS:
-        if key == "tracks" or key in unloaded:
+        if key == "audience_rating":
             continue
-        if state_dict is not None and key in state_dict:
-            raw[key] = state_dict.get(key)
+        if key in {"genres", "platforms"}:
+            raw[key] = getattr(value, key, None)
+            continue
+        if key in metadata_json:
+            raw[key] = metadata_json.get(key)
         else:
             raw[key] = getattr(value, key, None)
-    if isinstance(value, ItemKindMetadataMusic):
-        tracks_loaded = "tracks" not in unloaded
-        raw["tracks"] = [
-            {
-                key: entry
-                for key, entry in {
-                    "position": row.position,
-                    "title": row.title,
-                    "duration_seconds": row.duration_seconds,
-                    "artist": row.artist,
-                    "disc_number": row.disc_number,
-                }.items()
-                if entry is not None
-            }
-            for row in (list(getattr(value, "tracks", []) or []) if tracks_loaded else [])
-        ]
+    if getattr(value, "audience_rating", None) is not None:
+        raw["audience_rating"] = value.audience_rating
     return {
         key: row
         for key, row in raw.items()
@@ -181,41 +159,50 @@ def typed_kind_metadata_for_item(item: object) -> dict[str, Any]:
 
 def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] | None) -> None:
     typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
-    if not typed_payload:
+    tracks_payload = typed_payload.pop("tracks", None)
+    genres_payload = typed_payload.pop("genres", None)
+    platforms_payload = typed_payload.pop("platforms", None)
+    has_typed_payload = any(
+        value is not None for key, value in typed_payload.items() if key != "audience_rating"
+    ) or typed_payload.get("audience_rating") is not None
+    if not has_typed_payload and not tracks_payload and not genres_payload and not platforms_payload:
         item.kind_metadata = None
         return
-    tracks_payload = typed_payload.pop("tracks", None)
     metadata = item.kind_metadata
     metadata_model = _KIND_METADATA_MODEL_BY_KIND[item.kind]
     if metadata is None or not isinstance(metadata, metadata_model):
         metadata = metadata_model(item=item, kind=item.kind)
         item.kind_metadata = metadata
     metadata.kind = item.kind
+    metadata.metadata_json = {
+        key: value
+        for key, value in typed_payload.items()
+        if key not in {"audience_rating"} and value is not None
+    } or None
+    if "audience_rating" in typed_payload:
+        metadata.audience_rating = typed_payload.get("audience_rating")
     for key in TYPED_KIND_METADATA_KEYS:
-        if key == "tracks":
-            continue
-        if key in {"genres", "platforms"}:
+        if key in {"tracks", "audience_rating", "genres", "platforms"}:
             continue
         if hasattr(metadata, key):
             setattr(metadata, key, typed_payload.get(key))
-    _set_taxonomy_values(metadata, "genre", typed_payload.get("genres"))
-    _set_taxonomy_values(metadata, "platform", typed_payload.get("platforms"))
-    if isinstance(metadata, ItemKindMetadataMusic):
-        if isinstance(tracks_payload, list):
-            metadata.tracks = [
-                ItemKindMetadataMusicTrack(
-                    title=str(row.get("title")),
-                    position=row.get("position"),
-                    duration_seconds=row.get("duration_seconds"),
-                    artist=row.get("artist"),
-                    disc_number=row.get("disc_number"),
-                )
-                for row in tracks_payload
-                if isinstance(row, Mapping) and str(row.get("title") or "").strip()
-            ]
-            metadata.track_count = len(metadata.tracks) or None
-        elif "track_count" in typed_payload:
-            metadata.track_count = typed_payload.get("track_count")
+    _set_taxonomy_values(metadata, "genre", genres_payload)
+    _set_taxonomy_values(metadata, "platform", platforms_payload)
+    if isinstance(tracks_payload, list):
+        metadata.tracks = [
+            {
+                "title": str(row.get("title") or "").strip(),
+                "position": row.get("position"),
+                "duration_seconds": row.get("duration_seconds"),
+                "artist": row.get("artist"),
+                "disc_number": row.get("disc_number"),
+            }
+            for row in tracks_payload
+            if isinstance(row, Mapping) and str(row.get("title") or "").strip()
+        ]
+        metadata.track_count = len(metadata.tracks) or None
+    elif "track_count" in typed_payload:
+        metadata.track_count = typed_payload.get("track_count")
 
 
 def _set_taxonomy_values(

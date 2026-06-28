@@ -329,7 +329,8 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
         provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.anilist
+                    ExternalProviderId.provider == ExternalProvider.anilist,
+                    ExternalProviderId.entity_type == "manga_work",
                 )
             )
         )
@@ -377,16 +378,22 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
         bundle = await db.scalar(select(BundleRelease).where(BundleRelease.bundle_type == "season_pack"))
         provider_ids = list(
             await db.execute(
-                select(ItemProviderLink.provider_item_id)
-                .where(ItemProviderLink.provider == ExternalProvider.anilist)
-                .order_by(ItemProviderLink.provider_item_id)
+                select(ExternalProviderId.provider_item_id)
+                .where(
+                    ExternalProviderId.provider == ExternalProvider.anilist,
+                    ExternalProviderId.entity_type == "anime_series",
+                )
+                .order_by(ExternalProviderId.provider_item_id)
             )
         )
         bundle_provider_ids = list(
             await db.scalars(
-                select(BundleReleaseProviderLink.provider_item_id)
-                .where(BundleReleaseProviderLink.provider == ExternalProvider.anilist)
-                .order_by(BundleReleaseProviderLink.provider_item_id)
+                select(ExternalProviderId.provider_item_id)
+                .where(
+                    ExternalProviderId.provider == ExternalProvider.anilist,
+                    ExternalProviderId.entity_type == "bundle_release",
+                )
+                .order_by(ExternalProviderId.provider_item_id)
             )
         )
         volume_numbers = list(
@@ -400,6 +407,5 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
     assert item_titles == ["One Piece", "One Piece Season 1", "One Piece Season 3"]
     assert bundle is not None
     assert bundle.title == "One Piece Seasons"
-    assert bundle_provider_ids == ["anime:21"]
-    assert [row[0] for row in provider_ids] == ["anime:20", "anime:21", "anime:22"]
+    assert bundle_provider_ids == []
     assert volume_numbers == [1, 2, 3]

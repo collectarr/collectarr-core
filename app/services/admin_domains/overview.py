@@ -13,7 +13,6 @@ from sqlalchemy.orm import selectinload
 from app.models.base import ItemKind
 from app.models.canonical import (
     AdminAuditLog,
-    BundleReleaseProviderLink,
     CharacterAppearance,
     Edition,
     EntityOrganization,
@@ -22,15 +21,12 @@ from app.models.canonical import (
     ImageAsset,
     ImageCacheEntry,
     Item,
-    ItemProviderLink,
     MetadataProposal,
     ProviderIngestJob,
     Series,
-    SeriesProviderLink,
     StoryArcItem,
     Variant,
     Volume,
-    VolumeProviderLink,
 )
 from app.schemas.admin import (
     AdminAuditLogResponse,
@@ -254,7 +250,8 @@ class AdminOverviewService:
 
     async def _count_missing_provider_link_items(self) -> int:
         has_provider_link = exists().where(
-            ItemProviderLink.item_id == Item.id,
+            ExternalProviderId.entity_type == "item",
+            ExternalProviderId.entity_id == Item.id,
         )
         return int(
             await self.db.scalar(select(func.count()).select_from(Item).where(~has_provider_link))
@@ -262,14 +259,7 @@ class AdminOverviewService:
         )
 
     async def _provider_link_count(self) -> int:
-        counts = await asyncio.gather(
-            self._count(ItemProviderLink),
-            self._count(SeriesProviderLink),
-            self._count(VolumeProviderLink),
-            self._count(BundleReleaseProviderLink),
-            self._count(ExternalProviderId),
-        )
-        return sum(counts)
+        return await self._count(ExternalProviderId)
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         result = await self.db.execute(

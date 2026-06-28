@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.canonical import AdminAuditLog, Item, ItemProviderLink, ProviderIngestJob
+from app.models.canonical import AdminAuditLog, ExternalProviderId, Item, ProviderIngestJob
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import ProviderIngestHistoryEntry
 from app.schemas.metadata import ProviderLink, item_response_from_model
@@ -35,18 +35,19 @@ class AdminSupportService:
         if not item_ids:
             return {}
         result = await self.db.execute(
-            select(ItemProviderLink)
+            select(ExternalProviderId)
             .where(
-                ItemProviderLink.item_id.in_(item_ids),
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id.in_(item_ids),
             )
-            .order_by(ItemProviderLink.provider, ItemProviderLink.provider_item_id)
+            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
         links_by_item: dict[UUID, list[ProviderLink]] = {}
         for row in result.scalars():
-            links_by_item.setdefault(row.item_id, []).append(
+            links_by_item.setdefault(row.entity_id, []).append(
                 ProviderLink(
                     provider=row.provider,
-                    entity_type="item",
+                    entity_type=row.entity_type,
                     provider_item_id=row.provider_item_id,
                     site_url=row.site_url,
                     api_url=row.api_url,

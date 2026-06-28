@@ -1,11 +1,12 @@
 import asyncio
 import logging
 import re
+from collections import defaultdict
 from dataclasses import replace
 from datetime import date
 from typing import Any
 from urllib.parse import urlparse
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import status
 from sqlalchemy import func, or_, select
@@ -40,7 +41,6 @@ from app.models.canonical import (
     EntityTag,
     ExternalProviderId,
     Item,
-    ItemProviderLink,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -50,9 +50,11 @@ from app.models.canonical import (
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
+    MovieWorkIdentifier,
     MusicMedia,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseIdentifier,
     Person,
     Series,
     SeriesRelation,
@@ -62,8 +64,8 @@ from app.models.canonical import (
     TVEpisode,
     TVRelease,
     TVReleaseContribution,
+    TVReleaseIdentifier,
     Volume,
-    VolumeProviderLink,
 )
 from app.proposal_payload import compact_metadata_payload
 from app.providers.base import MetadataProvider, ProviderSearchResult
@@ -105,9 +107,13 @@ from app.schemas.metadata import (
     MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
+    MovieContributorResponse,
+    MovieIdentifierResponse,
     MovieReleaseV1Response,
     MovieWorkV1Response,
     MusicMediaV1Response,
+    MusicContributorResponse,
+    MusicIdentifierResponse,
     MusicReleaseV1Response,
     MusicTrackV1Response,
     ProviderLink,
@@ -121,6 +127,10 @@ from app.schemas.metadata import (
     StoryArcItemResponse,
     StoryArcResponse,
     TVEpisodeV1Response,
+    TVContributorResponse,
+    TVIdentifierResponse,
+    TVSeasonV1Response,
+    TVSeriesV1Response,
     bundle_release_detail_from_model,
     bundle_release_summary_from_model,
     item_response_from_model,
@@ -206,11 +216,18 @@ class MetadataService:
         self.provider_search_state = ProviderSearchState(self.settings)
 
     async def _provider_links_for_item(self, item_id: UUID) -> list[ProviderLink]:
+        return await self._provider_links_for_entity("item", item_id)
+
+    async def _provider_links_for_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> list[ProviderLink]:
         result = await self.db.execute(
             select(ExternalProviderId)
             .where(
-                ExternalProviderId.entity_type == "item",
-                ExternalProviderId.entity_id == item_id,
+                ExternalProviderId.entity_type == entity_type,
+                ExternalProviderId.entity_id == entity_id,
             )
             .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
@@ -385,7 +402,7 @@ class MetadataService:
                     edition.identifiers or [],
                     key=lambda i: (
                         i.identifier_type.casefold(),
-                        i.normalized_value.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
                         str(i.id),
                     ),
                 )
@@ -487,7 +504,7 @@ class MetadataService:
                     issue.identifiers or [],
                     key=lambda i: (
                         i.identifier_type.casefold(),
-                        i.normalized_value.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
                         str(i.id),
                     ),
                 )
@@ -563,7 +580,7 @@ class MetadataService:
                     work.identifiers or [],
                     key=lambda i: (
                         i.identifier_type.casefold(),
-                        i.normalized_value.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
                         str(i.id),
                     ),
                 )
@@ -597,7 +614,7 @@ class MetadataService:
         return MangaContributorResponse(
             id=contrib.id,
             person_id=contrib.person_id,
-            person_name=contrib.person.name if contrib.person is not None else "",
+            name=contrib.person.name if contrib.person is not None else "",
             role=contrib.role,
             sequence=contrib.sequence,
         )
@@ -659,7 +676,7 @@ class MetadataService:
                     series.identifiers or [],
                     key=lambda i: (
                         i.identifier_type.casefold(),
-                        i.normalized_value.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
                         str(i.id),
                     ),
                 )
@@ -693,7 +710,7 @@ class MetadataService:
         return AnimeContributorResponse(
             id=contrib.id,
             person_id=contrib.person_id,
-            person_name=contrib.person.name if contrib.person is not None else "",
+            name=contrib.person.name if contrib.person is not None else "",
             role=contrib.role,
             sequence=contrib.sequence,
         )
@@ -735,8 +752,29 @@ class MetadataService:
             age_rating=work.age_rating,
             audience_rating=work.audience_rating,
             releases=[self._movie_release_response(row) for row in releases],
-            contributions=[],  # TODO: implement contributor responses for v1
-            identifiers=[],  # TODO: implement identifier responses for v1
+            contributions=[
+                self._movie_contributor_response(row)
+                for row in sorted(
+                    work.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._movie_identifier_response(row)
+                for row in sorted(
+                    work.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
             character_appearances=[],  # Not supported in v1 schema
         )
 
@@ -752,24 +790,56 @@ class MetadataService:
             cover_image_key=release.cover_image_key,
         )
 
+    def _movie_contributor_response(self, contrib: MovieWorkContribution) -> MovieContributorResponse:
+        return MovieContributorResponse(
+            id=contrib.id,
+            person_id=contrib.person_id,
+            name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
+
+    def _movie_identifier_response(self, identifier: MovieWorkIdentifier) -> MovieIdentifierResponse:
+        return MovieIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            is_primary=identifier.is_primary,
+        )
+
     def _music_release_response(self, release: MusicRelease) -> MusicReleaseV1Response:
+        track_count = release.track_count
+        if track_count is None:
+            media_track_counts = [
+                media.track_count
+                for media in (release.media or [])
+                if media.track_count is not None
+            ]
+            if media_track_counts:
+                track_count = sum(media_track_counts)
+            else:
+                track_count = sum(len(media.tracks or []) for media in (release.media or [])) or None
         media_list = []
         if release.media:
-            for m in release.media:
-                tracks = []
-                if m.tracks:
-                    for t in m.tracks:
-                        tracks.append(
-                            MusicTrackV1Response(
-                                id=t.id,
-                                media_id=t.media_id,
-                                position=t.position,
-                                title=t.title,
-                                duration_ms=t.duration_ms,
-                                instrument=t.instrument,
-                                composition=t.composition,
-                            )
-                        )
+            for m in sorted(
+                release.media,
+                key=lambda media: (media.media_number, str(media.id)),
+            ):
+                tracks = [
+                    MusicTrackV1Response(
+                        id=t.id,
+                        media_id=t.media_id,
+                        position=t.position,
+                        title=t.title,
+                        duration_ms=t.duration_ms,
+                        instrument=t.instrument,
+                        composition=t.composition,
+                    )
+                    for t in sorted(
+                        m.tracks or [],
+                        key=lambda track: (track.position.casefold(), str(track.id)),
+                    )
+                ]
                 media_list.append(
                     MusicMediaV1Response(
                         id=m.id,
@@ -796,6 +866,7 @@ class MetadataService:
             release_status=release.release_status,
             release_date=release.release_date,
             recording_date=release.recording_date,
+            track_count=track_count,
             publisher=release.publisher,
             studio=release.studio,
             catalog_number=release.catalog_number,
@@ -806,40 +877,143 @@ class MetadataService:
             cover_image_key=release.cover_image_key,
             extras=release.extras,
             media=media_list,
-            contributions=[],  # Placeholder
-            identifiers=[],  # Placeholder
+            contributions=[
+                self._music_contributor_response(row)
+                for row in sorted(
+                    release.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._music_identifier_response(row)
+                for row in sorted(
+                    release.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
         )
 
-    # Movie v1 helper methods - TODO: implement proper v1 support
-    # def _movie_contributor_response(self, contrib: MovieWorkContribution) -> MovieContributorResponse:
-    #     return MovieContributorResponse(
-    #         id=contrib.id,
-    #         person_id=contrib.person_id,
-    #         person_name=contrib.person.name if contrib.person is not None else "",
-    #         role=contrib.role,
-    #         sequence=contrib.sequence,
-    #     )
-    #
-    # def _movie_identifier_response(self, identifier: MovieWorkIdentifier) -> MovieIdentifierResponse:
-    #     return MovieIdentifierResponse(
-    #         id=identifier.id,
-    #         identifier_type=identifier.identifier_type,
-    #         value=identifier.value,
-    #         is_primary=identifier.is_primary,
-    #     )
-    #
-    # def _movie_character_response(self, char: MovieCharacterAppearance) -> MovieCharacterResponse:
-    #     return MovieCharacterResponse(
-    #         id=char.id,
-    #         character_id=char.character_id,
-    #         character_name=char.character.name if char.character is not None else "",
-    #         role=char.role,
-    #     )
+    def _music_contributor_response(self, contrib: MusicReleaseContribution) -> MusicContributorResponse:
+        return MusicContributorResponse(
+            person_id=contrib.person_id,
+            name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
 
-    # TV v1 helper methods commented out - legacy TV model removed
-    # TODO: Implement TVRelease response helpers
-    # def _tv_series_response(self, series: TVSeries) -> TVSeriesV1Response:
-    # ... (deprecated methods)
+    def _music_identifier_response(self, identifier: MusicReleaseIdentifier) -> MusicIdentifierResponse:
+        return MusicIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            normalized_value=identifier.normalized_value or identifier.value,
+            is_primary=identifier.is_primary,
+            source_provider=identifier.source_provider,
+        )
+
+    def _tv_episode_response(self, episode: TVEpisode) -> TVEpisodeV1Response:
+        return TVEpisodeV1Response(
+            id=episode.id,
+            series_id=episode.release_id,
+            episode_number=float(episode.episode_number),
+            episode_title=episode.title,
+            air_date=episode.original_air_date,
+            description=episode.overview,
+            cover_image_url=episode.still_url,
+            cover_image_key=episode.still_key,
+            runtime_minutes=episode.duration_seconds // 60 if episode.duration_seconds is not None else None,
+        )
+
+    def _tv_season_response(self, release: TVRelease, season_number: int, episodes: list[TVEpisode]) -> TVSeasonV1Response:
+        ordered_episodes = sorted(
+            episodes,
+            key=lambda episode: (episode.episode_number, episode.original_air_date or date.max, str(episode.id)),
+        )
+        season_air_date = next((episode.original_air_date for episode in ordered_episodes if episode.original_air_date), None)
+        return TVSeasonV1Response(
+            id=uuid5(NAMESPACE_URL, f"tv-season:{release.id}:{season_number}"),
+            series_id=release.id,
+            season_number=season_number,
+            air_date=season_air_date,
+            episode_count=len(ordered_episodes),
+            description=release.description,
+            cover_image_url=release.cover_image_url,
+            cover_image_key=release.cover_image_key,
+            episodes=[self._tv_episode_response(episode) for episode in ordered_episodes],
+        )
+
+    def _tv_series_response(self, release: TVRelease) -> TVSeriesV1Response:
+        episodes_by_season: dict[int, list[TVEpisode]] = defaultdict(list)
+        for episode in release.episodes or []:
+            episodes_by_season[episode.season_number].append(episode)
+        seasons = [
+            self._tv_season_response(release, season_number, episodes)
+            for season_number, episodes in sorted(episodes_by_season.items(), key=lambda item: item[0])
+        ]
+        return TVSeriesV1Response(
+            id=release.id,
+            title=release.title,
+            sort_title=release.sort_title,
+            description=release.description,
+            original_language=None,
+            original_air_date=release.release_date,
+            end_date=None,
+            status=None,
+            season_count=release.season_count or len(seasons),
+            episode_count=release.episode_count or sum(len(season.episodes) for season in seasons),
+            network=release.publisher,
+            seasons=seasons,
+            contributions=[
+                self._tv_contributor_response(row)
+                for row in sorted(
+                    release.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+            ],
+            identifiers=[
+                self._tv_identifier_response(row)
+                for row in sorted(
+                    release.identifiers or [],
+                    key=lambda i: (
+                        i.identifier_type.casefold(),
+                        (i.normalized_value or i.value or "").casefold(),
+                        str(i.id),
+                    ),
+                )
+            ],
+            character_appearances=[],
+        )
+
+    def _tv_contributor_response(self, contrib: TVReleaseContribution) -> TVContributorResponse:
+        return TVContributorResponse(
+            id=contrib.id,
+            person_id=contrib.person_id,
+            name=contrib.person.name if contrib.person is not None else "",
+            role=contrib.role,
+            sequence=contrib.sequence,
+        )
+
+    def _tv_identifier_response(self, identifier: TVReleaseIdentifier) -> TVIdentifierResponse:
+        return TVIdentifierResponse(
+            id=identifier.id,
+            identifier_type=identifier.identifier_type,
+            value=identifier.value,
+            is_primary=identifier.is_primary,
+        )
 
     def _comic_work_response(self, work: ComicWork) -> ComicWorkV1Response:
         issues = sorted(
@@ -1131,8 +1305,7 @@ class MetadataService:
             )
         return self._music_release_response(release)
 
-    async def get_tv_series(self, series_id: UUID) -> dict[str, Any]:
-        """Get TV release as dict response (v1 model)."""
+    async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
         release = await self.db.scalar(
             select(TVRelease)
             .where(TVRelease.id == series_id)
@@ -1148,19 +1321,16 @@ class MetadataService:
                 code="tv_release_not_found",
                 detail="TV release not found",
             )
-        # Return basic dict response (full v1 DTO to be implemented)
-        return {
-            "id": str(release.id),
-            "title": release.title,
-            "format": release.format,
-            "release_date": release.release_date.isoformat() if release.release_date else None,
-        }
+        return self._tv_series_response(release)
 
-    async def get_tv_series_seasons(self, series_id: UUID) -> list[dict[str, Any]]:
-        """Get TV release episodes as seasons (v1 model)."""
+    async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
         release = await self.db.scalar(
             select(TVRelease).where(TVRelease.id == series_id)
-            .options(selectinload(TVRelease.episodes))
+            .options(
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.episodes),
+                selectinload(TVRelease.identifiers),
+            )
         )
         if release is None:
             raise ApiHTTPException(
@@ -1168,8 +1338,7 @@ class MetadataService:
                 code="tv_release_not_found",
                 detail="TV release not found",
             )
-        # Return basic list (full v1 DTO to be implemented)
-        return [{"id": str(ep.id), "title": ep.title} for ep in (release.episodes or [])]
+        return self._tv_series_response(release).seasons
 
     async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
         episode = await self.db.scalar(select(TVEpisode).where(TVEpisode.id == episode_id))
@@ -1189,7 +1358,8 @@ class MetadataService:
                 code="bundle_release_not_found",
                 detail="Bundle release not found",
             )
-        return bundle_release_detail_from_model(bundle_release)
+        provider_links = await self._provider_links_for_entity("bundle_release", bundle_release.id)
+        return bundle_release_detail_from_model(bundle_release, provider_links=provider_links)
 
     async def _enrich_item_metadata_facets(
         self,
@@ -3010,21 +3180,13 @@ class MetadataService:
             await self.db.execute(
                 select(
                     Volume,
-                    func.coalesce(
-                        ExternalProviderId.provider_item_id,
-                        VolumeProviderLink.provider_item_id,
-                    ),
+                    ExternalProviderId.provider_item_id,
                 )
                 .outerjoin(
                     ExternalProviderId,
                     (ExternalProviderId.entity_id == Volume.id)
                     & (ExternalProviderId.entity_type == "volume")
                     & (ExternalProviderId.provider == ExternalProvider.tmdb),
-                )
-                .outerjoin(
-                    VolumeProviderLink,
-                    (VolumeProviderLink.volume_id == Volume.id)
-                    & (VolumeProviderLink.provider == ExternalProvider.tmdb),
                 )
                 .where(Volume.series_id == series_id)
                 .order_by(Volume.volume_number, Volume.name)
@@ -3038,21 +3200,13 @@ class MetadataService:
             await self.db.execute(
                 select(
                     Item,
-                    func.coalesce(
-                        ExternalProviderId.provider_item_id,
-                        ItemProviderLink.provider_item_id,
-                    ),
+                    ExternalProviderId.provider_item_id,
                 )
                 .outerjoin(
                     ExternalProviderId,
                     (ExternalProviderId.entity_id == Item.id)
                     & (ExternalProviderId.entity_type == "item")
                     & (ExternalProviderId.provider == ExternalProvider.tmdb),
-                )
-                .outerjoin(
-                    ItemProviderLink,
-                    (ItemProviderLink.item_id == Item.id)
-                    & (ItemProviderLink.provider == ExternalProvider.tmdb),
                 )
                 .where(
                     Item.volume_id.in_(volume_ids),

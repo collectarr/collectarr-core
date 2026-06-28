@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any
 
@@ -60,8 +61,12 @@ class Series(UuidMixin, TimestampMixin, Base):
 
     franchise: Mapped[Franchise | None] = relationship()
     volumes: Mapped[list["Volume"]] = relationship(back_populates="series")
-    provider_links: Mapped[list["SeriesProviderLink"]] = relationship(
-        back_populates="series", cascade="all, delete-orphan"
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == Series.id,
+            ExternalProviderId.entity_type == "series",
+        ),
+        viewonly=True,
     )
 
 
@@ -81,8 +86,12 @@ class Volume(UuidMixin, TimestampMixin, Base):
 
     series: Mapped[Series] = relationship(back_populates="volumes")
     items: Mapped[list["Item"]] = relationship(back_populates="volume")
-    provider_links: Mapped[list["VolumeProviderLink"]] = relationship(
-        back_populates="volume", cascade="all, delete-orphan"
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == Volume.id,
+            ExternalProviderId.entity_type == "volume",
+        ),
+        viewonly=True,
     )
 
 
@@ -128,8 +137,12 @@ class Item(UuidMixin, TimestampMixin, Base):
         back_populates="primary_item",
         foreign_keys="BundleRelease.primary_item_id",
     )
-    provider_links: Mapped[list["ItemProviderLink"]] = relationship(
-        back_populates="item", cascade="all, delete-orphan"
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == Item.id,
+            ExternalProviderId.entity_type == "item",
+        ),
+        viewonly=True,
     )
     organization_links: Mapped[list["EntityOrganization"]] = relationship(
         primaryjoin=lambda: and_(
@@ -1495,6 +1508,7 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
     )
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     audience_rating: Mapped[str | None] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     item: Mapped[Item] = relationship(back_populates="kind_metadata")
     taxonomy_links: Mapped[list["ItemKindMetadataTaxonomy"]] = relationship(
@@ -1508,6 +1522,9 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
             ItemKindMetadataTaxonomy.id.asc(),
         ),
     )
+
+    def _metadata_values(self) -> dict[str, Any]:
+        return dict(self.metadata_json or {})
 
     def _taxonomy_values(self, category: str) -> list[str]:
         values: list[str] = []
@@ -1535,6 +1552,46 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
     @platforms.setter
     def platforms(self, values: list[str] | None) -> None:
         self._set_taxonomy_values("platform", values)
+
+    @property
+    def track_count(self) -> int | None:
+        value = self._metadata_values().get("track_count")
+        return value if isinstance(value, int) else None
+
+    @track_count.setter
+    def track_count(self, value: int | None) -> None:
+        self._set_scalar_value("track_count", value)
+
+    @property
+    def tracks(self) -> list[dict[str, Any]]:
+        values = self._metadata_values().get("tracks")
+        if not isinstance(values, list):
+            return []
+        return [dict(entry) for entry in values if isinstance(entry, Mapping)]
+
+    @tracks.setter
+    def tracks(self, values: list[Mapping[str, Any]] | None) -> None:
+        cleaned: list[dict[str, Any]] = []
+        for raw in values or []:
+            title = str(raw.get("title") or "").strip()
+            if not title:
+                continue
+            entry: dict[str, Any] = {"title": title}
+            for key in ("position", "duration_seconds", "artist", "disc_number"):
+                value = raw.get(key)
+                if value is not None:
+                    entry[key] = value
+            cleaned.append(entry)
+        self._set_list_value("tracks", cleaned)
+
+    @property
+    def color(self) -> str | None:
+        value = self._metadata_values().get("color")
+        return value if isinstance(value, str) and value.strip() else None
+
+    @color.setter
+    def color(self, value: str | None) -> None:
+        self._set_scalar_value("color", value)
 
     def _set_taxonomy_values(self, category: str, values: list[str] | None) -> None:
         deduped: list[str] = []
@@ -1569,148 +1626,93 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
             ],
         ]
 
+    def _set_scalar_value(self, key: str, value: Any) -> None:
+        metadata = self._metadata_values()
+        if value is None or value == "":
+            metadata.pop(key, None)
+        else:
+            metadata[key] = value
+        self.metadata_json = metadata or None
+
+    def _set_list_value(self, key: str, values: list[Any] | None) -> None:
+        metadata = self._metadata_values()
+        if key == "tracks":
+            cleaned_tracks: list[dict[str, Any]] = []
+            for raw in values or []:
+                if not isinstance(raw, Mapping):
+                    continue
+                title = str(raw.get("title") or "").strip()
+                if not title:
+                    continue
+                entry: dict[str, Any] = {"title": title}
+                for field_name in ("position", "duration_seconds", "artist", "disc_number"):
+                    field_value = raw.get(field_name)
+                    if field_value is not None:
+                        entry[field_name] = field_value
+                cleaned_tracks.append(entry)
+            if cleaned_tracks:
+                metadata[key] = cleaned_tracks
+            else:
+                metadata.pop(key, None)
+            self.metadata_json = metadata or None
+            return
+
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for raw in values or []:
+            text = str(raw or "").strip()
+            if not text:
+                continue
+            normalized = text.casefold()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            deduped.append(text)
+        if deduped:
+            metadata[key] = deduped
+        else:
+            metadata.pop(key, None)
+        self.metadata_json = metadata or None
+
 
 class ItemKindMetadataAnime(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_anime"
     __mapper_args__ = {"polymorphic_identity": ItemKind.anime}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
-    color: Mapped[str | None] = mapped_column(String(64))
 
 
 class ItemKindMetadataBoardGame(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_boardgame"
     __mapper_args__ = {"polymorphic_identity": ItemKind.boardgame}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
 
 
 class ItemKindMetadataBook(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_book"
     __mapper_args__ = {"polymorphic_identity": ItemKind.book}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
 
 
 class ItemKindMetadataCollection(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_collection"
     __mapper_args__ = {"polymorphic_identity": ItemKind.collection}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
 
 
 class ItemKindMetadataComic(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_comic"
     __mapper_args__ = {"polymorphic_identity": ItemKind.comic}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
 
 
 class ItemKindMetadataGame(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_game"
     __mapper_args__ = {"polymorphic_identity": ItemKind.game}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
 
 
 class ItemKindMetadataManga(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_manga"
     __mapper_args__ = {"polymorphic_identity": ItemKind.manga}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
 
 
 class ItemKindMetadataMovie(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_movie"
     __mapper_args__ = {"polymorphic_identity": ItemKind.movie}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
-    color: Mapped[str | None] = mapped_column(String(64))
 
 
 class ItemKindMetadataMusic(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_music"
-    __table_args__ = (CheckConstraint("track_count IS NULL OR track_count >= 0", name="ck_item_kind_metadata_music_track_count_nonnegative"),)
     __mapper_args__ = {"polymorphic_identity": ItemKind.music}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
-    track_count: Mapped[int | None] = mapped_column(Integer)
-    tracks: Mapped[list["ItemKindMetadataMusicTrack"]] = relationship(
-        back_populates="kind_metadata",
-        cascade="all, delete-orphan",
-        order_by=lambda: (
-            ItemKindMetadataMusicTrack.disc_number.asc().nullslast(),
-            ItemKindMetadataMusicTrack.position.asc().nullslast(),
-            ItemKindMetadataMusicTrack.created_at.asc(),
-            ItemKindMetadataMusicTrack.id.asc(),
-        ),
-    )
-
-
-class ItemKindMetadataMusicTrack(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "item_kind_metadata_music_tracks"
-    __table_args__ = (
-        CheckConstraint(
-            "duration_seconds IS NULL OR duration_seconds >= 0",
-            name="ck_item_kind_metadata_music_tracks_duration_nonnegative",
-        ),
-        CheckConstraint(
-            "disc_number IS NULL OR disc_number >= 0",
-            name="ck_item_kind_metadata_music_tracks_disc_nonnegative",
-        ),
-        CheckConstraint(
-            "position IS NULL OR position >= 0",
-            name="ck_item_kind_metadata_music_tracks_position_nonnegative",
-        ),
-        Index("ix_item_kind_metadata_music_tracks_owner", "item_kind_metadata_id"),
-        Index(
-            "ix_item_kind_metadata_music_tracks_sequence",
-            "item_kind_metadata_id",
-            "disc_number",
-            "position",
-        ),
-    )
-
-    item_kind_metadata_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("item_kind_metadata_music.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    position: Mapped[int | None] = mapped_column(Integer)
-    duration_seconds: Mapped[int | None] = mapped_column(Integer)
-    artist: Mapped[str | None] = mapped_column(String(255))
-    disc_number: Mapped[int | None] = mapped_column(Integer)
-
-    kind_metadata: Mapped[ItemKindMetadataMusic] = relationship(back_populates="tracks")
 
 
 class ItemKindMetadataTv(ItemKindMetadata):
-    __tablename__ = "item_kind_metadata_tv"
     __mapper_args__ = {"polymorphic_identity": ItemKind.tv}
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("item_kind_metadata.id", ondelete="CASCADE"), primary_key=True
-    )
-    color: Mapped[str | None] = mapped_column(String(64))
 
 
 class MetadataTaxonomy(UuidMixin, TimestampMixin, Base):
@@ -1858,8 +1860,12 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     items: Mapped[list["BundleReleaseItem"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
     )
-    provider_links: Mapped[list["BundleReleaseProviderLink"]] = relationship(
-        back_populates="bundle_release", cascade="all, delete-orphan"
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == BundleRelease.id,
+            ExternalProviderId.entity_type == "bundle_release",
+        ),
+        viewonly=True,
     )
 
 
@@ -1893,117 +1899,6 @@ class BundleReleaseItem(UuidMixin, TimestampMixin, Base):
 
     bundle_release: Mapped[BundleRelease] = relationship(back_populates="items")
     item: Mapped[Item] = relationship()
-
-
-class ItemProviderLink(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "item_provider_links"
-    __table_args__ = (
-        UniqueConstraint("item_id", "provider", name="uq_item_provider_links_owner_provider"),
-        UniqueConstraint("provider", "provider_item_id", name="uq_item_provider_links_provider_item"),
-        Index("ix_item_provider_links_item", "item_id"),
-    )
-
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    site_url: Mapped[str | None] = mapped_column(String(1024))
-    api_url: Mapped[str | None] = mapped_column(String(1024))
-
-    item: Mapped[Item] = relationship(back_populates="provider_links")
-
-    @property
-    def entity_type(self) -> str:
-        return "item"
-
-
-class SeriesProviderLink(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "series_provider_links"
-    __table_args__ = (
-        UniqueConstraint("series_id", "provider", name="uq_series_provider_links_owner_provider"),
-        UniqueConstraint("provider", "provider_item_id", name="uq_series_provider_links_provider_item"),
-        Index("ix_series_provider_links_series", "series_id"),
-    )
-
-    series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    site_url: Mapped[str | None] = mapped_column(String(1024))
-    api_url: Mapped[str | None] = mapped_column(String(1024))
-
-    series: Mapped[Series] = relationship(back_populates="provider_links")
-
-    @property
-    def entity_type(self) -> str:
-        return "series"
-
-
-class VolumeProviderLink(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "volume_provider_links"
-    __table_args__ = (
-        UniqueConstraint("volume_id", "provider", name="uq_volume_provider_links_owner_provider"),
-        UniqueConstraint("provider", "provider_item_id", name="uq_volume_provider_links_provider_item"),
-        Index("ix_volume_provider_links_volume", "volume_id"),
-    )
-
-    volume_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    site_url: Mapped[str | None] = mapped_column(String(1024))
-    api_url: Mapped[str | None] = mapped_column(String(1024))
-
-    volume: Mapped[Volume] = relationship(back_populates="provider_links")
-
-    @property
-    def entity_type(self) -> str:
-        return "volume"
-
-
-class BundleReleaseProviderLink(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "bundle_release_provider_links"
-    __table_args__ = (
-        UniqueConstraint(
-            "bundle_release_id",
-            "provider",
-            name="uq_bundle_release_provider_links_owner_provider",
-        ),
-        UniqueConstraint(
-            "provider",
-            "provider_item_id",
-            name="uq_bundle_release_provider_links_provider_item",
-        ),
-        Index("ix_bundle_release_provider_links_bundle_release", "bundle_release_id"),
-    )
-
-    bundle_release_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("bundle_releases.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    site_url: Mapped[str | None] = mapped_column(String(1024))
-    api_url: Mapped[str | None] = mapped_column(String(1024))
-
-    bundle_release: Mapped[BundleRelease] = relationship(back_populates="provider_links")
-
-    @property
-    def entity_type(self) -> str:
-        return "bundle_release"
 
 
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):
@@ -2361,3 +2256,10 @@ class SeriesRelation(UuidMixin, TimestampMixin, Base):
     target_series: Mapped[Series] = relationship(
         foreign_keys=[target_series_id],
     )
+
+
+# Compatibility aliases for old provider-link class names.
+ItemProviderLink = ExternalProviderId
+VolumeProviderLink = ExternalProviderId
+SeriesProviderLink = ExternalProviderId
+BundleReleaseProviderLink = ExternalProviderId

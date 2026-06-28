@@ -38,19 +38,24 @@ def test_multiple_attribute_keys_are_comma_separated():
                 )
 
 
-def test_catalog_spine_diagram_renders_item_kind_metadata_keys():
+def test_catalog_spine_diagram_renders_only_the_shared_item_kind_metadata_base():
     diagrams = _diagrams()
-    catalog = next(
-        (diagram for domain_id, diagram in diagrams.items() if "ITEM_KIND_METADATA" in diagram),
-        None,
-    )
-    assert catalog is not None, "expected a domain diagram containing ITEM_KIND_METADATA"
+    catalog = diagrams["catalog"]
+    assert "ITEM_KIND_METADATA {" in catalog
     # The exact case that broke rendering: FK + UK on item_id.
     assert "item_id FK, UK" in catalog
     assert "FK UK" not in catalog
-    # Subtype tables expose id as both PK and FK.
-    assert "id PK, FK" in catalog
-    assert "PK FK" not in catalog
+    assert "ITEM_KIND_METADATA_ANIME" not in catalog
+    assert "ITEM_KIND_METADATA_MUSIC" not in catalog
+
+
+def test_kind_views_do_not_surface_item_kind_metadata_subtypes():
+    data = build_schema_data()
+    kinds = {kind["id"]: kind for kind in data["kinds"]}
+
+    assert "ITEM_KIND_METADATA_ANIME" not in kinds["anime"]["diagram"]
+    assert "ITEM_KIND_METADATA_COMIC" not in kinds["comic"]["diagram"]
+    assert "ITEM_KIND_METADATA_MUSIC" not in kinds["music"]["diagram"]
 
 
 def test_no_parallel_edges_between_same_entity_pair():
@@ -64,3 +69,19 @@ def test_no_parallel_edges_between_same_entity_pair():
             pair_counts[pair] = pair_counts.get(pair, 0) + 1
         duplicates = {pair: count for pair, count in pair_counts.items() if count > 1}
         assert not duplicates, f"{domain_id}: parallel edges must be merged: {duplicates}"
+
+
+def test_kind_views_surface_v1_work_tables():
+    data = build_schema_data()
+    kinds = {kind["id"]: kind for kind in data["kinds"]}
+    misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
+
+    assert "comic_works" in kinds["comic"]["tables"]
+    assert "book_works" in kinds["book"]["tables"]
+    assert "music_releases" in kinds["music"]["tables"]
+    assert "tv_releases" in kinds["tv"]["tables"]
+
+    assert "comic_works" not in misc_tables
+    assert "book_works" not in misc_tables
+    assert "music_releases" not in misc_tables
+    assert "tv_releases" not in misc_tables

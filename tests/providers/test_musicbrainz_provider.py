@@ -277,6 +277,7 @@ async def test_admin_ingest_upserts_musicbrainz_release(client, monkeypatch):
     assert body["created"] is True
     assert body["item"]["kind"] == "music"
     assert body["item"]["title"] == "Kind of Blue"
+    assert body["item"]["track_count"] == 11
     assert body["item"]["publisher"] == "Columbia"
     assert body["item"]["barcode"] == "074646493525"
 
@@ -295,6 +296,7 @@ async def test_admin_ingest_upserts_musicbrainz_release(client, monkeypatch):
     assert release is not None
     assert release.publisher == "Columbia"
     assert release.barcode == "074646493525"
+    assert release.track_count == 11
     assert provider_ids == [RELEASE_ID]
     assert artist == "Miles Davis"
 
@@ -340,15 +342,17 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
         )
         provider_ids = list(
             await db.scalars(
-                select(ItemProviderLink.provider_item_id).where(
-                    ItemProviderLink.provider == ExternalProvider.musicbrainz
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.provider == ExternalProvider.musicbrainz,
+                    ExternalProviderId.entity_type == "item",
                 )
             )
         )
         bundle_provider_ids = list(
             await db.scalars(
-                select(BundleReleaseProviderLink.provider_item_id).where(
-                    BundleReleaseProviderLink.provider == ExternalProvider.musicbrainz
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.provider == ExternalProvider.musicbrainz,
+                    ExternalProviderId.entity_type == "bundle_release",
                 )
             )
         )

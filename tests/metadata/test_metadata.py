@@ -27,10 +27,16 @@ from app.models.canonical import (
     EntityOrganization,
     EntityPerson,
     EntityTag,
+    ExternalProviderId,
     Item,
     ItemProviderLink,
     Organization,
     Person,
+    MusicMedia,
+    MusicRelease,
+    MusicReleaseContribution,
+    MusicReleaseIdentifier,
+    MusicTrack,
     Series,
     StoryArc,
     StoryArcItem,
@@ -203,6 +209,75 @@ async def _seed_comic_v1() -> tuple[UUID, UUID]:
         return work.id, issue.id
 
 
+async def _seed_music_v1() -> UUID:
+    async with AsyncSessionLocal() as db:
+        artist = Person(name="The Beatles")
+        db.add(artist)
+        await db.flush()
+        release = MusicRelease(
+            title="Abbey Road",
+            sort_title="abbey road",
+            release_type="album",
+            release_status="released",
+            release_date=date(1969, 9, 26),
+            recording_date=date(1969, 2, 22),
+            publisher="Apple Records",
+            studio="EMI",
+            catalog_number="PCS 7088",
+            barcode="049800048807",
+            country_code="GB",
+            language="en",
+            extras="Stereo",
+        )
+        db.add(release)
+        await db.flush()
+        media = MusicMedia(
+            release_id=release.id,
+            media_number=1,
+            media_type="vinyl",
+            title="Side A",
+            track_count=2,
+            packaging="gatefold",
+            sound_type="stereo",
+        )
+        db.add(media)
+        await db.flush()
+        db.add_all(
+            [
+                MusicTrack(
+                    media_id=media.id,
+                    release_id=release.id,
+                    position="A1",
+                    title="Come Together",
+                    duration_ms=259000,
+                ),
+                MusicTrack(
+                    media_id=media.id,
+                    release_id=release.id,
+                    position="A2",
+                    title="Something",
+                    duration_ms=182000,
+                ),
+                MusicReleaseContribution(
+                    release_id=release.id,
+                    person_id=artist.id,
+                    role="performer",
+                    sequence=1,
+                ),
+                MusicReleaseIdentifier(
+                    release_id=release.id,
+                    identifier_type="barcode",
+                    value="049800048807",
+                    normalized_value="049800048807",
+                    is_primary=True,
+                    source_provider=ExternalProvider.musicbrainz,
+                ),
+            ]
+        )
+        await db.commit()
+        return release.id
+
+
 @pytest.mark.asyncio
 async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     response = await client.get("/metadata/media-types")
@@ -359,6 +434,24 @@ async def test_comics_v1_work_and_issue_endpoints(client):
     route_response = await client.get(f"/comics/{work_id}")
     assert route_response.status_code == 200
     assert route_response.json()["id"] == str(work_id)
+
+
+@pytest.mark.asyncio
+async def test_music_release_v1_response_includes_contributors_identifiers_and_tracks():
+    release_id = await _seed_music_v1()
+
+    async with AsyncSessionLocal() as db:
+        release = await MetadataService(db).get_music_release(release_id)
+
+    assert release.id == release_id
+    assert release.title == "Abbey Road"
+    assert release.track_count == 2
+    assert release.contributions[0].name == "The Beatles"
+    assert release.contributions[0].role == "performer"
+    assert release.identifiers[0].identifier_type == "barcode"
+    assert release.identifiers[0].source_provider == ExternalProvider.musicbrainz
+    assert release.media[0].tracks[0].title == "Come Together"
+    assert release.media[0].tracks[1].position == "A2"
 
 
 @pytest.mark.asyncio
@@ -1416,22 +1509,25 @@ async def test_get_item_seasons_prefers_catalog_mapped_seasons(client):
         db.add_all([series, show_volume, season_volume, show_item, episode_item])
         await db.flush()
         db.add(
-            ItemProviderLink(
-                item_id=show_item.id,
+            ExternalProviderId(
+                entity_type="item",
+                entity_id=show_item.id,
                 provider=ExternalProvider.tmdb,
                 provider_item_id="tv:100",
             )
         )
         db.add(
-            VolumeProviderLink(
-                volume_id=season_volume.id,
+            ExternalProviderId(
+                entity_type="volume",
+                entity_id=season_volume.id,
                 provider=ExternalProvider.tmdb,
                 provider_item_id="tv:100:season:1",
             )
         )
         db.add(
-            ItemProviderLink(
-                item_id=episode_item.id,
+            ExternalProviderId(
+                entity_type="item",
+                entity_id=episode_item.id,
                 provider=ExternalProvider.tmdb,
                 provider_item_id="tv:100:season:1:episode:1",
             )

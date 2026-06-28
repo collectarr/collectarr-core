@@ -19,7 +19,6 @@ from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
     BundleReleaseItem,
-    BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
     Edition,
@@ -28,7 +27,7 @@ from app.models.canonical import (
     EntityTag,
     Franchise,
     Item,
-    ItemProviderLink,
+    ExternalProviderId,
     Organization,
     Person,
     Series,
@@ -1451,9 +1450,10 @@ async def _ensure_editions_and_variants(db, entry: SeedEntry, item: Item) -> Non
 
 async def _ensure_provider_id(db, entry: SeedEntry, item: Item) -> None:
     result = await db.execute(
-        select(ItemProviderLink).where(
-            ItemProviderLink.provider == entry.provider,
-            ItemProviderLink.provider_item_id == entry.provider_id,
+        select(ExternalProviderId).where(
+            ExternalProviderId.provider == entry.provider,
+            ExternalProviderId.provider_item_id == entry.provider_id,
+            ExternalProviderId.entity_type == "item",
         )
     )
     existing = result.scalar_one_or_none()
@@ -1463,13 +1463,16 @@ async def _ensure_provider_id(db, entry: SeedEntry, item: Item) -> None:
         f"providers/{entry.provider.value}/items/{entry.provider_id}"
     )
     if existing is None:
-        db.add(ItemProviderLink(
-            provider=entry.provider,
-            provider_item_id=entry.provider_id,
-            item_id=item.id,
-            site_url=site_url,
-            api_url=api_url,
-        ))
+        db.add(
+            ExternalProviderId(
+                provider=entry.provider,
+                provider_item_id=entry.provider_id,
+                entity_type="item",
+                entity_id=item.id,
+                site_url=site_url,
+                api_url=api_url,
+            )
+        )
         return
 
     existing.site_url = site_url
@@ -1559,16 +1562,18 @@ async def _ensure_series_bundle_releases(
             }
 
         link_result = await db.execute(
-            select(BundleReleaseProviderLink).where(
-                BundleReleaseProviderLink.bundle_release_id == bundle.id,
-                BundleReleaseProviderLink.provider == entry.provider,
+            select(ExternalProviderId).where(
+                ExternalProviderId.entity_type == "bundle_release",
+                ExternalProviderId.entity_id == bundle.id,
+                ExternalProviderId.provider == entry.provider,
             )
         )
         bundle_provider_link = link_result.scalar_one_or_none()
         if bundle_provider_link is None:
             db.add(
-                BundleReleaseProviderLink(
-                    bundle_release_id=bundle.id,
+                ExternalProviderId(
+                    entity_type="bundle_release",
+                    entity_id=bundle.id,
                     provider=entry.provider,
                     provider_item_id=bundle_provider_id,
                     site_url=(

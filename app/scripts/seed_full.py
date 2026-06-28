@@ -34,7 +34,7 @@ from app.models.canonical import (
     Franchise,
     ImageAsset,
     Item,
-    ItemProviderLink,
+    ExternalProviderId,
     Organization,
     Person,
     Series,
@@ -773,19 +773,23 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
         # --- Provider ID ---
         pid = f"{SEED_MARKER}-{series_slug}-{item_number}"
         result = await db.execute(
-            select(ItemProviderLink).where(
-                ItemProviderLink.provider == provider,
-                ItemProviderLink.provider_item_id == pid,
+                select(ExternalProviderId).where(
+                    ExternalProviderId.provider == provider,
+                    ExternalProviderId.provider_item_id == pid,
+                    ExternalProviderId.entity_type == "item",
+                )
             )
-        )
         if result.scalar_one_or_none() is None:
-            db.add(ItemProviderLink(
-                provider=provider,
-                provider_item_id=pid,
-                item_id=item.id,
-                site_url=f"https://example.com/{kind.value}/{series_slug}/{item_number}",
-                api_url=f"https://api.example.com/{kind.value}/{series_slug}/{item_number}",
-            ))
+            db.add(
+                ExternalProviderId(
+                    provider=provider,
+                    provider_item_id=pid,
+                    entity_type="item",
+                    entity_id=item.id,
+                    site_url=f"https://example.com/{kind.value}/{series_slug}/{item_number}",
+                    api_url=f"https://api.example.com/{kind.value}/{series_slug}/{item_number}",
+                )
+            )
 
         # --- Credits (EntityPerson) — 3-5 per item ---
         for cr_idx in range(min(3 + (item_global_idx % 3), len(creator_entries))):
@@ -988,8 +992,9 @@ async def wipe_seed_data() -> None:
     async with AsyncSessionLocal() as db:
         # Find all seed item IDs
         result = await db.execute(
-            select(ItemProviderLink.item_id).where(
-                ItemProviderLink.provider_item_id.startswith(SEED_MARKER)
+            select(ExternalProviderId.entity_id).where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.provider_item_id.startswith(SEED_MARKER)
             )
         )
         item_ids = [row[0] for row in result.all()]
@@ -1021,8 +1026,9 @@ async def wipe_seed_data() -> None:
         await db.execute(delete(Variant).where(Variant.edition_id.in_(edition_ids_q)))
         await db.execute(delete(Edition).where(Edition.item_id.in_(item_ids)))
         await db.execute(
-            delete(ItemProviderLink).where(
-                ItemProviderLink.provider_item_id.startswith(SEED_MARKER)
+            delete(ExternalProviderId).where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.provider_item_id.startswith(SEED_MARKER)
             )
         )
         await db.execute(delete(Item).where(Item.id.in_(item_ids)))

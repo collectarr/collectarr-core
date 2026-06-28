@@ -6,7 +6,6 @@ from uuid import UUID
 import pytest
 from fastapi import HTTPException, status
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
@@ -35,7 +34,6 @@ from app.models.canonical import (
     ItemKindMetadata,
     ItemKindMetadataComic,
     ItemKindMetadataMusic,
-    ItemKindMetadataMusicTrack,
     ItemProviderLink,
     MetadataProposal,
     Organization,
@@ -1231,10 +1229,11 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
         )
         await db.flush()
         db.add(
-            ItemProviderLink(
+            ExternalProviderId(
+                entity_type="comic_issue",
+                entity_id=primary.id,
                 provider=ExternalProvider.gcd,
                 provider_item_id="2663120",
-                item_id=primary.id,
             )
         )
         await db.commit()
@@ -1257,7 +1256,7 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert body["provider_links"] == 1
     assert body["pending_proposals"] == 1
     assert body["missing_cover_items"] == 1
-    assert body["missing_provider_link_items"] == 1
+    assert body["missing_provider_link_items"] == 2
     assert body["duplicate_candidate_groups"] == 1
 
     duplicates = await client.get(
@@ -1503,10 +1502,11 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
         target_id = str(target.id)
         source_id = str(source.id)
         db.add(
-            ItemProviderLink(
+            ExternalProviderId(
+                entity_type="item",
+                entity_id=source.id,
                 provider=ExternalProvider.gcd,
                 provider_item_id="2665653",
-                item_id=source.id,
             )
         )
         await db.commit()
@@ -1527,8 +1527,11 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Item)) == 1
         assert await db.scalar(select(func.count()).select_from(Edition)) == 2
-        provider_link = await db.scalar(select(ItemProviderLink))
-        assert str(provider_link.item_id) == target_id
+        provider_link = await db.scalar(
+            select(ExternalProviderId).where(ExternalProviderId.entity_type == "item")
+        )
+        assert provider_link is not None
+        assert str(provider_link.entity_id) == target_id
 
     duplicates = await client.get(
         "/admin/duplicates",
@@ -1733,16 +1736,14 @@ async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, 
     async with AsyncSessionLocal() as db:
         stored_item = await db.get(Item, item_uuid)
         typed_metadata = await db.scalar(
-            select(ItemKindMetadataMusic)
-            .options(selectinload(ItemKindMetadataMusic.tracks))
-            .where(ItemKindMetadataMusic.item_id == item_uuid)
+            select(ItemKindMetadataMusic).where(ItemKindMetadataMusic.item_id == item_uuid)
         )
         assert stored_item is not None
         assert typed_metadata is not None
         assert typed_metadata.audience_rating == "9.2"
         assert typed_metadata.genres == ["Electronic", "Nu Disco"]
         assert typed_metadata.track_count == 2
-        assert [track.title for track in (typed_metadata.tracks or [])] == [
+        assert [track["title"] for track in typed_metadata.tracks] == [
             "One More Time",
             "Aerodynamic",
         ]
@@ -1851,11 +1852,13 @@ async def test_admin_normalized_drift_report_keeps_music_tracks_loaded(client, m
         typed = ItemKindMetadataMusic(
             item=item,
             kind=ItemKind.music,
-            track_count=2,
-            tracks=[
-                ItemKindMetadataMusicTrack(position=1, title="Intro", duration_seconds=90),
-                ItemKindMetadataMusicTrack(position=2, title="Main Theme", duration_seconds=180),
-            ],
+            metadata_json={
+                "track_count": 2,
+                "tracks": [
+                    {"position": 1, "title": "Intro", "duration_seconds": 90},
+                    {"position": 2, "title": "Main Theme", "duration_seconds": 180},
+                ],
+            },
         )
         db.add_all([item, typed])
         await db.commit()
@@ -2762,11 +2765,11 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(Tag)) == 0
         assert await db.scalar(select(func.count()).select_from(EntityTag)) == 0
         provider_ids = await db.scalars(
-            select(ItemProviderLink.provider_item_id).order_by(
-                ItemProviderLink.provider_item_id
-            )
+            select(ExternalProviderId.provider_item_id)
+            .where(ExternalProviderId.entity_type == "comic_issue")
+            .order_by(ExternalProviderId.provider_item_id)
         )
-        assert list(provider_ids) == []
+        assert list(provider_ids) == ["4000-12345"]
         provider_links = await db.execute(
             select(
                 ExternalProviderId.entity_type,
@@ -2789,10 +2792,10 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         ) in provider_link_rows
         item_provider_links = await db.execute(
             select(
-                ItemProviderLink.provider_item_id,
-                ItemProviderLink.site_url,
-                ItemProviderLink.api_url,
-            )
+                ExternalProviderId.provider_item_id,
+                ExternalProviderId.site_url,
+                ExternalProviderId.api_url,
+            ).where(ExternalProviderId.entity_type == "item")
         )
         assert item_provider_links.all() == []
         character = await db.scalar(select(Character).where(Character.name == "Spider-Man"))
@@ -3139,9 +3142,9 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
         )
         # Check provider IDs for volume
         volume_provider_ids = await db.scalars(
-            select(VolumeProviderLink.provider_item_id).order_by(
-                VolumeProviderLink.provider_item_id
-            )
+            select(ExternalProviderId.provider_item_id)
+            .where(ExternalProviderId.entity_type == "volume")
+            .order_by(ExternalProviderId.provider_item_id)
         )
         assert list(provider_ids) == ["2663120", "2665653"]
         assert list(volume_provider_ids) == ["216143"]
@@ -3719,12 +3722,14 @@ async def test_admin_ingest_creates_bundle_release_from_provider_package(monkeyp
         assert member_roles.all() == [("primary", 1), ("primary", 2)]
 
         provider_links = await db.execute(
-            select(ItemProviderLink.provider_item_id).order_by(ItemProviderLink.provider_item_id.asc())
+            select(ExternalProviderId.provider_item_id)
+            .where(ExternalProviderId.entity_type == "item")
+            .order_by(ExternalProviderId.provider_item_id.asc())
         )
         bundle_provider_links = await db.scalars(
-            select(BundleReleaseProviderLink.provider_item_id).order_by(
-                BundleReleaseProviderLink.provider_item_id.asc()
-            )
+            select(ExternalProviderId.provider_item_id)
+            .where(ExternalProviderId.entity_type == "bundle_release")
+            .order_by(ExternalProviderId.provider_item_id.asc())
         )
         assert [row[0] for row in provider_links.all()] == ["release:album-one", "release:album-two"]
         assert list(bundle_provider_links) == ["bundle:mb:collection-1"]

@@ -14,17 +14,7 @@ from app.models.canonical import (
     EntityPerson,
     Item,
     ItemKindMetadata,
-    ItemKindMetadataAnime,
-    ItemKindMetadataBoardGame,
-    ItemKindMetadataBook,
-    ItemKindMetadataCollection,
-    ItemKindMetadataComic,
-    ItemKindMetadataGame,
-    ItemKindMetadataManga,
-    ItemKindMetadataMovie,
-    ItemKindMetadataMusic,
     ItemKindMetadataTaxonomy,
-    ItemKindMetadataTv,
     Series,
     StoryArcItem,
     Variant,
@@ -37,19 +27,8 @@ class MetadataRepository:
         self.db = db
 
     def _kind_metadata_loader(self):
-        return selectinload(Item.kind_metadata).selectin_polymorphic(
-            [
-                ItemKindMetadataAnime,
-                ItemKindMetadataBoardGame,
-                ItemKindMetadataBook,
-                ItemKindMetadataCollection,
-                ItemKindMetadataComic,
-                ItemKindMetadataGame,
-                ItemKindMetadataManga,
-                ItemKindMetadataMovie,
-                ItemKindMetadataMusic,
-                ItemKindMetadataTv,
-            ]
+        return selectinload(Item.kind_metadata).selectinload(ItemKindMetadata.taxonomy_links).selectinload(
+            ItemKindMetadataTaxonomy.taxonomy
         )
 
     def _bundle_release_detail_stmt(self) -> Select[tuple[BundleRelease]]:
@@ -71,12 +50,6 @@ class MetadataRepository:
             selectinload(Item.alias_entries),
             selectinload(Item.link_entries),
             self._kind_metadata_loader(),
-            selectinload(Item.kind_metadata).selectinload(ItemKindMetadata.taxonomy_links).selectinload(
-                ItemKindMetadataTaxonomy.taxonomy
-            ),
-            selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
-                ItemKindMetadataMusic.tracks
-            ),
             selectinload(Item.provider_links),
             selectinload(Item.primary_bundle_releases),
             selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
@@ -134,12 +107,6 @@ class MetadataRepository:
                 selectinload(Item.alias_entries),
                 selectinload(Item.link_entries),
                 self._kind_metadata_loader(),
-                selectinload(Item.kind_metadata).selectinload(ItemKindMetadata.taxonomy_links).selectinload(
-                    ItemKindMetadataTaxonomy.taxonomy
-                ),
-                selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
-                    ItemKindMetadataMusic.tracks
-                ),
                 selectinload(Item.provider_links),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.organization_links).selectinload(EntityOrganization.organization),

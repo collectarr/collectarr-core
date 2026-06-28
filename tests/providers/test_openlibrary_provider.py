@@ -145,14 +145,16 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
         provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(
-                    ExternalProviderId.provider == ExternalProvider.openlibrary
+                    ExternalProviderId.provider == ExternalProvider.openlibrary,
+                    ExternalProviderId.entity_type == "book_work",
                 )
             )
         )
         volume_provider_ids = list(
             await db.scalars(
-                select(VolumeProviderLink.provider_item_id).where(
-                    VolumeProviderLink.provider == ExternalProvider.openlibrary
+                select(ExternalProviderId.provider_item_id).where(
+                    ExternalProviderId.provider == ExternalProvider.openlibrary,
+                    ExternalProviderId.entity_type == "book_edition",
                 )
             )
         )
@@ -163,6 +165,6 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
 
     assert book_work is not None
     assert provider_ids == ["OL7353617M"]
-    assert volume_provider_ids == ["OL262758W"]
+    assert volume_provider_ids == []
     assert edition is not None
     assert edition.publisher == "George Allen & Unwin"

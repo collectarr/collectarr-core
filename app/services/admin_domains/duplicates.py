@@ -17,8 +17,8 @@ from app.models.canonical import (
     EntityPerson,
     EntityTag,
     ImageAsset,
+    ExternalProviderId,
     Item,
-    ItemProviderLink,
     StoryArcItem,
     Variant,
     Volume,
@@ -240,11 +240,12 @@ class AdminDuplicateService:
 
     async def _duplicate_conflict_flags(self, item_ids: list[UUID]) -> dict[str, bool]:
         provider_result = await self.db.execute(
-            select(ItemProviderLink.provider, ItemProviderLink.provider_item_id)
+            select(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
             .where(
-                ItemProviderLink.item_id.in_(item_ids),
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id.in_(item_ids),
             )
-            .order_by(ItemProviderLink.provider, ItemProviderLink.provider_item_id)
+            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
         provider_ids_by_provider: dict[str, set[str]] = {}
         for provider, provider_item_id in provider_result.all():
@@ -336,11 +337,12 @@ class AdminDuplicateService:
 
     async def _provider_link_counts_by_item(self, item_ids: list[UUID]) -> dict[UUID, int]:
         result = await self.db.execute(
-            select(ItemProviderLink.item_id, func.count(ItemProviderLink.id))
+            select(ExternalProviderId.entity_id, func.count(ExternalProviderId.id))
             .where(
-                ItemProviderLink.item_id.in_(item_ids),
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id.in_(item_ids),
             )
-            .group_by(ItemProviderLink.item_id)
+            .group_by(ExternalProviderId.entity_id)
         )
         return dict(result.all())
 
@@ -425,19 +427,23 @@ class AdminDuplicateService:
                 upsert_item_kind_metadata(target_item, merged_payload)
 
         provider_links = await self.db.scalars(
-            select(ItemProviderLink).where(ItemProviderLink.item_id == source_item.id)
+            select(ExternalProviderId).where(
+                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id == source_item.id,
+            )
         )
         for link in provider_links:
             exists = await self.db.scalar(
-                select(ItemProviderLink.id).where(
-                    ItemProviderLink.item_id == target_item.id,
-                    ItemProviderLink.provider == link.provider,
+                select(ExternalProviderId.id).where(
+                    ExternalProviderId.entity_type == "item",
+                    ExternalProviderId.entity_id == target_item.id,
+                    ExternalProviderId.provider == link.provider,
                 )
             )
             if exists:
                 await self.db.delete(link)
             else:
-                link.item_id = target_item.id
+                link.entity_id = target_item.id
 
         await self._move_organization_links(source_item.id, target_item.id)
         await self._move_person_links(source_item.id, target_item.id)

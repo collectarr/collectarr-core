@@ -40,16 +40,6 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
             "volumes",
             "items",
             "item_kind_metadata",
-            "item_kind_metadata_anime",
-            "item_kind_metadata_boardgame",
-            "item_kind_metadata_book",
-            "item_kind_metadata_collection",
-            "item_kind_metadata_comic",
-            "item_kind_metadata_game",
-            "item_kind_metadata_manga",
-            "item_kind_metadata_movie",
-            "item_kind_metadata_music",
-            "item_kind_metadata_tv",
             "editions",
             "variants",
             "bundle_releases",
@@ -72,6 +62,8 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
             "character_appearances",
             "tags",
             "entity_tags",
+            "metadata_taxonomies",
+            "item_kind_metadata_taxonomies",
         ],
     },
     {
@@ -136,7 +128,13 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_comic",
+        "comic_works",
+        "comic_issues",
+        "comic_contributions",
+        "comic_identifiers",
+        "comic_series_memberships",
+        "comic_story_arc_memberships",
+        "comic_character_appearances",
         "characters",
         "character_appearances",
         "story_arcs",
@@ -147,7 +145,11 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_manga",
+        "manga_works",
+        "manga_chapters",
+        "manga_contributions",
+        "manga_identifiers",
+        "manga_character_appearances",
         "characters",
         "character_appearances",
         "story_arcs",
@@ -158,14 +160,22 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_anime",
+        "anime_series",
+        "anime_episodes",
+        "anime_contributions",
+        "anime_identifiers",
+        "anime_character_appearances",
     ],
     "movie": [
         "items",
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_movie",
+        "movie_works",
+        "movie_releases",
+        "movie_release_media",
+        "movie_work_contributions",
+        "movie_work_identifiers",
         "bundle_releases",
         "bundle_release_items",
     ],
@@ -174,7 +184,11 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_tv",
+        "tv_releases",
+        "tv_release_media",
+        "tv_episodes",
+        "tv_release_contributions",
+        "tv_release_identifiers",
         "bundle_releases",
         "bundle_release_items",
     ],
@@ -183,14 +197,12 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_game",
     ],
     "boardgame": [
         "items",
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_boardgame",
     ],
     "book": [
         "book_works",
@@ -205,8 +217,11 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_music",
-        "item_kind_metadata_music_tracks",
+        "music_releases",
+        "music_media",
+        "music_tracks",
+        "music_release_contributions",
+        "music_release_identifiers",
         "bundle_releases",
         "bundle_release_items",
     ],
@@ -215,7 +230,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
-        "item_kind_metadata_collection",
         "bundle_releases",
         "bundle_release_items",
     ],
@@ -655,7 +669,16 @@ def build_schema_data() -> dict[str, Any]:
         )
         assigned_tables.update(domain_tables)
 
-    remaining_tables = sorted(table_name for table_name in tables_by_name if table_name not in assigned_tables)
+    kind_tables = {
+        table_name
+        for kind in KIND_SPECS
+        for table_name in build_kind_tables(kind["id"], tables_by_name)
+    }
+    remaining_tables = sorted(
+        table_name
+        for table_name in tables_by_name
+        if table_name not in assigned_tables and table_name not in kind_tables
+    )
     if remaining_tables:
         misc_domain = {
             "id": "misc",
@@ -699,6 +722,7 @@ def build_schema_data() -> dict[str, Any]:
                 "external_references": kind_external_refs,
             }
         )
+        assigned_tables.update(kind_tables)
 
     for table in tables:
         del table["column_lookup"]

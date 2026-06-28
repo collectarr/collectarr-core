@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import Edition, Franchise, Item, ItemProviderLink, Series, Variant, Volume
+from app.models.canonical import Edition, ExternalProviderId, Franchise, Item, Series, Variant, Volume
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 
@@ -360,19 +360,21 @@ async def _ensure_edition_and_variant(db, comic: SeedComic, item: Item) -> None:
 
 async def _ensure_provider_id(db, comic: SeedComic, item: Item) -> None:
     result = await db.execute(
-        select(ItemProviderLink).where(
-            ItemProviderLink.provider == ExternalProvider.comicvine,
-            ItemProviderLink.provider_item_id == comic.provider_id,
+        select(ExternalProviderId).where(
+            ExternalProviderId.provider == ExternalProvider.comicvine,
+            ExternalProviderId.provider_item_id == comic.provider_id,
+            ExternalProviderId.entity_type == "item",
         )
     )
     if result.scalar_one_or_none() is not None:
         return
 
     db.add(
-        ItemProviderLink(
+        ExternalProviderId(
             provider=ExternalProvider.comicvine,
             provider_item_id=comic.provider_id,
-            item_id=item.id,
+            entity_type="item",
+            entity_id=item.id,
         )
     )
 

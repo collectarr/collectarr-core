@@ -30,18 +30,8 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "bundle_release_items",
             "item_kind_metadata",
             "item_kind_metadata_taxonomies",
-            "item_kind_metadata_anime",
-            "item_kind_metadata_boardgame",
-            "item_kind_metadata_book",
-            "item_kind_metadata_collection",
-            "item_kind_metadata_comic",
-            "item_kind_metadata_game",
-            "item_kind_metadata_manga",
-            "item_kind_metadata_movie",
-            "item_kind_metadata_music",
-            "item_kind_metadata_tv",
-            "organizations",
             "metadata_taxonomies",
+            "organizations",
             "item_aliases",
             "item_links",
             "release_statuses",
@@ -73,8 +63,38 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "image_cache_entries",
             "admin_audit_logs",
         }.issubset(tables)
+        assert "item_kind_metadata_anime" not in tables
+        assert "item_kind_metadata_boardgame" not in tables
+        assert "item_kind_metadata_book" not in tables
+        assert "item_kind_metadata_collection" not in tables
+        assert "item_kind_metadata_comic" not in tables
+        assert "item_kind_metadata_game" not in tables
+        assert "item_kind_metadata_manga" not in tables
+        assert "item_kind_metadata_movie" not in tables
+        assert "item_kind_metadata_music" not in tables
+        assert "item_kind_metadata_tv" not in tables
+        assert "item_kind_metadata_music_tracks" not in tables
+        assert "metadata_taxonomies" in tables
+        assert "item_kind_metadata_taxonomies" in tables
         assert "tracking_entries" not in tables
         assert "releases" not in tables
+
+        item_kind_metadata_columns = {
+            row[0]
+            for row in (
+                await db.execute(
+                    text(
+                        """
+                        select column_name
+                        from information_schema.columns
+                        where table_schema = 'public'
+                          and table_name = 'item_kind_metadata'
+                        """
+                    )
+                )
+            ).all()
+        }
+        assert "metadata_json" in item_kind_metadata_columns
 
         enum_values = {
             row[0]

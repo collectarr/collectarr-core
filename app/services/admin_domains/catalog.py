@@ -34,8 +34,6 @@ from app.models.canonical import (
     EntityPerson,
     Item,
     ItemKindMetadata,
-    ItemKindMetadataMusic,
-    ItemKindMetadataTaxonomy,
     Organization,
     Person,
     PhysicalFormatRef,
@@ -230,12 +228,6 @@ class AdminCatalogService:
             .options(
                 selectinload(Item.editions),
                 MetadataRepository(self.db)._kind_metadata_loader(),
-                selectinload(Item.kind_metadata)
-                .selectinload(ItemKindMetadata.taxonomy_links)
-                .selectinload(ItemKindMetadataTaxonomy.taxonomy),
-                selectinload(Item.kind_metadata.of_type(ItemKindMetadataMusic)).selectinload(
-                    ItemKindMetadataMusic.tracks
-                ),
             )
             .order_by(Item.id.asc())
         )

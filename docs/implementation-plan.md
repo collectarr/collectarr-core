@@ -53,8 +53,9 @@
 ## 🔜 Active Roadmap
 
 ### 🎯 Metadata Contract + Ingest Reliability
-- [ ] Stabilize typed-per-kind metadata storage as canonical contract
-	- Keep the typed parent/child tables as the only authority for normalized typed fields.
+- [x] Stabilize typed-per-kind metadata storage as canonical contract
+	- Typed per-kind fields now live in `item_kind_metadata.metadata_json`/base columns instead of per-kind subtype tables.
+	- Shared genre/platform classification now uses taxonomy link tables again instead of per-kind scalar columns.
 	- Keep admin drift diagnostics (`typed_*` issue keys) as the release gate.
 - [ ] Continue per-media normalization depth
 	- Expand provider mapping where upstream data still exists for video, book/manga, and game metadata.
@@ -64,6 +65,14 @@
 	- Turn confidence factors/warnings into explicit queue decisions with richer audit context.
 - [ ] Continue public deployment hardening for internet-facing setups
 	- Keep tightening auth defaults, CORS, rate limits, job isolation, and secrets guidance.
+
+### 🗂️ Schema Explorer / Taxonomy Clarity
+- [ ] Keep the interactive schema explorer split into navigable domains and kind views
+	- Continue color-coding generic vs kind-specific areas so the table hierarchy is visually obvious.
+- [x] Remove legacy `item_kind_metadata_*` subtype tables from the docs
+	- Only the shared `item_kind_metadata` base table remains in the catalog view.
+- [ ] Consider further pagination/collapse for very dense sections
+	- Add more progressive disclosure if the generated markdown or explorer still feels overloaded.
 
 ### 🧩 Scan-to-Identify Boundary
 - [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify

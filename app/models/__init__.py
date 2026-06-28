@@ -35,7 +35,6 @@ __all__ = [
     "Base",
     "AdminAuditLog",
     "BundleRelease",
-    "BundleReleaseProviderLink",
     "BundleReleaseItem",
     "Character",
     "CharacterAppearance",
@@ -62,6 +61,7 @@ __all__ = [
     "Tag",
     "User",
     "Variant",
-    "VolumeProviderLink",
     "Volume",
+    "VolumeProviderLink",
+    "BundleReleaseProviderLink",
 ]

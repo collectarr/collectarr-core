@@ -331,10 +331,6 @@
         border-left: 4px solid var(--section-accent, var(--panel-border));
       }
 
-      .table-card.identity-only {
-        border-style: dashed;
-      }
-
       .chip-kind {
         color: var(--section-accent, var(--accent));
       }
@@ -690,7 +686,6 @@
       `;
 
       const renderTableCard = (table, sectionLabel) => {
-        const identityOnlySubtype = table.name.startsWith("item_kind_metadata_") && table.columns.length === 1;
         const polymorphicBase = table.name === "item_kind_metadata";
         const columnSearchTokens = table.columns.flatMap((column) => [
           table.name,
@@ -710,7 +705,7 @@
         const searchValue = [...columnSearchTokens, ...constraintSearchTokens, table.polymorphic_note || ""].join(" ").toLowerCase();
 
         return `
-          <article class="table-card${identityOnlySubtype ? " identity-only" : ""}" data-search="${escapeHtml(searchValue)}">
+          <article class="table-card" data-search="${escapeHtml(searchValue)}">
             <div class="table-header">
               <div>
                 <h3 class="table-name"><code>${escapeHtml(table.name)}</code></h3>
@@ -720,7 +715,6 @@
                 <span class="chip chip-flag">PK: ${escapeHtml(table.constraints.primary_key.columns.join(", ") || "-")}</span>
                 <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
                 ${polymorphicBase ? '<span class="chip chip-flag">polymorphic base</span>' : ""}
-                ${identityOnlySubtype ? '<span class="chip chip-warn">identity-only subtype</span>' : ""}
                 ${table.polymorphic_note ? '<span class="chip chip-warn">polymorphic</span>' : ""}
               </div>
             </div>

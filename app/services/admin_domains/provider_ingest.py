@@ -30,7 +30,6 @@ from app.models.canonical import (
     BookWork,
     BundleRelease,
     BundleReleaseItem,
-    BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
@@ -46,7 +45,6 @@ from app.models.canonical import (
     EntityTag,
     ExternalProviderId,
     Item,
-    ItemProviderLink,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -80,7 +78,6 @@ from app.models.canonical import (
     TVReleaseMedia,
     Variant,
     Volume,
-    VolumeProviderLink,
 )
 from app.proposal_payload import compact_metadata_payload
 from app.providers.base import (
@@ -1117,10 +1114,21 @@ class AdminProviderIngestService:
             select(ExternalProviderId.entity_type, ExternalProviderId.entity_id).where(
                 ExternalProviderId.provider == provider,
                 ExternalProviderId.provider_item_id == provider_item_id,
-                ExternalProviderId.entity_type.in_([
-                    "item", "bundle_release", "book_work", "comic_work",
-                    "manga_work", "anime_series", "movie_work", "tv_series", "music_release"
-                ]),
+                ExternalProviderId.entity_type.in_(
+                    [
+                        "item",
+                        "series",
+                        "volume",
+                        "bundle_release",
+                        "book_work",
+                        "comic_work",
+                        "manga_work",
+                        "anime_series",
+                        "movie_work",
+                        "tv_series",
+                        "music_release",
+                    ]
+                ),
             )
         )
         external_row = external_ref.first()
@@ -1128,45 +1136,6 @@ class AdminProviderIngestService:
             return CatalogProviderLinkRef(
                 entity_type=str(external_row[0]),
                 entity_id=external_row[1],
-                provider_item_id=provider_item_id,
-            )
-        legacy_item = await self.db.execute(
-            select(ItemProviderLink.item_id).where(
-                ItemProviderLink.provider == provider,
-                ItemProviderLink.provider_item_id == provider_item_id,
-            )
-        )
-        legacy_item_id = legacy_item.scalar_one_or_none()
-        if legacy_item_id is not None:
-            return CatalogProviderLinkRef(
-                entity_type="item",
-                entity_id=legacy_item_id,
-                provider_item_id=provider_item_id,
-            )
-        legacy_volume = await self.db.execute(
-            select(VolumeProviderLink.volume_id).where(
-                VolumeProviderLink.provider == provider,
-                VolumeProviderLink.provider_item_id == provider_item_id,
-            )
-        )
-        legacy_volume_id = legacy_volume.scalar_one_or_none()
-        if legacy_volume_id is not None:
-            return CatalogProviderLinkRef(
-                entity_type="volume",
-                entity_id=legacy_volume_id,
-                provider_item_id=provider_item_id,
-            )
-        legacy_bundle = await self.db.execute(
-            select(BundleReleaseProviderLink.bundle_release_id).where(
-                BundleReleaseProviderLink.provider == provider,
-                BundleReleaseProviderLink.provider_item_id == provider_item_id,
-            )
-        )
-        legacy_bundle_id = legacy_bundle.scalar_one_or_none()
-        if legacy_bundle_id is not None:
-            return CatalogProviderLinkRef(
-                entity_type="bundle_release",
-                entity_id=legacy_bundle_id,
                 provider_item_id=provider_item_id,
             )
         return None
@@ -1448,7 +1417,7 @@ class AdminProviderIngestService:
         )
         return refreshed
 
-    async def _refresh_item_from_provider(self, pid: ItemProviderLink) -> None:
+    async def _refresh_item_from_provider(self, pid: ExternalProviderId) -> None:
         registry = ProviderRegistry()
         provider = registry.get(pid.provider)
         if provider is None or not provider.is_configured:
@@ -2126,8 +2095,7 @@ class AdminProviderIngestService:
         provider_urls: dict[str, dict[str, str | None]] | None = None,
     ) -> None:
         await self._replace_catalog_provider_links(
-            model=ItemProviderLink,
-            owner_column=ItemProviderLink.item_id,
+            entity_type="item",
             owner_id=item_id,
             provider=provider,
             provider_ids=provider_ids,
@@ -2142,8 +2110,7 @@ class AdminProviderIngestService:
         provider_urls: dict[str, dict[str, str | None]] | None = None,
     ) -> None:
         await self._replace_catalog_provider_links(
-            model=VolumeProviderLink,
-            owner_column=VolumeProviderLink.volume_id,
+            entity_type="volume",
             owner_id=volume_id,
             provider=provider,
             provider_ids=provider_ids,
@@ -2158,8 +2125,7 @@ class AdminProviderIngestService:
         provider_urls: dict[str, dict[str, str | None]] | None = None,
     ) -> None:
         await self._replace_catalog_provider_links(
-            model=BundleReleaseProviderLink,
-            owner_column=BundleReleaseProviderLink.bundle_release_id,
+            entity_type="bundle_release",
             owner_id=bundle_release_id,
             provider=provider,
             provider_ids=provider_ids,
@@ -2169,8 +2135,7 @@ class AdminProviderIngestService:
     async def _replace_catalog_provider_links(
         self,
         *,
-        model: Any,
-        owner_column: Any,
+        entity_type: str,
         owner_id: UUID,
         provider: ExternalProvider,
         provider_ids: dict[str, str],
@@ -2192,27 +2157,37 @@ class AdminProviderIngestService:
                 {
                     "provider": provider_enum,
                     "provider_item_id": provider_id,
+                    "entity_type": entity_type,
                     "site_url": provider_link_url_text(urls.get("site_url")) if urls else None,
                     "api_url": provider_link_url_text(urls.get("api_url")) if urls else None,
                 }
             )
         await self.db.execute(
-            delete(model).where(
-                owner_column == owner_id,
-                model.provider.in_(sorted(replacement_providers, key=lambda value: value.value)),
+            delete(ExternalProviderId).where(
+                ExternalProviderId.entity_id == owner_id,
+                ExternalProviderId.entity_type == entity_type,
+                ExternalProviderId.provider.in_(sorted(replacement_providers, key=lambda value: value.value)),
             )
         )
-        owner_field = owner_column.key
         for row in rows:
             existing_any = await self.db.scalar(
-                select(model).where(
-                    model.provider == row["provider"],
-                    model.provider_item_id == row["provider_item_id"],
+                select(ExternalProviderId).where(
+                    ExternalProviderId.provider == row["provider"],
+                    ExternalProviderId.provider_item_id == row["provider_item_id"],
                 )
             )
             if existing_any:
                 continue
-            self.db.add(model(**{owner_field: owner_id, **row}))
+            self.db.add(
+                ExternalProviderId(
+                    provider=row["provider"],
+                    provider_item_id=row["provider_item_id"],
+                    entity_type=row["entity_type"],
+                    entity_id=owner_id,
+                    site_url=row["site_url"],
+                    api_url=row["api_url"],
+                )
+            )
 
     async def _link_publisher(self, item_id: UUID, publisher: str | None) -> None:
         if not publisher:
@@ -3383,6 +3358,8 @@ class AdminProviderIngestService:
            sort_title=sort_key(ItemKind.music, normalized.title, None),
            subtitle=normalized.subtitle,
            release_date=normalized.release_date,
+           media_count=len({track.disc_number or 1 for track in (normalized.tracks or [])}) or None,
+           track_count=normalized.track_count or (len(normalized.tracks) if normalized.tracks else None),
            catalog_number=normalized.catalog_number,
            release_status=normalized.release_status,
            publisher=normalized.publisher,
@@ -3422,6 +3399,7 @@ class AdminProviderIngestService:
                 release_id=release.id,
                 media_number=media_number,
                 media_type=normalized.physical_format or normalized.edition_format or "digital",
+                track_count=len(disc_tracks) or None,
                 packaging=normalized.packaging,
                 media_condition=normalized.media_condition,
                 sound_type=normalized.sound_type,
@@ -3794,11 +3772,15 @@ class AdminProviderIngestService:
             if season.provider_item_id:
                 volume = await self.db.scalar(
                     select(Volume)
-                    .join(VolumeProviderLink, VolumeProviderLink.volume_id == Volume.id)
+                    .join(
+                        ExternalProviderId,
+                        (ExternalProviderId.entity_id == Volume.id)
+                        & (ExternalProviderId.entity_type == "volume"),
+                    )
                     .where(
                         Volume.series_id == series.id,
-                        VolumeProviderLink.provider == ExternalProvider(provider.name),
-                        VolumeProviderLink.provider_item_id == season.provider_item_id,
+                        ExternalProviderId.provider == ExternalProvider(provider.name),
+                        ExternalProviderId.provider_item_id == season.provider_item_id,
                     )
                 )
             if volume is None:
@@ -3826,11 +3808,15 @@ class AdminProviderIngestService:
                 if episode.provider_item_id:
                     episode_item_id = await self.db.scalar(
                         select(Item.id)
-                        .join(ItemProviderLink, ItemProviderLink.item_id == Item.id)
+                        .join(
+                            ExternalProviderId,
+                            (ExternalProviderId.entity_id == Item.id)
+                            & (ExternalProviderId.entity_type == "item"),
+                        )
                         .where(
                             Item.volume_id == volume.id,
-                            ItemProviderLink.provider == ExternalProvider(provider.name),
-                            ItemProviderLink.provider_item_id == episode.provider_item_id,
+                            ExternalProviderId.provider == ExternalProvider(provider.name),
+                            ExternalProviderId.provider_item_id == episode.provider_item_id,
                         )
                     )
                 if episode_item_id is None:
@@ -4132,17 +4118,19 @@ class AdminProviderIngestService:
         provider_item_id: str,
     ) -> UUID | None:
         return await self.db.scalar(
-            select(ItemProviderLink.item_id).where(
-                ItemProviderLink.provider == provider,
-                ItemProviderLink.provider_item_id == provider_item_id,
+            select(ExternalProviderId.entity_id).where(
+                ExternalProviderId.provider == provider,
+                ExternalProviderId.provider_item_id == provider_item_id,
+                ExternalProviderId.entity_type == "item",
             )
         )
 
     async def _provider_id_for_item(self, provider: ExternalProvider, item_id: UUID) -> str | None:
         return await self.db.scalar(
-            select(ItemProviderLink.provider_item_id).where(
-                ItemProviderLink.provider == provider,
-                ItemProviderLink.item_id == item_id,
+            select(ExternalProviderId.provider_item_id).where(
+                ExternalProviderId.provider == provider,
+                ExternalProviderId.entity_id == item_id,
+                ExternalProviderId.entity_type == "item",
             )
         )
 

@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ItemKind
+from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import ComicIssue, ExternalProviderId, VolumeProviderLink
 from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.gcd import GCDProvider
@@ -122,12 +122,20 @@ async def test_ingest_gcd_imports_issue_and_skips_existing(monkeypatch):
         issue_count = await db.scalar(select(func.count()).select_from(ComicIssue))
         provider_ids = await db.scalars(
             select(ExternalProviderId.provider_item_id)
-            .where(ExternalProviderId.entity_type == "comic_issue")
+            .where(
+                ExternalProviderId.entity_type == "comic_issue",
+                ExternalProviderId.provider == ExternalProvider.gcd,
+            )
             .order_by(ExternalProviderId.provider_item_id)
         )
         volume_provider_ids = await db.scalars(
-            select(VolumeProviderLink.provider_item_id).order_by(
-                VolumeProviderLink.provider_item_id
+            select(ExternalProviderId.provider_item_id)
+            .where(
+                ExternalProviderId.entity_type == "volume",
+                ExternalProviderId.provider == ExternalProvider.gcd,
+            )
+            .order_by(
+                ExternalProviderId.provider_item_id
             )
         )
         assert issue_count == 1

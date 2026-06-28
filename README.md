@@ -227,6 +227,7 @@ Current active tracks:
 - deepen per-media normalization where provider data still has gaps
 - expand duplicate/merge review into a full operator queue
 - continue public-deployment hardening for internet-facing setups
+- keep the interactive schema explorer clearer by separating general tables from kind-specific subtypes
 - re-evaluate whether Core should own any comic cover-photo recognition / scan-to-identify work
 
 ---

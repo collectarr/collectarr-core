@@ -107,6 +107,15 @@ class MetadataCredit(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class ContributorResponse(BaseModel):
+    person_id: UUID
+    name: str
+    role: str
+    sequence: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class EditionResponse(BaseModel):
     id: UUID
     title: str
@@ -197,11 +206,7 @@ class SearchResult(BaseModel):
     bundle_release_ids: list[str] | None = None
 
 
-class BookContributorResponse(BaseModel):
-    person_id: UUID
-    name: str
-    role: str
-    sequence: int | None = None
+class BookContributorResponse(ContributorResponse):
     scope: str
 
 
@@ -251,11 +256,7 @@ class BookWorkV1Response(BaseModel):
     editions: list[BookEditionV1Response] = Field(default_factory=list)
 
 
-class ComicContributorResponse(BaseModel):
-    person_id: UUID
-    name: str
-    role: str
-    sequence: int | None = None
+class ComicContributorResponse(ContributorResponse):
     scope: str
 
 
@@ -317,13 +318,80 @@ class ComicWorkV1Response(BaseModel):
     issues: list[ComicIssueV1Response] = Field(default_factory=list)
 
 
-# Manga DTOs
-class MangaContributorResponse(BaseModel):
+class MusicContributorResponse(ContributorResponse):
+    pass
+
+
+class MusicIdentifierResponse(BaseModel):
     id: UUID
-    person_id: UUID
-    person_name: str
-    role: str
-    sequence: int | None = None
+    identifier_type: str
+    value: str
+    normalized_value: str
+    is_primary: bool
+    source_provider: ExternalProvider | None = None
+
+
+class MusicTrackV1Response(BaseModel):
+    id: UUID
+    media_id: UUID
+    position: str
+    title: str
+    duration_ms: int | None = None
+    instrument: str | None = None
+    composition: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class MusicMediaV1Response(BaseModel):
+    id: UUID
+    release_id: UUID
+    media_number: int
+    media_type: str | None = None
+    title: str | None = None
+    track_count: int | None = None
+    packaging: str | None = None
+    media_condition: str | None = None
+    sound_type: str | None = None
+    vinyl_color: str | None = None
+    vinyl_weight: str | None = None
+    rpm: int | None = None
+    spars: str | None = None
+    tracks: list[MusicTrackV1Response] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+class MusicReleaseV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    subtitle: str | None = None
+    release_type: str | None = None
+    release_status: str | None = None
+    release_date: date | None = None
+    recording_date: date | None = None
+    track_count: int | None = None
+    publisher: str | None = None
+    studio: str | None = None
+    catalog_number: str | None = None
+    barcode: str | None = None
+    country_code: str | None = None
+    language: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    extras: str | None = None
+    kind: ItemKind = ItemKind.music
+    media: list[MusicMediaV1Response] = Field(default_factory=list)
+    contributions: list[MusicContributorResponse] = Field(default_factory=list)
+    identifiers: list[MusicIdentifierResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+# Manga DTOs
+class MangaContributorResponse(ContributorResponse):
+    id: UUID
 
 
 class MangaIdentifierResponse(BaseModel):
@@ -374,12 +442,8 @@ class MangaWorkV1Response(BaseModel):
 
 
 # Anime DTOs
-class AnimeContributorResponse(BaseModel):
+class AnimeContributorResponse(ContributorResponse):
     id: UUID
-    person_id: UUID
-    person_name: str
-    role: str
-    sequence: int | None = None
 
 
 class AnimeIdentifierResponse(BaseModel):
@@ -431,12 +495,8 @@ class AnimeSeriesV1Response(BaseModel):
 
 
 # Movie DTOs
-class MovieContributorResponse(BaseModel):
+class MovieContributorResponse(ContributorResponse):
     id: UUID
-    person_id: UUID
-    person_name: str
-    role: str
-    sequence: int | None = None
 
 
 class MovieIdentifierResponse(BaseModel):
@@ -490,12 +550,8 @@ class MovieWorkV1Response(BaseModel):
 
 
 # TV DTOs
-class TVContributorResponse(BaseModel):
+class TVContributorResponse(ContributorResponse):
     id: UUID
-    person_id: UUID
-    person_name: str
-    role: str
-    sequence: int | None = None
 
 
 class TVIdentifierResponse(BaseModel):
@@ -557,64 +613,6 @@ class TVSeriesV1Response(BaseModel):
     contributions: list[TVContributorResponse] = Field(default_factory=list)
     identifiers: list[TVIdentifierResponse] = Field(default_factory=list)
     character_appearances: list[TVCharacterResponse] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
-
-
-# Music DTOs
-class MusicTrackV1Response(BaseModel):
-    id: UUID
-    media_id: UUID
-    position: str
-    title: str
-    duration_ms: int | None = None
-    instrument: str | None = None
-    composition: str | None = None
-
-    model_config = {"from_attributes": True}
-
-
-class MusicMediaV1Response(BaseModel):
-    id: UUID
-    release_id: UUID
-    media_number: int
-    media_type: str | None = None
-    title: str | None = None
-    track_count: int | None = None
-    packaging: str | None = None
-    media_condition: str | None = None
-    sound_type: str | None = None
-    vinyl_color: str | None = None
-    vinyl_weight: str | None = None
-    rpm: int | None = None
-    spars: str | None = None
-    tracks: list[MusicTrackV1Response] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
-
-
-class MusicReleaseV1Response(BaseModel):
-    id: UUID
-    title: str
-    sort_title: str | None = None
-    subtitle: str | None = None
-    release_type: str | None = None
-    release_status: str | None = None
-    release_date: date | None = None
-    recording_date: date | None = None
-    publisher: str | None = None
-    studio: str | None = None
-    catalog_number: str | None = None
-    barcode: str | None = None
-    country_code: str | None = None
-    language: str | None = None
-    cover_image_url: str | None = None
-    cover_image_key: str | None = None
-    extras: str | None = None
-    kind: ItemKind = ItemKind.music
-    media: list[MusicMediaV1Response] = Field(default_factory=list)
-    contributions: list = Field(default_factory=list)  # Placeholder for MusicContributorResponse
-    identifiers: list = Field(default_factory=list)  # Placeholder for MusicIdentifierResponse
 
     model_config = {"from_attributes": True}
 
@@ -1166,19 +1164,26 @@ def bundle_release_member_sort_key(member: Any) -> tuple[bool, int, bool, int, s
     )
 
 
-def bundle_release_detail_from_model(bundle_release: Any) -> BundleReleaseDetailResponse:
+def bundle_release_detail_from_model(
+    bundle_release: Any,
+    *,
+    provider_links: list[ProviderLink] | None = None,
+) -> BundleReleaseDetailResponse:
     summary = bundle_release_summary_from_model(bundle_release)
     members = sorted(
         getattr(bundle_release, "items", []) or [],
         key=bundle_release_member_sort_key,
     )
+    loaded_provider_links = provider_links
+    if loaded_provider_links is None:
+        loaded_provider_links = _provider_links_from_models(
+            getattr(bundle_release, "provider_links", []),
+            entity_type="bundle_release",
+        )
     return BundleReleaseDetailResponse(
         **summary.model_dump(),
         franchise_id=getattr(bundle_release, "franchise_id", None),
-        provider_links=_provider_links_from_models(
-            getattr(bundle_release, "provider_links", []),
-            entity_type="bundle_release",
-        ),
+        provider_links=loaded_provider_links,
         members=[
             BundleReleaseMemberResponse(
                 id=member.id,

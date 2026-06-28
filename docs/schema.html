@@ -203,6 +203,32 @@
         grid-template-columns: minmax(0, 1fr);
       }
 
+      .tab-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .tab-button {
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--panel-border);
+        background: var(--button);
+        color: var(--text);
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .tab-button.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+
+      .tab-button.active:hover {
+        color: #fff;
+      }
+
       .search {
         width: 100%;
         padding: 14px 16px;
@@ -228,6 +254,7 @@
       .domain {
         border-radius: 24px;
         padding: 24px;
+        border-left: 5px solid var(--section-accent, var(--panel-border));
       }
 
       .domain-header {
@@ -301,6 +328,15 @@
       .table-card {
         border-radius: 20px;
         padding: 18px;
+        border-left: 4px solid var(--section-accent, var(--panel-border));
+      }
+
+      .table-card.identity-only {
+        border-style: dashed;
+      }
+
+      .chip-kind {
+        color: var(--section-accent, var(--accent));
       }
 
       .table-header {
@@ -449,10 +485,11 @@
           <input id="schema-search" class="search" type="search" placeholder="Filter tables, columns, constraints, enums, or references">
           <div id="kind-nav" class="domain-nav"></div>
           <div id="domain-nav" class="domain-nav"></div>
+          <div id="schema-tabs" class="tab-strip" role="tablist" aria-label="Schema sections"></div>
         </div>
       </section>
 
-      <section class="notes">
+      <section class="notes" data-panel="notes">
         <h2 class="section-title">What This Includes</h2>
         <ul id="notes-list"></ul>
       </section>
@@ -462,20 +499,20 @@
         <p class="muted">Try a broader table name, column name, enum value, or constraint fragment.</p>
       </div>
 
-      <section class="card">
+      <section class="card" data-panel="kinds">
         <h2 class="section-title">Kind Views</h2>
         <p class="muted">Kind-focused slices for faster navigation of shared + kind-specific schema.</p>
         <section id="kinds" class="domains" style="margin-top: 16px;"></section>
       </section>
 
-      <section id="domains" class="domains"></section>
+      <section id="domains" class="domains" data-panel="domains"></section>
 
-      <section class="card">
+      <section class="card" data-panel="enums">
         <h2 class="section-title">Enums</h2>
         <div id="enum-grid" class="constraint-grid"></div>
       </section>
 
-      <section class="card">
+      <section class="card" data-panel="relationships">
         <h2 class="section-title">All Foreign Key Relationships</h2>
         <table class="relationship-table">
           <thead>
@@ -528,6 +565,69 @@
         if (column.enum) flags.push(`<span class="chip">enum: ${escapeHtml(column.enum)}</span>`);
         if (column.foreign_keys.length) flags.push('<span class="chip chip-flag">FK</span>');
         return `${formatNullable(column.nullable)}${flags.join("")}`;
+      };
+
+      const domainAccents = {
+        catalog: "#38bdf8",
+        editorial: "#a78bfa",
+        identity: "#22c55e",
+        operations: "#f97316",
+        misc: "#94a3b8",
+      };
+
+      const kindAccents = {
+        anime: "#8b5cf6",
+        boardgame: "#f59e0b",
+        book: "#14b8a6",
+        collection: "#64748b",
+        comic: "#ef4444",
+        game: "#22c55e",
+        manga: "#0ea5e9",
+        movie: "#f97316",
+        music: "#ec4899",
+        tv: "#06b6d4",
+      };
+
+      const pickSectionAccent = (prefix, sectionId, index) => {
+        if (prefix === "kind") {
+          return kindAccents[sectionId] || ["#8b5cf6", "#0ea5e9", "#22c55e", "#f97316", "#ec4899"][index % 5];
+        }
+        return domainAccents[sectionId] || ["#38bdf8", "#a78bfa", "#22c55e", "#f97316"][index % 4];
+      };
+
+      const panelOrder = ["notes", "kinds", "domains", "enums", "relationships"];
+
+      const setActivePanel = (panel) => {
+        const normalized = panel || "all";
+        document.querySelectorAll("[data-panel]").forEach((element) => {
+          const visible = normalized === "all" || element.dataset.panel === normalized;
+          element.classList.toggle("hidden", !visible);
+        });
+        document.querySelectorAll(".tab-button").forEach((button) => {
+          button.classList.toggle("active", button.dataset.panel === normalized);
+        });
+      };
+
+      const renderTabs = () => {
+        const tabs = document.getElementById("schema-tabs");
+        const labels = [
+          ["all", "All"],
+          ["notes", "Notes"],
+          ["kinds", "Kinds"],
+          ["domains", "Domains"],
+          ["enums", "Enums"],
+          ["relationships", "Relationships"],
+        ];
+        tabs.innerHTML = labels.map(([panel, label]) => `
+          <button type="button" class="tab-button" data-panel="${panel}" role="tab">${escapeHtml(label)}</button>
+        `).join("");
+        tabs.addEventListener("click", (event) => {
+          const button = event.target.closest("button[data-panel]");
+          if (!button) {
+            return;
+          }
+          setActivePanel(button.dataset.panel);
+        });
       };
 
       const renderMeta = () => {
@@ -589,7 +689,9 @@
         </div>
       `;
 
-      const renderTableCard = (table) => {
+      const renderTableCard = (table, sectionLabel) => {
+        const identityOnlySubtype = table.name.startsWith("item_kind_metadata_") && table.columns.length === 1;
+        const polymorphicBase = table.name === "item_kind_metadata";
         const columnSearchTokens = table.columns.flatMap((column) => [
           table.name,
           column.name,
@@ -608,7 +710,7 @@
         const searchValue = [...columnSearchTokens, ...constraintSearchTokens, table.polymorphic_note || ""].join(" ").toLowerCase();
 
         return `
-          <article class="table-card" data-search="${escapeHtml(searchValue)}">
+          <article class="table-card${identityOnlySubtype ? " identity-only" : ""}" data-search="${escapeHtml(searchValue)}">
             <div class="table-header">
               <div>
                 <h3 class="table-name"><code>${escapeHtml(table.name)}</code></h3>
@@ -616,6 +718,9 @@
               </div>
               <div class="table-meta">
                 <span class="chip chip-flag">PK: ${escapeHtml(table.constraints.primary_key.columns.join(", ") || "-")}</span>
+                <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
+                ${polymorphicBase ? '<span class="chip chip-flag">polymorphic base</span>' : ""}
+                ${identityOnlySubtype ? '<span class="chip chip-warn">identity-only subtype</span>' : ""}
                 ${table.polymorphic_note ? '<span class="chip chip-warn">polymorphic</span>' : ""}
               </div>
             </div>
@@ -672,10 +777,12 @@
 
         const tablesByName = new Map(schemaData.tables.map((table) => [table.name, table]));
         const container = document.getElementById(containerId);
-        container.innerHTML = sections.map((section) => {
+        container.innerHTML = sections.map((section, index) => {
           const tables = section.tables.map((tableName) => tablesByName.get(tableName)).filter(Boolean);
+          const accent = pickSectionAccent(prefix, section.id, index);
+          const sectionLabel = prefix === "kind" ? "Kind slice" : "General slice";
           return `
-            <section id="${prefix}-${escapeHtml(section.id)}" class="domain" ${dataAttribute}>
+            <section id="${prefix}-${escapeHtml(section.id)}" class="domain" ${dataAttribute} style="--section-accent: ${accent};">
               <div class="domain-header">
                 <div>
                   <h2 class="domain-title">${escapeHtml(section.title)}</h2>
@@ -687,6 +794,10 @@
                   <button type="button" data-action="fit">Fit</button>
                   <button type="button" data-action="reset">Reset</button>
                 </div>
+              </div>
+              <div class="table-meta" style="margin-top: 10px;">
+                <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
+                <span class="chip">Accent <code>${escapeHtml(accent)}</code></span>
               </div>
 
               <div class="viewer-shell">
@@ -703,7 +814,7 @@
                   </div>
                 ` : ""}
                 <div class="table-grid">
-                  ${tables.map((table) => renderTableCard(table)).join("")}
+                  ${tables.map((table) => renderTableCard(table, sectionLabel)).join("")}
                 </div>
               </div>
             </section>
@@ -838,8 +949,10 @@
       renderNotes();
       renderEnums();
       renderRelationships();
+      renderTabs();
       renderKinds();
       renderDomains();
+      setActivePanel("all");
       bindDiagramControls();
       bindSearch();
       const kindSections = schemaData.kinds || [];

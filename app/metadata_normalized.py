@@ -156,11 +156,15 @@ def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]
         tracks_loaded = "tracks" not in unloaded
         raw["tracks"] = [
             {
-                "position": row.position,
-                "title": row.title,
-                "duration_seconds": row.duration_seconds,
-                "artist": row.artist,
-                "disc_number": row.disc_number,
+                key: entry
+                for key, entry in {
+                    "position": row.position,
+                    "title": row.title,
+                    "duration_seconds": row.duration_seconds,
+                    "artist": row.artist,
+                    "disc_number": row.disc_number,
+                }.items()
+                if entry is not None
             }
             for row in (list(getattr(value, "tracks", []) or []) if tracks_loaded else [])
         ]

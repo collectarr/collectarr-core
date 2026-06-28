@@ -35,6 +35,7 @@ from app.models.canonical import (
     ItemKindMetadata,
     ItemKindMetadataComic,
     ItemKindMetadataMusic,
+    ItemKindMetadataMusicTrack,
     ItemProviderLink,
     MetadataProposal,
     Organization,
@@ -1814,6 +1815,7 @@ async def test_admin_normalized_drift_report_includes_typed_metadata_mismatch(cl
 
     response = await client.get(
         "/admin/catalog/normalized-metadata-drift",
+        params={"scan_limit": 100},
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -1823,6 +1825,52 @@ async def test_admin_normalized_drift_report_includes_typed_metadata_mismatch(cl
     assert body["typed_drifted_items"] >= 1
     assert body["release_gate_ok"] is False
     assert body["issue_counts"].get("typed_mismatch:genres", 0) >= 1
+
+
+@pytest.mark.asyncio
+async def test_admin_normalized_drift_report_keeps_music_tracks_loaded(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+
+    async with AsyncSessionLocal() as db:
+        item = Item(
+            id=UUID("00000000-0000-0000-0000-000000000001"),
+            kind=ItemKind.music,
+            title="Track Load Sample",
+            sort_key="track-load-sample",
+            metadata_json={
+                "normalized": {
+                    "schema_version": NORMALIZED_SCHEMA_VERSION,
+                    "track_count": 2,
+                    "tracks": [
+                        {"position": 1, "title": "Intro", "duration_seconds": 90},
+                        {"position": 2, "title": "Main Theme", "duration_seconds": 180},
+                    ],
+                }
+            },
+        )
+        typed = ItemKindMetadataMusic(
+            item=item,
+            kind=ItemKind.music,
+            track_count=2,
+            tracks=[
+                ItemKindMetadataMusicTrack(position=1, title="Intro", duration_seconds=90),
+                ItemKindMetadataMusicTrack(position=2, title="Main Theme", duration_seconds=180),
+            ],
+        )
+        db.add_all([item, typed])
+        await db.commit()
+
+    response = await client.get(
+        "/admin/catalog/normalized-metadata-drift",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["typed_scanned_items"] == 1
+    assert body["typed_drifted_items"] == 0
+    assert body["issue_counts"].get("typed_missing:tracks", 0) == 0
+    assert body["release_gate_ok"] is True
 
 
 @pytest.mark.asyncio

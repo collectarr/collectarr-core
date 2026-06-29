@@ -1,6 +1,5 @@
 import contextlib
 import logging
-import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -12,12 +11,10 @@ from sqlalchemy.orm import selectinload
 
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
-    is_video_item_kind,
-    physical_format_for_id,
 )
 from app.catalog.grouping_models import uses_legacy_series_volume
 from app.core.errors import ApiHTTPException
-from app.metadata_normalized import clean_normalized_metadata, upsert_item_kind_metadata
+from app.metadata_normalized import upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models.canonical import (
     AnimeCharacterAppearance,
@@ -143,19 +140,25 @@ from app.services.admin_domains.shared import (
     slug,
     sort_key,
 )
+from app.services.admin_domains.provider_ingest_helpers import (
+    book_identifier_type,
+    comic_identifier_type,
+    cover_metadata,
+    normalized_identifier,
+    normalized_language,
+    normalized_release_status,
+    normalized_region,
+    physical_format_for_normalized,
+    provider_metadata_json,
+    variant_cover_name,
+)
 from app.services.metadata import MetadataService
 from app.services.provider_preview_state import HydratedProviderPreview
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
 logger = logging.getLogger(__name__)
-_LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
-_REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
 _SNAPSHOT_TTL = timedelta(days=30)
-
-
-def _normalized_residual(values: dict[str, Any], *, kind: ItemKind) -> dict[str, Any]:
-    return clean_normalized_metadata(values, kind=kind)
 
 
 @dataclass(frozen=True)
@@ -1274,45 +1277,17 @@ class AdminProviderIngestService:
         self,
         normalized: NormalizedItem,
     ) -> PhysicalFormatConfig | None:
-        if not is_video_item_kind(normalized.kind):
-            return None
-        candidate = normalized.physical_format or normalized.edition_format
-        if not candidate:
-            return None
-        return physical_format_for_id(candidate)
+        return physical_format_for_normalized(normalized)
 
     def _variant_cover_name(self, cover: NormalizedVariantCover, index: int) -> str:
-        name = cover.name.strip() if cover.name else ""
-        return name[:255] if name else f"Variant cover {index}"
+        return variant_cover_name(cover, index)
 
     def _cover_metadata(
         self,
         source_url: str | None,
         mirrored_cover: Any | None,
     ) -> dict[str, Any]:
-        if mirrored_cover is not None:
-            return {
-                "cover_status": "mirrored",
-                "cover_source_url": source_url,
-                "cover_delivery_url": mirrored_cover.url,
-                "cover_storage": "object_storage",
-                "cover_policy": "minio_mirror",
-            }
-        if source_url:
-            return {
-                "cover_status": "external_url",
-                "cover_source_url": source_url,
-                "cover_delivery_url": source_url,
-                "cover_storage": "provider_external_url",
-                "cover_policy": "external_url_default",
-            }
-        return {
-            "cover_status": "missing",
-            "cover_source_url": None,
-            "cover_delivery_url": None,
-            "cover_storage": "generated_client_fallback",
-            "cover_policy": "generated_cover_fallback",
-        }
+        return cover_metadata(source_url, mirrored_cover)
 
     def _provider_metadata_json(
         self,
@@ -1323,32 +1298,22 @@ class AdminProviderIngestService:
         normalized: dict[str, Any] | None = None,
         source: Any | None = None,
     ) -> dict[str, Any]:
-        metadata: dict[str, Any] = {
-            "provider": provider_name.value,
-            "provider_item_id": provider_item_id,
-        }
-        normalized_payload = _normalized_residual(normalized or {}, kind=kind)
-        if normalized_payload:
-            metadata["normalized"] = normalized_payload
-        if source is not None:
-            metadata["source"] = source
-        return metadata
+        return provider_metadata_json(
+            provider_name,
+            provider_item_id,
+            kind=kind,
+            normalized=normalized,
+            source=source,
+        )
 
     def _normalized_release_status(self, value: str | None) -> str | None:
-        text = " ".join(str(value or "").split()).strip().lower()
-        return text or None
+        return normalized_release_status(value)
 
     def _normalized_language(self, value: str | None) -> str | None:
-        text = " ".join(str(value or "").split()).strip().lower()
-        if not text:
-            return None
-        return text if _LANGUAGE_RE.match(text) else None
+        return normalized_language(value)
 
     def _normalized_region(self, value: str | None) -> str | None:
-        text = " ".join(str(value or "").split()).strip().upper()
-        if not text:
-            return None
-        return text if _REGION_RE.match(text) else None
+        return normalized_region(value)
 
     async def _ensure_release_status(self, status_value: str) -> None:
         existing = await self.db.scalar(
@@ -4047,24 +4012,13 @@ class AdminProviderIngestService:
             return
 
     def _comic_identifier_type(self, base_type: str, value: str) -> str:
-        return self._book_identifier_type(base_type, value)
+        return comic_identifier_type(base_type, value)
 
     def _book_identifier_type(self, base_type: str, value: str) -> str:
-        normalized = self._normalized_identifier(value)
-        if base_type == "isbn":
-            if len(normalized) == 10:
-                return "isbn10"
-            if len(normalized) == 13:
-                return "isbn13"
-            return "isbn13"
-        if base_type == "upc":
-            if len(normalized) == 13:
-                return "ean"
-            return "upc"
-        return base_type
+        return book_identifier_type(base_type, value)
 
     def _normalized_identifier(self, value: str) -> str:
-        return re.sub(r"[^a-z0-9]+", "", str(value).strip().lower())
+        return normalized_identifier(value)
 
     async def _link_story_arcs(
         self,

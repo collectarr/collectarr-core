@@ -3,7 +3,7 @@
 ## Overview
 Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 - Removed ItemResponse DTO (v0 API contract)
-- Isolated legacy v0 ingest paths 
+- Isolated legacy v0 ingest fallback
 - Consolidated 4 ProviderLink types into ExternalProviderId
 
 **Status:** ✅ **COMPLETE** - All 3 tasks implemented and committed
@@ -16,8 +16,8 @@ Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 - **Removed:** `ItemResponse` class from `app/schemas/metadata.py` (was catch-all for v0 Item model)
 - **Removed:** ItemResponse imports from routes (metadata.py, admin.py)
 - **Updated:** Response models to use:
-  - `dict[str, Any]` for v0 items (games/boardgames only)
-  - Union of v1 types for other kinds: `BookWorkV1Response | ComicWorkV1Response | ...`
+  - `dict[str, Any]` only for remaining v0/legacy item responses
+  - Union of v1 types for supported kinds: `BookWorkV1Response | ComicWorkV1Response | ...`
   
 ### Files Modified
 - `app/schemas/metadata.py` - Removed ItemResponse class, kept ProviderLink (deprecated, for BundleReleaseDetailResponse only)
@@ -27,8 +27,8 @@ Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 - `app/services/metadata.py` - Updated return type annotations
 
 ### Impact
-- Games/boardgames still return v0 Item as dict in API responses (until they migrate to v1)
-- All other kinds use their specific v1 response types
+- Supported kinds use their specific v1 response types
+- Legacy item-shaped responses are now limited to fallback/unsupported paths
 - **No breaking changes for clients** - API still returns the same data, just with updated type contracts
 
 ### Note on ProviderLink
@@ -42,8 +42,8 @@ Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 
 ### What Changed
 - **Extracted:** Generic v0 ingest logic from `_ingest_once()` into new `_ingest_legacy_item_v0()` method
-- **Added:** Clear deprecation comment: "DEPRECATED: Used only for games/boardgames. Will be removed in Phase 2 after v1 migration."
-- **Simplified:** `_ingest_once()` now calls the deprecated method for unknown kinds
+- **Added:** Clear deprecation comment for the remaining fallback path
+- **Simplified:** `_ingest_once()` now uses explicit v1 handlers for supported kinds
 
 ### Files Modified
 - `app/services/admin_domains/provider_ingest.py`
@@ -61,12 +61,13 @@ _ingest_once()
 ├─ If tv → _create_tv_series_from_normalized()
 ├─ If book → _create_book_work_from_normalized()
 ├─ If music → _create_music_release_from_normalized()
-└─ Otherwise → _ingest_legacy_item_v0() [DEPRECATED - games/boardgames only]
+└─ Otherwise → _ingest_legacy_item_v0() [DEPRECATED fallback]
 ```
 
 ### Current Status
 - All v1 kinds have explicit handlers
-- Games/boardgames currently use v0 path (not yet migrated)
+- Supported kinds now use explicit v1 handlers
+- Legacy fallback remains for unsupported/collection cases only
 
 ---
 
@@ -144,7 +145,6 @@ pytest tests/services/test_ingest.py -v
 
 ### Expected Results
 - ✅ All 319 tests pass after complete changes
-- ✅ Games/boardgames tests pass (still using v0 path)
 - ✅ V1 kind tests pass (book, comic, manga, anime, movie, tv, music)
 - ✅ Provider link lookups work correctly with ExternalProviderId
 
@@ -189,7 +189,7 @@ When games/boardgames are ready for v1 migration:
 
 ## Notes
 
-- **ItemResponse** was only used for games/boardgames (still on v0)
+- **ItemResponse** is only relevant to legacy fallback paths
 - **ProviderLink** class retained as deprecated due to BundleRelease still using v0 model
 - **Migration is safe** - old tables preserved, migration is reversible
 - **No API breaking changes** - responses still contain same data, just with updated types

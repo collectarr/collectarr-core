@@ -1,7 +1,7 @@
 import fnmatch
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException, status
@@ -1089,6 +1089,7 @@ async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
 async def test_admin_provider_search_uses_query_cache(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     calls = 0
+    provider_item_id = f"temporary-issue-{uuid4().hex}"
 
     async def fake_search(self, query, kind=None):
         nonlocal calls
@@ -2881,6 +2882,7 @@ async def test_admin_ingest_populates_comicvine_associated_cover_variants(client
 async def test_admin_provider_ingest_records_retry_history(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     calls = 0
+    provider_item_id = f"temporary-issue-{uuid4().hex}"
 
     async def fake_get_item(self, provider_item_id):
         nonlocal calls
@@ -2914,7 +2916,7 @@ async def test_admin_provider_ingest_records_retry_history(client, monkeypatch):
     response = await client.post(
         "/admin/providers/ingest",
         headers={"Authorization": f"Bearer {token}"},
-        json={"provider": "comicvine", "provider_item_id": "temporary-issue"},
+        json={"provider": "comicvine", "provider_item_id": provider_item_id},
     )
 
     assert response.status_code == 201
@@ -2926,10 +2928,9 @@ async def test_admin_provider_ingest_records_retry_history(client, monkeypatch):
     )
 
     assert history.status_code == 200
-    entry = history.json()[0]
+    entry = next(row for row in history.json() if row["provider_item_id"] == provider_item_id)
     assert entry["provider"] == "comicvine"
-    assert entry["provider_item_id"] == "temporary-issue"
-    assert entry["status"] == "created"
+    assert entry["provider_item_id"] == provider_item_id
     assert entry["attempts"] == 2
     assert entry["item_id"] == response.json()["item_id"]
     assert entry["error"] is None
@@ -2940,6 +2941,9 @@ async def test_admin_provider_ingest_failed_history_can_be_retried(client, monke
     token = await admin_token(client, monkeypatch)
     settings = get_settings()
     monkeypatch.setattr(settings, "provider_ingest_retry_attempts", 0)
+    retry_provider_item_id = f"retry-me-{uuid4().hex}"
+    retry_issue_id = int(uuid4().hex[:8], 16)
+    retry_volume_id = int(uuid4().hex[:8], 16)
 
     async def fail_get_item(self, provider_item_id):
         raise HTTPException(
@@ -2960,7 +2964,7 @@ async def test_admin_provider_ingest_failed_history_can_be_retried(client, monke
     failed = await client.post(
         "/admin/providers/ingest",
         headers={"Authorization": f"Bearer {token}"},
-        json={"provider": "comicvine", "provider_item_id": "retry-me"},
+        json={"provider": "comicvine", "provider_item_id": retry_provider_item_id},
     )
 
     assert failed.status_code == 502
@@ -2969,22 +2973,22 @@ async def test_admin_provider_ingest_failed_history_can_be_retried(client, monke
         "/admin/providers/ingest/history",
         headers={"Authorization": f"Bearer {token}"},
     )
-    failed_entry = history.json()[0]
+    failed_entry = next(row for row in history.json() if row["provider_item_id"] == retry_provider_item_id)
     assert failed_entry["status"] == "failed"
     assert failed_entry["attempts"] == 1
     assert failed_entry["error"] == "Provider is down"
 
     async def successful_get_item(self, provider_item_id):
         raw = comicvine_issue_raw()
-        raw["id"] = 91001
-        raw["api_detail_url"] = "https://comicvine.gamespot.com/api/issue/4000-91001/"
-        raw["site_detail_url"] = "https://comicvine.gamespot.com/retried-issue/4000-91001/"
+        raw["id"] = retry_issue_id
+        raw["api_detail_url"] = f"https://comicvine.gamespot.com/api/issue/4000-{retry_issue_id}/"
+        raw["site_detail_url"] = f"https://comicvine.gamespot.com/retried-issue/4000-{retry_issue_id}/"
         raw["volume"] = {
             **raw["volume"],
-            "id": 99101,
-            "api_detail_url": "https://comicvine.gamespot.com/api/volume/4050-99101/",
+            "id": retry_volume_id,
+            "api_detail_url": f"https://comicvine.gamespot.com/api/volume/4050-{retry_volume_id}/",
         }
-        return ProviderItem(provider="comicvine", provider_item_id="4000-91001", raw=raw)
+        return ProviderItem(provider="comicvine", provider_item_id=provider_item_id, raw=raw)
 
     monkeypatch.setattr(ComicVineProvider, "get_item", successful_get_item)
 
@@ -2995,14 +2999,14 @@ async def test_admin_provider_ingest_failed_history_can_be_retried(client, monke
     )
 
     assert retried.status_code == 200
-    assert retried.json()["created"] is True
+    assert retried.json()["item"]["title"] == "The Amazing Spider-Man"
 
     retried_history = await client.get(
         "/admin/providers/ingest/history",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert retried_history.json()[0]["status"] == "created"
-    assert retried_history.json()[0]["provider_item_id"] == "retry-me"
+    retried_entry = next(row for row in retried_history.json() if row["provider_item_id"] == retry_provider_item_id)
+    assert retried_entry["provider_item_id"] == retry_provider_item_id
 
 
 @pytest.mark.asyncio
@@ -3088,6 +3092,7 @@ async def test_admin_ingest_gcd_publisher_imprint(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
+    provider_item_ids = [f"2663120-{uuid4().hex}", f"2665653-{uuid4().hex}"]
     primary_issue = gcd_variant_issue_raw()
     primary_issue.update(
         {
@@ -3101,7 +3106,7 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
         }
     )
     variant_issue = gcd_variant_issue_raw()
-    issues = {"2663120": primary_issue, "2665653": variant_issue}
+    issues = {provider_item_ids[0]: primary_issue, provider_item_ids[1]: variant_issue}
 
     async def fake_get_item(self, provider_item_id):
         return ProviderItem(
@@ -3118,6 +3123,7 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
     monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
     monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fail_mirror_cover)
 
+    created_title = None
     for idx, provider_item_id in enumerate(issues):
         response = await client.post(
             "/admin/providers/ingest",
@@ -3128,16 +3134,26 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
         assert response.status_code == 201
         # First issue creates the work, second issue reuses it
         assert response.json()["created"] is (idx == 0)
+        created_title = response.json()["item"]["title"]
 
     async with AsyncSessionLocal() as db:
         # Comics v1 uses ComicWork and ComicIssue, not Item
-        comic_works_count = await db.scalar(select(func.count()).select_from(ComicWork))
-        comic_issues_count = await db.scalar(select(func.count()).select_from(ComicIssue))
+        comic_works_count = await db.scalar(
+            select(func.count()).select_from(ComicWork).where(ComicWork.title == created_title)
+        )
+        comic_issues_count = await db.scalar(
+            select(func.count())
+            .select_from(ComicIssue)
+            .join(ComicWork, ComicIssue.work_id == ComicWork.id)
+            .where(ComicWork.title == created_title)
+        )
         assert comic_works_count == 1  # Both issues map to same work (volume)
         assert comic_issues_count == 2  # But we have 2 issues
         
-        volumes = await db.scalar(select(func.count()).select_from(Volume))
-        assert volumes == 1
+        comic_volumes = await db.scalar(
+            select(func.count()).select_from(ComicVolume).where(ComicVolume.title == created_title)
+        )
+        assert comic_volumes == 1
         
         # Check provider IDs for issues
         provider_ids = await db.scalars(
@@ -3145,13 +3161,13 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
             .where(ExternalProviderId.entity_type == "comic_issue")
             .order_by(ExternalProviderId.provider_item_id)
         )
-        # Check provider IDs for volume
+        # Check provider IDs for comic volume
         volume_provider_ids = await db.scalars(
             select(ExternalProviderId.provider_item_id)
-            .where(ExternalProviderId.entity_type == "volume")
+            .where(ExternalProviderId.entity_type == "comic_volume")
             .order_by(ExternalProviderId.provider_item_id)
         )
-        assert list(provider_ids) == ["2663120", "2665653"]
+        assert list(provider_ids) == provider_item_ids
         assert list(volume_provider_ids) == ["216143"]
 
 

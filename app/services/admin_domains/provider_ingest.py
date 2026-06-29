@@ -2227,14 +2227,15 @@ class AdminProviderIngestService:
 
     async def _replace_volume_provider_links(
         self,
-        volume_id: UUID,
+        volume: Volume | ComicVolume,
         provider: ExternalProvider,
         provider_ids: dict[str, str],
         provider_urls: dict[str, dict[str, str | None]] | None = None,
     ) -> None:
+        entity_type = "comic_volume" if isinstance(volume, ComicVolume) else "volume"
         await self._replace_catalog_provider_links(
-            entity_type="volume",
-            owner_id=volume_id,
+            entity_type=entity_type,
+            owner_id=volume.id,
             provider=provider,
             provider_ids=provider_ids,
             provider_urls=provider_urls,
@@ -2979,7 +2980,7 @@ class AdminProviderIngestService:
         # Add volume provider links if volume exists
         if volume:
             await self._replace_volume_provider_links(
-                volume.id,
+                volume,
                 provider_name,
                 normalized.volume_provider_ids,
             )

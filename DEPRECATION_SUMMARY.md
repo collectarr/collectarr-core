@@ -65,9 +65,9 @@ _ingest_once()
 ```
 
 ### Current Status
-- All v1 kinds have explicit handlers
-- Supported kinds now use explicit v1 handlers
-- Legacy fallback remains for unsupported/collection cases only
+- All supported kinds have explicit handlers
+- games/boardgames already use v1 handlers
+- Legacy fallback remains only for unsupported/collection cases
 
 ---
 
@@ -177,13 +177,11 @@ Three atomic commits for clear history:
 
 ## Phase 2 - Future Work
 
-When games/boardgames are ready for v1 migration:
-1. Create v1 schema for games/boardgames (if needed)
-2. Create hard cutover migration to remove Item+Edition+Variant records
-3. Remove `_ingest_legacy_item_v0()` method
-4. Drop old ProviderLink tables
-5. Remove ProviderLink class from schemas
-6. Update any remaining v0-only code paths
+When any remaining fallback-only kind is ready for full cutover:
+1. Remove `_ingest_legacy_item_v0()` method
+2. Drop old ProviderLink tables
+3. Remove ProviderLink class from schemas
+4. Update any remaining v0-only code paths
 
 ---
 

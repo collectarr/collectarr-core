@@ -141,7 +141,7 @@ class EditionResponse(BaseModel):
 
 
 class ProviderLink(BaseModel):
-    """Provider link for BundleReleaseDetailResponse. Note: For v1 schemas, use ExternalProviderId."""
+    """Provider link for BundleReleaseDetailResponse. For v1 schemas, use ExternalProviderId."""
     provider: ExternalProvider
     entity_type: str
     provider_item_id: str
@@ -996,7 +996,7 @@ def _attr_dict(value: Any) -> Any:
 def item_response_from_model(
     item: Any, extra_provider_links: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
-    """DEPRECATED: Converts v0 Item model to dictionary response. Used only for games/boardgames."""
+    """DEPRECATED: Converts legacy Item model to dictionary response."""
     base = {
         "id": getattr(item, "id", None),
         "kind": public_item_kind(getattr(item, "kind", None)),

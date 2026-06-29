@@ -374,16 +374,6 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
             await db.scalars(select(Item.title).where(Item.kind == ItemKind.anime).order_by(Item.title))
         )
         bundle = await db.scalar(select(BundleRelease).where(BundleRelease.bundle_type == "season_pack"))
-        provider_ids = list(
-            await db.execute(
-                select(ExternalProviderId.provider_item_id)
-                .where(
-                    ExternalProviderId.provider == ExternalProvider.anilist,
-                    ExternalProviderId.entity_type == "anime_series",
-                )
-                .order_by(ExternalProviderId.provider_item_id)
-            )
-        )
         bundle_provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id)

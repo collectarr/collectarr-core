@@ -11,9 +11,10 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "20260627_0200"

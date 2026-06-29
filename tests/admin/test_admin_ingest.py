@@ -21,8 +21,8 @@ from app.models.canonical import (
     ComicContribution,
     ComicIdentifier,
     ComicIssue,
-    ComicVolume,
     ComicStoryArcMembership,
+    ComicVolume,
     ComicWork,
     Edition,
     EntityOrganization,
@@ -1089,7 +1089,6 @@ async def test_admin_provider_search_uses_provider_results(client, monkeypatch):
 async def test_admin_provider_search_uses_query_cache(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     calls = 0
-    provider_item_id = f"temporary-issue-{uuid4().hex}"
 
     async def fake_search(self, query, kind=None):
         nonlocal calls

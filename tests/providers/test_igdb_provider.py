@@ -4,7 +4,13 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import EntityOrganization, ExternalProviderId, GameRelease, GameWork, Organization
+from app.models.canonical import (
+    EntityOrganization,
+    ExternalProviderId,
+    GameRelease,
+    GameWork,
+    Organization,
+)
 from app.providers.base import ProviderItem
 from app.providers.igdb import IGDBProvider
 from app.search.client import SearchClient

@@ -507,6 +507,7 @@ class AnimeSeriesV1Response(BaseModel):
 # Movie DTOs
 class MovieContributorResponse(ContributorResponse):
     id: UUID
+    character_name: str | None = None
 
 
 class MovieIdentifierResponse(BaseModel):
@@ -535,6 +536,8 @@ class MovieReleaseV1Response(BaseModel):
     description: str | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
+    trailer_urls: list[dict[str, Any]] = Field(default_factory=list)
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -550,6 +553,8 @@ class MovieWorkV1Response(BaseModel):
     runtime_minutes: int | None = None
     age_rating: str | None = None
     audience_rating: str | None = None
+    trailer_urls: list[dict[str, Any]] = Field(default_factory=list)
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
     kind: ItemKind = ItemKind.movie
     releases: list[MovieReleaseV1Response] = Field(default_factory=list)
     contributions: list[MovieContributorResponse] = Field(default_factory=list)

@@ -1030,6 +1030,8 @@ class MetadataService:
                     ),
                 )
             ],
+            trailer_urls=_metadata_links(work.metadata_json, "trailer_urls"),
+            external_links=_metadata_links(work.metadata_json, "external_links"),
             identifiers=[
                 self._movie_identifier_response(row)
                 for row in sorted(
@@ -1054,6 +1056,8 @@ class MetadataService:
             distributor=release.distributor,
             cover_image_url=release.cover_image_url,
             cover_image_key=release.cover_image_key,
+            trailer_urls=_metadata_links(release.metadata_json, "trailer_urls"),
+            external_links=_metadata_links(release.metadata_json, "external_links"),
         )
 
     def _movie_contributor_response(self, contrib: MovieWorkContribution) -> MovieContributorResponse:
@@ -1063,6 +1067,7 @@ class MetadataService:
             name=contrib.person.name if contrib.person is not None else "",
             role=contrib.role,
             sequence=contrib.sequence,
+            character_name=contrib.character_name,
         )
 
     def _movie_identifier_response(self, identifier: MovieWorkIdentifier) -> MovieIdentifierResponse:

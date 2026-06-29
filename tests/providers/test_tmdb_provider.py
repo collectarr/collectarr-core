@@ -4,11 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import (
-    ExternalProviderId,
-    MovieRelease,
-    MovieWork,
-)
+from app.models.canonical import ExternalProviderId, MovieRelease, MovieWork, MovieWorkContribution, MovieWorkIdentifier
 from app.providers.base import ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
@@ -38,6 +34,28 @@ def _movie_raw() -> dict:
         "poster_path": "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg",
         "genres": [{"name": "Science Fiction"}, {"name": "Action"}],
         "production_companies": [{"name": "Warner Bros. Pictures"}],
+        "external_ids": {
+            "imdb_id": "tt0133093",
+            "tmdb_id": 603,
+        },
+        "videos": {
+            "results": [
+                {
+                    "site": "YouTube",
+                    "type": "Trailer",
+                    "key": "vKQi3bBA1y8",
+                    "name": "Official Trailer",
+                }
+            ]
+        },
+        "release_dates": [
+            {
+                "iso_3166_1": "US",
+                "release_dates": [
+                    {"certification": "R"},
+                ],
+            }
+        ],
         "credits": {
             "crew": [
                 {"name": "Lana Wachowski", "job": "Director"},
@@ -154,7 +172,7 @@ async def test_tmdb_provider_fetches_and_normalizes_movie(monkeypatch):
 
     async def fake_request(self, path, params=None):
         assert path == "movie/603"
-        assert params["append_to_response"] == "credits,external_ids,recommendations"
+        assert params["append_to_response"] == "credits,external_ids,recommendations,release_dates,videos"
         return _movie_raw()
 
     monkeypatch.setattr(TMDbProvider, "_request", fake_request)
@@ -173,7 +191,11 @@ async def test_tmdb_provider_fetches_and_normalizes_movie(monkeypatch):
     assert normalized.characters[0].name == "Keanu Reeves"
     assert normalized.story_arcs == []
     assert normalized.audience_rating == "8.7"
+    assert normalized.age_rating == "R"
     assert normalized.provider_ids == {"tmdb": "movie:603"}
+    assert normalized.external_ids == {"tmdb_id": "603", "imdb_id": "tt0133093"}
+    assert normalized.trailer_urls[0]["url"].endswith("vKQi3bBA1y8")
+    assert normalized.external_links[0]["kind"] == "tmdb"
 
 
 @pytest.mark.asyncio
@@ -312,14 +334,28 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert body["created"] is True
     assert body["item"]["kind"] == "movie"
     assert body["item"]["title"] == "The Matrix"
-    # runtime_minutes is now on the movie work response
     assert body["item"]["runtime_minutes"] == 136
-    # publisher and audience_rating are in metadata_json or need to be checked in the db
-    # Just verify the basic structure was created
+    assert body["item"]["trailer_urls"][0]["site"] == "YouTube"
+    assert body["item"]["external_links"][0]["kind"] == "tmdb"
 
     async with AsyncSessionLocal() as db:
         movie_work = await db.scalar(select(MovieWork).where(MovieWork.title == "The Matrix"))
-        # Check the release for details
+        contributions = list(
+            await db.scalars(
+                select(MovieWorkContribution)
+                .join(MovieWork)
+                .where(MovieWork.title == "The Matrix")
+                .order_by(MovieWorkContribution.sequence.asc())
+            )
+        )
+        identifiers = list(
+            await db.scalars(
+                select(MovieWorkIdentifier)
+                .join(MovieWork)
+                .where(MovieWork.title == "The Matrix")
+                .order_by(MovieWorkIdentifier.identifier_type.asc())
+            )
+        )
         release = await db.scalar(
             select(MovieRelease).join(MovieWork).where(MovieWork.title == "The Matrix")
         )
@@ -331,10 +367,11 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
             )
         )
     assert movie_work is not None
-    # For movies v1, we store basic metadata in metadata_json
-    # audience_rating might not be persisted in this v1 iteration
+    assert movie_work.metadata_json["trailer_urls"][0]["kind"] == "trailer"
+    assert movie_work.metadata_json["external_links"][0]["kind"] == "tmdb"
+    assert any(row.role == "cast" and row.character_name == "Neo" for row in contributions)
+    assert {row.identifier_type for row in identifiers} >= {"provider_item_id", "imdb_id", "tmdb_id"}
     assert provider_ids == ["movie:603"]
-    # For movies v1, publisher info is stored on releases, not as separate organizations
     assert release is not None
 @pytest.mark.asyncio
 async def test_tmdb_provider_get_seasons(monkeypatch):

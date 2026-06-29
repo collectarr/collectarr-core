@@ -3754,3 +3754,56 @@ async def test_admin_ingest_creates_bundle_release_from_provider_package(monkeyp
         )
         assert [row[0] for row in provider_links.all()] == ["release:album-one", "release:album-two"]
         assert list(bundle_provider_links) == ["bundle:mb:collection-1"]
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_rejects_collection_kind_without_fallback(monkeypatch):
+    class FakeCollectionProvider:
+        name = "tmdb"
+        capabilities = ProviderCapabilities(
+            kind=ItemKind.collection,
+            display_name="TMDb",
+            kinds=(ItemKind.collection,),
+        )
+
+        @property
+        def is_configured(self) -> bool:
+            return True
+
+        @property
+        def status_message(self) -> str:
+            return "configured"
+
+        async def search(self, query: str, kind: ItemKind | None = None):
+            return []
+
+        async def get_item(self, provider_item_id: str) -> ProviderItem:
+            assert provider_item_id == "collection-1"
+            return ProviderItem(
+                provider="tmdb",
+                provider_item_id=provider_item_id,
+                raw={"id": 1, "name": "Legacy Collection"},
+            )
+
+        async def normalize(self, data) -> NormalizedItem:
+            assert data["id"] == 1
+            return NormalizedItem(
+                kind=ItemKind.collection,
+                title="Legacy Collection",
+                provider_ids={"tmdb": "collection-1"},
+            )
+
+    async with AsyncSessionLocal() as db:
+        service = admin_service.AdminMetadataService(db)
+        monkeypatch.setattr(service.providers, "get", lambda _: FakeCollectionProvider())
+
+        with pytest.raises(ApiHTTPException) as excinfo:
+            await service.ingest(
+                ProviderIngestRequest(
+                    provider=ExternalProvider.tmdb,
+                    provider_item_id="collection-1",
+                    kind=ItemKind.collection,
+                )
+            )
+
+    assert excinfo.value.code == "provider_ingest_unsupported"

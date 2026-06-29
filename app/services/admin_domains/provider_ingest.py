@@ -1053,12 +1053,13 @@ class AdminProviderIngestService:
                created=True,
                item=await MetadataService(self.db).get_boardgame_work(work.id),
            )
-        return await self._ingest_legacy_item_v0(
-           provider=provider,
-           provider_name=payload.provider,
-           provider_item_id=provider_item.provider_item_id,
-           provider_raw=provider_item.raw,
-           normalized=normalized,
+        raise ApiHTTPException(
+           status_code=status.HTTP_400_BAD_REQUEST,
+           code="provider_ingest_unsupported",
+           detail=(
+               f"Provider '{payload.provider.value}' does not support "
+               f"ingest for kind '{normalized.kind.value}'"
+           ),
         )
 
     async def _hydrated_provider_preview(
@@ -1806,33 +1807,6 @@ class AdminProviderIngestService:
         if candidate:
             return candidate
         return f"{bundle_provider_item_id}#member-{index}"
-
-    async def _ingest_legacy_item_v0(
-        self,
-        *,
-        provider: MetadataProvider,
-        provider_name: ExternalProvider,
-        provider_item_id: str,
-        provider_raw: Any,
-        normalized: NormalizedItem,
-    ) -> ProviderIngestResponse:
-        # Legacy fallback for any remaining non-v1 ingestion paths.
-        item, _, _ = await self._create_catalog_item_from_normalized(
-            provider=provider,
-            provider_name=provider_name,
-            provider_item_id=provider_item_id,
-            provider_raw=provider_raw,
-            normalized=normalized,
-        )
-        await self.db.commit()
-        loaded_item = await MetadataRepository(self.db).get_item(item.id)
-        if loaded_item:
-            await self._reindex_items({item.id})
-        return ProviderIngestResponse(
-            item_id=item.id,
-            created=True,
-            item=await self._item_response(loaded_item),
-        )
 
     async def _create_catalog_item_from_normalized(
         self,
@@ -3637,9 +3611,17 @@ class AdminProviderIngestService:
                 provider_name,
                 provider_item_id,
                 kind=ItemKind.movie,
-                normalized={},
+                normalized={
+                    "trailer_urls": normalized.trailer_urls,
+                    "external_links": normalized.external_links,
+                },
             ),
         )
+        if normalized.trailer_urls or normalized.external_links:
+            metadata = dict(work.metadata_json or {})
+            metadata["trailer_urls"] = normalized.trailer_urls
+            metadata["external_links"] = normalized.external_links
+            work.metadata_json = metadata
         self.db.add(work)
         await self.db.flush()
 
@@ -3673,9 +3655,26 @@ class AdminProviderIngestService:
                     sequence=index,
                 )
             )
+        for index, credit in enumerate(normalized.characters, start=1):
+            name = credit.name.strip()
+            if not name:
+                continue
+            person = await self._get_or_create_person(name, credit)
+            self.db.add(
+                MovieWorkContribution(
+                    work_id=work.id,
+                    person_id=person.id,
+                    role="cast",
+                    character_name=credit.role.strip() if credit.role else None,
+                    sequence=index,
+                )
+            )
 
         identifiers: list[tuple[str, str, bool]] = []
         identifiers.append(("provider_item_id", provider_item_id, False))
+        for identifier_type, value in (normalized.external_ids or {}).items():
+            if value:
+                identifiers.append((identifier_type, value, identifier_type == "tmdb_id"))
         for _, provider_value in normalized.provider_ids.items():
             if provider_value:
                 identifiers.append(("provider_item_id", provider_value, False))
@@ -3747,6 +3746,8 @@ class AdminProviderIngestService:
                 "title": work.title,
                 "original_language": work.original_language,
                 "runtime_minutes": work.runtime_minutes,
+                "trailer_urls": normalized.trailer_urls,
+                "external_links": normalized.external_links,
             },
         )
         if mirrored_cover:

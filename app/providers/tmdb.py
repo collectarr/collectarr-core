@@ -107,7 +107,7 @@ class TMDbProvider(BaseHttpProvider):
         payload = await self._request(
             f"{self._tmdb_type(api_kind)}/{tmdb_id}",
             {
-                "append_to_response": "credits,external_ids,recommendations",
+                "append_to_response": "credits,external_ids,recommendations,release_dates,videos",
                 "language": self.settings.tmdb_language,
             },
         )
@@ -135,6 +135,7 @@ class TMDbProvider(BaseHttpProvider):
         publisher = self._first_company(data.get("production_companies"))
         creators = self._creators(data, kind)
         genres = self._names(data.get("genres"))
+        external_ids = self._external_ids(data, kind)
         bundle_release = self._bundle_release(
             data=data,
             kind=kind,
@@ -164,6 +165,9 @@ class TMDbProvider(BaseHttpProvider):
             age_rating=self._age_rating(data),
             distributor=self._distributor(data),
             subtitle=self._optional_text(data.get("tagline")),
+            external_ids=external_ids,
+            trailer_urls=self._trailer_urls(data, kind),
+            external_links=self._external_links(data, kind, external_ids),
             provider_ids={self.name: provenance_id} if provenance_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             relations=self._relations(data, kind),
@@ -296,15 +300,31 @@ class TMDbProvider(BaseHttpProvider):
         for entry in release_dates:
             if not isinstance(entry, Mapping):
                 continue
-            if entry.get("iso_3166_1") == "US":
-                cert = self._optional_text(entry.get("certification"))
-                if cert:
-                    return cert
+            if entry.get("iso_3166_1") != "US":
+                continue
+            cert = self._age_rating_from_release_entry(entry)
+            if cert:
+                return cert
         # Fallback to first release with certification
         for entry in release_dates:
             if not isinstance(entry, Mapping):
                 continue
-            cert = self._optional_text(entry.get("certification"))
+            cert = self._age_rating_from_release_entry(entry)
+            if cert:
+                return cert
+        return None
+
+    def _age_rating_from_release_entry(self, entry: Mapping[str, Any]) -> str | None:
+        cert = self._optional_text(entry.get("certification"))
+        if cert:
+            return cert
+        releases = entry.get("release_dates")
+        if not isinstance(releases, list):
+            return None
+        for release in releases:
+            if not isinstance(release, Mapping):
+                continue
+            cert = self._optional_text(release.get("certification"))
             if cert:
                 return cert
         return None
@@ -551,6 +571,83 @@ class TMDbProvider(BaseHttpProvider):
             return None
         text = str(value).strip()
         return text or None
+
+    def _external_ids(self, data: Mapping[str, Any], kind: ItemKind) -> dict[str, str]:
+        external_ids = data.get("external_ids")
+        if not isinstance(external_ids, Mapping):
+            return {}
+        result: dict[str, str] = {}
+        tmdb_id = self._id(data.get("id"))
+        if tmdb_id is not None:
+            result["tmdb_id"] = str(tmdb_id)
+        imdb_id = self._optional_text(external_ids.get("imdb_id"))
+        if imdb_id:
+            result["imdb_id"] = imdb_id
+        return result
+
+    def _trailer_urls(self, data: Mapping[str, Any], kind: ItemKind) -> list[dict[str, str]]:
+        videos = data.get("videos")
+        if not isinstance(videos, Mapping):
+            return []
+        results = videos.get("results")
+        if not isinstance(results, list):
+            return []
+        links: list[dict[str, str]] = []
+        for entry in results:
+            if not isinstance(entry, Mapping):
+                continue
+            site = self._optional_text(entry.get("site"))
+            video_type = self._optional_text(entry.get("type"))
+            key = self._optional_text(entry.get("key"))
+            if site != "YouTube" or not key:
+                continue
+            if video_type and video_type.casefold() not in {"trailer", "teaser"}:
+                continue
+            name = self._optional_text(entry.get("name")) or "Trailer"
+            links.append(
+                {
+                    "url": f"https://www.youtube.com/watch?v={key}",
+                    "site": "YouTube",
+                    "kind": (video_type or "trailer").casefold(),
+                    "name": name,
+                    "description": "TMDb video",
+                }
+            )
+            if len(links) >= 3:
+                break
+        return links
+
+    def _external_links(
+        self,
+        data: Mapping[str, Any],
+        kind: ItemKind,
+        external_ids: dict[str, str],
+    ) -> list[dict[str, str]]:
+        links: list[dict[str, str]] = []
+        tmdb_id = external_ids.get("tmdb_id") or self._optional_text(data.get("id"))
+        tmdb_path = "movie" if kind == ItemKind.movie else "tv"
+        if tmdb_id:
+            links.append(
+                {
+                    "url": f"https://www.themoviedb.org/{tmdb_path}/{tmdb_id}",
+                    "site": "TMDb",
+                    "kind": "tmdb",
+                    "name": "TMDb page",
+                    "description": "TMDb title page",
+                }
+            )
+        imdb_id = external_ids.get("imdb_id")
+        if imdb_id:
+            links.append(
+                {
+                    "url": f"https://www.imdb.com/title/{imdb_id}/",
+                    "site": "IMDb",
+                    "kind": "imdb",
+                    "name": "IMDb page",
+                    "description": "IMDb title page",
+                }
+            )
+        return links
 
     async def get_seasons(self, provider_item_id: str) -> list[NormalizedSeason]:
         kind, tmdb_id = self._provider_id(provider_item_id)

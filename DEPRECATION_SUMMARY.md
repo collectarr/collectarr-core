@@ -3,7 +3,7 @@
 ## Overview
 Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 - Removed ItemResponse DTO (v0 API contract)
-- Isolated legacy v0 ingest fallback
+- Removed legacy v0 ingest fallback
 - Consolidated 4 ProviderLink types into ExternalProviderId
 
 **Status:** ✅ **COMPLETE** - All 3 tasks implemented and committed
@@ -28,7 +28,7 @@ Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 
 ### Impact
 - Supported kinds use their specific v1 response types
-- Legacy item-shaped responses are now limited to fallback/unsupported paths
+- Legacy item-shaped responses are now limited to unsupported paths
 - **No breaking changes for clients** - API still returns the same data, just with updated type contracts
 
 ### Note on ProviderLink
@@ -41,14 +41,12 @@ Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 ## Task 2: Isolate Legacy Ingest Paths ✅
 
 ### What Changed
-- **Extracted:** Generic v0 ingest logic from `_ingest_once()` into new `_ingest_legacy_item_v0()` method
-- **Added:** Clear deprecation comment for the remaining fallback path
-- **Simplified:** `_ingest_once()` now uses explicit v1 handlers for supported kinds
+- **Removed:** Generic v0 ingest fallback from `_ingest_once()`
+- **Simplified:** `_ingest_once()` now uses explicit v1 handlers for supported kinds and rejects the rest
 
 ### Files Modified
 - `app/services/admin_domains/provider_ingest.py`
-  - New method: `_ingest_legacy_item_v0()` - handles Item+Edition+Variant creation
-  - Updated: `_ingest_once()` - calls deprecated method for fallback case
+  - Updated: `_ingest_once()` - raises `provider_ingest_unsupported` for non-v1 kinds
 
 ### Ingest Flow
 ```
@@ -61,13 +59,13 @@ _ingest_once()
 ├─ If tv → _create_tv_series_from_normalized()
 ├─ If book → _create_book_work_from_normalized()
 ├─ If music → _create_music_release_from_normalized()
-└─ Otherwise → _ingest_legacy_item_v0() [DEPRECATED fallback]
+└─ Otherwise → reject with `provider_ingest_unsupported`
 ```
 
 ### Current Status
 - All supported kinds have explicit handlers
 - games/boardgames already use v1 handlers
-- Legacy fallback remains only for unsupported/collection cases
+- No legacy v0 ingest fallback remains
 
 ---
 
@@ -155,7 +153,7 @@ pytest tests/services/test_ingest.py -v
 Three atomic commits for clear history:
 
 1. **8904651** - Task 1: Remove ItemResponse DTO (v0 API contract)
-2. **9069da8** - Task 2: Isolate legacy v0 ingest paths into deprecated method
+2. **9069da8** - Task 2: Remove legacy v0 ingest fallback
 3. **09079d3** - Task 3: Consolidate provider links to ExternalProviderId model
 
 ---
@@ -164,7 +162,7 @@ Three atomic commits for clear history:
 
 - [x] ItemResponse completely removed from API layer
 - [x] Response models updated to use dict for v0, specific types for v1
-- [x] V0 ingest logic isolated in _ingest_legacy_item_v0() with deprecation marker
+- [x] V0 ingest fallback removed; unsupported kinds now fail explicitly
 - [x] All v1 kinds route through their specific handlers
 - [x] Migration file created for provider link consolidation
 - [x] Code updated to read from ExternalProviderId instead of old tables
@@ -177,17 +175,15 @@ Three atomic commits for clear history:
 
 ## Phase 2 - Future Work
 
-When any remaining fallback-only kind is ready for full cutover:
-1. Remove `_ingest_legacy_item_v0()` method
-2. Drop old ProviderLink tables
-3. Remove ProviderLink class from schemas
-4. Update any remaining v0-only code paths
+1. Drop old ProviderLink tables
+2. Remove ProviderLink class from schemas if BundleRelease moves off it
+3. Update any remaining v0-only code paths
 
 ---
 
 ## Notes
 
-- **ItemResponse** is only relevant to legacy fallback paths
+- **ItemResponse** is no longer used by ingest paths
 - **ProviderLink** class retained as deprecated due to BundleRelease still using v0 model
 - **Migration is safe** - old tables preserved, migration is reversible
 - **No API breaking changes** - responses still contain same data, just with updated types

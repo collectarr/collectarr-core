@@ -28,7 +28,6 @@ from app.models.canonical import (
     BookContribution,
     BookEdition,
     BookIdentifier,
-    BookSeries,
     BookSeriesMembership,
     BookWork,
     Character,
@@ -78,16 +77,6 @@ from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
 from app.repositories.metadata import MetadataRepository
-from app.services.metadata_helpers import (
-    _loaded_rows,
-    _metadata_date,
-    _metadata_text,
-    _metadata_links,
-    _metadata_list,
-    _model_text_or_metadata,
-    _organization_name,
-    _typed_kind_metadata,
-)
 from app.schemas.metadata import (
     AnimeCharacterResponse,
     AnimeContributorResponse,
@@ -131,9 +120,9 @@ from app.schemas.metadata import (
     MovieIdentifierResponse,
     MovieReleaseV1Response,
     MovieWorkV1Response,
-    MusicMediaV1Response,
     MusicContributorResponse,
     MusicIdentifierResponse,
+    MusicMediaV1Response,
     MusicReleaseV1Response,
     MusicTrackV1Response,
     ProviderLink,
@@ -146,8 +135,8 @@ from app.schemas.metadata import (
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
-    TVEpisodeV1Response,
     TVContributorResponse,
+    TVEpisodeV1Response,
     TVIdentifierResponse,
     TVSeasonV1Response,
     TVSeriesV1Response,
@@ -157,6 +146,15 @@ from app.schemas.metadata import (
     public_item_kind,
 )
 from app.search.client import SearchClient
+from app.services.metadata_helpers import (
+    _loaded_rows,
+    _metadata_date,
+    _metadata_links,
+    _metadata_list,
+    _model_text_or_metadata,
+    _organization_name,
+    _typed_kind_metadata,
+)
 from app.services.provider_search_state import ProviderSearchState
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror

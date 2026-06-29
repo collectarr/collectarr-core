@@ -14,8 +14,8 @@ from app.models.canonical import (
     BookWork,
     ComicContribution,
     ComicWork,
-    Item,
     GameWork,
+    Item,
     MangaContribution,
     MangaWork,
     MovieWork,
@@ -206,7 +206,7 @@ def book_work_search_document(work: BookWork) -> dict[str, Any]:
     )
     primary_edition = editions[0] if editions else None
     series_memberships = sorted(
-        list(getattr(work, "__dict__", {}).get("series_memberships") or []),
+        getattr(work, "__dict__", {}).get("series_memberships") or [],
         key=lambda row: (
             getattr(row, "sequence", None) is None,
             getattr(row, "sequence", None) or 0,

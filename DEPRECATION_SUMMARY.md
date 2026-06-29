@@ -115,11 +115,8 @@ NEW: ExternalProviderId
 - Old tables now read-only (only used as fallback during migration period)
 
 ### Old Tables Status
-Tables preserved but **read-only during migration**:
-- `item_provider_links` - for rollback safety
-- `series_provider_links` - for rollback safety
-- `volume_provider_links` - for rollback safety
-- `bundle_release_provider_links` - for rollback safety
+Legacy tables were preserved for rollback during the consolidation migration, then dropped in:
+- `alembic/versions/20260629_1600_drop_legacy_provider_link_tables.py`
 
 All **new writes** go to `external_provider_ids` only.
 

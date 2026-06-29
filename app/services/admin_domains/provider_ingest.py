@@ -9,10 +9,10 @@ from fastapi import status
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
+from app.catalog.grouping_models import uses_legacy_series_volume
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
 )
-from app.catalog.grouping_models import uses_legacy_series_volume
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
@@ -38,9 +38,9 @@ from app.models.canonical import (
     ComicContribution,
     ComicIdentifier,
     ComicIssue,
-    ComicVolume,
     ComicSeriesMembership,
     ComicStoryArcMembership,
+    ComicVolume,
     ComicWork,
     Edition,
     EntityOrganization,
@@ -123,12 +123,24 @@ from app.schemas.admin import (
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
-    book_work_search_document,
     boardgame_search_document,
+    book_work_search_document,
     comic_work_search_document,
     game_work_search_document,
     manga_work_search_document,
     movie_work_search_document,
+)
+from app.services.admin_domains.provider_ingest_helpers import (
+    book_identifier_type,
+    comic_identifier_type,
+    cover_metadata,
+    normalized_identifier,
+    normalized_language,
+    normalized_region,
+    normalized_release_status,
+    physical_format_for_normalized,
+    provider_metadata_json,
+    variant_cover_name,
 )
 from app.services.admin_domains.shared import (
     character_appearance_role,
@@ -139,18 +151,6 @@ from app.services.admin_domains.shared import (
     provider_link_urls_for_provider,
     slug,
     sort_key,
-)
-from app.services.admin_domains.provider_ingest_helpers import (
-    book_identifier_type,
-    comic_identifier_type,
-    cover_metadata,
-    normalized_identifier,
-    normalized_language,
-    normalized_release_status,
-    normalized_region,
-    physical_format_for_normalized,
-    provider_metadata_json,
-    variant_cover_name,
 )
 from app.services.metadata import MetadataService
 from app.services.provider_preview_state import HydratedProviderPreview

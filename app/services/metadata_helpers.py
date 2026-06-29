@@ -3,9 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from sqlalchemy import select
-
-from app.models.canonical import EntityPerson, EntityTag, ExternalProviderId
 from app.metadata_normalized import typed_kind_metadata_for_item
 
 

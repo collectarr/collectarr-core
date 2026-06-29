@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.catalog.physical_formats import PhysicalFormatConfig, is_video_item_kind, physical_format_for_id
+from app.catalog.physical_formats import (
+    PhysicalFormatConfig,
+    is_video_item_kind,
+    physical_format_for_id,
+)
+from app.metadata_normalized import clean_normalized_metadata
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedVariantCover
-from app.metadata_normalized import clean_normalized_metadata
 
 _LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 _REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")

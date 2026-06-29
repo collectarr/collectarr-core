@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
 from app.schemas.metadata import (
-    BoardGameWorkV1Response,
     AnimeSeriesV1Response,
+    BoardGameWorkV1Response,
     BookWorkV1Response,
     ComicWorkV1Response,
     GameWorkV1Response,

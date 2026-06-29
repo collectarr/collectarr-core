@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ExternalProviderId, Item, Organization, Person, Tag
+from app.models.canonical import EntityOrganization, ExternalProviderId, GameRelease, GameWork, Organization
 from app.providers.base import ProviderItem
 from app.providers.igdb import IGDBProvider
 from app.search.client import SearchClient
@@ -124,21 +124,33 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
     assert body["item"]["publisher"] == "Nintendo"
 
     async with AsyncSessionLocal() as db:
-        item = await db.scalar(select(Item).where(Item.kind == ItemKind.game))
+        work = await db.scalar(select(GameWork).where(GameWork.title == "The Legend of Zelda: Breath of the Wild"))
+        release = await db.scalar(
+            select(GameRelease).join(GameWork).where(GameWork.title == "The Legend of Zelda: Breath of the Wild")
+        )
         provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(
                     ExternalProviderId.provider == ExternalProvider.igdb,
-                    ExternalProviderId.entity_type == "item",
+                    ExternalProviderId.entity_type == "game_work",
                 )
             )
         )
-        publisher = await db.scalar(select(Organization.name))
-        developer = await db.scalar(select(Person.name))
-        tag = await db.scalar(select(Tag.name))
+        publisher = await db.scalar(
+            select(Organization.name).join(EntityOrganization, EntityOrganization.organization_id == Organization.id).where(
+                EntityOrganization.entity_type == "game_work",
+                EntityOrganization.role == "publisher",
+            )
+        )
+        developer = await db.scalar(
+            select(Organization.name).join(EntityOrganization, EntityOrganization.organization_id == Organization.id).where(
+                EntityOrganization.entity_type == "game_work",
+                EntityOrganization.role == "developer",
+            )
+        )
 
-    assert item is not None
+    assert work is not None
+    assert release is not None
     assert provider_ids == ["1020"]
     assert publisher == "Nintendo"
     assert developer == "Nintendo EPD"
-    assert tag is None

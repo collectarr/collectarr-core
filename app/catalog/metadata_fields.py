@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.catalog.grouping_models import LEGACY_SERIES_VOLUME_KINDS
 from app.models.base import ItemKind
 
 # Value types understood by normalization/validation + the edit surfaces.
@@ -58,9 +59,7 @@ VIDEO_KINDS: frozenset[ItemKind] = frozenset(
     {ItemKind.anime, ItemKind.movie, ItemKind.tv}
 )
 # Print kinds (page count, imprint, series group).
-PRINT_KINDS: frozenset[ItemKind] = frozenset(
-    {ItemKind.book, ItemKind.comic, ItemKind.manga}
-)
+PRINT_KINDS: frozenset[ItemKind] = LEGACY_SERIES_VOLUME_KINDS
 # Kinds that have trailers (video + interactive).
 TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
 # Every configured kind (genres applies to all of them).

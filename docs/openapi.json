@@ -624,7 +624,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ItemResponse"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Catalog Items Admin Catalog Items Get"
                 }
@@ -692,7 +693,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ItemResponse"
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Catalog Item Update Admin Catalog Items  Kind   Item Id  Patch"
                 }
               }
             }
@@ -4375,6 +4378,538 @@
         }
       }
     },
+    "/metadata/manga/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Manga Work",
+        "operationId": "get_manga_work_metadata_manga_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MangaWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/manga/works/{work_id}/chapters": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Manga Work Chapters",
+        "operationId": "get_manga_work_chapters_metadata_manga_works__work_id__chapters_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MangaChapterV1Response"
+                  },
+                  "title": "Response Get Manga Work Chapters Metadata Manga Works  Work Id  Chapters Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/manga/chapters/{chapter_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Manga Chapter",
+        "operationId": "get_manga_chapter_metadata_manga_chapters__chapter_id__get",
+        "parameters": [
+          {
+            "name": "chapter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chapter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MangaChapterV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/anime/series/{series_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Anime Series",
+        "operationId": "get_anime_series_metadata_anime_series__series_id__get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnimeSeriesV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/anime/series/{series_id}/episodes": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Anime Series Episodes",
+        "operationId": "get_anime_series_episodes_metadata_anime_series__series_id__episodes_get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnimeEpisodeV1Response"
+                  },
+                  "title": "Response Get Anime Series Episodes Metadata Anime Series  Series Id  Episodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/anime/episodes/{episode_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Anime Episode",
+        "operationId": "get_anime_episode_metadata_anime_episodes__episode_id__get",
+        "parameters": [
+          {
+            "name": "episode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Episode Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnimeEpisodeV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/movies/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Movie Work",
+        "operationId": "get_movie_work_metadata_movies_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovieWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/movies/works/{work_id}/releases": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Movie Work Releases",
+        "operationId": "get_movie_work_releases_metadata_movies_works__work_id__releases_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovieReleaseV1Response"
+                  },
+                  "title": "Response Get Movie Work Releases Metadata Movies Works  Work Id  Releases Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/movies/releases/{release_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Movie Release",
+        "operationId": "get_movie_release_metadata_movies_releases__release_id__get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovieReleaseV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/series/{series_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Tv Series",
+        "operationId": "get_tv_series_metadata_tv_series__series_id__get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVSeriesV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/series/{series_id}/seasons": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Tv Series Seasons",
+        "operationId": "get_tv_series_seasons_metadata_tv_series__series_id__seasons_get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TVSeasonV1Response"
+                  },
+                  "title": "Response Get Tv Series Seasons Metadata Tv Series  Series Id  Seasons Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/episodes/{episode_id}": {
+      "get": {
+        "tags": [
+          "metadata"
+        ],
+        "summary": "Get Tv Episode",
+        "operationId": "get_tv_episode_metadata_tv_episodes__episode_id__get",
+        "parameters": [
+          {
+            "name": "episode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Episode Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVEpisodeV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metadata/{media_type}/{item_id}": {
       "get": {
         "tags": [
@@ -4411,7 +4946,8 @@
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ItemResponse"
+                      "type": "object",
+                      "additionalProperties": true
                     },
                     {
                       "$ref": "#/components/schemas/BookWorkV1Response"
@@ -4474,7 +5010,8 @@
                 "schema": {
                   "anyOf": [
                     {
-                      "$ref": "#/components/schemas/ItemResponse"
+                      "type": "object",
+                      "additionalProperties": true
                     },
                     {
                       "$ref": "#/components/schemas/BookWorkV1Response"
@@ -5745,12 +6282,14 @@
           "item": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ItemResponse"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Item"
           }
         },
         "type": "object",
@@ -7115,6 +7654,720 @@
         "type": "object",
         "title": "AdminSeriesTagsUpdateRequest"
       },
+      "AnimeCharacterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "character_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Character Id"
+          },
+          "character_name": {
+            "type": "string",
+            "title": "Character Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "character_id",
+          "character_name",
+          "role"
+        ],
+        "title": "AnimeCharacterResponse"
+      },
+      "AnimeContributorResponse": {
+        "properties": {
+          "person_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "role",
+          "id"
+        ],
+        "title": "AnimeContributorResponse"
+      },
+      "AnimeEpisodeV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "episode_number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Number"
+          },
+          "episode_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Title"
+          },
+          "air_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Air Date"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "runtime_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "series_id"
+        ],
+        "title": "AnimeEpisodeV1Response"
+      },
+      "AnimeIdentifierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "identifier_type": {
+            "type": "string",
+            "title": "Identifier Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identifier_type",
+          "value",
+          "is_primary"
+        ],
+        "title": "AnimeIdentifierResponse"
+      },
+      "AnimeSeriesV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "original_air_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Air Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "anime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anime Type"
+          },
+          "episode_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Count"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "anime"
+          },
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/AnimeEpisodeV1Response"
+            },
+            "type": "array",
+            "title": "Episodes"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/AnimeContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributions"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/AnimeIdentifierResponse"
+            },
+            "type": "array",
+            "title": "Identifiers"
+          },
+          "character_appearances": {
+            "items": {
+              "$ref": "#/components/schemas/AnimeCharacterResponse"
+            },
+            "type": "array",
+            "title": "Character Appearances"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "AnimeSeriesV1Response"
+      },
+      "BoardGameEditionV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "work_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Work Id"
+          },
+          "edition_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edition Title"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "catalog_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Number"
+          },
+          "barcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Barcode"
+          },
+          "release_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Status"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Rating"
+          },
+          "audience_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience Rating"
+          },
+          "min_players": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Players"
+          },
+          "max_players": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Players"
+          },
+          "playing_time_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playing Time Minutes"
+          },
+          "min_age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Age"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "work_id"
+        ],
+        "title": "BoardGameEditionV1Response"
+      },
+      "BoardGameWorkV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Rating"
+          },
+          "audience_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience Rating"
+          },
+          "search_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Search Aliases"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genres"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Platforms"
+          },
+          "trailer_urls": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trailer Urls"
+          },
+          "external_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "External Links"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "boardgame"
+          },
+          "editions": {
+            "items": {
+              "$ref": "#/components/schemas/BoardGameEditionV1Response"
+            },
+            "type": "array",
+            "title": "Editions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "BoardGameWorkV1Response"
+      },
       "Body_add_entity_image_images_entity__entity_type___entity_id__post": {
         "properties": {
           "image_type": {
@@ -7415,18 +8668,6 @@
             ],
             "title": "Description"
           },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
-          },
           "contributors": {
             "items": {
               "$ref": "#/components/schemas/BookContributorResponse"
@@ -7572,17 +8813,9 @@
             ],
             "title": "First Publication Date"
           },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "book"
           },
           "contributors": {
             "items": {
@@ -7859,18 +9092,6 @@
               }
             ],
             "title": "Franchise Id"
-          },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
           },
           "provider_links": {
             "items": {
@@ -8745,18 +9966,6 @@
             ],
             "title": "Description"
           },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
-          },
           "contributors": {
             "items": {
               "$ref": "#/components/schemas/ComicContributorResponse"
@@ -8890,17 +10099,9 @@
             ],
             "title": "First Publication Date"
           },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "comic"
           },
           "contributors": {
             "items": {
@@ -9401,18 +10602,6 @@
             ],
             "title": "Physical Format Label"
           },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
-          },
           "variants": {
             "items": {
               "$ref": "#/components/schemas/VariantResponse"
@@ -9432,8 +10621,7 @@
           "upc",
           "language",
           "region",
-          "release_date",
-          "metadata_json"
+          "release_date"
         ],
         "title": "EditionResponse"
       },
@@ -9541,6 +10729,315 @@
         "type": "object",
         "title": "FacetItemIdsRequest"
       },
+      "GameReleaseV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "work_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Work Id"
+          },
+          "release_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Title"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "region_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Code"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "catalog_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Number"
+          },
+          "barcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Barcode"
+          },
+          "release_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Status"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "work_id"
+        ],
+        "title": "GameReleaseV1Response"
+      },
+      "GameWorkV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Rating"
+          },
+          "audience_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience Rating"
+          },
+          "search_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Search Aliases"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genres"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Platforms"
+          },
+          "trailer_urls": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trailer Urls"
+          },
+          "external_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "External Links"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "game"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/GameReleaseV1Response"
+            },
+            "type": "array",
+            "title": "Releases"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "GameWorkV1Response"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -9629,610 +11126,6 @@
         ],
         "title": "ItemKind"
       },
-      "ItemResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ItemKind"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "title_extension": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title Extension"
-          },
-          "localized_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Localized Title"
-          },
-          "original_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Original Title"
-          },
-          "search_aliases": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Search Aliases",
-            "default": []
-          },
-          "item_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Item Number"
-          },
-          "sort_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Key"
-          },
-          "synopsis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Synopsis"
-          },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "season_number": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Season Number"
-          },
-          "episode_number": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Episode Number"
-          },
-          "runtime_minutes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Runtime Minutes"
-          },
-          "page_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page Count"
-          },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
-          },
-          "series_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Series Id"
-          },
-          "series_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Series Title"
-          },
-          "volume_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Name"
-          },
-          "volume_number": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Number"
-          },
-          "volume_start_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Start Year"
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher"
-          },
-          "barcode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Barcode"
-          },
-          "cover_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Date"
-          },
-          "store_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Store Date"
-          },
-          "crossover": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Crossover"
-          },
-          "plot_summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plot Summary"
-          },
-          "plot_description": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Plot Description"
-          },
-          "cover_price_cents": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Price Cents"
-          },
-          "currency": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Currency"
-          },
-          "catalog_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Catalog Number"
-          },
-          "track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Count"
-          },
-          "tracks": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Tracks",
-            "default": []
-          },
-          "creators": {
-            "items": {
-              "$ref": "#/components/schemas/MetadataCredit"
-            },
-            "type": "array",
-            "title": "Creators",
-            "default": []
-          },
-          "characters": {
-            "items": {
-              "$ref": "#/components/schemas/MetadataCredit"
-            },
-            "type": "array",
-            "title": "Characters",
-            "default": []
-          },
-          "character_details": {
-            "items": {
-              "$ref": "#/components/schemas/MetadataCredit"
-            },
-            "type": "array",
-            "title": "Character Details",
-            "default": []
-          },
-          "story_arcs": {
-            "items": {
-              "$ref": "#/components/schemas/MetadataCredit"
-            },
-            "type": "array",
-            "title": "Story Arcs",
-            "default": []
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags"
-          },
-          "platforms": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Platforms",
-            "default": []
-          },
-          "genres": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Genres",
-            "default": []
-          },
-          "country": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Country"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "age_rating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Age Rating"
-          },
-          "audience_rating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audience Rating"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "nr_discs": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Nr Discs"
-          },
-          "screen_ratio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Screen Ratio"
-          },
-          "audio_tracks": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audio Tracks"
-          },
-          "subtitles": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtitles"
-          },
-          "layers": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Layers"
-          },
-          "trailer_urls": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Trailer Urls",
-            "default": []
-          },
-          "external_links": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "External Links",
-            "default": []
-          },
-          "imprint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Imprint"
-          },
-          "subtitle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtitle"
-          },
-          "series_group": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Series Group"
-          },
-          "release_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Status"
-          },
-          "provider_links": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderLink"
-            },
-            "type": "array",
-            "title": "Provider Links",
-            "default": []
-          },
-          "editions": {
-            "items": {
-              "$ref": "#/components/schemas/EditionResponse"
-            },
-            "type": "array",
-            "title": "Editions",
-            "default": []
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "kind",
-          "title",
-          "item_number",
-          "sort_key",
-          "synopsis",
-          "release_type",
-          "season_number",
-          "episode_number",
-          "runtime_minutes",
-          "page_count",
-          "metadata_json"
-        ],
-        "title": "ItemResponse"
-      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -10251,6 +11144,334 @@
           "password"
         ],
         "title": "LoginRequest"
+      },
+      "MangaChapterV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "work_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Work Id"
+          },
+          "chapter_number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Number"
+          },
+          "chapter_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Title"
+          },
+          "publication_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Date"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "work_id"
+        ],
+        "title": "MangaChapterV1Response"
+      },
+      "MangaCharacterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "character_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Character Id"
+          },
+          "character_name": {
+            "type": "string",
+            "title": "Character Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "character_id",
+          "character_name",
+          "role"
+        ],
+        "title": "MangaCharacterResponse"
+      },
+      "MangaContributorResponse": {
+        "properties": {
+          "person_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "role",
+          "id"
+        ],
+        "title": "MangaContributorResponse"
+      },
+      "MangaIdentifierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "identifier_type": {
+            "type": "string",
+            "title": "Identifier Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identifier_type",
+          "value",
+          "is_primary"
+        ],
+        "title": "MangaIdentifierResponse"
+      },
+      "MangaWorkV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "original_publication_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Publication Date"
+          },
+          "first_publication_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Publication Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "manga"
+          },
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/MangaChapterV1Response"
+            },
+            "type": "array",
+            "title": "Chapters"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/MangaContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributions"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/MangaIdentifierResponse"
+            },
+            "type": "array",
+            "title": "Identifiers"
+          },
+          "character_appearances": {
+            "items": {
+              "$ref": "#/components/schemas/MangaCharacterResponse"
+            },
+            "type": "array",
+            "title": "Character Appearances"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "MangaWorkV1Response"
       },
       "MediaCatalogResponse": {
         "properties": {
@@ -10335,64 +11556,6 @@
           "provider_search_policy"
         ],
         "title": "MediaTypeResponse"
-      },
-      "MetadataCredit": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          },
-          "api_detail_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Detail Url"
-          },
-          "site_detail_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Detail Url"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "MetadataCredit"
       },
       "MetadataFieldSchemaResponse": {
         "properties": {
@@ -10871,6 +12034,872 @@
           "total"
         ],
         "title": "MetadataProposalSummaryResponse"
+      },
+      "MovieCharacterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "character_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Character Id"
+          },
+          "character_name": {
+            "type": "string",
+            "title": "Character Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "character_id",
+          "character_name",
+          "role"
+        ],
+        "title": "MovieCharacterResponse"
+      },
+      "MovieContributorResponse": {
+        "properties": {
+          "person_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "role",
+          "id"
+        ],
+        "title": "MovieContributorResponse"
+      },
+      "MovieIdentifierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "identifier_type": {
+            "type": "string",
+            "title": "Identifier Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identifier_type",
+          "value",
+          "is_primary"
+        ],
+        "title": "MovieIdentifierResponse"
+      },
+      "MovieReleaseV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "work_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Work Id"
+          },
+          "release_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Title"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "distributor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distributor"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "work_id"
+        ],
+        "title": "MovieReleaseV1Response"
+      },
+      "MovieWorkV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "runtime_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Minutes"
+          },
+          "age_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Rating"
+          },
+          "audience_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience Rating"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "movie"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/MovieReleaseV1Response"
+            },
+            "type": "array",
+            "title": "Releases"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/MovieContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributions"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/MovieIdentifierResponse"
+            },
+            "type": "array",
+            "title": "Identifiers"
+          },
+          "character_appearances": {
+            "items": {
+              "$ref": "#/components/schemas/MovieCharacterResponse"
+            },
+            "type": "array",
+            "title": "Character Appearances"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "MovieWorkV1Response"
+      },
+      "MusicContributorResponse": {
+        "properties": {
+          "person_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "role"
+        ],
+        "title": "MusicContributorResponse"
+      },
+      "MusicIdentifierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "identifier_type": {
+            "type": "string",
+            "title": "Identifier Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "normalized_value": {
+            "type": "string",
+            "title": "Normalized Value"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          },
+          "source_provider": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExternalProvider"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identifier_type",
+          "value",
+          "normalized_value",
+          "is_primary"
+        ],
+        "title": "MusicIdentifierResponse"
+      },
+      "MusicMediaV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "release_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Release Id"
+          },
+          "media_number": {
+            "type": "integer",
+            "title": "Media Number"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Type"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "track_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Track Count"
+          },
+          "packaging": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packaging"
+          },
+          "media_condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Condition"
+          },
+          "sound_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sound Type"
+          },
+          "vinyl_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vinyl Color"
+          },
+          "vinyl_weight": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vinyl Weight"
+          },
+          "rpm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpm"
+          },
+          "spars": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spars"
+          },
+          "tracks": {
+            "items": {
+              "$ref": "#/components/schemas/MusicTrackV1Response"
+            },
+            "type": "array",
+            "title": "Tracks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "release_id",
+          "media_number"
+        ],
+        "title": "MusicMediaV1Response"
+      },
+      "MusicReleaseV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "release_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Type"
+          },
+          "release_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Status"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "recording_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recording Date"
+          },
+          "track_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Track Count"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "studio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Studio"
+          },
+          "catalog_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Number"
+          },
+          "barcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Barcode"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "extras": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extras"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "music"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/MusicMediaV1Response"
+            },
+            "type": "array",
+            "title": "Media"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/MusicContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributions"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/MusicIdentifierResponse"
+            },
+            "type": "array",
+            "title": "Identifiers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "MusicReleaseV1Response"
+      },
+      "MusicTrackV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "media_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Media Id"
+          },
+          "position": {
+            "type": "string",
+            "title": "Position"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument"
+          },
+          "composition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "media_id",
+          "position",
+          "title"
+        ],
+        "title": "MusicTrackV1Response"
       },
       "PhysicalFormatResponse": {
         "properties": {
@@ -11394,13 +13423,35 @@
           "item": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ItemResponse"
+                "additionalProperties": true,
+                "type": "object"
               },
               {
                 "$ref": "#/components/schemas/BookWorkV1Response"
               },
               {
                 "$ref": "#/components/schemas/ComicWorkV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/GameWorkV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/BoardGameWorkV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/MangaWorkV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/AnimeSeriesV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/MovieWorkV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/MusicReleaseV1Response"
+              },
+              {
+                "$ref": "#/components/schemas/TVSeriesV1Response"
               }
             ],
             "title": "Item"
@@ -11469,7 +13520,8 @@
           "entity_type",
           "provider_item_id"
         ],
-        "title": "ProviderLink"
+        "title": "ProviderLink",
+        "description": "Provider link for BundleReleaseDetailResponse. Note: For v1 schemas, use ExternalProviderId."
       },
       "ProviderPayloadSnapshotPurgeResponse": {
         "properties": {
@@ -13436,6 +15488,450 @@
         ],
         "title": "StoryArcResponse"
       },
+      "TVCharacterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "character_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Character Id"
+          },
+          "character_name": {
+            "type": "string",
+            "title": "Character Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "character_id",
+          "character_name",
+          "role"
+        ],
+        "title": "TVCharacterResponse"
+      },
+      "TVContributorResponse": {
+        "properties": {
+          "person_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Person Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "name",
+          "role",
+          "id"
+        ],
+        "title": "TVContributorResponse"
+      },
+      "TVEpisodeV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "season_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Season Id"
+          },
+          "episode_number": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Number"
+          },
+          "episode_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Title"
+          },
+          "air_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Air Date"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "runtime_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "season_id"
+        ],
+        "title": "TVEpisodeV1Response"
+      },
+      "TVIdentifierResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "identifier_type": {
+            "type": "string",
+            "title": "Identifier Type"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "title": "Is Primary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "identifier_type",
+          "value",
+          "is_primary"
+        ],
+        "title": "TVIdentifierResponse"
+      },
+      "TVSeasonV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "season_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Number"
+          },
+          "air_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Air Date"
+          },
+          "episode_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Count"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/TVEpisodeV1Response"
+            },
+            "type": "array",
+            "title": "Episodes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "series_id"
+        ],
+        "title": "TVSeasonV1Response"
+      },
+      "TVSeriesV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "original_air_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Air Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "season_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Count"
+          },
+          "episode_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Count"
+          },
+          "network": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "tv"
+          },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/TVSeasonV1Response"
+            },
+            "type": "array",
+            "title": "Seasons"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/TVContributorResponse"
+            },
+            "type": "array",
+            "title": "Contributions"
+          },
+          "identifiers": {
+            "items": {
+              "$ref": "#/components/schemas/TVIdentifierResponse"
+            },
+            "type": "array",
+            "title": "Identifiers"
+          },
+          "character_appearances": {
+            "items": {
+              "$ref": "#/components/schemas/TVCharacterResponse"
+            },
+            "type": "array",
+            "title": "Character Appearances"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "TVSeriesV1Response"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -13699,18 +16195,6 @@
             ],
             "title": "Physical Format Label"
           },
-          "metadata_json": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metadata Json"
-          },
           "is_primary": {
             "type": "boolean",
             "title": "Is Primary"
@@ -13731,7 +16215,6 @@
           "cover_image_url",
           "thumbnail_image_url",
           "description",
-          "metadata_json",
           "is_primary"
         ],
         "title": "VariantResponse"

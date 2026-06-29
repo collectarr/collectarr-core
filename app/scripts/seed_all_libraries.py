@@ -1255,12 +1255,12 @@ SEED_BOARDGAMES = [
 ALL_SEED_ENTRIES: list[SeedEntry] = (
     SEED_MOVIES + SEED_TV + SEED_BOOKS
     + SEED_MUSIC + SEED_GAMES + SEED_BOARDGAMES
-    + []  # comics are in seed_comics.py already
+    + []  # comics are seeded separately when needed
 )
 
 
 # ---------------------------------------------------------------------------
-#  Database helpers (mirrors seed_comics.py patterns)
+#  Database helpers
 # ---------------------------------------------------------------------------
 async def _get_or_create_franchise(db, name: str) -> Franchise:
     result = await db.execute(select(Franchise).where(Franchise.name == name))

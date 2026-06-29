@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 from dataclasses import dataclass, replace
@@ -14,6 +15,7 @@ from app.catalog.physical_formats import (
     is_video_item_kind,
     physical_format_for_id,
 )
+from app.catalog.grouping_models import uses_legacy_series_volume
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import clean_normalized_metadata, upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
@@ -23,9 +25,12 @@ from app.models.canonical import (
     AnimeEpisode,
     AnimeIdentifier,
     AnimeSeries,
+    BoardGameEdition,
+    BoardGameWork,
     BookContribution,
     BookEdition,
     BookIdentifier,
+    BookSeries,
     BookSeriesMembership,
     BookWork,
     BundleRelease,
@@ -36,6 +41,7 @@ from app.models.canonical import (
     ComicContribution,
     ComicIdentifier,
     ComicIssue,
+    ComicVolume,
     ComicSeriesMembership,
     ComicStoryArcMembership,
     ComicWork,
@@ -44,6 +50,8 @@ from app.models.canonical import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
+    GameRelease,
+    GameWork,
     Item,
     MangaChapter,
     MangaCharacterAppearance,
@@ -119,7 +127,9 @@ from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
     book_work_search_document,
+    boardgame_search_document,
     comic_work_search_document,
+    game_work_search_document,
     manga_work_search_document,
     movie_work_search_document,
 )
@@ -1013,6 +1023,36 @@ class AdminProviderIngestService:
                created=True,
                item=await MetadataService(self.db).get_music_release(release.id),
            )
+        if normalized.kind == ItemKind.game:
+           work = await self._create_game_work_from_normalized(
+               provider=provider,
+               provider_name=payload.provider,
+               provider_item_id=provider_item.provider_item_id,
+               provider_raw=provider_item.raw,
+               normalized=normalized,
+           )
+           await self.db.commit()
+           await self._reindex_game_work(work.id)
+           return ProviderIngestResponse(
+               item_id=work.id,
+               created=True,
+               item=await MetadataService(self.db).get_game_work(work.id),
+           )
+        if normalized.kind == ItemKind.boardgame:
+           work = await self._create_boardgame_work_from_normalized(
+               provider=provider,
+               provider_name=payload.provider,
+               provider_item_id=provider_item.provider_item_id,
+               provider_raw=provider_item.raw,
+               normalized=normalized,
+           )
+           await self.db.commit()
+           await self._reindex_boardgame_work(work.id)
+           return ProviderIngestResponse(
+               item_id=work.id,
+               created=True,
+               item=await MetadataService(self.db).get_boardgame_work(work.id),
+           )
         return await self._ingest_legacy_item_v0(
            provider=provider,
            provider_name=payload.provider,
@@ -1120,6 +1160,8 @@ class AdminProviderIngestService:
                         "series",
                         "volume",
                         "bundle_release",
+                        "game_work",
+                        "boardgame_work",
                         "book_work",
                         "comic_work",
                         "manga_work",
@@ -1151,6 +1193,32 @@ class AdminProviderIngestService:
                     detail="Provider link is stale",
                 )
             item = await MetadataRepository(self.db).get_item(item_id)
+        elif provider_id.entity_type == "game_work":
+            game_work = await self.db.get(GameWork, provider_id.entity_id)
+            if game_work is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="provider_link_stale",
+                    detail="Provider link is stale",
+                )
+            return ProviderIngestResponse(
+                item_id=game_work.id,
+                created=False,
+                item=await MetadataService(self.db).get_game_work(game_work.id),
+            )
+        elif provider_id.entity_type == "boardgame_work":
+            boardgame_work = await self.db.get(BoardGameWork, provider_id.entity_id)
+            if boardgame_work is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="provider_link_stale",
+                    detail="Provider link is stale",
+                )
+            return ProviderIngestResponse(
+                item_id=boardgame_work.id,
+                created=False,
+                item=await MetadataService(self.db).get_boardgame_work(boardgame_work.id),
+            )
         elif provider_id.entity_type == "book_work":
             book_work = await self.db.get(BookWork, provider_id.entity_id)
             if book_work is None:
@@ -1180,6 +1248,16 @@ class AdminProviderIngestService:
         else:
             item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
         if item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="provider_link_stale",
+                detail="Provider link is stale",
+            )
+        if not uses_legacy_series_volume(item.kind) and item.kind not in {
+            ItemKind.game,
+            ItemKind.boardgame,
+            ItemKind.collection,
+        }:
             raise ApiHTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 code="provider_link_stale",
@@ -1738,8 +1816,7 @@ class AdminProviderIngestService:
         provider_raw: Any,
         normalized: NormalizedItem,
     ) -> ProviderIngestResponse:
-        # DEPRECATED: Used only for games/boardgames. Will be removed in Phase 2 after v1 migration.
-        # All other kinds (book, comic, manga, anime, movie, tv, music) have been migrated to v1 schemas.
+        # Legacy fallback for any remaining non-v1 ingestion paths.
         item, _, _ = await self._create_catalog_item_from_normalized(
             provider=provider,
             provider_name=provider_name,
@@ -1996,10 +2073,24 @@ class AdminProviderIngestService:
         volume_name: str | None,
         volume_number: float | None,
         volume_start_year: int | None,
-    ) -> tuple[Volume | None, Series | None]:
+    ) -> tuple[Volume | ComicVolume | None, Series | None]:
         if not series_title and not volume_name:
             return None, None
         title = series_title or volume_name or "Unknown Series"
+        if kind == ItemKind.comic:
+            result = await self.db.execute(select(ComicVolume).where(ComicVolume.title == title))
+            comic_volume = result.scalar_one_or_none()
+            if comic_volume is None:
+                comic_volume = ComicVolume(
+                    title=title,
+                    slug=slug(title),
+                    start_year=volume_start_year,
+                )
+                self.db.add(comic_volume)
+                await self.db.flush()
+            elif comic_volume.start_year is None and volume_start_year is not None:
+                comic_volume.start_year = volume_start_year
+            return comic_volume, None
         series = await self._get_or_create_series(kind, title)
         name = volume_name or title
         result = await self.db.execute(select(Volume).where(Volume.series_id == series.id, Volume.name == name))
@@ -2018,6 +2109,38 @@ class AdminProviderIngestService:
         if volume.volume_number is None and volume_number is not None:
             volume.volume_number = volume_number
         return volume, series
+
+    async def _upsert_book_series(
+        self,
+        series_title: str | None,
+        *,
+        provider: ExternalProvider,
+        provider_item_id: str,
+        normalized: NormalizedItem,
+        provider_raw: Any | None,
+    ) -> BookSeries | None:
+        if not series_title:
+            return None
+        existing = await self.db.scalar(select(BookSeries).where(BookSeries.title == series_title))
+        if existing is not None:
+            return existing
+        series = BookSeries(
+            title=series_title,
+            slug=slug(series_title),
+            metadata_json=self._provider_metadata_json(
+                provider,
+                provider_item_id,
+                kind=ItemKind.book,
+                normalized={
+                    "series_title": series_title,
+                    "release_date": normalized.release_date.isoformat() if normalized.release_date else None,
+                },
+                source=provider_raw,
+            ),
+        )
+        self.db.add(series)
+        await self.db.flush()
+        return series
 
     async def _get_or_create_series(self, kind: ItemKind, title: str) -> Series:
         result = await self.db.execute(select(Series).where(Series.kind == kind, Series.title == title))
@@ -2127,6 +2250,22 @@ class AdminProviderIngestService:
         await self._replace_catalog_provider_links(
             entity_type="bundle_release",
             owner_id=bundle_release_id,
+            provider=provider,
+            provider_ids=provider_ids,
+            provider_urls=provider_urls,
+        )
+
+    async def _replace_entity_provider_links(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+        provider: ExternalProvider,
+        provider_ids: dict[str, str],
+        provider_urls: dict[str, dict[str, str | None]] | None = None,
+    ) -> None:
+        await self._replace_catalog_provider_links(
+            entity_type=entity_type,
+            owner_id=entity_id,
             provider=provider,
             provider_ids=provider_ids,
             provider_urls=provider_urls,
@@ -2274,6 +2413,295 @@ class AdminProviderIngestService:
                     person.id,
                     provider_urls={provider.value: credit_provider_urls(credit) or {}},
                 )
+
+    async def _link_organization_for_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+        name: str | None,
+        role: str,
+    ) -> None:
+        if not name:
+            return
+        organization = await self._get_or_create_organization(name, role)
+        exists = await self.db.scalar(
+            select(EntityOrganization.id).where(
+                EntityOrganization.entity_type == entity_type,
+                EntityOrganization.entity_id == entity_id,
+                EntityOrganization.organization_id == organization.id,
+                EntityOrganization.role == role,
+            )
+        )
+        if exists:
+            return
+        self.db.add(
+            EntityOrganization(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                organization_id=organization.id,
+                role=role,
+            )
+        )
+
+    async def _link_person_for_entity(
+        self,
+        entity_type: str,
+        entity_id: UUID,
+        name: str | None,
+        role: str,
+    ) -> None:
+        if not name:
+            return
+        person = await self._get_or_create_person(name, NormalizedCredit(name=name, role=role))
+        exists = await self.db.scalar(
+            select(EntityPerson.id).where(
+                EntityPerson.entity_type == entity_type,
+                EntityPerson.entity_id == entity_id,
+                EntityPerson.person_id == person.id,
+                EntityPerson.role == role,
+            )
+        )
+        if exists:
+            return
+        self.db.add(
+            EntityPerson(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                person_id=person.id,
+                role=role,
+            )
+        )
+
+    async def _create_game_work_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> GameWork:
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        cover_metadata = self._cover_metadata(normalized.cover_image_url, mirrored_cover)
+        work = GameWork(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.game, normalized.title, normalized.item_number),
+            subtitle=normalized.subtitle,
+            description=normalized.synopsis,
+            release_date=normalized.release_date,
+            original_language=self._normalized_language(normalized.language),
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json={
+                **cover_metadata,
+                "genres": normalized.genres or None,
+                "platforms": normalized.platforms or None,
+            },
+        )
+        self.db.add(work)
+        await self.db.flush()
+
+        release = GameRelease(
+            work_id=work.id,
+            release_title=normalized.edition_title or normalized.title,
+            platform=normalized.platforms[0] if normalized.platforms else normalized.edition_format,
+            release_date=normalized.release_date,
+            region_code=self._normalized_region(normalized.country),
+            format=normalized.edition_format,
+            publisher=normalized.publisher,
+            catalog_number=normalized.catalog_number,
+            barcode=normalized.barcode,
+            release_status=self._normalized_release_status(normalized.release_status),
+            language=self._normalized_language(normalized.language),
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.game,
+                normalized={
+                    **cover_metadata,
+                    "platforms": normalized.platforms,
+                    "genres": normalized.genres,
+                },
+                source=provider_raw,
+            ),
+        )
+        self.db.add(release)
+
+        for credit in normalized.creators:
+            await self._link_organization_for_entity(
+                "game_work",
+                work.id,
+                credit.name,
+                (credit.role or "developer").strip().lower() or "developer",
+            )
+
+        if normalized.publisher:
+            await self._link_organization_for_entity("game_work", work.id, normalized.publisher, "publisher")
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._replace_entity_provider_links(
+            "game_work",
+            work.id,
+            provider_name,
+            provider_ids,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="game_work",
+            entity_id=work.id,
+            source=provider_raw,
+            normalized={
+                "title": work.title,
+                "release_date": release.release_date.isoformat() if release.release_date else None,
+                "platforms": normalized.platforms,
+                "genres": normalized.genres,
+                **cover_metadata,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return work
+
+    async def _create_boardgame_work_from_normalized(
+        self,
+        *,
+        provider: MetadataProvider,
+        provider_name: ExternalProvider,
+        provider_item_id: str,
+        provider_raw: Any | None,
+        normalized: NormalizedItem,
+    ) -> BoardGameWork:
+        mirrored_cover = None
+        if normalized.cover_image_url and self._should_mirror_provider_images(provider):
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
+
+        cover_metadata = self._cover_metadata(normalized.cover_image_url, mirrored_cover)
+        work = BoardGameWork(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.boardgame, normalized.title, normalized.item_number),
+            subtitle=normalized.subtitle,
+            description=normalized.synopsis,
+            release_date=normalized.release_date,
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            metadata_json={
+                **cover_metadata,
+                "genres": normalized.genres or None,
+                "platforms": normalized.platforms or None,
+                "categories": [credit.name for credit in normalized.characters] or None,
+                "families": [credit.name for credit in normalized.story_arcs] or None,
+            },
+        )
+        self.db.add(work)
+        await self.db.flush()
+
+        edition = BoardGameEdition(
+            work_id=work.id,
+            edition_title=normalized.edition_title or normalized.title,
+            format=normalized.edition_format or "Board Game",
+            publisher=normalized.publisher,
+            catalog_number=normalized.catalog_number,
+            barcode=normalized.barcode,
+            release_status=self._normalized_release_status(normalized.release_status),
+            release_date=normalized.release_date,
+            language=self._normalized_language(normalized.language),
+            country=self._normalized_region(normalized.country),
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
+            min_players=normalized.min_players,
+            max_players=normalized.max_players,
+            playing_time_minutes=normalized.playing_time_minutes,
+            min_age=normalized.min_age,
+            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
+            cover_image_key=mirrored_cover.key if mirrored_cover else None,
+            description=normalized.synopsis,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.boardgame,
+                normalized={
+                    **cover_metadata,
+                    "genres": normalized.genres,
+                    "platforms": normalized.platforms,
+                    "min_players": normalized.min_players,
+                    "max_players": normalized.max_players,
+                    "playing_time_minutes": normalized.playing_time_minutes,
+                    "min_age": normalized.min_age,
+                },
+                source=provider_raw,
+            ),
+        )
+        self.db.add(edition)
+
+        for credit in normalized.creators:
+            await self._link_person_for_entity(
+                "boardgame_work",
+                work.id,
+                credit.name,
+                (credit.role or "designer").strip().lower() or "designer",
+            )
+
+        if normalized.publisher:
+            await self._link_organization_for_entity("boardgame_work", work.id, normalized.publisher, "publisher")
+
+        provider_ids = dict(normalized.provider_ids or {})
+        provider_ids[provider_name.value] = provider_item_id
+        await self._replace_entity_provider_links(
+            "boardgame_work",
+            work.id,
+            provider_name,
+            provider_ids,
+            provider_urls=provider_link_urls_for_provider(
+                provider_name,
+                provider_ids,
+                provider_raw,
+            ),
+        )
+        await self._record_provider_snapshot(
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="boardgame_work",
+            entity_id=work.id,
+            source=provider_raw,
+            normalized={
+                "title": work.title,
+                "release_date": edition.release_date.isoformat() if edition.release_date else None,
+                "genres": normalized.genres,
+                "platforms": normalized.platforms,
+                "min_players": normalized.min_players,
+                "max_players": normalized.max_players,
+                "playing_time_minutes": normalized.playing_time_minutes,
+                "min_age": normalized.min_age,
+                **cover_metadata,
+            },
+        )
+        if mirrored_cover:
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+        return work
 
     async def _create_comic_work_from_normalized(
         self,
@@ -2567,14 +2995,6 @@ class AdminProviderIngestService:
         provider_raw: Any | None,
         normalized: NormalizedItem,
     ) -> BookWork:
-        volume, series = await self._upsert_volume(
-            ItemKind.book,
-            normalized.series_title,
-            normalized.volume_name,
-            normalized.volume_number,
-            normalized.volume_start_year,
-        )
-
         mirrored_cover = None
         if normalized.cover_image_url and self._should_mirror_provider_images(provider):
             mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
@@ -2599,6 +3019,30 @@ class AdminProviderIngestService:
         )
         self.db.add(work)
         await self.db.flush()
+
+        series = await self._upsert_book_series(
+            normalized.series_title or normalized.volume_name,
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            normalized=normalized,
+            provider_raw=provider_raw,
+        )
+        if series is not None:
+            sequence: float | None = None
+            if normalized.volume_number is not None:
+                sequence = normalized.volume_number
+            elif normalized.item_number:
+                with contextlib.suppress(ValueError, TypeError):
+                    sequence = float(normalized.item_number)
+            self.db.add(
+                BookSeriesMembership(
+                    work_id=work.id,
+                    series_id=series.id,
+                    sequence=sequence,
+                    display_number=normalized.item_number or normalized.volume_name,
+                    metadata_json={"release_date": normalized.release_date.isoformat() if normalized.release_date else None},
+                )
+            )
 
         edition = BookEdition(
             work_id=work.id,
@@ -2675,23 +3119,6 @@ class AdminProviderIngestService:
                 )
             )
 
-        if series is not None:
-            sequence: float | None = None
-            if normalized.item_number:
-                try:
-                    sequence = float(normalized.item_number)
-                except ValueError:
-                    sequence = None
-            self.db.add(
-                BookSeriesMembership(
-                    work_id=work.id,
-                    series_id=series.id,
-                    sequence=sequence if sequence is not None else normalized.volume_number,
-                    display_number=normalized.item_number,
-                    metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
-                )
-            )
-
         provider_ids = dict(normalized.provider_ids or {})
         provider_ids[provider_name.value] = provider_item_id
         await self._add_provider_links(
@@ -2731,15 +3158,6 @@ class AdminProviderIngestService:
         )
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
-        
-        # Add volume provider links if volume exists
-        if volume:
-            await self._replace_volume_provider_links(
-                volume.id,
-                provider_name,
-                normalized.volume_provider_ids,
-            )
-        
         return work
 
     async def _create_tv_series_from_normalized(
@@ -3530,12 +3948,23 @@ class AdminProviderIngestService:
             return
         await SearchClient().index_documents_best_effort([comic_work_search_document(work)])
 
+    async def _reindex_game_work(self, work_id: UUID) -> None:
+        work = await self.db.scalar(
+            select(GameWork)
+            .where(GameWork.id == work_id)
+            .options(selectinload(GameWork.releases))
+        )
+        if work is None:
+            return
+        await SearchClient().index_documents_best_effort([game_work_search_document(work)])
+
     async def _reindex_book_work(self, work_id: UUID) -> None:
         work = await self.db.scalar(
             select(BookWork)
             .where(BookWork.id == work_id)
             .options(
                 selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
                 selectinload(BookWork.editions)
                 .selectinload(BookEdition.contributions)
                 .selectinload(BookContribution.person),
@@ -3545,6 +3974,16 @@ class AdminProviderIngestService:
         if work is None:
             return
         await SearchClient().index_documents_best_effort([book_work_search_document(work)])
+
+    async def _reindex_boardgame_work(self, work_id: UUID) -> None:
+        work = await self.db.scalar(
+            select(BoardGameWork)
+            .where(BoardGameWork.id == work_id)
+            .options(selectinload(BoardGameWork.editions))
+        )
+        if work is None:
+            return
+        await SearchClient().index_documents_best_effort([boardgame_search_document(work)])
 
     async def _reindex_manga_work(self, work_id: UUID) -> None:
         work = await self.db.scalar(

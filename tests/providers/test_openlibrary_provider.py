@@ -8,7 +8,6 @@ from app.models.canonical import (
     BookEdition,
     BookWork,
     ExternalProviderId,
-    VolumeProviderLink,
 )
 from app.providers.base import ProviderItem
 from app.providers.openlibrary import OpenLibraryProvider

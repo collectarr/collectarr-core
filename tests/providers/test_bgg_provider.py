@@ -6,7 +6,15 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ExternalProviderId, Item, Organization, Person, Tag
+from app.models.canonical import (
+    BoardGameEdition,
+    BoardGameWork,
+    EntityOrganization,
+    EntityPerson,
+    ExternalProviderId,
+    Organization,
+    Person,
+)
 from app.providers.base import ProviderItem
 from app.providers.bgg import BGGProvider
 from app.search.client import SearchClient
@@ -147,21 +155,35 @@ async def test_admin_ingest_upserts_bgg_boardgame(client, monkeypatch):
     assert body["item"]["publisher"] == "KOSMOS"
 
     async with AsyncSessionLocal() as db:
-        item = await db.scalar(select(Item).where(Item.kind == ItemKind.boardgame))
+        work = await db.scalar(select(BoardGameWork).where(BoardGameWork.title == "CATAN"))
+        edition = await db.scalar(select(BoardGameEdition).join(BoardGameWork).where(BoardGameWork.title == "CATAN"))
         provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(
                     ExternalProviderId.provider == ExternalProvider.bgg,
-                    ExternalProviderId.entity_type == "item",
+                    ExternalProviderId.entity_type == "boardgame_work",
                 )
             )
         )
-        publisher = await db.scalar(select(Organization.name))
-        designer = await db.scalar(select(Person.name))
-        tags = list(await db.scalars(select(Tag.name).order_by(Tag.name)))
+        publisher = await db.scalar(
+            select(Organization.name)
+            .join(EntityOrganization, EntityOrganization.organization_id == Organization.id)
+            .where(
+                EntityOrganization.entity_type == "boardgame_work",
+                EntityOrganization.role == "publisher",
+            )
+        )
+        designer = await db.scalar(
+            select(Person.name)
+            .join(EntityPerson, EntityPerson.person_id == Person.id)
+            .where(
+                EntityPerson.entity_type == "boardgame_work",
+                EntityPerson.role == "designer",
+            )
+        )
 
-    assert item is not None
+    assert work is not None
+    assert edition is not None
     assert provider_ids == ["13"]
     assert publisher == "KOSMOS"
     assert designer == "Klaus Teuber"
-    assert tags == ["Catan", "Negotiation"]

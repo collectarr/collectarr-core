@@ -128,6 +128,7 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "editions",
         "variants",
         "item_kind_metadata",
+        "comic_volumes",
         "comic_works",
         "comic_issues",
         "comic_contributions",
@@ -205,6 +206,7 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "item_kind_metadata",
     ],
     "book": [
+        "book_series",
         "book_works",
         "book_editions",
         "book_printings",

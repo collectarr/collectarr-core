@@ -6,11 +6,9 @@ from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
-    BundleReleaseProviderLink,
     Character,
     ExternalProviderId,
     Item,
-    ItemProviderLink,
     MangaWork,
     Person,
     Tag,

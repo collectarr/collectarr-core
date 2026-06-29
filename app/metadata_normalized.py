@@ -133,7 +133,8 @@ def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]
     if value is None:
         return {}
     raw: dict[str, Any] = {}
-    metadata_json = value.metadata_json if isinstance(value.metadata_json, dict) else {}
+    metadata_json = getattr(value, "metadata_json", None)
+    metadata_json = metadata_json if isinstance(metadata_json, dict) else {}
     for key in TYPED_KIND_METADATA_KEYS:
         if key == "audience_rating":
             continue

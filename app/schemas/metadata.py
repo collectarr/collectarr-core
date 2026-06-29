@@ -1,10 +1,11 @@
 from datetime import date
 from typing import Any
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
+from app.catalog.grouping_models import GroupingModel
 from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 
@@ -242,6 +243,14 @@ class BookEditionV1Response(BaseModel):
     identifiers: list[BookIdentifierResponse] = Field(default_factory=list)
 
 
+class BookSeriesResponse(BaseModel):
+    id: UUID
+    title: str
+    slug: str | None = None
+    sequence: float | None = None
+    display_number: str | None = None
+
+
 class BookWorkV1Response(BaseModel):
     id: UUID
     title: str
@@ -253,6 +262,7 @@ class BookWorkV1Response(BaseModel):
     first_publication_date: date | None = None
     kind: ItemKind = ItemKind.book
     contributors: list[BookContributorResponse] = Field(default_factory=list)
+    series: list[BookSeriesResponse] = Field(default_factory=list)
     editions: list[BookEditionV1Response] = Field(default_factory=list)
 
 
@@ -549,6 +559,94 @@ class MovieWorkV1Response(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GameReleaseV1Response(BaseModel):
+    id: UUID
+    work_id: UUID
+    release_title: str | None = None
+    platform: str | None = None
+    release_date: date | None = None
+    region_code: str | None = None
+    format: str | None = None
+    publisher: str | None = None
+    catalog_number: str | None = None
+    barcode: str | None = None
+    release_status: str | None = None
+    language: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class GameWorkV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    subtitle: str | None = None
+    description: str | None = None
+    release_date: date | None = None
+    original_language: str | None = None
+    publisher: str | None = None
+    age_rating: str | None = None
+    audience_rating: str | None = None
+    search_aliases: list[str] = Field(default_factory=list)
+    genres: list[str] = Field(default_factory=list)
+    platforms: list[str] = Field(default_factory=list)
+    trailer_urls: list[dict[str, Any]] = Field(default_factory=list)
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
+    kind: ItemKind = ItemKind.game
+    releases: list[GameReleaseV1Response] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+class BoardGameEditionV1Response(BaseModel):
+    id: UUID
+    work_id: UUID
+    edition_title: str | None = None
+    format: str | None = None
+    release_date: date | None = None
+    publisher: str | None = None
+    catalog_number: str | None = None
+    barcode: str | None = None
+    release_status: str | None = None
+    language: str | None = None
+    country: str | None = None
+    age_rating: str | None = None
+    audience_rating: str | None = None
+    min_players: int | None = None
+    max_players: int | None = None
+    playing_time_minutes: int | None = None
+    min_age: int | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    description: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BoardGameWorkV1Response(BaseModel):
+    id: UUID
+    title: str
+    sort_title: str | None = None
+    subtitle: str | None = None
+    description: str | None = None
+    release_date: date | None = None
+    original_language: str | None = None
+    publisher: str | None = None
+    age_rating: str | None = None
+    audience_rating: str | None = None
+    search_aliases: list[str] = Field(default_factory=list)
+    genres: list[str] = Field(default_factory=list)
+    platforms: list[str] = Field(default_factory=list)
+    trailer_urls: list[dict[str, Any]] = Field(default_factory=list)
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
+    kind: ItemKind = ItemKind.boardgame
+    editions: list[BoardGameEditionV1Response] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
 # TV DTOs
 class TVContributorResponse(ContributorResponse):
     id: UUID
@@ -653,6 +751,7 @@ class MediaTypeResponse(BaseModel):
     providers: list[ExternalProvider] = Field(default_factory=list)
     provider_search_policy: str
     is_top_level: bool = True
+    grouping_model: GroupingModel
     physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)
 
 
@@ -1036,85 +1135,6 @@ def item_response_from_model(
 
 
 
-def _synthesize_video_release_if_missing(base: dict[str, Any], item: Any) -> None:
-    if not is_video_item_kind(getattr(item, "kind", None)):
-        return
-    editions = base.get("editions")
-    if isinstance(editions, list) and editions:
-        return
-
-    normalized_item = _normalized_item_metadata(item)
-    source_item = _source_item_metadata(item)
-    release_title = (
-        _optional_text(normalized_item.get("edition_title"))
-        or _optional_text(getattr(item, "title", None))
-        or "Standard release"
-    )
-    fallback_format = _optional_text(normalized_item.get("edition_format")) or _default_video_format(item)
-    variant_name = (
-        _optional_text(normalized_item.get("variant_name"))
-        or _optional_text(normalized_item.get("physical_format_label"))
-        or fallback_format
-        or "Primary release"
-    )
-    normalized_physical_format = _optional_text(normalized_item.get("physical_format"))
-    physical_payload = _physical_format_payload(
-        {"normalized": {"physical_format": normalized_physical_format}}
-        if normalized_physical_format
-        else None,
-        fallback_format=fallback_format,
-        kind=getattr(item, "kind", None),
-    )
-    cover_image_url = _optional_text(normalized_item.get("cover_image_url")) or _optional_text(
-        source_item.get("cover_image_url")
-    )
-    thumbnail_image_url = _optional_text(normalized_item.get("thumbnail_image_url")) or _optional_text(
-        source_item.get("thumbnail_image_url")
-    ) or cover_image_url
-    edition_id = _synthetic_release_id(item, "edition")
-    variant_id = _synthetic_release_id(item, "variant")
-    edition_payload = {
-        "id": edition_id,
-        "title": release_title,
-        "format": fallback_format,
-        "publisher": _optional_text(normalized_item.get("publisher")),
-        "isbn": _optional_text(normalized_item.get("isbn")),
-        "upc": _optional_text(normalized_item.get("barcode")),
-        "language": _optional_text(normalized_item.get("language")),
-        "region": _optional_text(normalized_item.get("country")),
-        "imprint": _optional_text(normalized_item.get("imprint")),
-        "subtitle": _optional_text(normalized_item.get("subtitle")),
-        "series_group": _optional_text(normalized_item.get("series_group")),
-        "age_rating": _optional_text(normalized_item.get("age_rating")),
-        "audience_rating": _optional_text(normalized_item.get("audience_rating")),
-        "catalog_number": _optional_text(normalized_item.get("catalog_number")),
-        "release_status": _optional_text(normalized_item.get("release_status")),
-        "release_date": _date_value(normalized_item.get("release_date")),
-        "variants": [
-            {
-                "id": variant_id,
-                "name": variant_name,
-                "variant_type": _optional_text(normalized_item.get("variant_type")),
-                "sku": None,
-                "barcode": _optional_text(normalized_item.get("barcode")),
-                "isbn": _optional_text(normalized_item.get("isbn")),
-                "region": _optional_text(normalized_item.get("country")),
-                "platform": None,
-                "cover_price_cents": _optional_int(normalized_item.get("cover_price_cents")),
-                "currency": _optional_text(normalized_item.get("currency")),
-                "cover_image_url": cover_image_url,
-                "thumbnail_image_url": thumbnail_image_url,
-                "description": None,
-                "is_primary": True,
-            }
-        ],
-    }
-    if physical_payload is not None:
-        edition_payload.update(physical_payload)
-        edition_payload["variants"][0].update(physical_payload)
-    base["editions"] = [edition_payload]
-
-
 def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSummaryResponse:
     primary_item = getattr(bundle_release, "primary_item", None)
     series = getattr(bundle_release, "series", None)
@@ -1331,40 +1351,6 @@ def _link_payload_list(item: Any, key: str) -> list[dict[str, Any]]:
     return normalized
 
 
-def _default_video_format(item: Any) -> str:
-    kind = getattr(item, "kind", None)
-    if kind == ItemKind.movie:
-        return "Movie"
-    if kind == ItemKind.anime:
-        return "Anime Season"
-    return "TV Series"
-
-
-def _synthetic_release_id(item: Any, scope: str) -> UUID:
-    item_id = getattr(item, "id", None)
-    kind = getattr(item, "kind", None)
-    return uuid5(NAMESPACE_URL, f"collectarr:{kind}:{item_id}:{scope}")
-
-
-def _synthetic_primary_edition(base: dict[str, Any]) -> Any | None:
-    editions = base.get("editions")
-    if not isinstance(editions, list) or not editions:
-        return None
-    edition = editions[0]
-    return edition if isinstance(edition, dict) else None
-
-
-def _synthetic_primary_variant(base: dict[str, Any]) -> Any | None:
-    edition = _synthetic_primary_edition(base)
-    if edition is None:
-        return None
-    variants = edition.get("variants")
-    if not isinstance(variants, list) or not variants:
-        return None
-    variant = variants[0]
-    return variant if isinstance(variant, dict) else None
-
-
 def _primary_edition(item: Any) -> Any | None:
     editions = list(getattr(item, "editions", []) or [])
     return editions[0] if editions else None
@@ -1549,34 +1535,6 @@ def _date_value(value: Any) -> date | None:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
-
-
-def _credits(values: Any) -> list[MetadataCredit]:
-    if not isinstance(values, list):
-        return []
-    credits: list[MetadataCredit] = []
-    for value in values:
-        if isinstance(value, str):
-            credits.append(MetadataCredit(name=value))
-            continue
-        if not isinstance(value, dict):
-            continue
-        name = value.get("name")
-        if not name:
-            continue
-        role = value.get("role") or value.get("roles")
-        if isinstance(role, list):
-            role = ", ".join(str(item) for item in role if item)
-        credits.append(
-            MetadataCredit(
-                name=str(name),
-                role=str(role) if role else None,
-                api_detail_url=_optional_text(value.get("api_detail_url")),
-                site_detail_url=_optional_text(value.get("site_detail_url")),
-                image_url=_optional_text(value.get("image_url")),
-            )
-        )
-    return credits
 
 
 def _tracks(values: Any) -> list[dict[str, Any]]:

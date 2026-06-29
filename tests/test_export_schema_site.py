@@ -77,7 +77,9 @@ def test_kind_views_surface_v1_work_tables():
     misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
 
     assert "comic_works" in kinds["comic"]["tables"]
+    assert "comic_volumes" in kinds["comic"]["tables"]
     assert "book_works" in kinds["book"]["tables"]
+    assert "book_series" in kinds["book"]["tables"]
     assert "music_releases" in kinds["music"]["tables"]
     assert "tv_releases" in kinds["tv"]["tables"]
 

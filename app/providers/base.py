@@ -199,6 +199,10 @@ class NormalizedItem:
     language: str | None = None
     age_rating: str | None = None
     audience_rating: str | None = None
+    min_players: int | None = None
+    max_players: int | None = None
+    playing_time_minutes: int | None = None
+    min_age: int | None = None
     color: str | None = None
     nr_discs: int | None = None
     screen_ratio: str | None = None

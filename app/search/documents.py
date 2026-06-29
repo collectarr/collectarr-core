@@ -9,11 +9,13 @@ from app.models.base import ItemKind
 from app.models.canonical import (
     AnimeContribution,
     AnimeSeries,
+    BoardGameWork,
     BookContribution,
     BookWork,
     ComicContribution,
     ComicWork,
     Item,
+    GameWork,
     MangaContribution,
     MangaWork,
     MovieWork,
@@ -51,7 +53,10 @@ def item_search_document(item: Item) -> dict[str, Any]:
     variant_names: list[str] = []
     bundle_titles: list[str] = []
     bundle_release_ids: list[str] = []
-    series_title = item.volume.series.title if item.volume and item.volume.series else None
+    series_title = None
+    if item.volume is not None:
+        series = getattr(item.volume, "series", None)
+        series_title = series.title if series is not None else getattr(item.volume, "title", None)
     volume_name = item.volume.name if item.volume else None
     creator_links = sorted(
         _loaded_rows(item, "creator_links"),
@@ -200,6 +205,15 @@ def book_work_search_document(work: BookWork) -> dict[str, Any]:
         ),
     )
     primary_edition = editions[0] if editions else None
+    series_memberships = sorted(
+        list(getattr(work, "__dict__", {}).get("series_memberships") or []),
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "series_id", "")),
+        ),
+    )
+    primary_series = series_memberships[0] if series_memberships else None
     creators: list[str] = []
     barcodes: list[str] = []
     variant_names: list[str] = []
@@ -257,7 +271,9 @@ def book_work_search_document(work: BookWork) -> dict[str, Any]:
         "variant_names": variant_names,
         "bundle_titles": [],
         "bundle_release_ids": [],
-        "series_title": None,
+        "series_title": (
+            primary_series.series.title if primary_series and getattr(primary_series, "series", None) else None
+        ),
         "volume_name": None,
         "catalog_number": None,
         "creators": creators,
@@ -270,6 +286,121 @@ def book_work_search_document(work: BookWork) -> dict[str, Any]:
         "subtitle": work.subtitle,
         "series_group": None,
         "age_rating": primary_edition.age_rating if primary_edition is not None else None,
+    }
+
+
+def game_work_search_document(work: GameWork) -> dict[str, Any]:
+    releases = sorted(
+        getattr(work, "releases", []) or [],
+        key=lambda row: (
+            getattr(row, "release_date", None) is None,
+            getattr(row, "release_date", None),
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_release = releases[0] if releases else None
+    metadata = work.metadata_json or {}
+    variant_names = _string_list(metadata.get("platforms"))
+    barcode = _optional_text(getattr(primary_release, "barcode", None))
+    release_date = (
+        primary_release.release_date.isoformat()
+        if primary_release is not None and primary_release.release_date is not None
+        else work.release_date.isoformat() if work.release_date is not None else None
+    )
+    release_year = (
+        primary_release.release_date.year
+        if primary_release is not None and primary_release.release_date is not None
+        else work.release_date.year if work.release_date is not None else None
+    )
+    return {
+        "id": str(work.id),
+        "kind": ItemKind.game.value,
+        "title": work.title,
+        "item_number": None,
+        "runtime_minutes": None,
+        "cover_image_url": primary_release.cover_image_url if primary_release is not None else None,
+        "thumbnail_image_url": None,
+        "publisher": primary_release.publisher if primary_release is not None else None,
+        "release_date": release_date,
+        "region": primary_release.region_code if primary_release is not None else None,
+        "release_year": release_year,
+        "barcode": barcode,
+        "barcodes": [barcode] if barcode else [],
+        "variant": primary_release.platform if primary_release is not None else None,
+        "variant_names": variant_names,
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": None,
+        "volume_name": None,
+        "catalog_number": primary_release.catalog_number if primary_release is not None else None,
+        "creators": [],
+        "characters": [],
+        "story_arcs": [],
+        "platforms": _unique(_string_list(metadata.get("platforms"))),
+        "release_status": primary_release.release_status if primary_release is not None else None,
+        "language": primary_release.language if primary_release is not None else work.original_language,
+        "imprint": None,
+        "subtitle": work.subtitle,
+        "series_group": None,
+        "age_rating": work.age_rating,
+    }
+
+
+def boardgame_search_document(work: BoardGameWork) -> dict[str, Any]:
+    editions = sorted(
+        getattr(work, "editions", []) or [],
+        key=lambda row: (
+            getattr(row, "release_date", None) is None,
+            getattr(row, "release_date", None),
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_edition = editions[0] if editions else None
+    metadata = work.metadata_json or {}
+    release_date = (
+        primary_edition.release_date.isoformat()
+        if primary_edition is not None and primary_edition.release_date is not None
+        else work.release_date.isoformat() if work.release_date is not None else None
+    )
+    release_year = (
+        primary_edition.release_date.year
+        if primary_edition is not None and primary_edition.release_date is not None
+        else work.release_date.year if work.release_date is not None else None
+    )
+    return {
+        "id": str(work.id),
+        "kind": ItemKind.boardgame.value,
+        "title": work.title,
+        "item_number": None,
+        "runtime_minutes": None,
+        "cover_image_url": primary_edition.cover_image_url if primary_edition is not None else None,
+        "thumbnail_image_url": None,
+        "publisher": primary_edition.publisher if primary_edition is not None else None,
+        "release_date": release_date,
+        "region": primary_edition.country if primary_edition is not None else None,
+        "release_year": release_year,
+        "barcode": _optional_text(getattr(primary_edition, "barcode", None)),
+        "barcodes": [primary_edition.barcode] if primary_edition is not None and primary_edition.barcode else [],
+        "variant": primary_edition.format if primary_edition is not None else None,
+        "variant_names": _unique(
+            _string_list(metadata.get("platforms"))
+            + ([primary_edition.format] if primary_edition is not None and primary_edition.format else [])
+        ),
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": None,
+        "volume_name": None,
+        "catalog_number": primary_edition.catalog_number if primary_edition is not None else None,
+        "creators": [],
+        "characters": [],
+        "story_arcs": [],
+        "platforms": _unique(_string_list(metadata.get("platforms"))),
+        "release_status": primary_edition.release_status if primary_edition is not None else None,
+        "language": primary_edition.language if primary_edition is not None else None,
+        "imprint": None,
+        "subtitle": work.subtitle,
+        "series_group": None,
+        "age_rating": primary_edition.age_rating if primary_edition is not None else work.age_rating,
     }
 
 

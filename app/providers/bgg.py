@@ -131,6 +131,9 @@ class BGGProvider(BaseHttpProvider):
         families = self._link_values(links, "boardgamefamily")
 
         minage = self._int(data.get("minage"))
+        minplayers = self._int(data.get("minplayers"))
+        maxplayers = self._int(data.get("maxplayers"))
+        playing_time = self._int(data.get("playingtime"))
 
         return NormalizedItem(
             kind=ItemKind.boardgame,
@@ -151,6 +154,10 @@ class BGGProvider(BaseHttpProvider):
             genres=[*categories, *[name for name in families if name not in categories]],
             series_group=families[0] if families else None,
             age_rating=f"Ages {minage}+" if minage else None,
+            min_players=minplayers,
+            max_players=maxplayers,
+            playing_time_minutes=playing_time,
+            min_age=minage,
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
         )

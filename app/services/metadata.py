@@ -24,9 +24,13 @@ from app.models.canonical import (
     AnimeEpisode,
     AnimeIdentifier,
     AnimeSeries,
+    BoardGameEdition,
+    BoardGameWork,
     BookContribution,
     BookEdition,
     BookIdentifier,
+    BookSeries,
+    BookSeriesMembership,
     BookWork,
     Character,
     CharacterAppearance,
@@ -40,6 +44,8 @@ from app.models.canonical import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
+    GameRelease,
+    GameWork,
     Item,
     MangaChapter,
     MangaCharacterAppearance,
@@ -79,9 +85,12 @@ from app.schemas.metadata import (
     AnimeEpisodeV1Response,
     AnimeIdentifierResponse,
     AnimeSeriesV1Response,
+    BoardGameEditionV1Response,
+    BoardGameWorkV1Response,
     BookContributorResponse,
     BookEditionV1Response,
     BookIdentifierResponse,
+    BookSeriesResponse,
     BookWorkV1Response,
     BundleReleaseDetailResponse,
     BundleReleaseSummaryResponse,
@@ -99,6 +108,8 @@ from app.schemas.metadata import (
     CreatorResponse,
     EditionResponse,
     EpisodeResponse,
+    GameReleaseV1Response,
+    GameWorkV1Response,
     MangaChapterV1Response,
     MangaCharacterResponse,
     MangaContributorResponse,
@@ -202,6 +213,41 @@ def _organization_name(item: object, role: str) -> str | None:
     return None
 
 
+def _metadata_list(metadata: dict[str, object] | None, key: str) -> list[str]:
+    if not isinstance(metadata, dict):
+        return []
+    value = metadata.get(key)
+    if not isinstance(value, list):
+        return []
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        normalized = text.casefold()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        cleaned.append(text)
+    return cleaned
+
+
+def _metadata_links(metadata: dict[str, object] | None, key: str) -> list[dict[str, Any]]:
+    if not isinstance(metadata, dict):
+        return []
+    value = metadata.get(key)
+    if not isinstance(value, list):
+        return []
+    links: list[dict[str, Any]] = []
+    for raw in value:
+        if isinstance(raw, dict):
+            link = dict(raw)
+            if str(link.get("url") or "").strip():
+                links.append(link)
+    return links
+
+
 def _typed_kind_metadata(item: object) -> dict[str, object]:
     return typed_kind_metadata_for_item(item)
 
@@ -244,7 +290,13 @@ class MetadataService:
 
     async def get_item(
         self, item_id: UUID, kind: ItemKind
-    ) -> BookWorkV1Response | ComicWorkV1Response | dict[str, Any]:
+    ) -> (
+        BookWorkV1Response
+        | BoardGameWorkV1Response
+        | ComicWorkV1Response
+        | GameWorkV1Response
+        | dict[str, Any]
+    ):
         if kind == ItemKind.book:
             return await self.get_book_work(item_id)
         if kind == ItemKind.comic:
@@ -253,6 +305,10 @@ class MetadataService:
             except ApiHTTPException as exc:
                 if exc.code != "comic_work_not_found":
                     raise
+        if kind == ItemKind.game:
+            return await self.get_game_work(item_id)
+        if kind == ItemKind.boardgame:
+            return await self.get_boardgame_work(item_id)
         item = await self.metadata.get_item(item_id, kind)
         if item is None:
             raise ApiHTTPException(
@@ -274,6 +330,7 @@ class MetadataService:
             .where(BookWork.id == work_id)
             .options(
                 selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
                 selectinload(BookWork.editions)
                 .selectinload(BookEdition.contributions)
                 .selectinload(BookContribution.person),
@@ -327,6 +384,92 @@ class MetadataService:
                 detail="Book edition not found",
             )
         return self._book_edition_response(edition)
+
+    async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
+        work = await self.db.scalar(
+            select(GameWork)
+            .where(GameWork.id == work_id)
+            .options(selectinload(GameWork.releases))
+        )
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="game_work_not_found",
+                detail="Game work not found",
+            )
+        return self._game_work_response(work)
+
+    async def get_game_work_releases(self, work_id: UUID) -> list[GameReleaseV1Response]:
+        work = await self.db.scalar(select(GameWork.id).where(GameWork.id == work_id))
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="game_work_not_found",
+                detail="Game work not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(GameRelease)
+                    .where(GameRelease.work_id == work_id)
+                    .order_by(GameRelease.release_date.asc().nullslast(), GameRelease.created_at.asc())
+                )
+            ).scalars()
+        )
+        return [self._game_release_response(row) for row in rows]
+
+    async def get_game_release(self, release_id: UUID) -> GameReleaseV1Response:
+        release = await self.db.scalar(select(GameRelease).where(GameRelease.id == release_id))
+        if release is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="game_release_not_found",
+                detail="Game release not found",
+            )
+        return self._game_release_response(release)
+
+    async def get_boardgame_work(self, work_id: UUID) -> BoardGameWorkV1Response:
+        work = await self.db.scalar(
+            select(BoardGameWork)
+            .where(BoardGameWork.id == work_id)
+            .options(selectinload(BoardGameWork.editions))
+        )
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="boardgame_work_not_found",
+                detail="Board game work not found",
+            )
+        return self._boardgame_work_response(work)
+
+    async def get_boardgame_work_editions(self, work_id: UUID) -> list[BoardGameEditionV1Response]:
+        work = await self.db.scalar(select(BoardGameWork.id).where(BoardGameWork.id == work_id))
+        if work is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="boardgame_work_not_found",
+                detail="Board game work not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(BoardGameEdition)
+                    .where(BoardGameEdition.work_id == work_id)
+                    .order_by(BoardGameEdition.release_date.asc().nullslast(), BoardGameEdition.created_at.asc())
+                )
+            ).scalars()
+        )
+        return [self._boardgame_edition_response(row) for row in rows]
+
+    async def get_boardgame_edition(self, edition_id: UUID) -> BoardGameEditionV1Response:
+        edition = await self.db.scalar(select(BoardGameEdition).where(BoardGameEdition.id == edition_id))
+        if edition is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="boardgame_edition_not_found",
+                detail="Board game edition not found",
+            )
+        return self._boardgame_edition_response(edition)
 
     async def get_bundle_releases_for_item(self, item_id: UUID) -> list[BundleReleaseSummaryResponse]:
         item = await self.metadata.get_item(item_id)
@@ -409,6 +552,16 @@ class MetadataService:
             ],
         )
 
+    def _book_series_response(self, membership: BookSeriesMembership) -> BookSeriesResponse:
+        series = membership.series
+        return BookSeriesResponse(
+            id=series.id,
+            title=series.title,
+            slug=series.slug,
+            sequence=membership.sequence,
+            display_number=membership.display_number,
+        )
+
     def _book_work_response(self, work: BookWork) -> BookWorkV1Response:
         editions = sorted(
             work.editions or [],
@@ -439,7 +592,120 @@ class MetadataService:
                     ),
                 )
             ],
+            series=[
+                self._book_series_response(row)
+                for row in sorted(
+                    work.series_memberships or [],
+                    key=lambda m: (
+                        m.sequence is None,
+                        m.sequence or 0,
+                        str(m.series_id),
+                    ),
+                )
+            ],
             editions=[self._book_edition_response(row) for row in editions],
+        )
+
+    def _game_release_response(self, release: GameRelease) -> GameReleaseV1Response:
+        return GameReleaseV1Response(
+            id=release.id,
+            work_id=release.work_id,
+            release_title=release.release_title,
+            platform=release.platform,
+            release_date=release.release_date,
+            region_code=release.region_code,
+            format=release.format,
+            publisher=release.publisher,
+            catalog_number=release.catalog_number,
+            barcode=release.barcode,
+            release_status=release.release_status,
+            language=release.language,
+            cover_image_url=release.cover_image_url,
+            cover_image_key=release.cover_image_key,
+        )
+
+    def _game_work_response(self, work: GameWork) -> GameWorkV1Response:
+        releases = sorted(
+            work.releases or [],
+            key=lambda row: (
+                getattr(row, "release_date", None) is None,
+                getattr(row, "release_date", None) or date.max,
+                str(getattr(row, "id", "")),
+            ),
+        )
+        primary_release = releases[0] if releases else None
+        metadata = work.metadata_json or {}
+        return GameWorkV1Response(
+            id=work.id,
+            title=work.title,
+            sort_title=work.sort_title,
+            subtitle=work.subtitle,
+            description=work.description,
+            release_date=work.release_date,
+            original_language=work.original_language,
+            publisher=primary_release.publisher if primary_release is not None else None,
+            age_rating=work.age_rating,
+            audience_rating=work.audience_rating,
+            search_aliases=_metadata_list(metadata, "search_aliases"),
+            genres=_metadata_list(metadata, "genres"),
+            platforms=_metadata_list(metadata, "platforms"),
+            trailer_urls=_metadata_links(metadata, "trailer_urls"),
+            external_links=_metadata_links(metadata, "external_links"),
+            releases=[self._game_release_response(row) for row in releases],
+        )
+
+    def _boardgame_edition_response(self, edition: BoardGameEdition) -> BoardGameEditionV1Response:
+        return BoardGameEditionV1Response(
+            id=edition.id,
+            work_id=edition.work_id,
+            edition_title=edition.edition_title,
+            format=edition.format,
+            release_date=edition.release_date,
+            publisher=edition.publisher,
+            catalog_number=edition.catalog_number,
+            barcode=edition.barcode,
+            release_status=edition.release_status,
+            language=edition.language,
+            country=edition.country,
+            age_rating=edition.age_rating,
+            audience_rating=edition.audience_rating,
+            min_players=edition.min_players,
+            max_players=edition.max_players,
+            playing_time_minutes=edition.playing_time_minutes,
+            min_age=edition.min_age,
+            cover_image_url=edition.cover_image_url,
+            cover_image_key=edition.cover_image_key,
+            description=edition.description,
+        )
+
+    def _boardgame_work_response(self, work: BoardGameWork) -> BoardGameWorkV1Response:
+        editions = sorted(
+            work.editions or [],
+            key=lambda row: (
+                getattr(row, "release_date", None) is None,
+                getattr(row, "release_date", None) or date.max,
+                str(getattr(row, "id", "")),
+            ),
+        )
+        primary_edition = editions[0] if editions else None
+        metadata = work.metadata_json or {}
+        return BoardGameWorkV1Response(
+            id=work.id,
+            title=work.title,
+            sort_title=work.sort_title,
+            subtitle=work.subtitle,
+            description=work.description,
+            release_date=work.release_date,
+            original_language=work.original_language,
+            publisher=primary_edition.publisher if primary_edition is not None else None,
+            age_rating=work.age_rating,
+            audience_rating=work.audience_rating,
+            search_aliases=_metadata_list(metadata, "search_aliases"),
+            genres=_metadata_list(metadata, "genres"),
+            platforms=_metadata_list(metadata, "platforms"),
+            trailer_urls=_metadata_links(metadata, "trailer_urls"),
+            external_links=_metadata_links(metadata, "external_links"),
+            editions=[self._boardgame_edition_response(row) for row in editions],
         )
 
     def _comic_contributor_response(

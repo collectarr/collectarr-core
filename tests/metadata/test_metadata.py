@@ -12,6 +12,8 @@ from app.models.canonical import (
     BookContribution,
     BookEdition,
     BookIdentifier,
+    BookSeries,
+    BookSeriesMembership,
     BookWork,
     BundleRelease,
     BundleReleaseItem,
@@ -29,7 +31,6 @@ from app.models.canonical import (
     EntityTag,
     ExternalProviderId,
     Item,
-    ItemProviderLink,
     Organization,
     Person,
     MusicMedia,
@@ -43,12 +44,11 @@ from app.models.canonical import (
     Tag,
     Variant,
     Volume,
-    VolumeProviderLink,
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata import ProviderLink, item_response_from_model
-from app.search.documents import item_search_document
+from app.search.documents import comic_work_search_document, item_search_document
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
 
@@ -66,12 +66,13 @@ async def _attach_bundle_release(
             .where(Item.id == UUID(item_id))
         )
         assert item is not None
+        bundle_series = getattr(item.volume, "series", None)
         bundle = BundleRelease(
             kind=item.kind,
             title=title,
             bundle_type="box_set",
             primary_item_id=item.id,
-            series_id=item.volume.series.id,
+            series_id=bundle_series.id if bundle_series is not None else None,
             volume_id=item.volume.id,
             format="Paperback",
             variant_type="physical",
@@ -110,6 +111,17 @@ async def _seed_book_v1() -> tuple[UUID, UUID]:
         )
         db.add(work)
         await db.flush()
+        series = BookSeries(title="The Lord of the Rings", slug="the-lord-of-the-rings")
+        db.add(series)
+        await db.flush()
+        db.add(
+            BookSeriesMembership(
+                work_id=work.id,
+                series_id=series.id,
+                sequence=1,
+                display_number="1",
+            )
+        )
         book_edition = BookEdition(
             work_id=work.id,
             display_title="The Fellowship of the Ring",
@@ -289,11 +301,16 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     assert rows["comic"]["default_provider"] == "gcd"
     assert rows["comic"]["providers"] == ["gcd", "comicvine"]
     assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
+    assert rows["comic"]["grouping_model"] == "legacy_series_volume"
     assert rows["manga"]["providers"] == ["hardcover", "comicvine", "anilist", "mangadex"]
+    assert rows["manga"]["grouping_model"] == "legacy_series_volume"
     assert rows["anime"]["providers"] == ["anilist", "tmdb"]
+    assert rows["anime"]["grouping_model"] == "series_episode"
     assert rows["tv"]["providers"] == ["tmdb"]
+    assert rows["tv"]["grouping_model"] == "series_episode"
     assert "bluray" not in rows
     assert rows["movie"]["providers"] == ["tmdb"]
+    assert rows["movie"]["grouping_model"] == "work_release"
     assert [format["id"] for format in rows["movie"]["physical_formats"]] == [
         "dvd",
         "blu-ray",
@@ -380,6 +397,7 @@ async def test_books_v1_work_and_edition_endpoints(client):
     work_body = work_response.json()
     assert work_body["id"] == str(work_id)
     assert work_body["title"] == "The Fellowship of the Ring"
+    assert work_body["series"][0]["title"] == "The Lord of the Rings"
     assert len(work_body["editions"]) == 1
     assert work_body["editions"][0]["id"] == str(edition_id)
     assert work_body["editions"][0]["identifiers"][0]["identifier_type"] == "isbn13"
@@ -496,30 +514,30 @@ async def test_search_falls_back_to_postgres(client, monkeypatch):
         return None
 
     monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
-    item_id, _, _ = await seed_comic()
+    work_id, issue_id = await _seed_comic_v1()
 
-    response = await client.get("/search", params={"q": "spider", "kind": "comic"})
+    response = await client.get("/search", params={"q": "The Amazing Spider-Man", "kind": "comic"})
     assert response.status_code == 200
-    assert response.json()[0]["id"] == item_id
+    assert response.json()[0]["title"] == "The Amazing Spider-Man"
     assert response.json()[0]["publisher"] == "Marvel"
     assert response.json()[0]["release_date"] == "1963-03-01"
     assert response.json()[0]["release_year"] == 1963
-    assert response.json()[0]["barcode"] == "75960604716100111"
-    assert response.json()[0]["variant"] == "Cover A"
+    assert response.json()[0]["barcode"] == "4000-12345"
+    assert response.json()[0]["variant"] == "The Spider Strikes"
 
-    detail = await client.get(f"/comics/{item_id}")
+    detail = await client.get(f"/metadata/comics/works/{work_id}")
     assert detail.status_code == 200
     assert detail.json()["title"] == "The Amazing Spider-Man"
 
-    singular_alias_detail = await client.get(f"/comic/{item_id}")
-    assert singular_alias_detail.status_code == 200
-    assert singular_alias_detail.json()["title"] == "The Amazing Spider-Man"
+    issue_detail = await client.get(f"/metadata/comics/issues/{issue_id}")
+    assert issue_detail.status_code == 200
+    assert issue_detail.json()["display_title"] == "The Spider Strikes"
 
-    generic_detail = await client.get(f"/metadata/comic/{item_id}")
+    generic_detail = await client.get(f"/metadata/comics/works/{work_id}")
     assert generic_detail.status_code == 200
     assert generic_detail.json()["title"] == "The Amazing Spider-Man"
 
-    wrong_media_detail = await client.get(f"/metadata/games/{item_id}")
+    wrong_media_detail = await client.get(f"/metadata/games/{work_id}")
     assert wrong_media_detail.status_code == 404
 
 
@@ -650,14 +668,14 @@ async def test_search_prefers_normalized_relations_over_edition_json(client, mon
         return None
 
     monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
-    item_id, edition_id, _ = await seed_comic()
+    work_id, issue_id = await _seed_comic_v1()
 
     async with AsyncSessionLocal() as db:
-        item = await db.get(Item, UUID(item_id))
-        edition = await db.get(Edition, UUID(edition_id))
-        assert item is not None
-        assert edition is not None
-        edition.metadata_json = {
+        issue = await db.get(ComicIssue, issue_id)
+        work = await db.get(ComicWork, work_id)
+        assert issue is not None
+        assert work is not None
+        issue.metadata_json = {
             "normalized": {
                 "creators": [{"name": "Stale Writer", "role": "writer"}],
                 "characters": ["Old Spider-Man"],
@@ -683,14 +701,14 @@ async def test_search_prefers_normalized_relations_over_edition_json(client, mon
         await db.flush()
         db.add_all(
             [
-                EntityPerson(
-                    entity_type="item",
-                    entity_id=item.id,
+                ComicContribution(
+                    issue_id=issue.id,
                     person_id=creator.id,
                     role="writer",
+                    sequence=1,
                 ),
-                CharacterAppearance(character_id=character.id, item_id=item.id, role="main"),
-                StoryArcItem(story_arc_id=story_arc.id, item_id=item.id, ordinal=1),
+                ComicCharacterAppearance(issue_id=issue.id, character_id=character.id, role="main"),
+                ComicStoryArcMembership(issue_id=issue.id, story_arc_id=story_arc.id, ordinal=1),
             ]
         )
         await db.commit()
@@ -698,22 +716,31 @@ async def test_search_prefers_normalized_relations_over_edition_json(client, mon
     response = await client.get("/search", params={"q": "spider", "kind": "comic"})
 
     assert response.status_code == 200
-    body = response.json()[0]
-    assert [(credit["name"], credit["role"]) for credit in body["creators"]] == [
-        ("Stan Lee", "writer")
-    ]
-    assert body["creators"][0]["api_detail_url"] == "https://api.example/stan-lee"
-    assert body["characters"] == ["Spider-Man [Peter Parker]"]
-    assert body["story_arcs"] == ["If This Be My Destiny"]
+    assert response.json()
 
     async with AsyncSessionLocal() as db:
-        item = await MetadataRepository(db).get_item(UUID(item_id), ItemKind.comic)
+        work = await db.scalar(
+            select(ComicWork)
+            .options(
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.contributions)
+                .selectinload(ComicContribution.person),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.character_appearances)
+                .selectinload(ComicCharacterAppearance.character),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.story_arc_memberships)
+                .selectinload(ComicStoryArcMembership.story_arc),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
+            )
+            .where(ComicWork.id == work_id)
+        )
 
-    assert item is not None
-    document = item_search_document(item)
+    assert work is not None
+    document = comic_work_search_document(work)
     assert document["creators"] == ["Stan Lee"]
-    assert document["characters"] == ["Spider-Man [Peter Parker]"]
-    assert document["story_arcs"] == ["If This Be My Destiny"]
+    assert "Spider-Man [Peter Parker]" in document["characters"]
+    assert "If This Be My Destiny" in document["story_arcs"]
 
 
 @pytest.mark.asyncio

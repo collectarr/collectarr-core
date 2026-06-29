@@ -694,6 +694,7 @@ def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
         providers=list(config.providers),
         provider_search_policy=config.provider_search_policy,
         is_top_level=config.is_top_level,
+        grouping_model=config.grouping_model,
         physical_formats=[_physical_format_response(row) for row in config.physical_formats],
     )
 

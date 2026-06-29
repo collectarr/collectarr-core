@@ -15,13 +15,13 @@ from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
     BundleReleaseItem,
-    BundleReleaseProviderLink,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIdentifier,
     ComicIssue,
+    ComicVolume,
     ComicStoryArcMembership,
     ComicWork,
     Edition,
@@ -34,7 +34,6 @@ from app.models.canonical import (
     ItemKindMetadata,
     ItemKindMetadataComic,
     ItemKindMetadataMusic,
-    ItemProviderLink,
     MetadataProposal,
     Organization,
     Person,
@@ -46,7 +45,6 @@ from app.models.canonical import (
     Tag,
     Variant,
     Volume,
-    VolumeProviderLink,
 )
 from app.providers.base import (
     NormalizedBundleMember,
@@ -2746,11 +2744,16 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Item)) == 0
         assert await db.scalar(select(func.count()).select_from(ComicWork)) == 1
-        assert await db.scalar(select(func.count()).select_from(ComicIssue)) == 1
+        assert await db.scalar(
+            select(func.count()).select_from(ComicIssue).where(ComicIssue.work_id == UUID(body["item_id"]))
+        ) == 1
         assert await db.scalar(select(func.count()).select_from(ComicContribution)) == 2
         assert await db.scalar(select(func.count()).select_from(ComicIdentifier)) == 1
-        assert await db.scalar(select(func.count()).select_from(Series)) == 1
-        assert await db.scalar(select(func.count()).select_from(Volume)) == 1
+        assert await db.scalar(
+            select(func.count()).select_from(ComicVolume).where(ComicVolume.title == "The Amazing Spider-Man")
+        ) == 1
+        assert await db.scalar(select(func.count()).select_from(Series)) == 0
+        assert await db.scalar(select(func.count()).select_from(Volume)) == 0
         assert await db.scalar(select(func.count()).select_from(Variant)) == 0
         assert await db.scalar(select(func.count()).select_from(Organization)) == 0
         assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 0
@@ -2869,7 +2872,9 @@ async def test_admin_ingest_populates_comicvine_associated_cover_variants(client
 
     async with AsyncSessionLocal() as db:
         assert await db.scalar(select(func.count()).select_from(Variant)) == 0
-        assert await db.scalar(select(func.count()).select_from(ComicIssue)) == 1
+        assert await db.scalar(
+            select(func.count()).select_from(ComicIssue).where(ComicIssue.work_id == UUID(response.json()["item_id"]))
+        ) == 1
 
 
 @pytest.mark.asyncio
@@ -3331,7 +3336,7 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
     settings = get_settings()
     monkeypatch.setattr(settings, "worker_catalog_refresh_stale_days", 0)
     async with AsyncSessionLocal() as db:
-        # Update ExternalProviderId instead of ItemProviderLink for new schema
+        # Update ExternalProviderId instead of the legacy provider-link alias for new schema
         await db.execute(
             update(ExternalProviderId)
             .values(updated_at=datetime.now(UTC) - timedelta(days=1))

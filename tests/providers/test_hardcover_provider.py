@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import ExternalProviderId, Volume
+from app.models.canonical import BookSeries, BookSeriesMembership, ExternalProviderId
 from app.providers.base import NormalizedCredit, ProviderItem
 from app.providers.hardcover import HardcoverProvider
 from app.search.client import SearchClient
@@ -213,12 +213,11 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
     assert body["item"]["title"] is not None
 
     async with AsyncSessionLocal() as db:
-        # Verify volume_number was stored on the Volume
-        volume = await db.scalar(
-            select(Volume).where(Volume.volume_number == 2)
-        )
-        assert volume is not None
-        
+        series = await db.scalar(select(BookSeries).where(BookSeries.title == "Middle-earth"))
+        assert series is not None
+        membership = await db.scalar(select(BookSeriesMembership).where(BookSeriesMembership.series_id == series.id))
+        assert membership is not None
+
         # For books v1, provider_ids are stored in ExternalProviderId with entity_type='book_work'
         provider_ids = list(
             await db.scalars(
@@ -228,10 +227,9 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
                 )
             )
         )
-        volume_numbers = list(await db.scalars(select(Volume.volume_number).order_by(Volume.volume_number)))
 
     assert provider_ids == ["book:42"]
-    assert volume_numbers == [2]
+    assert membership.sequence == 2
 
 
 @pytest.mark.asyncio

@@ -7,10 +7,8 @@ from app.models.base import ExternalProvider, ItemKind
 from app.models.canonical import (
     BundleRelease,
     BundleReleaseItem,
-    BundleReleaseProviderLink,
     ExternalProviderId,
     Item,
-    ItemProviderLink,
     MusicRelease,
     Person,
 )
@@ -282,7 +280,7 @@ async def test_admin_ingest_upserts_musicbrainz_release(client, monkeypatch):
     assert body["item"]["barcode"] == "074646493525"
 
     async with AsyncSessionLocal() as db:
-        release = await db.scalar(select(MusicRelease))
+        release = await db.scalar(select(MusicRelease).where(MusicRelease.title == "Kind of Blue"))
         provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(

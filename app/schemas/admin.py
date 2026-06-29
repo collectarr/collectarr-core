@@ -6,9 +6,11 @@ from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
 from app.schemas.metadata import (
+    BoardGameWorkV1Response,
     AnimeSeriesV1Response,
     BookWorkV1Response,
     ComicWorkV1Response,
+    GameWorkV1Response,
     MangaWorkV1Response,
     MovieWorkV1Response,
     MusicReleaseV1Response,
@@ -79,6 +81,8 @@ class ProviderIngestResponse(BaseModel):
         dict[str, Any]
         | BookWorkV1Response
         | ComicWorkV1Response
+        | GameWorkV1Response
+        | BoardGameWorkV1Response
         | MangaWorkV1Response
         | AnimeSeriesV1Response
         | MovieWorkV1Response

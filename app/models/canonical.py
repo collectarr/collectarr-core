@@ -401,6 +401,33 @@ class BookWork(UuidMixin, TimestampMixin, Base):
     )
 
 
+class BookSeries(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "book_series"
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    slug: Mapped[str | None] = mapped_column(String(255), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    original_title: Mapped[str | None] = mapped_column(String(255))
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str | None] = mapped_column(String(64), index=True)
+    language: Mapped[str | None] = mapped_column(String(16), index=True)
+    country: Mapped[str | None] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    works: Mapped[list["BookSeriesMembership"]] = relationship(
+        back_populates="series",
+        cascade="all, delete-orphan",
+    )
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == BookSeries.id,
+            ExternalProviderId.entity_type == "book_series",
+        ),
+        viewonly=True,
+    )
+
+
 class BookEdition(UuidMixin, TimestampMixin, Base):
     __tablename__ = "book_editions"
     __table_args__ = (
@@ -536,21 +563,21 @@ class BookSeriesMembership(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("book_works.id", ondelete="CASCADE"), nullable=False, index=True
     )
     series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("book_series.id", ondelete="CASCADE"), nullable=False, index=True
     )
     sequence: Mapped[float | None] = mapped_column(Float)
     display_number: Mapped[str | None] = mapped_column(String(64))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BookWork] = relationship(back_populates="series_memberships")
-    series: Mapped[Series] = relationship()
+    series: Mapped[BookSeries] = relationship(back_populates="works")
 
 
 class ComicWork(UuidMixin, TimestampMixin, Base):
     __tablename__ = "comic_works"
 
     volume_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="SET NULL"), index=True
+        UUID(as_uuid=True), ForeignKey("comic_volumes.id", ondelete="SET NULL"), index=True
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
@@ -560,7 +587,7 @@ class ComicWork(UuidMixin, TimestampMixin, Base):
     first_publication_date: Mapped[date | None] = mapped_column(Date, index=True)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    volume: Mapped[Volume | None] = relationship()
+    volume: Mapped["ComicVolume | None"] = relationship(back_populates="works")
     issues: Mapped[list["ComicIssue"]] = relationship(
         back_populates="work",
         cascade="all, delete-orphan",
@@ -572,6 +599,31 @@ class ComicWork(UuidMixin, TimestampMixin, Base):
     series_memberships: Mapped[list["ComicSeriesMembership"]] = relationship(
         back_populates="work",
         cascade="all, delete-orphan",
+    )
+
+
+class ComicVolume(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "comic_volumes"
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    slug: Mapped[str | None] = mapped_column(String(255), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    original_title: Mapped[str | None] = mapped_column(String(255))
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    start_year: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str | None] = mapped_column(String(64), index=True)
+    language: Mapped[str | None] = mapped_column(String(16), index=True)
+    country: Mapped[str | None] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    works: Mapped[list["ComicWork"]] = relationship(back_populates="volume")
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == ComicVolume.id,
+            ExternalProviderId.entity_type == "comic_volume",
+        ),
+        viewonly=True,
     )
 
 
@@ -1204,6 +1256,141 @@ class MovieWorkIdentifier(UuidMixin, TimestampMixin, Base):
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     work: Mapped[MovieWork] = relationship(back_populates="identifiers")
+
+
+class GameWork(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "game_works"
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
+    subtitle: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    original_language: Mapped[str | None] = mapped_column(String(16))
+    age_rating: Mapped[str | None] = mapped_column(String(64))
+    audience_rating: Mapped[str | None] = mapped_column(String(64))
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    releases: Mapped[list["GameRelease"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+    )
+    organization_links: Mapped[list["EntityOrganization"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityOrganization.entity_id) == GameWork.id,
+            EntityOrganization.entity_type == "game_work",
+        ),
+        viewonly=True,
+    )
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == GameWork.id,
+            ExternalProviderId.entity_type == "game_work",
+        ),
+        viewonly=True,
+    )
+
+
+class GameRelease(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "game_releases"
+    __table_args__ = (
+        Index("ix_game_releases_work_platform", "work_id", "platform"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("game_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    release_title: Mapped[str | None] = mapped_column(String(255))
+    platform: Mapped[str | None] = mapped_column(String(128), index=True)
+    release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    region_code: Mapped[str | None] = mapped_column(String(32), index=True)
+    format: Mapped[str | None] = mapped_column(String(64), index=True)
+    publisher: Mapped[str | None] = mapped_column(String(255), index=True)
+    catalog_number: Mapped[str | None] = mapped_column(String(100), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(100), index=True)
+    release_status: Mapped[str | None] = mapped_column(String(64), index=True)
+    language: Mapped[str | None] = mapped_column(String(16), index=True)
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    work: Mapped[GameWork] = relationship(back_populates="releases")
+
+
+class BoardGameWork(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "boardgame_works"
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
+    subtitle: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    original_language: Mapped[str | None] = mapped_column(String(16))
+    age_rating: Mapped[str | None] = mapped_column(String(64))
+    audience_rating: Mapped[str | None] = mapped_column(String(64))
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    editions: Mapped[list["BoardGameEdition"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+    )
+    person_links: Mapped[list["EntityPerson"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityPerson.entity_id) == BoardGameWork.id,
+            EntityPerson.entity_type == "boardgame_work",
+        ),
+        viewonly=True,
+    )
+    organization_links: Mapped[list["EntityOrganization"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityOrganization.entity_id) == BoardGameWork.id,
+            EntityOrganization.entity_type == "boardgame_work",
+        ),
+        viewonly=True,
+    )
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == BoardGameWork.id,
+            ExternalProviderId.entity_type == "boardgame_work",
+        ),
+        viewonly=True,
+    )
+
+
+class BoardGameEdition(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "boardgame_editions"
+    __table_args__ = (
+        Index("ix_boardgame_editions_work_release", "work_id", "release_date"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("boardgame_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    edition_title: Mapped[str | None] = mapped_column(String(255))
+    format: Mapped[str | None] = mapped_column(String(64))
+    publisher: Mapped[str | None] = mapped_column(String(255), index=True)
+    catalog_number: Mapped[str | None] = mapped_column(String(100), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(100), index=True)
+    release_status: Mapped[str | None] = mapped_column(String(64), index=True)
+    release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    language: Mapped[str | None] = mapped_column(String(16), index=True)
+    country: Mapped[str | None] = mapped_column(String(32), index=True)
+    age_rating: Mapped[str | None] = mapped_column(String(64), index=True)
+    audience_rating: Mapped[str | None] = mapped_column(String(64))
+    min_players: Mapped[int | None] = mapped_column(Integer)
+    max_players: Mapped[int | None] = mapped_column(Integer)
+    playing_time_minutes: Mapped[int | None] = mapped_column(Integer)
+    min_age: Mapped[int | None] = mapped_column(Integer)
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048))
+    cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    description: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    work: Mapped[BoardGameWork] = relationship(back_populates="editions")
 
 
 # ========================
@@ -2256,10 +2443,3 @@ class SeriesRelation(UuidMixin, TimestampMixin, Base):
     target_series: Mapped[Series] = relationship(
         foreign_keys=[target_series_id],
     )
-
-
-# Compatibility aliases for old provider-link class names.
-ItemProviderLink = ExternalProviderId
-VolumeProviderLink = ExternalProviderId
-SeriesProviderLink = ExternalProviderId
-BundleReleaseProviderLink = ExternalProviderId

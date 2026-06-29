@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.catalog.grouping_models import GroupingModel, grouping_model_for_kind
 from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_formats
 from app.models.base import ExternalProvider, ItemKind
 
@@ -18,6 +19,7 @@ class MediaTypeConfig:
     is_top_level: bool = True
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
     provider_search_policy: str = DEFAULT_PROVIDER_SEARCH_POLICY
+    grouping_model: GroupingModel = GroupingModel.work_release
 
     @property
     def primary_route_segment(self) -> str:
@@ -36,6 +38,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
             ExternalProvider.comicvine,
         ),
         item_number_sort_padding=6,
+        grouping_model=grouping_model_for_kind(ItemKind.comic),
     ),
     MediaTypeConfig(
         kind=ItemKind.manga,
@@ -49,6 +52,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
             ExternalProvider.anilist,
             ExternalProvider.mangadex,
         ),
+        grouping_model=grouping_model_for_kind(ItemKind.manga),
     ),
     MediaTypeConfig(
         kind=ItemKind.anime,
@@ -58,6 +62,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         default_provider=ExternalProvider.anilist,
         providers=(ExternalProvider.anilist, ExternalProvider.tmdb),
         physical_formats=video_physical_formats,
+        grouping_model=grouping_model_for_kind(ItemKind.anime),
     ),
     MediaTypeConfig(
         kind=ItemKind.movie,
@@ -67,6 +72,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
         physical_formats=video_physical_formats,
+        grouping_model=grouping_model_for_kind(ItemKind.movie),
     ),
     MediaTypeConfig(
         kind=ItemKind.tv,
@@ -76,6 +82,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         default_provider=ExternalProvider.tmdb,
         providers=(ExternalProvider.tmdb,),
         physical_formats=video_physical_formats,
+        grouping_model=grouping_model_for_kind(ItemKind.tv),
     ),
     MediaTypeConfig(
         kind=ItemKind.game,
@@ -84,6 +91,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("games", "game"),
         default_provider=ExternalProvider.igdb,
         providers=(ExternalProvider.igdb,),
+        grouping_model=grouping_model_for_kind(ItemKind.game),
     ),
     MediaTypeConfig(
         kind=ItemKind.boardgame,
@@ -92,6 +100,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("board-games", "boardgames", "boardgame"),
         default_provider=ExternalProvider.bgg,
         providers=(ExternalProvider.bgg,),
+        grouping_model=grouping_model_for_kind(ItemKind.boardgame),
     ),
     MediaTypeConfig(
         kind=ItemKind.book,
@@ -100,6 +109,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("books", "book"),
         default_provider=ExternalProvider.openlibrary,
         providers=(ExternalProvider.openlibrary, ExternalProvider.hardcover),
+        grouping_model=grouping_model_for_kind(ItemKind.book),
     ),
     MediaTypeConfig(
         kind=ItemKind.music,
@@ -108,6 +118,7 @@ media_types: tuple[MediaTypeConfig, ...] = (
         route_segments=("music",),
         default_provider=ExternalProvider.musicbrainz,
         providers=(ExternalProvider.musicbrainz,),
+        grouping_model=grouping_model_for_kind(ItemKind.music),
     ),
     MediaTypeConfig(
         kind=ItemKind.collection,

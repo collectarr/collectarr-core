@@ -93,7 +93,7 @@ class BundleReleaseMemberResponse(BaseModel):
 
 class BundleReleaseDetailResponse(BundleReleaseSummaryResponse):
     franchise_id: UUID | None = None
-    provider_links: list["ProviderLink"] = Field(default_factory=list)
+    provider_links: list["ExternalProviderIdResponse"] = Field(default_factory=list)
     members: list[BundleReleaseMemberResponse] = Field(default_factory=list)
 
 
@@ -139,9 +139,7 @@ class EditionResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ProviderLink(BaseModel):
-    """Provider link for BundleReleaseDetailResponse. For v1 schemas, use ExternalProviderId."""
-
+class ExternalProviderIdResponse(BaseModel):
     provider: ExternalProvider
     entity_type: str
     provider_item_id: str
@@ -205,4 +203,3 @@ class SearchResult(BaseModel):
     series_group: str | None = None
     bundle_titles: list[str] | None = None
     bundle_release_ids: list[str] | None = None
-

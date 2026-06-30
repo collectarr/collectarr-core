@@ -14,8 +14,8 @@ from app.schemas.metadata_shared import (
     BundleReleaseMemberResponse,
     BundleReleaseSummaryResponse,
     ContributorResponse,
+    ExternalProviderIdResponse,
     MetadataCredit,
-    ProviderLink,
     public_item_kind,
 )
 
@@ -812,7 +812,7 @@ def _attr_dict(value: Any) -> Any:
 
 
 def item_response_from_model(
-    item: Any, extra_provider_links: list[dict[str, Any]] | None = None
+    item: Any, extra_provider_links: list[ExternalProviderIdResponse] | None = None
 ) -> dict[str, Any]:
     """DEPRECATED: Converts legacy Item model to dictionary response."""
     base = {
@@ -1005,7 +1005,7 @@ def bundle_release_member_sort_key(member: Any) -> tuple[bool, int, bool, int, s
 def bundle_release_detail_from_model(
     bundle_release: Any,
     *,
-    provider_links: list[ProviderLink] | None = None,
+    provider_links: list[Any] | None = None,
 ) -> BundleReleaseDetailResponse:
     summary = bundle_release_summary_from_model(bundle_release)
     members = sorted(
@@ -1018,10 +1018,13 @@ def bundle_release_detail_from_model(
             getattr(bundle_release, "provider_links", []),
             entity_type="bundle_release",
         )
+    external_provider_links = [
+        ExternalProviderIdResponse.model_validate(link) for link in loaded_provider_links
+    ]
     return BundleReleaseDetailResponse(
         **summary.model_dump(),
         franchise_id=getattr(bundle_release, "franchise_id", None),
-        provider_links=loaded_provider_links,
+        provider_links=external_provider_links,
         members=[
             BundleReleaseMemberResponse(
                 id=member.id,
@@ -1394,10 +1397,10 @@ def _string_list(values: Any) -> list[str]:
 
 
 def _provider_links(
-    item: Any, extra_provider_links: list[ProviderLink] | None = None
-) -> list[ProviderLink]:
-    links: list[ProviderLink] = []
-    seen: dict[tuple[str, str, str], ProviderLink] = {}
+    item: Any, extra_provider_links: list[ExternalProviderIdResponse] | None = None
+) -> list[ExternalProviderIdResponse]:
+    links: list[ExternalProviderIdResponse] = []
+    seen: dict[tuple[str, str, str], ExternalProviderIdResponse] = {}
     loaded_provider_links = item.__dict__.get("provider_links", []) if hasattr(item, "__dict__") else []
     for link in _provider_links_from_models(loaded_provider_links, entity_type="item"):
         _append_provider_link(
@@ -1437,15 +1440,17 @@ def _provider_links(
     return links
 
 
-def _provider_links_from_models(rows: Any, *, entity_type: str) -> list[ProviderLink]:
-    links: list[ProviderLink] = []
+def _provider_links_from_models(
+    rows: Any, *, entity_type: str
+) -> list[ExternalProviderIdResponse]:
+    links: list[ExternalProviderIdResponse] = []
     for row in rows or []:
         provider = getattr(row, "provider", None)
         provider_item_id = getattr(row, "provider_item_id", None)
         if provider is None or not provider_item_id:
             continue
         links.append(
-            ProviderLink(
+            ExternalProviderIdResponse(
                 provider=provider,
                 entity_type=entity_type,
                 provider_item_id=provider_item_id,
@@ -1457,8 +1462,8 @@ def _provider_links_from_models(rows: Any, *, entity_type: str) -> list[Provider
 
 
 def _append_provider_link(
-    links: list[ProviderLink],
-    seen: dict[tuple[str, str, str], ProviderLink],
+    links: list[ExternalProviderIdResponse],
+    seen: dict[tuple[str, str, str], ExternalProviderIdResponse],
     *,
     provider: str,
     entity_type: str,
@@ -1478,7 +1483,7 @@ def _append_provider_link(
         provider_enum = ExternalProvider(provider)
     except ValueError:
         return
-    link = ProviderLink(
+    link = ExternalProviderIdResponse(
         provider=provider_enum,
         entity_type=entity_type,
         provider_item_id=provider_item_id,

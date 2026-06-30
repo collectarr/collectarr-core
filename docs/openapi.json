@@ -8734,6 +8734,58 @@
         ],
         "title": "BookIdentifierResponse"
       },
+      "BookSeriesResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "display_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "BookSeriesResponse"
+      },
       "BookWorkV1Response": {
         "properties": {
           "id": {
@@ -8823,6 +8875,13 @@
             },
             "type": "array",
             "title": "Contributors"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/BookSeriesResponse"
+            },
+            "type": "array",
+            "title": "Series"
           },
           "editions": {
             "items": {
@@ -9095,7 +9154,7 @@
           },
           "provider_links": {
             "items": {
-              "$ref": "#/components/schemas/ProviderLink"
+              "$ref": "#/components/schemas/ExternalProviderIdResponse"
             },
             "type": "array",
             "title": "Provider Links"
@@ -10715,6 +10774,50 @@
         ],
         "title": "ExternalProvider"
       },
+      "ExternalProviderIdResponse": {
+        "properties": {
+          "provider": {
+            "$ref": "#/components/schemas/ExternalProvider"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "provider_item_id": {
+            "type": "string",
+            "title": "Provider Item Id"
+          },
+          "site_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Url"
+          },
+          "api_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "entity_type",
+          "provider_item_id"
+        ],
+        "title": "ExternalProviderIdResponse"
+      },
       "FacetItemIdsRequest": {
         "properties": {
           "item_ids": {
@@ -11037,6 +11140,16 @@
           "title"
         ],
         "title": "GameWorkV1Response"
+      },
+      "GroupingModel": {
+        "type": "string",
+        "enum": [
+          "legacy_series_volume",
+          "release_based",
+          "series_episode",
+          "work_release"
+        ],
+        "title": "GroupingModel"
       },
       "HTTPValidationError": {
         "properties": {
@@ -11539,6 +11652,9 @@
             "title": "Is Top Level",
             "default": true
           },
+          "grouping_model": {
+            "$ref": "#/components/schemas/GroupingModel"
+          },
           "physical_formats": {
             "items": {
               "$ref": "#/components/schemas/PhysicalFormatResponse"
@@ -11553,7 +11669,8 @@
           "singular_label",
           "plural_label",
           "route_segments",
-          "provider_search_policy"
+          "provider_search_policy",
+          "grouping_model"
         ],
         "title": "MediaTypeResponse"
       },
@@ -12095,6 +12212,17 @@
             "type": "string",
             "format": "uuid",
             "title": "Id"
+          },
+          "character_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Character Name"
           }
         },
         "type": "object",
@@ -12246,6 +12374,22 @@
               }
             ],
             "title": "Cover Image Key"
+          },
+          "trailer_urls": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trailer Urls"
+          },
+          "external_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "External Links"
           }
         },
         "type": "object",
@@ -12354,6 +12498,22 @@
               }
             ],
             "title": "Audience Rating"
+          },
+          "trailer_urls": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trailer Urls"
+          },
+          "external_links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "External Links"
           },
           "kind": {
             "$ref": "#/components/schemas/ItemKind",
@@ -13477,51 +13637,6 @@
           "history_id"
         ],
         "title": "ProviderIngestRetryRequest"
-      },
-      "ProviderLink": {
-        "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "entity_type": {
-            "type": "string",
-            "title": "Entity Type"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "title": "Provider Item Id"
-          },
-          "site_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Url"
-          },
-          "api_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider",
-          "entity_type",
-          "provider_item_id"
-        ],
-        "title": "ProviderLink",
-        "description": "Provider link for BundleReleaseDetailResponse. Note: For v1 schemas, use ExternalProviderId."
       },
       "ProviderPayloadSnapshotPurgeResponse": {
         "properties": {

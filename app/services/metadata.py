@@ -104,8 +104,8 @@ from app.schemas.metadata import (
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
-    EditionResponse,
     EpisodeResponse,
+    ExternalProviderIdResponse,
     GameReleaseV1Response,
     GameWorkV1Response,
     MangaChapterV1Response,
@@ -125,9 +125,7 @@ from app.schemas.metadata import (
     MusicMediaV1Response,
     MusicReleaseV1Response,
     MusicTrackV1Response,
-    ProviderLink,
     ProviderSearchResultResponse,
-    SearchResult,
     SeasonResponse,
     SeriesItemResponse,
     SeriesRelationResponse,
@@ -145,6 +143,7 @@ from app.schemas.metadata import (
     item_response_from_model,
     public_item_kind,
 )
+from app.schemas.metadata_shared import EditionResponse, SearchResult
 from app.search.client import SearchClient
 from app.services.metadata_helpers import (
     _loaded_rows,
@@ -174,14 +173,14 @@ class MetadataService:
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
 
-    async def _provider_links_for_item(self, item_id: UUID) -> list[ProviderLink]:
+    async def _provider_links_for_item(self, item_id: UUID) -> list[ExternalProviderIdResponse]:
         return await self._provider_links_for_entity("item", item_id)
 
     async def _provider_links_for_entity(
         self,
         entity_type: str,
         entity_id: UUID,
-    ) -> list[ProviderLink]:
+    ) -> list[ExternalProviderIdResponse]:
         result = await self.db.execute(
             select(ExternalProviderId)
             .where(
@@ -191,7 +190,7 @@ class MetadataService:
             .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
         return [
-            ProviderLink(
+            ExternalProviderIdResponse(
                 provider=row.provider,
                 entity_type=row.entity_type,
                 provider_item_id=row.provider_item_id,

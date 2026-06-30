@@ -32,8 +32,8 @@ Completed all 3 tasks to deprecate legacy v0 code from collectarr-core backend:
 - **No breaking changes for clients** - API still returns the same data, just with updated type contracts
 
 ### Note on ProviderLink
-- `ProviderLink` class retained but marked `DEPRECATED` for v0 only
-- Used only by `BundleReleaseDetailResponse` (which still uses v0 Bundle model)
+- `ProviderLink` has been removed from runtime schemas
+- `BundleReleaseDetailResponse` uses `ExternalProviderIdResponse`
 - V1 schemas should use `ExternalProviderId` directly
 
 ---

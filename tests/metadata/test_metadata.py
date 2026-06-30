@@ -47,7 +47,7 @@ from app.models.canonical import (
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
-from app.schemas.metadata import ProviderLink, item_response_from_model
+from app.schemas.metadata import ExternalProviderIdResponse, item_response_from_model
 from app.search.documents import comic_work_search_document, item_search_document
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
@@ -1156,7 +1156,7 @@ def test_item_response_merges_persisted_provider_link_urls():
     response = item_response_from_model(
         item,
         extra_provider_links=[
-            ProviderLink(
+            ExternalProviderIdResponse(
                 provider=ExternalProvider.igdb,
                 entity_type="item",
                 provider_item_id="igdb-123",

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.canonical import AdminAuditLog, ExternalProviderId, Item, ProviderIngestJob
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import ProviderIngestHistoryEntry
-from app.schemas.metadata import ProviderLink, item_response_from_model
+from app.schemas.metadata import ExternalProviderIdResponse, item_response_from_model
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
 
@@ -31,7 +31,9 @@ class AdminSupportService:
         self.actor_user_id = actor_user_id
         self.actor_email = actor_email
 
-    async def provider_links_for_items(self, item_ids: list[UUID]) -> dict[UUID, list[ProviderLink]]:
+    async def provider_links_for_items(
+        self, item_ids: list[UUID]
+    ) -> dict[UUID, list[ExternalProviderIdResponse]]:
         if not item_ids:
             return {}
         result = await self.db.execute(
@@ -42,10 +44,10 @@ class AdminSupportService:
             )
             .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
-        links_by_item: dict[UUID, list[ProviderLink]] = {}
+        links_by_item: dict[UUID, list[ExternalProviderIdResponse]] = {}
         for row in result.scalars():
             links_by_item.setdefault(row.entity_id, []).append(
-                ProviderLink(
+                ExternalProviderIdResponse(
                     provider=row.provider,
                     entity_type=row.entity_type,
                     provider_item_id=row.provider_item_id,

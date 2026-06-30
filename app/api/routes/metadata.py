@@ -46,11 +46,9 @@ from app.schemas.metadata import (
     CharacterResponse,
     ComicIssueV1Response,
     ComicWorkV1Response,
-    CreateEditionRequest,
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
-    EditionResponse,
     FacetItemIdsRequest,
     MangaChapterV1Response,
     MangaWorkV1Response,
@@ -65,7 +63,6 @@ from app.schemas.metadata import (
     MovieWorkV1Response,
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
-    SearchResult,
     SeasonResponse,
     SeriesItemResponse,
     SeriesRelationResponse,
@@ -78,6 +75,7 @@ from app.schemas.metadata import (
     TVSeriesV1Response,
     public_item_kind,
 )
+from app.schemas.metadata_shared import CreateEditionRequest, EditionResponse, SearchResult
 from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
 

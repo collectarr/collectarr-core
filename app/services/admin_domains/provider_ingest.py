@@ -162,7 +162,7 @@ _SNAPSHOT_TTL = timedelta(days=30)
 
 
 @dataclass(frozen=True)
-class CatalogProviderLinkRef:
+class CatalogExternalProviderIdRef:
     entity_type: str
     entity_id: UUID
     provider_item_id: str
@@ -1145,14 +1145,14 @@ class AdminProviderIngestService:
             return True
         return provider.capabilities.allows_image_mirroring
 
-    async def _get_provider_id(self, payload: ProviderIngestRequest) -> CatalogProviderLinkRef | None:
+    async def _get_provider_id(self, payload: ProviderIngestRequest) -> CatalogExternalProviderIdRef | None:
         return await self._get_provider_id_value(payload.provider, payload.provider_item_id)
 
     async def _get_provider_id_value(
         self,
         provider: ExternalProvider,
         provider_item_id: str,
-    ) -> CatalogProviderLinkRef | None:
+    ) -> CatalogExternalProviderIdRef | None:
         # Query ExternalProviderId (v0 and v1 entity types)
         external_ref = await self.db.execute(
             select(ExternalProviderId.entity_type, ExternalProviderId.entity_id).where(
@@ -1179,14 +1179,14 @@ class AdminProviderIngestService:
         )
         external_row = external_ref.first()
         if external_row is not None:
-            return CatalogProviderLinkRef(
+            return CatalogExternalProviderIdRef(
                 entity_type=str(external_row[0]),
                 entity_id=external_row[1],
                 provider_item_id=provider_item_id,
             )
         return None
 
-    async def _existing_response(self, provider_id: CatalogProviderLinkRef) -> ProviderIngestResponse:
+    async def _existing_response(self, provider_id: CatalogExternalProviderIdRef) -> ProviderIngestResponse:
         if provider_id.entity_type == "bundle_release":
             bundle = await self.db.get(BundleRelease, provider_id.entity_id)
             item_id = bundle.primary_item_id if bundle is not None else None

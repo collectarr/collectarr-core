@@ -16,7 +16,6 @@ from sqlalchemy.orm import selectinload
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     AnimeCharacterAppearance,
     AnimeContribution,
@@ -36,7 +35,6 @@ from app.models import (
     ComicContribution,
     ComicIdentifier,
     ComicIssue,
-    ComicSeries,
     ComicStoryArcMembership,
     ComicWork,
     Edition,
@@ -50,7 +48,6 @@ from app.models import (
     MangaCharacterAppearance,
     MangaContribution,
     MangaIdentifier,
-    MangaSeries,
     MangaSeriesMembership,
     MangaWork,
     MetadataProposal,
@@ -75,6 +72,7 @@ from app.models import (
     TVReleaseMedia,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.proposal_payload import compact_metadata_payload
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider

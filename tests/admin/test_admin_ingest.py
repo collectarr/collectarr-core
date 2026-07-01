@@ -11,7 +11,6 @@ from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.db.session import AsyncSessionLocal
 from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     Character,
     CharacterAppearance,
@@ -44,6 +43,7 @@ from app.models import (
     Variant,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,

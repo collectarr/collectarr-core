@@ -15,7 +15,6 @@ from datetime import date
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     BundleRelease,
     BundleReleaseItem,
@@ -37,6 +36,7 @@ from app.models import (
     Variant,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 # ---------------------------------------------------------------------------

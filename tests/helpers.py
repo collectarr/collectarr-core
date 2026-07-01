@@ -1,8 +1,8 @@
 from datetime import date
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ItemKind
 from app.models import Edition, Franchise, Item, Series, Variant, Volume
+from app.models.base import ItemKind
 
 
 async def seed_comic() -> tuple[str, str, str]:

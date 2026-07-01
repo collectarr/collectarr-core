@@ -21,7 +21,6 @@ from app.models import (
     Item,
     StoryArcItem,
     Variant,
-    Volume,
 )
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (

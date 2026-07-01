@@ -9,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider
 from app.models import ExternalProviderId
+from app.models.base import ExternalProvider
 from app.providers.gcd import GCDProvider
 from app.schemas.admin import ProviderIngestRequest
 from app.services.admin import AdminMetadataService

@@ -6,8 +6,8 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.base import ItemKind
 from app.models import ImageCacheEntry, MetadataProposal
+from app.models.base import ItemKind
 from app.providers.base import ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider

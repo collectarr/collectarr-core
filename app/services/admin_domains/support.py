@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AdminAuditLog, ExternalProviderId, Item, ProviderIngestJob
 from app.repositories.metadata import MetadataRepository
-from app.schemas.admin import ProviderIngestHistoryEntry
 from app.schemas import ExternalProviderIdResponse, item_response_from_model
+from app.schemas.admin import ProviderIngestHistoryEntry
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
 

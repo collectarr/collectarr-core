@@ -9,7 +9,6 @@ from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.base import ItemKind
 from app.models import (
     AdminAuditLog,
     CharacterAppearance,
@@ -27,6 +26,7 @@ from app.models import (
     Variant,
     Volume,
 )
+from app.models.base import ItemKind
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,

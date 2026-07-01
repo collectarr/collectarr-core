@@ -15,11 +15,11 @@ from app.schemas.metadata_shared import (
     BundleReleaseDetailResponse,
     BundleReleaseMemberResponse,
     BundleReleaseSummaryResponse,
-    ContributorResponse,
     ExternalProviderIdResponse,
     MetadataCredit,
     public_item_kind,
 )
+
 
 class ProviderSearchResultResponse(BaseModel):
     provider: ExternalProvider

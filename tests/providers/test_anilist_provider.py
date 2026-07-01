@@ -4,7 +4,6 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     BundleRelease,
     Character,
@@ -17,6 +16,7 @@ from app.models import (
     Tag,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.anilist import AniListProvider
 from app.providers.base import ProviderItem
 from app.search.client import SearchClient

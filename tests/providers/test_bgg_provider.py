@@ -5,7 +5,6 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     BoardGameEdition,
     BoardGameWork,
@@ -15,6 +14,7 @@ from app.models import (
     Organization,
     Person,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import ProviderItem
 from app.providers.bgg import BGGProvider
 from app.search.client import SearchClient

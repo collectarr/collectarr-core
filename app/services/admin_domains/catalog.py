@@ -23,7 +23,6 @@ from app.metadata_normalized import (
     typed_kind_metadata_payload,
     upsert_item_kind_metadata,
 )
-from app.models.base import ItemKind
 from app.models import (
     Character,
     CharacterAppearance,
@@ -40,6 +39,7 @@ from app.models import (
     StoryArcItem,
     Variant,
 )
+from app.models.base import ItemKind
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,

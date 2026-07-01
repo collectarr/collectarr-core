@@ -5,7 +5,6 @@ from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.metadata_normalized import typed_kind_metadata_for_item
-from app.models.base import ItemKind
 from app.models import (
     AnimeContribution,
     AnimeSeries,
@@ -21,6 +20,7 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
 )
+from app.models.base import ItemKind
 
 
 def item_search_document(item: Item) -> dict[str, Any]:

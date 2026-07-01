@@ -27,7 +27,7 @@ from app.models.base import (
 )
 
 if TYPE_CHECKING:
-    from app.models import Item, Series
+    from app.models import ComicSeries, Item, MangaSeries, Series
 
 
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):

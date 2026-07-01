@@ -1,25 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.catalog.grouping_models import GroupingModel
-from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
-from app.metadata_normalized import typed_kind_metadata_for_item
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.schemas.metadata_shared import (
-    BundleReleaseContentSummaryResponse,
-    BundleReleaseDetailResponse,
-    BundleReleaseMemberResponse,
-    BundleReleaseSummaryResponse,
     ContributorResponse,
-    ExternalProviderIdResponse,
-    MetadataCredit,
-    public_item_kind,
 )
+
 
 # Manga DTOs
 class MangaContributorResponse(ContributorResponse):

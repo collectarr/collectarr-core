@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider
 from app.models import ComicWork, MetadataProposal
+from app.models.base import ExternalProvider
 from app.providers.base import ProviderItem
 from app.providers.comicvine import ComicVineProvider
 from app.search.client import SearchClient

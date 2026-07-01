@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
@@ -18,16 +17,13 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     and_,
-    text,
 )
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
     Base,
     ExternalProvider,
-    ItemKind,
     TimestampMixin,
     UuidMixin,
 )
@@ -36,24 +32,25 @@ from app.models.canonical_support import (  # noqa: F401
     AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
+    ComicSeriesRelation,
     EntityOrganization,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
+    MangaSeriesRelation,
     MetadataProposal,
     Organization,
     Person,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
-    ComicSeriesRelation,
-    MangaSeriesRelation,
     SeriesRelation,
     StoryArc,
     StoryArcItem,
     Tag,
 )
+
 
 class BookWork(UuidMixin, TimestampMixin, Base):
     __tablename__ = "book_works"

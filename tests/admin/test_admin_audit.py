@@ -4,8 +4,8 @@ import pytest
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.base import ItemKind
 from app.models import Item
+from app.models.base import ItemKind
 from app.search.client import SearchClient
 from tests.helpers import seed_comic
 

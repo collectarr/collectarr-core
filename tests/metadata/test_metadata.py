@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     BookContribution,
     BookEdition,
@@ -43,10 +42,15 @@ from app.models import (
     Variant,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
 from app.schemas import ExternalProviderIdResponse, item_response_from_model
-from app.search.documents import book_work_search_document, comic_work_search_document, item_search_document
+from app.search.documents import (
+    book_work_search_document,
+    comic_work_search_document,
+    item_search_document,
+)
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
 

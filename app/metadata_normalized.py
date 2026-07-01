@@ -7,7 +7,6 @@ from app.catalog.metadata_fields import (
     typed_field_keys,
     value_types,
 )
-from app.models.base import ItemKind
 from app.models import (
     Item,
     ItemKindMetadata,
@@ -24,6 +23,7 @@ from app.models import (
     ItemKindMetadataTv,
     MetadataTaxonomy,
 )
+from app.models.base import ItemKind
 
 NORMALIZED_SCHEMA_VERSION = 1
 

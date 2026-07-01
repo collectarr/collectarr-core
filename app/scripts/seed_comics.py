@@ -13,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     ComicIdentifier,
     ComicIssue,
@@ -21,6 +20,7 @@ from app.models import (
     ComicWork,
     ExternalProviderId,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 from app.search.client import SearchClient
 from app.search.documents import comic_work_search_document

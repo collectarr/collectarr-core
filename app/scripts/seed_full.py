@@ -20,7 +20,6 @@ from typing import Any
 from sqlalchemy import delete, select
 
 from app.db.session import AsyncSessionLocal, engine
-from app.models.base import ExternalProvider, ItemKind
 from app.models import (
     Base,
     BundleRelease,
@@ -44,6 +43,7 @@ from app.models import (
     Variant,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind
 from app.models.user import User  # noqa: F401 – register User table on Base.metadata
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 

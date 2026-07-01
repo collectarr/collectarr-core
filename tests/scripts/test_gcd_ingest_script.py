@@ -2,8 +2,8 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import ExternalProvider, ItemKind
 from app.models import ComicIssue, ExternalProviderId
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import ProviderItem, ProviderSearchResult
 from app.providers.gcd import GCDProvider
 from app.scripts import ingest_gcd

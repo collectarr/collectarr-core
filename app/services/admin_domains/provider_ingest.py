@@ -15,7 +15,6 @@ from app.catalog.physical_formats import (
 )
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import upsert_item_kind_metadata
-from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.models import (
     AnimeCharacterAppearance,
     AnimeContribution,
@@ -37,8 +36,8 @@ from app.models import (
     ComicIdentifier,
     ComicIssue,
     ComicSeries,
-    ComicSeriesRelation,
     ComicSeriesMembership,
+    ComicSeriesRelation,
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
@@ -55,8 +54,8 @@ from app.models import (
     MangaContribution,
     MangaIdentifier,
     MangaSeries,
-    MangaSeriesRelation,
     MangaSeriesMembership,
+    MangaSeriesRelation,
     MangaWork,
     MetadataProposal,
     MovieRelease,
@@ -88,6 +87,7 @@ from app.models import (
     Variant,
     Volume,
 )
+from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.proposal_payload import compact_metadata_payload
 from app.providers.base import (
     MetadataProvider,
@@ -97,7 +97,6 @@ from app.providers.base import (
     NormalizedSeason,
     NormalizedTrack,
     NormalizedVariantCover,
-    ProviderItem,
 )
 from app.providers.comicvine import ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name

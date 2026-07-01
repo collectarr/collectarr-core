@@ -5,8 +5,8 @@ import pytest
 from sqlalchemy import select
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import UserRole
 from app.models import ImageAsset
+from app.models.base import UserRole
 from app.repositories.users import UserRepository
 from tests.helpers import register_and_login
 

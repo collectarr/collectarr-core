@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -27,7 +28,7 @@ from app.models.base import (
 )
 
 if TYPE_CHECKING:
-    from app.models import ComicSeries, Item, MangaSeries
+    from app.models import ComicSeries, MangaSeries
 
 
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):
@@ -134,6 +135,44 @@ class EntityPerson(UuidMixin, TimestampMixin, Base):
 
     person: Mapped["Person"] = relationship()
 
+
+class EntityAlias(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_aliases"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "normalized_alias",
+            name="uq_entity_aliases_entity_normalized_alias",
+        ),
+        Index("ix_entity_aliases_entity_position", "entity_type", "entity_id", "position"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    alias: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_alias: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+class EntityLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_links"
+    __table_args__ = (
+        CheckConstraint(
+            "link_type IN ('trailer', 'external')",
+            name="ck_entity_links_link_type_valid",
+        ),
+        Index("ix_entity_links_entity_type_position", "entity_type", "entity_id", "link_type", "position"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    link_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    site: Mapped[str | None] = mapped_column(String(255))
+    name: Mapped[str | None] = mapped_column(String(255))
+    kind: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 class StoryArc(UuidMixin, TimestampMixin, Base):
     __tablename__ = "story_arcs"

@@ -33,9 +33,11 @@ from app.models.canonical_support import (  # noqa: F401
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
+    EntityAlias,
     EntityOrganization,
     EntityPerson,
     EntityTag,
+    EntityLink,
     ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
@@ -119,17 +121,23 @@ class Item(UuidMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
-    alias_entries: Mapped[list["ItemAlias"]] = relationship(
-        back_populates="item",
+    alias_entries: Mapped[list["EntityAlias"]] = relationship(
         cascade="all, delete-orphan",
         lazy="selectin",
-        order_by=lambda: (ItemAlias.position.asc(), ItemAlias.created_at.asc(), ItemAlias.id.asc()),
+        primaryjoin=lambda: and_(
+            foreign(EntityAlias.entity_id) == Item.id,
+            EntityAlias.entity_type == "item",
+        ),
+        order_by=lambda: (EntityAlias.position.asc(), EntityAlias.created_at.asc(), EntityAlias.id.asc()),
     )
-    link_entries: Mapped[list["ItemLink"]] = relationship(
-        back_populates="item",
+    link_entries: Mapped[list["EntityLink"]] = relationship(
         cascade="all, delete-orphan",
         lazy="selectin",
-        order_by=lambda: (ItemLink.position.asc(), ItemLink.created_at.asc(), ItemLink.id.asc()),
+        primaryjoin=lambda: and_(
+            foreign(EntityLink.entity_id) == Item.id,
+            EntityLink.entity_type == "item",
+        ),
+        order_by=lambda: (EntityLink.position.asc(), EntityLink.created_at.asc(), EntityLink.id.asc()),
     )
 
     @property
@@ -155,7 +163,8 @@ class Item(UuidMixin, TimestampMixin, Base):
             seen.add(key)
             normalized.append(alias)
         self.alias_entries = [
-            ItemAlias(
+            EntityAlias(
+                entity_type="item",
                 alias=alias,
                 normalized_alias=alias.casefold(),
                 position=index,
@@ -185,7 +194,7 @@ class Item(UuidMixin, TimestampMixin, Base):
             for row in list(self.__dict__.get("link_entries") or [])
             if getattr(row, "link_type", None) != link_type
         ]
-        normalized_rows: list[ItemLink] = []
+        normalized_rows: list[EntityLink] = []
         for index, raw in enumerate(values or []):
             if not isinstance(raw, dict):
                 continue
@@ -193,7 +202,8 @@ class Item(UuidMixin, TimestampMixin, Base):
             if not url:
                 continue
             normalized_rows.append(
-                ItemLink(
+                EntityLink(
+                    entity_type="item",
                     link_type=link_type,
                     url=url,
                     site=str(raw.get("site") or "").strip() or None,
@@ -220,47 +230,6 @@ class Item(UuidMixin, TimestampMixin, Base):
     @external_links.setter
     def external_links(self, values: list[dict[str, Any]] | None) -> None:
         self._set_item_links_for_type("external", values)
-
-
-class ItemAlias(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "item_aliases"
-    __table_args__ = (
-        UniqueConstraint("item_id", "normalized_alias", name="uq_item_aliases_item_normalized_alias"),
-        Index("ix_item_aliases_item_position", "item_id", "position"),
-    )
-
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    alias: Mapped[str] = mapped_column(String(255), nullable=False)
-    normalized_alias: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-    item: Mapped[Item] = relationship(back_populates="alias_entries")
-
-
-class ItemLink(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "item_links"
-    __table_args__ = (
-        CheckConstraint(
-            "link_type IN ('trailer', 'external')",
-            name="ck_item_links_link_type_valid",
-        ),
-        Index("ix_item_links_item_type_position", "item_id", "link_type", "position"),
-    )
-
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    link_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    site: Mapped[str | None] = mapped_column(String(255))
-    name: Mapped[str | None] = mapped_column(String(255))
-    kind: Mapped[str | None] = mapped_column(String(255))
-    description: Mapped[str | None] = mapped_column(Text)
-    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-    item: Mapped[Item] = relationship(back_populates="link_entries")
 
 
 class ReleaseStatus(UuidMixin, TimestampMixin, Base):

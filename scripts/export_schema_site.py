@@ -31,6 +31,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
 LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
+LEGACY_BRIDGE_TABLE_NAMES = {"bundle_releases", "bundle_release_items"}
 SOURCE_MODULES = [
     "app/models/base.py",
     "app/models/canonical_anime.py",
@@ -48,8 +49,8 @@ SOURCE_MODULES = [
 DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
-        "title": "Catalog Spine",
-        "description": "Core catalog releases, bundle composition, and per-kind relation tables.",
+        "title": "Catalog Spine (Legacy / Projection)",
+        "description": "Legacy compatibility tables, bundle bridge tables, and per-kind relation tables. Canonical writes should prefer kind-specific tables for migrated kinds.",
         "tables": [
             "items",
             "item_kind_metadata",
@@ -68,6 +69,8 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
             "persons",
             "entity_organizations",
             "entity_persons",
+            "entity_aliases",
+            "entity_links",
             "story_arcs",
             "story_arc_items",
             "characters",
@@ -121,6 +124,8 @@ KIND_SPECS: list[dict[str, str]] = [
 ]
 
 KIND_SHARED_TABLES = [
+    "entity_aliases",
+    "entity_links",
     "organizations",
     "persons",
     "entity_organizations",
@@ -133,9 +138,6 @@ KIND_SHARED_TABLES = [
 
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "comic": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "comic_volumes",
         "comic_works",
@@ -151,9 +153,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "story_arc_items",
     ],
     "manga": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "manga_works",
         "manga_chapters",
@@ -166,9 +165,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "story_arc_items",
     ],
     "anime": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "anime_series",
         "anime_episodes",
@@ -177,9 +173,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "anime_character_appearances",
     ],
     "movie": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "movie_works",
         "movie_releases",
@@ -190,9 +183,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_release_items",
     ],
     "tv": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "tv_releases",
         "tv_release_media",
@@ -203,16 +193,14 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_release_items",
     ],
     "game": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
+        "game_works",
+        "game_releases",
     ],
     "boardgame": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
+        "boardgame_works",
+        "boardgame_editions",
     ],
     "book": [
         "book_series",
@@ -224,9 +212,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "book_series_memberships",
     ],
     "music": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "music_releases",
         "music_media",
@@ -237,9 +222,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_release_items",
     ],
     "collection": [
-        "items",
-        "editions",
-        "variants",
         "item_kind_metadata",
         "bundle_releases",
         "bundle_release_items",
@@ -247,6 +229,8 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
 }
 
 POLYMORPHIC_LINK_TABLES = {
+    "entity_aliases",
+    "entity_links",
     "entity_organizations",
     "entity_persons",
     "entity_tags",
@@ -255,7 +239,8 @@ POLYMORPHIC_LINK_TABLES = {
 }
 
 STATIC_NOTES = [
-    "Polymorphic support tables such as entity_tags and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "items, editions, and variants are legacy compatibility / projection tables for migrated kinds; canonical writes should target kind-specific tables and bridge tables where appropriate.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "For migration history and any constraints introduced outside model declarations, cross-check the Alembic revisions in alembic/versions.",
 ]
@@ -621,6 +606,10 @@ def render_markdown(data: dict[str, Any]) -> str:
                 lines.append("- Foreign keys: none")
             if table["polymorphic_note"]:
                 lines.append(f"- Note: {table['polymorphic_note']}")
+            if table["legacy_projection_note"]:
+                lines.append(f"- Note: {table['legacy_projection_note']}")
+            if table["legacy_bridge_note"]:
+                lines.append(f"- Note: {table['legacy_bridge_note']}")
             lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -633,8 +622,6 @@ def build_schema_data() -> dict[str, Any]:
     relationships = []
 
     for table in Base.metadata.sorted_tables:
-        if table.name in LEGACY_TABLE_NAMES:
-            continue
         unique_by_column = collect_column_uniques(table)
         indexes_by_column = collect_column_indexes(table)
         columns = [serialize_column(table, column, unique_by_column, indexes_by_column, enums) for column in table.columns]
@@ -659,6 +646,16 @@ def build_schema_data() -> dict[str, Any]:
             "polymorphic_note": (
                 "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
                 if table.name in POLYMORPHIC_LINK_TABLES
+                else None
+            ),
+            "legacy_projection_note": (
+                "Legacy compatibility / projection table for migrated kinds; canonical writes should target kind-specific tables."
+                if table.name in LEGACY_TABLE_NAMES
+                else None
+            ),
+            "legacy_bridge_note": (
+                "Legacy bundle bridge table that still references items.id; redesign this with entity_type + entity_id when bundle composition becomes fully polymorphic."
+                if table.name in LEGACY_BRIDGE_TABLE_NAMES
                 else None
             ),
         }

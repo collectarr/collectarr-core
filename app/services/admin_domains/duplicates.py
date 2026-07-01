@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import item_kind_metadata_payload, upsert_item_kind_metadata
-from app.models.canonical import (
+from app.models import (
     CharacterAppearance,
     Edition,
     EntityOrganization,
@@ -29,6 +29,7 @@ from app.schemas.admin import (
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
+    AdminDuplicateReviewRequest,
 )
 
 
@@ -109,6 +110,8 @@ class AdminDuplicateService:
     async def ignore_duplicate_candidate(
         self,
         payload: AdminDuplicateIgnoreRequest,
+        *,
+        note: str | None = None,
     ) -> AdminDuplicateActionResponse:
         items = await self._items_by_ids(payload.item_ids)
         if len(items) != len(set(payload.item_ids)):
@@ -119,20 +122,32 @@ class AdminDuplicateService:
             )
         self._ensure_same_duplicate_group(items)
         token = self._duplicate_ignore_token([item.id for item in items])
+        conflicts = await self._duplicate_conflict_flags([item.id for item in items])
+        provider_counts = await self._provider_link_counts_by_item([item.id for item in items])
+        confidence_factors = self._duplicate_confidence_factors(
+            items,
+            provider_counts,
+            conflicts=conflicts,
+        )
+        merge_warnings = self._duplicate_merge_warnings(conflicts)
+        duplicate_score, recommended_target_item_id = self._score_duplicate_candidate(
+            items,
+            provider_counts,
+            conflicts=conflicts,
+        )
         for item in items:
             metadata = dict(item.metadata_json or {})
             metadata["admin_duplicate_ignore_token"] = token
             metadata["admin_duplicate_ignored_at"] = datetime.now(UTC).isoformat()
             item.metadata_json = metadata
-        self._audit_recorder(
+        self._record_duplicate_review_audit(
             action="duplicates.ignore",
-            entity_type="duplicate_group",
-            details={
-                "item_ids": [item.id for item in items],
-                "kind": items[0].kind if items else None,
-                "title": items[0].title if items else None,
-                "item_number": items[0].item_number if items else None,
-            },
+            items=items,
+            duplicate_score=duplicate_score,
+            recommended_target_item_id=recommended_target_item_id,
+            confidence_factors=confidence_factors,
+            merge_warnings=merge_warnings,
+            details={"decision": "ignore", **({"note": note} if note else {})},
         )
         await self.db.commit()
         return AdminDuplicateActionResponse(ok=True, affected_items=len(items))
@@ -140,6 +155,8 @@ class AdminDuplicateService:
     async def merge_duplicate_candidate(
         self,
         payload: AdminDuplicateMergeRequest,
+        *,
+        note: str | None = None,
     ) -> AdminDuplicateActionResponse:
         source_ids = [
             item_id for item_id in payload.source_item_ids if item_id != payload.target_item_id
@@ -160,20 +177,36 @@ class AdminDuplicateService:
         target = next(item for item in items if item.id == payload.target_item_id)
         sources = [item for item in items if item.id != payload.target_item_id]
         self._ensure_same_duplicate_group([target, *sources])
+        conflicts = await self._duplicate_conflict_flags([item.id for item in [target, *sources]])
+        provider_counts = await self._provider_link_counts_by_item([item.id for item in [target, *sources]])
+        confidence_factors = self._duplicate_confidence_factors(
+            [target, *sources],
+            provider_counts,
+            conflicts=conflicts,
+        )
+        merge_warnings = self._duplicate_merge_warnings(conflicts)
+        duplicate_score, recommended_target_item_id = self._score_duplicate_candidate(
+            [target, *sources],
+            provider_counts,
+            conflicts=conflicts,
+        )
 
         for source in sources:
             await self._move_item_children(source, target)
             await self.db.delete(source)
-        self._audit_recorder(
+        self._record_duplicate_review_audit(
             action="duplicates.merge",
-            entity_type="item",
+            items=[target, *sources],
             entity_id=target.id,
+            duplicate_score=duplicate_score,
+            recommended_target_item_id=recommended_target_item_id,
+            confidence_factors=confidence_factors,
+            merge_warnings=merge_warnings,
             details={
+                "decision": "merge",
                 "target_item_id": target.id,
                 "source_item_ids": [source.id for source in sources],
-                "kind": target.kind,
-                "title": target.title,
-                "item_number": target.item_number,
+                **({"note": note} if note else {}),
             },
         )
         await self.db.commit()
@@ -192,6 +225,35 @@ class AdminDuplicateService:
             item=response_item,
         )
 
+    async def review_duplicate_candidate(
+        self,
+        payload: AdminDuplicateReviewRequest,
+    ) -> AdminDuplicateActionResponse:
+        if payload.decision == "ignore":
+            if not payload.item_ids:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="duplicate_item_ids_required",
+                    detail="item_ids are required when decision is ignore",
+                )
+            return await self.ignore_duplicate_candidate(
+                AdminDuplicateIgnoreRequest(item_ids=payload.item_ids),
+                note=payload.note,
+            )
+        if payload.target_item_id is None or not payload.source_item_ids:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="duplicate_merge_payload_invalid",
+                detail="target_item_id and source_item_ids are required when decision is merge",
+            )
+        return await self.merge_duplicate_candidate(
+            AdminDuplicateMergeRequest(
+                target_item_id=payload.target_item_id,
+                source_item_ids=payload.source_item_ids,
+            ),
+            note=payload.note,
+        )
+
     async def duplicate_group_count(self) -> int:
         return len(await self.duplicate_candidates(limit=200))
 
@@ -200,7 +262,7 @@ class AdminDuplicateService:
         result = await self.db.execute(
             select(Item)
             .options(
-                selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.volume),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.kind_metadata),
             )
@@ -458,6 +520,35 @@ class AdminDuplicateService:
                 ImageAsset.entity_id == source_item.id,
             )
             .values(entity_id=target_item.id)
+        )
+
+    def _record_duplicate_review_audit(
+        self,
+        *,
+        action: str,
+        items: list[Item],
+        duplicate_score: int,
+        recommended_target_item_id: UUID | None,
+        confidence_factors: list[str],
+        merge_warnings: list[str],
+        details: dict[str, Any],
+        entity_id: UUID | None = None,
+    ) -> None:
+        self._audit_recorder(
+            action=action,
+            entity_type="duplicate_group" if entity_id is None else "item",
+            entity_id=entity_id,
+            details={
+                "item_ids": [item.id for item in items],
+                "kind": items[0].kind if items else None,
+                "title": items[0].title if items else None,
+                "item_number": items[0].item_number if items else None,
+                "duplicate_score": duplicate_score,
+                "recommended_target_item_id": recommended_target_item_id,
+                "confidence_factors": confidence_factors,
+                "merge_warnings": merge_warnings,
+                **details,
+            },
         )
 
     async def _move_organization_links(self, source_item_id: UUID, target_item_id: UUID) -> None:

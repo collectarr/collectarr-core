@@ -8,12 +8,12 @@ from app.models.base import ExternalProvider, ItemKind
 from app.models.user import User
 from app.schemas.admin import (
     AdminAuditLogResponse,
-    AdminBundleReleaseCorrectionRequest,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
+    AdminDuplicateReviewRequest,
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminProviderPrefillResolveRequest,
@@ -24,7 +24,6 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
-    AdminSeriesTagsUpdateRequest,
     MetadataProposalAdminResponse,
     MetadataProposalAdminUpdateRequest,
     MetadataProposalSummaryResponse,
@@ -43,10 +42,6 @@ from app.schemas.admin import (
     ProviderPreviewResponse,
     ProviderSearchRequest,
     ProviderStatusResponse,
-)
-from app.schemas.metadata import (
-    BundleReleaseDetailResponse,
-    SeriesResponse,
 )
 from app.search.client import SearchClient
 from app.services.admin_domains import overview as overview_admin_module
@@ -180,22 +175,6 @@ class AdminMetadataService:
     ) -> Any:
         return await self.catalog_admin.update_catalog_item(item_id, payload, kind)
 
-    async def update_series_tags(
-        self,
-        series_id: UUID,
-        payload: AdminSeriesTagsUpdateRequest,
-    ) -> SeriesResponse:
-        return await self.catalog_admin.update_series_tags(series_id, payload)
-
-    async def update_bundle_release(
-        self,
-        bundle_release_id: UUID,
-        payload: AdminBundleReleaseCorrectionRequest,
-    ) -> BundleReleaseDetailResponse:
-        return await self.catalog_admin.update_bundle_release(bundle_release_id, payload)
-
-    
-
     def _metadata_with_cover(
         self,
         metadata_json: dict[str, Any] | None,
@@ -220,6 +199,11 @@ class AdminMetadataService:
         self, payload: AdminDuplicateMergeRequest
     ) -> AdminDuplicateActionResponse:
         return await self.duplicates_admin.merge_duplicate_candidate(payload)
+
+    async def review_duplicate_candidate(
+        self, payload: AdminDuplicateReviewRequest
+    ) -> AdminDuplicateActionResponse:
+        return await self.duplicates_admin.review_duplicate_candidate(payload)
 
     async def provider_search(self, payload: ProviderSearchRequest) -> list[dict[str, Any]]:
         return await self.provider_ingest_admin.provider_search(payload)

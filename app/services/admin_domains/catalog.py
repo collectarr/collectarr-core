@@ -24,9 +24,7 @@ from app.metadata_normalized import (
     upsert_item_kind_metadata,
 )
 from app.models.base import ItemKind
-from app.models.canonical import (
-    BundleRelease,
-    BundleReleaseItem,
+from app.models import (
     Character,
     CharacterAppearance,
     Edition,
@@ -38,24 +36,15 @@ from app.models.canonical import (
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
-    Series,
     StoryArc,
     StoryArcItem,
     Variant,
 )
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
-    AdminBundleReleaseCorrectionRequest,
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminNormalizedMetadataDriftSample,
-    AdminSeriesTagsUpdateRequest,
-)
-from app.schemas.metadata import (
-    BundleReleaseDetailResponse,
-    SeriesResponse,
-    bundle_release_detail_from_model,
-    bundle_release_member_sort_key,
 )
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
@@ -206,20 +195,6 @@ class AdminCatalogService:
                 entity_type="variant",
                 entity_id=variant_id,
                 kind=item_kind,
-                metadata_json=metadata_json,
-            )
-
-        bundle_stmt = select(BundleRelease.id, BundleRelease.kind, BundleRelease.metadata_json).order_by(
-            BundleRelease.id.asc()
-        )
-        if scan_limit is not None:
-            bundle_stmt = bundle_stmt.limit(scan_limit)
-        bundle_rows = (await self.db.execute(bundle_stmt)).all()
-        for bundle_id, bundle_kind, metadata_json in bundle_rows:
-            _record(
-                entity_type="bundle_release",
-                entity_id=bundle_id,
-                kind=bundle_kind,
                 metadata_json=metadata_json,
             )
 
@@ -541,261 +516,6 @@ class AdminCatalogService:
             await SearchClient().index_documents_best_effort([item_search_document(loaded_item)])
         return await self._item_response_loader(loaded_item)
 
-    async def update_series_tags(
-        self,
-        series_id: UUID,
-        payload: AdminSeriesTagsUpdateRequest,
-    ) -> SeriesResponse:
-        series = await self.db.get(Series, series_id)
-        if series is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="series_not_found",
-                detail="Series not found",
-            )
-
-        before = await self._entity_tag_names("series", series.id, self._series_tag_kind(series.kind))
-        normalized_tags = self._normalize_admin_tags(payload.tags)
-        await self._replace_entity_tags(
-            entity_type="series",
-            entity_id=series.id,
-            tag_kind=self._series_tag_kind(series.kind),
-            names=normalized_tags,
-        )
-
-        metadata = dict(series.metadata_json or {})
-        metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
-        metadata["admin_corrected_fields"] = ["tags"]
-        series.metadata_json = metadata
-        self._audit_recorder(
-            action="metadata.series_tags_update",
-            entity_type="series",
-            entity_id=series.id,
-            details={
-                "kind": series.kind,
-                "fields": ["tags"],
-                "before": {"tags": before},
-                "after": {"tags": normalized_tags},
-            },
-        )
-        await self.db.commit()
-
-        from app.services.metadata import MetadataService
-
-        return await MetadataService(self.db).get_series(series.id)
-
-    async def update_bundle_release(
-        self,
-        bundle_release_id: UUID,
-        payload: AdminBundleReleaseCorrectionRequest,
-    ) -> BundleReleaseDetailResponse:
-        bundle = await MetadataRepository(self.db).get_bundle_release(bundle_release_id)
-        if bundle is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="bundle_release_not_found",
-                detail="Bundle release not found",
-            )
-        update_data = payload.model_dump(exclude_unset=True)
-        bundle_items = list(bundle.items or [])
-        before = {
-            "title": bundle.title,
-            "bundle_type": bundle.bundle_type,
-            "format": bundle.format,
-            "variant_type": bundle.variant_type,
-            "packaging_type": bundle.packaging_type,
-            "region": bundle.region,
-            "language": bundle.language,
-            "publisher": bundle.publisher,
-            "sku": bundle.sku,
-            "barcode": bundle.barcode,
-            "release_date": bundle.release_date,
-            "cover_image_url": bundle.cover_image_url,
-            "thumbnail_image_url": bundle.thumbnail_image_url,
-            "primary_item_id": bundle.primary_item_id,
-            "members": [
-                {
-                    "id": member.id,
-                    "item_id": member.item_id,
-                    "role": member.role,
-                    "sequence_number": member.sequence_number,
-                    "disc_number": member.disc_number,
-                    "disc_label": member.disc_label,
-                    "quantity": member.quantity,
-                    "is_primary": member.is_primary,
-                }
-                for member in sorted(bundle_items, key=bundle_release_member_sort_key)
-            ],
-        }
-
-        for field in (
-            "title",
-            "bundle_type",
-            "format",
-            "variant_type",
-            "packaging_type",
-            "region",
-            "language",
-            "publisher",
-            "sku",
-            "barcode",
-            "release_date",
-            "cover_image_url",
-            "thumbnail_image_url",
-        ):
-            if field in update_data:
-                setattr(bundle, field, update_data[field])
-
-        affected_item_ids = {member.item_id for member in bundle_items}
-        if "members" in update_data:
-            members_payload = payload.members or []
-            if not members_payload:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="bundle_members_required",
-                    detail="Bundle release updates must keep at least one member",
-                )
-            existing_members = {member.id: member for member in bundle_items}
-            payload_existing_ids = [member.id for member in members_payload if member.id is not None]
-            if len(payload_existing_ids) != len(set(payload_existing_ids)):
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="duplicate_bundle_member_reference",
-                    detail="Bundle member updates cannot reference the same membership row twice",
-                )
-            primary_members = [member for member in members_payload if member.is_primary]
-            if len(primary_members) != 1:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="invalid_bundle_primary_member",
-                    detail="Exactly one bundle member must be marked as primary",
-                )
-            requested_item_ids = {
-                member.item_id for member in members_payload if member.item_id is not None
-            }
-            requested_item_ids.update(
-                existing_members[member_id].item_id
-                for member_id in payload_existing_ids
-                if member_id in existing_members
-            )
-            if not requested_item_ids:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="bundle_members_required",
-                    detail="Bundle release updates must keep at least one member",
-                )
-            item_result = await self.db.execute(
-                select(Item).where(Item.id.in_(requested_item_ids))
-            )
-            available_items = {item.id: item for item in item_result.scalars().all()}
-            missing_item_ids = sorted(
-                str(item_id) for item_id in requested_item_ids if item_id not in available_items
-            )
-            if missing_item_ids:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="bundle_member_item_not_found",
-                    detail=f"Bundle member items not found: {', '.join(missing_item_ids)}",
-                )
-
-            kept_member_ids: set[UUID] = set()
-            member_keys: set[tuple[UUID, str, int | None, int | None]] = set()
-            primary_member_model: BundleReleaseItem | None = None
-            for member_payload in members_payload:
-                if member_payload.id is not None:
-                    member = existing_members.get(member_payload.id)
-                    if member is None:
-                        raise ApiHTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            code="bundle_member_mismatch",
-                            detail="Bundle member updates must reference valid membership rows",
-                        )
-                    kept_member_ids.add(member.id)
-                    if member_payload.item_id is not None and member_payload.item_id != member.item_id:
-                        member.item_id = member_payload.item_id
-                        member.item = available_items[member_payload.item_id]
-                else:
-                    if member_payload.item_id is None:
-                        raise ApiHTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            code="bundle_member_item_required",
-                            detail="New bundle members must include item_id",
-                        )
-                    member = BundleReleaseItem(
-                        bundle_release_id=bundle.id,
-                        item_id=member_payload.item_id,
-                        item=available_items[member_payload.item_id],
-                    )
-                    self.db.add(member)
-                    if bundle.items is None:
-                        bundle.items = []
-                    bundle.items.append(member)
-                member.role = member_payload.role
-                member.sequence_number = member_payload.sequence_number
-                member.disc_number = member_payload.disc_number
-                member.disc_label = member_payload.disc_label
-                member.quantity = member_payload.quantity
-                member.is_primary = member_payload.is_primary
-                member_key = (
-                    member.item_id,
-                    member.role,
-                    member.disc_number,
-                    member.sequence_number,
-                )
-                if member_key in member_keys:
-                    raise ApiHTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        code="duplicate_bundle_member",
-                        detail="Bundle members must remain unique by item, role, disc, and sequence",
-                    )
-                member_keys.add(member_key)
-                if member.is_primary:
-                    primary_member_model = member
-
-            for member_id, member in existing_members.items():
-                if member_id in kept_member_ids:
-                    continue
-                if member in bundle.items:
-                    bundle.items.remove(member)
-                await self.db.delete(member)
-
-            if primary_member_model is None:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="invalid_bundle_primary_member",
-                    detail="Exactly one bundle member must be marked as primary",
-                )
-            primary_member = primary_member_model
-            bundle.primary_item_id = primary_member.item_id
-            bundle.primary_item = primary_member.item
-
-        metadata = dict(bundle.metadata_json or {})
-        metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
-        metadata["admin_corrected_fields"] = sorted(update_data.keys())
-        bundle.metadata_json = metadata
-        self._audit_recorder(
-            action="metadata.bundle_correction",
-            entity_type="bundle_release",
-            entity_id=bundle.id,
-            details={
-                "kind": bundle.kind,
-                "fields": sorted(update_data.keys()),
-                "before": before,
-                "after": update_data,
-            },
-        )
-        await self.db.commit()
-
-        loaded_bundle = await MetadataRepository(self.db).get_bundle_release(bundle.id)
-        if loaded_bundle is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="bundle_release_not_found",
-                detail="Bundle release not found after update",
-            )
-        await self._reindex_items(affected_item_ids | {member.item_id for member in loaded_bundle.items})
-        return bundle_release_detail_from_model(loaded_bundle)
-
     def _validated_physical_format(
         self,
         kind: ItemKind,
@@ -919,7 +639,7 @@ class AdminCatalogService:
         entity_id: UUID,
         tag_kind: str | None = None,
     ) -> list[str]:
-        from app.models.canonical import EntityTag, Tag
+        from app.models import EntityTag, Tag
 
         stmt = (
             select(Tag.name)
@@ -942,7 +662,7 @@ class AdminCatalogService:
         tag_kind: str,
         names: list[str],
     ) -> None:
-        from app.models.canonical import EntityTag, Tag
+        from app.models import EntityTag, Tag
 
         existing_links = list(
             (
@@ -1239,9 +959,6 @@ class AdminCatalogService:
             seen.add(key)
             normalized.append(value)
         return normalized
-
-    def _series_tag_kind(self, kind: ItemKind) -> str:
-        return f"series_tag:{kind.value}"
 
     def _organization_name(self, item: Item, role: str) -> str | None:
         for link in list(getattr(item, "organization_links", []) or []):

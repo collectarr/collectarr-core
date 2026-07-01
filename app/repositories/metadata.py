@@ -5,9 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.base import ItemKind
-from app.models.canonical import (
-    BundleRelease,
-    BundleReleaseItem,
+from app.models import (
     CharacterAppearance,
     Edition,
     EntityOrganization,
@@ -15,7 +13,6 @@ from app.models.canonical import (
     Item,
     ItemKindMetadata,
     ItemKindMetadataTaxonomy,
-    Series,
     StoryArcItem,
     Variant,
     Volume,
@@ -31,21 +28,9 @@ class MetadataRepository:
             ItemKindMetadataTaxonomy.taxonomy
         )
 
-    def _bundle_release_detail_stmt(self) -> Select[tuple[BundleRelease]]:
-        return select(BundleRelease).options(
-            selectinload(BundleRelease.series),
-            selectinload(BundleRelease.volume),
-            selectinload(BundleRelease.primary_item),
-            selectinload(BundleRelease.provider_links),
-            selectinload(BundleRelease.items)
-            .selectinload(BundleReleaseItem.item)
-            .selectinload(Item.volume)
-            .selectinload(Volume.series),
-        )
-
     def _item_detail_stmt(self) -> Select[tuple[Item]]:
         return select(Item).options(
-            selectinload(Item.volume).selectinload(Volume.series),
+            selectinload(Item.volume),
             selectinload(Item.editions).selectinload(Edition.variants),
             selectinload(Item.alias_entries),
             selectinload(Item.link_entries),
@@ -62,21 +47,6 @@ class MetadataRepository:
         stmt = self._item_detail_stmt().where(Item.id == item_id)
         if kind:
             stmt = stmt.where(Item.kind == kind)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def get_bundle_releases_for_item(self, item_id: UUID) -> list[BundleRelease]:
-        stmt = (
-            self._bundle_release_detail_stmt()
-            .join(BundleRelease.items)
-            .where(BundleReleaseItem.item_id == item_id)
-            .order_by(BundleRelease.release_date.desc().nullslast(), BundleRelease.title.asc())
-        )
-        result = await self.db.execute(stmt)
-        return list(result.scalars().unique())
-
-    async def get_bundle_release(self, bundle_release_id: UUID) -> BundleRelease | None:
-        stmt = self._bundle_release_detail_stmt().where(BundleRelease.id == bundle_release_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -102,7 +72,7 @@ class MetadataRepository:
         stmt = (
             select(Item)
             .options(
-                selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.volume),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.alias_entries),
                 selectinload(Item.link_entries),
@@ -115,10 +85,8 @@ class MetadataRepository:
                 selectinload(Item.story_arc_items).selectinload(StoryArcItem.story_arc),
             )
             .join(Item.volume, isouter=True)
-            .join(Volume.series, isouter=True)
             .join(Item.editions, isouter=True)
             .join(Edition.variants, isouter=True)
-            .join(BundleRelease, BundleRelease.primary_item_id == Item.id, isouter=True)
             .order_by(Item.sort_key.nullslast(), Item.title)
             .limit(limit)
         )
@@ -130,7 +98,6 @@ class MetadataRepository:
                     Item.title.ilike(pattern),
                     Item.item_number.ilike(pattern),
                     Volume.name.ilike(pattern),
-                    Series.title.ilike(pattern),
                     Edition.publisher.ilike(pattern),
                     Edition.imprint.ilike(pattern),
                     Edition.subtitle.ilike(pattern),
@@ -146,9 +113,6 @@ class MetadataRepository:
                     Variant.barcode.ilike(pattern),
                     Variant.isbn.ilike(pattern),
                     Variant.platform.ilike(pattern),
-                    BundleRelease.title.ilike(pattern),
-                    BundleRelease.barcode.ilike(pattern),
-                    BundleRelease.sku.ilike(pattern),
                 )
             )
         if kind:
@@ -159,7 +123,6 @@ class MetadataRepository:
                 or_(
                     Item.title.ilike(pattern),
                     Volume.name.ilike(pattern),
-                    Series.title.ilike(pattern),
                 )
             )
         if issue_number:
@@ -171,7 +134,6 @@ class MetadataRepository:
             stmt = stmt.where(
                 or_(
                     Edition.publisher.ilike(f"%{publisher.strip()}%"),
-                    BundleRelease.publisher.ilike(f"%{publisher.strip()}%"),
                 )
             )
         if imprint:
@@ -195,7 +157,6 @@ class MetadataRepository:
                 or_(
                     Volume.start_year == year,
                     extract("year", Edition.release_date) == year,
-                    extract("year", BundleRelease.release_date) == year,
                 )
             )
         if barcode:
@@ -207,8 +168,6 @@ class MetadataRepository:
                     self._normalized_barcode_expr(Variant.barcode) == normalized,
                     self._normalized_barcode_expr(Variant.isbn) == normalized,
                     self._normalized_barcode_expr(Variant.sku) == normalized,
-                    self._normalized_barcode_expr(BundleRelease.barcode) == normalized,
-                    self._normalized_barcode_expr(BundleRelease.sku) == normalized,
                 )
             )
         result = await self.db.execute(stmt)
@@ -223,7 +182,6 @@ class MetadataRepository:
             self._item_detail_stmt()
             .join(Item.editions)
             .join(Edition.variants, isouter=True)
-            .join(BundleRelease, BundleRelease.primary_item_id == Item.id, isouter=True)
             .where(
                 or_(
                     self._normalized_barcode_expr(Edition.upc) == normalized,
@@ -231,8 +189,6 @@ class MetadataRepository:
                     self._normalized_barcode_expr(Variant.barcode) == normalized,
                     self._normalized_barcode_expr(Variant.isbn) == normalized,
                     self._normalized_barcode_expr(Variant.sku) == normalized,
-                    self._normalized_barcode_expr(BundleRelease.barcode) == normalized,
-                    self._normalized_barcode_expr(BundleRelease.sku) == normalized,
                 )
             )
             .limit(1)

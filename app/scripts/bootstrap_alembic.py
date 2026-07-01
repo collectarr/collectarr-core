@@ -10,7 +10,6 @@ from alembic import command
 from app.db.session import engine
 
 BASELINE_REVISION = "20260624_1000"
-HEAD_REVISION = "20260626_1401"
 
 
 def _alembic_config() -> Config:
@@ -40,7 +39,7 @@ def main() -> None:
 
     if not has_user_tables:
         # Fresh database: build the schema through the migration itself so the
-        # baseline revision is the single source of truth (no create_all).
+        # squashed baseline remains the single source of truth.
         command.upgrade(config, "head")
         return
 

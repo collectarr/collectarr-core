@@ -21,7 +21,7 @@ from sqlalchemy import delete, select
 
 from app.db.session import AsyncSessionLocal, engine
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import (
+from app.models import (
     Base,
     BundleRelease,
     BundleReleaseItem,

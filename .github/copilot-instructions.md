@@ -22,7 +22,7 @@ Franchise (optional) → Series → Volume → Item → Edition → Variant (+ R
 - Do not force it onto kinds with their own native v1 models (music, boardgame, game).
 - Prefer per-kind work/release structures for those kinds instead of routing them through shared series/volume layers.
 - Models in `app/models/canonical.py` (SQLAlchemy 2.x async, `mapped_column`)
-- Migrations: Alembic (`alembic/`). **Pre-1.0 policy: a single squashed baseline**
+- Migrations: Alembic (`alembic/`). **Pre-2.0 policy: a single squashed baseline**
   (`alembic/versions/20260624_1000_clean_schema_baseline.py`, which runs
   `Base.metadata.create_all`). The server DB starts empty, so while the schema is
   still evolving we regenerate the baseline and recreate the DB instead of adding

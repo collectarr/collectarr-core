@@ -18,3 +18,10 @@ minio_data/
 sync_data/
 sync_service/*.db
 .github/skills/
+knowledge/
+knowledge-files/
+*.knowledge
+knowledge-*.md
+copilot-setup-steps.yml
+copilot-setup-steps*.yml
+ai-notes/

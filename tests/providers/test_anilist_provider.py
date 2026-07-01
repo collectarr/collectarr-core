@@ -1,14 +1,17 @@
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import (
+from app.models import (
     BundleRelease,
     Character,
     ExternalProviderId,
     Item,
+    MangaSeries,
+    MangaSeriesRelation,
     MangaWork,
     Person,
     Tag,
@@ -72,6 +75,21 @@ def _anilist_raw() -> dict:
                         "image": {
                             "large": "https://s4.anilist.co/file/anilistcdn/character/large/40.jpg",
                             "medium": "https://s4.anilist.co/file/anilistcdn/character/medium/40.jpg",
+                        },
+                    },
+                }
+            ]
+        },
+        "relations": {
+            "edges": [
+                {
+                    "relationType": "PREQUEL",
+                    "node": {
+                        "id": 30012,
+                        "title": {
+                            "romaji": "One Piece: Romance Dawn",
+                            "english": "One Piece: Romance Dawn",
+                            "native": "ONE PIECE: ROMANCE DAWN",
                         },
                     },
                 }
@@ -321,9 +339,12 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
     assert body["created"] is True
     assert body["item"]["kind"] == "manga"
     assert body["item"]["title"] == "One Piece"
+    assert body["item"]["series"][0]["title"] == "One Piece"
 
     async with AsyncSessionLocal() as db:
         manga_work = await db.scalar(select(MangaWork).where(MangaWork.title == "One Piece"))
+        manga_series = await db.scalar(select(MangaSeries).where(MangaSeries.title == "One Piece"))
+        manga_series_id = manga_series.id if manga_series is not None else None
         provider_ids = list(
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(
@@ -337,11 +358,23 @@ async def test_admin_ingest_upserts_anilist_manga(client, monkeypatch):
         tags = list(await db.scalars(select(Tag.name).order_by(Tag.name)))
 
     assert manga_work is not None
+    assert manga_series is not None
     assert provider_ids == ["30013"]
     assert creator == "Eiichiro Oda"
     assert character == "Monkey D. Luffy"
     assert "Action" not in tags
     assert "Adventure" not in tags
+
+    async with AsyncSessionLocal() as db:
+        relation = await db.scalar(
+            select(MangaSeriesRelation)
+            .options(selectinload(MangaSeriesRelation.target_series))
+            .where(MangaSeriesRelation.source_series_id == manga_series_id)
+        )
+
+    assert relation is not None
+    assert relation.relation_type == "prequel"
+    assert relation.target_series.title == "One Piece: Romance Dawn"
 
 
 @pytest.mark.asyncio

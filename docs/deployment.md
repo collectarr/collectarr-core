@@ -7,7 +7,7 @@ Use Docker Compose for a self-hosted deployment on consumer hardware:
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build -d
-docker compose exec api alembic upgrade head
+docker compose exec api python -m app.scripts.bootstrap_alembic
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
@@ -44,7 +44,7 @@ PostgreSQL restore into a stopped or fresh stack:
 
 ```powershell
 Get-Content .\collectarr-core.sql | docker compose exec -T postgres psql -U collectarr collectarr
-docker compose exec api alembic upgrade head
+docker compose exec api python -m app.scripts.bootstrap_alembic
 ```
 
 MinIO backup for the default local bucket:
@@ -106,6 +106,9 @@ For local pulls from private GHCR packages, log in with a token that has
 Keep the production `.env` separate from development defaults. The local Compose
 configuration uses bind mounts, reload processes, and sample credentials; treat
 it as a development baseline rather than a hardened production manifest.
+
+Set `CORS_ORIGINS` explicitly for public deployments; the backend rejects
+localhost-only origins outside development and test.
 
 ## Cloud
 

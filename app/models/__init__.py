@@ -1,71 +1,11 @@
-from app.models.base import Base, ExternalProvider, ItemKind
-from app.models.canonical import (
-    AdminAuditLog,
-    BoardGameEdition,
-    BoardGameWork,
-    BookSeries,
-    BundleRelease,
-    BundleReleaseItem,
-    Character,
-    CharacterAppearance,
-    ComicVolume,
-    Edition,
-    EntityOrganization,
-    EntityPerson,
-    EntityTag,
-    ExternalProviderId,
-    Franchise,
-    GameRelease,
-    GameWork,
-    ImageAsset,
-    ImageCacheEntry,
-    Item,
-    MetadataProposal,
-    Organization,
-    Person,
-    ProviderIngestJob,
-    Series,
-    StoryArc,
-    StoryArcItem,
-    Tag,
-    Variant,
-    Volume,
-)
-from app.models.user import User
-
-__all__ = [
-    "Base",
-    "AdminAuditLog",
-    "BundleRelease",
-    "BundleReleaseItem",
-    "BoardGameEdition",
-    "BoardGameWork",
-    "BookSeries",
-    "Character",
-    "CharacterAppearance",
-    "Edition",
-    "EntityOrganization",
-    "EntityPerson",
-    "EntityTag",
-    "ExternalProvider",
-    "ExternalProviderId",
-    "Franchise",
-    "ComicVolume",
-    "ImageAsset",
-    "ImageCacheEntry",
-    "GameRelease",
-    "GameWork",
-    "Item",
-    "ItemKind",
-    "MetadataProposal",
-    "Organization",
-    "Person",
-    "ProviderIngestJob",
-    "Series",
-    "StoryArc",
-    "StoryArcItem",
-    "Tag",
-    "User",
-    "Variant",
-    "Volume",
-]
+from app.models.base import *  # noqa: F401,F403
+from app.models.user import *  # noqa: F401,F403
+from app.models.canonical_support import *  # noqa: F401,F403
+from app.models.canonical_common import *  # noqa: F401,F403
+from app.models.canonical_books import *  # noqa: F401,F403
+from app.models.canonical_comics import *  # noqa: F401,F403
+from app.models.canonical_video import *  # noqa: F401,F403
+from app.models.canonical_games import *  # noqa: F401,F403
+from app.models.canonical_board_games import *  # noqa: F401,F403
+from app.models.canonical_manga import *  # noqa: F401,F403
+from app.models.canonical_anime import *  # noqa: F401,F403

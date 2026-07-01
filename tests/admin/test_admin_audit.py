@@ -5,7 +5,7 @@ import pytest
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import Item
+from app.models import Item
 from app.search.client import SearchClient
 from tests.helpers import seed_comic
 
@@ -92,6 +92,9 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
     )
 
     assert merge.status_code == 200
+    merge_body = merge.json()
+    assert merge_body["ok"] is True
+    assert merge_body["affected_items"] == 1
 
     queued = await client.post(
         "/admin/providers/ingest/jobs",
@@ -112,6 +115,10 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
     rows = {row["action"]: row for row in logs.json()}
     assert rows["duplicates.merge"]["entity_id"] == target_id
     assert rows["duplicates.merge"]["details_json"]["source_item_ids"] == [source_id]
+    assert rows["duplicates.merge"]["details_json"]["decision"] == "merge"
+    assert rows["duplicates.merge"]["details_json"]["duplicate_score"] >= 55
+    assert "confidence_factors" in rows["duplicates.merge"]["details_json"]
+    assert "merge_warnings" in rows["duplicates.merge"]["details_json"]
     assert rows["provider_ingest.job_create"]["entity_id"] == job_id
     assert rows["provider_ingest.job_create"]["details_json"]["provider_item_id"] == "256114"
 
@@ -123,3 +130,44 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
 
     assert filtered.status_code == 200
     assert [UUID(row["entity_id"]) for row in filtered.json()] == [UUID(job_id)]
+
+
+@pytest.mark.asyncio
+async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(client, monkeypatch):
+    token = await admin_token(client, monkeypatch)
+    async with AsyncSessionLocal() as db:
+        first = Item(
+            kind=ItemKind.comic,
+            title="Review Me",
+            item_number="7",
+            sort_key="review-me-007",
+        )
+        second = Item(
+            kind=ItemKind.comic,
+            title="Review Me",
+            item_number="7",
+            sort_key="review-me-007-b",
+        )
+        db.add_all([first, second])
+        await db.commit()
+        item_ids = [str(first.id), str(second.id)]
+
+    review = await client.post(
+        "/admin/duplicates/review",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"decision": "ignore", "item_ids": item_ids, "note": "Known variant split"},
+    )
+
+    assert review.status_code == 200
+    assert review.json() == {"ok": True, "affected_items": 2, "item": None}
+
+    logs = await client.get(
+        "/admin/audit/logs",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"action": "duplicates.ignore"},
+    )
+    assert logs.status_code == 200
+    row = logs.json()[0]
+    assert row["details_json"]["decision"] == "ignore"
+    assert row["details_json"]["item_ids"] == item_ids
+    assert row["details_json"]["duplicate_score"] >= 55

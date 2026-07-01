@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
-from app.schemas.metadata import (
+from app.schemas import (
     AnimeSeriesV1Response,
     BoardGameWorkV1Response,
     BookWorkV1Response,
@@ -366,11 +366,6 @@ class AdminBundleReleaseCorrectionRequest(BaseModel):
     members: list[AdminBundleReleaseMemberUpdateRequest] | None = None
 
 
-class AdminSeriesTagsUpdateRequest(BaseModel):
-    tags: list[str] = Field(default_factory=list)
-    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
-
-
 class AdminCatalogSummaryResponse(BaseModel):
     items: int
     items_by_kind: dict[str, int] = Field(default_factory=dict)
@@ -471,6 +466,14 @@ class AdminDuplicateIgnoreRequest(BaseModel):
 class AdminDuplicateMergeRequest(BaseModel):
     target_item_id: UUID
     source_item_ids: list[UUID] = Field(min_length=1, max_length=49)
+
+
+class AdminDuplicateReviewRequest(BaseModel):
+    decision: str = Field(pattern="^(ignore|merge)$")
+    item_ids: list[UUID] = Field(default_factory=list, max_length=50)
+    target_item_id: UUID | None = None
+    source_item_ids: list[UUID] = Field(default_factory=list, max_length=49)
+    note: str | None = Field(default=None, max_length=1000)
 
 
 class AdminDuplicateActionResponse(BaseModel):

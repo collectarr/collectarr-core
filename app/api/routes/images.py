@@ -15,7 +15,7 @@ from app.api.deps import CurrentAdmin, DbSession
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
-from app.models.canonical import ImageAsset, ImageCacheEntry
+from app.models import ImageAsset, ImageCacheEntry
 from app.storage.client import ObjectStorage
 from app.storage.images import ImageMirror
 

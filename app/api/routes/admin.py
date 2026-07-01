@@ -8,13 +8,13 @@ from app.core.rate_limit import admin_provider_rate_limit
 from app.models.base import ExternalProvider, ItemKind
 from app.schemas.admin import (
     AdminAuditLogResponse,
-    AdminBundleReleaseCorrectionRequest,
     AdminCatalogSummaryResponse,
     AdminDeleteResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
+    AdminDuplicateReviewRequest,
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminProviderPrefillResolveRequest,
@@ -25,7 +25,6 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
-    AdminSeriesTagsUpdateRequest,
     ImageCachePurgeResponse,
     ImageCacheStatsResponse,
     MetadataProposalAdminResponse,
@@ -48,7 +47,6 @@ from app.schemas.admin import (
     UserResponse,
     UserUpdateRequest,
 )
-from app.schemas.metadata import BundleReleaseDetailResponse, SeriesResponse
 from app.services.admin import AdminMetadataService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -197,29 +195,6 @@ async def catalog_item_update(
     return await AdminMetadataService(db, user).update_catalog_item(item_id, payload, kind)
 
 
-@router.patch("/catalog/series/{series_id}/tags", response_model=SeriesResponse)
-async def catalog_series_tags_update(
-    series_id: UUID,
-    payload: AdminSeriesTagsUpdateRequest,
-    db: DbSession,
-    user: CurrentAdmin,
-) -> SeriesResponse:
-    return await AdminMetadataService(db, user).update_series_tags(series_id, payload)
-
-
-@router.patch(
-    "/catalog/bundle-releases/{bundle_release_id}",
-    response_model=BundleReleaseDetailResponse,
-)
-async def catalog_bundle_release_update(
-    bundle_release_id: UUID,
-    payload: AdminBundleReleaseCorrectionRequest,
-    db: DbSession,
-    user: CurrentAdmin,
-) -> BundleReleaseDetailResponse:
-    return await AdminMetadataService(db, user).update_bundle_release(bundle_release_id, payload)
-
-
 @router.get("/search/status", response_model=AdminSearchStatusResponse)
 async def search_status(
     db: DbSession,
@@ -283,6 +258,15 @@ async def merge_duplicate_candidate(
     user: CurrentAdmin,
 ) -> AdminDuplicateActionResponse:
     return await AdminMetadataService(db, user).merge_duplicate_candidate(payload)
+
+
+@router.post("/duplicates/review", response_model=AdminDuplicateActionResponse)
+async def review_duplicate_candidate(
+    payload: AdminDuplicateReviewRequest,
+    db: DbSession,
+    user: CurrentAdmin,
+) -> AdminDuplicateActionResponse:
+    return await AdminMetadataService(db, user).review_duplicate_candidate(payload)
 
 
 @router.post("/providers/search", dependencies=[Depends(admin_provider_rate_limit)])

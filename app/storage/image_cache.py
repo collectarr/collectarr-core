@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models.canonical import ImageCacheEntry
+from app.models import ImageCacheEntry
 from app.storage.client import ObjectStorage
 from app.storage.images import MirroredImage
 

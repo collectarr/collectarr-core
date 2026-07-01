@@ -34,13 +34,11 @@ from app.schemas.admin import (
 from app.schemas.admin import (
     ProviderIngestRequest as ProviderPreviewRequest,
 )
-from app.schemas.metadata import (
+from app.schemas import (
     AnimeEpisodeV1Response,
     AnimeSeriesV1Response,
     BookEditionV1Response,
     BookWorkV1Response,
-    BundleReleaseDetailResponse,
-    BundleReleaseSummaryResponse,
     CharacterAppearanceResponse,
     CharacterFacetResponse,
     CharacterResponse,
@@ -64,9 +62,6 @@ from app.schemas.metadata import (
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
     SeasonResponse,
-    SeriesItemResponse,
-    SeriesRelationResponse,
-    SeriesResponse,
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
@@ -482,28 +477,6 @@ async def get_creator_facets(
     return await MetadataService(db).get_creator_facets(body.item_ids)
 
 
-@router.get(
-    "/metadata/items/{item_id}/bundle-releases",
-    response_model=list[BundleReleaseSummaryResponse],
-)
-async def get_item_bundle_releases(
-    item_id: UUID,
-    db: DbSession,
-) -> list[BundleReleaseSummaryResponse]:
-    return await MetadataService(db).get_bundle_releases_for_item(item_id)
-
-
-@router.get(
-    "/metadata/bundle-releases/{bundle_release_id}",
-    response_model=BundleReleaseDetailResponse,
-)
-async def get_bundle_release(
-    bundle_release_id: UUID,
-    db: DbSession,
-) -> BundleReleaseDetailResponse:
-    return await MetadataService(db).get_bundle_release(bundle_release_id)
-
-
 @router.get("/metadata/books/works/{work_id}", response_model=BookWorkV1Response)
 async def get_book_work(
     work_id: UUID,
@@ -705,33 +678,6 @@ def _physical_format_response(config: PhysicalFormatConfig) -> PhysicalFormatRes
         variant_type=config.variant_type,
         aliases=list(config.aliases),
     )
-
-
-@router.get("/series/{series_id}/relations", response_model=list[SeriesRelationResponse])
-async def get_series_relations(
-    series_id: UUID,
-    db: DbSession,
-) -> list[SeriesRelationResponse]:
-    return await MetadataService(db).get_series_relations(series_id)
-
-
-@router.get("/series/{series_id}", response_model=SeriesResponse)
-async def get_series(
-    series_id: UUID,
-    db: DbSession,
-) -> SeriesResponse:
-    return await MetadataService(db).get_series(series_id)
-
-
-@router.get(
-    "/series/{series_id}/items",
-    response_model=list[SeriesItemResponse],
-)
-async def get_series_items(
-    series_id: UUID,
-    db: DbSession,
-) -> list[SeriesItemResponse]:
-    return await MetadataService(db).get_series_items(series_id)
 
 
 @router.get(

@@ -95,6 +95,27 @@ async def test_auth_rate_limit_returns_retry_after(client, monkeypatch):
     assert int(limited.headers["Retry-After"]) > 0
 
 
+def test_production_requires_explicit_cors_origins(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("SECRET_KEY", "prod-secret-value")
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    get_settings.cache_clear()
+
+    with pytest.raises(
+        ValueError,
+        match="CORS_ORIGINS must not include localhost, loopback, or wildcard entries outside development/test",
+    ):
+        get_settings()
+
+    monkeypatch.setenv("CORS_ORIGINS", '["https://app.example.com"]')
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    assert settings.cors_origins == ["https://app.example.com"]
+
+    get_settings.cache_clear()
+
+
 @pytest.mark.asyncio
 async def test_metadata_errors_return_specific_codes(client):
     unknown_barcode = await client.get("/barcode/0000000000000", params={"kind": "comic"})

@@ -8,7 +8,7 @@ from app.catalog.metadata_fields import (
     value_types,
 )
 from app.models.base import ItemKind
-from app.models.canonical import (
+from app.models import (
     Item,
     ItemKindMetadata,
     ItemKindMetadataAnime,
@@ -122,11 +122,15 @@ def typed_kind_metadata_payload(
 ) -> dict[str, Any]:
     cleaned = clean_normalized_metadata(values, kind=kind)
     cleaned.pop("schema_version", None)
-    return {
+    payload = {
         key: cleaned.get(key)
         for key in TYPED_KIND_METADATA_KEYS
         if key in cleaned
     }
+    if kind == ItemKind.music:
+        payload.pop("track_count", None)
+        payload.pop("tracks", None)
+    return payload
 
 
 def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]:
@@ -135,8 +139,11 @@ def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]
     raw: dict[str, Any] = {}
     metadata_json = getattr(value, "metadata_json", None)
     metadata_json = metadata_json if isinstance(metadata_json, dict) else {}
+    is_music = getattr(value, "kind", None) == ItemKind.music
     for key in TYPED_KIND_METADATA_KEYS:
         if key == "audience_rating":
+            continue
+        if is_music and key in {"track_count", "tracks"}:
             continue
         if key in {"genres", "platforms"}:
             raw[key] = getattr(value, key, None)
@@ -161,6 +168,9 @@ def typed_kind_metadata_for_item(item: object) -> dict[str, Any]:
 def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] | None) -> None:
     typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
     tracks_payload = typed_payload.pop("tracks", None)
+    if item.kind == ItemKind.music:
+        tracks_payload = None
+        typed_payload.pop("track_count", None)
     genres_payload = typed_payload.pop("genres", None)
     platforms_payload = typed_payload.pop("platforms", None)
     has_typed_payload = any(

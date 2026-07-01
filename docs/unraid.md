@@ -52,7 +52,7 @@ From this repository root:
 ```bash
 cp .env.unraid.example .env.unraid
 docker compose --env-file .env.unraid -f docker-compose.unraid.yml up -d
-docker compose --env-file .env.unraid -f docker-compose.unraid.yml exec api alembic upgrade head
+docker compose --env-file .env.unraid -f docker-compose.unraid.yml exec api python -m app.scripts.bootstrap_alembic
 ```
 
 Then verify:

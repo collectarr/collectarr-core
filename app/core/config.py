@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -154,6 +155,13 @@ class Settings(BaseSettings):
             and self.secret_key == "change-me-in-production"
         ):
             raise ValueError("SECRET_KEY must be set outside development/test")
+        if self.environment not in {"development", "test"}:
+            if not self.cors_origins:
+                raise ValueError("CORS_ORIGINS must be configured outside development/test")
+            if any(_is_public_origin(origin) is False for origin in self.cors_origins):
+                raise ValueError(
+                    "CORS_ORIGINS must not include localhost, loopback, or wildcard entries outside development/test"
+                )
         if (
             self.image_cache_max_bytes > 0
             and self.image_cache_evict_target_bytes > self.image_cache_max_bytes
@@ -178,3 +186,13 @@ def provider_stub_data_enabled() -> bool:
     """
     settings = get_settings()
     return settings.dev_stub_providers or settings.environment in {"development", "test"}
+
+
+def _is_public_origin(origin: str) -> bool:
+    if origin == "*":
+        return False
+    parsed = urlparse(origin)
+    host = (parsed.hostname or "").lower()
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return False
+    return bool(parsed.scheme and host)

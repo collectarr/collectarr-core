@@ -8,10 +8,10 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.canonical import AdminAuditLog, ExternalProviderId, Item, ProviderIngestJob
+from app.models import AdminAuditLog, ExternalProviderId, Item, ProviderIngestJob
 from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import ProviderIngestHistoryEntry
-from app.schemas.metadata import ExternalProviderIdResponse, item_response_from_model
+from app.schemas import ExternalProviderIdResponse, item_response_from_model
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
 

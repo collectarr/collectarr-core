@@ -6,7 +6,7 @@ from sqlalchemy.orm.attributes import NO_VALUE
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models.base import ItemKind
-from app.models.canonical import (
+from app.models import (
     AnimeContribution,
     AnimeSeries,
     BoardGameWork,
@@ -54,10 +54,10 @@ def item_search_document(item: Item) -> dict[str, Any]:
     bundle_titles: list[str] = []
     bundle_release_ids: list[str] = []
     series_title = None
-    if item.volume is not None:
-        series = getattr(item.volume, "series", None)
-        series_title = series.title if series is not None else getattr(item.volume, "title", None)
-    volume_name = item.volume.name if item.volume else None
+    volume = getattr(item, "__dict__", {}).get("volume")
+    if volume is not None:
+        series_title = getattr(volume, "name", None) or getattr(volume, "title", None)
+    volume_name = getattr(volume, "name", None) if volume is not None else None
     creator_links = sorted(
         _loaded_rows(item, "creator_links"),
         key=lambda link: (
@@ -197,7 +197,7 @@ def item_search_document(item: Item) -> dict[str, Any]:
 
 def book_work_search_document(work: BookWork) -> dict[str, Any]:
     editions = sorted(
-        getattr(work, "editions", []) or [],
+        getattr(work, "__dict__", {}).get("editions") or [],
         key=lambda row: (
             getattr(row, "publication_date", None) is None,
             getattr(row, "publication_date", None),
@@ -272,7 +272,9 @@ def book_work_search_document(work: BookWork) -> dict[str, Any]:
         "bundle_titles": [],
         "bundle_release_ids": [],
         "series_title": (
-            primary_series.series.title if primary_series and getattr(primary_series, "series", None) else None
+            getattr(getattr(primary_series, "__dict__", {}).get("series"), "title", None)
+            if primary_series is not None
+            else None
         ),
         "volume_name": None,
         "catalog_number": None,

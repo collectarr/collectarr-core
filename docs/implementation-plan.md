@@ -75,5 +75,5 @@
 	- Add more progressive disclosure if the generated markdown or explorer still feels overloaded.
 
 ### 🧩 Scan-to-Identify Boundary
-- [ ] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
-	- Keep the app local-first by default and only add Core ranking if it proves necessary.
+- [x] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
+	- Keep the app local-first by default; Core stays on image storage/search primitives and does not own identify flows.

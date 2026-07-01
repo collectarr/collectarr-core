@@ -132,7 +132,7 @@ async def clean_database() -> AsyncIterator[None]:
                   story_arc_items, character_appearances, story_arcs, characters,
                   entity_tags, entity_persons, entity_organizations, tags, persons, organizations,
                                                                         variants, editions, external_provider_ids,
-                  series_relations, items, volumes, series, franchises
+                  series_relations, comic_series_relations, manga_series_relations, items, volumes, comic_series, manga_series, series, franchises
                 restart identity cascade
                 """
             )

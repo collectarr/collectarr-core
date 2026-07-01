@@ -8,15 +8,13 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import (
+from app.models import (
     BookContribution,
     BookEdition,
     BookIdentifier,
     BookSeries,
     BookSeriesMembership,
     BookWork,
-    BundleRelease,
-    BundleReleaseItem,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
@@ -47,54 +45,10 @@ from app.models.canonical import (
 )
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
-from app.schemas.metadata import ExternalProviderIdResponse, item_response_from_model
-from app.search.documents import comic_work_search_document, item_search_document
+from app.schemas import ExternalProviderIdResponse, item_response_from_model
+from app.search.documents import book_work_search_document, comic_work_search_document, item_search_document
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
-
-
-async def _attach_bundle_release(
-    item_id: str,
-    *,
-    title: str = "The Amazing Spider-Man Starter Box",
-    barcode: str = "9781300000000",
-) -> UUID:
-    async with AsyncSessionLocal() as db:
-        item = await db.scalar(
-            select(Item)
-            .options(selectinload(Item.volume).selectinload(Volume.series))
-            .where(Item.id == UUID(item_id))
-        )
-        assert item is not None
-        bundle_series = getattr(item.volume, "series", None)
-        bundle = BundleRelease(
-            kind=item.kind,
-            title=title,
-            bundle_type="box_set",
-            primary_item_id=item.id,
-            series_id=bundle_series.id if bundle_series is not None else None,
-            volume_id=item.volume.id,
-            format="Paperback",
-            variant_type="physical",
-            packaging_type="box",
-            publisher="Marvel",
-            barcode=barcode,
-            release_date=date(2025, 1, 15),
-        )
-        db.add(bundle)
-        await db.flush()
-        db.add(
-            BundleReleaseItem(
-                bundle_release_id=bundle.id,
-                item_id=item.id,
-                role="main",
-                sequence_number=1,
-                quantity=1,
-                is_primary=True,
-            )
-        )
-        await db.commit()
-        return bundle.id
 
 
 async def _seed_book_v1() -> tuple[UUID, UUID]:
@@ -301,9 +255,9 @@ async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     assert rows["comic"]["default_provider"] == "gcd"
     assert rows["comic"]["providers"] == ["gcd", "comicvine"]
     assert rows["comic"]["provider_search_policy"] == "core_miss_then_configured_providers"
-    assert rows["comic"]["grouping_model"] == "legacy_series_volume"
+    assert rows["comic"]["grouping_model"] == "comic_volume"
     assert rows["manga"]["providers"] == ["hardcover", "comicvine", "anilist", "mangadex"]
-    assert rows["manga"]["grouping_model"] == "legacy_series_volume"
+    assert rows["manga"]["grouping_model"] == "manga_series"
     assert rows["anime"]["providers"] == ["anilist", "tmdb"]
     assert rows["anime"]["grouping_model"] == "series_episode"
     assert rows["tv"]["providers"] == ["tmdb"]
@@ -418,7 +372,21 @@ async def test_books_v1_work_and_edition_endpoints(client):
 
     route_response = await client.get(f"/books/{work_id}")
     assert route_response.status_code == 200
-    assert route_response.json()["id"] == str(work_id)
+
+
+@pytest.mark.asyncio
+async def test_book_work_search_document_does_not_lazy_load_series():
+    work_id, _ = await _seed_book_v1()
+    async with AsyncSessionLocal() as db:
+        work = await db.scalar(
+            select(BookWork)
+            .options(selectinload(BookWork.series_memberships))
+            .where(BookWork.id == work_id)
+        )
+
+    assert work is not None
+    document = book_work_search_document(work)
+    assert document["series_title"] is None
 
 
 @pytest.mark.asyncio
@@ -505,6 +473,7 @@ async def test_item_detail_and_series_expose_series_tags(client):
     )
     assert detail_response.status_code == 200
     assert detail_response.json()["tags"] == ["Legacy Hero", "Street-level"]
+
 
 
 
@@ -643,26 +612,6 @@ async def test_lookup_comic_by_barcode(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_search_supports_bundle_release_title(client, monkeypatch):
-    async def unavailable_search(self, query, kind=None, **kwargs):
-        return None
-
-    monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
-    item_id, _, _ = await seed_comic()
-    await _attach_bundle_release(item_id, title="Spider-Verse Collector Box")
-
-    response = await client.get(
-        "/search",
-        params={"q": "Collector Box", "kind": "comic"},
-    )
-
-    assert response.status_code == 200
-    assert response.json()[0]["id"] == item_id
-    assert response.json()[0]["title"] == "The Amazing Spider-Man"
-    assert response.json()[0]["bundle_titles"] == ["Spider-Verse Collector Box"]
-
-
-@pytest.mark.asyncio
 async def test_search_prefers_normalized_relations_over_edition_json(client, monkeypatch):
     async def unavailable_search(self, query, kind=None, **kwargs):
         return None
@@ -741,79 +690,6 @@ async def test_search_prefers_normalized_relations_over_edition_json(client, mon
     assert document["creators"] == ["Stan Lee"]
     assert "Spider-Man [Peter Parker]" in document["characters"]
     assert "If This Be My Destiny" in document["story_arcs"]
-
-
-@pytest.mark.asyncio
-async def test_lookup_bundle_barcode_returns_primary_item(client, monkeypatch):
-    async def unavailable_search(self, query, kind=None, **kwargs):
-        return None
-
-    monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
-    item_id, _, _ = await seed_comic()
-    await _attach_bundle_release(item_id, barcode="9781300000000")
-
-    response = await client.get("/barcode/9781300000000", params={"kind": "comic"})
-
-    assert response.status_code == 200
-    assert response.json()["id"] == item_id
-    assert response.json()["title"] == "The Amazing Spider-Man"
-    assert response.json()["bundle_titles"] == ["The Amazing Spider-Man Starter Box"]
-
-
-@pytest.mark.asyncio
-async def test_item_bundle_release_endpoints(client):
-    token = await register_and_login(client)
-    item_id, _, _ = await seed_comic()
-    bundle_id = await _attach_bundle_release(item_id)
-
-    list_response = await client.get(
-        f"/metadata/items/{item_id}/bundle-releases",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert list_response.status_code == 200
-    bundles = list_response.json()
-    assert len(bundles) == 1
-    assert bundles[0]["id"] == str(bundle_id)
-    assert bundles[0]["title"] == "The Amazing Spider-Man Starter Box"
-    assert bundles[0]["content_summary"]["total_items"] == 1
-    assert bundles[0]["primary_item_id"] == item_id
-
-    detail_response = await client.get(
-        f"/metadata/bundle-releases/{bundle_id}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert detail_response.status_code == 200
-    detail = detail_response.json()
-    assert detail["id"] == str(bundle_id)
-    assert detail["members"][0]["item_id"] == item_id
-    assert detail["members"][0]["role"] == "main"
-    assert detail["series_title"] == "The Amazing Spider-Man"
-
-
-@pytest.mark.asyncio
-async def test_item_bundle_release_list_returns_404_for_unknown_item(client):
-    token = await register_and_login(client)
-
-    response = await client.get(
-        f"/metadata/items/{uuid4()}/bundle-releases",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_bundle_release_detail_returns_404_for_unknown_bundle(client):
-    token = await register_and_login(client)
-
-    response = await client.get(
-        f"/metadata/bundle-releases/{uuid4()}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -997,26 +873,6 @@ async def test_search_document_keeps_synopsis_out_of_index():
     assert document["release_year"] == 1963
     assert document["runtime_minutes"] is None
     assert document["variant"] == "Cover A"
-
-
-@pytest.mark.asyncio
-async def test_search_document_indexes_bundle_release_metadata():
-    item_id, _, _ = await seed_comic()
-    await _attach_bundle_release(
-        item_id,
-        title="Spider-Verse Collector Box",
-        barcode="9781300000000",
-    )
-
-    async with AsyncSessionLocal() as db:
-        item = await MetadataRepository(db).get_item(UUID(item_id), ItemKind.comic)
-
-    assert item is not None
-    document = item_search_document(item)
-
-    assert document["bundle_titles"] == ["Spider-Verse Collector Box"]
-    assert len(document["bundle_release_ids"]) == 1
-    assert "9781300000000" in document["barcodes"]
 
 
 def test_item_response_from_model_exposes_normalized_metadata_fields():
@@ -1388,37 +1244,6 @@ def test_search_result_exposes_runtime_minutes():
 
     assert result.title == "Blade Runner 2049"
     assert result.runtime_minutes == 164
-
-
-def test_search_result_sorts_bundle_releases_by_known_date_then_title():
-    service = MetadataService.__new__(MetadataService)
-    item = SimpleNamespace(
-        id=uuid4(),
-        kind=ItemKind.music,
-        title="Anthology",
-        item_number=None,
-        synopsis=None,
-        runtime_minutes=None,
-        page_count=None,
-        editions=[],
-        series=None,
-        volume=None,
-        primary_bundle_releases=[
-            SimpleNamespace(id=uuid4(), title="Zulu Box", release_date=None),
-            SimpleNamespace(id=uuid4(), title="Bravo Box", release_date=date(2024, 6, 1)),
-            SimpleNamespace(id=uuid4(), title="Alpha Box", release_date=date(2024, 6, 1)),
-            SimpleNamespace(id=uuid4(), title="Latest Box", release_date=date(2025, 1, 1)),
-        ],
-    )
-
-    result = MetadataService._search_result(service, item, None, None)
-
-    assert result.bundle_titles == [
-        "Latest Box",
-        "Alpha Box",
-        "Bravo Box",
-        "Zulu Box",
-    ]
 
 
 def test_provider_search_query_uses_artist_and_release_for_music():

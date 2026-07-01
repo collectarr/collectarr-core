@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import (
+from app.models import (
     ComicIdentifier,
     ComicIssue,
     ComicVolume,

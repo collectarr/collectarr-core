@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.canonical import ImageCacheEntry
+from app.models import ImageCacheEntry
 from app.storage.image_cache import ImageCache
 from app.storage.images import MirroredImage
 

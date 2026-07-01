@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.base import ItemKind
-from app.models.canonical import (
+from app.models import (
     AdminAuditLog,
     CharacterAppearance,
     Edition,
@@ -263,7 +263,7 @@ class AdminOverviewService:
     async def _search_documents(self) -> list[dict[str, Any]]:
         result = await self.db.execute(
             select(Item).options(
-                selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.volume),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.kind_metadata),

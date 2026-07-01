@@ -1,17 +1,22 @@
+from datetime import date
+
 import pytest
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models.base import ItemKind
-from app.models.canonical import (
+from app.models import (
     ExternalProviderId,
     MovieRelease,
+    MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
+    TVRelease,
+    TVReleaseMedia,
 )
-from app.providers.base import ProviderItem
+from app.providers.base import NormalizedItem, ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
 
@@ -379,6 +384,124 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert {row.identifier_type for row in identifiers} >= {"provider_item_id", "imdb_id", "tmdb_id"}
     assert provider_ids == ["movie:603"]
     assert release is not None
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_persists_tv_media_color(client, monkeypatch):
+    token = await _admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="tmdb", provider_item_id="tv:1399", raw=_tv_raw())
+
+    async def fake_normalize(self, raw):
+        return NormalizedItem(
+            kind=ItemKind.tv,
+            title="Game of Thrones",
+            edition_title="Game of Thrones",
+            edition_format="TV Series",
+            release_date=date(2011, 4, 17),
+            runtime_minutes=60,
+            age_rating="TV-MA",
+            audience_rating="8.4",
+            screen_ratio="16:9",
+            color="Color",
+            audio_tracks="English Dolby",
+            subtitles="English, Romanian",
+            layers="BD-50",
+            provider_ids={"tmdb": "tv:1399"},
+        )
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(TMDbProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(TMDbProvider, "normalize", fake_normalize)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "tmdb", "provider_item_id": "tv:1399"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()["item"]
+    assert body["kind"] == "tv"
+    assert body["media"][0]["color"] == "Color"
+
+    async with AsyncSessionLocal() as db:
+        release = await db.scalar(select(TVRelease).where(TVRelease.title == "Game of Thrones"))
+        media = await db.scalar(select(TVReleaseMedia).join(TVRelease).where(TVRelease.title == "Game of Thrones"))
+
+    assert release is not None
+    assert media is not None
+    assert media.aspect_ratio == "16:9"
+    assert media.color == "Color"
+    assert media.audio_tracks == "English Dolby"
+    assert media.subtitles == "English, Romanian"
+    assert media.layers == "BD-50"
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_persists_movie_release_color(client, monkeypatch):
+    token = await _admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="tmdb", provider_item_id="movie:603", raw=_movie_raw())
+
+    async def fake_normalize(self, raw):
+        return NormalizedItem(
+            kind=ItemKind.movie,
+            title="The Matrix",
+            edition_format="Movie",
+            release_date=date(1999, 3, 31),
+            runtime_minutes=136,
+            age_rating="R",
+            audience_rating="8.7",
+            screen_ratio="2.39:1",
+            color="Color",
+            audio_tracks="English Dolby Atmos",
+            subtitles="English, Romanian",
+            layers="BD-50",
+            provider_ids={"tmdb": "movie:603"},
+            trailer_urls=[{"site": "YouTube", "type": "Trailer", "key": "vKQi3bBA1y8", "name": "Official Trailer"}],
+            external_links=[{"kind": "tmdb", "url": "https://www.themoviedb.org/movie/603"}],
+        )
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(TMDbProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(TMDbProvider, "normalize", fake_normalize)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"provider": "tmdb", "provider_item_id": "movie:603"},
+    )
+
+    assert response.status_code == 201
+    body = response.json()["item"]
+    assert body["kind"] == "movie"
+    assert body["releases"][0]["media"][0]["color"] == "Color"
+
+    async with AsyncSessionLocal() as db:
+        releases = (
+            await db.execute(select(MovieRelease).join(MovieWork).where(MovieWork.title == "The Matrix"))
+        ).scalars().all()
+        media_rows = (
+            await db.execute(select(MovieReleaseMedia).join(MovieRelease).join(MovieWork).where(MovieWork.title == "The Matrix"))
+        ).scalars().all()
+
+    release = next((row for row in releases if row.color == "Color"), None)
+    media = next((row for row in media_rows if row.aspect_ratio == "2.39:1"), None)
+
+    assert release is not None
+    assert media is not None
+    assert media.audio_tracks == "English Dolby Atmos"
+    assert media.subtitles == "English, Romanian"
+    assert media.layers == "BD-50"
 @pytest.mark.asyncio
 async def test_tmdb_provider_get_seasons(monkeypatch):
     settings = get_settings()

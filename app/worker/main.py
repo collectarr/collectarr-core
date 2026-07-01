@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models.canonical import Edition, ImageAsset, Item, Variant, Volume
+from app.models import Edition, ImageAsset, Item, Variant
 from app.schemas.admin import ProviderIngestJobRunResponse
 from app.search.client import SearchClient
 from app.search.documents import item_search_document
@@ -63,7 +63,7 @@ async def index_once(search: SearchClient | None = None) -> None:
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Item).options(
-                selectinload(Item.volume).selectinload(Volume.series),
+                selectinload(Item.volume),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
             )

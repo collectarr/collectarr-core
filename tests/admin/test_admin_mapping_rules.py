@@ -2,7 +2,7 @@ import pytest
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import ExternalProvider, ItemKind
-from app.models.canonical import AdminReleaseMediaMappingRule, MetadataProposal
+from app.models import AdminReleaseMediaMappingRule, MetadataProposal
 from app.schemas.admin import ProviderIngestHistoryEntry
 from app.services.admin_domains import support as support_module
 

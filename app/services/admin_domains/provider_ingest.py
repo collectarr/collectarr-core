@@ -9,14 +9,14 @@ from fastapi import status
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
-from app.catalog.grouping_models import uses_legacy_series_volume
+from app.catalog.grouping_models import uses_print_grouping
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
 )
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import upsert_item_kind_metadata
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
-from app.models.canonical import (
+from app.models import (
     AnimeCharacterAppearance,
     AnimeContribution,
     AnimeEpisode,
@@ -30,14 +30,14 @@ from app.models.canonical import (
     BookSeries,
     BookSeriesMembership,
     BookWork,
-    BundleRelease,
-    BundleReleaseItem,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIdentifier,
     ComicIssue,
+    ComicSeries,
+    ComicSeriesRelation,
     ComicSeriesMembership,
     ComicStoryArcMembership,
     ComicVolume,
@@ -54,9 +54,13 @@ from app.models.canonical import (
     MangaCharacterAppearance,
     MangaContribution,
     MangaIdentifier,
+    MangaSeries,
+    MangaSeriesRelation,
+    MangaSeriesMembership,
     MangaWork,
     MetadataProposal,
     MovieRelease,
+    MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
@@ -87,7 +91,6 @@ from app.models.canonical import (
 from app.proposal_payload import compact_metadata_payload
 from app.providers.base import (
     MetadataProvider,
-    NormalizedBundleMember,
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,
@@ -906,22 +909,6 @@ class AdminProviderIngestService:
             return await self._existing_response(existing_provider_id)
 
         normalized = hydrated.normalized
-        if normalized.bundle_release is not None:
-            item = await self._ingest_bundle_release(
-                provider=provider,
-                provider_name=payload.provider,
-                provider_item=provider_item,
-                normalized=normalized,
-            )
-            await self.db.commit()
-            loaded_item = await MetadataRepository(self.db).get_item(item.id)
-            if loaded_item:
-                await self._reindex_items({item.id})
-            return ProviderIngestResponse(
-                item_id=item.id,
-                created=True,
-                item=await self._item_response(loaded_item),
-            )
         if normalized.kind == ItemKind.comic:
             work, work_created = await self._create_comic_work_from_normalized(
                 provider=provider,
@@ -1163,7 +1150,6 @@ class AdminProviderIngestService:
                         "item",
                         "series",
                         "volume",
-                        "bundle_release",
                         "game_work",
                         "boardgame_work",
                         "book_work",
@@ -1187,17 +1173,7 @@ class AdminProviderIngestService:
         return None
 
     async def _existing_response(self, provider_id: CatalogExternalProviderIdRef) -> ProviderIngestResponse:
-        if provider_id.entity_type == "bundle_release":
-            bundle = await self.db.get(BundleRelease, provider_id.entity_id)
-            item_id = bundle.primary_item_id if bundle is not None else None
-            if item_id is None:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    code="provider_link_stale",
-                    detail="Provider link is stale",
-                )
-            item = await MetadataRepository(self.db).get_item(item_id)
-        elif provider_id.entity_type == "game_work":
+        if provider_id.entity_type == "game_work":
             game_work = await self.db.get(GameWork, provider_id.entity_id)
             if game_work is None:
                 raise ApiHTTPException(
@@ -1249,6 +1225,19 @@ class AdminProviderIngestService:
                 created=False,
                 item=await MetadataService(self.db).get_comic_work(comic_work.id),
             )
+        elif provider_id.entity_type == "manga_work":
+            manga_work = await self.db.get(MangaWork, provider_id.entity_id)
+            if manga_work is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="provider_link_stale",
+                    detail="Provider link is stale",
+                )
+            return ProviderIngestResponse(
+                item_id=manga_work.id,
+                created=False,
+                item=await MetadataService(self.db).get_manga_work(manga_work.id),
+            )
         else:
             item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
         if item is None:
@@ -1257,7 +1246,7 @@ class AdminProviderIngestService:
                 code="provider_link_stale",
                 detail="Provider link is stale",
             )
-        if not uses_legacy_series_volume(item.kind) and item.kind not in {
+        if not uses_print_grouping(item.kind) and item.kind not in {
             ItemKind.game,
             ItemKind.boardgame,
             ItemKind.collection,
@@ -1605,174 +1594,6 @@ class AdminProviderIngestService:
             )
         return variants, mirrored_covers
 
-    async def _ingest_bundle_release(
-        self,
-        *,
-        provider: MetadataProvider,
-        provider_name: ExternalProvider,
-        provider_item: ProviderItem,
-        normalized: NormalizedItem,
-    ) -> Item:
-        bundle_normalized = normalized.bundle_release
-        if bundle_normalized is None:
-            raise RuntimeError("Bundle ingest called without bundle payload")
-        members = self._bundle_members_for_ingest(normalized)
-        metadata_repo = MetadataRepository(self.db)
-        created_members: list[tuple[NormalizedBundleMember, Item, Volume | None, Series | None]] = []
-        for index, member in enumerate(members, start=1):
-            member_provider_item_id = self._bundle_member_provider_item_id(
-                provider_name,
-                provider_item.provider_item_id,
-                member,
-                index,
-            )
-            existing_ref = await self._get_provider_id_value(
-                provider_name,
-                member_provider_item_id,
-            )
-            member_item: Item | None = None
-            member_volume: Volume | None = None
-            member_series: Series | None = None
-            if existing_ref is not None:
-                if existing_ref.entity_type != "item":
-                    raise ApiHTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        code="provider_link_stale",
-                        detail="Provider link is stale",
-                    )
-                member_item = await metadata_repo.get_item(existing_ref.entity_id)
-                if member_item is None:
-                    raise ApiHTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        code="provider_link_stale",
-                        detail="Provider link is stale",
-                    )
-                member_volume = member_item.volume
-                member_series = member_volume.series if member_volume is not None else None
-            else:
-                member_item, member_volume, member_series = await self._create_catalog_item_from_normalized(
-                    provider=provider,
-                    provider_name=provider_name,
-                    provider_item_id=member_provider_item_id,
-                    provider_raw=provider_item.raw,
-                    normalized=member.item,
-                    ingest_related_collections=False,
-                )
-            created_members.append((member, member_item, member_volume, member_series))
-        primary_member = next(
-            (
-                (member, item, volume, series)
-                for member, item, volume, series in created_members
-                if member.is_primary
-            ),
-            created_members[0],
-        )
-        _, primary_item, primary_volume, primary_series = primary_member
-        mirrored_cover = None
-        if self._should_mirror_provider_images(provider):
-            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
-                bundle_normalized.cover_image_url,
-                provider_name.value,
-                provider_item.provider_item_id,
-            )
-        cover_metadata = self._cover_metadata(bundle_normalized.cover_image_url, mirrored_cover)
-        bundle = BundleRelease(
-            kind=normalized.kind,
-            title=bundle_normalized.title,
-            bundle_type=bundle_normalized.bundle_type,
-            franchise_id=primary_series.franchise_id if primary_series is not None else None,
-            series_id=primary_series.id if primary_series is not None else None,
-            volume_id=primary_volume.id if primary_volume is not None else None,
-            primary_item_id=primary_item.id,
-            format=bundle_normalized.format,
-            variant_type=bundle_normalized.variant_type,
-            packaging_type=bundle_normalized.packaging_type,
-            region=self._normalized_region(bundle_normalized.region),
-            language=self._normalized_language(bundle_normalized.language),
-            publisher=bundle_normalized.publisher or normalized.publisher,
-            sku=bundle_normalized.sku,
-            barcode=bundle_normalized.barcode,
-            release_date=bundle_normalized.release_date,
-            cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            cover_image_url=mirrored_cover.url if mirrored_cover else bundle_normalized.cover_image_url,
-            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
-            thumbnail_image_url=(
-                mirrored_cover.thumbnail_url if mirrored_cover else bundle_normalized.cover_image_url
-            ),
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item.provider_item_id,
-                kind=normalized.kind,
-                normalized=cover_metadata,
-                source=provider_item.raw,
-            ),
-        )
-        self.db.add(bundle)
-        await self.db.flush()
-        await self._record_provider_snapshot(
-            provider=provider_name,
-            provider_item_id=provider_item.provider_item_id,
-            entity_type="bundle_release",
-            entity_id=bundle.id,
-            source=provider_item.raw,
-            normalized=cover_metadata,
-        )
-        if mirrored_cover is not None:
-            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
-        for index, (member, member_item, _, _) in enumerate(created_members, start=1):
-            self.db.add(
-                BundleReleaseItem(
-                    bundle_release_id=bundle.id,
-                    item_id=member_item.id,
-                    role=member.role,
-                    sequence_number=member.sequence_number or index,
-                    disc_number=member.disc_number,
-                    disc_label=member.disc_label,
-                    quantity=member.quantity,
-                    is_primary=member.is_primary,
-                    metadata_json=member.metadata or None,
-                )
-            )
-        await self._replace_bundle_release_provider_links(
-            bundle.id,
-            provider_name,
-            bundle_normalized.provider_ids,
-            provider_urls=provider_link_urls_for_provider(
-                provider_name,
-                bundle_normalized.provider_ids,
-                provider_item.raw,
-            ),
-        )
-        return primary_item
-
-    def _bundle_members_for_ingest(self, normalized: NormalizedItem) -> list[NormalizedBundleMember]:
-        bundle_normalized = normalized.bundle_release
-        if bundle_normalized is None:
-            return []
-        if bundle_normalized.members:
-            return bundle_normalized.members
-        return [
-            NormalizedBundleMember(
-                item=replace(normalized, bundle_release=None),
-                role="primary",
-                sequence_number=1,
-                quantity=1,
-                is_primary=True,
-            )
-        ]
-
-    def _bundle_member_provider_item_id(
-        self,
-        provider_name: ExternalProvider,
-        bundle_provider_item_id: str,
-        member: NormalizedBundleMember,
-        index: int,
-    ) -> str:
-        candidate = member.item.provider_ids.get(provider_name.value)
-        if candidate:
-            return candidate
-        return f"{bundle_provider_item_id}#member-{index}"
-
     async def _create_catalog_item_from_normalized(
         self,
         *,
@@ -1986,7 +1807,7 @@ class AdminProviderIngestService:
         )
         if volume:
             await self._replace_volume_provider_links(
-                volume.id,
+                volume,
                 provider_name,
                 normalized.volume_provider_ids,
             )
@@ -1998,7 +1819,7 @@ class AdminProviderIngestService:
         await self._link_tags(item.id, "character", normalized.characters)
         await self._link_tags(item.id, "story_arc", normalized.story_arcs)
         if volume and series is not None:
-            await self._link_relations(series, normalized.relations)
+            await self._link_comic_relations(series, normalized.relations)
         if ingest_related_collections and series and hasattr(provider, "get_seasons"):
             await self._ingest_seasons(provider, provider_item_id, series, normalized.kind)
         if ingest_related_collections and series and hasattr(provider, "get_volumes"):
@@ -2012,7 +1833,7 @@ class AdminProviderIngestService:
         volume_name: str | None,
         volume_number: float | None,
         volume_start_year: int | None,
-    ) -> tuple[Volume | ComicVolume | None, Series | None]:
+    ) -> tuple[Volume | ComicVolume | None, Series | ComicSeries | None]:
         if not series_title and not volume_name:
             return None, None
         title = series_title or volume_name or "Unknown Series"
@@ -2029,7 +1850,8 @@ class AdminProviderIngestService:
                 await self.db.flush()
             elif comic_volume.start_year is None and volume_start_year is not None:
                 comic_volume.start_year = volume_start_year
-            return comic_volume, None
+            comic_series = await self._get_or_create_comic_series(title)
+            return comic_volume, comic_series
         series = await self._get_or_create_series(kind, title)
         name = volume_name or title
         result = await self.db.execute(select(Volume).where(Volume.series_id == series.id, Volume.name == name))
@@ -2079,6 +1901,54 @@ class AdminProviderIngestService:
         )
         self.db.add(series)
         await self.db.flush()
+        return series
+
+    async def _link_comic_relations(self, source_series: ComicSeries, relations: list[NormalizedRelation]) -> None:
+        for rel in relations:
+            try:
+                relation_type = SeriesRelationType(rel.relation_type)
+            except ValueError:
+                continue
+            target_series = await self._get_or_create_comic_series(rel.title)
+            if target_series.id == source_series.id:
+                continue
+            existing = await self.db.scalar(
+                select(ComicSeriesRelation.id).where(
+                    ComicSeriesRelation.source_series_id == source_series.id,
+                    ComicSeriesRelation.target_series_id == target_series.id,
+                    ComicSeriesRelation.relation_type == relation_type,
+                )
+            )
+            if existing:
+                continue
+            self.db.add(
+                ComicSeriesRelation(
+                    source_series_id=source_series.id,
+                    target_series_id=target_series.id,
+                    relation_type=relation_type,
+                    provider=rel.provider,
+                    provider_id=rel.provider_id,
+                    start_year=rel.start_year,
+                    image_url=rel.image_url,
+                )
+            )
+
+    async def _get_or_create_comic_series(self, title: str) -> ComicSeries:
+        result = await self.db.execute(select(ComicSeries).where(ComicSeries.title == title))
+        series = result.scalar_one_or_none()
+        if series is None:
+            series = ComicSeries(title=title, slug=slug(title))
+            self.db.add(series)
+            await self.db.flush()
+        return series
+
+    async def _get_or_create_manga_series(self, title: str) -> MangaSeries:
+        result = await self.db.execute(select(MangaSeries).where(MangaSeries.title == title))
+        series = result.scalar_one_or_none()
+        if series is None:
+            series = MangaSeries(title=title, slug=slug(title))
+            self.db.add(series)
+            await self.db.flush()
         return series
 
     async def _get_or_create_series(self, kind: ItemKind, title: str) -> Series:
@@ -2175,21 +2045,6 @@ class AdminProviderIngestService:
         await self._replace_catalog_provider_links(
             entity_type=entity_type,
             owner_id=volume.id,
-            provider=provider,
-            provider_ids=provider_ids,
-            provider_urls=provider_urls,
-        )
-
-    async def _replace_bundle_release_provider_links(
-        self,
-        bundle_release_id: UUID,
-        provider: ExternalProvider,
-        provider_ids: dict[str, str],
-        provider_urls: dict[str, dict[str, str | None]] | None = None,
-    ) -> None:
-        await self._replace_catalog_provider_links(
-            entity_type="bundle_release",
-            owner_id=bundle_release_id,
             provider=provider,
             provider_ids=provider_ids,
             provider_urls=provider_urls,
@@ -3148,6 +3003,11 @@ class AdminProviderIngestService:
             media_number=1,
             media_type=normalized.edition_format or "dvd",
             title=normalized.edition_title,
+            aspect_ratio=normalized.screen_ratio,
+            color=normalized.color,
+            audio_tracks=normalized.audio_tracks,
+            subtitles=normalized.subtitles,
+            layers=normalized.layers,
             metadata_json={},
         )
         self.db.add(media)
@@ -3282,6 +3142,33 @@ class AdminProviderIngestService:
         self.db.add(work)
         await self.db.flush()
 
+        series = None
+        if normalized.series_title:
+            series = await self._get_or_create_manga_series(normalized.series_title)
+            sequence: float | None = None
+            if normalized.volume_number is not None:
+                sequence = normalized.volume_number
+            elif normalized.item_number:
+                with contextlib.suppress(ValueError, TypeError):
+                    sequence = float(normalized.item_number)
+            existing_membership = await self.db.scalar(
+                select(MangaSeriesMembership).where(
+                    MangaSeriesMembership.work_id == work.id,
+                    MangaSeriesMembership.series_id == series.id,
+                )
+            )
+            if existing_membership is None:
+                self.db.add(
+                    MangaSeriesMembership(
+                        work_id=work.id,
+                        series_id=series.id,
+                        sequence=sequence,
+                        display_number=normalized.item_number or normalized.volume_name,
+                    )
+                )
+            if normalized.relations:
+                await self._link_manga_relations(series, normalized.relations)
+
         # Create single chapter from this normalized item
         chapter = MangaChapter(
             work_id=work.id,
@@ -3399,6 +3286,40 @@ class AdminProviderIngestService:
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         return work
+
+    async def _link_manga_relations(
+        self,
+        source_series: MangaSeries,
+        relations: list[NormalizedRelation],
+    ) -> None:
+        for rel in relations:
+            try:
+                relation_type = SeriesRelationType(rel.relation_type)
+            except ValueError:
+                continue
+            target_series = await self._get_or_create_manga_series(rel.title)
+            if target_series.id == source_series.id:
+                continue
+            existing = await self.db.scalar(
+                select(MangaSeriesRelation.id).where(
+                    MangaSeriesRelation.source_series_id == source_series.id,
+                    MangaSeriesRelation.target_series_id == target_series.id,
+                    MangaSeriesRelation.relation_type == relation_type,
+                )
+            )
+            if existing:
+                continue
+            self.db.add(
+                MangaSeriesRelation(
+                    source_series_id=source_series.id,
+                    target_series_id=target_series.id,
+                    relation_type=relation_type,
+                    provider=rel.provider,
+                    provider_id=rel.provider_id,
+                    start_year=rel.start_year,
+                    image_url=rel.image_url,
+                )
+            )
 
     async def _create_anime_series_from_normalized(
         self,
@@ -3597,6 +3518,7 @@ class AdminProviderIngestService:
             region_code=self._normalized_region(normalized.country),
             release_date=normalized.release_date,
             release_type=normalized.edition_format,
+            color=normalized.color,
             distributor=normalized.distributor,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
@@ -3608,6 +3530,32 @@ class AdminProviderIngestService:
             ),
         )
         self.db.add(release)
+        await self.db.flush()
+
+        media = MovieReleaseMedia(
+            release_id=release.id,
+            media_number=1,
+            media_type=normalized.physical_format or normalized.edition_format or "digital",
+            title=normalized.edition_title,
+            aspect_ratio=normalized.screen_ratio,
+            color=normalized.color,
+            num_discs=normalized.nr_discs,
+            nr_layers=normalized.nr_discs,
+            layers=normalized.layers,
+            audio_tracks=normalized.audio_tracks,
+            subtitles=normalized.subtitles,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.movie,
+                normalized={
+                    "format": normalized.physical_format,
+                    "screen_ratio": normalized.screen_ratio,
+                    "color": normalized.color,
+                },
+            ),
+        )
+        self.db.add(media)
         await self.db.flush()
 
         for index, credit in enumerate(normalized.creators, start=1):

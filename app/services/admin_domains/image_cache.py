@@ -5,7 +5,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models.canonical import ImageCacheEntry
+from app.models import ImageCacheEntry
 from app.schemas.admin import ImageCachePurgeResponse, ImageCacheStatsResponse
 from app.storage.client import ObjectStorage
 

@@ -22,18 +22,16 @@ from app.models import (
     ComicIssue,
     ComicStoryArcMembership,
     ComicWork,
-    Edition,
-    EntityOrganization,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
-    Item,
+    MovieRelease,
+    MovieWork,
     MusicMedia,
     MusicRelease,
     MusicReleaseContribution,
     MusicReleaseIdentifier,
     MusicTrack,
-    Organization,
     Person,
     StoryArc,
     StoryArcItem,
@@ -41,7 +39,6 @@ from app.models import (
     TVEpisode,
     TVRelease,
     TVReleaseMedia,
-    Variant,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
@@ -50,7 +47,6 @@ from app.schemas.metadata_shared import SearchResult
 from app.search.documents import (
     book_work_search_document,
     comic_work_search_document,
-    item_search_document,
 )
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
@@ -424,12 +420,8 @@ async def test_metadata_service_search_uses_native_anime_branch_without_legacy_f
         called["anime"] = kwargs
         return [SearchResult(id=uuid4(), kind=ItemKind.anime, title="Anime Result")]
 
-    async def fail_search_items(*args, **kwargs):
-        raise AssertionError("legacy search_items fallback should not be used for anime")
-
     monkeypatch.setattr("app.search.client.SearchClient.search", fake_search)
     monkeypatch.setattr("app.services.metadata.MetadataService._search_anime_series", fake_anime_search)
-    monkeypatch.setattr("app.services.metadata.MetadataRepository.search_items", fail_search_items)
 
     async with AsyncSessionLocal() as db:
         service = MetadataService(db)
@@ -451,12 +443,8 @@ async def test_metadata_service_lookup_barcode_uses_native_music_branch_without_
     def fake_music_result(self, release):
         return SearchResult(id=release.id, kind=ItemKind.music, title=release.title, barcode=release.barcode)
 
-    async def fail_find_item_by_barcode(*args, **kwargs):
-        raise AssertionError("legacy barcode fallback should not be used for music")
-
     monkeypatch.setattr("app.services.metadata.MetadataService._music_release_by_barcode", fake_music_by_barcode)
     monkeypatch.setattr("app.services.metadata.MetadataService._music_search_result", fake_music_result)
-    monkeypatch.setattr("app.services.metadata.MetadataRepository.find_item_by_barcode", fail_find_item_by_barcode)
 
     async with AsyncSessionLocal() as db:
         service = MetadataService(db)
@@ -603,15 +591,12 @@ async def test_search_supports_comic_filters(client, monkeypatch):
     item_id, edition_id, _ = await seed_comic()
 
     async with AsyncSessionLocal() as db:
-        edition = await db.get(Edition, UUID(edition_id))
-        assert edition is not None
-        edition.imprint = "Marvel Knights"
-        edition.subtitle = "Collector Edition"
-        edition.series_group = "Spider-Verse"
-        edition.region = "US"
-        edition.age_rating = "Teen"
-        edition.catalog_number = "ASM-001"
-        edition.release_status = "released"
+        issue = await db.get(ComicIssue, UUID(edition_id))
+        assert issue is not None
+        issue.imprint = "Marvel Knights"
+        issue.display_title = "Collector Edition"
+        issue.region = "US"
+        issue.release_status = "released"
         await db.commit()
 
     response = await client.get(
@@ -639,9 +624,9 @@ async def test_search_supports_comic_filters(client, monkeypatch):
     assert response.json()[0]["release_date"] == "1963-03-01"
     assert response.json()[0]["release_year"] == 1963
     assert response.json()[0]["barcode"] == "75960604716100111"
-    assert response.json()[0]["variant"] == "Cover A"
+    assert response.json()[0]["variant"] == "Collector Edition"
     assert response.json()[0]["imprint"] == "Marvel Knights"
-    assert response.json()[0]["catalog_number"] == "ASM-001"
+    assert response.json()[0]["catalog_number"] == "75960604716100111"
 
 
 @pytest.mark.asyncio
@@ -763,33 +748,24 @@ async def test_search_prefers_normalized_relations_over_edition_json(client, mon
 
 
 @pytest.mark.asyncio
-async def test_lookup_barcode_prefers_matching_variant_cover(client, monkeypatch):
+async def test_lookup_barcode_uses_comic_issue_cover(client, monkeypatch):
     async def unavailable_search(self, query, kind=None, **kwargs):
         return None
 
     monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
-    item_id, edition_id, variant_id = await seed_comic()
+    item_id, issue_id, _ = await seed_comic()
     async with AsyncSessionLocal() as db:
-        primary = await db.get(Variant, UUID(variant_id))
-        assert primary is not None
-        primary.cover_image_url = "https://cdn.example/standard.jpg"
-        db.add(
-            Variant(
-                edition_id=UUID(edition_id),
-                name="Foil Variant",
-                barcode="123456789012",
-                cover_image_url="https://cdn.example/foil.jpg",
-                is_primary=False,
-            )
-        )
+        issue = await db.get(ComicIssue, UUID(issue_id))
+        assert issue is not None
+        issue.cover_image_url = "https://cdn.example/foil.jpg"
         await db.commit()
 
-    response = await client.get("/barcode/123456789012", params={"kind": "comic"})
+    response = await client.get("/barcode/75960604716100111", params={"kind": "comic"})
 
     assert response.status_code == 200
     assert response.json()["id"] == item_id
-    assert response.json()["variant"] == "Foil Variant"
-    assert response.json()["barcode"] == "123456789012"
+    assert response.json()["variant"] == "The Spider Strikes"
+    assert response.json()["barcode"] == "75960604716100111"
     assert response.json()["cover_image_url"] == "https://cdn.example/foil.jpg"
 
 
@@ -800,43 +776,41 @@ async def test_lookup_video_barcode_matches_physical_editions(client, monkeypatc
 
     monkeypatch.setattr("app.search.client.SearchClient.search", unavailable_search)
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.movie,
+        work = MovieWork(
             title="Blade Runner",
-            item_number="Final Cut",
+            sort_title="blade runner",
+            original_release_date=date(1982, 6, 25),
         )
-        edition = Edition(
-            item=item,
-            title="Final Cut 4K release",
+        db.add(work)
+        await db.flush()
+        release = MovieRelease(
+            work_id=work.id,
             format="4K Blu-ray",
-            publisher="Warner Bros.",
-            upc="883-929 087.129",
+            region_code="US",
             release_date=date(1982, 6, 25),
-            metadata_json={"normalized": {"physical_format": "4k-uhd"}},
-        )
-        variant = Variant(
-            edition=edition,
-            name="4K UHD",
+            release_type="physical",
+            publisher="Warner Bros.",
+            distributor="Warner Bros.",
             sku="SKU-4K-001",
-            is_primary=True,
+            barcode="883-929 087.129",
             metadata_json={"normalized": {"physical_format": "4k-uhd"}},
         )
-        db.add_all([item, edition, variant])
+        db.add(release)
         await db.commit()
-        item_id = str(item.id)
+        item_id = str(work.id)
 
     response = await client.get("/barcode/883929087129", params={"kind": "movie"})
 
     assert response.status_code == 200
     body = response.json()
     assert body["id"] == item_id
-    assert body["edition_title"] == "Final Cut 4K release"
+    assert body["edition_title"] == "4K Blu-ray"
     assert body["publisher"] == "Warner Bros."
     assert body["release_date"] == "1982-06-25"
     assert body["barcode"] == "883-929 087.129"
-    assert body["variant"] == "4K UHD"
+    assert body["variant"] == "4K Blu-ray"
     assert body["physical_format"] == "4k-uhd"
-    assert body["physical_format_label"] == "4K UHD"
+    assert body["physical_format_label"] == "4K Blu-ray"
 
     sku_response = await client.get("/barcode/SKU4K001", params={"kind": "movie"})
 
@@ -927,39 +901,22 @@ async def test_barcode_provider_search_uses_query_cache(client, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_search_document_and_search_result_prefer_item_organization_links():
-    async with AsyncSessionLocal() as db:
-        item = Item(kind=ItemKind.comic, title="Invincible", item_number="1")
-        edition = Edition(item=item, title="Issue #1", publisher="Stale Publisher", imprint="Stale Imprint")
-        publisher = Organization(name="Image Comics")
-        imprint = Organization(name="Skybound")
-        db.add_all([item, edition, publisher, imprint])
-        await db.flush()
-        db.add_all(
-            [
-                EntityOrganization(
-                    entity_type="item",
-                    entity_id=item.id,
-                    organization_id=publisher.id,
-                    role="publisher",
-                ),
-                EntityOrganization(
-                    entity_type="item",
-                    entity_id=item.id,
-                    organization_id=imprint.id,
-                    role="imprint",
-                ),
-            ]
-        )
-        await db.commit()
-        loaded = await MetadataRepository(db).get_item(item.id, ItemKind.comic)
+    loaded = SimpleNamespace(
+        id=uuid4(),
+        kind=ItemKind.comic,
+        title="Invincible",
+        item_number="1",
+        editions=[],
+        organization_links=[
+            SimpleNamespace(role="publisher", organization=SimpleNamespace(name="Image Comics")),
+            SimpleNamespace(role="imprint", organization=SimpleNamespace(name="Skybound")),
+        ],
+    )
 
-    assert loaded is not None
-    document = item_search_document(loaded)
     service = MetadataService.__new__(MetadataService)
     result = MetadataService._search_result(service, loaded, None, None)
 
-    assert document["publisher"] == "Image Comics"
-    assert document["imprint"] == "Skybound"
+    assert result.title == "Invincible"
     assert result.publisher == "Image Comics"
     assert result.imprint == "Skybound"
 

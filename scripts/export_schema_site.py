@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
+from time import sleep
 from typing import Any
 
 from sqlalchemy import (
@@ -28,6 +30,20 @@ POSTGRES_DIALECT = postgresql.dialect()
 DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
+LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
+SOURCE_MODULES = [
+    "app/models/base.py",
+    "app/models/canonical_anime.py",
+    "app/models/canonical_board_games.py",
+    "app/models/canonical_books.py",
+    "app/models/canonical_comics.py",
+    "app/models/canonical_common.py",
+    "app/models/canonical_games.py",
+    "app/models/canonical_manga.py",
+    "app/models/canonical_support.py",
+    "app/models/canonical_video.py",
+    "app/models/user.py",
+]
 
 DOMAIN_SPECS: list[dict[str, Any]] = [
     {
@@ -617,6 +633,8 @@ def build_schema_data() -> dict[str, Any]:
     relationships = []
 
     for table in Base.metadata.sorted_tables:
+        if table.name in LEGACY_TABLE_NAMES:
+            continue
         unique_by_column = collect_column_uniques(table)
         indexes_by_column = collect_column_indexes(table)
         columns = [serialize_column(table, column, unique_by_column, indexes_by_column, enums) for column in table.columns]
@@ -725,12 +743,11 @@ def build_schema_data() -> dict[str, Any]:
     return {
         "generated_at": generated_at,
         "generator": "scripts/export_schema_site.py",
-        "source_modules": [
-            "app/models/base.py",
-            "app/models/user.py",
-            "app/models/canonical.py",
+        "source_modules": SOURCE_MODULES,
+        "notes": [
+            *STATIC_NOTES,
+            "Legacy generic tables (`items`, `editions`, `variants`) are omitted from the interactive view while compatibility code remains in the model layer.",
         ],
-        "notes": STATIC_NOTES,
         "domains": domains,
         "kinds": kinds,
         "tables": tables,
@@ -748,11 +765,46 @@ def build_schema_data() -> dict[str, Any]:
 
 
 def main() -> None:
-    schema_data = build_schema_data()
-    JSON_OUTPUT.write_text(json.dumps(schema_data, indent=2), encoding="utf-8")
-    MARKDOWN_OUTPUT.write_text(render_markdown(schema_data), encoding="utf-8")
-    print(f"Wrote {JSON_OUTPUT.relative_to(REPO_ROOT)}")
-    print(f"Wrote {MARKDOWN_OUTPUT.relative_to(REPO_ROOT)}")
+    parser = argparse.ArgumentParser(description="Export the interactive schema site.")
+    parser.add_argument("--watch", action="store_true", help="Rebuild when model or migration files change.")
+    parser.add_argument("--interval", type=float, default=1.0, help="Polling interval for --watch mode.")
+    args = parser.parse_args()
+
+    def write_outputs() -> None:
+        schema_data = build_schema_data()
+        JSON_OUTPUT.write_text(json.dumps(schema_data, indent=2), encoding="utf-8")
+        MARKDOWN_OUTPUT.write_text(render_markdown(schema_data), encoding="utf-8")
+        print(f"Wrote {JSON_OUTPUT.relative_to(REPO_ROOT)}")
+        print(f"Wrote {MARKDOWN_OUTPUT.relative_to(REPO_ROOT)}")
+
+    if not args.watch:
+        write_outputs()
+        return
+
+    watched_roots = [REPO_ROOT / "app" / "models", REPO_ROOT / "alembic" / "versions"]
+    watched_files = {REPO_ROOT / "scripts" / "export_schema_site.py", REPO_ROOT / "scripts" / "export_openapi.py"}
+
+    def snapshot() -> dict[Path, float]:
+        current: dict[Path, float] = {}
+        for path in watched_files:
+            if path.exists():
+                current[path] = path.stat().st_mtime
+        for root in watched_roots:
+            if not root.exists():
+                continue
+            for path in root.rglob("*.py"):
+                current[path] = path.stat().st_mtime
+        return current
+
+    print("Watching schema inputs for changes. Press Ctrl+C to stop.")
+    last_snapshot = snapshot()
+    write_outputs()
+    while True:
+        sleep(args.interval)
+        current_snapshot = snapshot()
+        if current_snapshot != last_snapshot:
+            last_snapshot = current_snapshot
+            write_outputs()
 
 
 if __name__ == "__main__":

@@ -87,3 +87,11 @@ def test_kind_views_surface_v1_work_tables():
     assert "book_works" not in misc_tables
     assert "music_releases" not in misc_tables
     assert "tv_releases" not in misc_tables
+
+
+def test_legacy_generic_tables_are_omitted_from_the_interactive_view():
+    data = build_schema_data()
+    table_names = {table["name"] for table in data["tables"]}
+    assert "items" not in table_names
+    assert "editions" not in table_names
+    assert "variants" not in table_names

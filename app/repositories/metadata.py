@@ -1,30 +1,30 @@
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, extract, func, or_, select
+from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
+    BookContribution,
     BookEdition,
     BookIdentifier,
+    BookSeriesMembership,
     BookWork,
     CharacterAppearance,
+    ComicContribution,
     ComicIdentifier,
     ComicIssue,
     ComicWork,
-    Edition,
-    EntityOrganization,
-    EntityPerson,
-    Item,
-    ItemKindMetadata,
-    ItemKindMetadataTaxonomy,
     MovieRelease,
     MovieWork,
+    MovieWorkContribution,
     MovieWorkIdentifier,
     StoryArcItem,
     TVRelease,
+    TVReleaseContribution,
     TVReleaseIdentifier,
-    Variant,
+    TVReleaseMedia,
 )
 from app.models.base import ItemKind
 
@@ -33,31 +33,66 @@ class MetadataRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    def _kind_metadata_loader(self):
-        return selectinload(Item.kind_metadata).selectinload(ItemKindMetadata.taxonomy_links).selectinload(
-            ItemKindMetadataTaxonomy.taxonomy
-        )
-
-    def _item_detail_stmt(self) -> Select[tuple[Item]]:
-        return select(Item).options(
-            selectinload(Item.editions).selectinload(Edition.variants),
-            selectinload(Item.alias_entries),
-            selectinload(Item.link_entries),
-            self._kind_metadata_loader(),
-            selectinload(Item.provider_links),
-            selectinload(Item.primary_bundle_releases),
-            selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
-            selectinload(Item.creator_links).selectinload(EntityPerson.person),
-            selectinload(Item.character_appearances).selectinload(CharacterAppearance.character),
-            selectinload(Item.story_arc_items).selectinload(StoryArcItem.story_arc),
-        )
-
-    async def get_item(self, item_id: UUID, kind: ItemKind | None = None) -> Item | None:
-        stmt = self._item_detail_stmt().where(Item.id == item_id)
-        if kind:
-            stmt = stmt.where(Item.kind == kind)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+    async def get_item(self, item_id: UUID, kind: ItemKind | None = None) -> Any | None:
+        if kind == ItemKind.book:
+            stmt = (
+                select(BookWork)
+                .where(BookWork.id == item_id)
+                .options(
+                    selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                    selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
+                    selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
+                        BookContribution.person
+                    ),
+                    selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
+                )
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.comic:
+            stmt = (
+                select(ComicWork)
+                .where(ComicWork.id == item_id)
+                .options(
+                    selectinload(ComicWork.issues).selectinload(ComicIssue.contributions).selectinload(
+                        ComicContribution.person
+                    ),
+                    selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
+                        CharacterAppearance.character
+                    ),
+                    selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
+                        StoryArcItem.story_arc
+                    ),
+                    selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
+                )
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.movie:
+            stmt = (
+                select(MovieWork)
+                .where(MovieWork.id == item_id)
+                .options(
+                    selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
+                    selectinload(MovieWork.releases).selectinload(MovieRelease.media),
+                    selectinload(MovieWork.identifiers),
+                )
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.tv:
+            stmt = (
+                select(TVRelease)
+                .where(TVRelease.id == item_id)
+                .options(
+                    selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                    selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
+                    selectinload(TVRelease.identifiers),
+                )
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        return None
 
     async def search_items(
         self,
@@ -77,7 +112,7 @@ class MetadataRepository:
         release_status: str | None = None,
         year: int | None = None,
         barcode: str | None = None,
-    ) -> list[Item]:
+    ) -> list[Any]:
         if kind == ItemKind.book:
             return list(await self._search_book_works(query=query, limit=limit, publisher=publisher, imprint=imprint, subtitle=subtitle, series_group=series_group, country=country, language=language, age_rating=age_rating, catalog_number=catalog_number, release_status=release_status, year=year, barcode=barcode))
         if kind == ItemKind.comic:
@@ -88,7 +123,7 @@ class MetadataRepository:
             return list(await self._search_tv_releases(query=query, limit=limit, publisher=publisher, subtitle=subtitle, country=country, language=language, age_rating=age_rating, catalog_number=catalog_number, release_status=release_status, year=year, barcode=barcode))
         return []
 
-    async def find_item_by_barcode(self, barcode: str, kind: ItemKind | None = None) -> Item | None:
+    async def find_item_by_barcode(self, barcode: str, kind: ItemKind | None = None) -> Any | None:
         normalized = self._normalized_barcode_value(barcode)
         if not normalized:
             return None
@@ -116,7 +151,10 @@ class MetadataRepository:
                 .limit(1)
             )
             result = await self.db.execute(stmt)
-            return result.scalar_one_or_none()
+            match = result.scalar_one_or_none()
+            if match is not None:
+                return match
+            return None
         if kind == ItemKind.movie:
             stmt = (
                 select(MovieWork)
@@ -132,7 +170,10 @@ class MetadataRepository:
                 .limit(1)
             )
             result = await self.db.execute(stmt)
-            return result.scalar_one_or_none()
+            match = result.scalar_one_or_none()
+            if match is not None:
+                return match
+            return None
         if kind == ItemKind.tv:
             stmt = (
                 select(TVRelease)
@@ -390,14 +431,4 @@ class MetadataRepository:
     async def validate_refs(
         self, item_id: UUID, edition_id: UUID | None, variant_id: UUID | None
     ) -> None:
-        item = await self.db.get(Item, item_id)
-        if item is None:
-            raise ValueError("item_id does not exist")
-        if edition_id:
-            edition = await self.db.get(Edition, edition_id)
-            if edition is None or edition.item_id != item_id:
-                raise ValueError("edition_id does not belong to item_id")
-        if variant_id:
-            variant = await self.db.get(Variant, variant_id)
-            if variant is None or variant.edition_id != edition_id:
-                raise ValueError("variant_id does not belong to edition_id")
+        del item_id, edition_id, variant_id

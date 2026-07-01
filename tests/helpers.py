@@ -1,31 +1,48 @@
 from datetime import date
 
 from app.db.session import AsyncSessionLocal
-from app.models import Edition, Item, Variant
-from app.models.base import ItemKind
+from app.models import ComicIdentifier, ComicIssue, ComicWork
+from app.models.base import ExternalProvider
 
 
 async def seed_comic() -> tuple[str, str, str]:
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.comic,
+        work = ComicWork(
             title="The Amazing Spider-Man",
-            item_number="1",
-            sort_key="amazing-spider-man-001",
+            sort_title="amazing spider-man",
+            description="Peter Parker swings into action.",
+            original_language="en",
         )
-        edition = Edition(
-            item=item,
-            title="Standard Edition",
-            format="Single Issue",
-            publisher="Marvel",
-            upc="75960604716100111",
-            language="en",
+        db.add(work)
+        await db.flush()
+        issue = ComicIssue(
+            work_id=work.id,
+            issue_number="1",
+            display_title="The Spider Strikes",
+            publication_date=date(1963, 3, 1),
             release_date=date(1963, 3, 1),
+            publisher="Marvel",
+            imprint="Marvel Knights",
+            language="en",
+            region="US",
+            release_status="released",
+            cover_image_url="https://cdn.example/standard.jpg",
+            description="Peter Parker swings into action.",
         )
-        variant = Variant(edition=edition, name="Cover A", is_primary=True)
-        db.add_all([item, edition, variant])
+        db.add(issue)
+        await db.flush()
+        db.add(
+            ComicIdentifier(
+                issue_id=issue.id,
+                identifier_type="barcode",
+                value="75960604716100111",
+                normalized_value="75960604716100111",
+                is_primary=True,
+                source_provider=ExternalProvider.comicvine,
+            )
+        )
         await db.commit()
-        return str(item.id), str(edition.id), str(variant.id)
+        return str(work.id), str(issue.id), str(issue.id)
 
 
 async def register_and_login(client) -> str:

@@ -4,8 +4,7 @@ import pytest
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import Item
-from app.models.base import ItemKind
+from app.models import ComicWork
 from app.search.client import SearchClient
 from tests.helpers import seed_comic
 
@@ -49,7 +48,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     body = logs.json()
     assert len(body) == 1
     assert body[0]["actor_email"] == "admin@example.com"
-    assert body[0]["entity_type"] == "item"
+    assert body[0]["entity_type"] == "comic_work"
     assert body[0]["entity_id"] == item_id
     assert body[0]["details_json"]["fields"] == ["title"]
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
@@ -57,7 +56,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     item_logs = await client.get(
         "/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
-        params={"entity_type": "item", "entity_id": item_id},
+        params={"entity_type": "comic_work", "entity_id": item_id},
     )
 
     assert item_logs.status_code == 200
@@ -68,18 +67,8 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
 async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
-        target = Item(
-            kind=ItemKind.comic,
-            title="Duplicate Book",
-            item_number="1",
-            sort_key="duplicate-book-001",
-        )
-        source = Item(
-            kind=ItemKind.comic,
-            title="Duplicate Book",
-            item_number="1",
-            sort_key="duplicate-book-001-b",
-        )
+        target = ComicWork(title="Duplicate Book", sort_title="duplicate book")
+        source = ComicWork(title="Duplicate Book", sort_title="duplicate book")
         db.add_all([target, source])
         await db.commit()
         target_id = str(target.id)
@@ -136,18 +125,8 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
 async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
-        first = Item(
-            kind=ItemKind.comic,
-            title="Review Me",
-            item_number="7",
-            sort_key="review-me-007",
-        )
-        second = Item(
-            kind=ItemKind.comic,
-            title="Review Me",
-            item_number="7",
-            sort_key="review-me-007-b",
-        )
+        first = ComicWork(title="Review Me", sort_title="review me")
+        second = ComicWork(title="Review Me", sort_title="review me")
         db.add_all([first, second])
         await db.commit()
         item_ids = [str(first.id), str(second.id)]

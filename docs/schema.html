@@ -197,38 +197,6 @@
         font-weight: 700;
       }
 
-      .toolbar {
-        display: grid;
-        gap: 12px;
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .tab-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-
-      .tab-button {
-        padding: 10px 14px;
-        border-radius: 999px;
-        border: 1px solid var(--panel-border);
-        background: var(--button);
-        color: var(--text);
-        font: inherit;
-        cursor: pointer;
-      }
-
-      .tab-button.active {
-        background: var(--accent);
-        color: #fff;
-        border-color: var(--accent);
-      }
-
-      .tab-button.active:hover {
-        color: #fff;
-      }
-
       .search {
         width: 100%;
         padding: 14px 16px;
@@ -237,6 +205,106 @@
         background: var(--panel-strong);
         color: var(--text);
         font: inherit;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .sidebar,
+      .content-view {
+        border-radius: 20px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-strong);
+      }
+
+      .sidebar {
+        padding: 18px;
+        position: sticky;
+        top: 18px;
+      }
+
+      .sidebar-nav {
+        display: grid;
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .nav-group {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav-group-title {
+        margin: 0;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .nav-links {
+        display: grid;
+        gap: 6px;
+      }
+
+      .nav-link {
+        display: block;
+        padding: 10px 12px;
+        border-radius: 14px;
+        text-decoration: none;
+        border: 1px solid transparent;
+        color: var(--text);
+        background: transparent;
+      }
+
+      .nav-link:hover {
+        border-color: var(--panel-border);
+        background: var(--chip);
+      }
+
+      .nav-link.active {
+        border-color: var(--accent);
+        background: var(--bg-accent);
+        color: var(--accent);
+      }
+
+      .content-view {
+        min-width: 0;
+        padding: 22px;
+      }
+
+      .page-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+
+      .breadcrumbs {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-bottom: 8px;
+      }
+
+      .page-description {
+        margin-top: 8px;
+        max-width: 78ch;
+      }
+
+      .page-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .page-actions .pill {
+        padding: 8px 12px;
       }
 
       .notes ul,
@@ -448,6 +516,14 @@
           height: 58vh;
         }
 
+        .app-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+        }
+
         .columns-table,
         .relationship-table {
           display: block;
@@ -468,7 +544,7 @@
         </p>
         <div class="hero-links">
           <a class="pill" href="https://github.com/collectarr/collectarr-core">Repository</a>
-          <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/app/models/canonical.py">canonical.py</a>
+          <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/app/models/canonical_common.py">canonical_common.py</a>
           <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/app/models/user.py">user.py</a>
           <a class="pill" href="https://github.com/collectarr/collectarr-core/blob/main/docs/schema-full.md">Generated markdown snapshot</a>
         </div>
@@ -477,51 +553,23 @@
       </section>
 
       <section class="card layout">
-        <div class="toolbar">
-          <input id="schema-search" class="search" type="search" placeholder="Filter tables, columns, constraints, enums, or references">
-          <div id="kind-nav" class="domain-nav"></div>
-          <div id="domain-nav" class="domain-nav"></div>
-          <div id="schema-tabs" class="tab-strip" role="tablist" aria-label="Schema sections"></div>
+        <div class="app-shell">
+          <aside class="sidebar">
+            <input id="schema-search" class="search" type="search" placeholder="Search tables, columns, constraints, enums, or references">
+            <nav id="schema-nav" class="sidebar-nav" aria-label="Schema navigation"></nav>
+          </aside>
+          <section class="content-view">
+            <div class="page-header">
+              <div>
+                <div id="breadcrumbs" class="breadcrumbs"></div>
+                <h2 id="page-title" class="section-title">Overview</h2>
+                <p id="page-description" class="page-description muted"></p>
+              </div>
+              <div id="page-actions" class="page-actions"></div>
+            </div>
+            <div id="page-content"></div>
+          </section>
         </div>
-      </section>
-
-      <section class="notes" data-panel="notes">
-        <h2 class="section-title">What This Includes</h2>
-        <ul id="notes-list"></ul>
-      </section>
-
-      <div id="empty-state" class="empty-state hidden">
-        <h2 class="section-title">No Matches</h2>
-        <p class="muted">Try a broader table name, column name, enum value, or constraint fragment.</p>
-      </div>
-
-      <section class="card" data-panel="kinds">
-        <h2 class="section-title">Kind Views</h2>
-        <p class="muted">Kind-focused slices for faster navigation of shared + kind-specific schema.</p>
-        <section id="kinds" class="domains" style="margin-top: 16px;"></section>
-      </section>
-
-      <section id="domains" class="domains" data-panel="domains"></section>
-
-      <section class="card" data-panel="enums">
-        <h2 class="section-title">Enums</h2>
-        <div id="enum-grid" class="constraint-grid"></div>
-      </section>
-
-      <section class="card" data-panel="relationships">
-        <h2 class="section-title">All Foreign Key Relationships</h2>
-        <table class="relationship-table">
-          <thead>
-            <tr>
-              <th>From</th>
-              <th>Columns</th>
-              <th>To</th>
-              <th>On delete</th>
-              <th>On update</th>
-            </tr>
-          </thead>
-          <tbody id="relationship-body"></tbody>
-        </table>
       </section>
     </main>
 
@@ -538,7 +586,6 @@
       });
 
       const panZoomById = new Map();
-
       const schemaData = await fetch("./schema-data.json").then((response) => {
         if (!response.ok) {
           throw new Error(`Unable to load schema-data.json (${response.status})`);
@@ -591,40 +638,18 @@
         return domainAccents[sectionId] || ["#38bdf8", "#a78bfa", "#22c55e", "#f97316"][index % 4];
       };
 
-      const panelOrder = ["notes", "kinds", "domains", "enums", "relationships"];
-
-      const setActivePanel = (panel) => {
-        const normalized = panel || "all";
-        document.querySelectorAll("[data-panel]").forEach((element) => {
-          const visible = normalized === "all" || element.dataset.panel === normalized;
-          element.classList.toggle("hidden", !visible);
-        });
-        document.querySelectorAll(".tab-button").forEach((button) => {
-          button.classList.toggle("active", button.dataset.panel === normalized);
-        });
-      };
-
-      const renderTabs = () => {
-        const tabs = document.getElementById("schema-tabs");
-        const labels = [
-          ["all", "All"],
-          ["notes", "Notes"],
-          ["kinds", "Kinds"],
-          ["domains", "Domains"],
-          ["enums", "Enums"],
-          ["relationships", "Relationships"],
-        ];
-        tabs.innerHTML = labels.map(([panel, label]) => `
-          <button type="button" class="tab-button" data-panel="${panel}" role="tab">${escapeHtml(label)}</button>
-        `).join("");
-        tabs.addEventListener("click", (event) => {
-          const button = event.target.closest("button[data-panel]");
-          if (!button) {
-            return;
+      const tablesByName = new Map(schemaData.tables.map((table) => [table.name, table]));
+      const kindsById = new Map((schemaData.kinds || []).map((kind) => [kind.id, kind]));
+      const domainsById = new Map(schemaData.domains.map((domain) => [domain.id, domain]));
+      const tableKinds = new Map();
+      for (const kind of schemaData.kinds || []) {
+        for (const tableName of kind.tables) {
+          if (!tableKinds.has(tableName)) {
+            tableKinds.set(tableName, []);
           }
-          setActivePanel(button.dataset.panel);
-        });
-      };
+          tableKinds.get(tableName).push(kind);
+        }
+      }
 
       const renderMeta = () => {
         const metaRow = document.getElementById("meta-row");
@@ -647,34 +672,6 @@
             <span class="stat-label">${escapeHtml(label)}</span>
             <span class="stat-value">${escapeHtml(value)}</span>
           </div>
-        `).join("");
-      };
-
-      const renderNotes = () => {
-        const notes = document.getElementById("notes-list");
-        notes.innerHTML = schemaData.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
-      };
-
-      const renderEnums = () => {
-        const enumGrid = document.getElementById("enum-grid");
-        enumGrid.innerHTML = Object.values(schemaData.enums).map((enumData) => `
-          <div class="constraint-card">
-            <h4>${escapeHtml(enumData.name)}</h4>
-            <div class="chips">${enumData.values.map((value) => `<span class="chip chip-flag">${escapeHtml(value)}</span>`).join("")}</div>
-          </div>
-        `).join("");
-      };
-
-      const renderRelationships = () => {
-        const body = document.getElementById("relationship-body");
-        body.innerHTML = schemaData.relationships.map((relationship) => `
-          <tr>
-            <td><code>${escapeHtml(relationship.from_table)}</code></td>
-            <td><code>${escapeHtml(relationship.from_columns.join(", "))}</code></td>
-            <td><code>${escapeHtml(relationship.to_targets.join(", "))}</code></td>
-            <td>${escapeHtml(relationship.ondelete || "-")}</td>
-            <td>${escapeHtml(relationship.onupdate || "-")}</td>
-          </tr>
         `).join("");
       };
 
@@ -703,6 +700,7 @@
           ...table.constraints.foreign_keys.flatMap((foreignKey) => [foreignKey.name || "", ...foreignKey.columns, ...foreignKey.targets]),
         ];
         const searchValue = [...columnSearchTokens, ...constraintSearchTokens, table.polymorphic_note || ""].join(" ").toLowerCase();
+        const kindLabels = (tableKinds.get(table.name) || []).map((kind) => kind.title);
 
         return `
           <article class="table-card" data-search="${escapeHtml(searchValue)}">
@@ -714,6 +712,7 @@
               <div class="table-meta">
                 <span class="chip chip-flag">PK: ${escapeHtml(table.constraints.primary_key.columns.join(", ") || "-")}</span>
                 <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
+                ${kindLabels.length ? `<span class="chip">Kinds: ${escapeHtml(kindLabels.join(", "))}</span>` : ""}
                 ${polymorphicBase ? '<span class="chip chip-flag">polymorphic base</span>' : ""}
                 ${table.polymorphic_note ? '<span class="chip chip-warn">polymorphic</span>' : ""}
               </div>
@@ -763,84 +762,318 @@
         `;
       };
 
-      const renderSectionCollection = ({ sections, navId, containerId, prefix, dataAttribute }) => {
-        const nav = document.getElementById(navId);
-        nav.innerHTML = sections.map((section) => `
-          <a class="domain-link" href="#${prefix}-${escapeHtml(section.id)}">${escapeHtml(section.title)}</a>
+      const buildSidebar = () => {
+        const nav = document.getElementById("schema-nav");
+        const kindLinks = (schemaData.kinds || []).map((kind) => `
+          <a class="nav-link" data-route="kind/${escapeHtml(kind.id)}" href="#kind/${escapeHtml(kind.id)}">${escapeHtml(kind.title)}</a>
         `).join("");
-
-        const tablesByName = new Map(schemaData.tables.map((table) => [table.name, table]));
-        const container = document.getElementById(containerId);
-        container.innerHTML = sections.map((section, index) => {
-          const tables = section.tables.map((tableName) => tablesByName.get(tableName)).filter(Boolean);
-          const accent = pickSectionAccent(prefix, section.id, index);
-          const sectionLabel = prefix === "kind" ? "Kind slice" : "General slice";
-          return `
-            <section id="${prefix}-${escapeHtml(section.id)}" class="domain" ${dataAttribute} style="--section-accent: ${accent};">
-              <div class="domain-header">
-                <div>
-                  <h2 class="domain-title">${escapeHtml(section.title)}</h2>
-                  <p class="domain-description">${escapeHtml(section.description)}</p>
-                </div>
-                <div class="diagram-controls" data-target="diagram-${prefix}-${escapeHtml(section.id)}">
-                  <button type="button" data-action="zoom-in">Zoom in</button>
-                  <button type="button" data-action="zoom-out">Zoom out</button>
-                  <button type="button" data-action="fit">Fit</button>
-                  <button type="button" data-action="reset">Reset</button>
-                </div>
-              </div>
-              <div class="table-meta" style="margin-top: 10px;">
-                <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
-                <span class="chip">Accent <code>${escapeHtml(accent)}</code></span>
-              </div>
-
-              <div class="viewer-shell">
-                <div id="diagram-${prefix}-${escapeHtml(section.id)}" class="diagram-viewer" aria-label="${escapeHtml(section.title)} schema diagram"></div>
-              </div>
-
-              <div class="domain-subgrid">
-                ${section.external_references.length ? `
-                  <div class="constraint-card">
-                    <h4>Cross-domain references</h4>
-                    <ul class="reference-list">
-                      ${section.external_references.map((reference) => `<li><code>${escapeHtml(reference.from_table)}.${escapeHtml(reference.from_columns.join(", "))}</code> -> <code>${escapeHtml(reference.targets.join(", "))}</code></li>`).join("")}
-                    </ul>
-                  </div>
-                ` : ""}
-                <div class="table-grid">
-                  ${tables.map((table) => renderTableCard(table, sectionLabel)).join("")}
-                </div>
-              </div>
-            </section>
-          `;
-        }).join("");
+        const domainLinks = schemaData.domains.map((domain) => `
+          <a class="nav-link" data-route="domain/${escapeHtml(domain.id)}" href="#domain/${escapeHtml(domain.id)}">${escapeHtml(domain.title)}</a>
+        `).join("");
+        nav.innerHTML = `
+          <div class="nav-group">
+            <p class="nav-group-title">Browse</p>
+            <div class="nav-links">
+              <a class="nav-link" data-route="overview" href="#overview">Overview</a>
+              <a class="nav-link" data-route="kinds" href="#kinds">Kind index</a>
+              <a class="nav-link" data-route="domains" href="#domains">Domain index</a>
+              <a class="nav-link" data-route="enums" href="#enums">Enums</a>
+              <a class="nav-link" data-route="relationships" href="#relationships">Relationships</a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <p class="nav-group-title">Kinds</p>
+            <div class="nav-links">${kindLinks}</div>
+          </div>
+          <div class="nav-group">
+            <p class="nav-group-title">Domains</p>
+            <div class="nav-links">${domainLinks}</div>
+          </div>
+        `;
       };
 
-      const renderDomains = () => renderSectionCollection({
-        sections: schemaData.domains,
-        navId: "domain-nav",
-        containerId: "domains",
-        prefix: "domain",
-        dataAttribute: "data-domain",
-      });
+      const renderPageHeader = ({ breadcrumbs, title, description, actions }) => {
+        document.getElementById("breadcrumbs").textContent = breadcrumbs;
+        document.getElementById("page-title").textContent = title;
+        document.getElementById("page-description").textContent = description || "";
+        document.getElementById("page-actions").innerHTML = actions || "";
+      };
 
-      const renderKinds = () => renderSectionCollection({
-        sections: schemaData.kinds || [],
-        navId: "kind-nav",
-        containerId: "kinds",
-        prefix: "kind",
-        dataAttribute: "data-kind",
-      });
+      const renderOverviewPage = () => {
+        renderPageHeader({
+          breadcrumbs: "Overview",
+          title: "Overview",
+          description: "Start here to jump into the schema by kind, domain, table, enum, or relationship.",
+          actions: `
+            <a class="pill" href="#kinds"><strong>Go to</strong> kinds</a>
+            <a class="pill" href="#domains"><strong>Go to</strong> domains</a>
+          `,
+        });
+
+        const content = document.getElementById("page-content");
+        content.innerHTML = `
+          <div class="constraint-grid">
+            <div class="constraint-card">
+              <h4>Quick navigation</h4>
+              <ul class="constraint-list">
+                <li><a href="#kinds">Browse kind indexes</a></li>
+                <li><a href="#domains">Browse domain indexes</a></li>
+                <li><a href="#enums">Inspect enum values</a></li>
+                <li><a href="#relationships">Inspect foreign key edges</a></li>
+              </ul>
+            </div>
+            <div class="constraint-card">
+              <h4>What this includes</h4>
+              <ul class="constraint-list">
+                ${schemaData.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+        `;
+      };
+
+      const renderIndexPage = (sections, kind) => {
+        renderPageHeader({
+          breadcrumbs: kind === "kind" ? "Kinds" : "Domains",
+          title: kind === "kind" ? "Kind index" : "Domain index",
+          description: kind === "kind"
+            ? "Choose a media kind to open its focused schema slice."
+            : "Choose a domain to inspect its related tables and diagram.",
+          actions: kind === "kind"
+            ? '<a class="pill" href="#overview"><strong>Back</strong> overview</a>'
+            : '<a class="pill" href="#overview"><strong>Back</strong> overview</a>',
+        });
+
+        const content = document.getElementById("page-content");
+        content.innerHTML = `
+          <div class="constraint-grid">
+            ${sections.map((section, index) => `
+              <div class="constraint-card" style="border-left: 4px solid ${pickSectionAccent(kind, section.id, index)};">
+                <h4>${escapeHtml(section.title)}</h4>
+                <p>${escapeHtml(section.description)}</p>
+                <p class="muted" style="margin-top: 8px;">${section.tables.length} tables</p>
+                <p style="margin-top: 10px;"><a class="pill" href="#${kind}/${escapeHtml(section.id)}">Open</a></p>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      };
+
+      const renderSectionPage = (section, kind) => {
+        const prefix = kind === "kind" ? "kind" : "domain";
+        const sectionLabel = kind === "kind" ? "Kind slice" : "Domain slice";
+        const accent = pickSectionAccent(prefix, section.id, 0);
+        const tables = section.tables.map((tableName) => tablesByName.get(tableName)).filter(Boolean);
+        renderPageHeader({
+          breadcrumbs: `${kind === "kind" ? "Kinds" : "Domains"} / ${section.title}`,
+          title: section.title,
+          description: section.description,
+          actions: `
+            <a class="pill" href="#${kind === "kind" ? "kinds" : "domains"}"><strong>Back</strong> index</a>
+            <a class="pill" href="#overview"><strong>Home</strong></a>
+          `,
+        });
+
+        const content = document.getElementById("page-content");
+        content.innerHTML = `
+          <section class="domain" style="--section-accent: ${accent}; padding: 0; border: 0; background: transparent;">
+            <div class="table-meta" style="margin-bottom: 12px;">
+              <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
+              <span class="chip">Accent <code>${escapeHtml(accent)}</code></span>
+            </div>
+            <div class="domain-header">
+              <div></div>
+              <div class="diagram-controls" data-target="diagram-${prefix}-${escapeHtml(section.id)}">
+                <button type="button" data-action="zoom-in">Zoom in</button>
+                <button type="button" data-action="zoom-out">Zoom out</button>
+                <button type="button" data-action="fit">Fit</button>
+                <button type="button" data-action="reset">Reset</button>
+              </div>
+            </div>
+            <div class="viewer-shell">
+              <div id="diagram-${prefix}-${escapeHtml(section.id)}" class="diagram-viewer" aria-label="${escapeHtml(section.title)} schema diagram"></div>
+            </div>
+            <div class="domain-subgrid">
+              ${section.external_references.length ? `
+                <div class="constraint-card">
+                  <h4>Cross-domain references</h4>
+                  <ul class="reference-list">
+                    ${section.external_references.map((reference) => `<li><code>${escapeHtml(reference.from_table)}.${escapeHtml(reference.from_columns.join(", "))}</code> -> <code>${escapeHtml(reference.targets.join(", "))}</code></li>`).join("")}
+                  </ul>
+                </div>
+              ` : ""}
+              <div class="table-grid">
+                ${tables.map((table) => renderTableCard(table, sectionLabel)).join("")}
+              </div>
+            </div>
+          </section>
+        `;
+        return renderDiagram(`diagram-${prefix}-${section.id}`, section.diagram);
+      };
+
+      const renderTablePage = (tableName) => {
+        const table = tablesByName.get(tableName);
+        if (!table) {
+          return renderUnknownPage(`Table ${tableName} was not found.`);
+        }
+        const relatedKinds = tableKinds.get(table.name) || [];
+        const relatedDomain = schemaData.domains.find((domain) => domain.tables.includes(table.name));
+        renderPageHeader({
+          breadcrumbs: `Tables / ${table.name}`,
+          title: table.name,
+          description: `Focused view for ${table.name}.`,
+          actions: `
+            ${relatedDomain ? `<a class="pill" href="#domain/${escapeHtml(relatedDomain.id)}"><strong>Domain</strong> ${escapeHtml(relatedDomain.title)}</a>` : ""}
+            ${relatedKinds[0] ? `<a class="pill" href="#kind/${escapeHtml(relatedKinds[0].id)}"><strong>Kind</strong> ${escapeHtml(relatedKinds[0].title)}</a>` : ""}
+            <a class="pill" href="#overview"><strong>Home</strong></a>
+          `,
+        });
+
+        const content = document.getElementById("page-content");
+        content.innerHTML = `
+          <div class="constraint-grid">
+            <div class="constraint-card">
+              <h4>Table context</h4>
+              <p>${relatedDomain ? `Domain: <a href="#domain/${escapeHtml(relatedDomain.id)}">${escapeHtml(relatedDomain.title)}</a>` : "Domain: -"}</p>
+              <p style="margin-top: 6px;">${relatedKinds.length ? `Kinds: ${relatedKinds.map((kind) => `<a href="#kind/${escapeHtml(kind.id)}">${escapeHtml(kind.title)}</a>`).join(", ")}` : "Kinds: -"}</p>
+            </div>
+          </div>
+          ${renderTableCard(table, "Table detail")}
+        `;
+      };
+
+      const renderEnumsPage = () => {
+        renderPageHeader({
+          breadcrumbs: "Enums",
+          title: "Enums",
+          description: "All enum-backed types used by the schema.",
+          actions: '<a class="pill" href="#overview"><strong>Home</strong></a>',
+        });
+        const content = document.getElementById("page-content");
+        content.innerHTML = `
+          <div class="constraint-grid">
+            ${Object.values(schemaData.enums).map((enumData) => `
+              <div class="constraint-card">
+                <h4>${escapeHtml(enumData.name)}</h4>
+                <div class="chips">${enumData.values.map((value) => `<span class="chip chip-flag">${escapeHtml(value)}</span>`).join("")}</div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      };
+
+      const renderRelationshipsPage = () => {
+        renderPageHeader({
+          breadcrumbs: "Relationships",
+          title: "Relationships",
+          description: "All foreign key edges in one place.",
+          actions: '<a class="pill" href="#overview"><strong>Home</strong></a>',
+        });
+        const content = document.getElementById("page-content");
+        content.innerHTML = `
+          <table class="relationship-table">
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>Columns</th>
+                <th>To</th>
+                <th>On delete</th>
+                <th>On update</th>
+              </tr>
+            </thead>
+            <tbody id="relationship-body"></tbody>
+          </table>
+        `;
+        document.getElementById("relationship-body").innerHTML = schemaData.relationships.map((relationship) => `
+          <tr>
+            <td><code>${escapeHtml(relationship.from_table)}</code></td>
+            <td><code>${escapeHtml(relationship.from_columns.join(", "))}</code></td>
+            <td><code>${escapeHtml(relationship.to_targets.join(", "))}</code></td>
+            <td>${escapeHtml(relationship.ondelete || "-")}</td>
+            <td>${escapeHtml(relationship.onupdate || "-")}</td>
+          </tr>
+        `).join("");
+      };
+
+      const renderSearchResults = (query) => {
+        renderPageHeader({
+          breadcrumbs: "Search",
+          title: `Search results`,
+          description: `Matches for "${query}".`,
+          actions: '<a class="pill" href="#overview"><strong>Home</strong></a>',
+        });
+        const normalized = query.trim().toLowerCase();
+        const results = schemaData.tables.filter((table) => {
+          const searchValue = [
+            table.name,
+            ...table.columns.flatMap((column) => [
+              column.name,
+              column.type,
+              column.default || "",
+              column.server_default || "",
+              column.enum || "",
+              ...column.foreign_keys.map((foreignKey) => foreignKey.target),
+            ]),
+            ...table.constraints.unique_constraints.flatMap((constraint) => [constraint.name || "", ...constraint.columns]),
+            ...table.constraints.indexes.flatMap((index) => [index.name || "", ...index.columns]),
+            ...table.constraints.check_constraints.flatMap((check) => [check.name || "", check.sqltext || ""]),
+            ...table.constraints.foreign_keys.flatMap((foreignKey) => [foreignKey.name || "", ...foreignKey.columns, ...foreignKey.targets]),
+            table.polymorphic_note || "",
+          ].join(" ").toLowerCase();
+          return searchValue.includes(normalized);
+        });
+
+        const content = document.getElementById("page-content");
+        if (!results.length) {
+          content.innerHTML = `
+            <div class="empty-state">
+              <h2 class="section-title">No matches</h2>
+              <p class="muted">Try a broader table name, column name, enum value, or constraint fragment.</p>
+            </div>
+          `;
+          return;
+        }
+
+        content.innerHTML = `
+          <div class="constraint-grid">
+            ${results.map((table) => `
+              <div class="constraint-card">
+                <h4><code>${escapeHtml(table.name)}</code></h4>
+                <p class="muted">${table.columns.length} columns, ${table.constraints.foreign_keys.length} foreign keys</p>
+                <p style="margin-top: 8px;">
+                  <a class="pill" href="#table/${escapeHtml(table.name)}">Open table</a>
+                </p>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      };
+
+      const renderUnknownPage = (message) => {
+        renderPageHeader({
+          breadcrumbs: "Not found",
+          title: "Not found",
+          description: message,
+          actions: '<a class="pill" href="#overview"><strong>Home</strong></a>',
+        });
+        document.getElementById("page-content").innerHTML = `
+          <div class="empty-state">
+            <h2 class="section-title">Page unavailable</h2>
+            <p class="muted">${escapeHtml(message)}</p>
+          </div>
+        `;
+      };
 
       const renderDiagram = async (targetId, definition) => {
         const container = document.getElementById(targetId);
+        if (!container) {
+          return;
+        }
         let svg;
         let bindFunctions;
         try {
           ({ svg, bindFunctions } = await mermaid.render(`render-${targetId}`, definition));
         } catch (error) {
-          // Never leave the viewer silently empty: surface the failure and the
-          // diagram source so the schema is still inspectable.
           container.innerHTML =
             '<div class="diagram-error">Could not render this diagram: ' +
             String(error && error.message ? error.message : error) +
@@ -912,48 +1145,157 @@
         });
       };
 
-      const bindSearch = () => {
-        const emptyState = document.getElementById("empty-state");
-        const search = document.getElementById("schema-search");
-        search.addEventListener("input", () => {
-          const query = search.value.trim().toLowerCase();
-          let visibleCards = 0;
-          document.querySelectorAll(".table-card").forEach((card) => {
-            const matches = !query || card.dataset.search.includes(query);
-            card.classList.toggle("hidden", !matches);
-            if (matches) {
-              visibleCards += 1;
-            }
-          });
+      const parseRoute = () => {
+        const raw = location.hash.replace(/^#/, "");
+        if (!raw) {
+          return { view: "overview" };
+        }
+        const [path, queryString = ""] = raw.split("?");
+        const segments = path.split("/").filter(Boolean);
+        const search = new URLSearchParams(queryString);
+        const [first = "overview", second = ""] = segments;
 
-          document.querySelectorAll("[data-domain]").forEach((domain) => {
-            const visibleInDomain = domain.querySelectorAll(".table-card:not(.hidden)").length;
-            domain.classList.toggle("hidden", visibleInDomain === 0);
-          });
-          document.querySelectorAll("[data-kind]").forEach((kindSection) => {
-            const visibleInKind = kindSection.querySelectorAll(".table-card:not(.hidden)").length;
-            kindSection.classList.toggle("hidden", visibleInKind === 0);
-          });
+        if (first === "kind") {
+          return { view: "kind", id: second || "" };
+        }
+        if (first === "domain") {
+          return { view: "domain", id: second || "" };
+        }
+        if (first === "table") {
+          return { view: "table", id: second || "" };
+        }
+        if (first === "search") {
+          return { view: "search", query: search.get("q") || "" };
+        }
+        if (first === "kinds") {
+          return { view: "kind-index" };
+        }
+        if (first === "domains") {
+          return { view: "domain-index" };
+        }
+        if (first === "enums") {
+          return { view: "enums" };
+        }
+        if (first === "relationships") {
+          return { view: "relationships" };
+        }
+        return { view: "overview" };
+      };
 
-          emptyState.classList.toggle("hidden", visibleCards !== 0);
+      const routeKey = (route) => {
+        switch (route.view) {
+          case "kind":
+            return `kind/${route.id}`;
+          case "domain":
+            return `domain/${route.id}`;
+          case "table":
+            return `table/${route.id}`;
+          case "search":
+            return "search";
+          case "kind-index":
+            return "kinds";
+          case "domain-index":
+            return "domains";
+          default:
+            return route.view;
+        }
+      };
+
+      const syncSidebar = (route) => {
+        const active = routeKey(route);
+        document.querySelectorAll(".nav-link").forEach((link) => {
+          link.classList.toggle("active", link.dataset.route === active);
         });
       };
 
+      let renderToken = 0;
+      const renderRoute = async () => {
+        const token = ++renderToken;
+        panZoomById.forEach((instance) => instance.destroy?.());
+        panZoomById.clear();
+
+        const route = parseRoute();
+        syncSidebar(route);
+        const searchInput = document.getElementById("schema-search");
+        if (searchInput && route.view === "search") {
+          searchInput.value = route.query || "";
+        } else if (searchInput && route.view !== "search" && searchInput.value && !location.hash.includes("search")) {
+          searchInput.value = "";
+        }
+
+        if (route.view === "overview") {
+          renderOverviewPage();
+          return;
+        }
+        if (route.view === "kind-index") {
+          renderIndexPage(schemaData.kinds || [], "kind");
+          return;
+        }
+        if (route.view === "domain-index") {
+          renderIndexPage(schemaData.domains, "domain");
+          return;
+        }
+        if (route.view === "enums") {
+          renderEnumsPage();
+          return;
+        }
+        if (route.view === "relationships") {
+          renderRelationshipsPage();
+          return;
+        }
+        if (route.view === "search") {
+          renderSearchResults(route.query || "");
+          return;
+        }
+        if (route.view === "kind") {
+          const section = kindsById.get(route.id);
+          if (!section) {
+            renderUnknownPage(`Kind ${route.id} was not found.`);
+            return;
+          }
+          await renderSectionPage(section, "kind");
+        } else if (route.view === "domain") {
+          const section = domainsById.get(route.id);
+          if (!section) {
+            renderUnknownPage(`Domain ${route.id} was not found.`);
+            return;
+          }
+          await renderSectionPage(section, "domain");
+        } else if (route.view === "table") {
+          renderTablePage(route.id);
+        } else {
+          renderOverviewPage();
+        }
+
+        if (token !== renderToken) {
+          return;
+        }
+        bindDiagramControls();
+      };
+
+      const bindSearch = () => {
+        const search = document.getElementById("schema-search");
+        search.addEventListener("input", () => {
+          const query = search.value.trim();
+          if (!query) {
+            history.replaceState(null, "", "#overview");
+          } else {
+            history.replaceState(null, "", `#search?q=${encodeURIComponent(query)}`);
+          }
+          void renderRoute();
+        });
+      };
+
+      buildSidebar();
       renderMeta();
-      renderNotes();
-      renderEnums();
-      renderRelationships();
-      renderTabs();
-      renderKinds();
-      renderDomains();
-      setActivePanel("all");
-      bindDiagramControls();
       bindSearch();
-      const kindSections = schemaData.kinds || [];
-      await Promise.allSettled([
-        ...kindSections.map((kind) => renderDiagram(`diagram-kind-${kind.id}`, kind.diagram)),
-        ...schemaData.domains.map((domain) => renderDiagram(`diagram-domain-${domain.id}`, domain.diagram)),
-      ]);
+      window.addEventListener("hashchange", () => {
+        void renderRoute();
+      });
+      if (!location.hash) {
+        history.replaceState(null, "", "#overview");
+      }
+      void renderRoute();
     </script>
   </body>
 </html>

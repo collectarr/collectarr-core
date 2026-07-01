@@ -44,6 +44,12 @@ jobs:
       - name: Lint
         run: python -m ruff check .
 
+      - name: Verify generated docs are current
+        run: |
+          python -m scripts.export_schema_site
+          python -m scripts.export_openapi
+          git diff --exit-code -- docs/schema-data.json docs/schema-full.md docs/openapi.json
+
       - name: Type check (informational)
         continue-on-error: true
         run: python -m mypy app

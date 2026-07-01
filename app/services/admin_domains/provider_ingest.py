@@ -9,12 +9,10 @@ from fastapi import status
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
-from app.catalog.grouping_models import uses_print_grouping
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
 )
 from app.core.errors import ApiHTTPException
-from app.metadata_normalized import upsert_item_kind_metadata
 from app.models import (
     AnimeCharacterAppearance,
     AnimeContribution,
@@ -40,14 +38,12 @@ from app.models import (
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
-    Edition,
     EntityOrganization,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
     GameRelease,
     GameWork,
-    Item,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -81,7 +77,6 @@ from app.models import (
     TVReleaseContribution,
     TVReleaseIdentifier,
     TVReleaseMedia,
-    Variant,
 )
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.proposal_payload import compact_metadata_payload
@@ -96,7 +91,6 @@ from app.providers.base import (
 from app.providers.comicvine import ComicVineProvider
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
-from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     MetadataProposalAdminResponse,
     MetadataProposalAdminUpdateRequest,
@@ -1142,9 +1136,6 @@ class AdminProviderIngestService:
                 ExternalProviderId.provider_item_id == provider_item_id,
                 ExternalProviderId.entity_type.in_(
                     [
-                        "item",
-                        "series",
-                        "volume",
                         "game_work",
                         "boardgame_work",
                         "book_work",
@@ -1234,28 +1225,11 @@ class AdminProviderIngestService:
                 item=await MetadataService(self.db).get_manga_work(manga_work.id),
             )
         else:
-            item = await MetadataRepository(self.db).get_item(provider_id.entity_id)
-        if item is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 code="provider_link_stale",
-                detail="Provider link is stale",
+                detail="Provider link is stale or unsupported",
             )
-        if not uses_print_grouping(item.kind) and item.kind not in {
-            ItemKind.game,
-            ItemKind.boardgame,
-            ItemKind.collection,
-        }:
-            raise ApiHTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                code="provider_link_stale",
-                detail="Provider link is stale",
-            )
-        return ProviderIngestResponse(
-            item_id=item.id,
-            created=False,
-            item=await self._item_response(item),
-        )
 
     def _physical_format_for_normalized(
         self,
@@ -1341,9 +1315,6 @@ class AdminProviderIngestService:
                 expires_at=datetime.now(UTC) + _SNAPSHOT_TTL,
             )
         )
-
-    def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
-        upsert_item_kind_metadata(item, normalized_values)
 
     async def _enrich_missing_comic_cover(
         self,
@@ -1485,63 +1456,6 @@ class AdminProviderIngestService:
             },
         )
         pid.updated_at = datetime.now(UTC)
-
-    async def _comicvine_associated_variants(
-        self,
-        *,
-        provider: MetadataProvider,
-        provider_name: ExternalProvider,
-        provider_item_id: str,
-        normalized: NormalizedItem,
-        edition: Edition,
-        primary_cover_url: str | None,
-    ) -> tuple[list[Variant], list[Any]]:
-        if not normalized.variant_covers:
-            return [], []
-        variants: list[Variant] = []
-        mirrored_covers: list[Any] = []
-        seen_cover_urls = {primary_cover_url} if primary_cover_url else set()
-        for cover in normalized.variant_covers:
-            if not cover.cover_image_url or cover.cover_image_url in seen_cover_urls:
-                continue
-            seen_cover_urls.add(cover.cover_image_url)
-            mirrored_cover = None
-            if self._should_mirror_provider_images(provider):
-                mirrored_cover = await ImageMirror().mirror_cover_best_effort(
-                    cover.cover_image_url,
-                    provider_name.value,
-                    provider_item_id,
-                )
-            if mirrored_cover is not None:
-                mirrored_covers.append(mirrored_cover)
-            cover_metadata = self._cover_metadata(cover.cover_image_url, mirrored_cover)
-            variants.append(
-                Variant(
-                    edition=edition,
-                    name=self._variant_cover_name(cover, len(variants) + 1),
-                    variant_type="variant",
-                    cover_image_key=mirrored_cover.key if mirrored_cover else None,
-                    cover_image_url=mirrored_cover.url if mirrored_cover else cover.cover_image_url,
-                    thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
-                    thumbnail_image_url=(
-                        mirrored_cover.thumbnail_url if mirrored_cover else cover.thumbnail_image_url
-                    ),
-                    description=cover.caption,
-                    metadata_json=self._provider_metadata_json(
-                        provider_name,
-                        cover.provider_item_id or provider_item_id,
-                        kind=normalized.kind,
-                        normalized={
-                            "associated_image_id": cover.source_id,
-                            **cover_metadata,
-                        },
-                    ),
-                    is_primary=False,
-                )
-            )
-        return variants, mirrored_covers
-
-
 
     async def _upsert_book_series(
         self,

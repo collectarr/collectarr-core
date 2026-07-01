@@ -22,7 +22,7 @@ def main() -> None:
     version = schema.get("info", {}).get("version", "unknown")
     endpoints = sum(len(methods) for methods in schema.get("paths", {}).values())
     schemas_count = len(schema.get("components", {}).get("schemas", {}))
-    print(f"OpenAPI {version} → {out}  ({endpoints} endpoints, {schemas_count} schemas)")
+    print(f"OpenAPI {version} -> {out}  ({endpoints} endpoints, {schemas_count} schemas)")
 
 
 if __name__ == "__main__":

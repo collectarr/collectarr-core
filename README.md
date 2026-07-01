@@ -69,6 +69,7 @@ references.
 
 - [Open interactive schema explorer](https://collectarr.github.io/collectarr-core/schema.html)
 - [Open generated markdown snapshot](docs/schema-full.md)
+- Refresh locally with `python -m scripts.export_schema_site` or keep it live with `python -m scripts.export_schema_site --watch`.
 
 ### Migration policy (pre-2.0)
 

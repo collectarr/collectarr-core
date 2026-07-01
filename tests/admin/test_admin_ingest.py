@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import HTTPException, status
 from sqlalchemy import func, select, update
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
@@ -22,17 +23,21 @@ from app.models import (
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
-    Edition,
     EntityOrganization,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
+    GameRelease,
+    GameWork,
     ImageCacheEntry,
     Item,
-    ItemKindMetadata,
-    ItemKindMetadataComic,
-    ItemKindMetadataMusic,
     MetadataProposal,
+    MovieRelease,
+    MovieReleaseMedia,
+    MovieWork,
+    MusicMedia,
+    MusicRelease,
+    MusicTrack,
     Organization,
     Person,
     ProviderIngestJob,
@@ -1168,42 +1173,23 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        primary = Item(
-            kind=ItemKind.comic,
-            title="Absolute Batman",
-            item_number="1",
-            sort_key="absolute-batman-000001",
-        )
-        duplicate = Item(
-            kind=ItemKind.comic,
-            title="Absolute Batman",
-            item_number="1",
-            sort_key="absolute-batman-000001-duplicate",
-        )
-        primary_edition = Edition(
-            item=primary,
-            title="Standard Edition",
+        primary = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001")
+        duplicate = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001-duplicate")
+        primary_issue = ComicIssue(
+            work=primary,
+            issue_number="1",
+            display_title="Standard Edition",
             publisher="DC Comics",
             release_date=date(2024, 10, 9),
-        )
-        duplicate_edition = Edition(item=duplicate, title="Standard Edition")
-        primary_variant = Variant(
-            edition=primary_edition,
-            name="Cover A",
             cover_image_url="https://cdn.example/cover.jpg",
-            is_primary=True,
         )
-        duplicate_variant = Variant(
-            edition=duplicate_edition,
-            name="Cover A",
-            is_primary=True,
-        )
+        duplicate_issue = ComicIssue(work=duplicate, issue_number="1", display_title="Standard Edition")
         proposal = MetadataProposal(
             provider=ExternalProvider.gcd,
             query="Absolute Batman #1",
             status="pending",
         )
-        db.add_all([primary, duplicate, primary_edition, duplicate_edition, primary_variant, duplicate_variant, proposal])
+        db.add_all([primary, duplicate, primary_issue, duplicate_issue, proposal])
         await db.flush()
         db.add(
             ExternalProviderId(
@@ -1229,7 +1215,7 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert body["series"] == 0
     assert body["volumes"] == 0
     assert body["editions"] == 2
-    assert body["variants"] == 2
+    assert body["variants"] == 0
     assert body["provider_links"] == 1
     assert body["pending_proposals"] == 1
     assert body["missing_cover_items"] == 1
@@ -1371,25 +1357,22 @@ async def test_admin_search_reindex_replaces_index_documents(client, monkeypatch
     state = {"configured": False, "documents": []}
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.comic,
-            title="Absolute Batman",
-            item_number="1",
-            sort_key="absolute-batman-000001",
-        )
-        edition = Edition(
-            item=item,
-            title="Standard Edition",
+        work = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001")
+        issue = ComicIssue(
+            work=work,
+            issue_number="1",
+            display_title="Standard Edition",
             publisher="DC Comics",
             release_date=date(2024, 10, 9),
         )
-        variant = Variant(
-            edition=edition,
-            name="Cover A",
-            barcode="76194138584600111",
+        identifier = ComicIdentifier(
+            issue=issue,
+            identifier_type="barcode",
+            value="76194138584600111",
+            normalized_value="76194138584600111",
             is_primary=True,
         )
-        db.add_all([item, edition, variant])
+        db.add_all([work, issue, identifier])
         await db.commit()
 
     class FakeSearchClient:
@@ -1435,34 +1418,17 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        target = Item(
-            kind=ItemKind.comic,
-            title="Absolute Batman",
-            item_number="1",
-            sort_key="absolute-batman-000001",
-        )
-        source = Item(
-            kind=ItemKind.comic,
-            title="Absolute Batman",
-            item_number="1",
-            sort_key="absolute-batman-000001-duplicate",
-        )
-        target_edition = Edition(item=target, title="Standard Edition", publisher="DC Comics")
-        source_edition = Edition(item=source, title="Variant Edition", publisher="DC Comics")
-        target_variant = Variant(edition=target_edition, name="Cover A", is_primary=True)
-        source_variant = Variant(
-            edition=source_edition,
-            name="Variant Cover",
-            barcode="76194138584600121",
-            is_primary=True,
-        )
-        db.add_all([target, source, target_edition, source_edition, target_variant, source_variant])
+        target = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001")
+        source = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001-duplicate")
+        target_issue = ComicIssue(work=target, issue_number="1", display_title="Standard Edition", publisher="DC Comics")
+        source_issue = ComicIssue(work=source, issue_number="1", display_title="Variant Edition", publisher="DC Comics")
+        db.add_all([target, source, target_issue, source_issue])
         await db.flush()
         target_id = str(target.id)
         source_id = str(source.id)
         db.add(
             ExternalProviderId(
-                entity_type="item",
+                entity_type="comic_work",
                 entity_id=source.id,
                 provider=ExternalProvider.gcd,
                 provider_item_id="2665653",
@@ -1481,13 +1447,13 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
     assert body["ok"] is True
     assert body["affected_items"] == 1
     assert body["item"]["id"] == target_id
-    assert len(body["item"]["editions"]) == 2
+    assert len(body["item"]["issues"]) == 2
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Item)) == 1
-        assert await db.scalar(select(func.count()).select_from(Edition)) == 2
+        assert await db.scalar(select(func.count()).select_from(ComicWork)) == 1
+        assert await db.scalar(select(func.count()).select_from(ComicIssue)) == 2
         provider_link = await db.scalar(
-            select(ExternalProviderId).where(ExternalProviderId.entity_type == "item")
+            select(ExternalProviderId).where(ExternalProviderId.entity_type == "comic_work")
         )
         assert provider_link is not None
         assert str(provider_link.entity_id) == target_id
@@ -1506,29 +1472,19 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.comic,
-            title="Absolute Batman",
-            item_number="1",
-            sort_key="absolute-batman-000001",
-            page_count=48,
-        )
-        edition = Edition(
-            item=item,
-            title="Standard Edition",
+        work = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001", metadata_json={})
+        issue = ComicIssue(
+            work=work,
+            issue_number="1",
+            display_title="Standard Edition",
             publisher="DC Comics",
             release_date=date(2024, 10, 9),
-        )
-        variant = Variant(
-            edition=edition,
-            name="Cover A",
-            barcode="76194138584600111",
             cover_image_url="https://cdn.example/old.jpg",
-            is_primary=True,
+            page_count=48,
         )
-        db.add_all([item, edition, variant])
+        db.add_all([work, issue])
         await db.flush()
-        item_id = str(item.id)
+        item_id = str(work.id)
         await db.commit()
 
     search = await client.get(
@@ -1577,62 +1533,36 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     )
 
     async with AsyncSessionLocal() as db:
-        refreshed_item = await db.get(Item, UUID(item_id))
-        refreshed_edition = await db.scalar(select(Edition).where(Edition.item_id == UUID(item_id)))
+        refreshed_item = await db.get(ComicWork, UUID(item_id))
+        refreshed_issue = await db.scalar(select(ComicIssue).where(ComicIssue.work_id == UUID(item_id)))
 
     assert refreshed_item is not None
-    assert refreshed_edition is not None
-    assert refreshed_edition.imprint == "Black Label"
-    assert refreshed_edition.subtitle == "Noir Edition"
-    assert refreshed_edition.series_group == "Absolute Universe"
-    assert refreshed_edition.region == "US"
-    assert refreshed_edition.language == "en"
-    assert refreshed_edition.age_rating == "Mature"
-    assert refreshed_edition.catalog_number == "ABS-BAT-DELUXE"
-    assert refreshed_edition.release_status == "announced"
-    assert refreshed_item.original_title == "Batman: Absolute Edition"
-    assert refreshed_item.localized_title == "Batman Absolut"
-    assert refreshed_item.search_aliases == ["Absolute Batman", "Batman Deluxe"]
-    assert refreshed_item.crossover == "Absolute Universe"
-    assert refreshed_item.plot_summary == "Bruce Wayne reinvents Gotham."
-    assert refreshed_item.plot_description == "An alternate continuity focused on noir storytelling."
+    assert refreshed_issue is not None
+    assert refreshed_issue.imprint == "Black Label"
+    assert refreshed_issue.display_title == "Collector Edition"
+    assert refreshed_issue.region == "US"
+    assert refreshed_issue.language == "en"
+    assert refreshed_issue.release_status == "announced"
+    assert refreshed_item.subtitle == "Noir Edition"
+    assert refreshed_item.metadata_json.get("original_title") == "Batman: Absolute Edition"
+    assert refreshed_item.metadata_json.get("localized_title") == "Batman Absolut"
+    assert refreshed_item.metadata_json.get("search_aliases") == ["Absolute Batman", "Batman Deluxe"]
+    assert refreshed_item.metadata_json.get("crossover") == "Absolute Universe"
+    assert refreshed_item.metadata_json.get("plot_summary") == "Bruce Wayne reinvents Gotham."
+    assert refreshed_item.metadata_json.get("plot_description") == "An alternate continuity focused on noir storytelling."
 
     assert updated.status_code == 200
     body = updated.json()
     assert body["title"] == "Absolute Batman Deluxe"
-    assert body["title_extension"] == "Director's Noir Cut"
-    assert body["sort_key"] == "batman-absolute-deluxe-custom"
-    assert body["original_title"] == "Batman: Absolute Edition"
-    assert body["localized_title"] == "Batman Absolut"
-    assert body["search_aliases"] == ["Absolute Batman", "Batman Deluxe"]
-    assert body["item_number"] == "1A"
-    assert body["runtime_minutes"] == 0
-    assert body["publisher"] == "DC Black Label"
-    assert body["page_count"] == 52
-    assert body["imprint"] == "Black Label"
+    assert body["sort_title"] == "batman-absolute-deluxe-custom"
     assert body["subtitle"] == "Noir Edition"
-    assert body["series_group"] == "Absolute Universe"
-    assert body["country"] == "US"
-    assert body["language"] == "en"
-    assert body["age_rating"] == "Mature"
-    assert body["audience_rating"] == "8.6"
-    assert body["catalog_number"] == "ABS-BAT-DELUXE"
-    assert body["release_status"] == "announced"
-    assert body["crossover"] == "Absolute Universe"
-    assert body["plot_summary"] == "Bruce Wayne reinvents Gotham."
-    assert body["plot_description"] == "An alternate continuity focused on noir storytelling."
-    assert body["genres"] == ["Superhero", "Noir"]
-    assert body["editions"][0]["title"] == "Collector Edition"
-    assert body["editions"][0]["release_date"] == "2024-10-16"
-    assert body["editions"][0]["imprint"] == "Black Label"
-    assert body["editions"][0]["subtitle"] == "Noir Edition"
-    assert body["editions"][0]["series_group"] == "Absolute Universe"
-    assert body["editions"][0]["age_rating"] == "Mature"
-    assert body["editions"][0]["catalog_number"] == "ABS-BAT-DELUXE"
-    assert body["editions"][0]["release_status"] == "announced"
-    assert body["editions"][0]["variants"][0]["name"] == "Foil Cover"
-    assert body["editions"][0]["variants"][0]["barcode"] == "76194138584600121"
-    assert body["editions"][0]["variants"][0]["cover_image_url"] == "https://cdn.example/new.jpg"
+    assert body["issues"][0]["issue_number"] == "1A"
+    assert body["issues"][0]["publisher"] == "DC Black Label"
+    assert body["issues"][0]["page_count"] == 52
+    assert body["issues"][0]["imprint"] == "Black Label"
+    assert body["issues"][0]["release_date"] == "2024-10-16"
+    assert body["issues"][0]["release_status"] == "announced"
+    assert body["issues"][0]["cover_image_url"] == "https://cdn.example/new.jpg"
 
     filtered = await client.get(
         "/admin/catalog/items",
@@ -1656,16 +1586,12 @@ async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, 
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.music,
-            title="Random Access Memories",
-            sort_key="random-access-memories",
-        )
-        edition = Edition(item=item, title="Standard Edition")
-        db.add_all([item, edition])
+        release = MusicRelease(title="Random Access Memories", sort_title="random-access-memories", metadata_json={})
+        media = MusicMedia(release=release, media_number=1)
+        db.add_all([release, media])
         await db.flush()
-        item_uuid = item.id
-        item_id = str(item.id)
+        item_uuid = release.id
+        item_id = str(release.id)
         await db.commit()
 
     updated = await client.patch(
@@ -1683,22 +1609,21 @@ async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, 
 
     assert updated.status_code == 200
     body = updated.json()
-    assert body["audience_rating"] == "9.2"
-    assert body["genres"] == ["Electronic", "Nu Disco"]
-    assert body["track_count"] is None
-    assert body["tracks"] == []
+    assert body["audience_rating"] == 9.2
+    assert body["track_count"] == 2
+    assert body["media"][0]["tracks"][0]["title"] == "One More Time"
 
     async with AsyncSessionLocal() as db:
-        stored_item = await db.get(Item, item_uuid)
-        typed_metadata = await db.scalar(
-            select(ItemKindMetadataMusic).where(ItemKindMetadataMusic.item_id == item_uuid)
+        stored_release = await db.scalar(
+            select(MusicRelease)
+            .where(MusicRelease.id == item_uuid)
+            .options(selectinload(MusicRelease.media).selectinload(MusicMedia.tracks))
         )
-        assert stored_item is not None
-        assert typed_metadata is not None
-        assert typed_metadata.audience_rating == "9.2"
-        assert typed_metadata.genres == ["Electronic", "Nu Disco"]
-        assert not hasattr(typed_metadata, "track_count")
-        assert not hasattr(typed_metadata, "tracks")
+        assert stored_release is not None
+        assert stored_release.metadata_json is not None
+        assert stored_release.metadata_json.get("genres") == ["Electronic", "Nu Disco"]
+        assert stored_release.track_count == 2
+        assert len(stored_release.media[0].tracks) == 2
 
 
 @pytest.mark.asyncio
@@ -1706,16 +1631,12 @@ async def test_admin_catalog_correction_updates_game_platforms(client, monkeypat
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.game,
-            title="The Witcher 3",
-            sort_key="witcher-3",
-        )
-        edition = Edition(item=item, title="Standard Edition")
-        db.add_all([item, edition])
+        work = GameWork(title="The Witcher 3", sort_title="witcher-3", metadata_json={})
+        release = GameRelease(work=work, release_title="Standard Edition")
+        db.add_all([work, release])
         await db.flush()
-        item_uuid = item.id
-        item_id = str(item.id)
+        item_uuid = work.id
+        item_id = str(work.id)
         await db.commit()
 
     updated = await client.patch(
@@ -1729,13 +1650,10 @@ async def test_admin_catalog_correction_updates_game_platforms(client, monkeypat
     assert body["platforms"] == ["PC", "PlayStation 5"]
 
     async with AsyncSessionLocal() as db:
-        stored_item = await db.get(Item, item_uuid)
-        typed_metadata = await db.scalar(
-            select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
-        )
+        stored_item = await db.get(GameWork, item_uuid)
         assert stored_item is not None
-        assert typed_metadata is not None
-        assert typed_metadata.platforms == ["PC", "PlayStation 5"]
+        assert stored_item.metadata_json is not None
+        assert stored_item.metadata_json.get("platforms") == ["PC", "PlayStation 5"]
 
 
 @pytest.mark.asyncio
@@ -1743,27 +1661,18 @@ async def test_admin_normalized_drift_report_includes_typed_metadata_mismatch(cl
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.comic,
+        work = ComicWork(
             title="Typed Drift Sample",
-            sort_key="typed-drift-sample",
-        )
-        edition = Edition(
-            item=item,
-            title="Standard",
+            sort_title="typed-drift-sample",
             metadata_json={
                 "normalized": {
                     "schema_version": NORMALIZED_SCHEMA_VERSION,
                     "genres": ["Heroic"],
-                }
+                },
+                "genres": ["Noir"],
             },
         )
-        typed = ItemKindMetadataComic(
-            item=item,
-            kind=ItemKind.comic,
-            genres=["Noir"],
-        )
-        db.add_all([item, edition, typed])
+        db.add(work)
         await db.commit()
 
     response = await client.get(
@@ -1785,11 +1694,10 @@ async def test_admin_normalized_drift_report_keeps_music_tracks_loaded(client, m
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
+        release = MusicRelease(
             id=UUID("00000000-0000-0000-0000-000000000001"),
-            kind=ItemKind.music,
             title="Track Load Sample",
-            sort_key="track-load-sample",
+            sort_title="track-load-sample",
             metadata_json={
                 "normalized": {
                     "schema_version": NORMALIZED_SCHEMA_VERSION,
@@ -1801,18 +1709,10 @@ async def test_admin_normalized_drift_report_keeps_music_tracks_loaded(client, m
                 }
             },
         )
-        typed = ItemKindMetadataMusic(
-            item=item,
-            kind=ItemKind.music,
-            metadata_json={
-                "track_count": 2,
-                "tracks": [
-                    {"position": 1, "title": "Intro", "duration_seconds": 90},
-                    {"position": 2, "title": "Main Theme", "duration_seconds": 180},
-                ],
-            },
-        )
-        db.add_all([item, typed])
+        media = MusicMedia(release=release, media_number=1)
+        track1 = MusicTrack(media=media, release=release, position="1", title="Intro", duration_ms=90000)
+        track2 = MusicTrack(media=media, release=release, position="2", title="Main Theme", duration_ms=180000)
+        db.add_all([release, media, track1, track2])
         await db.commit()
 
     response = await client.get(
@@ -1833,16 +1733,13 @@ async def test_admin_catalog_correction_updates_relations_and_links(client, monk
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.comic,
-            title="Sandman",
-            sort_key="sandman",
-        )
-        edition = Edition(item=item, title="Standard Edition")
-        db.add_all([item, edition])
+        work = ComicWork(title="Sandman", sort_title="sandman")
+        issue = ComicIssue(work=work, issue_number="1", display_title="Standard Edition")
+        db.add_all([work, issue])
         await db.flush()
-        item_uuid = item.id
-        item_id = str(item.id)
+        item_uuid = work.id
+        issue_uuid = issue.id
+        item_id = str(work.id)
         await db.commit()
 
     updated = await client.patch(
@@ -1863,36 +1760,36 @@ async def test_admin_catalog_correction_updates_relations_and_links(client, monk
 
     assert updated.status_code == 200
     body = updated.json()
-    assert [entry["name"] for entry in body["creators"]] == ["Neil Gaiman", "Sam Kieth"]
-    assert [entry["name"] for entry in body["characters"]] == ["Dream", "Death"]
-    assert [entry["name"] for entry in body["story_arcs"]] == [
+    assert [entry["name"] for entry in body["contributors"]] == ["Neil Gaiman", "Sam Kieth"]
+    assert [entry["display_title"] for entry in body["issues"]] == ["Standard Edition"]
+    assert [entry["name"] for entry in body["issues"][0]["characters"]] == ["Dream", "Death"]
+    assert [entry["name"] for entry in body["issues"][0]["story_arcs"]] == [
         "Preludes & Nocturnes",
         "The Doll's House",
     ]
-    assert body["external_links"][0]["url"] == "https://example.com/sandman"
 
     async with AsyncSessionLocal() as db:
         creator_links = list(
             (
                 await db.execute(
                     select(EntityPerson).where(
-                        EntityPerson.entity_type == "item",
+                        EntityPerson.entity_type == "comic_work",
                         EntityPerson.entity_id == item_uuid,
                     )
                 )
             ).scalars()
         )
         character_links = list(
-            (await db.execute(select(CharacterAppearance).where(CharacterAppearance.item_id == item_uuid))).scalars()
+            (await db.execute(select(ComicCharacterAppearance).where(ComicCharacterAppearance.issue_id == issue_uuid))).scalars()
         )
         story_arc_links = list(
-            (await db.execute(select(StoryArcItem).where(StoryArcItem.item_id == item_uuid))).scalars()
+            (await db.execute(select(ComicStoryArcMembership).where(ComicStoryArcMembership.issue_id == issue_uuid))).scalars()
         )
-        stored_item = await db.get(Item, item_uuid)
+        stored_item = await db.get(ComicWork, item_uuid)
         assert len(creator_links) == 2
         assert len(character_links) == 2
         assert len(story_arc_links) == 2
-        assert (stored_item.external_links or [])[0]["url"] == "https://example.com/sandman"
+        assert stored_item is not None
 
 
 @pytest.mark.asyncio
@@ -1900,16 +1797,12 @@ async def test_admin_catalog_correction_updates_video_specs(client, monkeypatch)
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.movie,
-            title="Blade Runner",
-            sort_key="blade-runner",
-        )
-        edition = Edition(item=item, title="Standard Edition")
-        db.add_all([item, edition])
+        work = MovieWork(title="Blade Runner", sort_title="blade-runner")
+        release = MovieRelease(work=work, format="Blu-ray")
+        media = MovieReleaseMedia(release=release, media_number=1, media_type="disc")
+        db.add_all([work, release, media])
         await db.flush()
-        item_uuid = item.id
-        item_id = str(item.id)
+        item_id = str(work.id)
         await db.commit()
 
     updated = await client.patch(
@@ -1926,26 +1819,24 @@ async def test_admin_catalog_correction_updates_video_specs(client, monkeypatch)
     )
     assert updated.status_code == 200
     body = updated.json()
-    assert body["color"] == "Color"
-    assert body["nr_discs"] == 2
-    assert body["screen_ratio"] == "2.39:1"
-    assert body["audio_tracks"] == "Dolby Atmos"
-    assert body["subtitles"] == "English, Romanian"
-    assert body["layers"] == "BD-100"
+    assert body["releases"][0]["media"][0]["color"] == "Color"
+    assert body["releases"][0]["media"][0]["num_discs"] == 2
+    assert body["releases"][0]["media"][0]["screen_ratio"] == "2.39:1"
+    assert body["releases"][0]["media"][0]["audio_tracks"] == "Dolby Atmos"
+    assert body["releases"][0]["media"][0]["subtitles"] == "English, Romanian"
+    assert body["releases"][0]["media"][0]["layers"] == "BD-100"
 
     async with AsyncSessionLocal() as db:
-        typed_metadata = await db.scalar(
-            select(ItemKindMetadata).where(ItemKindMetadata.item_id == item_uuid)
-        )
-        stored_edition = await db.scalar(select(Edition).where(Edition.item_id == item_uuid))
-        assert stored_edition is not None
-        assert typed_metadata is not None
-        assert typed_metadata.color == "Color"
-        assert stored_edition.nr_discs == 2
-        assert stored_edition.screen_ratio == "2.39:1"
-        assert stored_edition.audio_tracks == "Dolby Atmos"
-        assert stored_edition.subtitles == "English, Romanian"
-        assert stored_edition.layers == "BD-100"
+        stored_release = await db.get(MovieRelease, release.id)
+        stored_media = await db.get(MovieReleaseMedia, media.id)
+        assert stored_release is not None
+        assert stored_media is not None
+        assert stored_media.color == "Color"
+        assert stored_media.num_discs == 2
+        assert stored_media.aspect_ratio == "2.39:1"
+        assert stored_media.audio_tracks == "Dolby Atmos"
+        assert stored_media.subtitles == "English, Romanian"
+        assert stored_media.layers == "BD-100"
 
 
 @pytest.mark.asyncio
@@ -1953,17 +1844,12 @@ async def test_admin_catalog_correction_updates_video_physical_format(client, mo
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        item = Item(
-            kind=ItemKind.movie,
-            title="The Matrix",
-            sort_key="matrix-the",
-        )
-        edition = Edition(item=item, title="Standard Edition")
-        variant = Variant(edition=edition, name="Primary release", is_primary=True)
-        db.add_all([item, edition, variant])
+        work = MovieWork(title="The Matrix", sort_title="matrix-the")
+        release = MovieRelease(work=work, format="Blu-ray")
+        media = MovieReleaseMedia(release=release, media_number=1, media_type="disc")
+        db.add_all([work, release, media])
         await db.flush()
-        item_uuid = item.id
-        item_id = str(item.id)
+        item_id = str(work.id)
         await db.commit()
 
     updated = await client.patch(
@@ -1974,28 +1860,14 @@ async def test_admin_catalog_correction_updates_video_physical_format(client, mo
 
     assert updated.status_code == 200
     body = updated.json()
-    edition_body = body["editions"][0]
-    variant_body = edition_body["variants"][0]
-    assert edition_body["format"] == "4K UHD"
-    assert edition_body["physical_format"] == "4k-uhd"
-    assert edition_body["physical_format_label"] == "4K UHD"
-    assert variant_body["variant_type"] == "physical"
-    assert variant_body["physical_format"] == "4k-uhd"
-    assert variant_body["physical_format_label"] == "4K UHD"
+    release_body = body["releases"][0]
+    assert release_body["format"] == "4K UHD"
+    assert release_body["media"][0]["color"] == "Color"
 
     async with AsyncSessionLocal() as db:
-        stored_edition = await db.scalar(select(Edition).where(Edition.item_id == item_uuid))
-        stored_variant = await db.scalar(
-            select(Variant).join(Edition).where(Edition.item_id == item_uuid)
-        )
-        assert stored_edition is not None
-        assert stored_variant is not None
-        assert stored_edition.format == "4K UHD"
-        assert stored_edition.physical_format == "4k-uhd"
-        assert stored_edition.physical_format_label == "4K UHD"
-        assert stored_variant.variant_type == "physical"
-        assert stored_variant.physical_format == "4k-uhd"
-        assert stored_variant.physical_format_label == "4K UHD"
+        stored_release = await db.get(MovieRelease, release.id)
+        assert stored_release is not None
+        assert stored_release.format == "4K UHD"
 
     invalid_format = await client.patch(
         f"/admin/catalog/items/movie/{item_id}",

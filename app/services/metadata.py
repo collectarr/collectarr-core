@@ -76,7 +76,6 @@ from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
 from app.providers.registry import ProviderRegistry
-from app.repositories.metadata import MetadataRepository
 from app.schemas import (
     AnimeCharacterResponse,
     AnimeContributorResponse,
@@ -135,12 +134,11 @@ from app.schemas import (
     TVReleaseMediaResponse,
     TVSeasonV1Response,
     TVSeriesV1Response,
-    public_item_kind,
 )
 from app.schemas import (
     EpisodeResponse as ProviderEpisodeResponse,
 )
-from app.schemas.metadata_shared import EditionResponse, SearchResult
+from app.schemas.metadata_shared import EditionResponse, SearchResult, public_item_kind
 from app.search.client import SearchClient
 from app.services.metadata_helpers import (
     _loaded_rows,
@@ -164,7 +162,6 @@ class MetadataService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
         self.settings = get_settings()
-        self.metadata = MetadataRepository(db)
         self.search_client = SearchClient()
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
@@ -5077,8 +5074,8 @@ class MetadataService:
         return facets
 
     async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
-        item = await self.metadata.get_item(item_id)
-        if item is None or item.kind != ItemKind.comic:
+        item = await self.db.scalar(select(ComicWork).where(ComicWork.id == item_id))
+        if item is None:
             return None
         provider = self.providers.maybe_get(ExternalProvider.mangadex)
         if provider is None or not provider.capabilities.supports_search:

@@ -250,8 +250,7 @@ def clean_normalized_metadata(
         and value != {}
         and _is_valid_normalized_value(str(key), value)
     }
-    if cleaned:
-        cleaned["schema_version"] = NORMALIZED_SCHEMA_VERSION
+    cleaned["schema_version"] = NORMALIZED_SCHEMA_VERSION
     return cleaned
 
 

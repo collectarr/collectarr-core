@@ -2560,15 +2560,21 @@ class AdminProviderIngestService:
         if release_status is not None:
             await self._ensure_release_status(release_status)
         
-        # Check if issue already exists by provider_item_id
+        # Check if issue already exists by any provider id associated with this raw issue.
         issue = None
-        existing_provider_id = await self.db.scalar(
-            select(ExternalProviderId).where(
-                ExternalProviderId.provider_item_id == provider_item_id,
-                ExternalProviderId.entity_type == "comic_issue",
-                ExternalProviderId.provider == provider_name,
+        issue_provider_ids = {
+            provider_item_id,
+            *(provider_value for provider_value in normalized.provider_ids.values() if provider_value),
+        }
+        existing_provider_id = None
+        if issue_provider_ids:
+            existing_provider_id = await self.db.scalar(
+                select(ExternalProviderId).where(
+                    ExternalProviderId.provider == provider_name,
+                    ExternalProviderId.entity_type == "comic_issue",
+                    ExternalProviderId.provider_item_id.in_(issue_provider_ids),
+                )
             )
-        )
         if existing_provider_id:
             issue = await self.db.scalar(
                 select(ComicIssue).where(ComicIssue.id == existing_provider_id.entity_id)
@@ -2726,9 +2732,10 @@ class AdminProviderIngestService:
                         )
                     )
 
+        normalized_provider_item_id = (normalized.provider_ids or {}).get(provider_name.value)
         provider_ids = dict(normalized.provider_ids or {})
         provider_ids[provider_name.value] = provider_item_id
-        
+
         # Provider links should be for the issue (the actual ingested item), not the work
         # We only store one entry per provider_item_id, so store it for the issue which is more specific
         await self._add_provider_links(
@@ -2742,6 +2749,18 @@ class AdminProviderIngestService:
                 provider_raw,
             ),
         )
+        if normalized_provider_item_id and normalized_provider_item_id != provider_item_id:
+            await self._add_provider_links(
+                provider_name,
+                {provider_name.value: normalized_provider_item_id},
+                "comic_issue",
+                issue.id,
+                provider_urls=provider_link_urls_for_provider(
+                    provider_name,
+                    {provider_name.value: normalized_provider_item_id},
+                    provider_raw,
+                ),
+            )
         await self._record_provider_snapshot(
             provider=provider_name,
             provider_item_id=provider_item_id,

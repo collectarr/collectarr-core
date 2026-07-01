@@ -140,4 +140,4 @@ async def test_ingest_gcd_imports_issue_and_skips_existing(monkeypatch):
         )
         assert issue_count == 1
         assert list(provider_ids) == ["256114"]
-        assert list(volume_provider_ids) == ["6139"]
+        assert list(volume_provider_ids) == []

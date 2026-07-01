@@ -13,6 +13,8 @@ from sqlalchemy.engine.url import make_url
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("REDIS_URL", "")
+os.environ.setdefault("MIRROR_PROVIDER_IMAGES", "false")
+os.environ.setdefault("MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED", "false")
 os.environ.setdefault(
     "DATABASE_URL", "postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr_test"
 )
@@ -121,22 +123,9 @@ async def clean_database() -> AsyncIterator[None]:
     reset_rate_limits()
     reset_provider_preview_state()
     reset_provider_search_state()
+    table_names = ", ".join(f'"{table.name}"' for table in reversed(Base.metadata.sorted_tables))
     async with AsyncSessionLocal() as db:
-        await db.execute(
-            text(
-                """
-                truncate table
-                  users, admin_audit_logs, metadata_proposals, image_cache_entries, image_assets,
-                  provider_ingest_jobs,
-                                                                        bundle_release_items, bundle_releases,
-                  story_arc_items, character_appearances, story_arcs, characters,
-                  entity_tags, entity_persons, entity_organizations, tags, persons, organizations,
-                                                                        variants, editions, external_provider_ids,
-                  series_relations, comic_series_relations, manga_series_relations, items, volumes, comic_series, manga_series, series, franchises
-                restart identity cascade
-                """
-            )
-        )
+        await db.execute(text(f"truncate table {table_names} restart identity cascade"))
         await db.commit()
     yield
     reset_rate_limits()

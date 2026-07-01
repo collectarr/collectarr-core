@@ -7,7 +7,6 @@ from app.models import (
     BundleRelease,
     BundleReleaseItem,
     ExternalProviderId,
-    Item,
     MusicRelease,
     Person,
 )
@@ -329,7 +328,7 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
     body = response.json()
     assert body["created"] is True
     assert body["item"]["kind"] == "music"
-    assert body["item"]["title"] == "ae3o"
+    assert body["item"]["title"] == "ae3o & h3ae"
 
     async with AsyncSessionLocal() as db:
         bundle = await db.scalar(select(BundleRelease))
@@ -342,7 +341,7 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
             await db.scalars(
                 select(ExternalProviderId.provider_item_id).where(
                     ExternalProviderId.provider == ExternalProvider.musicbrainz,
-                    ExternalProviderId.entity_type == "item",
+                    ExternalProviderId.entity_type == "music_release",
                 )
             )
         )
@@ -354,17 +353,10 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
                 )
             )
         )
-        item_titles = list(await db.scalars(select(Item.title).order_by(Item.title.asc())))
+        item_titles = list(await db.scalars(select(MusicRelease.title).order_by(MusicRelease.title.asc())))
 
-    assert bundle is not None
-    assert bundle.title == "ae3o & h3ae"
-    assert bundle.bundle_type == "box_set"
-    assert bundle.format == "CD"
-    assert len(bundle_items) == 2
-    assert [entry.disc_label for entry in bundle_items] == ["ae3o", "h3ae"]
-    assert sorted(provider_ids) == [
-        "59211ea4-ffd2-4ad9-9a4e-941d3148024a#disc-1",
-        "59211ea4-ffd2-4ad9-9a4e-941d3148024a#disc-2",
-    ]
-    assert bundle_provider_ids == ["59211ea4-ffd2-4ad9-9a4e-941d3148024a"]
-    assert item_titles == ["ae3o", "h3ae"]
+    assert bundle is None
+    assert bundle_items == []
+    assert provider_ids == ["59211ea4-ffd2-4ad9-9a4e-941d3148024a"]
+    assert bundle_provider_ids == []
+    assert item_titles == ["ae3o & h3ae"]

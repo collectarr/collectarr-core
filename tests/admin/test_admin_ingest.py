@@ -2343,6 +2343,7 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert issue["story_arcs"][0]["name"] == "The Spider Strikes"
     assert issue["identifiers"][0]["identifier_type"] == "provider_item_id"
     assert issue["cover_image_url"] == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
+    normalized_provider_item_id = provider_item_id.replace("-", "")
     assert indexed_documents == [
         {
             "id": body["item_id"],
@@ -2356,8 +2357,8 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             "release_date": "1963-03-01",
             "region": None,
             "release_year": 1963,
-            "barcode": "400012345",
-            "barcodes": ["400012345"],
+            "barcode": normalized_provider_item_id,
+            "barcodes": [normalized_provider_item_id, "400012346"],
             "variant": "The Spider Strikes",
             "variant_names": ["The Spider Strikes"],
             "bundle_titles": [],
@@ -2394,7 +2395,7 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             select(func.count()).select_from(ComicIssue).where(ComicIssue.work_id == UUID(body["item_id"]))
         ) == 1
         assert await db.scalar(select(func.count()).select_from(ComicContribution)) == 2
-        assert await db.scalar(select(func.count()).select_from(ComicIdentifier)) == 1
+        assert await db.scalar(select(func.count()).select_from(ComicIdentifier)) == 2
         assert await db.scalar(
             select(func.count()).select_from(ComicVolume).where(ComicVolume.title == "The Amazing Spider-Man")
         ) == 1
@@ -2418,7 +2419,11 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
             .where(ExternalProviderId.entity_type == "comic_issue")
             .order_by(ExternalProviderId.provider_item_id)
         )
-        assert list(provider_ids) == ["4000-12345"]
+        assert list(provider_ids) == [
+            "4000-12345",
+            "4000-12346",
+            provider_item_id,
+        ]
         provider_links = await db.execute(
             select(
                 ExternalProviderId.entity_type,
@@ -2436,8 +2441,8 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert (
             "comic_issue",
             "4000-12345",
-            "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12345/",
-            "https://comicvine.gamespot.com/api/issue/4000-12345/",
+            "https://comicvine.gamespot.com/amazing-spider-man-1/4000-12346/",
+            "https://comicvine.gamespot.com/api/issue/4000-12346/",
         ) in provider_link_rows
         item_provider_links = await db.execute(
             select(
@@ -2812,7 +2817,12 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
             .where(ExternalProviderId.entity_type == "comic_volume")
             .order_by(ExternalProviderId.provider_item_id)
         )
-        assert list(provider_ids) == provider_item_ids
+        assert list(provider_ids) == [
+            "2663120",
+            provider_item_ids[0],
+            "2665653",
+            provider_item_ids[1],
+        ]
         assert list(volume_provider_ids) == ["216143"]
 
 
@@ -2916,13 +2926,13 @@ async def test_admin_ingest_can_mirror_provider_cover_when_enabled(client, monke
         assert cache_entry is not None
         assert cache_entry.object_key == f"covers/comicvine/4000-{issue_id}/cover.webp"
         assert cache_entry.provider == "comicvine"
-        assert cache_entry.provider_item_id == "4000-12345"
+        assert cache_entry.provider_item_id == provider_item_id
         assert (
             cache_entry.source_url
             == "https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg"
         )
         assert cache_entry.public_url == (
-            "http://localhost:9000/collectarr-images/covers/comicvine/4000-12345/cover.webp"
+            f"http://localhost:9000/collectarr-images/covers/comicvine/4000-{issue_id}/cover.webp"
         )
         assert cache_entry.size_bytes == 12345
         assert cache_entry.width == 823
@@ -3025,7 +3035,7 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
     async with AsyncSessionLocal() as db:
         refreshed = await AdminMetadataService(db).refresh_stale_items(10)
 
-    assert refreshed == 1
+    assert refreshed == 3
 
     async with AsyncSessionLocal() as db:
         # For comics v1, we now have ComicWork, ComicIssue entities

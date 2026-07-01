@@ -66,6 +66,8 @@ the user's devices.
 Before upgrades, take backups, run migrations explicitly, then check `/health`.
 If a restore causes stale-client conflicts, Flutter Settings can keep the
 service version or queue the local version for the next sync.
+Set `CORS_ORIGINS` to the frontend origins you want to allow in each
+environment.
 
 ## Corporate Networks Without Docker Hub
 
@@ -107,8 +109,8 @@ Keep the production `.env` separate from development defaults. The local Compose
 configuration uses bind mounts, reload processes, and sample credentials; treat
 it as a development baseline rather than a hardened production manifest.
 
-Set `CORS_ORIGINS` explicitly for public deployments; the backend rejects
-localhost-only origins outside development and test.
+Set `CORS_ORIGINS` explicitly for the frontend origins you want to allow in
+each deployment.
 
 ## Cloud
 

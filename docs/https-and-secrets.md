@@ -116,8 +116,8 @@ service, and re-pair devices from the Flutter app settings.
   it.
 - **Use different secrets per environment.** Development defaults in
   `.env.example` must not be reused in production.
-- **Set `CORS_ORIGINS` explicitly for public deployments.** The API rejects
-  localhost-only origins outside development and test.
+- **Set `CORS_ORIGINS` explicitly for each deployment.** Match the allowed
+  frontend origins for the environment you are running.
 - **Back up `.env` separately** from database and image backups. Without the
   correct `SECRET_KEY`, existing sessions cannot be validated.
 - **Restrict file permissions** on `.env`: `chmod 600 .env` on Linux.

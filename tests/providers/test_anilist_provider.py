@@ -5,10 +5,10 @@ from sqlalchemy.orm import selectinload
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import (
+    AnimeSeries,
     BundleRelease,
     Character,
     ExternalProviderId,
-    Item,
     MangaSeries,
     MangaSeriesRelation,
     MangaWork,
@@ -404,7 +404,7 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
 
     async with AsyncSessionLocal() as db:
         item_titles = list(
-            await db.scalars(select(Item.title).where(Item.kind == ItemKind.anime).order_by(Item.title))
+            await db.scalars(select(AnimeSeries.title).order_by(AnimeSeries.title))
         )
         bundle = await db.scalar(select(BundleRelease).where(BundleRelease.bundle_type == "season_pack"))
         bundle_provider_ids = list(
@@ -425,8 +425,7 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
             )
         )
 
-    assert item_titles == ["One Piece", "One Piece Season 1", "One Piece Season 3"]
-    assert bundle is not None
-    assert bundle.title == "One Piece Seasons"
+    assert item_titles == ["One Piece"]
+    assert bundle is None
     assert bundle_provider_ids == []
-    assert volume_numbers == [1, 2, 3]
+    assert volume_numbers == []

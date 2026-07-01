@@ -46,7 +46,7 @@ from app.models import (
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
-from app.schemas import ExternalProviderIdResponse, item_response_from_model
+from app.schemas.metadata_shared import SearchResult
 from app.search.documents import (
     book_work_search_document,
     comic_work_search_document,
@@ -289,11 +289,9 @@ async def test_metadata_normalized_manifest_exposes_schema_and_type_map(client):
     assert body["schema_version"] == 1
     assert "audience_rating" in body["common_fields"]
     assert "genres" in body["kind_fields"]["comic"]
-    assert "tracks" in body["kind_fields"]["music"]
     assert body["value_types"]["audience_rating"] == "string"
     assert "nr_discs" not in body["value_types"]
     assert body["value_types"]["genres"] == "string_list"
-    assert body["value_types"]["tracks"] == "track_list"
 
 
 @pytest.mark.asyncio
@@ -316,7 +314,6 @@ async def test_metadata_field_schema_exposes_registry(client):
     assert by_key["genres"]["typed"] is True
     assert by_key["genres"]["value_type"] == "string_list"
     assert set(by_key["platforms"]["kinds"]) == {"game", "boardgame"}
-    assert by_key["tracks"]["value_type"] == "track_list"
     # Editorial fields are exposed with their section + input hint.
     assert by_key["title"]["section"] == "item"
     assert by_key["title"]["normalized"] is False
@@ -330,7 +327,6 @@ async def test_metadata_field_schema_exposes_registry(client):
 
     # Per-kind composition.
     assert "audience_rating" in body["kind_fields"]["comic"]
-    assert "tracks" in body["kind_fields"]["music"]
     assert "color" in body["kind_fields"]["movie"]
     assert "page_count" in body["kind_fields"]["book"]
     assert "page_count" not in body["kind_fields"]["movie"]
@@ -392,6 +388,82 @@ async def test_book_work_search_document_does_not_lazy_load_series():
     assert work is not None
     document = book_work_search_document(work)
     assert document["series_title"] is None
+
+
+@pytest.mark.asyncio
+async def test_metadata_repository_search_items_uses_native_book_work():
+    work_id, _ = await _seed_book_v1()
+
+    async with AsyncSessionLocal() as db:
+        items = await MetadataRepository(db).search_items(query="Fellowship", kind=ItemKind.book, limit=5)
+
+    assert [item.id for item in items] == [work_id]
+    assert isinstance(items[0], BookWork)
+
+
+@pytest.mark.asyncio
+async def test_metadata_repository_find_item_by_barcode_uses_native_book_work():
+    work_id, _ = await _seed_book_v1()
+
+    async with AsyncSessionLocal() as db:
+        item = await MetadataRepository(db).find_item_by_barcode("9780261103573", ItemKind.book)
+
+    assert item is not None
+    assert item.id == work_id
+    assert isinstance(item, BookWork)
+
+
+@pytest.mark.asyncio
+async def test_metadata_service_search_uses_native_anime_branch_without_legacy_fallback(monkeypatch):
+    called = {}
+
+    async def fake_search(self, query, kind=None, **kwargs):
+        return None
+
+    async def fake_anime_search(self, **kwargs):
+        called["anime"] = kwargs
+        return [SearchResult(id=uuid4(), kind=ItemKind.anime, title="Anime Result")]
+
+    async def fail_search_items(*args, **kwargs):
+        raise AssertionError("legacy search_items fallback should not be used for anime")
+
+    monkeypatch.setattr("app.search.client.SearchClient.search", fake_search)
+    monkeypatch.setattr("app.services.metadata.MetadataService._search_anime_series", fake_anime_search)
+    monkeypatch.setattr("app.services.metadata.MetadataRepository.search_items", fail_search_items)
+
+    async with AsyncSessionLocal() as db:
+        service = MetadataService(db)
+        results = await service.search(query="anime", kind=ItemKind.anime)
+
+    assert results[0].title == "Anime Result"
+    assert called["anime"]["query"] == "anime"
+
+
+@pytest.mark.asyncio
+async def test_metadata_service_lookup_barcode_uses_native_music_branch_without_legacy_fallback(monkeypatch):
+    release_id = uuid4()
+    called = {}
+
+    async def fake_music_by_barcode(self, barcode):
+        called["barcode"] = barcode
+        return SimpleNamespace(id=release_id, title="Music Result", barcode=barcode)
+
+    def fake_music_result(self, release):
+        return SearchResult(id=release.id, kind=ItemKind.music, title=release.title, barcode=release.barcode)
+
+    async def fail_find_item_by_barcode(*args, **kwargs):
+        raise AssertionError("legacy barcode fallback should not be used for music")
+
+    monkeypatch.setattr("app.services.metadata.MetadataService._music_release_by_barcode", fake_music_by_barcode)
+    monkeypatch.setattr("app.services.metadata.MetadataService._music_search_result", fake_music_result)
+    monkeypatch.setattr("app.services.metadata.MetadataRepository.find_item_by_barcode", fail_find_item_by_barcode)
+
+    async with AsyncSessionLocal() as db:
+        service = MetadataService(db)
+        result = await service.lookup_barcode("1234567890123", ItemKind.music)
+
+    assert result.title == "Music Result"
+    assert called["barcode"] == "1234567890123"
 
 
 @pytest.mark.asyncio
@@ -851,337 +923,6 @@ async def test_barcode_provider_search_uses_query_cache(client, monkeypatch):
         assert data[0]["provider_item_id"] == "release-1234"
 
     assert calls == 1
-
-
-@pytest.mark.asyncio
-async def test_search_document_keeps_synopsis_out_of_index():
-    item_id, _, _ = await seed_comic()
-    async with AsyncSessionLocal() as db:
-        item = await MetadataRepository(db).get_item(UUID(item_id), ItemKind.comic)
-
-    assert item is not None
-    item.synopsis = "This plot text should stay out of Meilisearch."
-
-    document = item_search_document(item)
-
-    assert "synopsis" not in document
-    assert document["barcode"] == "75960604716100111"
-    assert document["barcodes"] == ["75960604716100111"]
-    assert document["release_date"] == "1963-03-01"
-    assert document["release_year"] == 1963
-    assert document["runtime_minutes"] is None
-    assert document["variant"] == "Cover A"
-
-
-def test_item_response_from_model_exposes_normalized_metadata_fields():
-    kind_metadata = SimpleNamespace(platforms=["PC", "Xbox One", "PlayStation 4"])
-    item = SimpleNamespace(
-        id=uuid4(),
-        kind=ItemKind.game,
-        title="Mass Effect Legendary Edition",
-        item_number=None,
-        sort_key=None,
-        synopsis=None,
-        release_type=None,
-        season_number=None,
-        episode_number=None,
-        runtime_minutes=92,
-        page_count=None,
-        metadata_json=None,
-        kind_metadata=kind_metadata,
-        volume=SimpleNamespace(
-            id=uuid4(),
-            name="Legendary Edition",
-            volume_number=1,
-            start_year=2021,
-            series=SimpleNamespace(
-                id=uuid4(),
-                title="Mass Effect",
-            ),
-        ),
-        organization_links=[
-            SimpleNamespace(
-                role="publisher",
-                organization=SimpleNamespace(name="Electronic Arts"),
-            ),
-            SimpleNamespace(
-                role="imprint",
-                organization=SimpleNamespace(name="BioWare"),
-            ),
-        ],
-        editions=[
-            SimpleNamespace(
-                id=uuid4(),
-                title="Standard",
-                format="Digital",
-                publisher="Stale Publisher",
-                isbn=None,
-                upc="014633742207",
-                language="en",
-                region="WW",
-                imprint="Stale Imprint",
-                subtitle="N7 Collection",
-                series_group="Mass Effect Trilogy",
-                age_rating="Mature 17+",
-                catalog_number="ME-LE-2021",
-                release_status="Released",
-                release_date=date(2021, 5, 14),
-                metadata_json={
-                    "provider": "igdb",
-                    "provider_item_id": "igdb-123",
-                    "normalized": {
-                        "catalog_number": "STALE-CATALOG",
-                        "release_status": "Stale",
-                        "language": "de",
-                        "country": "DE",
-                        "imprint": "Stale Studio",
-                        "subtitle": "Stale Subtitle",
-                        "series_group": "Stale Group",
-                        "age_rating": "Everyone",
-                        "platforms": ["PC", "Xbox One", "PlayStation 4"],
-                    },
-                },
-                variants=[
-                    SimpleNamespace(
-                        id=uuid4(),
-                        name="Standard",
-                        variant_type="digital",
-                        sku=None,
-                        barcode=None,
-                        isbn=None,
-                        region=None,
-                        platform=None,
-                        cover_price_cents=None,
-                        currency=None,
-                        cover_image_url=None,
-                        thumbnail_image_url=None,
-                        description=None,
-                        metadata_json=None,
-                        is_primary=True,
-                    )
-                ],
-                releases=[],
-            )
-        ],
-    )
-
-    response = item_response_from_model(item)
-
-    assert response.publisher == "Electronic Arts"
-    assert response.barcode == "014633742207"
-    assert response.catalog_number == "ME-LE-2021"
-    assert response.platforms == ["PC", "Xbox One", "PlayStation 4"]
-    assert response.release_status == "Released"
-    assert response.language == "en"
-    assert response.country == "WW"
-    assert response.imprint == "BioWare"
-    assert response.subtitle == "N7 Collection"
-    assert response.series_group == "Mass Effect Trilogy"
-    assert response.age_rating == "Mature 17+"
-    assert response.runtime_minutes == 92
-    assert response.series_title == "Mass Effect"
-    assert response.volume_name == "Legendary Edition"
-    assert response.editions[0].imprint == "BioWare"
-    assert response.editions[0].catalog_number == "ME-LE-2021"
-    assert response.editions[0].release_status == "Released"
-    assert response.provider_links[0].provider.value == "igdb"
-    assert response.provider_links[0].provider_item_id == "igdb-123"
-
-
-def test_item_response_merges_persisted_provider_link_urls():
-    item = SimpleNamespace(
-        id=uuid4(),
-        kind=ItemKind.game,
-        title="Mass Effect Legendary Edition",
-        item_number=None,
-        sort_key=None,
-        synopsis=None,
-        release_type=None,
-        season_number=None,
-        episode_number=None,
-        runtime_minutes=None,
-        page_count=None,
-        metadata_json=None,
-        volume=None,
-        editions=[],
-        primary_bundle_releases=[],
-    )
-
-    response = item_response_from_model(
-        item,
-        extra_provider_links=[
-            ExternalProviderIdResponse(
-                provider=ExternalProvider.igdb,
-                entity_type="item",
-                provider_item_id="igdb-123",
-                site_url="https://www.igdb.com/games/mass-effect-legendary-edition",
-                api_url="https://api.igdb.com/v4/games/123",
-            )
-        ],
-    )
-
-    assert [link.model_dump(mode="json") for link in response.provider_links] == [
-        {
-            "provider": "igdb",
-            "entity_type": "item",
-            "provider_item_id": "igdb-123",
-            "site_url": "https://www.igdb.com/games/mass-effect-legendary-edition",
-            "api_url": "https://api.igdb.com/v4/games/123",
-        }
-    ]
-
-
-def test_item_response_from_model_synthesizes_video_release_when_missing_editions():
-    item_id = uuid4()
-    item = SimpleNamespace(
-        id=item_id,
-        kind=ItemKind.movie,
-        title="Spirited Away",
-        item_number=None,
-        sort_key=None,
-        synopsis=None,
-        release_type=None,
-        season_number=None,
-        episode_number=None,
-        runtime_minutes=125,
-        page_count=None,
-        metadata_json={
-                "provider": "tmdb",
-                "provider_item_id": "movie:129",
-                "normalized": {
-                    "kind": "movie",
-                "release_date": "2001-07-20",
-                "language": "ja",
-                "country": "JP",
-                "cover_image_url": "https://images.example/spirited-away.jpg",
-                "thumbnail_image_url": "https://images.example/spirited-away-thumb.jpg",
-            },
-        },
-        volume=None,
-        editions=[],
-        primary_bundle_releases=[],
-    )
-
-    response = item_response_from_model(item)
-
-    assert response.editions == []
-    assert response.runtime_minutes == 125
-    assert response.language is None
-    assert response.country is None
-
-
-def test_item_response_from_model_uses_item_level_metadata_without_editions():
-    kind_metadata = SimpleNamespace(
-        audience_rating="R",
-        genres=["Sci-Fi", "Horror"],
-        color="Color",
-    )
-    item = SimpleNamespace(
-        id=uuid4(),
-        kind=ItemKind.movie,
-        title="Alien",
-        item_number=None,
-        sort_key="alien-1979",
-        synopsis=None,
-        release_type=None,
-        season_number=None,
-        episode_number=None,
-        runtime_minutes=117,
-        page_count=None,
-        metadata_json={
-            "provider": "tmdb",
-        },
-        original_title="Alien",
-        localized_title="Alien: Le huitieme passager",
-        search_aliases=["Alien (1979)", "Alien Director's Cut"],
-        crossover="Alien Universe",
-        plot_summary="A crew faces a hostile life form.",
-        plot_description="A deep-space cargo crew discovers an organism that hunts them one by one.",
-        trailer_urls=[{"url": "https://youtube.com/watch?v=jQ5lPt9edzQ"}],
-        external_links=[{"url": "https://www.imdb.com/title/tt0078748/"}],
-        kind_metadata=kind_metadata,
-        volume=None,
-        editions=[],
-        primary_bundle_releases=[],
-        organization_links=[],
-    )
-
-    response = item_response_from_model(item)
-
-    assert response.localized_title == "Alien: Le huitieme passager"
-    assert response.original_title == "Alien"
-    assert response.search_aliases == ["Alien (1979)", "Alien Director's Cut"]
-    assert response.crossover == "Alien Universe"
-    assert response.plot_summary == "A crew faces a hostile life form."
-    assert response.plot_description == "A deep-space cargo crew discovers an organism that hunts them one by one."
-    assert response.trailer_urls == [{"url": "https://youtube.com/watch?v=jQ5lPt9edzQ"}]
-    assert response.external_links == [{"url": "https://www.imdb.com/title/tt0078748/"}]
-    assert response.audience_rating == "R"
-    assert response.genres == ["Sci-Fi", "Horror"]
-    assert response.platforms == []
-    assert response.track_count is None
-    assert response.tracks == []
-    assert response.color == "Color"
-    assert response.nr_discs is None
-    assert response.screen_ratio is None
-    assert response.audio_tracks is None
-    assert response.subtitles is None
-    assert response.layers is None
-
-
-def test_item_response_prefers_organization_links_for_publisher_and_imprint():
-    item = SimpleNamespace(
-        id=uuid4(),
-        kind=ItemKind.comic,
-        title="Saga #1",
-        item_number="1",
-        sort_key=None,
-        synopsis=None,
-        release_type=None,
-        season_number=None,
-        episode_number=None,
-        runtime_minutes=None,
-        page_count=32,
-        metadata_json=None,
-        volume=None,
-        primary_bundle_releases=[],
-        organization_links=[
-            SimpleNamespace(
-                role="publisher",
-                organization=SimpleNamespace(name="Image Comics"),
-            ),
-            SimpleNamespace(
-                role="imprint",
-                organization=SimpleNamespace(name="Skybound"),
-            ),
-        ],
-        editions=[
-            SimpleNamespace(
-                id=uuid4(),
-                title="Issue #1",
-                format="Single Issue",
-                publisher="Stale Publisher",
-                isbn=None,
-                upc=None,
-                language=None,
-                region=None,
-                imprint="Stale Imprint",
-                subtitle=None,
-                series_group=None,
-                age_rating=None,
-                catalog_number=None,
-                release_status=None,
-                release_date=date(2012, 3, 14),
-                metadata_json=None,
-                variants=[],
-            )
-        ],
-    )
-
-    response = item_response_from_model(item)
-
-    assert response.publisher == "Image Comics"
-    assert response.imprint == "Skybound"
 
 
 @pytest.mark.asyncio

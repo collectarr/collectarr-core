@@ -24,7 +24,7 @@ def test_clean_normalized_metadata_applies_kind_specific_schema() -> None:
     }
 
 
-def test_clean_normalized_metadata_keeps_music_tracks_and_validates_shape() -> None:
+def test_clean_normalized_metadata_drops_music_tracks_from_generic_payload() -> None:
     payload = {
         "track_count": 2,
         "tracks": [
@@ -37,11 +37,6 @@ def test_clean_normalized_metadata_keeps_music_tracks_and_validates_shape() -> N
     cleaned = clean_normalized_metadata(payload, kind=ItemKind.music)
 
     assert cleaned == {
-        "track_count": 2,
-        "tracks": [
-            {"title": "Intro", "position": 1, "duration_seconds": 70},
-            {"title": "Main Theme", "position": 2, "artist": "Various"},
-        ],
         "schema_version": NORMALIZED_SCHEMA_VERSION,
     }
 

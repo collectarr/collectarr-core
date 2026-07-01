@@ -1697,8 +1697,8 @@ async def test_admin_catalog_correction_updates_music_tracks_and_genres(client, 
         assert typed_metadata is not None
         assert typed_metadata.audience_rating == "9.2"
         assert typed_metadata.genres == ["Electronic", "Nu Disco"]
-        assert typed_metadata.track_count is None
-        assert typed_metadata.tracks == []
+        assert not hasattr(typed_metadata, "track_count")
+        assert not hasattr(typed_metadata, "tracks")
 
 
 @pytest.mark.asyncio

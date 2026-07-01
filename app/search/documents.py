@@ -14,16 +14,16 @@ from app.models import (
     ComicContribution,
     ComicWork,
     GameWork,
-    Item,
     MangaContribution,
     MangaWork,
     MovieWork,
     MovieWorkContribution,
+    TVRelease,
 )
 from app.models.base import ItemKind
 
 
-def item_search_document(item: Item) -> dict[str, Any]:
+def item_search_document(item: Any) -> dict[str, Any]:
     barcode = None
     cover_url = None
     thumbnail_url = None
@@ -753,6 +753,88 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
     }
 
 
+def tv_release_search_document(release: TVRelease) -> dict[str, Any]:
+    episodes = sorted(
+        getattr(release, "episodes", []) or [],
+        key=lambda row: (
+            getattr(row, "season_number", None) is None,
+            getattr(row, "season_number", None) or 0,
+            getattr(row, "episode_number", None) is None,
+            getattr(row, "episode_number", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_episode = episodes[0] if episodes else None
+    creators: list[str] = []
+    for contribution in sorted(
+        getattr(release, "contributions", []) or [],
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    ):
+        person = getattr(contribution, "person", None)
+        person_name = _optional_text(getattr(person, "name", None))
+        if person_name:
+            _append_unique(creators, person_name)
+    release_date = (
+        release.release_date.isoformat() if release.release_date is not None else None
+    )
+    return {
+        "id": str(release.id),
+        "kind": ItemKind.tv.value,
+        "title": release.title,
+        "item_number": None,
+        "runtime_minutes": release.runtime_minutes,
+        "cover_image_url": release.cover_image_url,
+        "thumbnail_image_url": None,
+        "publisher": release.publisher,
+        "release_date": release_date,
+        "region": release.region_code,
+        "release_year": release.release_date.year if release.release_date is not None else None,
+        "barcode": _optional_text(getattr(release, "sku", None)),
+        "barcodes": [release.sku] if release.sku else [],
+        "variant": release.format,
+        "variant_names": [release.format] if release.format else [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": release.title,
+        "volume_name": None,
+        "catalog_number": release.sku,
+        "creators": creators,
+        "characters": [],
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": release.content_rating,
+        "language": _string_list(release.language_audio)[0] if release.language_audio else None,
+        "imprint": None,
+        "subtitle": None,
+        "series_group": None,
+        "age_rating": release.content_rating,
+    }
+
+
+def catalog_search_document(entity: Any) -> dict[str, Any]:
+    if isinstance(entity, BookWork):
+        return book_work_search_document(entity)
+    if isinstance(entity, ComicWork):
+        return comic_work_search_document(entity)
+    if isinstance(entity, MangaWork):
+        return manga_work_search_document(entity)
+    if isinstance(entity, AnimeSeries):
+        return anime_series_search_document(entity)
+    if isinstance(entity, MovieWork):
+        return movie_work_search_document(entity)
+    if isinstance(entity, TVRelease):
+        return tv_release_search_document(entity)
+    if isinstance(entity, GameWork):
+        return game_work_search_document(entity)
+    if isinstance(entity, BoardGameWork):
+        return boardgame_search_document(entity)
+    raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
+
+
 def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(metadata, dict):
         return {}
@@ -760,7 +842,7 @@ def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return source if isinstance(source, dict) else {}
 
 
-def _typed_kind_metadata(item: Item) -> dict[str, Any]:
+def _typed_kind_metadata(item: Any) -> dict[str, Any]:
     return typed_kind_metadata_for_item(item)
 
 
@@ -781,7 +863,7 @@ def _physical_format_label(
     return config.label if config else None
 
 
-def _organization_name(item: Item, role: str) -> str | None:
+def _organization_name(item: Any, role: str) -> str | None:
     rows = sorted(
         _loaded_rows(item, "organization_links"),
         key=lambda link: (
@@ -849,14 +931,14 @@ def _unique(values: list[str]) -> list[str]:
     return unique_values
 
 
-def _loaded_primary_bundle_releases(item: Item) -> list[Any]:
+def _loaded_primary_bundle_releases(item: Any) -> list[Any]:
     bundle_attr = inspect(item).attrs.primary_bundle_releases.loaded_value
     if bundle_attr is NO_VALUE or bundle_attr is None:
         return []
     return list(bundle_attr)
 
 
-def _loaded_rows(item: Item, attr_name: str) -> list[Any]:
+def _loaded_rows(item: Any, attr_name: str) -> list[Any]:
     attr = inspect(item).attrs[attr_name].loaded_value
     if attr is NO_VALUE or attr is None:
         return []

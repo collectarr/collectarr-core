@@ -35,7 +35,6 @@ VALUE_TYPE_STRING = "string"
 VALUE_TYPE_STRING_LIST = "string_list"
 VALUE_TYPE_INTEGER = "integer"
 VALUE_TYPE_DATE = "date"
-VALUE_TYPE_TRACK_LIST = "track_list"
 VALUE_TYPE_LINK_LIST = "link_list"
 
 # Edit-panel sections (mirror the app's SharedMetadataEditTab grouping).
@@ -130,12 +129,6 @@ _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
                       normalized=True, section=SECTION_RELATIONS, input=INPUT_LIST,
                       kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
-    MetadataFieldSpec("track_count", VALUE_TYPE_INTEGER, "Track count", typed=True,
-                      normalized=True, section=SECTION_TECHNICAL, input=INPUT_NUMBER,
-                      kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("tracks", VALUE_TYPE_TRACK_LIST, "Tracks", typed=True, normalized=True,
-                      section=SECTION_TECHNICAL, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.music})),
     MetadataFieldSpec("color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
                       section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
 )

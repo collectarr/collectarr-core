@@ -39,8 +39,6 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     # Editable normalized kind-scoped.
     "genres": ("string_list", True, True, "relations", ALL),
     "platforms": ("string_list", True, True, "relations", ("boardgame", "game")),
-    "track_count": ("integer", True, True, "technical", ("music",)),
-    "tracks": ("track_list", True, True, "technical", ("music",)),
     "color": ("string", True, True, "technical", VIDEO),
     "nr_discs": ("integer", False, True, "technical", VIDEO),
     "screen_ratio": ("string", False, True, "technical", VIDEO),
@@ -107,17 +105,16 @@ def test_normalized_derivations_are_byte_for_byte_stable():
         "physical_format_variant_type",
     }
     assert typed_field_keys() == {
-        "audience_rating", "genres", "platforms", "color", "track_count", "tracks",
+        "audience_rating", "genres", "platforms", "color",
     }
     vt = value_types()
     assert vt["genres"] == "string_list"
-    assert vt["tracks"] == "track_list"
     assert "nr_discs" not in vt
     # Editorial fields must NOT leak into the normalized value-type map.
     assert "title" not in vt
     assert "synopsis" not in vt
     allowed = kind_allowed_keys()
-    assert allowed[ItemKind.music] == {"genres", "track_count", "tracks"}
+    assert allowed[ItemKind.music] == {"genres"}
     assert "title" not in allowed[ItemKind.comic]
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
@@ -387,37 +386,6 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
         self._set_taxonomy_values("platform", values)
 
     @property
-    def track_count(self) -> int | None:
-        value = self._metadata_values().get("track_count")
-        return value if isinstance(value, int) else None
-
-    @track_count.setter
-    def track_count(self, value: int | None) -> None:
-        self._set_scalar_value("track_count", value)
-
-    @property
-    def tracks(self) -> list[dict[str, Any]]:
-        values = self._metadata_values().get("tracks")
-        if not isinstance(values, list):
-            return []
-        return [dict(entry) for entry in values if isinstance(entry, Mapping)]
-
-    @tracks.setter
-    def tracks(self, values: list[Mapping[str, Any]] | None) -> None:
-        cleaned: list[dict[str, Any]] = []
-        for raw in values or []:
-            title = str(raw.get("title") or "").strip()
-            if not title:
-                continue
-            entry: dict[str, Any] = {"title": title}
-            for key in ("position", "duration_seconds", "artist", "disc_number"):
-                value = raw.get(key)
-                if value is not None:
-                    entry[key] = value
-            cleaned.append(entry)
-        self._set_list_value("tracks", cleaned)
-
-    @property
     def color(self) -> str | None:
         value = self._metadata_values().get("color")
         return value if isinstance(value, str) and value.strip() else None
@@ -465,46 +433,6 @@ class ItemKindMetadata(UuidMixin, TimestampMixin, Base):
             metadata.pop(key, None)
         else:
             metadata[key] = value
-        self.metadata_json = metadata or None
-
-    def _set_list_value(self, key: str, values: list[Any] | None) -> None:
-        metadata = self._metadata_values()
-        if key == "tracks":
-            cleaned_tracks: list[dict[str, Any]] = []
-            for raw in values or []:
-                if not isinstance(raw, Mapping):
-                    continue
-                title = str(raw.get("title") or "").strip()
-                if not title:
-                    continue
-                entry: dict[str, Any] = {"title": title}
-                for field_name in ("position", "duration_seconds", "artist", "disc_number"):
-                    field_value = raw.get(field_name)
-                    if field_value is not None:
-                        entry[field_name] = field_value
-                cleaned_tracks.append(entry)
-            if cleaned_tracks:
-                metadata[key] = cleaned_tracks
-            else:
-                metadata.pop(key, None)
-            self.metadata_json = metadata or None
-            return
-
-        deduped: list[str] = []
-        seen: set[str] = set()
-        for raw in values or []:
-            text = str(raw or "").strip()
-            if not text:
-                continue
-            normalized = text.casefold()
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            deduped.append(text)
-        if deduped:
-            metadata[key] = deduped
-        else:
-            metadata.pop(key, None)
         self.metadata_json = metadata or None
 
 

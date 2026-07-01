@@ -136,7 +136,6 @@ from app.schemas import (
     TVReleaseMediaResponse,
     TVSeasonV1Response,
     TVSeriesV1Response,
-    item_response_from_model,
     public_item_kind,
 )
 from app.schemas.metadata_shared import EditionResponse, SearchResult
@@ -232,19 +231,11 @@ class MetadataService:
             return await self.get_game_work(item_id)
         if kind == ItemKind.boardgame:
             return await self.get_boardgame_work(item_id)
-        item = await self.metadata.get_item(item_id, kind)
-        if item is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="metadata_item_not_found",
-                detail="Item not found",
-            )
-        response = item_response_from_model(
-            item,
-            extra_provider_links=await self._provider_links_for_item(item.id),
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="metadata_item_not_found",
+            detail="Item not found",
         )
-        await self._enrich_item_metadata_facets(response, item.id)
-        return response
 
     async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
         work = await self.db.scalar(
@@ -1787,67 +1778,328 @@ class MetadataService:
             )
             if comic_results:
                 return comic_results
-
-        items = await self.metadata.search_items(
-            query=query,
-            kind=kind,
-            limit=limit,
-            series=series,
-            issue_number=issue_number,
-            publisher=publisher,
-            imprint=imprint,
-            subtitle=subtitle,
-            series_group=series_group,
-            language=language,
-            country=country,
-            age_rating=age_rating,
-            catalog_number=catalog_number,
-            release_status=release_status,
-            year=year,
-            barcode=barcode,
-        )
-        results: list[SearchResult] = []
-        for item in items:
-            preferred_variant = self._preferred_variant(
-                item,
+        if kind == ItemKind.book:
+            book_results = await self._search_book_works(
                 query=query,
+                series=series,
+                publisher=publisher,
+                imprint=imprint,
+                subtitle=subtitle,
+                language=language,
+                country=country,
+                age_rating=age_rating,
+                catalog_number=catalog_number,
+                release_status=release_status,
+                year=year,
                 barcode=barcode,
+                limit=limit,
             )
-            cover_url, thumbnail_url = self._variant_cover(
-                preferred_variant or self._primary_variant(item)
+            if book_results:
+                return book_results
+        if kind == ItemKind.movie:
+            movie_results = await self._search_movie_works(
+                query=query,
+                publisher=publisher,
+                subtitle=subtitle,
+                language=language,
+                country=country,
+                age_rating=age_rating,
+                catalog_number=catalog_number,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
             )
-            results.append(
-                self._search_result(
-                    item,
-                    cover_url,
-                    thumbnail_url,
-                    preferred_variant=preferred_variant,
-                )
+            if movie_results:
+                return movie_results
+        if kind == ItemKind.tv:
+            tv_results = await self._search_tv_releases(
+                query=query,
+                publisher=publisher,
+                subtitle=subtitle,
+                language=language,
+                country=country,
+                age_rating=age_rating,
+                catalog_number=catalog_number,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
             )
-        return results
+            if tv_results:
+                return tv_results
+        if kind == ItemKind.anime:
+            anime_results = await self._search_anime_series(
+                query=query,
+                language=language,
+                country=country,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
+            )
+            if anime_results:
+                return anime_results
+        if kind == ItemKind.music:
+            music_results = await self._search_music_releases(
+                query=query,
+                publisher=publisher,
+                subtitle=subtitle,
+                language=language,
+                country=country,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                catalog_number=catalog_number,
+                limit=limit,
+            )
+            if music_results:
+                return music_results
+        if kind == ItemKind.boardgame:
+            boardgame_results = await self._search_boardgame_works(
+                query=query,
+                publisher=publisher,
+                subtitle=subtitle,
+                language=language,
+                country=country,
+                age_rating=age_rating,
+                catalog_number=catalog_number,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
+            )
+            if boardgame_results:
+                return boardgame_results
+        if kind == ItemKind.game:
+            game_results = await self._search_game_works(
+                query=query,
+                publisher=publisher,
+                subtitle=subtitle,
+                language=language,
+                country=country,
+                age_rating=age_rating,
+                catalog_number=catalog_number,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
+            )
+            if game_results:
+                return game_results
+        if kind == ItemKind.manga:
+            manga_results = await self._search_manga_works(
+                query=query,
+                language=language,
+                country=country,
+                release_status=release_status,
+                year=year,
+                barcode=barcode,
+                limit=limit,
+            )
+            if manga_results:
+                return manga_results
+        if kind is None:
+            results: list[SearchResult] = []
+            for batch in (
+                await self._search_comic_works(
+                    query=query,
+                    series=series,
+                    issue_number=issue_number,
+                    publisher=publisher,
+                    imprint=imprint,
+                    language=language,
+                    country=country,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_book_works(
+                    query=query,
+                    series=series,
+                    publisher=publisher,
+                    imprint=imprint,
+                    subtitle=subtitle,
+                    language=language,
+                    country=country,
+                    age_rating=age_rating,
+                    catalog_number=catalog_number,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_movie_works(
+                    query=query,
+                    publisher=publisher,
+                    subtitle=subtitle,
+                    language=language,
+                    country=country,
+                    age_rating=age_rating,
+                    catalog_number=catalog_number,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_tv_releases(
+                    query=query,
+                    publisher=publisher,
+                    subtitle=subtitle,
+                    language=language,
+                    country=country,
+                    age_rating=age_rating,
+                    catalog_number=catalog_number,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_anime_series(
+                    query=query,
+                    language=language,
+                    country=country,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_music_releases(
+                    query=query,
+                    publisher=publisher,
+                    subtitle=subtitle,
+                    language=language,
+                    country=country,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    catalog_number=catalog_number,
+                    limit=limit,
+                ),
+                await self._search_boardgame_works(
+                    query=query,
+                    publisher=publisher,
+                    subtitle=subtitle,
+                    language=language,
+                    country=country,
+                    age_rating=age_rating,
+                    catalog_number=catalog_number,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_game_works(
+                    query=query,
+                    publisher=publisher,
+                    subtitle=subtitle,
+                    language=language,
+                    country=country,
+                    age_rating=age_rating,
+                    catalog_number=catalog_number,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+                await self._search_manga_works(
+                    query=query,
+                    language=language,
+                    country=country,
+                    release_status=release_status,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                ),
+            ):
+                results.extend(batch)
+            deduped: list[SearchResult] = []
+            seen: set[tuple[ItemKind, UUID]] = set()
+            for result in results:
+                key = (result.kind, result.id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                deduped.append(result)
+            return deduped[:limit]
+        return []
 
     async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:
         if kind == ItemKind.comic:
             match = await self._comic_work_by_barcode(barcode)
             if match is not None:
                 return self._comic_search_result(match[0], issue=match[1])
-        item = await self.metadata.find_item_by_barcode(barcode, kind)
-        if item is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="barcode_not_found",
-                detail="Barcode not found",
-            )
-
-        preferred_variant = self._preferred_variant(item, barcode=barcode)
-        cover_url, thumbnail_url = self._variant_cover(
-            preferred_variant or self._primary_variant(item)
-        )
-        return self._search_result(
-            item,
-            cover_url,
-            thumbnail_url,
-            preferred_variant=preferred_variant,
+        if kind == ItemKind.book:
+            match = await self._book_work_by_barcode(barcode)
+            if match is not None:
+                return self._book_search_result(match[0], edition=match[1])
+        if kind == ItemKind.movie:
+            match = await self._movie_work_by_barcode(barcode)
+            if match is not None:
+                return self._movie_search_result(match[0], release=match[1])
+        if kind == ItemKind.tv:
+            release = await self._tv_release_by_barcode(barcode)
+            if release is not None:
+                return self._tv_search_result(release)
+        if kind == ItemKind.anime:
+            series = await self._anime_series_by_barcode(barcode)
+            if series is not None:
+                return self._anime_search_result(series)
+        if kind == ItemKind.music:
+            release = await self._music_release_by_barcode(barcode)
+            if release is not None:
+                return self._music_search_result(release)
+        if kind == ItemKind.boardgame:
+            work = await self._boardgame_work_by_barcode(barcode)
+            if work is not None:
+                return self._boardgame_search_result(work)
+        if kind == ItemKind.game:
+            work = await self._game_work_by_barcode(barcode)
+            if work is not None:
+                return self._game_search_result(work)
+        if kind == ItemKind.manga:
+            work = await self._manga_work_by_barcode(barcode)
+            if work is not None:
+                return self._manga_search_result(work)
+        if kind is None:
+            for lookup in (
+                self._comic_work_by_barcode,
+                self._book_work_by_barcode,
+                self._movie_work_by_barcode,
+                self._tv_release_by_barcode,
+                self._anime_series_by_barcode,
+                self._music_release_by_barcode,
+                self._boardgame_work_by_barcode,
+                self._game_work_by_barcode,
+                self._manga_work_by_barcode,
+            ):
+                match = await lookup(barcode)
+                if match is None:
+                    continue
+                if isinstance(match, tuple):
+                    if isinstance(match[0], ComicWork):
+                        return self._comic_search_result(match[0], issue=match[1])
+                    if isinstance(match[0], BookWork):
+                        return self._book_search_result(match[0], edition=match[1])
+                    if isinstance(match[0], MovieWork):
+                        return self._movie_search_result(match[0], release=match[1])
+                if isinstance(match, TVRelease):
+                    return self._tv_search_result(match)
+                if isinstance(match, AnimeSeries):
+                    return self._anime_search_result(match)
+                if isinstance(match, MusicRelease):
+                    return self._music_search_result(match)
+                if isinstance(match, BoardGameWork):
+                    return self._boardgame_search_result(match)
+                if isinstance(match, GameWork):
+                    return self._game_search_result(match)
+                if isinstance(match, MangaWork):
+                    return self._manga_search_result(match)
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="barcode_not_found",
+            detail="Barcode not found",
         )
 
     async def _search_comic_works(
@@ -1989,6 +2241,973 @@ class MetadataService:
             language=primary.language if primary is not None else None,
             imprint=primary.imprint if primary is not None else None,
         )
+
+    async def _search_book_works(
+        self,
+        *,
+        query: str | None,
+        series: str | None,
+        publisher: str | None,
+        imprint: str | None,
+        subtitle: str | None,
+        language: str | None,
+        country: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(BookWork)
+            .options(
+                selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
+                    BookContribution.person
+                ),
+                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
+            )
+            .order_by(BookWork.sort_title.asc().nullslast(), BookWork.title.asc())
+            .limit(limit)
+        )
+        pattern = f"%{query.strip()}%" if query and query.strip() else None
+        if pattern:
+            stmt = stmt.where(
+                or_(
+                    BookWork.title.ilike(pattern),
+                    BookWork.subtitle.ilike(pattern),
+                    BookEdition.display_title.ilike(pattern),
+                    BookEdition.edition_statement.ilike(pattern),
+                    BookEdition.publisher.ilike(pattern),
+                    BookEdition.imprint.ilike(pattern),
+                )
+            )
+        if series and series.strip():
+            stmt = stmt.where(BookWork.title.ilike(f"%{series.strip()}%"))
+        if publisher and publisher.strip():
+            stmt = stmt.where(BookEdition.publisher.ilike(f"%{publisher.strip()}%"))
+        if imprint and imprint.strip():
+            stmt = stmt.where(BookEdition.imprint.ilike(f"%{imprint.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(BookWork.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(BookEdition.language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(BookEdition.region.ilike(f"%{country.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(BookEdition.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(BookEdition.edition_statement.ilike(f"%{catalog_number.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(BookEdition.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(func.extract("year", BookEdition.publication_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.where(
+                or_(
+                    self._normalized_barcode_expr(BookIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(BookIdentifier.normalized_value) == normalized,
+                )
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    stmt.join(BookWork.editions, isouter=True).join(BookEdition.identifiers, isouter=True)
+                )
+            )
+            .scalars()
+            .unique()
+        )
+        return [self._book_search_result(work) for work in rows]
+
+    def _book_search_result(self, work: BookWork, *, edition: BookEdition | None = None) -> SearchResult:
+        editions = sorted(
+            work.editions or [],
+            key=lambda row: (
+                row.publication_date is None,
+                row.publication_date or date.max,
+                str(row.id),
+            ),
+        )
+        primary = edition or (editions[0] if editions else None)
+        creators: list[dict[str, Any]] = []
+        if primary is not None:
+            for row in primary.contributions or []:
+                if row.person is None:
+                    continue
+                creators.append({"name": row.person.name, "role": row.role})
+        return SearchResult(
+            id=work.id,
+            kind=ItemKind.book,
+            title=work.title,
+            item_number=primary.display_title if primary is not None else None,
+            synopsis=work.description,
+            cover_image_url=primary.cover_image_url if primary is not None else None,
+            edition_title=primary.display_title if primary is not None else None,
+            physical_format=primary.format if primary is not None else None,
+            publisher=primary.publisher if primary is not None else None,
+            release_date=primary.publication_date if primary is not None else None,
+            release_year=primary.publication_date.year if primary is not None and primary.publication_date else None,
+            barcode=next((identifier.value for identifier in (primary.identifiers or []) if identifier.value), None)
+            if primary is not None
+            else None,
+            variant=primary.binding if primary is not None else None,
+            series_title=work.title,
+            volume_name=work.title,
+            creators=creators or None,
+            page_count=primary.page_count if primary is not None else None,
+            country=primary.region if primary is not None else None,
+            release_status=primary.release_status if primary is not None else None,
+            language=primary.language if primary is not None else None,
+            age_rating=primary.age_rating if primary is not None else None,
+            imprint=primary.imprint if primary is not None else None,
+            subtitle=primary.edition_statement if primary is not None else None,
+        )
+
+    async def _book_work_by_barcode(self, barcode: str) -> tuple[BookWork, BookEdition | None] | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        row = (
+            await self.db.execute(
+                select(BookWork, BookEdition)
+                .join(BookWork.editions)
+                .join(BookEdition.identifiers)
+                .where(
+                    or_(
+                        self._normalized_barcode_expr(BookIdentifier.value) == normalized,
+                        self._normalized_barcode_expr(BookIdentifier.normalized_value) == normalized,
+                    )
+                )
+                .options(
+                    selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
+                        BookContribution.person
+                    ),
+                    selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
+                )
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        return row[0], row[1]
+
+    async def _search_movie_works(
+        self,
+        *,
+        query: str | None,
+        publisher: str | None,
+        subtitle: str | None,
+        language: str | None,
+        country: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(MovieWork)
+            .options(
+                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
+                selectinload(MovieWork.releases).selectinload(MovieRelease.media),
+                selectinload(MovieWork.identifiers),
+            )
+            .order_by(MovieWork.sort_title.asc().nullslast(), MovieWork.title.asc())
+            .limit(limit)
+        )
+        pattern = f"%{query.strip()}%" if query and query.strip() else None
+        if pattern:
+            stmt = stmt.where(
+                or_(
+                    MovieWork.title.ilike(pattern),
+                    MovieWork.subtitle.ilike(pattern),
+                    MovieRelease.distributor.ilike(pattern),
+                    MovieRelease.publisher.ilike(pattern),
+                    MovieRelease.format.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(or_(MovieRelease.publisher.ilike(f"%{publisher.strip()}%"), MovieRelease.distributor.ilike(f"%{publisher.strip()}%")))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(MovieWork.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(or_(MovieRelease.language_audio.any(language.strip()), MovieRelease.language_subtitles.any(language.strip())))
+        if country and country.strip():
+            stmt = stmt.where(MovieRelease.region_code.ilike(f"%{country.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(MovieWork.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(or_(MovieRelease.sku.ilike(f"%{catalog_number.strip()}%"), MovieRelease.barcode.ilike(f"%{catalog_number.strip()}%")))
+        if release_status and release_status.strip():
+            stmt = stmt.where(MovieRelease.release_type.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(func.extract("year", MovieRelease.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.where(
+                or_(
+                    self._normalized_barcode_expr(MovieWorkIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(MovieRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(MovieRelease.sku) == normalized,
+                )
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    stmt.join(MovieWork.releases, isouter=True).join(MovieWork.identifiers, isouter=True)
+                )
+            )
+            .scalars()
+            .unique()
+        )
+        return [self._movie_search_result(work) for work in rows]
+
+    def _movie_search_result(self, work: MovieWork, *, release: MovieRelease | None = None) -> SearchResult:
+        releases = sorted(
+            work.releases or [],
+            key=lambda row: (
+                row.release_date is None,
+                row.release_date or date.max,
+                str(row.id),
+            ),
+        )
+        primary = release or (releases[0] if releases else None)
+        return SearchResult(
+            id=work.id,
+            kind=ItemKind.movie,
+            title=work.title,
+            synopsis=work.description,
+            cover_image_url=primary.cover_image_url if primary is not None else work.poster_image_url,
+            thumbnail_image_url=None,
+            edition_title=primary.format if primary is not None else None,
+            physical_format=primary.format if primary is not None else None,
+            publisher=primary.publisher if primary is not None else None,
+            release_date=primary.release_date if primary is not None else work.original_release_date,
+            release_year=(primary.release_date or work.original_release_date).year
+            if (primary is not None and primary.release_date is not None) or work.original_release_date is not None
+            else None,
+            barcode=primary.barcode if primary is not None and primary.barcode else primary.sku if primary is not None else None,
+            release_status=primary.release_type if primary is not None else work.status,
+            language=next(iter(primary.language_audio), None) if primary is not None and primary.language_audio else None,
+            age_rating=work.age_rating,
+            creators=[
+                {"name": row.person.name, "role": row.role}
+                for row in sorted(
+                    work.contributions or [],
+                    key=lambda c: (
+                        c.sequence is None,
+                        c.sequence or 0,
+                        c.role.casefold(),
+                        str(c.person_id),
+                    ),
+                )
+                if row.person is not None
+            ]
+            or None,
+            catalog_number=primary.sku if primary is not None else None,
+            country=primary.region_code if primary is not None else None,
+        )
+
+    async def _movie_work_by_barcode(self, barcode: str) -> tuple[MovieWork, MovieRelease | None] | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        row = (
+            await self.db.execute(
+                select(MovieWork, MovieRelease)
+                .join(MovieWork.releases, isouter=True)
+                .join(MovieWork.identifiers, isouter=True)
+                .where(
+                    or_(
+                        self._normalized_barcode_expr(MovieWorkIdentifier.value) == normalized,
+                        self._normalized_barcode_expr(MovieRelease.barcode) == normalized,
+                        self._normalized_barcode_expr(MovieRelease.sku) == normalized,
+                    )
+                )
+                .options(
+                    selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
+                    selectinload(MovieWork.releases).selectinload(MovieRelease.media),
+                    selectinload(MovieWork.identifiers),
+                )
+                .limit(1)
+            )
+        ).first()
+        if row is None:
+            return None
+        return row[0], row[1]
+
+    async def _search_tv_releases(
+        self,
+        *,
+        query: str | None,
+        publisher: str | None,
+        subtitle: str | None,
+        language: str | None,
+        country: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(TVRelease)
+            .options(
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.media),
+                selectinload(TVRelease.identifiers),
+            )
+            .order_by(TVRelease.sort_title.asc().nullslast(), TVRelease.title.asc())
+            .limit(limit)
+        )
+        pattern = f"%{query.strip()}%" if query and query.strip() else None
+        if pattern:
+            stmt = stmt.where(
+                or_(
+                    TVRelease.title.ilike(pattern),
+                    TVRelease.description.ilike(pattern),
+                    TVRelease.publisher.ilike(pattern),
+                    TVRelease.sku.ilike(pattern),
+                    TVRelease.content_rating.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(TVRelease.publisher.ilike(f"%{publisher.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(TVRelease.description.ilike(f"%{subtitle.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(
+                or_(
+                    TVRelease.language_audio.any(language.strip()),
+                    TVRelease.language_subtitles.any(language.strip()),
+                )
+            )
+        if country and country.strip():
+            stmt = stmt.where(TVRelease.region_code.ilike(f"%{country.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(TVRelease.content_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(TVRelease.sku.ilike(f"%{catalog_number.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(TVRelease.format.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(func.extract("year", TVRelease.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.where(
+                or_(
+                    self._normalized_barcode_expr(TVReleaseIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(TVRelease.sku) == normalized,
+                )
+            )
+        rows = list((await self.db.execute(stmt.join(TVRelease.identifiers, isouter=True))).scalars().unique())
+        return [self._tv_search_result(release) for release in rows]
+
+    def _tv_search_result(self, release: TVRelease) -> SearchResult:
+        return SearchResult(
+            id=release.id,
+            kind=ItemKind.tv,
+            title=release.title,
+            synopsis=release.description,
+            cover_image_url=release.cover_image_url,
+            physical_format=release.format,
+            publisher=release.publisher,
+            release_date=release.release_date,
+            release_year=release.release_date.year if release.release_date else None,
+            barcode=next((identifier.value for identifier in release.identifiers or [] if identifier.value), release.sku),
+            catalog_number=release.sku,
+            country=release.region_code,
+            age_rating=release.content_rating,
+            language=(release.language_audio or [None])[0],
+            release_status=release.format,
+        )
+
+    def _anime_search_result(self, series: AnimeSeries) -> SearchResult:
+        episodes = sorted(
+            series.episodes or [],
+            key=lambda row: (
+                row.episode_number is None,
+                row.episode_number or 0,
+                row.air_date is None,
+                row.air_date or date.max,
+                str(row.id),
+            ),
+        )
+        primary = episodes[0] if episodes else None
+        return SearchResult(
+            id=series.id,
+            kind=ItemKind.anime,
+            title=series.title,
+            synopsis=series.description,
+            cover_image_url=primary.cover_image_url if primary is not None else None,
+            release_date=series.original_air_date or (primary.air_date if primary is not None else None),
+            release_year=(
+                (series.original_air_date or primary.air_date).year
+                if series.original_air_date or (primary is not None and primary.air_date is not None)
+                else None
+            ),
+            release_status=series.status,
+            language=series.original_language,
+            item_number=primary.episode_title if primary is not None else None,
+            episode_count=series.episode_count,
+            series_title=series.title,
+        )
+
+    async def _anime_series_by_barcode(self, barcode: str) -> AnimeSeries | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        stmt = (
+            select(AnimeSeries)
+            .join(AnimeSeries.identifiers, isouter=True)
+            .where(
+                or_(
+                    self._normalized_barcode_expr(AnimeIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(AnimeIdentifier.normalized_value) == normalized,
+                )
+            )
+            .options(
+                selectinload(AnimeSeries.episodes),
+                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
+                selectinload(AnimeSeries.identifiers),
+                selectinload(AnimeSeries.character_appearances).selectinload(
+                    AnimeCharacterAppearance.character
+                ),
+            )
+            .limit(1)
+        )
+        return await self.db.scalar(stmt)
+
+    async def _search_anime_series(
+        self,
+        *,
+        query: str | None,
+        language: str | None,
+        country: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(AnimeSeries)
+            .options(
+                selectinload(AnimeSeries.episodes),
+                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
+                selectinload(AnimeSeries.identifiers),
+                selectinload(AnimeSeries.character_appearances).selectinload(
+                    AnimeCharacterAppearance.character
+                ),
+            )
+            .order_by(AnimeSeries.sort_title.asc().nullslast(), AnimeSeries.title.asc())
+            .limit(limit)
+        )
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.join(AnimeSeries.episodes, isouter=True).where(
+                or_(
+                    AnimeSeries.title.ilike(pattern),
+                    AnimeSeries.description.ilike(pattern),
+                    AnimeSeries.status.ilike(pattern),
+                    AnimeSeries.anime_type.ilike(pattern),
+                    AnimeEpisode.episode_title.ilike(pattern),
+                )
+            )
+        if language and language.strip():
+            stmt = stmt.where(AnimeSeries.original_language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(AnimeSeries.status.ilike(f"%{country.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(AnimeSeries.status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", AnimeSeries.original_air_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.join(AnimeSeries.identifiers, isouter=True).where(
+                or_(
+                    self._normalized_barcode_expr(AnimeIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(AnimeIdentifier.normalized_value) == normalized,
+                )
+            )
+        rows = list((await self.db.execute(stmt)).scalars().unique())
+        return [self._anime_search_result(series) for series in rows]
+
+    def _music_search_result(self, release: MusicRelease) -> SearchResult:
+        media = sorted(
+            release.media or [],
+            key=lambda row: (
+                row.media_number is None,
+                row.media_number or 0,
+                str(row.id),
+            ),
+        )
+        primary = media[0] if media else None
+        tracks = []
+        if primary is not None:
+            for track in sorted(
+                primary.tracks or [],
+                key=lambda row: (row.position.casefold(), str(row.id)),
+            ):
+                tracks.append(
+                    {
+                        "id": track.id,
+                        "media_id": track.media_id,
+                        "position": track.position,
+                        "title": track.title,
+                        "duration_ms": track.duration_ms,
+                        "instrument": track.instrument,
+                        "composition": track.composition,
+                    }
+                )
+        return SearchResult(
+            id=release.id,
+            kind=ItemKind.music,
+            title=release.title,
+            synopsis=release.extras,
+            cover_image_url=release.cover_image_url,
+            release_date=release.release_date,
+            release_year=release.release_date.year if release.release_date else None,
+            barcode=release.barcode,
+            catalog_number=release.catalog_number,
+            publisher=release.publisher,
+            country=release.country_code,
+            language=release.language,
+            release_status=release.release_status,
+            track_count=release.track_count,
+            tracks=tracks or None,
+            item_number=primary.title if primary is not None else None,
+            edition_title=primary.title if primary is not None else None,
+        )
+
+    async def _music_release_by_barcode(self, barcode: str) -> MusicRelease | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        stmt = (
+            select(MusicRelease)
+            .join(MusicRelease.identifiers, isouter=True)
+            .where(
+                or_(
+                    self._normalized_barcode_expr(MusicReleaseIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(MusicReleaseIdentifier.normalized_value) == normalized,
+                    self._normalized_barcode_expr(MusicRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(MusicRelease.catalog_number) == normalized,
+                )
+            )
+            .options(
+                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
+                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
+                selectinload(MusicRelease.identifiers),
+            )
+            .limit(1)
+        )
+        return await self.db.scalar(stmt)
+
+    async def _search_music_releases(
+        self,
+        *,
+        query: str | None,
+        publisher: str | None,
+        subtitle: str | None,
+        language: str | None,
+        country: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        catalog_number: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(MusicRelease)
+            .options(
+                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
+                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
+                selectinload(MusicRelease.identifiers),
+            )
+            .order_by(MusicRelease.sort_title.asc().nullslast(), MusicRelease.title.asc())
+            .limit(limit)
+        )
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.join(MusicRelease.media, isouter=True).where(
+                or_(
+                    MusicRelease.title.ilike(pattern),
+                    MusicRelease.subtitle.ilike(pattern),
+                    MusicRelease.publisher.ilike(pattern),
+                    MusicRelease.studio.ilike(pattern),
+                    MusicMedia.title.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(or_(MusicRelease.publisher.ilike(f"%{publisher.strip()}%"), MusicRelease.studio.ilike(f"%{publisher.strip()}%")))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(MusicRelease.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(MusicRelease.language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(MusicRelease.country_code.ilike(f"%{country.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(MusicRelease.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", MusicRelease.release_date) == year)
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(MusicRelease.catalog_number.ilike(f"%{catalog_number.strip()}%"))
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.join(MusicRelease.identifiers, isouter=True).where(
+                or_(
+                    self._normalized_barcode_expr(MusicReleaseIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(MusicReleaseIdentifier.normalized_value) == normalized,
+                    self._normalized_barcode_expr(MusicRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(MusicRelease.catalog_number) == normalized,
+                )
+            )
+        rows = list((await self.db.execute(stmt)).scalars().unique())
+        return [self._music_search_result(release) for release in rows]
+
+    def _boardgame_search_result(self, work: BoardGameWork) -> SearchResult:
+        editions = sorted(
+            work.editions or [],
+            key=lambda row: (
+                row.release_date is None,
+                row.release_date or date.max,
+                str(row.id),
+            ),
+        )
+        primary = editions[0] if editions else None
+        return SearchResult(
+            id=work.id,
+            kind=ItemKind.boardgame,
+            title=work.title,
+            synopsis=work.description,
+            cover_image_url=primary.cover_image_url if primary is not None else work.cover_image_url,
+            release_date=primary.release_date if primary is not None else None,
+            release_year=primary.release_date.year if primary is not None and primary.release_date else None,
+            barcode=primary.barcode if primary is not None else None,
+            catalog_number=primary.catalog_number if primary is not None else None,
+            publisher=primary.publisher if primary is not None else None,
+            country=primary.country if primary is not None else None,
+            language=primary.language if primary is not None else None,
+            age_rating=primary.age_rating if primary is not None else work.age_rating,
+            release_status=primary.release_status if primary is not None else None,
+            item_number=primary.edition_title if primary is not None else None,
+            edition_title=primary.edition_title if primary is not None else None,
+        )
+
+    async def _boardgame_work_by_barcode(self, barcode: str) -> BoardGameWork | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        stmt = (
+            select(BoardGameWork)
+            .join(BoardGameWork.editions, isouter=True)
+            .where(
+                or_(
+                    self._normalized_barcode_expr(BoardGameEdition.barcode) == normalized,
+                    self._normalized_barcode_expr(BoardGameEdition.catalog_number) == normalized,
+                )
+            )
+            .options(selectinload(BoardGameWork.editions))
+            .limit(1)
+        )
+        return await self.db.scalar(stmt)
+
+    async def _search_boardgame_works(
+        self,
+        *,
+        query: str | None,
+        publisher: str | None,
+        subtitle: str | None,
+        language: str | None,
+        country: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(BoardGameWork)
+            .options(selectinload(BoardGameWork.editions))
+            .order_by(BoardGameWork.sort_title.asc().nullslast(), BoardGameWork.title.asc())
+            .limit(limit)
+        )
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.join(BoardGameWork.editions, isouter=True).where(
+                or_(
+                    BoardGameWork.title.ilike(pattern),
+                    BoardGameWork.subtitle.ilike(pattern),
+                    BoardGameEdition.publisher.ilike(pattern),
+                    BoardGameEdition.catalog_number.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(BoardGameEdition.publisher.ilike(f"%{publisher.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(BoardGameWork.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(BoardGameEdition.language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(BoardGameEdition.country.ilike(f"%{country.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(BoardGameEdition.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(BoardGameEdition.catalog_number.ilike(f"%{catalog_number.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(BoardGameEdition.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", BoardGameEdition.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.join(BoardGameWork.editions, isouter=True).where(
+                or_(
+                    self._normalized_barcode_expr(BoardGameEdition.barcode) == normalized,
+                    self._normalized_barcode_expr(BoardGameEdition.catalog_number) == normalized,
+                )
+            )
+        rows = list((await self.db.execute(stmt)).scalars().unique())
+        return [self._boardgame_search_result(work) for work in rows]
+
+    def _game_search_result(self, work: GameWork) -> SearchResult:
+        releases = sorted(
+            work.releases or [],
+            key=lambda row: (
+                row.release_date is None,
+                row.release_date or date.max,
+                str(row.id),
+            ),
+        )
+        primary = releases[0] if releases else None
+        return SearchResult(
+            id=work.id,
+            kind=ItemKind.game,
+            title=work.title,
+            synopsis=work.description,
+            cover_image_url=primary.cover_image_url if primary is not None else work.cover_image_url,
+            release_date=primary.release_date if primary is not None else work.release_date,
+            release_year=(primary.release_date or work.release_date).year
+            if primary is not None and (primary.release_date or work.release_date)
+            else (work.release_date.year if work.release_date else None),
+            barcode=primary.barcode if primary is not None else None,
+            catalog_number=primary.catalog_number if primary is not None else None,
+            publisher=primary.publisher if primary is not None else None,
+            country=primary.region_code if primary is not None else None,
+            language=primary.language if primary is not None else None,
+            age_rating=work.age_rating,
+            release_status=primary.release_status if primary is not None else None,
+            item_number=primary.release_title if primary is not None else None,
+            edition_title=primary.release_title if primary is not None else None,
+        )
+
+    async def _game_work_by_barcode(self, barcode: str) -> GameWork | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        stmt = (
+            select(GameWork)
+            .join(GameWork.releases, isouter=True)
+            .where(
+                or_(
+                    self._normalized_barcode_expr(GameRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(GameRelease.catalog_number) == normalized,
+                )
+            )
+            .options(selectinload(GameWork.releases))
+            .limit(1)
+        )
+        return await self.db.scalar(stmt)
+
+    async def _search_game_works(
+        self,
+        *,
+        query: str | None,
+        publisher: str | None,
+        subtitle: str | None,
+        language: str | None,
+        country: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(GameWork)
+            .options(selectinload(GameWork.releases))
+            .order_by(GameWork.sort_title.asc().nullslast(), GameWork.title.asc())
+            .limit(limit)
+        )
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.join(GameWork.releases, isouter=True).where(
+                or_(
+                    GameWork.title.ilike(pattern),
+                    GameWork.subtitle.ilike(pattern),
+                    GameRelease.publisher.ilike(pattern),
+                    GameRelease.format.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(GameRelease.publisher.ilike(f"%{publisher.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(GameWork.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(GameRelease.language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(GameRelease.region_code.ilike(f"%{country.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(GameWork.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(GameRelease.catalog_number.ilike(f"%{catalog_number.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(GameRelease.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", GameRelease.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.join(GameWork.releases, isouter=True).where(
+                or_(
+                    self._normalized_barcode_expr(GameRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(GameRelease.catalog_number) == normalized,
+                )
+            )
+        rows = list((await self.db.execute(stmt)).scalars().unique())
+        return [self._game_search_result(work) for work in rows]
+
+    def _manga_search_result(self, work: MangaWork) -> SearchResult:
+        chapters = sorted(
+            work.chapters or [],
+            key=lambda row: (
+                row.chapter_number is None,
+                row.chapter_number or 0,
+                row.publication_date is None,
+                row.publication_date or date.max,
+                str(row.id),
+            ),
+        )
+        primary = chapters[0] if chapters else None
+        return SearchResult(
+            id=work.id,
+            kind=ItemKind.manga,
+            title=work.title,
+            synopsis=work.description,
+            cover_image_url=primary.cover_image_url if primary is not None else None,
+            release_date=work.original_publication_date or (primary.publication_date if primary is not None else None),
+            release_year=(
+                (work.original_publication_date or primary.publication_date).year
+                if work.original_publication_date or (primary is not None and primary.publication_date is not None)
+                else None
+            ),
+            release_status=work.status,
+            item_number=primary.chapter_title if primary is not None else None,
+            series_title=work.title,
+            volume_name=work.title,
+            page_count=primary.page_count if primary is not None else None,
+        )
+
+    async def _manga_work_by_barcode(self, barcode: str) -> MangaWork | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        stmt = (
+            select(MangaWork)
+            .join(MangaWork.identifiers, isouter=True)
+            .where(
+                or_(
+                    self._normalized_barcode_expr(MangaIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(MangaIdentifier.normalized_value) == normalized,
+                )
+            )
+            .options(
+                selectinload(MangaWork.chapters),
+                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
+                selectinload(MangaWork.identifiers),
+                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
+                selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
+            )
+            .limit(1)
+        )
+        return await self.db.scalar(stmt)
+
+    async def _search_manga_works(
+        self,
+        *,
+        query: str | None,
+        language: str | None,
+        country: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        stmt = (
+            select(MangaWork)
+            .options(
+                selectinload(MangaWork.chapters),
+                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
+                selectinload(MangaWork.identifiers),
+                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
+                selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
+            )
+            .order_by(MangaWork.sort_title.asc().nullslast(), MangaWork.title.asc())
+            .limit(limit)
+        )
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.join(MangaWork.chapters, isouter=True).where(
+                or_(
+                    MangaWork.title.ilike(pattern),
+                    MangaWork.subtitle.ilike(pattern),
+                    MangaChapter.chapter_title.ilike(pattern),
+                )
+            )
+        if language and language.strip():
+            stmt = stmt.where(MangaWork.original_language.ilike(f"%{language.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(MangaWork.status.ilike(f"%{country.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(MangaWork.status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", MangaWork.original_publication_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode(barcode)
+            stmt = stmt.join(MangaWork.identifiers, isouter=True).where(
+                or_(
+                    self._normalized_barcode_expr(MangaIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(MangaIdentifier.normalized_value) == normalized,
+                )
+            )
+        rows = list((await self.db.execute(stmt)).scalars().unique())
+        return [self._manga_search_result(work) for work in rows]
+
+    async def _tv_release_by_barcode(self, barcode: str) -> TVRelease | None:
+        normalized = self._normalized_barcode(barcode)
+        if not normalized:
+            return None
+        stmt = (
+            select(TVRelease)
+            .options(
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.media),
+                selectinload(TVRelease.identifiers),
+            )
+            .join(TVRelease.identifiers, isouter=True)
+            .where(
+                or_(
+                    self._normalized_barcode_expr(TVReleaseIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(TVRelease.sku) == normalized,
+                )
+            )
+            .limit(1)
+        )
+        return await self.db.scalar(stmt)
 
     async def _comic_work_by_barcode(self, barcode: str) -> tuple[ComicWork, ComicIssue | None] | None:
         normalized = self._normalized_barcode(barcode)
@@ -2850,7 +4069,8 @@ class MetadataService:
                 and (not is_video_item_kind(item.kind) or physical_format_label is not None)
             ):
                 break
-        metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+        metadata_json = getattr(item, "metadata_json", None)
+        metadata = metadata_json if isinstance(metadata_json, dict) else {}
         series_title = getattr(item, "series_title", None) or metadata.get("series_title")
         volume_name = getattr(item, "volume_name", None) or metadata.get("volume_name")
         typed_metadata = _typed_kind_metadata(item)

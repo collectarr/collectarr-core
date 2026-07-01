@@ -13,10 +13,57 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import Edition, ImageAsset, Item, Variant
+from app.models import (
+    AnimeSeries,
+    AnimeCharacterAppearance,
+    AnimeContribution,
+    AnimeEpisode,
+    AnimeIdentifier,
+    BoardGameWork,
+    BoardGameEdition,
+    BookContribution,
+    BookEdition,
+    BookPrinting,
+    BookSeriesMembership,
+    BookWork,
+    ComicWork,
+    ComicCharacterAppearance,
+    ComicContribution,
+    ComicIssue,
+    ComicStoryArcMembership,
+    GameWork,
+    GameRelease,
+    ImageAsset,
+    MangaCharacterAppearance,
+    MangaContribution,
+    MangaChapter,
+    MangaWork,
+    MovieWork,
+    MovieRelease,
+    MovieReleaseMedia,
+    MovieWorkContribution,
+    MusicMedia,
+    MusicRelease,
+    MusicTrack,
+    TVEpisode,
+    TVRelease,
+    TVReleaseMedia,
+    TVReleaseContribution,
+    TVReleaseIdentifier,
+)
 from app.schemas.admin import ProviderIngestJobRunResponse
 from app.search.client import SearchClient
-from app.search.documents import item_search_document
+from app.search.documents import (
+    anime_series_search_document,
+    boardgame_search_document,
+    book_work_search_document,
+    catalog_search_document,
+    comic_work_search_document,
+    game_work_search_document,
+    manga_work_search_document,
+    movie_work_search_document,
+    tv_release_search_document,
+)
 from app.services.admin import AdminMetadataService
 from app.storage.client import ObjectStorage
 
@@ -39,15 +86,49 @@ def _compute_phash(image_data: bytes) -> str:
 
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
-    item_count, item_updated_at = (
-        await db.execute(select(func.count(Item.id), func.max(Item.updated_at)))
-    ).one()
-    edition_count, edition_updated_at = (
-        await db.execute(select(func.count(Edition.id), func.max(Edition.updated_at)))
-    ).one()
-    variant_count, variant_updated_at = (
-        await db.execute(select(func.count(Variant.id), func.max(Variant.updated_at)))
-    ).one()
+    root_tables = (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease, GameWork, BoardGameWork, MusicRelease)
+    edition_tables = (
+        BookEdition,
+        ComicIssue,
+        MangaChapter,
+        AnimeEpisode,
+        MovieRelease,
+        TVReleaseMedia,
+        GameRelease,
+        BoardGameEdition,
+        MusicMedia,
+    )
+    variant_tables = (
+        BookPrinting,
+        MovieReleaseMedia,
+        TVEpisode,
+        MusicTrack,
+    )
+
+    async def _count_and_max(model: type) -> tuple[int, datetime | None]:
+        return (await db.execute(select(func.count(), func.max(model.updated_at)))).one()
+
+    item_count = 0
+    item_updated_at: datetime | None = None
+    for model in root_tables:
+        count, updated_at = await _count_and_max(model)
+        item_count += int(count)
+        item_updated_at = max(item_updated_at, updated_at) if item_updated_at and updated_at else item_updated_at or updated_at
+
+    edition_count = 0
+    edition_updated_at: datetime | None = None
+    for model in edition_tables:
+        count, updated_at = await _count_and_max(model)
+        edition_count += int(count)
+        edition_updated_at = max(edition_updated_at, updated_at) if edition_updated_at and updated_at else edition_updated_at or updated_at
+
+    variant_count = 0
+    variant_updated_at: datetime | None = None
+    for model in variant_tables:
+        count, updated_at = await _count_and_max(model)
+        variant_count += int(count)
+        variant_updated_at = max(variant_updated_at, updated_at) if variant_updated_at and updated_at else variant_updated_at or updated_at
+
     return CatalogFingerprint(
         item_count=int(item_count),
         item_updated_at=item_updated_at,
@@ -61,13 +142,79 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
 async def index_once(search: SearchClient | None = None) -> None:
     search = search or SearchClient()
     async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(Item).options(
-                selectinload(Item.primary_bundle_releases),
-                selectinload(Item.editions).selectinload(Edition.variants),
+        documents: list[dict[str, object]] = []
+
+        book_rows = await db.execute(
+            select(BookWork).options(
+                selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
+                selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
+                    BookContribution.person
+                ),
+                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
             )
         )
-        documents = [item_search_document(item) for item in result.scalars().unique()]
+        documents.extend(book_work_search_document(row) for row in book_rows.scalars().unique())
+
+        comic_rows = await db.execute(
+            select(ComicWork).options(
+                selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.contributions).selectinload(
+                    ComicContribution.person
+                ),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
+                    ComicCharacterAppearance.character
+                ),
+                selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
+                    ComicStoryArcMembership.story_arc
+                ),
+            )
+        )
+        documents.extend(comic_work_search_document(row) for row in comic_rows.scalars().unique())
+
+        manga_rows = await db.execute(
+            select(MangaWork).options(
+                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
+                selectinload(MangaWork.chapters),
+                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
+            )
+        )
+        documents.extend(manga_work_search_document(row) for row in manga_rows.scalars().unique())
+
+        movie_rows = await db.execute(
+            select(MovieWork).options(
+                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
+                selectinload(MovieWork.releases),
+                selectinload(MovieWork.identifiers),
+            )
+        )
+        documents.extend(movie_work_search_document(row) for row in movie_rows.scalars().unique())
+
+        tv_rows = await db.execute(
+            select(TVRelease).options(
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.episodes),
+                selectinload(TVRelease.identifiers),
+            )
+        )
+        documents.extend(tv_release_search_document(row) for row in tv_rows.scalars().unique())
+
+        game_rows = await db.execute(select(GameWork).options(selectinload(GameWork.releases)))
+        documents.extend(game_work_search_document(row) for row in game_rows.scalars().unique())
+
+        boardgame_rows = await db.execute(select(BoardGameWork).options(selectinload(BoardGameWork.editions)))
+        documents.extend(boardgame_search_document(row) for row in boardgame_rows.scalars().unique())
+
+        anime_rows = await db.execute(
+            select(AnimeSeries).options(
+                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
+                selectinload(AnimeSeries.episodes),
+                selectinload(AnimeSeries.identifiers),
+                selectinload(AnimeSeries.character_appearances).selectinload(AnimeCharacterAppearance.character),
+            )
+        )
+        documents.extend(anime_series_search_document(row) for row in anime_rows.scalars().unique())
         await search.index_documents(documents)
 
 

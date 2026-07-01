@@ -126,6 +126,7 @@ from app.search.documents import (
     game_work_search_document,
     manga_work_search_document,
     movie_work_search_document,
+    tv_release_search_document,
 )
 from app.services.admin_domains.provider_ingest_helpers import (
     book_identifier_type,
@@ -1445,6 +1446,12 @@ class AdminProviderIngestService:
         return refreshed
 
     async def _refresh_item_from_provider(self, pid: ExternalProviderId) -> None:
+        if pid.entity_type == "item":
+            raise ApiHTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                code="provider_link_stale",
+                detail="Legacy item refresh is no longer supported",
+            )
         registry = ProviderRegistry()
         provider = registry.get(pid.provider)
         if provider is None or not provider.is_configured:
@@ -1452,44 +1459,11 @@ class AdminProviderIngestService:
             return
         provider_item = await provider.get_item(pid.provider_item_id)
         normalized = await provider.normalize(provider_item.raw)
-        item = await self.db.get(Item, pid.item_id)
-        if item is None:
-            return
-        item.title = normalized.title
-        item.synopsis = normalized.synopsis
-        item.runtime_minutes = normalized.runtime_minutes
-        item.page_count = normalized.page_count
-        primary_edition = await self.db.scalar(
-            select(Edition)
-            .where(Edition.item_id == item.id)
-            .order_by(
-                Edition.release_date.desc().nullslast(),
-                Edition.created_at.asc(),
-                Edition.id.asc(),
-            )
-            .limit(1)
-        )
-        if primary_edition is not None:
-            refresh_release_status = self._normalized_release_status(normalized.release_status)
-            if refresh_release_status is not None:
-                await self._ensure_release_status(refresh_release_status)
-            primary_edition.nr_discs = normalized.nr_discs
-            primary_edition.screen_ratio = normalized.screen_ratio
-            primary_edition.audio_tracks = normalized.audio_tracks
-            primary_edition.subtitles = normalized.subtitles
-            primary_edition.layers = normalized.layers
-            primary_edition.release_status = refresh_release_status
-            primary_edition.language = self._normalized_language(normalized.language)
-            primary_edition.region = self._normalized_region(normalized.country)
-        metadata = dict(item.metadata_json or {})
-        metadata["source"] = provider_item.raw
-        metadata["last_refresh"] = datetime.now(UTC).isoformat()
-        item.metadata_json = metadata
         await self._record_provider_snapshot(
             provider=pid.provider,
             provider_item_id=pid.provider_item_id,
-            entity_type="item",
-            entity_id=item.id,
+            entity_type=pid.entity_type,
+            entity_id=pid.entity_id,
             source=provider_item.raw,
             normalized={
                 "audience_rating": normalized.audience_rating,
@@ -1508,27 +1482,6 @@ class AdminProviderIngestService:
                 ],
                 "color": normalized.color,
                 "release_status": normalized.release_status,
-            },
-        )
-        self._upsert_item_kind_metadata(
-            item,
-            {
-                "audience_rating": normalized.audience_rating,
-                "genres": normalized.genres or None,
-                "platforms": normalized.platforms or None,
-                "track_count": normalized.track_count,
-                "tracks": [
-                    {
-                        "position": track.position,
-                        "title": track.title,
-                        "duration_seconds": track.duration_seconds,
-                        "artist": track.artist,
-                        "disc_number": track.disc_number,
-                    }
-                    for track in normalized.tracks
-                ]
-                or None,
-                "color": normalized.color,
             },
         )
         pid.updated_at = datetime.now(UTC)
@@ -3667,7 +3620,6 @@ class AdminProviderIngestService:
         await SearchClient().index_documents_best_effort([movie_work_search_document(work)])
 
     async def _reindex_tv_series(self, series_id: UUID) -> None:
-        # TV v1 model: TVRelease
         release = await self.db.scalar(
             select(TVRelease)
             .where(TVRelease.id == series_id)
@@ -3677,9 +3629,9 @@ class AdminProviderIngestService:
                 selectinload(TVRelease.identifiers),
             )
         )
-        if release is not None:
-            # Index TV release (simplified for now - no search document yet)
+        if release is None:
             return
+        await SearchClient().index_documents_best_effort([tv_release_search_document(release)])
 
     def _comic_identifier_type(self, base_type: str, value: str) -> str:
         return comic_identifier_type(base_type, value)

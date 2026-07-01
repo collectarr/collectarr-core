@@ -8,12 +8,24 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AdminAuditLog, ExternalProviderId, Item, ProviderIngestJob
-from app.repositories.metadata import MetadataRepository
-from app.schemas import ExternalProviderIdResponse, item_response_from_model
+from app.models import (
+    AdminAuditLog,
+    AnimeSeries,
+    BoardGameWork,
+    BookWork,
+    ComicWork,
+    ExternalProviderId,
+    GameWork,
+    MangaWork,
+    MovieWork,
+    ProviderIngestJob,
+    TVRelease,
+)
+from app.schemas import ExternalProviderIdResponse
 from app.schemas.admin import ProviderIngestHistoryEntry
 from app.search.client import SearchClient
-from app.search.documents import item_search_document
+from app.search.documents import catalog_search_document
+from app.services.metadata import MetadataService
 
 _INGEST_HISTORY: deque[ProviderIngestHistoryEntry] = deque(maxlen=50)
 _INGEST_HISTORY_SEQUENCE = 0
@@ -57,16 +69,26 @@ class AdminSupportService:
             )
         return links_by_item
 
-    async def item_response(self, item: Item) -> Any:
-        links_by_item = await self.provider_links_for_items([item.id])
-        return item_response_from_model(item, extra_provider_links=links_by_item.get(item.id))
+    async def item_response(self, item: Any) -> Any:
+        native_response = await self._native_item_response(item)
+        if native_response is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Native catalog entity response unavailable",
+            )
+        return native_response
 
-    async def item_responses(self, items: list[Item]) -> list[Any]:
-        links_by_item = await self.provider_links_for_items([item.id for item in items])
-        return [
-            item_response_from_model(item, extra_provider_links=links_by_item.get(item.id))
-            for item in items
-        ]
+    async def item_responses(self, items: list[Any]) -> list[Any]:
+        responses: list[Any] = []
+        for item in items:
+            native_response = await self._native_item_response(item)
+            if native_response is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Native catalog entity response unavailable",
+                )
+            responses.append(native_response)
+        return responses
 
     def ingest_history(self) -> list[ProviderIngestHistoryEntry]:
         return list(_INGEST_HISTORY)
@@ -126,11 +148,14 @@ class AdminSupportService:
 
     async def reindex_items(self, item_ids: set[UUID]) -> None:
         documents: list[dict[str, Any]] = []
-        repository = MetadataRepository(self.db)
-        for item_id in item_ids:
-            loaded_item = await repository.get_item(item_id)
-            if loaded_item is not None:
-                documents.append(item_search_document(loaded_item))
+        if not item_ids:
+            return
+        for model in (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease, GameWork, BoardGameWork):
+            model_result = await self.db.execute(select(model).where(model.id.in_(item_ids)))
+            documents.extend(
+                catalog_search_document(entity)
+                for entity in model_result.scalars().unique()
+            )
         if documents:
             await SearchClient().index_documents_best_effort(documents)
 
@@ -164,3 +189,23 @@ class AdminSupportService:
         if isinstance(value, list | tuple | set):
             return [self._audit_json_safe(item) for item in value]
         return value
+
+    async def _native_item_response(self, item: Any) -> Any | None:
+        metadata = MetadataService(self.db)
+        if isinstance(item, BookWork):
+            return await metadata.get_book_work(item.id)
+        if isinstance(item, ComicWork):
+            return await metadata.get_comic_work(item.id)
+        if isinstance(item, MangaWork):
+            return await metadata.get_manga_work(item.id)
+        if isinstance(item, AnimeSeries):
+            return await metadata.get_anime_series(item.id)
+        if isinstance(item, MovieWork):
+            return await metadata.get_movie_work(item.id)
+        if isinstance(item, TVRelease):
+            return await metadata.get_tv_series(item.id)
+        if isinstance(item, GameWork):
+            return await metadata.get_game_work(item.id)
+        if isinstance(item, BoardGameWork):
+            return await metadata.get_boardgame_work(item.id)
+        return None

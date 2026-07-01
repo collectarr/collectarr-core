@@ -24,11 +24,15 @@ from app.metadata_normalized import (
     upsert_item_kind_metadata,
 )
 from app.models import (
+    AnimeSeries,
+    BoardGameWork,
     Character,
     CharacterAppearance,
     Edition,
+    BookWork,
     EntityOrganization,
     EntityPerson,
+    ComicWork,
     Item,
     ItemKindMetadata,
     Organization,
@@ -37,17 +41,22 @@ from app.models import (
     ReleaseStatus,
     StoryArc,
     StoryArcItem,
+    MovieWork,
+    GameWork,
+    MangaWork,
+    MusicRelease,
     Variant,
+    TVRelease,
 )
 from app.models.base import ItemKind
-from app.repositories.metadata import MetadataRepository
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminNormalizedMetadataDriftSample,
 )
 from app.search.client import SearchClient
-from app.search.documents import item_search_document
+from app.search.documents import catalog_search_document
+from app.services.metadata import MetadataService
 
 _LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 _REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
@@ -86,21 +95,27 @@ class AdminCatalogService:
         catalog_number: str | None = None,
         release_status: str | None = None,
     ) -> list[Any]:
-        items = await MetadataRepository(self.db).search_items(
+        results = await MetadataService(self.db).search(
             query=query,
             kind=kind,
             limit=limit,
+            series=series_group,
             publisher=publisher,
             imprint=imprint,
             subtitle=subtitle,
-            series_group=series_group,
             country=self._normalize_region(country),
             language=self._normalize_language(language),
             age_rating=age_rating,
             catalog_number=catalog_number,
             release_status=self._normalize_release_status(release_status),
         )
-        return [await self._item_response_loader(item) for item in items]
+        responses: list[Any] = []
+        for result in results:
+            entity = await self._load_native_catalog_entity(result.kind, result.id)
+            if entity is None:
+                continue
+            responses.append(await self._item_response_loader(entity))
+        return responses
 
     async def normalized_metadata_drift_report(
         self,
@@ -165,6 +180,50 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
+        book_stmt = select(BookWork.id, BookWork.metadata_json).order_by(BookWork.id.asc())
+        if scan_limit is not None:
+            book_stmt = book_stmt.limit(scan_limit)
+        for work_id, metadata_json in (await self.db.execute(book_stmt)).all():
+            _record(
+                entity_type="book_work",
+                entity_id=work_id,
+                kind=ItemKind.book,
+                metadata_json=metadata_json,
+            )
+
+        comic_stmt = select(ComicWork.id, ComicWork.metadata_json).order_by(ComicWork.id.asc())
+        if scan_limit is not None:
+            comic_stmt = comic_stmt.limit(scan_limit)
+        for work_id, metadata_json in (await self.db.execute(comic_stmt)).all():
+            _record(
+                entity_type="comic_work",
+                entity_id=work_id,
+                kind=ItemKind.comic,
+                metadata_json=metadata_json,
+            )
+
+        movie_stmt = select(MovieWork.id, MovieWork.metadata_json).order_by(MovieWork.id.asc())
+        if scan_limit is not None:
+            movie_stmt = movie_stmt.limit(scan_limit)
+        for work_id, metadata_json in (await self.db.execute(movie_stmt)).all():
+            _record(
+                entity_type="movie_work",
+                entity_id=work_id,
+                kind=ItemKind.movie,
+                metadata_json=metadata_json,
+            )
+
+        tv_stmt = select(TVRelease.id, TVRelease.metadata_json).order_by(TVRelease.id.asc())
+        if scan_limit is not None:
+            tv_stmt = tv_stmt.limit(scan_limit)
+        for release_id, metadata_json in (await self.db.execute(tv_stmt)).all():
+            _record(
+                entity_type="tv_release",
+                entity_id=release_id,
+                kind=ItemKind.tv,
+                metadata_json=metadata_json,
+            )
+
         edition_stmt = (
             select(Edition.id, Item.kind, Edition.metadata_json)
             .join(Item, Edition.item_id == Item.id)
@@ -198,14 +257,10 @@ class AdminCatalogService:
                 metadata_json=metadata_json,
             )
 
-        typed_stmt = (
-            select(Item)
-            .options(
-                selectinload(Item.editions),
-                MetadataRepository(self.db)._kind_metadata_loader(),
-            )
-            .order_by(Item.id.asc())
-        )
+        typed_stmt = select(Item).options(
+            selectinload(Item.editions),
+            selectinload(Item.kind_metadata),
+        ).order_by(Item.id.asc())
         if scan_limit is not None:
             typed_stmt = typed_stmt.limit(scan_limit)
         typed_rows = (await self.db.execute(typed_stmt)).scalars()
@@ -281,7 +336,25 @@ class AdminCatalogService:
         payload: AdminMetadataCorrectionRequest,
         kind: ItemKind | None = None,
     ) -> Any:
-        item = await MetadataRepository(self.db).get_item(item_id, kind)
+        stmt = (
+            select(Item)
+            .options(
+                selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.kind_metadata),
+                selectinload(Item.alias_entries),
+                selectinload(Item.link_entries),
+                selectinload(Item.provider_links),
+                selectinload(Item.primary_bundle_releases),
+                selectinload(Item.organization_links).selectinload(EntityOrganization.organization),
+                selectinload(Item.creator_links).selectinload(EntityPerson.person),
+                selectinload(Item.character_appearances).selectinload(CharacterAppearance.character),
+                selectinload(Item.story_arc_items).selectinload(StoryArcItem.story_arc),
+            )
+            .where(Item.id == item_id)
+        )
+        if kind is not None:
+            stmt = stmt.where(Item.kind == kind)
+        item = await self.db.scalar(stmt)
         if item is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -510,10 +583,18 @@ class AdminCatalogService:
         )
         await self.db.commit()
         updated_item_id = item.id
+        updated_item_kind = item.kind
         self.db.expire_all()
-        loaded_item = await MetadataRepository(self.db).get_item(updated_item_id)
+        loaded_item = await self.db.scalar(
+            select(Item)
+            .options(
+                selectinload(Item.editions).selectinload(Edition.variants),
+                selectinload(Item.kind_metadata),
+            )
+            .where(Item.id == updated_item_id, Item.kind == updated_item_kind)
+        )
         if loaded_item:
-            await SearchClient().index_documents_best_effort([item_search_document(loaded_item)])
+            await SearchClient().index_documents_best_effort([catalog_search_document(loaded_item)])
         return await self._item_response_loader(loaded_item)
 
     def _validated_physical_format(
@@ -1007,3 +1088,20 @@ class AdminCatalogService:
             )
         )
         await self.db.flush()
+
+    async def _load_native_catalog_entity(self, kind: ItemKind, entity_id: UUID) -> Any | None:
+        model_by_kind = {
+            ItemKind.book: BookWork,
+            ItemKind.comic: ComicWork,
+            ItemKind.manga: MangaWork,
+            ItemKind.anime: AnimeSeries,
+            ItemKind.movie: MovieWork,
+            ItemKind.tv: TVRelease,
+            ItemKind.music: MusicRelease,
+            ItemKind.game: GameWork,
+            ItemKind.boardgame: BoardGameWork,
+        }
+        model = model_by_kind.get(kind)
+        if model is None:
+            return None
+        return await self.db.get(model, entity_id)

@@ -5,17 +5,14 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
-from app.schemas import (
-    AnimeSeriesV1Response,
-    BoardGameWorkV1Response,
-    BookWorkV1Response,
-    ComicWorkV1Response,
-    GameWorkV1Response,
-    MangaWorkV1Response,
-    MovieWorkV1Response,
-    MusicReleaseV1Response,
-    TVSeriesV1Response,
-)
+from app.schemas.metadata_anime import AnimeSeriesV1Response
+from app.schemas.metadata_board_games import BoardGameWorkV1Response
+from app.schemas.metadata_books import BookWorkV1Response
+from app.schemas.metadata_comics import ComicWorkV1Response
+from app.schemas.metadata_games import GameWorkV1Response
+from app.schemas.metadata_manga import MangaWorkV1Response
+from app.schemas.metadata_video import MovieWorkV1Response, TVSeriesV1Response
+from app.schemas.metadata_music import MusicReleaseV1Response
 
 
 class ProviderStatusResponse(BaseModel):

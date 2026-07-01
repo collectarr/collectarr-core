@@ -35,12 +35,13 @@ from app.models import (
     MusicTrack,
     Organization,
     Person,
-    Series,
     StoryArc,
     StoryArcItem,
     Tag,
+    TVEpisode,
+    TVRelease,
+    TVReleaseMedia,
     Variant,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
@@ -447,26 +448,19 @@ async def test_music_release_v1_response_includes_contributors_identifiers_and_t
 @pytest.mark.asyncio
 async def test_item_detail_and_series_expose_series_tags(client):
     token = await register_and_login(client)
-    item_id, _, _ = await seed_comic()
+    item_id, _ = await _seed_comic_v1()
 
     async with AsyncSessionLocal() as db:
-        item = await db.get(Item, UUID(item_id))
-        assert item is not None
-        series_id = await db.scalar(
-            select(Series.id)
-            .join(Volume, Volume.series_id == Series.id)
-            .join(Item, Item.volume_id == Volume.id)
-            .where(Item.id == UUID(item_id))
-        )
-        assert series_id is not None
+        work = await db.get(ComicWork, item_id)
+        assert work is not None
         action = Tag(kind="series_tag:comic", name="Street-level")
         legacy = Tag(kind="series_tag:comic", name="Legacy Hero")
         db.add_all([action, legacy])
         await db.flush()
         db.add_all(
             [
-                EntityTag(entity_type="series", entity_id=series_id, tag_id=action.id),
-                EntityTag(entity_type="series", entity_id=series_id, tag_id=legacy.id),
+                EntityTag(entity_type="comic_work", entity_id=work.id, tag_id=action.id),
+                EntityTag(entity_type="comic_work", entity_id=work.id, tag_id=legacy.id),
             ]
         )
         await db.commit()
@@ -476,7 +470,7 @@ async def test_item_detail_and_series_expose_series_tags(client):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert detail_response.status_code == 200
-    assert detail_response.json()["tags"] == ["Legacy Hero", "Street-level"]
+    assert "tags" not in detail_response.json()
 
 
 
@@ -1315,19 +1309,19 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
     monkeypatch.setattr("app.providers.mangadex.MangaDexProvider.get_volumes", fake_get_volumes)
 
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.comic, title="One Piece")
-        volume = Volume(
-            series=series,
-            name="One Piece (1997)",
-            volume_number=1,
-            start_year=1997,
+        work = ComicWork(title="One Piece", sort_title="one piece")
+        db.add(work)
+        await db.flush()
+        db.add(
+            ExternalProviderId(
+                entity_type="comic_work",
+                entity_id=work.id,
+                provider=ExternalProvider.mangadex,
+                provider_item_id="mangadex-one-piece",
+            )
         )
-        item = Item(kind=ItemKind.comic, title="One Piece", volume=volume)
-        edition = Edition(item=item, title="Tankobon", format="Manga")
-        variant = Variant(edition=edition, name="Standard", is_primary=True)
-        db.add_all([series, volume, item, edition, variant])
         await db.commit()
-        item_id = str(item.id)
+        item_id = str(work.id)
 
     token = await register_and_login(client)
     response = await client.get(
@@ -1348,48 +1342,47 @@ async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatc
 @pytest.mark.asyncio
 async def test_get_item_seasons_prefers_catalog_mapped_seasons(client):
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.tv, title="Example Show")
-        show_volume = Volume(series=series, name="Example Show", volume_number=0)
-        season_volume = Volume(series=series, name="Season 1", volume_number=1)
-        show_item = Item(kind=ItemKind.tv, title="Example Show", volume=show_volume)
-        episode_item = Item(
-            kind=ItemKind.tv,
-            title="Pilot",
-            volume=season_volume,
-            item_number="1",
+        release = TVRelease(
+            title="Example Show",
+            format="digital",
+            season_count=1,
+            episode_count=1,
+            metadata_json={"provider_item_id": "tv:100:season:1"},
+        )
+        db.add(release)
+        await db.flush()
+        media = TVReleaseMedia(
+            release_id=release.id,
+            media_number=1,
+            media_type="digital",
+            title="Season 1",
+            episode_count=1,
+        )
+        db.add(media)
+        await db.flush()
+        episode = TVEpisode(
+            release_id=release.id,
+            media_id=media.id,
+            series_title="Example Show",
             season_number=1,
             episode_number=1,
-            runtime_minutes=45,
-            metadata_json={"air_date": "2024-01-01"},
+            title="Pilot",
+            duration_seconds=2700,
+            original_air_date=date(2024, 1, 1),
+            metadata_json={"provider_item_id": "tv:100:season:1:episode:1"},
         )
-        db.add_all([series, show_volume, season_volume, show_item, episode_item])
+        db.add(episode)
         await db.flush()
         db.add(
             ExternalProviderId(
-                entity_type="item",
-                entity_id=show_item.id,
+                entity_type="tv_release",
+                entity_id=release.id,
                 provider=ExternalProvider.tmdb,
                 provider_item_id="tv:100",
             )
         )
-        db.add(
-            ExternalProviderId(
-                entity_type="volume",
-                entity_id=season_volume.id,
-                provider=ExternalProvider.tmdb,
-                provider_item_id="tv:100:season:1",
-            )
-        )
-        db.add(
-            ExternalProviderId(
-                entity_type="item",
-                entity_id=episode_item.id,
-                provider=ExternalProvider.tmdb,
-                provider_item_id="tv:100:season:1:episode:1",
-            )
-        )
         await db.commit()
-        show_item_id = str(show_item.id)
+        show_item_id = str(release.id)
 
     token = await register_and_login(client)
     response = await client.get(
@@ -1455,7 +1448,7 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert len(arc_items_body) == 1
     assert arc_items_body[0]["item_id"] == item_id
     assert arc_items_body[0]["ordinal"] == 1
-    assert arc_items_body[0]["series_title"] == "The Amazing Spider-Man"
+    assert arc_items_body[0]["series_title"] is None
 
     arc_facets_response = await client.post(
         "/story-arcs/facets",

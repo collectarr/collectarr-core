@@ -7,7 +7,7 @@ Canonical metadata is shared across clients. Personal library data references ca
 Canonical hierarchy:
 
 ```text
-Franchise -> Series -> Volume -> Item -> Edition -> Variant
+Item -> Edition -> Variant
                                       -> Release
 ```
 
@@ -77,15 +77,15 @@ ownership map.
 GCD is the default legal-clean comics seed candidate because it provides CC BY-SA bibliographic issue metadata without an API key. Its provider searches issue-style queries such as `Batman #12`, falls back to issue `#1` for series-only queries such as `Absolute Batman`, normalizes issue detail into canonical metadata, and preserves source provenance.
 
 ComicVine remains an optional personal/non-commercial enrichment provider for
-comics and manga entries. Its issue ingest path stores provider IDs for the
-item and volume, normalizes issue payloads into canonical metadata, and creates
-the first edition, primary cover variant, associated variant covers, and US
-release record. ComicVine search can also expand issue `associated_images` into
-provider candidates, and GCD series searches can merge those candidates as
-controlled variant-cover enrichment. Manga IDs use a `manga:` provider prefix
-while existing comics IDs remain unprefixed. If no `COMICVINE_API_KEY` is
-configured, the provider returns stub data so local development still works
-without secrets.
+comics and manga entries. Its issue ingest path stores provider IDs on the
+item-level catalog records, normalizes issue payloads into canonical metadata,
+and creates the first edition, primary cover variant, associated variant covers,
+and US release record. ComicVine search can also expand issue
+`associated_images` into provider candidates, and GCD series searches can merge
+those candidates as controlled variant-cover enrichment. Manga IDs use a
+`manga:` provider prefix while existing comics IDs remain unprefixed. If no
+`COMICVINE_API_KEY` is configured, the provider returns stub data so local
+development still works without secrets.
 
 OpenLibrary is the first live non-comics provider. It searches Open Library
 works, prefers edition OLIDs for ingest, normalizes book metadata into the same

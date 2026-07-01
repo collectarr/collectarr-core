@@ -251,6 +251,23 @@ class AttrDict(dict):
     __setattr__ = dict.__setitem__
 
 
+def _metadata_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _legacy_series_volume_fields(source: Any) -> dict[str, Any]:
+    metadata = _metadata_dict(getattr(source, "metadata_json", None))
+    return {
+        "series_id": metadata.get("series_id"),
+        "series_title": metadata.get("series_title"),
+        "volume_name": metadata.get("volume_name"),
+        "volume_number": metadata.get("volume_number"),
+        "volume_start_year": metadata.get("volume_start_year"),
+        "franchise_id": metadata.get("franchise_id"),
+        "volume_id": metadata.get("volume_id"),
+    }
+
+
 def _attr_dict(value: Any) -> Any:
     if isinstance(value, dict):
         return AttrDict({key: _attr_dict(inner) for key, inner in value.items()})
@@ -333,15 +350,14 @@ def item_response_from_model(
     creators = _creator_credits(item)
     characters = _character_credits(item)
     story_arcs = _story_arc_credits(item)
-    volume = getattr(item, "volume", None)
-    series = getattr(volume, "__dict__", {}).get("series") if volume is not None else None
+    legacy_volume = _legacy_series_volume_fields(item)
     base.update(
         {
-            "series_id": str(getattr(volume, "series_id", None)) if volume is not None else None,
-            "series_title": getattr(series, "title", None) if series is not None else getattr(volume, "name", None),
-            "volume_name": getattr(volume, "name", None),
-            "volume_number": getattr(volume, "volume_number", None),
-            "volume_start_year": getattr(volume, "start_year", None),
+            "series_id": legacy_volume["series_id"],
+            "series_title": legacy_volume["series_title"],
+            "volume_name": legacy_volume["volume_name"],
+            "volume_number": legacy_volume["volume_number"],
+            "volume_start_year": legacy_volume["volume_start_year"],
             "publisher": _publisher(item),
             "barcode": _barcode(item),
             "cover_date": _date_value(source.get("cover_date")),
@@ -403,8 +419,7 @@ def item_response_from_model(
 
 def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSummaryResponse:
     primary_item = getattr(bundle_release, "primary_item", None)
-    series = getattr(bundle_release, "series", None)
-    volume = getattr(bundle_release, "volume", None)
+    legacy_volume = _legacy_series_volume_fields(bundle_release)
     items = list(getattr(bundle_release, "items", []) or [])
     primary_count = sum(1 for member in items if getattr(member, "is_primary", False))
     return BundleReleaseSummaryResponse(
@@ -425,10 +440,10 @@ def bundle_release_summary_from_model(bundle_release: Any) -> BundleReleaseSumma
         thumbnail_image_url=getattr(bundle_release, "thumbnail_image_url", None),
         primary_item_id=getattr(primary_item, "id", None),
         primary_item_title=getattr(primary_item, "title", None),
-        series_id=getattr(series, "id", None),
-        series_title=getattr(series, "title", None),
-        volume_id=getattr(volume, "id", None),
-        volume_name=getattr(volume, "name", None),
+        series_id=legacy_volume["series_id"],
+        series_title=legacy_volume["series_title"],
+        volume_id=legacy_volume["volume_id"],
+        volume_name=legacy_volume["volume_name"],
         content_summary=BundleReleaseContentSummaryResponse(
             total_items=len(items),
             primary_count=primary_count,
@@ -471,7 +486,7 @@ def bundle_release_detail_from_model(
     ]
     return BundleReleaseDetailResponse(
         **summary.model_dump(),
-        franchise_id=getattr(bundle_release, "franchise_id", None),
+        franchise_id=_legacy_series_volume_fields(bundle_release)["franchise_id"],
         provider_links=external_provider_links,
         members=[
             BundleReleaseMemberResponse(
@@ -486,10 +501,10 @@ def bundle_release_detail_from_model(
                 kind=public_item_kind(getattr(member.item, "kind", None)),
                 title=member.item.title,
                 item_number=getattr(member.item, "item_number", None),
-                series_id=getattr(getattr(getattr(member.item, "volume", None), "series", None), "id", None),
-                series_title=getattr(getattr(getattr(member.item, "volume", None), "series", None), "title", None),
-                volume_name=getattr(getattr(member.item, "volume", None), "name", None),
-                volume_number=getattr(getattr(member.item, "volume", None), "volume_number", None),
+                series_id=_legacy_series_volume_fields(member.item)["series_id"],
+                series_title=_legacy_series_volume_fields(member.item)["series_title"],
+                volume_name=_legacy_series_volume_fields(member.item)["volume_name"],
+                volume_number=_legacy_series_volume_fields(member.item)["volume_number"],
             )
             for member in members
         ],

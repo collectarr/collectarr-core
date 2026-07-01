@@ -12,17 +12,16 @@ to catalog series are allowed in Core.
 
 ## Central Catalog
 
-The backend currently keeps the comics-first class names for compatibility, but the schema is
-generalized around this shape:
+The central schema is organized around item/release records plus per-kind grouping tables
+where they still make sense:
 
 | Concept | Current table | General meaning |
 | --- | --- | --- |
-| Work/franchise | `franchises` | Abstract work/franchise such as Naruto, Batman, Dune, Elden Ring |
-| Series/run | `series` | Comic run, manga series, TV show, music artist catalog, game series |
-| Volume/group | `volumes` | Comic volume, TV season, manga run, album grouping |
-| Release/item | `items` | Issue, volume, episode, movie, album, book, game, expansion |
+| Item | `items` | Issue, episode, movie, album, book, game, expansion |
 | Edition | `editions` | Format/region/language/publisher-level edition |
 | Variant | `variants` | Cover, platform, pressing, steelbook, collector edition, regional variant |
+| Bundle | `bundle_releases` | Multi-item package or box set |
+| Bundle membership | `bundle_release_items` | Items contained in a bundle |
 
 Supported media kinds are:
 
@@ -45,7 +44,7 @@ The central catalog also has generic relationship tables:
 - `persons`: creators, writers, artists, directors, actors, authors, musicians.
 - `entity_organizations`: organization roles attached to work/series/release/variant entities.
 - `entity_persons`: person roles attached to work/series/release/variant entities.
-- `tags`: genres, characters, arcs, franchises, themes, and shared series-level editorial tags.
+- `tags`: genres, characters, arcs, themes, and shared editorial tags.
 - `entity_tags`: tag assignments.
 - `image_assets`: cover/poster/banner/background image refs in object storage.
 - `image_cache_entries`: mirrored provider cover cache index, including source URL, object key,

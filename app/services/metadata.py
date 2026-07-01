@@ -61,7 +61,6 @@ from app.models import (
     MusicReleaseContribution,
     MusicReleaseIdentifier,
     Person,
-    Series,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -70,7 +69,6 @@ from app.models import (
     TVReleaseContribution,
     TVReleaseIdentifier,
     TVReleaseMedia,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.proposal_payload import compact_metadata_payload
@@ -203,8 +201,13 @@ class MetadataService:
     ) -> (
         BookWorkV1Response
         | BoardGameWorkV1Response
+        | AnimeSeriesV1Response
         | ComicWorkV1Response
         | GameWorkV1Response
+        | MangaWorkV1Response
+        | MovieWorkV1Response
+        | MusicReleaseV1Response
+        | TVSeriesV1Response
         | dict[str, Any]
     ):
         if kind == ItemKind.book:
@@ -215,6 +218,16 @@ class MetadataService:
             except ApiHTTPException as exc:
                 if exc.code != "comic_work_not_found":
                     raise
+        if kind == ItemKind.manga:
+            return await self.get_manga_work(item_id)
+        if kind == ItemKind.anime:
+            return await self.get_anime_series(item_id)
+        if kind == ItemKind.movie:
+            return await self.get_movie_work(item_id)
+        if kind == ItemKind.tv:
+            return await self.get_tv_series(item_id)
+        if kind == ItemKind.music:
+            return await self.get_music_release(item_id)
         if kind == ItemKind.game:
             return await self.get_game_work(item_id)
         if kind == ItemKind.boardgame:
@@ -230,9 +243,7 @@ class MetadataService:
             item,
             extra_provider_links=await self._provider_links_for_item(item.id),
         )
-        volume = getattr(item, "volume", None)
-        series_id = getattr(volume, "series_id", None) if volume is not None else None
-        await self._enrich_item_metadata_facets(response, item.id, series_id=series_id)
+        await self._enrich_item_metadata_facets(response, item.id)
         return response
 
     async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
@@ -2839,14 +2850,9 @@ class MetadataService:
                 and (not is_video_item_kind(item.kind) or physical_format_label is not None)
             ):
                 break
-        volume = getattr(item, "__dict__", {}).get("volume")
-        series = getattr(item, "__dict__", {}).get("series")
-        series_title = getattr(item, "series_title", None) or (
-            series.title if series is not None else None
-        )
-        volume_name = getattr(item, "volume_name", None) or (
-            volume.name if volume is not None else None
-        )
+        metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+        series_title = getattr(item, "series_title", None) or metadata.get("series_title")
+        volume_name = getattr(item, "volume_name", None) or metadata.get("volume_name")
         typed_metadata = _typed_kind_metadata(item)
         track_count: int | None = (
             int(typed_metadata["track_count"])
@@ -3201,7 +3207,9 @@ class MetadataService:
             (
                 await self.db.execute(
                     select(ExternalProviderId).where(
-                        ExternalProviderId.entity_type == "item",
+                        ExternalProviderId.entity_type.in_(
+                            ("item", "comic_work", "manga_work")
+                        ),
                         ExternalProviderId.entity_id == item_id,
                     )
                 )
@@ -3256,6 +3264,19 @@ class MetadataService:
         TV-capable provider (TMDB)."""
         from app.providers.base import NormalizedSeason
         from app.schemas import EpisodeResponse
+
+        release = await self.db.scalar(
+            select(TVRelease)
+            .where(TVRelease.id == item_id)
+            .options(
+                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
+                selectinload(TVRelease.episodes),
+                selectinload(TVRelease.media),
+                selectinload(TVRelease.identifiers),
+            )
+        )
+        if release is not None:
+            return await self._tv_release_seasons(release)
 
         catalog_seasons = await self._get_catalog_seasons(item_id)
         if catalog_seasons:
@@ -3313,94 +3334,72 @@ class MetadataService:
 
         return []
 
-    async def _get_catalog_seasons(self, item_id: UUID) -> list[SeasonResponse]:
-        series_id = await self.db.scalar(
-            select(Volume.series_id).join(Item, Item.volume_id == Volume.id).where(Item.id == item_id)
+    async def _tv_release_seasons(self, release: TVRelease) -> list[SeasonResponse]:
+        from app.schemas import EpisodeResponse
+
+        episodes_by_season: dict[int, list[TVEpisode]] = defaultdict(list)
+        for episode in release.episodes or []:
+            episodes_by_season[episode.season_number].append(episode)
+        season_provider_item_id = (
+            release.metadata_json.get("provider_item_id")
+            if isinstance(release.metadata_json, dict)
+            else None
         )
-        if series_id is None:
-            return []
-
-        volume_rows = (
-            await self.db.execute(
-                select(
-                    Volume,
-                    ExternalProviderId.provider_item_id,
-                )
-                .outerjoin(
-                    ExternalProviderId,
-                    (ExternalProviderId.entity_id == Volume.id)
-                    & (ExternalProviderId.entity_type == "volume")
-                    & (ExternalProviderId.provider == ExternalProvider.tmdb),
-                )
-                .where(Volume.series_id == series_id)
-                .order_by(Volume.volume_number, Volume.name)
+        if not season_provider_item_id:
+            season_provider_item_id = next(
+                (
+                    link.provider_item_id
+                    for link in await self._provider_links_for_entity("tv_release", release.id)
+                    if link.provider == ExternalProvider.tmdb and link.provider_item_id
+                ),
+                None,
             )
-        ).all()
-        if not volume_rows:
-            return []
-
-        volume_ids = [volume.id for volume, _ in volume_rows]
-        episode_rows = (
-            await self.db.execute(
-                select(
-                    Item,
-                    ExternalProviderId.provider_item_id,
-                )
-                .outerjoin(
-                    ExternalProviderId,
-                    (ExternalProviderId.entity_id == Item.id)
-                    & (ExternalProviderId.entity_type == "item")
-                    & (ExternalProviderId.provider == ExternalProvider.tmdb),
-                )
-                .where(
-                    Item.volume_id.in_(volume_ids),
-                    Item.season_number.is_not(None),
-                    Item.episode_number.is_not(None),
-                )
-                .order_by(Item.volume_id, Item.episode_number)
-            )
-        ).all()
-        if not episode_rows:
-            return []
-
-        episodes_by_volume: dict[UUID, list[tuple[Item, str | None]]] = {}
-        for episode_item, provider_item_id in episode_rows:
-            episodes_by_volume.setdefault(episode_item.volume_id, []).append(
-                (episode_item, provider_item_id)
-            )
-
         seasons: list[SeasonResponse] = []
-        for volume, provider_item_id in volume_rows:
-            rows = episodes_by_volume.get(volume.id)
-            if not rows:
-                continue
-            first_episode = rows[0][0]
-            season_number = first_episode.season_number
-            if season_number is None:
-                continue
+        for season_number, episodes in sorted(episodes_by_season.items(), key=lambda item: item[0]):
+            ordered_episodes = sorted(
+                episodes,
+                key=lambda episode: (
+                    episode.episode_number,
+                    episode.original_air_date or date.max,
+                    str(episode.id),
+                ),
+            )
             seasons.append(
                 SeasonResponse(
                     season_number=season_number,
-                    title=volume.name or f"Season {season_number}",
-                    provider_item_id=provider_item_id,
-                    air_date=first_episode.air_date or _metadata_date(first_episode.metadata_json, "air_date"),
-                    episode_count=len(rows),
+                    title=f"Season {season_number}",
+                    provider_item_id=season_provider_item_id,
+                    overview=release.description,
+                    air_date=next(
+                        (episode.original_air_date for episode in ordered_episodes if episode.original_air_date),
+                        None,
+                    ),
+                    episode_count=len(ordered_episodes),
+                    poster_url=release.cover_image_url,
                     episodes=[
                         EpisodeResponse(
-                            episode_number=int(episode.episode_number),
+                            episode_number=episode.episode_number,
                             title=episode.title,
-                            provider_item_id=episode_provider_item_id,
-                            overview=episode.synopsis,
-                            air_date=episode.air_date or _metadata_date(episode.metadata_json, "air_date"),
-                            runtime_minutes=episode.runtime_minutes,
-                            page_count=episode.page_count,
+                            provider_item_id=(
+                                episode.metadata_json.get("provider_item_id")
+                                if isinstance(episode.metadata_json, dict)
+                                else None
+                            ),
+                            overview=episode.overview,
+                            air_date=episode.original_air_date,
+                            runtime_minutes=episode.duration_seconds // 60
+                            if episode.duration_seconds is not None
+                            else None,
+                            page_count=None,
                         )
-                        for episode, episode_provider_item_id in rows
+                        for episode in ordered_episodes
                     ],
                 )
             )
-
         return seasons
+
+    async def _get_catalog_seasons(self, item_id: UUID) -> list[SeasonResponse]:
+        return []
 
     async def create_edition(
         self, item_id: UUID, *, title: str, **kwargs: object
@@ -3522,13 +3521,12 @@ class MetadataService:
             for item in (
                 await self.db.execute(
                     select(Item)
-                    .where(Item.id.in_(item_ids))
-                    .options(
-                        selectinload(Item.volume),
-                        selectinload(Item.editions).selectinload(Edition.variants),
-                    )
-                )
-            ).scalars()
+                            .where(Item.id.in_(item_ids))
+                            .options(
+                                selectinload(Item.editions).selectinload(Edition.variants),
+                            )
+                        )
+                    ).scalars()
         }
         results: list[CreatorCreditResponse] = []
         for link in links:
@@ -3543,8 +3541,10 @@ class MetadataService:
                     kind=public_item_kind(item.kind),
                     title=item.title,
                     item_number=item.item_number,
-                    series_title=await self._volume_series_title(item.volume),
-                    volume_name=getattr(item.volume, "name", None),
+                    series_title=getattr(item, "series_title", None)
+                    or (item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None),
+                    volume_name=getattr(item, "volume_name", None)
+                    or (item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None),
                     cover_image_url=self._item_primary_cover_url(item),
                 )
             )
@@ -3564,7 +3564,6 @@ class MetadataService:
                     select(StoryArcItem)
                     .where(StoryArcItem.story_arc_id == story_arc_id)
                     .options(
-                        selectinload(StoryArcItem.item).selectinload(Item.volume),
                         selectinload(StoryArcItem.item)
                         .selectinload(Item.editions)
                         .selectinload(Edition.variants),
@@ -3584,8 +3583,10 @@ class MetadataService:
                 kind=public_item_kind(link.item.kind),
                 title=link.item.title,
                 item_number=link.item.item_number,
-                series_title=await self._volume_series_title(link.item.volume),
-                volume_name=getattr(link.item.volume, "name", None),
+                series_title=getattr(link.item, "series_title", None)
+                or (link.item.metadata_json.get("series_title") if isinstance(link.item.metadata_json, dict) else None),
+                volume_name=getattr(link.item, "volume_name", None)
+                or (link.item.metadata_json.get("volume_name") if isinstance(link.item.metadata_json, dict) else None),
                 cover_image_url=self._item_primary_cover_url(link.item),
             )
             for link in links
@@ -3764,7 +3765,6 @@ class MetadataService:
                     select(CharacterAppearance)
                     .where(CharacterAppearance.character_id == character_id)
                     .options(
-                        selectinload(CharacterAppearance.item).selectinload(Item.volume),
                         selectinload(CharacterAppearance.item)
                         .selectinload(Item.editions)
                         .selectinload(Edition.variants),
@@ -3784,8 +3784,10 @@ class MetadataService:
                 kind=public_item_kind(link.item.kind),
                 title=link.item.title,
                 item_number=link.item.item_number,
-                series_title=getattr(link.item.volume, "name", None),
-                volume_name=getattr(link.item.volume, "name", None),
+                series_title=getattr(link.item, "series_title", None)
+                or (link.item.metadata_json.get("series_title") if isinstance(link.item.metadata_json, dict) else None),
+                volume_name=getattr(link.item, "volume_name", None)
+                or (link.item.metadata_json.get("volume_name") if isinstance(link.item.metadata_json, dict) else None),
                 cover_image_url=self._item_primary_cover_url(link.item),
             )
             for link in links
@@ -3889,38 +3891,23 @@ class MetadataService:
         return candidate.provider_item_id if candidate else None
 
     async def _manga_volume_lookup_query(self, item) -> str:
-        volume = getattr(item, "volume", None)
-        series = getattr(volume, "__dict__", {}).get("series") if volume is not None else None
-        if series is None and volume is not None and getattr(volume, "series_id", None) is not None:
-            series = await self.db.get(Series, volume.series_id)
-        series_title = getattr(series, "title", None) if series is not None else getattr(volume, "name", None)
+        metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+        series_title = metadata.get("volume_name") or metadata.get("series_title")
         title = series_title or item.title
         if not title:
             return ""
-        cleaned = re.sub(r"\s+#?\d+(?:[./-]\d+)?$", "", str(title)).strip()
+        cleaned = re.sub(r"\s*\((?:19|20)\d{2}\)\s*$", "", str(title)).strip()
+        cleaned = re.sub(r"\s+#?\d+(?:[./-]\d+)?$", "", cleaned).strip()
         return cleaned or str(title).strip()
-
-    async def _volume_series_title(self, volume) -> str | None:
-        if volume is None:
-            return None
-        series = getattr(volume, "__dict__", {}).get("series")
-        if series is not None:
-            return getattr(series, "title", None)
-        series_id = getattr(volume, "series_id", None)
-        if series_id is None:
-            return getattr(volume, "name", None)
-        series_row = await self.db.get(Series, series_id)
-        if series_row is None:
-            return getattr(volume, "name", None)
-        return series_row.title or getattr(volume, "name", None)
 
     def _best_mangadex_volume_candidate(
         self,
         item,
         results: list[ProviderSearchResult],
     ) -> ProviderSearchResult | None:
-        series_title = getattr(item.volume, "name", None)
-        volume_name = getattr(item.volume, "name", None)
+        metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+        series_title = metadata.get("series_title")
+        volume_name = metadata.get("volume_name")
         targets = {
             text
             for text in (

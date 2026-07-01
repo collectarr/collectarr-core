@@ -18,13 +18,16 @@ from app.models import (
     ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
+    AnimeSeries,
+    BookSeries,
+    ComicSeries,
+    ComicVolume,
     Item,
     MetadataProposal,
     ProviderIngestJob,
-    Series,
     StoryArcItem,
     Variant,
-    Volume,
+    MangaSeries,
 )
 from app.models.base import ItemKind
 from app.schemas.admin import (
@@ -124,8 +127,13 @@ class AdminOverviewService:
         return AdminCatalogSummaryResponse(
             items=await self._count(Item),
             items_by_kind=await self._item_counts_by_kind(),
-            series=await self._count(Series),
-            volumes=await self._count(Volume),
+            series=(
+                await self._count(BookSeries)
+                + await self._count(ComicSeries)
+                + await self._count(MangaSeries)
+                + await self._count(AnimeSeries)
+            ),
+            volumes=await self._count(ComicVolume),
             editions=await self._count(Edition),
             variants=await self._count(Variant),
             provider_links=await self._provider_link_count(),
@@ -263,7 +271,6 @@ class AdminOverviewService:
     async def _search_documents(self) -> list[dict[str, Any]]:
         result = await self.db.execute(
             select(Item).options(
-                selectinload(Item.volume),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.kind_metadata),

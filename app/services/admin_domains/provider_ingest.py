@@ -37,7 +37,6 @@ from app.models import (
     ComicIssue,
     ComicSeries,
     ComicSeriesMembership,
-    ComicSeriesRelation,
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
@@ -74,8 +73,6 @@ from app.models import (
     ProviderIngestJob,
     ProviderPayloadSnapshot,
     ReleaseStatus,
-    Series,
-    SeriesRelation,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -85,7 +82,6 @@ from app.models import (
     TVReleaseIdentifier,
     TVReleaseMedia,
     Variant,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
 from app.proposal_payload import compact_metadata_payload
@@ -94,7 +90,6 @@ from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
     NormalizedRelation,
-    NormalizedSeason,
     NormalizedTrack,
     NormalizedVariantCover,
 )
@@ -1593,282 +1588,7 @@ class AdminProviderIngestService:
             )
         return variants, mirrored_covers
 
-    async def _create_catalog_item_from_normalized(
-        self,
-        *,
-        provider: MetadataProvider,
-        provider_name: ExternalProvider,
-        provider_item_id: str,
-        provider_raw: Any,
-        normalized: NormalizedItem,
-        ingest_related_collections: bool = True,
-    ) -> tuple[Item, Volume | None, Series | None]:
-        physical_format = self._physical_format_for_normalized(normalized)
-        if physical_format is not None:
-            await self._ensure_physical_format_ref(physical_format)
-        edition_format = physical_format.label if physical_format else normalized.edition_format
-        variant_name = normalized.variant_name or (
-            physical_format.label if physical_format is not None else "Cover A"
-        )
-        variant_type = normalized.variant_type or (
-            physical_format.variant_type if physical_format is not None else None
-        )
-        mirrored_cover = None
-        if self._should_mirror_provider_images(provider):
-            mirrored_cover = await ImageMirror().mirror_cover_best_effort(
-                normalized.cover_image_url,
-                provider_name.value,
-                provider_item_id,
-            )
-        cover_metadata = self._cover_metadata(normalized.cover_image_url, mirrored_cover)
-        volume, series = await self._upsert_volume(
-            normalized.kind,
-            normalized.series_title,
-            normalized.volume_name,
-            normalized.volume_number,
-            normalized.volume_start_year,
-        )
-        item = Item(
-            volume=volume,
-            kind=normalized.kind,
-            title=normalized.title,
-            item_number=normalized.item_number,
-            sort_key=sort_key(normalized.kind, normalized.title, normalized.item_number),
-            synopsis=normalized.synopsis,
-            runtime_minutes=normalized.runtime_minutes,
-            page_count=normalized.page_count,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=normalized.kind,
-                normalized=cover_metadata,
-            ),
-        )
-        release_status = self._normalized_release_status(normalized.release_status)
-        if release_status is not None:
-            await self._ensure_release_status(release_status)
-        edition = Edition(
-            item=item,
-            title=normalized.edition_title or "Standard Edition",
-            format=edition_format,
-            physical_format=physical_format.id if physical_format else None,
-            physical_format_label=physical_format.label if physical_format else None,
-            physical_format_media_family=physical_format.media_family if physical_format else None,
-            physical_format_variant_type=physical_format.variant_type if physical_format else None,
-            publisher=normalized.publisher,
-            isbn=normalized.isbn,
-            imprint=normalized.imprint,
-            subtitle=normalized.subtitle,
-            series_group=normalized.series_group,
-            age_rating=normalized.age_rating,
-            catalog_number=normalized.catalog_number,
-            release_status=release_status,
-            nr_discs=normalized.nr_discs,
-            screen_ratio=normalized.screen_ratio,
-            audio_tracks=normalized.audio_tracks,
-            subtitles=normalized.subtitles,
-            layers=normalized.layers,
-            language=self._normalized_language(normalized.language),
-            region=self._normalized_region(normalized.country),
-            release_date=normalized.release_date,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=normalized.kind,
-                normalized={
-                    "physical_format": physical_format.id if physical_format else None,
-                    "physical_format_label": physical_format.label if physical_format else None,
-                    "physical_format_media_family": physical_format.media_family if physical_format else None,
-                    "physical_format_variant_type": physical_format.variant_type if physical_format else None,
-                    **cover_metadata,
-                },
-                source=provider_raw,
-            ),
-        )
-        variant = Variant(
-            edition=edition,
-            name=variant_name,
-            variant_type=variant_type,
-            physical_format=physical_format.id if physical_format else None,
-            physical_format_label=physical_format.label if physical_format else None,
-            physical_format_media_family=physical_format.media_family if physical_format else None,
-            physical_format_variant_type=physical_format.variant_type if physical_format else None,
-            barcode=normalized.barcode,
-            isbn=normalized.isbn,
-            cover_price_cents=normalized.cover_price_cents,
-            currency=normalized.currency,
-            cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
-            thumbnail_image_key=mirrored_cover.thumbnail_key if mirrored_cover else None,
-            thumbnail_image_url=mirrored_cover.thumbnail_url if mirrored_cover else None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=normalized.kind,
-                normalized={
-                    "physical_format": physical_format.id if physical_format else None,
-                    "physical_format_label": physical_format.label if physical_format else None,
-                    "physical_format_media_family": physical_format.media_family if physical_format else None,
-                    "physical_format_variant_type": physical_format.variant_type if physical_format else None,
-                    **cover_metadata,
-                },
-            ),
-            is_primary=True,
-        )
-        self._upsert_item_kind_metadata(
-            item,
-            {
-                "track_count": normalized.track_count,
-                "tracks": [
-                    {
-                        "position": track.position,
-                        "title": track.title,
-                        "duration_seconds": track.duration_seconds,
-                        "artist": track.artist,
-                        "disc_number": track.disc_number,
-                    }
-                    for track in normalized.tracks
-                ]
-                or None,
-                "platforms": normalized.platforms or None,
-                "genres": normalized.genres or None,
-                "audience_rating": normalized.audience_rating,
-                "color": normalized.color,
-            },
-        )
-        additional_variants, additional_mirrored_covers = await self._comicvine_associated_variants(
-            provider=provider,
-            provider_name=provider_name,
-            provider_item_id=provider_item_id,
-            normalized=normalized,
-            edition=edition,
-            primary_cover_url=normalized.cover_image_url,
-        )
-        self.db.add_all([item, edition, variant, *additional_variants])
-        await self.db.flush()
-        await self._record_provider_snapshot(
-            provider=provider_name,
-            provider_item_id=provider_item_id,
-            entity_type="item",
-            entity_id=item.id,
-            source=provider_raw,
-            normalized={
-                "kind": normalized.kind.value,
-                "title": normalized.title,
-                "item_number": normalized.item_number,
-                "genres": normalized.genres,
-                "platforms": normalized.platforms,
-                "track_count": normalized.track_count,
-                "release_status": normalized.release_status,
-            },
-        )
-        await self._record_provider_snapshot(
-            provider=provider_name,
-            provider_item_id=provider_item_id,
-            entity_type="edition",
-            entity_id=edition.id,
-            source=provider_raw,
-            normalized={
-                "format": edition.format,
-                "physical_format": edition.physical_format,
-                "release_status": edition.release_status,
-                "release_date": str(edition.release_date) if edition.release_date else None,
-                **cover_metadata,
-            },
-        )
-        await self._record_provider_snapshot(
-            provider=provider_name,
-            provider_item_id=provider_item_id,
-            entity_type="variant",
-            entity_id=variant.id,
-            source=provider_raw,
-            normalized={
-                "name": variant.name,
-                "variant_type": variant.variant_type,
-                "physical_format": variant.physical_format,
-                "barcode": variant.barcode,
-                **cover_metadata,
-            },
-        )
-        if mirrored_cover:
-            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
-        for mirrored_variant_cover in additional_mirrored_covers:
-            await ImageCache(self.db).record_mirrored_cover(mirrored_variant_cover)
-        await self._replace_item_provider_links(
-            item.id,
-            provider_name,
-            normalized.provider_ids,
-            provider_urls=provider_link_urls_for_provider(
-                provider_name,
-                normalized.provider_ids,
-                provider_raw,
-            ),
-        )
-        if volume:
-            await self._replace_volume_provider_links(
-                volume,
-                provider_name,
-                normalized.volume_provider_ids,
-            )
-        await self._link_publisher(item.id, normalized.publisher)
-        await self._link_imprint(item.id, normalized.imprint, normalized.publisher)
-        await self._link_people(item.id, provider_name, normalized.creators)
-        await self._link_characters(item.id, provider_name, normalized.characters)
-        await self._link_story_arcs(item.id, provider_name, normalized.story_arcs)
-        await self._link_tags(item.id, "character", normalized.characters)
-        await self._link_tags(item.id, "story_arc", normalized.story_arcs)
-        if volume and series is not None:
-            await self._link_comic_relations(series, normalized.relations)
-        if ingest_related_collections and series and hasattr(provider, "get_seasons"):
-            await self._ingest_seasons(provider, provider_item_id, series, normalized.kind)
-        if ingest_related_collections and series and hasattr(provider, "get_volumes"):
-            await self._ingest_volumes(provider, provider_item_id, series, normalized.kind)
-        return item, volume, series
 
-    async def _upsert_volume(
-        self,
-        kind: ItemKind,
-        series_title: str | None,
-        volume_name: str | None,
-        volume_number: float | None,
-        volume_start_year: int | None,
-    ) -> tuple[Volume | ComicVolume | None, Series | ComicSeries | None]:
-        if not series_title and not volume_name:
-            return None, None
-        title = series_title or volume_name or "Unknown Series"
-        if kind == ItemKind.comic:
-            result = await self.db.execute(select(ComicVolume).where(ComicVolume.title == title))
-            comic_volume = result.scalar_one_or_none()
-            if comic_volume is None:
-                comic_volume = ComicVolume(
-                    title=title,
-                    slug=slug(title),
-                    start_year=volume_start_year,
-                )
-                self.db.add(comic_volume)
-                await self.db.flush()
-            elif comic_volume.start_year is None and volume_start_year is not None:
-                comic_volume.start_year = volume_start_year
-            comic_series = await self._get_or_create_comic_series(title)
-            return comic_volume, comic_series
-        series = await self._get_or_create_series(kind, title)
-        name = volume_name or title
-        result = await self.db.execute(select(Volume).where(Volume.series_id == series.id, Volume.name == name))
-        volume = result.scalar_one_or_none()
-        if volume is None:
-            volume = Volume(
-                series=series,
-                name=name,
-                volume_number=volume_number,
-                start_year=volume_start_year,
-            )
-            self.db.add(volume)
-            await self.db.flush()
-        elif volume.start_year is None and volume_start_year:
-            volume.start_year = volume_start_year
-        if volume.volume_number is None and volume_number is not None:
-            volume.volume_number = volume_number
-        return volume, series
 
     async def _upsert_book_series(
         self,
@@ -1902,44 +1622,7 @@ class AdminProviderIngestService:
         await self.db.flush()
         return series
 
-    async def _link_comic_relations(self, source_series: ComicSeries, relations: list[NormalizedRelation]) -> None:
-        for rel in relations:
-            try:
-                relation_type = SeriesRelationType(rel.relation_type)
-            except ValueError:
-                continue
-            target_series = await self._get_or_create_comic_series(rel.title)
-            if target_series.id == source_series.id:
-                continue
-            existing = await self.db.scalar(
-                select(ComicSeriesRelation.id).where(
-                    ComicSeriesRelation.source_series_id == source_series.id,
-                    ComicSeriesRelation.target_series_id == target_series.id,
-                    ComicSeriesRelation.relation_type == relation_type,
-                )
-            )
-            if existing:
-                continue
-            self.db.add(
-                ComicSeriesRelation(
-                    source_series_id=source_series.id,
-                    target_series_id=target_series.id,
-                    relation_type=relation_type,
-                    provider=rel.provider,
-                    provider_id=rel.provider_id,
-                    start_year=rel.start_year,
-                    image_url=rel.image_url,
-                )
-            )
 
-    async def _get_or_create_comic_series(self, title: str) -> ComicSeries:
-        result = await self.db.execute(select(ComicSeries).where(ComicSeries.title == title))
-        series = result.scalar_one_or_none()
-        if series is None:
-            series = ComicSeries(title=title, slug=slug(title))
-            self.db.add(series)
-            await self.db.flush()
-        return series
 
     async def _get_or_create_manga_series(self, title: str) -> MangaSeries:
         result = await self.db.execute(select(MangaSeries).where(MangaSeries.title == title))
@@ -1950,14 +1633,6 @@ class AdminProviderIngestService:
             await self.db.flush()
         return series
 
-    async def _get_or_create_series(self, kind: ItemKind, title: str) -> Series:
-        result = await self.db.execute(select(Series).where(Series.kind == kind, Series.title == title))
-        series = result.scalar_one_or_none()
-        if series is None:
-            series = Series(kind=kind, title=title, slug=slug(title))
-            self.db.add(series)
-            await self.db.flush()
-        return series
 
     async def _add_provider_links(
         self,
@@ -2035,7 +1710,7 @@ class AdminProviderIngestService:
 
     async def _replace_volume_provider_links(
         self,
-        volume: Volume | ComicVolume,
+        volume: ComicVolume,
         provider: ExternalProvider,
         provider_ids: dict[str, str],
         provider_urls: dict[str, dict[str, str | None]] | None = None,
@@ -2510,13 +2185,12 @@ class AdminProviderIngestService:
         Create or reuse a ComicWork from normalized provider data.
         Returns: (work, created) where created=True if work was newly created, False if reused.
         """
-        volume, series = await self._upsert_volume(
-            ItemKind.comic,
-            normalized.series_title,
-            normalized.volume_name,
-            normalized.volume_number,
+        volume = await self._get_or_create_comic_volume(
+            normalized.series_title or normalized.volume_name,
             normalized.volume_start_year,
         )
+        series_title = normalized.series_title or normalized.volume_name
+        series = await self._get_or_create_comic_series(series_title) if series_title else None
 
         # Check if ComicWork already exists for this volume
         work = None
@@ -2798,6 +2472,36 @@ class AdminProviderIngestService:
             )
         
         return work, work_created
+
+    async def _get_or_create_comic_volume(
+        self,
+        title: str | None,
+        start_year: int | None,
+    ) -> ComicVolume | None:
+        if not title:
+            return None
+        result = await self.db.execute(select(ComicVolume).where(ComicVolume.title == title))
+        volume = result.scalar_one_or_none()
+        if volume is not None:
+            if volume.start_year is None and start_year is not None:
+                volume.start_year = start_year
+            return volume
+        volume = ComicVolume(title=title, slug=slug(title), start_year=start_year)
+        self.db.add(volume)
+        await self.db.flush()
+        return volume
+
+    async def _get_or_create_comic_series(self, title: str | None) -> ComicSeries | None:
+        if not title:
+            return None
+        result = await self.db.execute(select(ComicSeries).where(ComicSeries.title == title))
+        series = result.scalar_one_or_none()
+        if series is not None:
+            return series
+        series = ComicSeries(title=title, slug=slug(title))
+        self.db.add(series)
+        await self.db.flush()
+        return series
 
     async def _create_book_work_from_normalized(
         self,
@@ -4080,189 +3784,8 @@ class AdminProviderIngestService:
                 continue
             self.db.add(EntityTag(entity_type="item", entity_id=item_id, tag_id=tag.id))
 
-    async def _link_relations(self, source_series: Series, relations: list[NormalizedRelation]) -> None:
-        for rel in relations:
-            try:
-                relation_type = SeriesRelationType(rel.relation_type)
-            except ValueError:
-                continue
-            target_kind = rel.kind or source_series.kind
-            target_series = await self._get_or_create_series(target_kind, rel.title)
-            if target_series.id == source_series.id:
-                continue
-            existing = await self.db.scalar(
-                select(SeriesRelation.id).where(
-                    SeriesRelation.source_series_id == source_series.id,
-                    SeriesRelation.target_series_id == target_series.id,
-                    SeriesRelation.relation_type == relation_type,
-                )
-            )
-            if existing:
-                continue
-            self.db.add(
-                SeriesRelation(
-                    source_series_id=source_series.id,
-                    target_series_id=target_series.id,
-                    relation_type=relation_type,
-                    provider=rel.provider,
-                    provider_id=rel.provider_id,
-                    start_year=rel.start_year,
-                    image_url=rel.image_url,
-                )
-            )
 
-    async def _ingest_seasons(
-        self,
-        provider: MetadataProvider,
-        provider_item_id: str,
-        series: Series,
-        kind: ItemKind,
-    ) -> None:
-        if kind not in (ItemKind.tv, ItemKind.movie):
-            return
-        if not hasattr(provider, "get_seasons"):
-            return
-        try:
-            seasons: list[NormalizedSeason] = await provider.get_seasons(provider_item_id)
-        except Exception:
-            logger.warning("Failed to fetch seasons for %s", provider_item_id, exc_info=True)
-            return
-        for season in seasons:
-            volume_name = season.title or f"Season {season.season_number}"
-            volume: Volume | None = None
-            if season.provider_item_id:
-                volume = await self.db.scalar(
-                    select(Volume)
-                    .join(
-                        ExternalProviderId,
-                        (ExternalProviderId.entity_id == Volume.id)
-                        & (ExternalProviderId.entity_type == "volume"),
-                    )
-                    .where(
-                        Volume.series_id == series.id,
-                        ExternalProviderId.provider == ExternalProvider(provider.name),
-                        ExternalProviderId.provider_item_id == season.provider_item_id,
-                    )
-                )
-            if volume is None:
-                result = await self.db.execute(
-                    select(Volume).where(Volume.series_id == series.id, Volume.name == volume_name)
-                )
-                volume = result.scalar_one_or_none()
-            if volume is None:
-                volume = Volume(
-                    series=series,
-                    name=volume_name,
-                    volume_number=season.season_number,
-                    start_year=season.air_date.year if season.air_date else None,
-                )
-                self.db.add(volume)
-                await self.db.flush()
-            if season.provider_item_id:
-                await self._replace_volume_provider_links(
-                    volume.id,
-                    ExternalProvider(provider.name),
-                    {provider.name: season.provider_item_id},
-                )
-            for episode in season.episodes:
-                episode_item_id: UUID | None = None
-                if episode.provider_item_id:
-                    episode_item_id = await self.db.scalar(
-                        select(Item.id)
-                        .join(
-                            ExternalProviderId,
-                            (ExternalProviderId.entity_id == Item.id)
-                            & (ExternalProviderId.entity_type == "item"),
-                        )
-                        .where(
-                            Item.volume_id == volume.id,
-                            ExternalProviderId.provider == ExternalProvider(provider.name),
-                            ExternalProviderId.provider_item_id == episode.provider_item_id,
-                        )
-                    )
-                if episode_item_id is None:
-                    episode_item_id = await self.db.scalar(
-                        select(Item.id).where(
-                            Item.volume_id == volume.id,
-                            Item.season_number == season.season_number,
-                            Item.episode_number == episode.episode_number,
-                        )
-                    )
-                if episode_item_id is None:
-                    episode_item = Item(
-                        volume=volume,
-                        kind=kind,
-                        title=episode.title,
-                        item_number=str(episode.episode_number),
-                        sort_key=sort_key(kind, episode.title, str(episode.episode_number)),
-                        synopsis=episode.overview,
-                        season_number=season.season_number,
-                        episode_number=episode.episode_number,
-                        air_date=episode.air_date,
-                        runtime_minutes=episode.runtime_minutes,
-                    )
-                    self.db.add(episode_item)
-                    await self.db.flush()
-                    episode_item_id = episode_item.id
-                if episode.provider_item_id:
-                    await self._replace_item_provider_links(
-                        episode_item_id,
-                        ExternalProvider(provider.name),
-                        {provider.name: episode.provider_item_id},
-                    )
-        await self.db.flush()
 
-    async def _ingest_volumes(
-        self,
-        provider: MetadataProvider,
-        provider_item_id: str,
-        series: Series,
-        kind: ItemKind,
-    ) -> None:
-        if kind != ItemKind.comic:
-            return
-        try:
-            volumes: list[NormalizedSeason] = await provider.get_volumes(provider_item_id)
-        except Exception:
-            logger.warning("Failed to fetch volumes for %s", provider_item_id, exc_info=True)
-            return
-        for volume_payload in volumes:
-            volume_name = volume_payload.title or f"Volume {volume_payload.season_number}"
-            result = await self.db.execute(
-                select(Volume).where(Volume.series_id == series.id, Volume.name == volume_name)
-            )
-            volume = result.scalar_one_or_none()
-            if volume is None:
-                volume = Volume(
-                    series=series,
-                    name=volume_name,
-                    volume_number=volume_payload.season_number,
-                    start_year=volume_payload.air_date.year if volume_payload.air_date else None,
-                )
-                self.db.add(volume)
-                await self.db.flush()
-            for chapter in volume_payload.episodes:
-                existing_chapter = await self.db.scalar(
-                    select(Item.id).where(
-                        Item.volume_id == volume.id,
-                        Item.item_number == str(chapter.episode_number),
-                    )
-                )
-                if existing_chapter:
-                    continue
-                self.db.add(
-                    Item(
-                        volume=volume,
-                        kind=kind,
-                        title=chapter.title,
-                        item_number=str(chapter.episode_number),
-                        sort_key=sort_key(kind, chapter.title, str(chapter.episode_number)),
-                        synopsis=chapter.overview,
-                        air_date=chapter.air_date,
-                        page_count=chapter.runtime_minutes,
-                    )
-                )
-        await self.db.flush()
 
     async def _get_or_create_organization(self, name: str, organization_type: str) -> Organization:
         result = await self.db.execute(

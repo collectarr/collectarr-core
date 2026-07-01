@@ -1,21 +1,17 @@
 from datetime import date
 
 from app.db.session import AsyncSessionLocal
-from app.models import Edition, Franchise, Item, Series, Variant, Volume
+from app.models import Edition, Item, Variant
 from app.models.base import ItemKind
 
 
 async def seed_comic() -> tuple[str, str, str]:
     async with AsyncSessionLocal() as db:
-        franchise = Franchise(name="Marvel")
-        series = Series(kind=ItemKind.comic, title="The Amazing Spider-Man", franchise=franchise)
-        volume = Volume(name="The Amazing Spider-Man (1963)", series=series, volume_number=1)
         item = Item(
             kind=ItemKind.comic,
             title="The Amazing Spider-Man",
             item_number="1",
             sort_key="amazing-spider-man-001",
-            volume=volume,
         )
         edition = Edition(
             item=item,
@@ -27,7 +23,7 @@ async def seed_comic() -> tuple[str, str, str]:
             release_date=date(1963, 3, 1),
         )
         variant = Variant(edition=edition, name="Cover A", is_primary=True)
-        db.add_all([franchise, series, volume, item, edition, variant])
+        db.add_all([item, edition, variant])
         await db.commit()
         return str(item.id), str(edition.id), str(variant.id)
 

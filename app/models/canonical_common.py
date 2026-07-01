@@ -47,73 +47,10 @@ from app.models.canonical_support import (  # noqa: F401
     Person,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
-    SeriesRelation,
     StoryArc,
     StoryArcItem,
     Tag,
 )
-
-
-class Franchise(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "franchises"
-
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    description: Mapped[str | None] = mapped_column(Text)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-
-class Series(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "series"
-
-    franchise_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("franchises.id", ondelete="SET NULL"), index=True
-    )
-    kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    slug: Mapped[str | None] = mapped_column(String(255), index=True)
-    description: Mapped[str | None] = mapped_column(Text)
-    original_title: Mapped[str | None] = mapped_column(String(255))
-    start_date: Mapped[date | None] = mapped_column(Date)
-    end_date: Mapped[date | None] = mapped_column(Date)
-    status: Mapped[str | None] = mapped_column(String(64), index=True)
-    language: Mapped[str | None] = mapped_column(String(16), index=True)
-    country: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    franchise: Mapped[Franchise | None] = relationship()
-    volumes: Mapped[list["Volume"]] = relationship(back_populates="series")
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == Series.id,
-            ExternalProviderId.entity_type == "series",
-        ),
-        viewonly=True,
-    )
-
-
-class Volume(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "volumes"
-
-    series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    volume_number: Mapped[float | None] = mapped_column(Float)
-    start_year: Mapped[int | None] = mapped_column(Integer)
-    start_date: Mapped[date | None] = mapped_column(Date)
-    end_date: Mapped[date | None] = mapped_column(Date)
-    description: Mapped[str | None] = mapped_column(Text)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    series: Mapped[Series] = relationship(back_populates="volumes")
-    items: Mapped[list["Item"]] = relationship(back_populates="volume")
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == Volume.id,
-            ExternalProviderId.entity_type == "volume",
-        ),
-        viewonly=True,
-    )
 
 
 class Item(UuidMixin, TimestampMixin, Base):
@@ -130,9 +67,6 @@ class Item(UuidMixin, TimestampMixin, Base):
         ),
     )
 
-    volume_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="SET NULL"), index=True
-    )
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     original_title: Mapped[str | None] = mapped_column(String(255))
@@ -152,7 +86,6 @@ class Item(UuidMixin, TimestampMixin, Base):
     page_count: Mapped[int | None] = mapped_column(Integer)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    volume: Mapped[Volume | None] = relationship(back_populates="items")
     editions: Mapped[list["Edition"]] = relationship(back_populates="item")
     primary_bundle_releases: Mapped[list["BundleRelease"]] = relationship(
         back_populates="primary_item",
@@ -716,22 +649,12 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     __tablename__ = "bundle_releases"
     __table_args__ = (
         Index("ix_bundle_releases_kind_bundle_type", "kind", "bundle_type"),
-        Index("ix_bundle_releases_series_release_date", "series_id", "release_date"),
         Index("ix_bundle_releases_format_region", "format", "region"),
     )
 
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     bundle_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    franchise_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("franchises.id", ondelete="SET NULL"), index=True
-    )
-    series_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="SET NULL"), index=True
-    )
-    volume_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="SET NULL"), index=True
-    )
     primary_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
     )
@@ -750,9 +673,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    franchise: Mapped[Franchise | None] = relationship()
-    series: Mapped[Series | None] = relationship()
-    volume: Mapped[Volume | None] = relationship()
     primary_item: Mapped[Item | None] = relationship(
         back_populates="primary_bundle_releases",
         foreign_keys=[primary_item_id],

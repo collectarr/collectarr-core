@@ -63,7 +63,6 @@ async def index_once(search: SearchClient | None = None) -> None:
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Item).options(
-                selectinload(Item.volume),
                 selectinload(Item.primary_bundle_releases),
                 selectinload(Item.editions).selectinload(Edition.variants),
             )

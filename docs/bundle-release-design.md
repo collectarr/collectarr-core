@@ -58,9 +58,6 @@ Suggested columns:
 | `kind` | `item_kind` enum | Must match the media family of the contained items |
 | `title` | `String(255)` not null | Package display title |
 | `bundle_type` | `String(64)` nullable, indexed | `box_set`, `collection`, `compilation`, `anthology`, `season_pack`, `starter_set`, `omnibus`, `deluxe_set` |
-| `franchise_id` | UUID nullable FK -> `franchises.id` | Optional browse anchor |
-| `series_id` | UUID nullable FK -> `series.id` | Optional browse anchor |
-| `volume_id` | UUID nullable FK -> `volumes.id` | Optional browse anchor |
 | `primary_item_id` | UUID nullable FK -> `items.id` | Main item for result ranking and fallback display |
 | `format` | `String(64)` nullable, indexed | Display label such as `Blu-ray`, `4K UHD`, `CD`, `Vinyl`, `Digital` |
 | `variant_type` | `String(64)` nullable, indexed | `physical` or `digital` |
@@ -83,7 +80,6 @@ Suggested columns:
 Recommended indexes:
 
 - `ix_bundle_releases_kind_bundle_type` on `(kind, bundle_type)`
-- `ix_bundle_releases_series_release_date` on `(series_id, release_date)`
 - `ix_bundle_releases_primary_item` on `(primary_item_id)`
 - `ix_bundle_releases_barcode` on `(barcode)`
 - `ix_bundle_releases_format_region` on `(format, region)`
@@ -144,15 +140,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     bundle_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    franchise_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("franchises.id", ondelete="SET NULL"), index=True
-    )
-    series_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="SET NULL"), index=True
-    )
-    volume_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("volumes.id", ondelete="SET NULL"), index=True
-    )
     primary_item_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
     )

@@ -73,7 +73,7 @@ GET /admin/catalog/summary
 ```
 
 Returns total counts for items, editions, variants, releases, series, volumes,
-people, organizations, and tags.
+bundle releases, people, organizations, and tags.
 
 ## Audit Log
 

@@ -44,7 +44,6 @@ from app.models.canonical_support import (  # noqa: F401
     Person,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
-    SeriesRelation,
     StoryArc,
     StoryArcItem,
     Tag,

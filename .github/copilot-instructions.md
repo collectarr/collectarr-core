@@ -16,11 +16,10 @@
 
 ### Database Hierarchy
 ```
-Franchise (optional) → Series → Volume → Item → Edition → Variant (+ Release)
+Item → Edition → Variant (+ Release)
 ```
-- This hierarchy still applies where it makes semantic sense (mostly book/comic/manga/TV-style cataloging).
-- Do not force it onto kinds with their own native v1 models (music, boardgame, game).
-- Prefer per-kind work/release structures for those kinds instead of routing them through shared series/volume layers.
+- Keep the canonical catalog on the item/release spine; prefer per-kind work/release structures where they exist.
+- Do not force shared legacy grouping layers onto kinds with native v1 models (music, boardgame, game).
 - Models in `app/models/canonical.py` (SQLAlchemy 2.x async, `mapped_column`)
 - Migrations: Alembic (`alembic/`). **Pre-2.0 policy: a single squashed baseline**
   (`alembic/versions/20260624_1000_clean_schema_baseline.py`, which runs

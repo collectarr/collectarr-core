@@ -25,16 +25,13 @@ from app.models import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
-    Franchise,
     Item,
     Organization,
     Person,
-    Series,
     StoryArc,
     StoryArcItem,
     Tag,
     Variant,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
@@ -1262,63 +1259,12 @@ ALL_SEED_ENTRIES: list[SeedEntry] = (
 # ---------------------------------------------------------------------------
 #  Database helpers
 # ---------------------------------------------------------------------------
-async def _get_or_create_franchise(db, name: str) -> Franchise:
-    result = await db.execute(select(Franchise).where(Franchise.name == name))
-    franchise = result.scalar_one_or_none()
-    if franchise is not None:
-        return franchise
-    franchise = Franchise(name=name, description=f"{name} seed data.")
-    db.add(franchise)
-    await db.flush()
-    return franchise
-
-
-async def _get_or_create_series(db, entry: SeedEntry, franchise: Franchise) -> Series:
-    result = await db.execute(select(Series).where(Series.slug == entry.slug))
-    series = result.scalar_one_or_none()
-    if series is not None:
-        return series
-    series = Series(
-        franchise=franchise,
-        kind=entry.kind,
-        title=entry.series,
-        slug=entry.slug,
-        description=f"Seed data for {entry.series}.",
-        original_title=entry.series_original_title,
-        start_date=date(entry.start_year, 1, 1),
-        status=entry.series_status,
-        language=entry.series_language,
-        country=entry.series_country,
-    )
-    db.add(series)
-    await db.flush()
-    return series
-
-
-async def _get_or_create_volume(db, entry: SeedEntry, series: Series) -> Volume:
-    result = await db.execute(select(Volume).where(Volume.name == entry.volume))
-    volume = result.scalar_one_or_none()
-    if volume is not None:
-        return volume
-    volume = Volume(
-        series=series,
-        name=entry.volume,
-        volume_number=entry.volume_number,
-        start_year=entry.start_year,
-        start_date=date(entry.start_year, 1, 1),
-        description=f"Volume {entry.volume_number} of {entry.series}.",
-    )
-    db.add(volume)
-    await db.flush()
-    return volume
-
-
-async def _get_or_create_item(db, entry: SeedEntry, volume: Volume) -> Item:
+async def _get_or_create_item(db, entry: SeedEntry) -> Item:
     result = await db.execute(
         select(Item).where(
-            Item.volume_id == volume.id,
             Item.item_number == entry.item_number,
             Item.kind == entry.kind,
+            Item.sort_key == entry.sort_key,
         )
     )
     item = result.scalar_one_or_none()
@@ -1335,7 +1281,6 @@ async def _get_or_create_item(db, entry: SeedEntry, volume: Volume) -> Item:
         return item
 
     item = Item(
-        volume=volume,
         kind=entry.kind,
         title=entry.title,
         title_extension=entry.title_extension,
@@ -1493,8 +1438,6 @@ async def _ensure_series_bundle_releases(
     db,
     *,
     entry: SeedEntry,
-    series: Series,
-    volume: Volume,
     items: list[Item],
 ) -> None:
     if len(items) < 2:
@@ -1522,7 +1465,7 @@ async def _ensure_series_bundle_releases(
             select(BundleRelease).where(
                 BundleRelease.kind == entry.kind,
                 BundleRelease.title == bundle_title,
-                BundleRelease.series_id == series.id,
+                BundleRelease.primary_item_id == chunk[0].id,
             )
         )
         bundle = result.scalar_one_or_none()
@@ -1531,9 +1474,9 @@ async def _ensure_series_bundle_releases(
                 kind=entry.kind,
                 title=bundle_title,
                 bundle_type="collection",
-                franchise_id=series.franchise_id,
-                series_id=series.id,
-                volume_id=volume.id,
+                franchise_id=None,
+                series_id=None,
+                volume_id=None,
                 primary_item_id=chunk[0].id,
                 format=_bundle_format_for_kind(entry.kind),
                 variant_type="standard",
@@ -1802,34 +1745,15 @@ async def _ensure_story_arcs(
 # ---------------------------------------------------------------------------
 async def seed() -> None:
     async with AsyncSessionLocal() as db:
-        franchises: dict[str, Franchise] = {}
-        series_by_slug: dict[str, Series] = {}
-        volumes_by_name: dict[str, Volume] = {}
         person_cache: dict[str, Person] = {}
         org_cache: dict[str, Organization] = {}
         char_cache: dict[str, Character] = {}
         tag_cache: dict[str, Tag] = {}
         arc_cache: dict[str, StoryArc] = {}
         items_by_slug: dict[str, list[Item]] = {}
-        series_by_slug_context: dict[str, tuple[SeedEntry, Series, Volume]] = {}
 
         for entry in ALL_SEED_ENTRIES:
-            franchise = franchises.get(entry.franchise)
-            if franchise is None:
-                franchise = await _get_or_create_franchise(db, entry.franchise)
-                franchises[entry.franchise] = franchise
-
-            series = series_by_slug.get(entry.slug)
-            if series is None:
-                series = await _get_or_create_series(db, entry, franchise)
-                series_by_slug[entry.slug] = series
-
-            volume = volumes_by_name.get(entry.volume)
-            if volume is None:
-                volume = await _get_or_create_volume(db, entry, series)
-                volumes_by_name[entry.volume] = volume
-
-            item = await _get_or_create_item(db, entry, volume)
+            item = await _get_or_create_item(db, entry)
             await _ensure_editions_and_variants(db, entry, item)
             await _ensure_provider_id(db, entry, item)
             await _ensure_publisher_org(db, entry, item, org_cache)
@@ -1839,17 +1763,10 @@ async def seed() -> None:
             await _ensure_story_arcs(db, entry, item, arc_cache)
 
             items_by_slug.setdefault(entry.slug, []).append(item)
-            series_by_slug_context[entry.slug] = (entry, series, volume)
 
         for slug, items in items_by_slug.items():
-            entry, series, volume = series_by_slug_context[slug]
-            await _ensure_series_bundle_releases(
-                db,
-                entry=entry,
-                series=series,
-                volume=volume,
-                items=items,
-            )
+            entry = next(seed_entry for seed_entry in ALL_SEED_ENTRIES if seed_entry.slug == slug)
+            await _ensure_series_bundle_releases(db, entry=entry, items=items)
 
         await db.commit()
         print(f"Seeded {len(ALL_SEED_ENTRIES)} items across all library types.")

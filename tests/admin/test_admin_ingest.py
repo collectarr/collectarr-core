@@ -19,6 +19,7 @@ from app.models import (
     ComicIdentifier,
     ComicIssue,
     ComicStoryArcMembership,
+    ComicSeries,
     ComicVolume,
     ComicWork,
     Edition,
@@ -36,12 +37,10 @@ from app.models import (
     Person,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
-    Series,
     StoryArc,
     StoryArcItem,
     Tag,
     Variant,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (
@@ -1169,21 +1168,17 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.comic, title="Absolute Batman")
-        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
         primary = Item(
             kind=ItemKind.comic,
             title="Absolute Batman",
             item_number="1",
             sort_key="absolute-batman-000001",
-            volume=volume,
         )
         duplicate = Item(
             kind=ItemKind.comic,
             title="Absolute Batman",
             item_number="1",
             sort_key="absolute-batman-000001-duplicate",
-            volume=volume,
         )
         primary_edition = Edition(
             item=primary,
@@ -1208,19 +1203,7 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
             query="Absolute Batman #1",
             status="pending",
         )
-        db.add_all(
-            [
-                series,
-                volume,
-                primary,
-                duplicate,
-                primary_edition,
-                duplicate_edition,
-                primary_variant,
-                duplicate_variant,
-                proposal,
-            ]
-        )
+        db.add_all([primary, duplicate, primary_edition, duplicate_edition, primary_variant, duplicate_variant, proposal])
         await db.flush()
         db.add(
             ExternalProviderId(
@@ -1243,8 +1226,8 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert body["items_by_kind"]["comic"] == 2
     assert body["items_by_kind"]["manga"] == 0
     assert body["items_by_kind"]["movie"] == 0
-    assert body["series"] == 1
-    assert body["volumes"] == 1
+    assert body["series"] == 0
+    assert body["volumes"] == 0
     assert body["editions"] == 2
     assert body["variants"] == 2
     assert body["provider_links"] == 1
@@ -1388,14 +1371,11 @@ async def test_admin_search_reindex_replaces_index_documents(client, monkeypatch
     state = {"configured": False, "documents": []}
 
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.comic, title="Absolute Batman")
-        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
         item = Item(
             kind=ItemKind.comic,
             title="Absolute Batman",
             item_number="1",
             sort_key="absolute-batman-000001",
-            volume=volume,
         )
         edition = Edition(
             item=item,
@@ -1409,7 +1389,7 @@ async def test_admin_search_reindex_replaces_index_documents(client, monkeypatch
             barcode="76194138584600111",
             is_primary=True,
         )
-        db.add_all([series, volume, item, edition, variant])
+        db.add_all([item, edition, variant])
         await db.commit()
 
     class FakeSearchClient:
@@ -1455,21 +1435,17 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.comic, title="Absolute Batman")
-        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
         target = Item(
             kind=ItemKind.comic,
             title="Absolute Batman",
             item_number="1",
             sort_key="absolute-batman-000001",
-            volume=volume,
         )
         source = Item(
             kind=ItemKind.comic,
             title="Absolute Batman",
             item_number="1",
             sort_key="absolute-batman-000001-duplicate",
-            volume=volume,
         )
         target_edition = Edition(item=target, title="Standard Edition", publisher="DC Comics")
         source_edition = Edition(item=source, title="Variant Edition", publisher="DC Comics")
@@ -1480,18 +1456,7 @@ async def test_admin_duplicate_merge_moves_catalog_children(client, monkeypatch)
             barcode="76194138584600121",
             is_primary=True,
         )
-        db.add_all(
-            [
-                series,
-                volume,
-                target,
-                source,
-                target_edition,
-                source_edition,
-                target_variant,
-                source_variant,
-            ]
-        )
+        db.add_all([target, source, target_edition, source_edition, target_variant, source_variant])
         await db.flush()
         target_id = str(target.id)
         source_id = str(source.id)
@@ -1541,14 +1506,11 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
     token = await admin_token(client, monkeypatch)
 
     async with AsyncSessionLocal() as db:
-        series = Series(kind=ItemKind.comic, title="Absolute Batman")
-        volume = Volume(series=series, name="Absolute Batman (2024)", start_year=2024)
         item = Item(
             kind=ItemKind.comic,
             title="Absolute Batman",
             item_number="1",
             sort_key="absolute-batman-000001",
-            volume=volume,
             page_count=48,
         )
         edition = Edition(
@@ -1564,7 +1526,7 @@ async def test_admin_catalog_browser_and_correction_update_item(client, monkeypa
             cover_image_url="https://cdn.example/old.jpg",
             is_primary=True,
         )
-        db.add_all([series, volume, item, edition, variant])
+        db.add_all([item, edition, variant])
         await db.flush()
         item_id = str(item.id)
         await db.commit()
@@ -2399,8 +2361,8 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(
             select(func.count()).select_from(ComicVolume).where(ComicVolume.title == "The Amazing Spider-Man")
         ) == 1
-        assert await db.scalar(select(func.count()).select_from(Series)) == 0
-        assert await db.scalar(select(func.count()).select_from(Volume)) == 0
+        assert await db.scalar(select(func.count()).select_from(ComicSeries)) == 1
+        assert await db.scalar(select(func.count()).select_from(ComicVolume)) == 1
         assert await db.scalar(select(func.count()).select_from(Variant)) == 0
         assert await db.scalar(select(func.count()).select_from(Organization)) == 0
         assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 0

@@ -31,17 +31,14 @@ from app.models import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
-    Franchise,
     ImageAsset,
     Item,
     Organization,
     Person,
-    Series,
     StoryArc,
     StoryArcItem,
     Tag,
     Variant,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.models.user import User  # noqa: F401 – register User table on Base.metadata
@@ -568,54 +565,6 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
         item_in_series = item_global_idx // len(series_list) + 1
 
         series_title, series_slug, publisher, start_year = series_list[series_idx]
-        franchise_name = data["franchises"][series_idx % len(data["franchises"])]
-
-        # Franchise
-        result = await db.execute(select(Franchise).where(Franchise.name == franchise_name))
-        franchise = result.scalar_one_or_none()
-        if franchise is None:
-            franchise = Franchise(name=franchise_name, description=f"Seed franchise: {franchise_name}")
-            db.add(franchise)
-            await db.flush()
-
-        # Series
-        result = await db.execute(select(Series).where(Series.slug == series_slug, Series.kind == kind))
-        series = result.scalar_one_or_none()
-        if series is None:
-            series = Series(
-                franchise=franchise,
-                kind=kind,
-                title=series_title,
-                slug=series_slug,
-                original_title=f"{series_title} (Original)",
-                description=f"Seed series: {series_title}",
-                start_date=date(start_year, 1, 1),
-                status="ongoing",
-                language="en",
-                country="US",
-                metadata_json={"seed": True, "publisher": publisher},
-            )
-            db.add(series)
-            await db.flush()
-
-        # Volume
-        vol_name = f"{series_title} Vol. {item_in_series}"
-        result = await db.execute(
-            select(Volume).where(Volume.series_id == series.id, Volume.name == vol_name)
-        )
-        volume = result.scalar_one_or_none()
-        if volume is None:
-            volume = Volume(
-                series=series,
-                name=vol_name,
-                volume_number=item_in_series,
-                start_year=start_year + item_in_series - 1,
-                start_date=date(start_year + item_in_series - 1, 1, 1),
-                description=f"Volume {item_in_series} of {series_title}",
-                metadata_json={"seed": True},
-            )
-            db.add(volume)
-            await db.flush()
 
         # Item
         item_number = str(item_global_idx + 1)
@@ -649,15 +598,14 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
 
         result = await db.execute(
             select(Item).where(
-                Item.volume_id == volume.id,
                 Item.item_number == item_number,
                 Item.kind == kind,
+                Item.sort_key == sort_key,
             )
         )
         item = result.scalar_one_or_none()
         if item is None:
             item = Item(
-                volume=volume,
                 kind=kind,
                 title=title,
                 item_number=item_number,
@@ -671,6 +619,8 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
                 metadata_json={
                     "seed": True,
                     "publisher": publisher,
+                    "series_title": series_title,
+                    "series_slug": series_slug,
                     "cover_image_url": cover_url,
                 },
             )
@@ -681,6 +631,8 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
             metadata_json.update({
                 "seed": True,
                 "publisher": publisher,
+                "series_title": series_title,
+                "series_slug": series_slug,
                 "cover_image_url": cover_url,
             })
             item.metadata_json = metadata_json
@@ -935,15 +887,13 @@ async def _seed_kind(db, kind: ItemKind) -> int:  # noqa: C901
         )
         bundle = result.scalar_one_or_none()
         if bundle is None:
-            # Get series for this bundle
-            result = await db.execute(select(Series).where(Series.slug == series_slug, Series.kind == kind))
-            series = result.scalar_one_or_none()
-
             bundle = BundleRelease(
                 kind=kind,
                 title=bundle_title,
                 bundle_type="collection",
-                series_id=series.id if series else None,
+                franchise_id=None,
+                series_id=None,
+                volume_id=None,
                 primary_item_id=first_item.id,
                 format="Box Set" if kind in (ItemKind.tv, ItemKind.music) else "Trade Paperback",
                 variant_type="standard",

@@ -27,7 +27,7 @@ from app.models.base import (
 )
 
 if TYPE_CHECKING:
-    from app.models import ComicSeries, Item, MangaSeries, Series
+    from app.models import ComicSeries, Item, MangaSeries
 
 
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):
@@ -346,43 +346,6 @@ class AdminReleaseMediaMappingRule(UuidMixin, TimestampMixin, Base):
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
     notes: Mapped[str | None] = mapped_column(Text)
-
-
-class SeriesRelation(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "series_relations"
-    __table_args__ = (
-        UniqueConstraint(
-            "source_series_id",
-            "target_series_id",
-            "relation_type",
-            name="uq_series_relations_source_target_type",
-        ),
-    )
-
-    source_series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
-    )
-    target_series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("series.id", ondelete="CASCADE"), index=True
-    )
-    relation_type: Mapped[SeriesRelationType] = mapped_column(
-        Enum(SeriesRelationType, name="series_relation_type", create_type=False),
-        nullable=False,
-        index=True,
-    )
-    ordinal: Mapped[int | None] = mapped_column(Integer)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    start_year: Mapped[int | None] = mapped_column(Integer)
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    source_series: Mapped["Series"] = relationship(
-        foreign_keys=[source_series_id],
-    )
-    target_series: Mapped["Series"] = relationship(
-        foreign_keys=[target_series_id],
-    )
 
 
 class MangaSeriesRelation(UuidMixin, TimestampMixin, Base):

@@ -14,7 +14,6 @@ from app.models import (
     MangaWork,
     Person,
     Tag,
-    Volume,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.anilist import AniListProvider
@@ -417,15 +416,7 @@ async def test_admin_ingest_upserts_anilist_anime_season_bundle(client, monkeypa
                 .order_by(ExternalProviderId.provider_item_id)
             )
         )
-        volume_numbers = list(
-            await db.scalars(
-                select(Volume.volume_number)
-                .where(Volume.volume_number.is_not(None))
-                .order_by(Volume.volume_number)
-            )
-        )
 
     assert item_titles == ["One Piece"]
     assert bundle is None
     assert bundle_provider_ids == []
-    assert volume_numbers == []

@@ -14,7 +14,6 @@ from app.models import (
     ItemKindMetadataTaxonomy,
     StoryArcItem,
     Variant,
-    Volume,
 )
 from app.models.base import ItemKind
 
@@ -30,7 +29,6 @@ class MetadataRepository:
 
     def _item_detail_stmt(self) -> Select[tuple[Item]]:
         return select(Item).options(
-            selectinload(Item.volume),
             selectinload(Item.editions).selectinload(Edition.variants),
             selectinload(Item.alias_entries),
             selectinload(Item.link_entries),
@@ -72,7 +70,6 @@ class MetadataRepository:
         stmt = (
             select(Item)
             .options(
-                selectinload(Item.volume),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.alias_entries),
                 selectinload(Item.link_entries),
@@ -84,7 +81,6 @@ class MetadataRepository:
                 selectinload(Item.character_appearances).selectinload(CharacterAppearance.character),
                 selectinload(Item.story_arc_items).selectinload(StoryArcItem.story_arc),
             )
-            .join(Item.volume, isouter=True)
             .join(Item.editions, isouter=True)
             .join(Edition.variants, isouter=True)
             .order_by(Item.sort_key.nullslast(), Item.title)
@@ -97,7 +93,6 @@ class MetadataRepository:
                 or_(
                     Item.title.ilike(pattern),
                     Item.item_number.ilike(pattern),
-                    Volume.name.ilike(pattern),
                     Edition.publisher.ilike(pattern),
                     Edition.imprint.ilike(pattern),
                     Edition.subtitle.ilike(pattern),
@@ -119,12 +114,7 @@ class MetadataRepository:
             stmt = stmt.where(Item.kind == kind)
         if series:
             pattern = f"%{series.strip()}%"
-            stmt = stmt.where(
-                or_(
-                    Item.title.ilike(pattern),
-                    Volume.name.ilike(pattern),
-                )
-            )
+            stmt = stmt.where(Item.title.ilike(pattern))
         if issue_number:
             normalized = issue_number.strip()
             stmt = stmt.where(
@@ -153,12 +143,7 @@ class MetadataRepository:
         if release_status:
             stmt = stmt.where(Edition.release_status.ilike(f"%{release_status.strip()}%"))
         if year is not None:
-            stmt = stmt.where(
-                or_(
-                    Volume.start_year == year,
-                    extract("year", Edition.release_date) == year,
-                )
-            )
+            stmt = stmt.where(extract("year", Edition.release_date) == year)
         if barcode:
             normalized = self._normalized_barcode_value(barcode)
             stmt = stmt.where(

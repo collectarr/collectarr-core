@@ -261,7 +261,6 @@ class AdminDuplicateService:
         result = await self.db.execute(
             select(Item)
             .options(
-                selectinload(Item.volume),
                 selectinload(Item.editions).selectinload(Edition.variants),
                 selectinload(Item.kind_metadata),
             )

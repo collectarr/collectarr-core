@@ -33,18 +33,14 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
         "title": "Catalog Spine",
-        "description": "Core catalog hierarchy, releases, bundle composition, and series-to-series catalog links.",
+        "description": "Core catalog releases, bundle composition, and per-kind relation tables.",
         "tables": [
-            "franchises",
-            "series",
-            "volumes",
             "items",
             "item_kind_metadata",
             "editions",
             "variants",
             "bundle_releases",
             "bundle_release_items",
-            "series_relations",
         ],
     },
     {
@@ -109,9 +105,6 @@ KIND_SPECS: list[dict[str, str]] = [
 ]
 
 KIND_SHARED_TABLES = [
-    "franchises",
-    "series",
-    "volumes",
     "organizations",
     "persons",
     "entity_organizations",

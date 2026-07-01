@@ -754,17 +754,6 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
 
 
 def tv_release_search_document(release: TVRelease) -> dict[str, Any]:
-    episodes = sorted(
-        getattr(release, "episodes", []) or [],
-        key=lambda row: (
-            getattr(row, "season_number", None) is None,
-            getattr(row, "season_number", None) or 0,
-            getattr(row, "episode_number", None) is None,
-            getattr(row, "episode_number", None) or 0,
-            str(getattr(row, "id", "")),
-        ),
-    )
-    primary_episode = episodes[0] if episodes else None
     creators: list[str] = []
     for contribution in sorted(
         getattr(release, "contributions", []) or [],

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models import (
     AnimeCharacterAppearance,
@@ -29,13 +27,11 @@ from app.models import (
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
-    EntityOrganization,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
     GameRelease,
     GameWork,
-    ImageAsset,
     MangaChapter,
     MangaContribution,
     MangaIdentifier,
@@ -52,7 +48,6 @@ from app.models import (
     MusicReleaseContribution,
     MusicReleaseIdentifier,
     MusicTrack,
-    Organization,
     Person,
     StoryArc,
     StoryArcItem,
@@ -65,8 +60,6 @@ from app.models import (
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
-from app.search.client import SearchClient
-from app.search.documents import catalog_search_document
 
 SEED_MARKER = "seed-native"
 
@@ -531,7 +524,10 @@ async def _ensure_manga_membership(db: AsyncSession, work_id: Any, series_id: An
 async def _ensure_character_appearance(db: AsyncSession, entity_id: Any, character_name: str | None, *, entity_type: str = "comic_work") -> None:
     if not character_name:
         return
-    from app.models import Character, CharacterAppearance  # local import to avoid circulars in all files
+    from app.models import (  # local import to avoid circulars in all files
+        Character,
+        CharacterAppearance,
+    )
 
     result = await db.execute(select(Character).where(Character.name == character_name))
     character = result.scalar_one_or_none()

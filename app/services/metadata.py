@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import status
-from sqlalchemy import func, or_, select
+from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -102,7 +102,6 @@ from app.schemas import (
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
-    EpisodeResponse,
     ExternalProviderIdResponse,
     GameReleaseV1Response,
     GameWorkV1Response,
@@ -138,11 +137,13 @@ from app.schemas import (
     TVSeriesV1Response,
     public_item_kind,
 )
+from app.schemas import (
+    EpisodeResponse as ProviderEpisodeResponse,
+)
 from app.schemas.metadata_shared import EditionResponse, SearchResult
 from app.search.client import SearchClient
 from app.services.metadata_helpers import (
     _loaded_rows,
-    _metadata_date,
     _metadata_links,
     _metadata_list,
     _model_text_or_metadata,
@@ -4329,7 +4330,6 @@ class MetadataService:
         self, provider_name: ExternalProvider, provider_item_id: str
     ) -> list[SeasonResponse]:
         from app.providers.base import NormalizedSeason
-        from app.schemas import EpisodeResponse
 
         provider = self.providers.maybe_get(provider_name)
         if provider is None:
@@ -4355,7 +4355,7 @@ class MetadataService:
                 episode_count=s.episode_count,
                 poster_url=s.poster_url,
                 episodes=[
-                    EpisodeResponse(
+                    ProviderEpisodeResponse(
                         episode_number=ep.episode_number,
                         title=ep.title,
                         provider_item_id=ep.provider_item_id,
@@ -4374,7 +4374,6 @@ class MetadataService:
         self, provider_name: ExternalProvider, provider_item_id: str
     ) -> list[SeasonResponse]:
         from app.providers.base import NormalizedSeason
-        from app.schemas import EpisodeResponse
 
         provider = self.providers.maybe_get(provider_name)
         if provider is None:
@@ -4400,7 +4399,7 @@ class MetadataService:
                 episode_count=v.episode_count,
                 poster_url=v.poster_url,
                 episodes=[
-                    EpisodeResponse(
+                    ProviderEpisodeResponse(
                         episode_number=ep.episode_number,
                         title=ep.title,
                         provider_item_id=ep.provider_item_id,
@@ -4419,7 +4418,6 @@ class MetadataService:
         """Look up provider links for an item and return volumes from the first
         manga-capable provider (MangaDex, then AniList)."""
         from app.providers.base import NormalizedSeason
-        from app.schemas import EpisodeResponse
 
         _VOLUME_PROVIDERS = [ExternalProvider.mangadex, ExternalProvider.anilist]
 
@@ -4462,7 +4460,7 @@ class MetadataService:
                     episode_count=v.episode_count,
                     poster_url=v.poster_url,
                     episodes=[
-                        EpisodeResponse(
+                        ProviderEpisodeResponse(
                             episode_number=ep.episode_number,
                             title=ep.title,
                             provider_item_id=ep.provider_item_id,
@@ -4483,7 +4481,6 @@ class MetadataService:
         """Look up provider links for an item and return seasons from the first
         TV-capable provider (TMDB)."""
         from app.providers.base import NormalizedSeason
-        from app.schemas import EpisodeResponse
 
         release = await self.db.scalar(
             select(TVRelease)
@@ -4537,7 +4534,7 @@ class MetadataService:
                     episode_count=s.episode_count,
                     poster_url=s.poster_url,
                     episodes=[
-                        EpisodeResponse(
+                        ProviderEpisodeResponse(
                             episode_number=ep.episode_number,
                             title=ep.title,
                             provider_item_id=ep.provider_item_id,
@@ -4555,7 +4552,6 @@ class MetadataService:
         return []
 
     async def _tv_release_seasons(self, release: TVRelease) -> list[SeasonResponse]:
-        from app.schemas import EpisodeResponse
 
         episodes_by_season: dict[int, list[TVEpisode]] = defaultdict(list)
         for episode in release.episodes or []:
@@ -4597,7 +4593,7 @@ class MetadataService:
                     episode_count=len(ordered_episodes),
                     poster_url=release.cover_image_url,
                     episodes=[
-                        EpisodeResponse(
+                        ProviderEpisodeResponse(
                             episode_number=episode.episode_number,
                             title=episode.title,
                             provider_item_id=(

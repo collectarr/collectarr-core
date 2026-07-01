@@ -9,7 +9,6 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     Enum,
-    Float,
     ForeignKey,
     Index,
     Integer,

@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiHTTPException
 from app.models import (
-    AnimeSeries,
     AnimeCharacterAppearance,
     AnimeContribution,
     AnimeEpisode,
     AnimeIdentifier,
+    AnimeSeries,
     BoardGameEdition,
     BoardGameWork,
     BookContribution,
@@ -31,8 +31,8 @@ from app.models import (
     GameRelease,
     GameWork,
     ImageAsset,
-    MangaCharacterAppearance,
     MangaChapter,
+    MangaCharacterAppearance,
     MangaContribution,
     MangaIdentifier,
     MangaSeriesMembership,

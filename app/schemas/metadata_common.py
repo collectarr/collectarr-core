@@ -7,8 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.catalog.grouping_models import GroupingModel
-from app.models.base import ExternalProvider
-from app.models.base import ItemKind
+from app.models.base import ExternalProvider, ItemKind
 
 
 class ProviderSearchResultResponse(BaseModel):

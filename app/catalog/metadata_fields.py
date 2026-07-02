@@ -26,6 +26,7 @@ Two concerns are modelled by a single spec:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from collections.abc import Iterable
 
 from app.catalog.grouping_models import PRINT_GROUPING_KINDS
 from app.models.base import ItemKind
@@ -90,6 +91,18 @@ class MetadataFieldSpec:
     def applies_to(self, kind: ItemKind) -> bool:
         return self.common or kind in self.kinds
 
+    def scope_for_kind(self, kind: ItemKind) -> str:
+        return _scope_for_kind(kind, self.key)
+
+    def write_target_for_kind(self, kind: ItemKind) -> str:
+        return _field_write_target(self.key, kind)
+
+    def source_entity_type_for_kind(self, kind: ItemKind) -> str:
+        return _field_source_entity_type(self.key, kind)
+
+    def source_table_for_kind(self, kind: ItemKind) -> str:
+        return _field_source_table(self.key, kind)
+
     @property
     def scope(self) -> str:
         if self.section == SECTION_INTERNAL:
@@ -119,6 +132,229 @@ class MetadataFieldSpec:
     @property
     def is_legacy_projection(self) -> bool:
         return not self.common and not self.typed and self.section != SECTION_INTERNAL
+
+
+_INTERNAL_BOOKKEEPING_KEYS = {
+    "physical_format_label",
+    "physical_format_media_family",
+    "physical_format_variant_type",
+    "associated_image_id",
+    "cover_delivery_url",
+    "cover_policy",
+    "cover_source_url",
+    "cover_status",
+    "cover_storage",
+}
+
+_LEGACY_PROJECTION_KEYS = {
+    "cover_image_url",
+    "thumbnail_image_url",
+    "synopsis",
+    "crossover",
+    "plot_summary",
+    "plot_description",
+    "series_tags",
+}
+
+_WORK_SCOPE_KEYS = {
+    "title",
+    "original_title",
+    "localized_title",
+    "title_extension",
+    "sort_key",
+    "search_aliases",
+    "item_number",
+    "genres",
+    "platforms",
+    "identifiers",
+    "company_roles",
+    "contributors",
+    "mechanics",
+    "categories",
+    "families",
+    "expansions",
+    "rankings",
+}
+
+_MEDIA_SCOPE_KEYS = {
+    "color",
+    "nr_discs",
+    "screen_ratio",
+    "audio_tracks",
+    "subtitles",
+    "layers",
+    "runtime_minutes",
+    "track_count",
+    "tracks",
+}
+
+_TRACK_SCOPE_KEYS = {"tracks"}
+
+_PROPOSAL_KEYS = {"physical_format", "trailer_urls", "external_links"}
+
+_KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
+    ItemKind.book: {
+        "work": ("book_work", "book_works"),
+        "edition": ("book_edition", "book_editions"),
+        "legacy_projection": ("item", "items"),
+        "media": ("book_edition", "book_editions"),
+        "track": ("book_edition", "book_editions"),
+    },
+    ItemKind.comic: {
+        "work": ("comic_work", "comic_works"),
+        "edition": ("comic_issue", "comic_issues"),
+        "legacy_projection": ("item", "items"),
+        "media": ("comic_issue", "comic_issues"),
+        "track": ("comic_issue", "comic_issues"),
+    },
+    ItemKind.manga: {
+        "work": ("manga_work", "manga_works"),
+        "edition": ("manga_chapter", "manga_chapters"),
+        "legacy_projection": ("item", "items"),
+        "media": ("manga_chapter", "manga_chapters"),
+        "track": ("manga_chapter", "manga_chapters"),
+    },
+    ItemKind.anime: {
+        "work": ("anime_series", "anime_series"),
+        "edition": ("anime_series", "anime_series"),
+        "episode": ("anime_episode", "anime_episodes"),
+        "release": ("anime_series", "anime_series"),
+        "media": ("anime_episode", "anime_episodes"),
+        "legacy_projection": ("item", "items"),
+        "track": ("anime_episode", "anime_episodes"),
+    },
+    ItemKind.movie: {
+        "work": ("movie_work", "movie_works"),
+        "release": ("movie_release", "movie_releases"),
+        "media": ("movie_release_media", "movie_release_media"),
+        "legacy_projection": ("item", "items"),
+        "track": ("movie_release_media", "movie_release_media"),
+    },
+    ItemKind.tv: {
+        "work": ("tv_release", "tv_releases"),
+        "release": ("tv_release", "tv_releases"),
+        "episode": ("tv_episode", "tv_episodes"),
+        "media": ("tv_release_media", "tv_release_media"),
+        "legacy_projection": ("item", "items"),
+        "track": ("tv_release_media", "tv_release_media"),
+    },
+    ItemKind.game: {
+        "work": ("game_work", "game_works"),
+        "release": ("game_release", "game_releases"),
+        "legacy_projection": ("item", "items"),
+        "media": ("game_release", "game_releases"),
+        "track": ("game_release", "game_releases"),
+    },
+    ItemKind.boardgame: {
+        "work": ("boardgame_work", "boardgame_works"),
+        "edition": ("boardgame_edition", "boardgame_editions"),
+        "legacy_projection": ("item", "items"),
+        "media": ("boardgame_edition", "boardgame_editions"),
+        "track": ("boardgame_edition", "boardgame_editions"),
+    },
+    ItemKind.music: {
+        "release": ("music_release", "music_releases"),
+        "media": ("music_media", "music_media"),
+        "track": ("music_track", "music_tracks"),
+        "legacy_projection": ("item", "items"),
+        "work": ("music_release", "music_releases"),
+    },
+}
+
+
+def _scope_for_kind(kind: ItemKind, key: str) -> str:
+    if key in _INTERNAL_BOOKKEEPING_KEYS:
+        return "legacy_projection"
+    if key in _LEGACY_PROJECTION_KEYS:
+        return "legacy_projection"
+    if key == "physical_format":
+        if kind in {ItemKind.book, ItemKind.boardgame}:
+            return "edition"
+        if kind in {ItemKind.comic, ItemKind.manga}:
+            return "issue"
+        if kind == ItemKind.music:
+            return "release"
+        return "release"
+    if key in _PROPOSAL_KEYS:
+        return "legacy_projection"
+    if key in _MEDIA_SCOPE_KEYS:
+        return "track" if key == "tracks" else "media"
+    if key == "edition_title":
+        if kind in {ItemKind.comic, ItemKind.manga}:
+            return "issue"
+        if kind in {ItemKind.book, ItemKind.boardgame}:
+            return "edition"
+        if kind == ItemKind.music:
+            return "release"
+        if kind == ItemKind.anime:
+            return "episode"
+        return "release"
+    if key in {"release_date", "publisher", "barcode", "catalog_number", "release_status", "country", "language", "age_rating", "variant_name", "page_count", "imprint", "subtitle", "series_group"}:
+        if kind in {ItemKind.book, ItemKind.boardgame}:
+            return "edition"
+        if kind in {ItemKind.comic, ItemKind.manga}:
+            return "issue"
+        if kind == ItemKind.anime:
+            return "episode"
+        if kind == ItemKind.music:
+            return "release"
+        return "release"
+    if key in _WORK_SCOPE_KEYS:
+        return "work"
+    return "legacy_projection"
+
+
+def _field_source_entity_type(key: str, kind: ItemKind) -> str:
+    scope = _scope_for_kind(kind, key)
+    entity_type, _ = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, ("item", "items"))
+    return entity_type
+
+
+def _field_source_table(key: str, kind: ItemKind) -> str:
+    scope = _scope_for_kind(kind, key)
+    _, table_name = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, ("items", "items"))
+    return table_name
+
+
+def _field_write_target(key: str, kind: ItemKind) -> str:
+    if key in _INTERNAL_BOOKKEEPING_KEYS:
+        return "readonly_computed"
+    if key in _LEGACY_PROJECTION_KEYS:
+        return "legacy_projection"
+    if key in _PROPOSAL_KEYS:
+        return "core_admin_proposal"
+    return "core_canonical"
+
+
+def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, object]]:
+    active_kinds = tuple(kinds or (kind for kind in ItemKind if kind != ItemKind.collection))
+    rows: list[dict[str, object]] = []
+    for spec in METADATA_FIELDS:
+        applicable_kinds = active_kinds if spec.common else tuple(kind for kind in active_kinds if kind in spec.kinds)
+        if not spec.common and not applicable_kinds:
+            continue
+        if spec.common and not applicable_kinds:
+            continue
+        for kind in applicable_kinds:
+            rows.append(
+                {
+                    "key": spec.key,
+                    "kind": kind.value,
+                    "label": spec.label,
+                    "valueType": spec.value_type,
+                    "section": spec.section,
+                    "input": spec.input,
+                    "editable": spec.editable,
+                    "normalized": spec.normalized,
+                    "common": spec.common,
+                    "typed": spec.typed,
+                    "scope": spec.scope_for_kind(kind),
+                    "writeTarget": spec.write_target_for_kind(kind),
+                    "sourceEntityType": spec.source_entity_type_for_kind(kind),
+                    "sourceTable": spec.source_table_for_kind(kind),
+                }
+            )
+    return rows
 
 
 # --- Normalized common fields (shared by every kind) -------------------------

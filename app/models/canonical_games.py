@@ -78,6 +78,39 @@ class GameWork(UuidMixin, TimestampMixin, Base):
         viewonly=True,
     )
 
+    def _metadata_list(self, key: str) -> list[str]:
+        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
+        if not isinstance(values, list):
+            return []
+        result: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            text = " ".join(str(value or "").split()).strip()
+            if not text:
+                continue
+            marker = text.casefold()
+            if marker in seen:
+                continue
+            seen.add(marker)
+            result.append(text)
+        return result
+
+    @property
+    def platforms(self) -> list[str]:
+        return self._metadata_list("platforms")
+
+    @property
+    def identifiers(self) -> list[str]:
+        return self._metadata_list("identifiers")
+
+    @property
+    def company_roles(self) -> list[str]:
+        return self._metadata_list("company_roles")
+
+    @property
+    def age_ratings(self) -> list[str]:
+        return self._metadata_list("age_ratings")
+
 
 class GameRelease(UuidMixin, TimestampMixin, Base):
     __tablename__ = "game_releases"
@@ -103,3 +136,24 @@ class GameRelease(UuidMixin, TimestampMixin, Base):
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="releases")
+
+    def _metadata_list(self, key: str) -> list[str]:
+        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
+        if not isinstance(values, list):
+            return []
+        result: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            text = " ".join(str(value or "").split()).strip()
+            if not text:
+                continue
+            marker = text.casefold()
+            if marker in seen:
+                continue
+            seen.add(marker)
+            result.append(text)
+        return result
+
+    @property
+    def identifiers(self) -> list[str]:
+        return self._metadata_list("identifiers")

@@ -1,8 +1,6 @@
 from uuid import UUID
 
-import httpx
 from fastapi import APIRouter, Depends, Query, Response, status
-from fastapi.responses import RedirectResponse
 
 from app.api.deps import DbSession
 from app.catalog.media_types import (
@@ -23,8 +21,6 @@ from app.metadata_normalized import (
     normalized_metadata_manifest,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
-from app.providers.mangadex import MangaDexProvider
 from app.schemas import (
     AnimeEpisodeV1Response,
     AnimeSeriesV1Response,
@@ -77,8 +73,22 @@ from app.schemas.admin import (
 from app.schemas.metadata_shared import SearchResult
 from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
+from app.api.routes.metadata_images import (
+    gcd_provider_image as _gcd_provider_image,
+    _download_mangadex_cover,
+    _mirror_gcd_cover_if_enabled,
+    _mirror_mangadex_cover_if_enabled,
+    mangadex_provider_image as _mangadex_provider_image,
+)
 
 router = APIRouter(tags=["metadata"])
+
+_MANGADEX_IMAGE_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+}
 
 
 def _field_spec_response(spec: MetadataFieldSpec) -> MetadataFieldSpecResponse:
@@ -319,32 +329,13 @@ async def gcd_provider_image(
     year: int | None = Query(default=None, ge=1800, le=2200),
     variant: str | None = Query(default=None, min_length=1, max_length=255),
 ) -> Response:
-    cover = await GCDProvider().get_cover_image(
+    return await _gcd_provider_image(
+        db,
         provider_item_id,
-        fallback=GCDCoverFallback(
-            series_title=series,
-            issue_number=issue,
-            start_year=year,
-            variant_hint=variant,
-        ),
-    )
-    mirrored_url = await _mirror_gcd_cover_if_enabled(db, provider_item_id, cover)
-    if mirrored_url is not None:
-        return RedirectResponse(
-            mirrored_url,
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Cache-Control": "public, max-age=86400"},
-        )
-    if cover.redirect_url is not None:
-        return RedirectResponse(
-            cover.redirect_url,
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Cache-Control": "public, max-age=86400"},
-        )
-    return Response(
-        content=cover.content or b"",
-        media_type=cover.media_type or "application/octet-stream",
-        headers={"Cache-Control": "public, max-age=86400"},
+        series=series,
+        issue=issue,
+        year=year,
+        variant=variant,
     )
 
 
@@ -353,96 +344,7 @@ async def mangadex_provider_image(
     provider_item_id: str,
     db: DbSession,
 ) -> Response:
-    provider = MangaDexProvider()
-    provider_item = await provider.get_item(provider_item_id)
-    normalized = await provider.normalize(provider_item.raw)
-    cover_url = normalized.cover_image_url
-    if not cover_url:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="mangadex_cover_not_found",
-            detail="MangaDex cover image not found",
-        )
-    mirrored_url = await _mirror_mangadex_cover_if_enabled(db, provider_item_id, cover_url)
-    if mirrored_url is not None:
-        return RedirectResponse(
-            mirrored_url,
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            headers={"Cache-Control": "public, max-age=86400"},
-        )
-    media_type, content = await _download_mangadex_cover(cover_url)
-    return Response(
-        content=content,
-        media_type=media_type,
-        headers={"Cache-Control": "public, max-age=86400"},
-    )
-
-
-async def _mirror_gcd_cover_if_enabled(
-    db,
-    provider_item_id: str,
-    cover: GCDCoverImage,
-) -> str | None:
-    service = MetadataService(db)
-    if cover.content is not None:
-        return await service.mirror_provider_image_bytes(
-            cover.content,
-            source_url=cover.source_url,
-            provider_name=ExternalProvider.gcd,
-            provider_item_id=provider_item_id,
-        )
-    return await service.mirror_provider_image_url(
-        cover.redirect_url,
-        provider_name=ExternalProvider.gcd,
-        provider_item_id=provider_item_id,
-    )
-
-
-async def _mirror_mangadex_cover_if_enabled(
-    db,
-    provider_item_id: str,
-    cover_url: str,
-) -> str | None:
-    return await MetadataService(db).mirror_provider_image_url(
-        cover_url,
-        provider_name=ExternalProvider.mangadex,
-        provider_item_id=provider_item_id,
-    )
-
-
-async def _download_mangadex_cover(url: str) -> tuple[str, bytes]:
-    settings = get_settings()
-    try:
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=settings.image_download_timeout_seconds,
-        ) as client:
-            response = await client.get(
-                url,
-                headers={
-                    "User-Agent": settings.mangadex_user_agent,
-                    "Referer": "https://mangadex.org/",
-                    "Accept": "image/*",
-                },
-            )
-            response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        raise ApiHTTPException(
-            status_code=exc.response.status_code,
-            code="mangadex_cover_unavailable",
-            detail=f"MangaDex cover request failed: HTTP {exc.response.status_code}",
-        ) from exc
-    except httpx.RequestError as exc:
-        raise ApiHTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            code="mangadex_cover_unavailable",
-            detail=f"MangaDex cover request failed: {exc}",
-        ) from exc
-
-    media_type = response.headers.get("content-type", "application/octet-stream")
-    if ";" in media_type:
-        media_type = media_type.split(";", 1)[0].strip()
-    return media_type or "application/octet-stream", response.content
+    return await _mangadex_provider_image(db, provider_item_id)
 
 
 @router.post(

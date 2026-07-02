@@ -1043,76 +1043,6 @@ class AdminCatalogService:
         )
 
 
-    async def _replace_item_creator_links(
-        self,
-        item_id: UUID,
-        creators: list[Any] | None,
-    ) -> None:
-        existing = list(
-            (
-                await self.db.execute(
-                    select(EntityPerson).where(
-                        EntityPerson.entity_type == "item",
-                        EntityPerson.entity_id == item_id,
-                    )
-                )
-            ).scalars()
-        )
-        for row in existing:
-            await self.db.delete(row)
-        await self.db.flush()
-        for creator in creators or []:
-            name = " ".join(str(getattr(creator, "name", "") or "").split()).strip()
-            if not name:
-                continue
-            role = " ".join(str(getattr(creator, "role", "") or "").split()).strip() or "creator"
-            person = await self._get_or_create_person(name)
-            self.db.add(
-                EntityPerson(
-                    entity_type="item",
-                    entity_id=item_id,
-                    person_id=person.id,
-                    role=role,
-                )
-            )
-        await self.db.flush()
-
-    async def _replace_item_character_links(
-        self,
-        item_id: UUID,
-        characters: list[str] | None,
-    ) -> None:
-        existing = list(
-            (await self.db.execute(select(CharacterAppearance).where(CharacterAppearance.item_id == item_id))).scalars()
-        )
-        for row in existing:
-            await self.db.delete(row)
-        await self.db.flush()
-        for name in self._normalize_text_values(characters):
-            character = await self._get_or_create_character(name)
-            self.db.add(CharacterAppearance(character_id=character.id, item_id=item_id, role="appears"))
-        await self.db.flush()
-
-    async def _replace_item_story_arc_links(
-        self,
-        item_id: UUID,
-        story_arcs: list[str] | None,
-    ) -> None:
-        existing = list((await self.db.execute(select(StoryArcItem).where(StoryArcItem.item_id == item_id))).scalars())
-        for row in existing:
-            await self.db.delete(row)
-        await self.db.flush()
-        for index, name in enumerate(self._normalize_text_values(story_arcs), start=1):
-            story_arc = await self._get_or_create_story_arc(name)
-            self.db.add(
-                StoryArcItem(
-                    story_arc_id=story_arc.id,
-                    item_id=item_id,
-                    ordinal=index,
-                )
-            )
-        await self.db.flush()
-
     async def _get_or_create_person(self, name: str) -> Person:
         person = await self.db.scalar(select(Person).where(Person.name == name))
         if person is None:
@@ -1220,44 +1150,6 @@ class AdminCatalogService:
             if name:
                 return str(name)
         return None
-
-    async def _replace_item_organization_link(
-        self,
-        item_id: UUID,
-        role: str,
-        name: str | None,
-    ) -> None:
-        existing = list(
-            (
-                await self.db.execute(
-                    select(EntityOrganization).where(
-                        EntityOrganization.entity_type == "item",
-                        EntityOrganization.entity_id == item_id,
-                        EntityOrganization.role == role,
-                    )
-                )
-            ).scalars()
-        )
-        for link in existing:
-            await self.db.delete(link)
-        value = " ".join(str(name or "").split()).strip()
-        if not value:
-            await self.db.flush()
-            return
-        organization = await self.db.scalar(select(Organization).where(Organization.name == value))
-        if organization is None:
-            organization = Organization(name=value)
-            self.db.add(organization)
-            await self.db.flush()
-        self.db.add(
-            EntityOrganization(
-                entity_type="item",
-                entity_id=item_id,
-                organization_id=organization.id,
-                role=role,
-            )
-        )
-        await self.db.flush()
 
     async def _load_native_catalog_entity(self, kind: ItemKind, entity_id: UUID) -> Any | None:
         model_by_kind = {

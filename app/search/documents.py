@@ -300,8 +300,6 @@ def game_work_search_document(work: GameWork) -> dict[str, Any]:
         ),
     )
     primary_release = releases[0] if releases else None
-    metadata = work.metadata_json or {}
-    variant_names = _string_list(metadata.get("platforms"))
     barcode = _optional_text(getattr(primary_release, "barcode", None))
     release_date = (
         primary_release.release_date.isoformat()
@@ -328,7 +326,7 @@ def game_work_search_document(work: GameWork) -> dict[str, Any]:
         "barcode": barcode,
         "barcodes": [barcode] if barcode else [],
         "variant": primary_release.platform if primary_release is not None else None,
-        "variant_names": variant_names,
+        "variant_names": work.platforms,
         "bundle_titles": [],
         "bundle_release_ids": [],
         "series_title": None,
@@ -337,10 +335,10 @@ def game_work_search_document(work: GameWork) -> dict[str, Any]:
         "creators": [],
         "characters": [],
         "story_arcs": [],
-        "platforms": _unique(_string_list(metadata.get("platforms"))),
-        "identifiers": _unique(_string_list(metadata.get("identifiers"))),
-        "company_roles": _unique(_string_list(metadata.get("company_roles"))),
-        "age_ratings": _unique(_string_list(metadata.get("age_ratings"))),
+        "platforms": work.platforms,
+        "identifiers": work.identifiers,
+        "company_roles": work.company_roles,
+        "age_ratings": work.age_ratings,
         "release_status": primary_release.release_status if primary_release is not None else None,
         "language": primary_release.language if primary_release is not None else work.original_language,
         "imprint": None,
@@ -360,7 +358,6 @@ def boardgame_search_document(work: BoardGameWork) -> dict[str, Any]:
         ),
     )
     primary_edition = editions[0] if editions else None
-    metadata = work.metadata_json or {}
     release_date = (
         primary_edition.release_date.isoformat()
         if primary_edition is not None and primary_edition.release_date is not None
@@ -387,7 +384,7 @@ def boardgame_search_document(work: BoardGameWork) -> dict[str, Any]:
         "barcodes": [primary_edition.barcode] if primary_edition is not None and primary_edition.barcode else [],
         "variant": primary_edition.format if primary_edition is not None else None,
         "variant_names": _unique(
-            _string_list(metadata.get("platforms"))
+            work.platforms
             + ([primary_edition.format] if primary_edition is not None and primary_edition.format else [])
         ),
         "bundle_titles": [],
@@ -398,14 +395,14 @@ def boardgame_search_document(work: BoardGameWork) -> dict[str, Any]:
         "creators": [],
         "characters": [],
         "story_arcs": [],
-        "platforms": _unique(_string_list(metadata.get("platforms"))),
-        "identifiers": _unique(_string_list(metadata.get("identifiers"))),
-        "contributors": _unique(_string_list(metadata.get("contributors"))),
-        "mechanics": _unique(_string_list(metadata.get("mechanics"))),
-        "categories": _unique(_string_list(metadata.get("categories"))),
-        "families": _unique(_string_list(metadata.get("families"))),
-        "expansions": _unique(_string_list(metadata.get("expansions"))),
-        "rankings": _unique(_string_list(metadata.get("rankings"))),
+        "platforms": work.platforms,
+        "identifiers": work.identifiers,
+        "contributors": work.contributors,
+        "mechanics": work.mechanics,
+        "categories": work.categories,
+        "families": work.families,
+        "expansions": work.expansions,
+        "rankings": work.rankings,
         "release_status": primary_edition.release_status if primary_edition is not None else None,
         "language": primary_edition.language if primary_edition is not None else None,
         "imprint": None,

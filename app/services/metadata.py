@@ -167,9 +167,6 @@ class MetadataService:
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
 
-    async def _provider_links_for_item(self, item_id: UUID) -> list[ExternalProviderIdResponse]:
-        return await self._provider_links_for_entity("item", item_id)
-
     async def _provider_links_for_entity(
         self,
         entity_type: str,

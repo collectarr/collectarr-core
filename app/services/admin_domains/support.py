@@ -43,22 +43,24 @@ class AdminSupportService:
         self.actor_user_id = actor_user_id
         self.actor_email = actor_email
 
-    async def provider_links_for_items(
-        self, item_ids: list[UUID]
+    async def provider_links_for_entities(
+        self,
+        entity_type: str,
+        entity_ids: list[UUID],
     ) -> dict[UUID, list[ExternalProviderIdResponse]]:
-        if not item_ids:
+        if not entity_ids:
             return {}
         result = await self.db.execute(
             select(ExternalProviderId)
             .where(
-                ExternalProviderId.entity_type == "item",
-                ExternalProviderId.entity_id.in_(item_ids),
+                ExternalProviderId.entity_type == entity_type,
+                ExternalProviderId.entity_id.in_(entity_ids),
             )
             .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
         )
-        links_by_item: dict[UUID, list[ExternalProviderIdResponse]] = {}
+        links_by_entity: dict[UUID, list[ExternalProviderIdResponse]] = {}
         for row in result.scalars():
-            links_by_item.setdefault(row.entity_id, []).append(
+            links_by_entity.setdefault(row.entity_id, []).append(
                 ExternalProviderIdResponse(
                     provider=row.provider,
                     entity_type=row.entity_type,
@@ -67,7 +69,7 @@ class AdminSupportService:
                     api_url=row.api_url,
                 )
             )
-        return links_by_item
+        return links_by_entity
 
     async def item_response(self, item: Any) -> Any:
         native_response = await self._native_item_response(item)

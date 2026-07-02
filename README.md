@@ -158,12 +158,15 @@ catalog/search/admin contract instead of inventing parallel app-only fields.
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 `workflow_dispatch`; pushing to `main` runs CI only and never auto-publishes.
 
-Current stable release: `v1.0.0`
+Current stable release: `v1.0.4`
 
 Current backend image tags:
 
-- `ghcr.io/collectarr/collectarr-core:v1.0.0`
+- `ghcr.io/collectarr/collectarr-core:v1.0.4`
 - `ghcr.io/collectarr/collectarr-core:latest`
+
+Release docs and container tags are kept in sync with the GitHub release state
+before publishing.
 
 When a releasable version is detected, the workflow publishes a GitHub Release
 and pushes the backend container image to `ghcr.io/collectarr/collectarr-core`

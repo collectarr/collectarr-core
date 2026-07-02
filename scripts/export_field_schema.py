@@ -9,12 +9,13 @@ Usage:
 """
 
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.catalog.metadata_fields import METADATA_FIELDS, fields_for_kind  # noqa: E402
+from app.catalog.metadata_fields import METADATA_FIELDS, contract_rows, fields_for_kind  # noqa: E402
 from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION  # noqa: E402
 from app.models.base import ItemKind  # noqa: E402
 
@@ -23,9 +24,19 @@ def _yes_no(value: bool) -> str:
     return "Yes" if value else "No"
 
 
+def _join_unique(values: list[str]) -> str:
+    unique = [value for value in dict.fromkeys(value.strip() for value in values if value and value.strip())]
+    if not unique:
+        return "—"
+    return ", ".join(unique)
+
+
 def main() -> None:
     out = ROOT / "docs" / "field-schema.md"
     out.parent.mkdir(parents=True, exist_ok=True)
+    rows_by_key: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for row in contract_rows():
+        rows_by_key[str(row["key"])].append(row)
 
     lines = [
         "# Metadata Field Schema",
@@ -40,20 +51,23 @@ def main() -> None:
         "",
         "## Fields",
         "",
-        "| Key | Value type | Section | Input | Editable | Normalized | Kinds |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| Key | Value type | Scope | Write target | Source entity type | Source table | Section | Input | Editable | Normalized | Kinds |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
 
     for spec in METADATA_FIELDS:
+        rows = rows_by_key.get(spec.key, [])
+        scope = _join_unique([str(row["scope"]) for row in rows])
+        write_target = _join_unique([str(row["writeTarget"]) for row in rows])
+        entity_types = _join_unique([str(row["sourceEntityType"]) for row in rows])
+        tables = _join_unique([str(row["sourceTable"]) for row in rows])
         if spec.common:
             kinds = "_all_"
-        elif spec.kinds:
-            kinds = ", ".join(sorted(k.value for k in spec.kinds))
         else:
-            kinds = "—"
+            kinds = _join_unique([str(row["kind"]) for row in rows])
         lines.append(
-            f"| `{spec.key}` | {spec.value_type} | {spec.section} | {spec.input} | "
-            f"{_yes_no(spec.editable)} | {_yes_no(spec.normalized)} | {kinds} |"
+            f"| `{spec.key}` | {spec.value_type} | {scope} | {write_target} | {entity_types} | {tables} | "
+            f"{spec.section} | {spec.input} | {_yes_no(spec.editable)} | {_yes_no(spec.normalized)} | {kinds} |"
         )
 
     lines += ["", "## Fields per kind", ""]

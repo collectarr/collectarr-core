@@ -86,6 +86,55 @@ class BoardGameWork(UuidMixin, TimestampMixin, Base):
         viewonly=True,
     )
 
+    def _metadata_list(self, key: str) -> list[str]:
+        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
+        if not isinstance(values, list):
+            return []
+        result: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            text = " ".join(str(value or "").split()).strip()
+            if not text:
+                continue
+            marker = text.casefold()
+            if marker in seen:
+                continue
+            seen.add(marker)
+            result.append(text)
+        return result
+
+    @property
+    def platforms(self) -> list[str]:
+        return self._metadata_list("platforms")
+
+    @property
+    def identifiers(self) -> list[str]:
+        return self._metadata_list("identifiers")
+
+    @property
+    def contributors(self) -> list[str]:
+        return self._metadata_list("contributors")
+
+    @property
+    def mechanics(self) -> list[str]:
+        return self._metadata_list("mechanics")
+
+    @property
+    def categories(self) -> list[str]:
+        return self._metadata_list("categories")
+
+    @property
+    def families(self) -> list[str]:
+        return self._metadata_list("families")
+
+    @property
+    def expansions(self) -> list[str]:
+        return self._metadata_list("expansions")
+
+    @property
+    def rankings(self) -> list[str]:
+        return self._metadata_list("rankings")
+
 
 class BoardGameEdition(UuidMixin, TimestampMixin, Base):
     __tablename__ = "boardgame_editions"
@@ -117,3 +166,24 @@ class BoardGameEdition(UuidMixin, TimestampMixin, Base):
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="editions")
+
+    def _metadata_list(self, key: str) -> list[str]:
+        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
+        if not isinstance(values, list):
+            return []
+        result: list[str] = []
+        seen: set[str] = set()
+        for value in values:
+            text = " ".join(str(value or "").split()).strip()
+            if not text:
+                continue
+            marker = text.casefold()
+            if marker in seen:
+                continue
+            seen.add(marker)
+            result.append(text)
+        return result
+
+    @property
+    def identifiers(self) -> list[str]:
+        return self._metadata_list("identifiers")

@@ -261,9 +261,10 @@ async def _seed_game_v1() -> tuple[UUID, UUID]:
             original_language="en",
             age_rating="E10+",
             metadata_json={
-                "identifiers": ["IGDB:1020", "Nintendo:BOTW"],
-                "company_roles": ["developer", "publisher"],
-                "age_ratings": ["E10+"],
+                "platforms": ["Nintendo Switch", "nintendo switch", "Wii U"],
+                "identifiers": ["IGDB:1020", "Nintendo:BOTW", " IGDB:1020 "],
+                "company_roles": ["developer", "publisher", "developer"],
+                "age_ratings": ["E10+", "E10+"],
             },
         )
         db.add(work)
@@ -296,13 +297,14 @@ async def _seed_boardgame_v1() -> tuple[UUID, UUID]:
             original_language="de",
             age_rating="8+",
             metadata_json={
-                "identifiers": ["BGG:13", "Kosmos:6995"],
-                "contributors": ["Klaus Teuber"],
+                "platforms": ["Base Game", "base game"],
+                "identifiers": ["BGG:13", "Kosmos:6995", "BGG:13"],
+                "contributors": ["Klaus Teuber", " klaus teuber "],
                 "mechanics": ["dice rolling", "resource management"],
-                "categories": ["economic", "negotiation"],
-                "families": ["catan"],
-                "expansions": ["Seafarers"],
-                "rankings": ["BGG Rank #1"],
+                "categories": ["economic", "negotiation", "economic"],
+                "families": ["catan", "catan"],
+                "expansions": ["Seafarers", "Seafarers"],
+                "rankings": ["BGG Rank #1", "BGG Rank #1"],
             },
         )
         db.add(work)
@@ -512,6 +514,7 @@ async def test_game_boardgame_and_music_typed_routes(client):
     assert game_work.status_code == 200
     game_work_body = game_work.json()
     assert game_work_body["id"] == str(game_work_id)
+    assert game_work_body["platforms"] == ["Nintendo Switch", "Wii U"]
     assert game_work_body["identifiers"] == ["IGDB:1020", "Nintendo:BOTW"]
     assert game_work_body["company_roles"] == ["developer", "publisher"]
 
@@ -527,8 +530,12 @@ async def test_game_boardgame_and_music_typed_routes(client):
     assert boardgame_work.status_code == 200
     boardgame_work_body = boardgame_work.json()
     assert boardgame_work_body["id"] == str(boardgame_work_id)
+    assert boardgame_work_body["platforms"] == ["Base Game"]
     assert boardgame_work_body["contributors"] == ["Klaus Teuber"]
     assert boardgame_work_body["mechanics"] == ["dice rolling", "resource management"]
+    assert boardgame_work_body["categories"] == ["economic", "negotiation"]
+    assert boardgame_work_body["families"] == ["catan"]
+    assert boardgame_work_body["expansions"] == ["Seafarers"]
     assert boardgame_work_body["rankings"] == ["BGG Rank #1"]
 
     boardgame_editions = await client.get(
@@ -604,13 +611,18 @@ async def test_game_and_boardgame_search_documents_expose_kind_metadata_lists():
     assert boardgame_work is not None
 
     game_document = game_work_search_document(game_work)
+    assert game_document["platforms"] == ["Nintendo Switch", "Wii U"]
     assert game_document["identifiers"] == ["IGDB:1020", "Nintendo:BOTW"]
     assert game_document["company_roles"] == ["developer", "publisher"]
 
     boardgame_document = boardgame_search_document(boardgame_work)
+    assert boardgame_document["platforms"] == ["Base Game"]
     assert boardgame_document["identifiers"] == ["BGG:13", "Kosmos:6995"]
     assert boardgame_document["contributors"] == ["Klaus Teuber"]
     assert boardgame_document["mechanics"] == ["dice rolling", "resource management"]
+    assert boardgame_document["categories"] == ["economic", "negotiation"]
+    assert boardgame_document["families"] == ["catan"]
+    assert boardgame_document["expansions"] == ["Seafarers"]
     assert boardgame_document["rankings"] == ["BGG Rank #1"]
 
 

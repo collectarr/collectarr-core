@@ -101,7 +101,8 @@ Suggested columns:
 | --- | --- | --- |
 | `id` | UUID PK | Standard `UuidMixin` |
 | `bundle_release_id` | UUID FK -> `bundle_releases.id` | Cascade delete with bundle |
-| `item_id` | UUID FK -> `items.id` | Canonical item included in the package |
+| `entity_type` | `String(64)` not null, indexed | Canonical entity type included in the package |
+| `entity_id` | UUID not null, indexed | Canonical entity id included in the package |
 | `role` | `String(32)` not null, indexed | `main`, `bonus`, `special`, `episode`, `movie`, `volume`, `soundtrack`, `booklet`, `expansion` |
 | `sequence_number` | `Integer` nullable | Order within the package |
 | `disc_number` | `Integer` nullable, indexed | Optional disc or tray grouping |
@@ -122,6 +123,8 @@ Notes:
 
 - V1 supports mixed contents by item membership, but still assumes one media
   family per bundle row through `bundle_releases.kind`.
+- Bundle membership is polymorphic via `bundle_release_components.entity_type`
+  + `entity_id`; it does not point at `items.id`.
 - If providers later expose package parts richer than disc/sequence, that extra
   shape belongs in `metadata_json` first.
 

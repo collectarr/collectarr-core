@@ -149,6 +149,37 @@ from app.services.metadata_helpers import (
     _model_text_or_metadata,
     _organization_name,
 )
+from app.services.metadata_reads import (
+    get_anime_episode as _get_anime_episode,
+    get_anime_series as _get_anime_series,
+    get_anime_series_episodes as _get_anime_series_episodes,
+    get_boardgame_edition as _get_boardgame_edition,
+    get_boardgame_work as _get_boardgame_work,
+    get_boardgame_work_editions as _get_boardgame_work_editions,
+    get_book_edition as _get_book_edition,
+    get_book_work as _get_book_work,
+    get_book_work_editions as _get_book_work_editions,
+    get_comic_issue as _get_comic_issue,
+    get_comic_work as _get_comic_work,
+    get_comic_work_issues as _get_comic_work_issues,
+    get_game_release as _get_game_release,
+    get_game_work as _get_game_work,
+    get_game_work_releases as _get_game_work_releases,
+    get_manga_chapter as _get_manga_chapter,
+    get_manga_work as _get_manga_work,
+    get_manga_work_chapters as _get_manga_work_chapters,
+    get_movie_release as _get_movie_release,
+    get_movie_work as _get_movie_work,
+    get_movie_work_releases as _get_movie_work_releases,
+    get_music_media as _get_music_media,
+    get_music_media_tracks as _get_music_media_tracks,
+    get_music_release as _get_music_release,
+    get_music_release_media as _get_music_release_media,
+    get_music_track as _get_music_track,
+    get_tv_episode as _get_tv_episode,
+    get_tv_series as _get_tv_series,
+    get_tv_series_seasons as _get_tv_series_seasons,
+)
 from app.services.provider_search_state import ProviderSearchState
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
@@ -234,151 +265,31 @@ class MetadataService:
         )
 
     async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
-        work = await self.db.scalar(
-            select(BookWork)
-            .where(BookWork.id == work_id)
-            .options(
-                selectinload(BookWork.contributions).selectinload(BookContribution.person),
-                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
-                selectinload(BookWork.editions)
-                .selectinload(BookEdition.contributions)
-                .selectinload(BookContribution.person),
-                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-            )
-        )
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="book_work_not_found",
-                detail="Book work not found",
-            )
-        return self._book_work_response(work)
+        return await _get_book_work(self, work_id)
 
     async def get_book_work_editions(self, work_id: UUID) -> list[BookEditionV1Response]:
-        work = await self.db.scalar(select(BookWork.id).where(BookWork.id == work_id))
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="book_work_not_found",
-                detail="Book work not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(BookEdition)
-                    .where(BookEdition.work_id == work_id)
-                    .options(
-                        selectinload(BookEdition.contributions).selectinload(BookContribution.person),
-                        selectinload(BookEdition.identifiers),
-                    )
-                    .order_by(BookEdition.publication_date.asc().nullslast(), BookEdition.created_at.asc())
-                )
-            ).scalars()
-        )
-        return [self._book_edition_response(row) for row in rows]
+        return await _get_book_work_editions(self, work_id)
 
     async def get_book_edition(self, edition_id: UUID) -> BookEditionV1Response:
-        edition = await self.db.scalar(
-            select(BookEdition)
-            .where(BookEdition.id == edition_id)
-            .options(
-                selectinload(BookEdition.contributions).selectinload(BookContribution.person),
-                selectinload(BookEdition.identifiers),
-            )
-        )
-        if edition is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="book_edition_not_found",
-                detail="Book edition not found",
-            )
-        return self._book_edition_response(edition)
+        return await _get_book_edition(self, edition_id)
 
     async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
-        work = await self.db.scalar(
-            select(GameWork)
-            .where(GameWork.id == work_id)
-            .options(selectinload(GameWork.releases))
-        )
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="game_work_not_found",
-                detail="Game work not found",
-            )
-        return self._game_work_response(work)
+        return await _get_game_work(self, work_id)
 
     async def get_game_work_releases(self, work_id: UUID) -> list[GameReleaseV1Response]:
-        work = await self.db.scalar(select(GameWork.id).where(GameWork.id == work_id))
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="game_work_not_found",
-                detail="Game work not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(GameRelease)
-                    .where(GameRelease.work_id == work_id)
-                    .order_by(GameRelease.release_date.asc().nullslast(), GameRelease.created_at.asc())
-                )
-            ).scalars()
-        )
-        return [self._game_release_response(row) for row in rows]
+        return await _get_game_work_releases(self, work_id)
 
     async def get_game_release(self, release_id: UUID) -> GameReleaseV1Response:
-        release = await self.db.scalar(select(GameRelease).where(GameRelease.id == release_id))
-        if release is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="game_release_not_found",
-                detail="Game release not found",
-            )
-        return self._game_release_response(release)
+        return await _get_game_release(self, release_id)
 
     async def get_boardgame_work(self, work_id: UUID) -> BoardGameWorkV1Response:
-        work = await self.db.scalar(
-            select(BoardGameWork)
-            .where(BoardGameWork.id == work_id)
-            .options(selectinload(BoardGameWork.editions))
-        )
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="boardgame_work_not_found",
-                detail="Board game work not found",
-            )
-        return self._boardgame_work_response(work)
+        return await _get_boardgame_work(self, work_id)
 
     async def get_boardgame_work_editions(self, work_id: UUID) -> list[BoardGameEditionV1Response]:
-        work = await self.db.scalar(select(BoardGameWork.id).where(BoardGameWork.id == work_id))
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="boardgame_work_not_found",
-                detail="Board game work not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(BoardGameEdition)
-                    .where(BoardGameEdition.work_id == work_id)
-                    .order_by(BoardGameEdition.release_date.asc().nullslast(), BoardGameEdition.created_at.asc())
-                )
-            ).scalars()
-        )
-        return [self._boardgame_edition_response(row) for row in rows]
+        return await _get_boardgame_work_editions(self, work_id)
 
     async def get_boardgame_edition(self, edition_id: UUID) -> BoardGameEditionV1Response:
-        edition = await self.db.scalar(select(BoardGameEdition).where(BoardGameEdition.id == edition_id))
-        if edition is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="boardgame_edition_not_found",
-                detail="Board game edition not found",
-            )
-        return self._boardgame_edition_response(edition)
+        return await _get_boardgame_edition(self, edition_id)
 
     def _book_contributor_response(
         self,
@@ -1339,376 +1250,64 @@ class MetadataService:
         )
 
     async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
-        work = await self.db.scalar(
-            select(ComicWork)
-            .where(ComicWork.id == work_id)
-            .options(
-                selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.contributions)
-                .selectinload(ComicContribution.person),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.character_appearances)
-                .selectinload(ComicCharacterAppearance.character),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.story_arc_memberships)
-                .selectinload(ComicStoryArcMembership.story_arc),
-            )
-        )
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="comic_work_not_found",
-                detail="Comic work not found",
-            )
-        return self._comic_work_response(work)
+        return await _get_comic_work(self, work_id)
 
     async def get_comic_work_issues(self, work_id: UUID) -> list[ComicIssueV1Response]:
-        work = await self.db.scalar(select(ComicWork.id).where(ComicWork.id == work_id))
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="comic_work_not_found",
-                detail="Comic work not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(ComicIssue)
-                    .where(ComicIssue.work_id == work_id)
-                    .options(
-                        selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
-                        selectinload(ComicIssue.identifiers),
-                        selectinload(ComicIssue.character_appearances).selectinload(
-                            ComicCharacterAppearance.character
-                        ),
-                        selectinload(ComicIssue.story_arc_memberships).selectinload(
-                            ComicStoryArcMembership.story_arc
-                        ),
-                    )
-                    .order_by(
-                        ComicIssue.publication_date.asc().nullslast(),
-                        ComicIssue.issue_number.asc().nullslast(),
-                        ComicIssue.created_at.asc(),
-                    )
-                )
-            ).scalars()
-        )
-        return [self._comic_issue_response(row) for row in rows]
+        return await _get_comic_work_issues(self, work_id)
 
     async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
-        issue = await self.db.scalar(
-            select(ComicIssue)
-            .where(ComicIssue.id == issue_id)
-            .options(
-                selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
-                selectinload(ComicIssue.identifiers),
-                selectinload(ComicIssue.character_appearances).selectinload(
-                    ComicCharacterAppearance.character
-                ),
-                selectinload(ComicIssue.story_arc_memberships).selectinload(
-                    ComicStoryArcMembership.story_arc
-                ),
-            )
-        )
-        if issue is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="comic_issue_not_found",
-                detail="Comic issue not found",
-            )
-        return self._comic_issue_response(issue)
+        return await _get_comic_issue(self, issue_id)
 
     async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
-        work = await self.db.scalar(
-            select(MangaWork)
-            .where(MangaWork.id == work_id)
-            .options(
-                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.chapters),
-                selectinload(MangaWork.identifiers),
-                selectinload(MangaWork.character_appearances).selectinload(
-                    MangaCharacterAppearance.character
-                ),
-                selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
-            )
-        )
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="manga_work_not_found",
-                detail="Manga work not found",
-            )
-        return self._manga_work_response(work)
+        return await _get_manga_work(self, work_id)
 
     async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
-        work = await self.db.scalar(select(MangaWork.id).where(MangaWork.id == work_id))
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="manga_work_not_found",
-                detail="Manga work not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(MangaChapter)
-                    .where(MangaChapter.work_id == work_id)
-                    .order_by(
-                        MangaChapter.chapter_number.asc().nullslast(),
-                        MangaChapter.created_at.asc()
-                    )
-                )
-            ).scalars()
-        )
-        return [self._manga_chapter_response(chapter) for chapter in rows]
+        return await _get_manga_work_chapters(self, work_id)
 
     async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
-        chapter = await self.db.scalar(select(MangaChapter).where(MangaChapter.id == chapter_id))
-        if chapter is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="manga_chapter_not_found",
-                detail="Manga chapter not found",
-            )
-        return self._manga_chapter_response(chapter)
+        return await _get_manga_chapter(self, chapter_id)
 
     async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
-        series = await self.db.scalar(
-            select(AnimeSeries)
-            .where(AnimeSeries.id == series_id)
-            .options(
-                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
-                selectinload(AnimeSeries.episodes),
-                selectinload(AnimeSeries.identifiers),
-                selectinload(AnimeSeries.character_appearances).selectinload(
-                    AnimeCharacterAppearance.character
-                ),
-            )
-        )
-        if series is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="anime_series_not_found",
-                detail="Anime series not found",
-            )
-        return self._anime_series_response(series)
+        return await _get_anime_series(self, series_id)
 
     async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
-        series = await self.db.scalar(select(AnimeSeries.id).where(AnimeSeries.id == series_id))
-        if series is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="anime_series_not_found",
-                detail="Anime series not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(AnimeEpisode)
-                    .where(AnimeEpisode.series_id == series_id)
-                    .order_by(
-                        AnimeEpisode.episode_number.asc().nullslast(),
-                        AnimeEpisode.created_at.asc()
-                    )
-                )
-            ).scalars()
-        )
-        return [self._anime_episode_response(episode) for episode in rows]
+        return await _get_anime_series_episodes(self, series_id)
 
     async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
-        episode = await self.db.scalar(select(AnimeEpisode).where(AnimeEpisode.id == episode_id))
-        if episode is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="anime_episode_not_found",
-                detail="Anime episode not found",
-            )
-        return self._anime_episode_response(episode)
+        return await _get_anime_episode(self, episode_id)
 
     async def get_movie_work(self, work_id: UUID) -> MovieWorkV1Response:
-        work = await self.db.scalar(
-            select(MovieWork)
-            .where(MovieWork.id == work_id)
-            .options(
-                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-                selectinload(MovieWork.releases).selectinload(MovieRelease.media),
-                selectinload(MovieWork.identifiers),
-            )
-        )
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="movie_work_not_found",
-                detail="Movie work not found",
-            )
-        return self._movie_work_response(work)
+        return await _get_movie_work(self, work_id)
 
     async def get_movie_work_releases(self, work_id: UUID) -> list[MovieReleaseV1Response]:
-        work = await self.db.scalar(select(MovieWork.id).where(MovieWork.id == work_id))
-        if work is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="movie_work_not_found",
-                detail="Movie work not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(MovieRelease)
-                    .where(MovieRelease.work_id == work_id)
-                    .options(selectinload(MovieRelease.media))
-                    .order_by(
-                        MovieRelease.release_date.asc().nullslast(),
-                        MovieRelease.created_at.asc()
-                    )
-                )
-            ).scalars()
-        )
-        return [self._movie_release_response(release) for release in rows]
+        return await _get_movie_work_releases(self, work_id)
 
     async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
-        release = await self.db.scalar(
-            select(MovieRelease)
-            .where(MovieRelease.id == release_id)
-            .options(selectinload(MovieRelease.media))
-        )
-        if release is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="movie_release_not_found",
-                detail="Movie release not found",
-            )
-        return self._movie_release_response(release)
+        return await _get_movie_release(self, release_id)
 
     async def get_music_release(self, release_id: UUID) -> MusicReleaseV1Response:
-        release = await self.db.scalar(
-            select(MusicRelease)
-            .where(MusicRelease.id == release_id)
-            .options(
-                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
-                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
-                selectinload(MusicRelease.identifiers),
-            )
-        )
-        if release is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="music_release_not_found",
-                detail="Music release not found",
-            )
-        return self._music_release_response(release)
+        return await _get_music_release(self, release_id)
 
     async def get_music_release_media(self, release_id: UUID) -> list[MusicMediaV1Response]:
-        release = await self.db.scalar(select(MusicRelease.id).where(MusicRelease.id == release_id))
-        if release is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="music_release_not_found",
-                detail="Music release not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(MusicMedia)
-                    .where(MusicMedia.release_id == release_id)
-                    .options(selectinload(MusicMedia.tracks))
-                    .order_by(MusicMedia.media_number.asc(), MusicMedia.created_at.asc())
-                )
-            ).scalars()
-        )
-        return [self._music_media_response(media) for media in rows]
+        return await _get_music_release_media(self, release_id)
 
     async def get_music_media(self, media_id: UUID) -> MusicMediaV1Response:
-        media = await self.db.scalar(
-            select(MusicMedia)
-            .where(MusicMedia.id == media_id)
-            .options(selectinload(MusicMedia.tracks))
-        )
-        if media is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="music_media_not_found",
-                detail="Music media not found",
-            )
-        return self._music_media_response(media)
+        return await _get_music_media(self, media_id)
 
     async def get_music_media_tracks(self, media_id: UUID) -> list[MusicTrackV1Response]:
-        media = await self.db.scalar(select(MusicMedia.id).where(MusicMedia.id == media_id))
-        if media is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="music_media_not_found",
-                detail="Music media not found",
-            )
-        rows = list(
-            (
-                await self.db.execute(
-                    select(MusicTrack)
-                    .where(MusicTrack.media_id == media_id)
-                    .order_by(MusicTrack.position.asc(), MusicTrack.created_at.asc())
-                )
-            ).scalars()
-        )
-        return [self._music_track_response(track) for track in rows]
+        return await _get_music_media_tracks(self, media_id)
 
     async def get_music_track(self, track_id: UUID) -> MusicTrackV1Response:
-        track = await self.db.scalar(select(MusicTrack).where(MusicTrack.id == track_id))
-        if track is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="music_track_not_found",
-                detail="Music track not found",
-            )
-        return self._music_track_response(track)
+        return await _get_music_track(self, track_id)
 
     async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
-        release = await self.db.scalar(
-            select(TVRelease)
-            .where(TVRelease.id == series_id)
-            .options(
-                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVRelease.episodes),
-                selectinload(TVRelease.media),
-                selectinload(TVRelease.identifiers),
-            )
-        )
-        if release is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="tv_release_not_found",
-                detail="TV release not found",
-            )
-        return self._tv_series_response(release)
+        return await _get_tv_series(self, series_id)
 
     async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
-        release = await self.db.scalar(
-            select(TVRelease).where(TVRelease.id == series_id)
-            .options(
-                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVRelease.episodes),
-                selectinload(TVRelease.media),
-                selectinload(TVRelease.identifiers),
-            )
-        )
-        if release is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="tv_release_not_found",
-                detail="TV release not found",
-            )
-        return self._tv_series_response(release).seasons
+        return await _get_tv_series_seasons(self, series_id)
 
     async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
-        episode = await self.db.scalar(select(TVEpisode).where(TVEpisode.id == episode_id))
-        if episode is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="tv_episode_not_found",
-                detail="TV episode not found",
-            )
-        return self._tv_episode_response(episode)
+        return await _get_tv_episode(self, episode_id)
 
     async def _enrich_item_metadata_facets(
         self,

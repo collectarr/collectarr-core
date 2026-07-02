@@ -112,8 +112,9 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
     hashes: dict[str, str] = {}
     for filename, payload in outputs.items():
         text = _json_text(payload)
-        (out_dir / filename).write_text(text, encoding="utf-8")
-        hashes[filename] = _sha256_text(text)
+        data = text.encode("utf-8")
+        (out_dir / filename).write_bytes(data)
+        hashes[filename] = hashlib.sha256(data).hexdigest()
 
     manifest = {
         "contractVersion": CONTRACT_VERSION,
@@ -125,8 +126,9 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
         "providerSupportHash": hashes["provider-support.json"],
     }
     manifest_text = _json_text(manifest)
-    (out_dir / "contract-manifest.json").write_text(manifest_text, encoding="utf-8")
-    hashes["contract-manifest.json"] = _sha256_text(manifest_text)
+    manifest_data = manifest_text.encode("utf-8")
+    (out_dir / "contract-manifest.json").write_bytes(manifest_data)
+    hashes["contract-manifest.json"] = hashlib.sha256(manifest_data).hexdigest()
     return hashes
 
 

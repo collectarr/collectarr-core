@@ -85,6 +85,8 @@ def build_admin_domain_services(
         support_admin.item_response,
         support_admin.record_admin_audit,
         character_role_rank,
+        actor_user_id=actor_user_id,
+        actor_email=actor_email,
     )
     overview_admin = AdminOverviewService(
         db=db,

@@ -28,6 +28,7 @@ from app.models import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
+    DuplicateReview,
     GameRelease,
     GameWork,
     ImageAsset,
@@ -97,11 +98,16 @@ class AdminDuplicateService:
         item_response_loader: Callable[[Any], Awaitable[Any]],
         audit_recorder: Callable[..., None],
         character_role_rank: Callable[[str], int],
+        *,
+        actor_user_id: UUID | None = None,
+        actor_email: str | None = None,
     ) -> None:
         self.db = db
         self._item_response_loader = item_response_loader
         self._audit_recorder = audit_recorder
         self._character_role_rank = character_role_rank
+        self._actor_user_id = actor_user_id
+        self._actor_email = actor_email
 
     async def duplicate_candidates(self, limit: int = 10) -> list[AdminDuplicateCandidateResponse]:
         raw_groups: list[tuple[type, str, int, list[UUID]]] = []
@@ -189,6 +195,28 @@ class AdminDuplicateService:
             metadata["admin_duplicate_ignore_token"] = token
             metadata["admin_duplicate_ignored_at"] = datetime.now(UTC).isoformat()
             entity.metadata_json = metadata
+        self.db.add(
+            DuplicateReview(
+                action="ignore",
+                entity_type=entity_type,
+                entity_id=ids[0],
+                entity_ids=[str(entity_id) for entity_id in ids],
+                ignore_token=token,
+                duplicate_score=duplicate_score,
+                actor_user_id=self._actor_user_id,
+                actor_email=self._actor_email,
+                note=note,
+                details_json={
+                    "decision": "ignore",
+                    "item_ids": [str(entity_id) for entity_id in ids],
+                    "duplicate_score": duplicate_score,
+                    "recommended_target_item_id": str(recommended_target_id) if recommended_target_id else None,
+                    "confidence_factors": confidence_factors,
+                    "merge_warnings": merge_warnings,
+                    **({"note": note} if note else {}),
+                },
+            )
+        )
         self._record_duplicate_review_audit(
             action="duplicates.ignore",
             entities=entities,
@@ -239,6 +267,30 @@ class AdminDuplicateService:
         for source in sources:
             await self._move_entity_children(source, target)
             await self.db.delete(source)
+        self.db.add(
+            DuplicateReview(
+                action="merge",
+                entity_type=entity_type,
+                entity_id=target.id,
+                entity_ids=[str(entity_id) for entity_id in all_ids],
+                target_entity_id=target.id,
+                source_entity_ids=[str(source.id) for source in sources],
+                duplicate_score=duplicate_score,
+                actor_user_id=self._actor_user_id,
+                actor_email=self._actor_email,
+                note=note,
+                details_json={
+                    "decision": "merge",
+                    "target_item_id": str(target.id),
+                    "source_item_ids": [str(source.id) for source in sources],
+                    "duplicate_score": duplicate_score,
+                    "recommended_target_item_id": str(recommended_target_id) if recommended_target_id else None,
+                    "confidence_factors": confidence_factors,
+                    "merge_warnings": merge_warnings,
+                    **({"note": note} if note else {}),
+                },
+            )
+        )
         self._record_duplicate_review_audit(
             action="duplicates.merge",
             entities=[target, *sources],
@@ -342,6 +394,14 @@ class AdminDuplicateService:
         if len(entity_ids) < 2:
             return False
         token = self._duplicate_ignore_token(entity_ids)
+        stored = await self.db.scalar(
+            select(DuplicateReview.id).where(
+                DuplicateReview.action == "ignore",
+                DuplicateReview.ignore_token == token,
+            )
+        )
+        if stored is not None:
+            return True
         result = await self.db.execute(
             select(model_cls.metadata_json).where(model_cls.id.in_(entity_ids))
         )

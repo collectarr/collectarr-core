@@ -345,6 +345,31 @@ class AdminAuditLog(UuidMixin, TimestampMixin, Base):
     details_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
 
+class DuplicateReview(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "duplicate_reviews"
+    __table_args__ = (
+        UniqueConstraint("action", "ignore_token", name="uq_duplicate_reviews_action_ignore_token"),
+        Index("ix_duplicate_reviews_action_created", "action", "created_at"),
+        Index("ix_duplicate_reviews_entity", "entity_type", "entity_id"),
+        Index("ix_duplicate_reviews_ignore_token", "ignore_token"),
+    )
+
+    action: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    entity_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    ignore_token: Mapped[str | None] = mapped_column(String(128), index=True)
+    target_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    source_entity_ids: Mapped[list[str] | None] = mapped_column(JSONB)
+    duplicate_score: Mapped[int | None] = mapped_column(Integer)
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    actor_email: Mapped[str | None] = mapped_column(String(320), index=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+
 class MetadataProposal(UuidMixin, TimestampMixin, Base):
     __tablename__ = "metadata_proposals"
     __table_args__ = (Index("ix_metadata_proposals_status_provider", "status", "provider"),)

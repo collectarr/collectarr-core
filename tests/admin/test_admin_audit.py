@@ -1,10 +1,11 @@
 from uuid import UUID
 
 import pytest
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import ComicWork
+from app.models import ComicWork, DuplicateReview
 from app.search.client import SearchClient
 from tests.helpers import seed_comic
 
@@ -85,6 +86,15 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
     assert merge_body["ok"] is True
     assert merge_body["affected_items"] == 1
 
+    async with AsyncSessionLocal() as db:
+        review_row = await db.scalar(
+            select(DuplicateReview).where(DuplicateReview.action == "merge")
+        )
+
+    assert review_row is not None
+    assert review_row.target_entity_id == UUID(target_id)
+    assert review_row.source_entity_ids == [source_id]
+
     queued = await client.post(
         "/admin/providers/ingest/jobs",
         headers={"Authorization": f"Bearer {token}"},
@@ -139,6 +149,15 @@ async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(clie
 
     assert review.status_code == 200
     assert review.json() == {"ok": True, "affected_items": 2, "item": None}
+
+    async with AsyncSessionLocal() as db:
+        review_row = await db.scalar(
+            select(DuplicateReview).where(DuplicateReview.action == "ignore")
+        )
+
+    assert review_row is not None
+    assert review_row.ignore_token is not None
+    assert review_row.entity_ids == item_ids
 
     logs = await client.get(
         "/admin/audit/logs",

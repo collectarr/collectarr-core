@@ -21,7 +21,6 @@ from app.models import (
     ComicIssue,
     ComicSeries,
     ComicStoryArcMembership,
-    ComicVolume,
     ComicWork,
     BoardGameEdition,
     BoardGameWork,
@@ -2372,11 +2371,8 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         ) == 1
         assert await db.scalar(select(func.count()).select_from(ComicContribution)) == 2
         assert await db.scalar(select(func.count()).select_from(ComicIdentifier)) == 2
-        assert await db.scalar(
-            select(func.count()).select_from(ComicVolume).where(ComicVolume.title == "The Amazing Spider-Man")
-        ) == 1
         assert await db.scalar(select(func.count()).select_from(ComicSeries)) == 1
-        assert await db.scalar(select(func.count()).select_from(ComicVolume)) == 1
+        assert await db.scalar(select(func.count()).select_from(ComicWork)) == 1
         assert await db.scalar(select(func.count()).select_from(Variant)) == 0
         assert await db.scalar(select(func.count()).select_from(Organization)) == 0
         assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 0
@@ -2773,13 +2769,9 @@ async def test_admin_ingest_reuses_existing_gcd_volume_provider_link(client, mon
             .join(ComicWork, ComicIssue.work_id == ComicWork.id)
             .where(ComicWork.title == created_title)
         )
-        assert comic_works_count == 1  # Both issues map to same work (volume)
+        assert comic_works_count == 1  # Both issues map to the same canonical work
         assert comic_issues_count == 2  # But we have 2 issues
         
-        comic_volumes = await db.scalar(
-            select(func.count()).select_from(ComicVolume).where(ComicVolume.title == created_title)
-        )
-        assert comic_volumes == 1
         
         # Check provider IDs for issues
         provider_ids = await db.scalars(

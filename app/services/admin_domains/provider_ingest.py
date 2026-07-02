@@ -36,7 +36,6 @@ from app.models import (
     ComicSeries,
     ComicSeriesMembership,
     ComicStoryArcMembership,
-    ComicVolume,
     ComicWork,
     EntityOrganization,
     EntityPerson,
@@ -1894,19 +1893,11 @@ class AdminProviderIngestService:
         Create or reuse a ComicWork from normalized provider data.
         Returns: (work, created) where created=True if work was newly created, False if reused.
         """
-        volume = await self._get_or_create_comic_volume(
-            normalized.series_title or normalized.volume_name,
-            normalized.volume_start_year,
-        )
         series_title = normalized.series_title or normalized.volume_name
         series = await self._get_or_create_comic_series(series_title) if series_title else None
 
-        # Check if ComicWork already exists for this volume
-        work = None
-        if volume is not None:
-            work = await self.db.scalar(
-                select(ComicWork).where(ComicWork.volume_id == volume.id)
-            )
+        work_title = normalized.series_title or normalized.title
+        work = await self.db.scalar(select(ComicWork).where(ComicWork.title == work_title))
 
         mirrored_cover = None
         if normalized.cover_image_url and self._should_mirror_provider_images(provider):
@@ -1916,12 +1907,9 @@ class AdminProviderIngestService:
                 provider_item_id=provider_item_id,
             )
 
-        # Only create new ComicWork if one doesn't already exist for this volume
         work_created = False
         if work is None:
-            work_title = normalized.series_title or normalized.title
             work = ComicWork(
-                volume_id=volume.id if volume is not None else None,
                 title=work_title,
                 sort_title=sort_key(ItemKind.comic, work_title, None),
                 subtitle=normalized.subtitle,
@@ -2111,7 +2099,6 @@ class AdminProviderIngestService:
                             series_id=series.id,
                             sequence=sequence,
                             display_number=normalized.item_number,
-                            metadata_json={"volume_id": str(volume.id)} if volume is not None else None,
                         )
                     )
 
@@ -2173,24 +2160,6 @@ class AdminProviderIngestService:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
         
         return work, work_created
-
-    async def _get_or_create_comic_volume(
-        self,
-        title: str | None,
-        start_year: int | None,
-    ) -> ComicVolume | None:
-        if not title:
-            return None
-        result = await self.db.execute(select(ComicVolume).where(ComicVolume.title == title))
-        volume = result.scalar_one_or_none()
-        if volume is not None:
-            if volume.start_year is None and start_year is not None:
-                volume.start_year = start_year
-            return volume
-        volume = ComicVolume(title=title, slug=slug(title), start_year=start_year)
-        self.db.add(volume)
-        await self.db.flush()
-        return volume
 
     async def _get_or_create_comic_series(self, title: str | None) -> ComicSeries | None:
         if not title:

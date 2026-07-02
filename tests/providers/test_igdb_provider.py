@@ -8,6 +8,7 @@ from app.models import (
     ExternalProviderId,
     GameRelease,
     GameWork,
+    Item,
     Organization,
 )
 from app.models.base import ExternalProvider, ItemKind
@@ -131,6 +132,7 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
 
     async with AsyncSessionLocal() as db:
         work = await db.scalar(select(GameWork).where(GameWork.title == "The Legend of Zelda: Breath of the Wild"))
+        legacy_item = await db.scalar(select(Item).where(Item.title == "The Legend of Zelda: Breath of the Wild"))
         release = await db.scalar(
             select(GameRelease).join(GameWork).where(GameWork.title == "The Legend of Zelda: Breath of the Wild")
         )
@@ -160,3 +162,4 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
     assert provider_ids == ["1020"]
     assert publisher == "Nintendo"
     assert developer == "Nintendo EPD"
+    assert legacy_item is None

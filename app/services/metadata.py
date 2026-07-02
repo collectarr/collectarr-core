@@ -11,7 +11,9 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from fastapi import status
 from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import NO_VALUE
 from sqlalchemy.orm import selectinload
+from sqlalchemy import inspect
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.core.config import get_settings
@@ -4197,8 +4199,21 @@ class MetadataService:
             if primary is not None:
                 cover_price_cents = cover_price_cents or primary.cover_price_cents
                 item_currency = item_currency or primary.currency
+        component_attr = inspect(item).attrs.bundle_release_components.loaded_value
+        bundle_releases = []
+        if component_attr is not NO_VALUE and component_attr is not None:
+            seen_bundle_ids: set[str] = set()
+            for component in component_attr:
+                bundle_release = getattr(component, "bundle_release", None)
+                if bundle_release is None:
+                    continue
+                bundle_release_id = str(getattr(bundle_release, "id", ""))
+                if bundle_release_id in seen_bundle_ids:
+                    continue
+                seen_bundle_ids.add(bundle_release_id)
+                bundle_releases.append(bundle_release)
         bundle_releases = sorted(
-            getattr(item, "primary_bundle_releases", []) or [],
+            bundle_releases,
             key=lambda bundle: (
                 getattr(bundle, "release_date", None) is None,
                 -getattr(bundle, "release_date", None).toordinal()

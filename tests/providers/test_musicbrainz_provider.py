@@ -5,7 +5,7 @@ from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import (
     BundleRelease,
-    BundleReleaseItem,
+    BundleReleaseComponent,
     ExternalProviderId,
     MusicRelease,
     Person,
@@ -332,10 +332,8 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
 
     async with AsyncSessionLocal() as db:
         bundle = await db.scalar(select(BundleRelease))
-        bundle_items = list(
-            await db.scalars(
-                select(BundleReleaseItem).order_by(BundleReleaseItem.sequence_number.asc())
-            )
+        bundle_components = list(
+            await db.scalars(select(BundleReleaseComponent).order_by(BundleReleaseComponent.sequence_number.asc()))
         )
         provider_ids = list(
             await db.scalars(
@@ -356,7 +354,7 @@ async def test_admin_ingest_musicbrainz_bundle_release(client, monkeypatch):
         item_titles = list(await db.scalars(select(MusicRelease.title).order_by(MusicRelease.title.asc())))
 
     assert bundle is None
-    assert bundle_items == []
+    assert bundle_components == []
     assert provider_ids == ["59211ea4-ffd2-4ad9-9a4e-941d3148024a"]
     assert bundle_provider_ids == []
     assert item_titles == ["ae3o & h3ae"]

@@ -10,7 +10,7 @@ Related design: `docs/bundle-release-design.md`
 ### Done in this slice
 
 - Add canonical `BundleRelease` model.
-- Add canonical `BundleReleaseItem` membership model.
+- Add canonical `BundleReleaseComponent` membership model.
 - Add Alembic migration `0007_add_bundle_releases.py`.
 - Add head-schema coverage in migration tests.
 

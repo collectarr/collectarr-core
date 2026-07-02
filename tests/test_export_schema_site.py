@@ -95,3 +95,15 @@ def test_legacy_generic_tables_are_omitted_from_the_interactive_view():
     assert "items" not in table_names
     assert "editions" not in table_names
     assert "variants" not in table_names
+
+
+def test_catalog_spine_marks_bundle_bridge_tables_as_legacy():
+    data = build_schema_data()
+    catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
+
+    assert catalog["title"] == "Catalog Spine (Legacy / Projection)"
+    assert "legacy compatibility tables" in catalog["description"].lower()
+    assert "bundle bridge tables" in catalog["description"].lower()
+    assert "bundle_releases" in catalog["tables"]
+    assert "bundle_release_components" in catalog["tables"]
+    assert "bundle_release_items" not in catalog["tables"]

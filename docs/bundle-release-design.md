@@ -58,7 +58,6 @@ Suggested columns:
 | `kind` | `item_kind` enum | Must match the media family of the contained items |
 | `title` | `String(255)` not null | Package display title |
 | `bundle_type` | `String(64)` nullable, indexed | `box_set`, `collection`, `compilation`, `anthology`, `season_pack`, `starter_set`, `omnibus`, `deluxe_set` |
-| `primary_item_id` | UUID nullable FK -> `items.id` | Main item for result ranking and fallback display |
 | `format` | `String(64)` nullable, indexed | Display label such as `Blu-ray`, `4K UHD`, `CD`, `Vinyl`, `Digital` |
 | `variant_type` | `String(64)` nullable, indexed | `physical` or `digital` |
 | `packaging_type` | `String(64)` nullable, indexed | `box`, `slipcase`, `steelbook`, `digipak`, `collector_case` |
@@ -80,7 +79,6 @@ Suggested columns:
 Recommended indexes:
 
 - `ix_bundle_releases_kind_bundle_type` on `(kind, bundle_type)`
-- `ix_bundle_releases_primary_item` on `(primary_item_id)`
 - `ix_bundle_releases_barcode` on `(barcode)`
 - `ix_bundle_releases_format_region` on `(format, region)`
 
@@ -93,9 +91,9 @@ Notes:
 - `image_assets`, `entity_tags`, `entity_organizations`, and `entity_persons`
   should also accept `bundle_release` as an entity type.
 
-### New join table: `bundle_release_items`
+### New join table: `bundle_release_components`
 
-`bundle_release_items` maps the package to the canonical items it contains.
+`bundle_release_components` maps the package to the canonical entities it contains.
 
 Suggested columns:
 
@@ -117,8 +115,8 @@ Suggested columns:
 Recommended constraints and indexes:
 
 - `UniqueConstraint(bundle_release_id, item_id, role, disc_number, sequence_number)`
-- `ix_bundle_release_items_item` on `(item_id)`
-- `ix_bundle_release_items_bundle_sequence` on `(bundle_release_id, disc_number, sequence_number)`
+- `ix_bundle_release_components_entity` on `(entity_type, entity_id)`
+- `ix_bundle_release_components_bundle_sequence` on `(bundle_release_id, disc_number, sequence_number)`
 
 Notes:
 
@@ -140,9 +138,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     bundle_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    primary_item_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
-    )
     format: Mapped[str | None] = mapped_column(String(64), index=True)
     variant_type: Mapped[str | None] = mapped_column(String(64), index=True)
     packaging_type: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -159,20 +154,19 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    items: Mapped[list[BundleReleaseItem]] = relationship(
+    components: Mapped[list["BundleReleaseComponent"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
     )
 
 
-class BundleReleaseItem(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "bundle_release_items"
+class BundleReleaseComponent(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "bundle_release_components"
 
     bundle_release_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("bundle_releases.id", ondelete="CASCADE"), index=True
     )
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), index=True
-    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     sequence_number: Mapped[int | None] = mapped_column(Integer)
     disc_number: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -370,7 +364,7 @@ Examples:
 
 Computation rule:
 
-- gather the canonical items in `bundle_release_items`
+- gather the canonical entities in `bundle_release_components`
 - join them with the user's item tracking entries in App or Sync
 - derive summary chips and completion ratios in the UI
 
@@ -393,7 +387,7 @@ entry. The primary identity remains the canonical `itemId`.
 
 - Core has canonical episode items for season 1.
 - Core has one `bundle_releases` row for `Season 1 Blu-ray Box`.
-- Core has `bundle_release_items` rows linking the package to episodes and extras.
+- Core has `bundle_release_components` rows linking the package to episodes and extras.
 - App creates one owned row with `bundleReleaseId`.
 - App creates tracking rows per episode as the user watches them.
 - UI derives `8 / 12 watched` on the owned bundle card.
@@ -414,7 +408,7 @@ entry. The primary identity remains the canonical `itemId`.
 
 ## Implementation Sequence
 
-1. Add `bundle_releases` and `bundle_release_items` to Core models and Alembic.
+1. Add `bundle_releases` and `bundle_release_components` to Core models and Alembic.
 2. Extend generic entity tables and provider mappings to accept `bundle_release`.
 3. Add item-scoped bundle lookup endpoints.
 4. Teach provider normalization and ingest to emit bundle rows when upstream

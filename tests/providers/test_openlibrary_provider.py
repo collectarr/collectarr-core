@@ -7,6 +7,7 @@ from app.models import (
     BookEdition,
     BookWork,
     ExternalProviderId,
+    Item,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import ProviderItem
@@ -140,6 +141,7 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
     async with AsyncSessionLocal() as db:
         # For books v1, we now use BookWork not Item
         book_work = await db.scalar(select(BookWork).where(BookWork.title == "The Hobbit"))
+        legacy_item = await db.scalar(select(Item).where(Item.title == "The Hobbit"))
         assert book_work is not None
         provider_ids = list(
             await db.scalars(
@@ -167,3 +169,4 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
     assert volume_provider_ids == []
     assert edition is not None
     assert edition.publisher == "George Allen & Unwin"
+    assert legacy_item is None

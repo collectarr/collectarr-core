@@ -64,8 +64,9 @@ class BundleReleaseSummaryResponse(BaseModel):
     release_date: date | None = None
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
-    primary_item_id: UUID | None = None
-    primary_item_title: str | None = None
+    primary_entity_type: str | None = None
+    primary_entity_id: UUID | None = None
+    primary_entity_title: str | None = None
     series_id: UUID | None = None
     series_title: str | None = None
     volume_id: UUID | None = None
@@ -75,7 +76,8 @@ class BundleReleaseSummaryResponse(BaseModel):
 
 class BundleReleaseMemberResponse(BaseModel):
     id: UUID
-    item_id: UUID
+    entity_type: str
+    entity_id: UUID
     role: str
     sequence_number: int | None = None
     disc_number: int | None = None

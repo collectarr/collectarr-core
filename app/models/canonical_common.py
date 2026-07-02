@@ -87,9 +87,12 @@ class Item(UuidMixin, TimestampMixin, Base):
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     editions: Mapped[list["Edition"]] = relationship(back_populates="item")
-    primary_bundle_releases: Mapped[list["BundleRelease"]] = relationship(
-        back_populates="primary_item",
-        foreign_keys="BundleRelease.primary_item_id",
+    bundle_release_components: Mapped[list["BundleReleaseComponent"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(BundleReleaseComponent.entity_id) == Item.id,
+            BundleReleaseComponent.entity_type == "item",
+        ),
+        viewonly=True,
     )
     provider_links: Mapped[list["ExternalProviderId"]] = relationship(
         primaryjoin=lambda: and_(
@@ -551,9 +554,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     kind: Mapped[ItemKind] = mapped_column(Enum(ItemKind, name="item_kind"), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     bundle_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    primary_item_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
-    )
     format: Mapped[str | None] = mapped_column(String(64), index=True)
     variant_type: Mapped[str | None] = mapped_column(String(64), index=True)
     packaging_type: Mapped[str | None] = mapped_column(String(64), index=True)
@@ -569,11 +569,7 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    primary_item: Mapped[Item | None] = relationship(
-        back_populates="primary_bundle_releases",
-        foreign_keys=[primary_item_id],
-    )
-    items: Mapped[list["BundleReleaseItem"]] = relationship(
+    components: Mapped[list["BundleReleaseComponent"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
     )
     provider_links: Mapped[list["ExternalProviderId"]] = relationship(
@@ -583,28 +579,32 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
         ),
         viewonly=True,
     )
-
-
-class BundleReleaseItem(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "bundle_release_items"
+class BundleReleaseComponent(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "bundle_release_components"
     __table_args__ = (
         UniqueConstraint(
             "bundle_release_id",
-            "item_id",
+            "entity_type",
+            "entity_id",
             "role",
             "disc_number",
             "sequence_number",
-            name="uq_bundle_release_item_membership",
+            name="uq_bundle_release_component_membership",
         ),
-        Index("ix_bundle_release_items_bundle_sequence", "bundle_release_id", "disc_number", "sequence_number"),
+        Index(
+            "ix_bundle_release_components_bundle_sequence",
+            "bundle_release_id",
+            "disc_number",
+            "sequence_number",
+        ),
+        Index("ix_bundle_release_components_entity", "entity_type", "entity_id"),
     )
 
     bundle_release_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("bundle_releases.id", ondelete="CASCADE"), index=True
     )
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), index=True
-    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     sequence_number: Mapped[int | None] = mapped_column(Integer)
     disc_number: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -613,5 +613,4 @@ class BundleReleaseItem(UuidMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    bundle_release: Mapped[BundleRelease] = relationship(back_populates="items")
-    item: Mapped[Item] = relationship()
+    bundle_release: Mapped[BundleRelease] = relationship(back_populates="components")

@@ -21,7 +21,7 @@ where they still make sense:
 | Edition | `editions` | Format/region/language/publisher-level edition |
 | Variant | `variants` | Cover, platform, pressing, steelbook, collector edition, regional variant |
 | Bundle | `bundle_releases` | Multi-item package or box set |
-| Bundle membership | `bundle_release_items` | Items contained in a bundle |
+| Bundle membership | `bundle_release_components` | Entities contained in a bundle |
 
 Supported media kinds are:
 

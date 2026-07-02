@@ -27,7 +27,7 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         }
         assert {
             "bundle_releases",
-            "bundle_release_items",
+            "bundle_release_components",
             "item_kind_metadata",
             "item_kind_metadata_taxonomies",
             "metadata_taxonomies",
@@ -73,6 +73,7 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "image_cache_entries",
             "admin_audit_logs",
         }.issubset(tables)
+        assert "bundle_release_items" not in tables
         assert "item_kind_metadata_anime" not in tables
         assert "item_kind_metadata_boardgame" not in tables
         assert "item_kind_metadata_book" not in tables

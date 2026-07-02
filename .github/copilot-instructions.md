@@ -31,9 +31,9 @@ Item → Edition → Variant (+ Release)
 - Schema integrity lives in the models: non-negative CHECKs, a one-primary-per-edition
   partial unique index (`uq_variants_primary_per_edition`), and reverse foreign-key
   indexes on the polymorphic `entity_*` link tables. (A matching
-  one-primary-per-bundle index on `bundle_release_items` is a known follow-up: it
-  needs the bundle-member update service to delete removed members before inserting
-  the new primary, otherwise the in-transaction primary swap trips the index.)
+  bundle membership is now modeled via `bundle_release_components`; update paths
+  should delete removed members before inserting the new primary, otherwise the
+  in-transaction primary swap trips the ordering invariant.)
 
 ### 10 Metadata Providers (`app/providers/`)
 | Provider | File | Kinds | Auth |

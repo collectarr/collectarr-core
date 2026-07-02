@@ -150,7 +150,7 @@ def item_search_document(item: Any) -> dict[str, Any]:
             thumbnail_url = thumbnail_url or primary.thumbnail_image_url
         release_region = release_region or edition.region
 
-    bundle_releases = _loaded_primary_bundle_releases(item)
+    bundle_releases = _loaded_bundle_releases(item)
     for bundle_release in bundle_releases:
         _append_unique(bundle_titles, bundle_release.title)
         _append_unique(bundle_release_ids, str(bundle_release.id))
@@ -920,11 +920,31 @@ def _unique(values: list[str]) -> list[str]:
     return unique_values
 
 
-def _loaded_primary_bundle_releases(item: Any) -> list[Any]:
-    bundle_attr = inspect(item).attrs.primary_bundle_releases.loaded_value
-    if bundle_attr is NO_VALUE or bundle_attr is None:
+def _loaded_bundle_releases(item: Any) -> list[Any]:
+    component_attr = inspect(item).attrs.bundle_release_components.loaded_value
+    if component_attr is NO_VALUE or component_attr is None:
         return []
-    return list(bundle_attr)
+    bundle_releases: list[Any] = []
+    seen: set[str] = set()
+    for component in component_attr:
+        bundle_release = getattr(component, "bundle_release", None)
+        if bundle_release is None:
+            continue
+        bundle_release_id = str(getattr(bundle_release, "id", ""))
+        if bundle_release_id in seen:
+            continue
+        seen.add(bundle_release_id)
+        bundle_releases.append(bundle_release)
+    return sorted(
+        bundle_releases,
+        key=lambda bundle: (
+            getattr(bundle, "release_date", None) is None,
+            -getattr(bundle, "release_date", None).toordinal()
+            if getattr(bundle, "release_date", None) is not None
+            else 0,
+            str(getattr(bundle, "title", "")).casefold(),
+        ),
+    )
 
 
 def _loaded_rows(item: Any, attr_name: str) -> list[Any]:

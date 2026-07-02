@@ -31,7 +31,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
 LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
-LEGACY_BRIDGE_TABLE_NAMES = {"bundle_releases", "bundle_release_items"}
+LEGACY_BRIDGE_TABLE_NAMES = {"bundle_releases"}
 SOURCE_MODULES = [
     "app/models/base.py",
     "app/models/canonical_anime.py",
@@ -57,7 +57,7 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
             "editions",
             "variants",
             "bundle_releases",
-            "bundle_release_items",
+            "bundle_release_components",
         ],
     },
     {
@@ -180,7 +180,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "movie_work_contributions",
         "movie_work_identifiers",
         "bundle_releases",
-        "bundle_release_items",
     ],
     "tv": [
         "item_kind_metadata",
@@ -190,7 +189,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "tv_release_contributions",
         "tv_release_identifiers",
         "bundle_releases",
-        "bundle_release_items",
     ],
     "game": [
         "item_kind_metadata",
@@ -219,12 +217,10 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "music_release_contributions",
         "music_release_identifiers",
         "bundle_releases",
-        "bundle_release_items",
     ],
     "collection": [
         "item_kind_metadata",
         "bundle_releases",
-        "bundle_release_items",
     ],
 }
 

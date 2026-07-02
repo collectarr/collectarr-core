@@ -1416,47 +1416,6 @@ class AdminProviderIngestService:
         )
         return refreshed
 
-    async def _refresh_item_from_provider(self, pid: ExternalProviderId) -> None:
-        if pid.entity_type == "item":
-            raise ApiHTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                code="provider_link_stale",
-                detail="Legacy item refresh is no longer supported",
-            )
-        registry = ProviderRegistry()
-        provider = registry.get(pid.provider)
-        if provider is None or not provider.is_configured:
-            pid.updated_at = datetime.now(UTC)
-            return
-        provider_item = await provider.get_item(pid.provider_item_id)
-        normalized = await provider.normalize(provider_item.raw)
-        await self._record_provider_snapshot(
-            provider=pid.provider,
-            provider_item_id=pid.provider_item_id,
-            entity_type=pid.entity_type,
-            entity_id=pid.entity_id,
-            source=provider_item.raw,
-            normalized={
-                "audience_rating": normalized.audience_rating,
-                "genres": normalized.genres,
-                "platforms": normalized.platforms,
-                "track_count": normalized.track_count,
-                "tracks": [
-                    {
-                        "position": track.position,
-                        "title": track.title,
-                        "duration_seconds": track.duration_seconds,
-                        "artist": track.artist,
-                        "disc_number": track.disc_number,
-                    }
-                    for track in normalized.tracks
-                ],
-                "color": normalized.color,
-                "release_status": normalized.release_status,
-            },
-        )
-        pid.updated_at = datetime.now(UTC)
-
     async def _upsert_book_series(
         self,
         series_title: str | None,
@@ -1560,37 +1519,6 @@ class AdminProviderIngestService:
                 )
             )
 
-    async def _replace_item_provider_links(
-        self,
-        item_id: UUID,
-        provider: ExternalProvider,
-        provider_ids: dict[str, str],
-        provider_urls: dict[str, dict[str, str | None]] | None = None,
-    ) -> None:
-        await self._replace_catalog_provider_links(
-            entity_type="item",
-            owner_id=item_id,
-            provider=provider,
-            provider_ids=provider_ids,
-            provider_urls=provider_urls,
-        )
-
-    async def _replace_volume_provider_links(
-        self,
-        volume: ComicVolume,
-        provider: ExternalProvider,
-        provider_ids: dict[str, str],
-        provider_urls: dict[str, dict[str, str | None]] | None = None,
-    ) -> None:
-        entity_type = "comic_volume" if isinstance(volume, ComicVolume) else "volume"
-        await self._replace_catalog_provider_links(
-            entity_type=entity_type,
-            owner_id=volume.id,
-            provider=provider,
-            provider_ids=provider_ids,
-            provider_urls=provider_urls,
-        )
-
     async def _replace_entity_provider_links(
         self,
         entity_type: str,
@@ -1663,92 +1591,6 @@ class AdminProviderIngestService:
                     api_url=row["api_url"],
                 )
             )
-
-    async def _link_publisher(self, item_id: UUID, publisher: str | None) -> None:
-        if not publisher:
-            return
-        organization = await self._get_or_create_organization(publisher, "publisher")
-        exists = await self.db.scalar(
-            select(EntityOrganization.id).where(
-                EntityOrganization.entity_type == "item",
-                EntityOrganization.entity_id == item_id,
-                EntityOrganization.organization_id == organization.id,
-                EntityOrganization.role == "publisher",
-            )
-        )
-        if exists:
-            return
-        self.db.add(
-            EntityOrganization(
-                entity_type="item",
-                entity_id=item_id,
-                organization_id=organization.id,
-                role="publisher",
-            )
-        )
-
-    async def _link_imprint(self, item_id: UUID, imprint: str | None, publisher: str | None) -> None:
-        if not imprint:
-            return
-        organization = await self._get_or_create_organization(imprint, "imprint")
-        if publisher:
-            normalized_parent = " ".join(str(publisher).split()).strip() or None
-            if organization.parent_publisher != normalized_parent:
-                organization.parent_publisher = normalized_parent
-            metadata = dict(organization.metadata_json or {})
-            if metadata.get("parent_publisher") != normalized_parent:
-                metadata["parent_publisher"] = normalized_parent
-                organization.metadata_json = metadata
-        exists = await self.db.scalar(
-            select(EntityOrganization.id).where(
-                EntityOrganization.entity_type == "item",
-                EntityOrganization.entity_id == item_id,
-                EntityOrganization.organization_id == organization.id,
-                EntityOrganization.role == "imprint",
-            )
-        )
-        if exists:
-            return
-        self.db.add(
-            EntityOrganization(
-                entity_type="item",
-                entity_id=item_id,
-                organization_id=organization.id,
-                role="imprint",
-            )
-        )
-
-    async def _link_people(
-        self,
-        item_id: UUID,
-        provider: ExternalProvider,
-        credits: list[NormalizedCredit],
-    ) -> None:
-        for credit in credits:
-            person = await self._get_or_create_person(credit.name, credit)
-            role = credit.role or "creator"
-            exists = await self.db.scalar(
-                select(EntityPerson.id).where(
-                    EntityPerson.entity_type == "item",
-                    EntityPerson.entity_id == item_id,
-                    EntityPerson.person_id == person.id,
-                    EntityPerson.role == role,
-                )
-            )
-            if exists:
-                continue
-            self.db.add(
-                EntityPerson(entity_type="item", entity_id=item_id, person_id=person.id, role=role)
-            )
-            provider_item_id = comicvine_credit_provider_id(credit, resource="person")
-            if provider == ExternalProvider.comicvine and provider_item_id:
-                await self._add_provider_links(
-                    provider,
-                    {provider.value: provider_item_id},
-                    "person",
-                    person.id,
-                    provider_urls={provider.value: credit_provider_urls(credit) or {}},
-                )
 
     async def _link_organization_for_entity(
         self,
@@ -2329,14 +2171,6 @@ class AdminProviderIngestService:
         )
         if mirrored_cover:
             await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
-        
-        # Add volume provider links if volume exists
-        if volume:
-            await self._replace_volume_provider_links(
-                volume,
-                provider_name,
-                normalized.volume_provider_ids,
-            )
         
         return work, work_created
 
@@ -3556,103 +3390,6 @@ class AdminProviderIngestService:
     def _normalized_identifier(self, value: str) -> str:
         return normalized_identifier(value)
 
-    async def _link_story_arcs(
-        self,
-        item_id: UUID,
-        provider: ExternalProvider,
-        credits: list[NormalizedCredit],
-    ) -> None:
-        seen_names: set[str] = set()
-        for index, credit in enumerate(credits, start=1):
-            name = credit.name.strip()
-            if not name:
-                continue
-            key = name.casefold()
-            if key in seen_names:
-                continue
-            seen_names.add(key)
-            story_arc = await self._get_or_create_story_arc(name, credit)
-            existing = await self.db.scalar(
-                select(StoryArcItem.id).where(
-                    StoryArcItem.story_arc_id == story_arc.id,
-                    StoryArcItem.item_id == item_id,
-                )
-            )
-            if not existing:
-                self.db.add(StoryArcItem(story_arc_id=story_arc.id, item_id=item_id, ordinal=index))
-            provider_item_id = comicvine_credit_provider_id(credit, resource="story_arc")
-            if provider == ExternalProvider.comicvine and provider_item_id:
-                await self._add_provider_links(
-                    provider,
-                    {provider.value: provider_item_id},
-                    "story_arc",
-                    story_arc.id,
-                    provider_urls={provider.value: credit_provider_urls(credit) or {}},
-                )
-
-    async def _link_characters(
-        self,
-        item_id: UUID,
-        provider: ExternalProvider,
-        credits: list[NormalizedCredit],
-    ) -> None:
-        seen_names: set[str] = set()
-        for credit in credits:
-            name = credit.name.strip()
-            if not name:
-                continue
-            key = name.casefold()
-            if key in seen_names:
-                continue
-            seen_names.add(key)
-            provider_item_id = comicvine_credit_provider_id(credit, resource="character")
-            character = await self._get_or_create_character(
-                name,
-                credit,
-                provider=provider,
-                provider_item_id=provider_item_id,
-            )
-            role = character_appearance_role(credit.role)
-            existing = await self.db.scalar(
-                select(CharacterAppearance).where(
-                    CharacterAppearance.character_id == character.id,
-                    CharacterAppearance.item_id == item_id,
-                )
-            )
-            if existing:
-                if character_role_rank(role) > character_role_rank(existing.role):
-                    existing.role = role
-            else:
-                self.db.add(CharacterAppearance(character_id=character.id, item_id=item_id, role=role))
-            if provider == ExternalProvider.comicvine and provider_item_id:
-                await self._add_provider_links(
-                    provider,
-                    {provider.value: provider_item_id},
-                    "character",
-                    character.id,
-                    provider_urls={provider.value: credit_provider_urls(credit) or {}},
-                )
-                await self._enrich_comicvine_character(character, provider_item_id, current_item_id=item_id)
-            if character.first_appearance_item_id is None:
-                character.first_appearance_item_id = item_id
-
-    async def _link_tags(self, item_id: UUID, kind: str, credits: list[NormalizedCredit]) -> None:
-        for credit in credits:
-            tag = await self._get_or_create_tag(kind, credit.name)
-            exists = await self.db.scalar(
-                select(EntityTag.id).where(
-                    EntityTag.entity_type == "item",
-                    EntityTag.entity_id == item_id,
-                    EntityTag.tag_id == tag.id,
-                )
-            )
-            if exists:
-                continue
-            self.db.add(EntityTag(entity_type="item", entity_id=item_id, tag_id=tag.id))
-
-
-
-
     async def _get_or_create_organization(self, name: str, organization_type: str) -> Organization:
         result = await self.db.execute(
             select(Organization).where(Organization.name == name, Organization.type == organization_type)
@@ -3835,15 +3572,17 @@ class AdminProviderIngestService:
         if not character.site_detail_url and detail.site_detail_url:
             character.site_detail_url = detail.site_detail_url
         if detail.first_appeared_in_issue_id:
-            first_item_id = await self._local_item_id_for_provider_id(
+            first_item_id = await self._local_entity_id_for_provider_id(
                 ExternalProvider.comicvine,
                 detail.first_appeared_in_issue_id,
+                "comic_issue",
             )
             if first_item_id is not None:
                 character.first_appearance_item_id = first_item_id
-            elif detail.first_appeared_in_issue_id == await self._provider_id_for_item(
+            elif detail.first_appeared_in_issue_id == await self._provider_id_for_entity(
                 ExternalProvider.comicvine,
                 current_item_id,
+                "comic_issue",
             ):
                 character.first_appearance_item_id = current_item_id
 
@@ -3862,25 +3601,31 @@ class AdminProviderIngestService:
         self._comicvine_character_details[provider_item_id] = detail
         return detail
 
-    async def _local_item_id_for_provider_id(
+    async def _local_entity_id_for_provider_id(
         self,
         provider: ExternalProvider,
         provider_item_id: str,
+        entity_type: str,
     ) -> UUID | None:
         return await self.db.scalar(
             select(ExternalProviderId.entity_id).where(
                 ExternalProviderId.provider == provider,
                 ExternalProviderId.provider_item_id == provider_item_id,
-                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_type == entity_type,
             )
         )
 
-    async def _provider_id_for_item(self, provider: ExternalProvider, item_id: UUID) -> str | None:
+    async def _provider_id_for_entity(
+        self,
+        provider: ExternalProvider,
+        entity_id: UUID,
+        entity_type: str,
+    ) -> str | None:
         return await self.db.scalar(
             select(ExternalProviderId.provider_item_id).where(
                 ExternalProviderId.provider == provider,
-                ExternalProviderId.entity_id == item_id,
-                ExternalProviderId.entity_type == "item",
+                ExternalProviderId.entity_id == entity_id,
+                ExternalProviderId.entity_type == entity_type,
             )
         )
 

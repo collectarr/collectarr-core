@@ -95,7 +95,7 @@ def test_kind_views_surface_v1_work_tables():
     assert "tv_releases" not in misc_tables
 
 
-def test_legacy_generic_tables_are_omitted_from_the_interactive_view():
+def test_generic_tables_are_omitted_from_the_interactive_view():
     data = build_schema_data()
     table_names = {table["name"] for table in data["tables"]}
     assert "items" not in table_names
@@ -103,7 +103,7 @@ def test_legacy_generic_tables_are_omitted_from_the_interactive_view():
     assert "variants" not in table_names
 
 
-def test_catalog_spine_marks_bundle_bridge_tables_as_legacy():
+def test_catalog_spine_marks_bundle_bridge_tables_as_compatibility_layer():
     data = build_schema_data()
     catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
 

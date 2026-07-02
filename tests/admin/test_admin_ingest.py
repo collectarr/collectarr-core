@@ -1296,7 +1296,7 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     ignore = await client.post(
         "/admin/duplicates/ignore",
         headers={"Authorization": f"Bearer {token}"},
-        json={"item_ids": duplicate_body[0]["item_ids"]},
+        json={"item_ids": comic_duplicate["item_ids"]},
     )
 
     assert ignore.status_code == 200
@@ -2901,7 +2901,6 @@ async def test_refresh_stale_items_updates_metadata_from_provider(client, monkey
     settings = get_settings()
     monkeypatch.setattr(settings, "worker_catalog_refresh_stale_days", 0)
     async with AsyncSessionLocal() as db:
-        # Update ExternalProviderId instead of the legacy provider-link alias for new schema
         await db.execute(
             update(ExternalProviderId)
             .values(updated_at=datetime.now(UTC) - timedelta(days=1))

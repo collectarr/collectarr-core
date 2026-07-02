@@ -1,18 +1,17 @@
-from typing import Any
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import RedirectResponse
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import DbSession
 from app.catalog.media_types import (
     MediaTypeConfig,
-    media_type_for_route,
     top_level_media_types,
 )
 from app.catalog.metadata_fields import (
     METADATA_FIELDS,
+    MetadataFieldSpec,
     fields_for_kind,
 )
 from app.catalog.physical_formats import PhysicalFormatConfig
@@ -29,6 +28,8 @@ from app.providers.mangadex import MangaDexProvider
 from app.schemas import (
     AnimeEpisodeV1Response,
     AnimeSeriesV1Response,
+    BoardGameEditionV1Response,
+    BoardGameWorkV1Response,
     BookEditionV1Response,
     BookWorkV1Response,
     CharacterAppearanceResponse,
@@ -40,6 +41,8 @@ from app.schemas import (
     CreatorFacetResponse,
     CreatorResponse,
     FacetItemIdsRequest,
+    GameReleaseV1Response,
+    GameWorkV1Response,
     MangaChapterV1Response,
     MangaWorkV1Response,
     MediaCatalogResponse,
@@ -51,6 +54,9 @@ from app.schemas import (
     MetadataProposalResponse,
     MovieReleaseV1Response,
     MovieWorkV1Response,
+    MusicMediaV1Response,
+    MusicReleaseV1Response,
+    MusicTrackV1Response,
     PhysicalFormatResponse,
     ProviderSearchResultResponse,
     SeasonResponse,
@@ -66,15 +72,33 @@ from app.schemas.admin import (
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
     ProviderPreviewResponse,
-)
-from app.schemas.admin import (
     ProviderIngestRequest as ProviderPreviewRequest,
 )
-from app.schemas.metadata_shared import CreateEditionRequest, EditionResponse, SearchResult
+from app.schemas.metadata_shared import SearchResult
 from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
 
 router = APIRouter(tags=["metadata"])
+
+
+def _field_spec_response(spec: MetadataFieldSpec) -> MetadataFieldSpecResponse:
+    return MetadataFieldSpecResponse(
+        key=spec.key,
+        value_type=spec.value_type,
+        label=spec.label,
+        common=spec.common,
+        typed=spec.typed,
+        normalized=spec.normalized,
+        editable=spec.editable,
+        scope=spec.scope,
+        write_target=spec.write_target,
+        source_entity_type=spec.source_entity_type,
+        source_table=spec.source_table,
+        is_legacy_projection=spec.is_legacy_projection,
+        section=spec.section,
+        input=spec.input,
+        kinds=sorted((kind for kind in spec.kinds), key=lambda k: k.value),
+    )
 
 
 
@@ -125,18 +149,7 @@ async def metadata_field_schema(
         if spec.editable or not editable_only
     ]
     fields = [
-        MetadataFieldSpecResponse(
-            key=spec.key,
-            value_type=spec.value_type,
-            label=spec.label,
-            common=spec.common,
-            typed=spec.typed,
-            normalized=spec.normalized,
-            editable=spec.editable,
-            section=spec.section,
-            input=spec.input,
-            kinds=sorted((kind for kind in spec.kinds), key=lambda k: k.value),
-        )
+        _field_spec_response(spec)
         for spec in specs
     ]
     kind_fields = {
@@ -628,33 +641,6 @@ async def get_tv_episode(
     return await MetadataService(db).get_tv_episode(episode_id)
 
 
-@router.get("/metadata/{media_type}/{item_id}", response_model=dict[str, Any] | BookWorkV1Response | ComicWorkV1Response)
-async def get_metadata_item(
-    media_type: str, item_id: UUID, db: DbSession
-) -> dict[str, Any] | BookWorkV1Response | ComicWorkV1Response:
-    return await _get_metadata_item(media_type, item_id, db)
-
-
-@router.get("/{media_type}/{item_id}", response_model=dict[str, Any] | BookWorkV1Response | ComicWorkV1Response)
-async def get_metadata_item_alias(
-    media_type: str, item_id: UUID, db: DbSession
-) -> dict[str, Any] | BookWorkV1Response | ComicWorkV1Response:
-    return await _get_metadata_item(media_type, item_id, db)
-
-
-async def _get_metadata_item(
-    media_type: str, item_id: UUID, db: DbSession
-) -> dict[str, Any] | BookWorkV1Response | ComicWorkV1Response:
-    media_config = media_type_for_route(media_type)
-    if media_config is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="media_type_not_found",
-            detail=f"Unknown media type '{media_type}'",
-        )
-    return await MetadataService(db).get_item(item_id, media_config.kind)
-
-
 def _media_type_response(config: MediaTypeConfig) -> MediaTypeResponse:
     return MediaTypeResponse(
         kind=public_item_kind(config.kind),
@@ -726,28 +712,92 @@ async def get_item_seasons(
     return await MetadataService(db).get_item_seasons(item_id)
 
 
-@router.post(
-    "/metadata/items/{item_id}/editions",
-    response_model=EditionResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_item_edition(
-    item_id: UUID,
-    payload: CreateEditionRequest,
+@router.get("/metadata/games/works/{work_id}", response_model=GameWorkV1Response)
+async def get_game_work(
+    work_id: UUID,
     db: DbSession,
-    _user: CurrentUser,
-) -> EditionResponse:
-    return await MetadataService(db).create_edition(
-        item_id,
-        title=payload.title,
-        format=payload.format,
-        publisher=payload.publisher,
-        isbn=payload.isbn,
-        upc=payload.upc,
-        language=payload.language,
-        region=payload.region,
-        release_date=payload.release_date,
-    )
+) -> GameWorkV1Response:
+    return await MetadataService(db).get_game_work(work_id)
+
+
+@router.get("/metadata/games/works/{work_id}/releases", response_model=list[GameReleaseV1Response])
+async def get_game_work_releases(
+    work_id: UUID,
+    db: DbSession,
+) -> list[GameReleaseV1Response]:
+    return await MetadataService(db).get_game_work_releases(work_id)
+
+
+@router.get("/metadata/games/releases/{release_id}", response_model=GameReleaseV1Response)
+async def get_game_release(
+    release_id: UUID,
+    db: DbSession,
+) -> GameReleaseV1Response:
+    return await MetadataService(db).get_game_release(release_id)
+
+
+@router.get("/metadata/boardgames/works/{work_id}", response_model=BoardGameWorkV1Response)
+async def get_boardgame_work(
+    work_id: UUID,
+    db: DbSession,
+) -> BoardGameWorkV1Response:
+    return await MetadataService(db).get_boardgame_work(work_id)
+
+
+@router.get("/metadata/boardgames/works/{work_id}/editions", response_model=list[BoardGameEditionV1Response])
+async def get_boardgame_work_editions(
+    work_id: UUID,
+    db: DbSession,
+) -> list[BoardGameEditionV1Response]:
+    return await MetadataService(db).get_boardgame_work_editions(work_id)
+
+
+@router.get("/metadata/boardgames/editions/{edition_id}", response_model=BoardGameEditionV1Response)
+async def get_boardgame_edition(
+    edition_id: UUID,
+    db: DbSession,
+) -> BoardGameEditionV1Response:
+    return await MetadataService(db).get_boardgame_edition(edition_id)
+
+
+@router.get("/metadata/music/releases/{release_id}", response_model=MusicReleaseV1Response)
+async def get_music_release(
+    release_id: UUID,
+    db: DbSession,
+) -> MusicReleaseV1Response:
+    return await MetadataService(db).get_music_release(release_id)
+
+
+@router.get("/metadata/music/releases/{release_id}/media", response_model=list[MusicMediaV1Response])
+async def get_music_release_media(
+    release_id: UUID,
+    db: DbSession,
+) -> list[MusicMediaV1Response]:
+    return await MetadataService(db).get_music_release_media(release_id)
+
+
+@router.get("/metadata/music/media/{media_id}", response_model=MusicMediaV1Response)
+async def get_music_media(
+    media_id: UUID,
+    db: DbSession,
+) -> MusicMediaV1Response:
+    return await MetadataService(db).get_music_media(media_id)
+
+
+@router.get("/metadata/music/media/{media_id}/tracks", response_model=list[MusicTrackV1Response])
+async def get_music_media_tracks(
+    media_id: UUID,
+    db: DbSession,
+) -> list[MusicTrackV1Response]:
+    return await MetadataService(db).get_music_media_tracks(media_id)
+
+
+@router.get("/metadata/music/tracks/{track_id}", response_model=MusicTrackV1Response)
+async def get_music_track(
+    track_id: UUID,
+    db: DbSession,
+) -> MusicTrackV1Response:
+    return await MetadataService(db).get_music_track(track_id)
 
 
 @router.get(

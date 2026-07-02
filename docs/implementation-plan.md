@@ -10,7 +10,7 @@
 - Single squashed Alembic migration with role-based user model
 
 ### 🔌 Providers
-- 9 provider integrations: GCD, ComicVine, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
+- 10 provider integrations: GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
 - Search guardrails: cache, cooldown/backoff, rate limiting (Redis-backed)
 - Shared normalization: accent stripping, title aliases, issue sort keys
 - Smoke fixture tests for all 9 providers
@@ -21,7 +21,8 @@
 - Ingest persistence hardening for normalized metadata (`audience_rating`, `volume_number`) and comic-only story-arc fallback semantics
 
 ### 📚 Catalog
-- Series → items → editions → variants → releases → people → organizations → tags
+- Kind-specific catalog tables are canonical.
+- Legacy projection tables remain read-only; bundle composition uses `bundle_release_components`.
 - MangaDex volume/chapter support through metadata volumes API
 - DB-backed ingest job queue with automatic worker processing
 
@@ -47,14 +48,14 @@
 
 ### 🔓 API Access
 - Read-only metadata endpoints (search, facets, series, seasons, volumes, bundle releases, provider search/preview) are public — no auth required
-- Write endpoints (create edition, admin mutations) remain auth-protected
+- Write endpoints are kind-specific
 - Keeps App usable without login for browsing/searching metadata
 
 ## 🔜 Active Roadmap
 
 ### 🎯 Metadata Contract + Ingest Reliability
 - [x] Stabilize typed-per-kind metadata storage as canonical contract
-	- Typed per-kind fields now live in `item_kind_metadata.metadata_json`/base columns instead of per-kind subtype tables.
+	- Typed per-kind fields now live in kind-specific canonical tables.
 	- Shared genre/platform classification now uses taxonomy link tables again instead of per-kind scalar columns.
 	- Keep admin drift diagnostics (`typed_*` issue keys) as the release gate.
 - [ ] Continue per-media normalization depth
@@ -69,8 +70,6 @@
 ### 🗂️ Schema Explorer / Taxonomy Clarity
 - [ ] Keep the interactive schema explorer split into navigable domains and kind views
 	- Continue color-coding generic vs kind-specific areas so the table hierarchy is visually obvious.
-- [x] Remove legacy `item_kind_metadata_*` subtype tables from the docs
-	- Only the shared `item_kind_metadata` base table remains in the catalog view.
 - [ ] Consider further pagination/collapse for very dense sections
 	- Add more progressive disclosure if the generated markdown or explorer still feels overloaded.
 

@@ -74,7 +74,7 @@ class MetadataFieldSpec:
     label: str
     #: ``True`` for normalized fields shared by every kind (cover/format/audience).
     common: bool = False
-    #: ``True`` when the field maps to a typed ``ItemKindMetadata*`` column.
+    #: ``True`` when the field maps to a typed canonical kind table column.
     typed: bool = False
     #: ``True`` when the field participates in metadata normalization/validation.
     normalized: bool = False
@@ -89,6 +89,36 @@ class MetadataFieldSpec:
 
     def applies_to(self, kind: ItemKind) -> bool:
         return self.common or kind in self.kinds
+
+    @property
+    def scope(self) -> str:
+        if self.section == SECTION_INTERNAL:
+            return "internal"
+        if self.common:
+            return "common"
+        return "kind"
+
+    @property
+    def write_target(self) -> str:
+        if self.common or self.typed:
+            return "kind_specific_table"
+        return "canonical_kind_table"
+
+    @property
+    def source_entity_type(self) -> str:
+        if self.common or self.typed:
+            return "kind"
+        return "item"
+
+    @property
+    def source_table(self) -> str:
+        if self.common or self.typed:
+            return "kind_specific_table"
+        return "items"
+
+    @property
+    def is_legacy_projection(self) -> bool:
+        return not self.common and not self.typed and self.section != SECTION_INTERNAL
 
 
 # --- Normalized common fields (shared by every kind) -------------------------
@@ -129,6 +159,22 @@ _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
                       normalized=True, section=SECTION_RELATIONS, input=INPUT_LIST,
                       kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
+    MetadataFieldSpec("identifiers", VALUE_TYPE_STRING_LIST, "Identifiers",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
+    MetadataFieldSpec("company_roles", VALUE_TYPE_STRING_LIST, "Company roles",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.game})),
+    MetadataFieldSpec("contributors", VALUE_TYPE_STRING_LIST, "Contributors",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("mechanics", VALUE_TYPE_STRING_LIST, "Mechanics",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("categories", VALUE_TYPE_STRING_LIST, "Categories",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("families", VALUE_TYPE_STRING_LIST, "Families",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("expansions", VALUE_TYPE_STRING_LIST, "Expansions",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("rankings", VALUE_TYPE_STRING_LIST, "Rankings",
+                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
     MetadataFieldSpec("color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
                       section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
 )
@@ -259,7 +305,7 @@ def value_types() -> dict[str, str]:
 
 
 def typed_field_keys() -> set[str]:
-    """Normalized fields backed by a typed ``ItemKindMetadata*`` column."""
+    """Normalized fields backed by a typed canonical kind table column."""
     return {spec.key for spec in METADATA_FIELDS if spec.normalized and spec.typed}
 
 

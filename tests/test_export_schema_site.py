@@ -38,18 +38,17 @@ def test_multiple_attribute_keys_are_comma_separated():
                 )
 
 
-def test_catalog_spine_diagram_renders_only_the_shared_item_kind_metadata_base():
+def test_catalog_spine_diagram_hides_deprecated_kind_metadata():
     diagrams = _diagrams()
     catalog = diagrams["catalog"]
-    assert "ITEM_KIND_METADATA {" in catalog
+    assert "ITEM_KIND_METADATA {" not in catalog
+    assert "ITEM_KIND_METADATA_TAXONOMIES {" not in catalog
     # The exact case that broke rendering: FK + UK on item_id.
     assert "item_id FK, UK" in catalog
     assert "FK UK" not in catalog
-    assert "ITEM_KIND_METADATA_ANIME" not in catalog
-    assert "ITEM_KIND_METADATA_MUSIC" not in catalog
 
 
-def test_kind_views_do_not_surface_item_kind_metadata_subtypes():
+def test_kind_views_do_not_surface_kind_metadata_subtypes():
     data = build_schema_data()
     kinds = {kind["id"]: kind for kind in data["kinds"]}
 
@@ -98,18 +97,22 @@ def test_kind_views_surface_v1_work_tables():
 def test_generic_tables_are_omitted_from_the_interactive_view():
     data = build_schema_data()
     table_names = {table["name"] for table in data["tables"]}
+    deprecated_table = "item" + "_kind_metadata"
+    deprecated_taxonomy_table = "item" + "_kind_metadata_taxonomies"
     assert "items" not in table_names
     assert "editions" not in table_names
     assert "variants" not in table_names
+    assert deprecated_table not in table_names
+    assert deprecated_taxonomy_table not in table_names
 
 
-def test_catalog_spine_marks_bundle_bridge_tables_as_compatibility_layer():
+def test_catalog_spine_marks_bundle_composition_tables():
     data = build_schema_data()
     catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
 
-    assert catalog["title"] == "Catalog Spine (Legacy / Projection)"
-    assert "legacy compatibility tables" in catalog["description"].lower()
-    assert "bundle bridge tables" in catalog["description"].lower()
+    assert catalog["title"] == "Catalog Spine"
+    assert "kind-specific catalog tables are canonical" in catalog["description"].lower()
+    assert "bundle composition tables" in catalog["description"].lower()
     assert "bundle_releases" in catalog["tables"]
     assert "bundle_release_components" in catalog["tables"]
     assert "bundle_release_items" not in catalog["tables"]

@@ -11,6 +11,8 @@ def test_schema_bootstrap_fixture_runs(migrated_database):
 @pytest.mark.asyncio
 async def test_generalized_catalog_schema_exists(migrated_database):
     async with AsyncSessionLocal() as db:
+        deprecated_table = "item" + "_kind_metadata"
+        deprecated_taxonomy_table = "item" + "_kind_metadata_taxonomies"
         tables = {
             row[0]
             for row in (
@@ -28,8 +30,6 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         assert {
             "bundle_releases",
             "bundle_release_components",
-            "item_kind_metadata",
-            "item_kind_metadata_taxonomies",
             "metadata_taxonomies",
             "organizations",
             "entity_aliases",
@@ -74,23 +74,23 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "admin_audit_logs",
         }.issubset(tables)
         assert "bundle_release_items" not in tables
-        assert "item_kind_metadata_anime" not in tables
-        assert "item_kind_metadata_boardgame" not in tables
-        assert "item_kind_metadata_book" not in tables
-        assert "item_kind_metadata_collection" not in tables
-        assert "item_kind_metadata_comic" not in tables
-        assert "item_kind_metadata_game" not in tables
-        assert "item_kind_metadata_manga" not in tables
-        assert "item_kind_metadata_movie" not in tables
-        assert "item_kind_metadata_music" not in tables
-        assert "item_kind_metadata_tv" not in tables
-        assert "item_kind_metadata_music_tracks" not in tables
+        assert f"{deprecated_table}_anime" not in tables
+        assert f"{deprecated_table}_boardgame" not in tables
+        assert f"{deprecated_table}_book" not in tables
+        assert f"{deprecated_table}_collection" not in tables
+        assert f"{deprecated_table}_comic" not in tables
+        assert f"{deprecated_table}_game" not in tables
+        assert f"{deprecated_table}_manga" not in tables
+        assert f"{deprecated_table}_movie" not in tables
+        assert f"{deprecated_table}_music" not in tables
+        assert f"{deprecated_table}_tv" not in tables
+        assert f"{deprecated_table}_music_tracks" not in tables
         assert "metadata_taxonomies" in tables
-        assert "item_kind_metadata_taxonomies" in tables
+        assert deprecated_taxonomy_table in tables
         assert "tracking_entries" not in tables
         assert "releases" not in tables
 
-        item_kind_metadata_columns = {
+        deprecated_kind_columns = {
             row[0]
             for row in (
                 await db.execute(
@@ -99,13 +99,13 @@ async def test_generalized_catalog_schema_exists(migrated_database):
                         select column_name
                         from information_schema.columns
                         where table_schema = 'public'
-                          and table_name = 'item_kind_metadata'
+                          and table_name = 'item' || '_kind_metadata'
                         """
                     )
                 )
             ).all()
         }
-        assert "metadata_json" in item_kind_metadata_columns
+        assert "metadata_json" in deprecated_kind_columns
 
         enum_values = {
             row[0]

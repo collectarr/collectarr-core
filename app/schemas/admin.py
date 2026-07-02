@@ -314,6 +314,15 @@ class AdminMetadataCorrectionRequest(BaseModel):
     audience_rating: str | None = Field(default=None, max_length=32)
     genres: list[str] | None = None
     platforms: list[str] | None = None
+    identifiers: list[str] | None = None
+    company_roles: list[str] | None = None
+    age_ratings: list[str] | None = None
+    contributors: list[str] | None = None
+    mechanics: list[str] | None = None
+    categories: list[str] | None = None
+    families: list[str] | None = None
+    expansions: list[str] | None = None
+    rankings: list[str] | None = None
     tracks: list[dict[str, Any]] | None = None
     creators: list[AdminMetadataCreditInput] | None = None
     characters: list[str] | None = None

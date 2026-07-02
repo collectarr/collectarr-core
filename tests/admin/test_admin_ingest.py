@@ -23,6 +23,8 @@ from app.models import (
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
+    BoardGameEdition,
+    BoardGameWork,
     BookEdition,
     BookWork,
     EntityOrganization,
@@ -32,7 +34,6 @@ from app.models import (
     GameRelease,
     GameWork,
     ImageCacheEntry,
-    Item,
     MetadataProposal,
     MovieRelease,
     MovieReleaseMedia,
@@ -47,7 +48,6 @@ from app.models import (
     StoryArc,
     StoryArcItem,
     Tag,
-    Variant,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (
@@ -68,6 +68,7 @@ from app.schemas.admin import ProviderIngestRequest
 from app.search.client import SearchClient
 from app.services import admin as admin_service
 from app.services.admin_domains.provider_ingest import AdminProviderIngestService
+from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.provider_preview_state import ProviderPreviewState, clear_provider_preview_cache
 from app.storage.images import ImageMirror, MirroredImage
 
@@ -213,6 +214,66 @@ async def test_purge_expired_provider_snapshots_redacts_payloads_only_for_expire
     assert active_db is not None and active_db.source_payload == {"raw": "active"}
     assert active_db is not None and active_db.normalized_payload == {"n": "active"}
     assert active_db is not None and active_db.purged_at is None
+
+
+@pytest.mark.asyncio
+async def test_admin_catalog_update_supports_game_and_boardgame_kind_lists():
+    async def _reindex_items(_: set[UUID]) -> None:
+        return None
+
+    async def _item_response_loader(entity):
+        return entity
+
+    async with AsyncSessionLocal() as db:
+        service = AdminCatalogService(
+            db=db,
+            item_response_loader=_item_response_loader,
+            audit_recorder=lambda **_: None,
+            reindex_items=_reindex_items,
+            sort_key_builder=lambda kind, title, subtitle: title if subtitle is None else f"{title} {subtitle}",
+            get_or_create_tag=lambda *_args, **_kwargs: None,
+        )
+
+        game = GameWork(title="Portal", sort_title="portal")
+        boardgame = BoardGameWork(title="Catan", sort_title="catan")
+        db.add_all([game, boardgame])
+        await db.flush()
+
+        await service.update_catalog_item(
+            game.id,
+            admin_service.AdminMetadataCorrectionRequest(
+                identifiers=["IGDB:123", "Steam:portal"],
+                company_roles=["developer", "publisher"],
+                age_ratings=["E10+"],
+            ),
+            ItemKind.game,
+        )
+        await service.update_catalog_item(
+            boardgame.id,
+            admin_service.AdminMetadataCorrectionRequest(
+                identifiers=["BGG:13"],
+                contributors=["Klaus Teuber"],
+                mechanics=["dice rolling"],
+                categories=["economic"],
+                families=["catan"],
+                expansions=["Seafarers"],
+                rankings=["BGG Rank #1"],
+            ),
+            ItemKind.boardgame,
+        )
+        await db.refresh(game)
+        await db.refresh(boardgame)
+
+    assert game.metadata_json["identifiers"] == ["IGDB:123", "Steam:portal"]
+    assert game.metadata_json["company_roles"] == ["developer", "publisher"]
+    assert game.metadata_json["age_ratings"] == ["E10+"]
+    assert boardgame.metadata_json["identifiers"] == ["BGG:13"]
+    assert boardgame.metadata_json["contributors"] == ["Klaus Teuber"]
+    assert boardgame.metadata_json["mechanics"] == ["dice rolling"]
+    assert boardgame.metadata_json["categories"] == ["economic"]
+    assert boardgame.metadata_json["families"] == ["catan"]
+    assert boardgame.metadata_json["expansions"] == ["Seafarers"]
+    assert boardgame.metadata_json["rankings"] == ["BGG Rank #1"]
 
 
 class FakePreviewCacheRedis:
@@ -1686,10 +1747,14 @@ async def test_admin_catalog_correction_updates_game_platforms(client, monkeypat
     async with AsyncSessionLocal() as db:
         work = GameWork(title="The Witcher 3", sort_title="witcher-3", metadata_json={})
         release = GameRelease(work=work, release_title="Standard Edition")
-        db.add_all([work, release])
+        boardgame = BoardGameWork(title="Catan", sort_title="catan", metadata_json={})
+        edition = BoardGameEdition(work=boardgame, edition_title="First Edition")
+        db.add_all([work, release, boardgame, edition])
         await db.flush()
         item_uuid = work.id
         item_id = str(work.id)
+        boardgame_uuid = boardgame.id
+        boardgame_id = str(boardgame.id)
         await db.commit()
 
     updated = await client.patch(
@@ -1707,6 +1772,31 @@ async def test_admin_catalog_correction_updates_game_platforms(client, monkeypat
         assert stored_item is not None
         assert stored_item.metadata_json is not None
         assert stored_item.metadata_json.get("platforms") == ["PC", "PlayStation 5"]
+
+    updated_boardgame = await client.patch(
+        f"/admin/catalog/items/boardgame/{boardgame_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "identifiers": ["BGG:13", "Kosmos:6995"],
+            "contributors": ["Klaus Teuber"],
+            "mechanics": ["dice rolling"],
+            "categories": ["economic"],
+            "families": ["catan"],
+            "expansions": ["Seafarers"],
+            "rankings": ["BGG Rank #1"],
+        },
+    )
+
+    assert updated_boardgame.status_code == 200
+    boardgame_body = updated_boardgame.json()
+    assert boardgame_body["contributors"] == ["Klaus Teuber"]
+    assert boardgame_body["rankings"] == ["BGG Rank #1"]
+
+    async with AsyncSessionLocal() as db:
+        stored_boardgame = await db.get(BoardGameWork, boardgame_uuid)
+        assert stored_boardgame is not None
+        assert stored_boardgame.metadata_json is not None
+        assert stored_boardgame.metadata_json.get("mechanics") == ["dice rolling"]
 
 
 @pytest.mark.asyncio
@@ -2276,7 +2366,6 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
     assert second_response.json()["item_id"] == body["item_id"]
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Item)) == 0
         assert await db.scalar(select(func.count()).select_from(ComicWork)) == 1
         assert await db.scalar(
             select(func.count()).select_from(ComicIssue).where(ComicIssue.work_id == UUID(body["item_id"]))

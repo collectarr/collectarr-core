@@ -39,7 +39,6 @@ from app.models import (
     ComicIssue,
     ComicStoryArcMembership,
     ComicWork,
-    Edition,
     EntityPerson,
     EntityTag,
     ExternalProviderId,
@@ -62,6 +61,7 @@ from app.models import (
     MusicRelease,
     MusicReleaseContribution,
     MusicReleaseIdentifier,
+    MusicTrack,
     Person,
     StoryArc,
     StoryArcItem,
@@ -140,7 +140,7 @@ from app.schemas import (
 from app.schemas import (
     EpisodeResponse as ProviderEpisodeResponse,
 )
-from app.schemas.metadata_shared import EditionResponse, SearchResult, public_item_kind
+from app.schemas.metadata_shared import SearchResult, public_item_kind
 from app.search.client import SearchClient
 from app.services.metadata_helpers import (
     _loaded_rows,
@@ -148,7 +148,6 @@ from app.services.metadata_helpers import (
     _metadata_list,
     _model_text_or_metadata,
     _organization_name,
-    _typed_kind_metadata,
 )
 from app.services.provider_search_state import ProviderSearchState
 from app.storage.image_cache import ImageCache
@@ -551,6 +550,9 @@ class MetadataService:
             search_aliases=_metadata_list(metadata, "search_aliases"),
             genres=_metadata_list(metadata, "genres"),
             platforms=_metadata_list(metadata, "platforms"),
+            identifiers=_metadata_list(metadata, "identifiers"),
+            company_roles=_metadata_list(metadata, "company_roles"),
+            age_ratings=_metadata_list(metadata, "age_ratings"),
             trailer_urls=_metadata_links(metadata, "trailer_urls"),
             external_links=_metadata_links(metadata, "external_links"),
             releases=[self._game_release_response(row) for row in releases],
@@ -605,6 +607,13 @@ class MetadataService:
             search_aliases=_metadata_list(metadata, "search_aliases"),
             genres=_metadata_list(metadata, "genres"),
             platforms=_metadata_list(metadata, "platforms"),
+            identifiers=_metadata_list(metadata, "identifiers"),
+            contributors=_metadata_list(metadata, "contributors"),
+            mechanics=_metadata_list(metadata, "mechanics"),
+            categories=_metadata_list(metadata, "categories"),
+            families=_metadata_list(metadata, "families"),
+            expansions=_metadata_list(metadata, "expansions"),
+            rankings=_metadata_list(metadata, "rankings"),
             trailer_urls=_metadata_links(metadata, "trailer_urls"),
             external_links=_metadata_links(metadata, "external_links"),
             editions=[self._boardgame_edition_response(row) for row in editions],
@@ -1112,6 +1121,38 @@ class MetadataService:
             ],
         )
 
+    def _music_media_response(self, media: MusicMedia) -> MusicMediaV1Response:
+        return MusicMediaV1Response(
+            id=media.id,
+            release_id=media.release_id,
+            media_number=media.media_number,
+            media_type=media.media_type,
+            title=media.title,
+            track_count=media.track_count,
+            packaging=media.packaging,
+            media_condition=media.media_condition,
+            sound_type=media.sound_type,
+            vinyl_color=media.vinyl_color,
+            vinyl_weight=media.vinyl_weight,
+            rpm=media.rpm,
+            spars=media.spars,
+            tracks=[self._music_track_response(track) for track in sorted(
+                media.tracks or [],
+                key=lambda track: (track.position.casefold(), str(track.id)),
+            )],
+        )
+
+    def _music_track_response(self, track: MusicTrack) -> MusicTrackV1Response:
+        return MusicTrackV1Response(
+            id=track.id,
+            media_id=track.media_id,
+            position=track.position,
+            title=track.title,
+            duration_ms=track.duration_ms,
+            instrument=track.instrument,
+            composition=track.composition,
+        )
+
     def _music_contributor_response(self, contrib: MusicReleaseContribution) -> MusicContributorResponse:
         return MusicContributorResponse(
             person_id=contrib.person_id,
@@ -1561,6 +1602,69 @@ class MetadataService:
                 detail="Music release not found",
             )
         return self._music_release_response(release)
+
+    async def get_music_release_media(self, release_id: UUID) -> list[MusicMediaV1Response]:
+        release = await self.db.scalar(select(MusicRelease.id).where(MusicRelease.id == release_id))
+        if release is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="music_release_not_found",
+                detail="Music release not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(MusicMedia)
+                    .where(MusicMedia.release_id == release_id)
+                    .options(selectinload(MusicMedia.tracks))
+                    .order_by(MusicMedia.media_number.asc(), MusicMedia.created_at.asc())
+                )
+            ).scalars()
+        )
+        return [self._music_media_response(media) for media in rows]
+
+    async def get_music_media(self, media_id: UUID) -> MusicMediaV1Response:
+        media = await self.db.scalar(
+            select(MusicMedia)
+            .where(MusicMedia.id == media_id)
+            .options(selectinload(MusicMedia.tracks))
+        )
+        if media is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="music_media_not_found",
+                detail="Music media not found",
+            )
+        return self._music_media_response(media)
+
+    async def get_music_media_tracks(self, media_id: UUID) -> list[MusicTrackV1Response]:
+        media = await self.db.scalar(select(MusicMedia.id).where(MusicMedia.id == media_id))
+        if media is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="music_media_not_found",
+                detail="Music media not found",
+            )
+        rows = list(
+            (
+                await self.db.execute(
+                    select(MusicTrack)
+                    .where(MusicTrack.media_id == media_id)
+                    .order_by(MusicTrack.position.asc(), MusicTrack.created_at.asc())
+                )
+            ).scalars()
+        )
+        return [self._music_track_response(track) for track in rows]
+
+    async def get_music_track(self, track_id: UUID) -> MusicTrackV1Response:
+        track = await self.db.scalar(select(MusicTrack).where(MusicTrack.id == track_id))
+        if track is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="music_track_not_found",
+                detail="Music track not found",
+            )
+        return self._music_track_response(track)
 
     async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
         release = await self.db.scalar(
@@ -4073,7 +4177,8 @@ class MetadataService:
         metadata = metadata_json if isinstance(metadata_json, dict) else {}
         series_title = getattr(item, "series_title", None) or metadata.get("series_title")
         volume_name = getattr(item, "volume_name", None) or metadata.get("volume_name")
-        typed_metadata = _typed_kind_metadata(item)
+        metadata = getattr(item, "metadata_json", None)
+        typed_metadata = dict(metadata.get("normalized") or {}) if isinstance(metadata, dict) else {}
         track_count: int | None = (
             int(typed_metadata["track_count"])
             if isinstance(typed_metadata.get("track_count"), int)
@@ -4628,25 +4733,6 @@ class MetadataService:
 
     async def _get_catalog_seasons(self, item_id: UUID) -> list[SeasonResponse]:
         return []
-
-    async def create_edition(
-        self, item_id: UUID, *, title: str, **kwargs: object
-    ) -> "EditionResponse":
-        item = (
-            await self.db.execute(select(Item).where(Item.id == item_id))
-        ).scalar_one_or_none()
-        if item is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="item_not_found",
-                detail="Catalog item not found",
-            )
-        edition = Edition(item_id=item_id, title=title, **kwargs)
-        self.db.add(edition)
-        await self.db.flush()
-        await self.db.refresh(edition, attribute_names=["variants"])
-        await self.db.commit()
-        return EditionResponse.model_validate(edition)
 
     async def search_story_arcs(
         self,

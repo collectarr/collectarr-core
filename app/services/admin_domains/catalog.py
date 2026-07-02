@@ -16,12 +16,9 @@ from app.catalog.physical_formats import (
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import (
     NORMALIZED_SCHEMA_VERSION,
-    item_kind_metadata_payload,
     merge_normalized_metadata,
     normalized_metadata_issues,
-    patch_item_kind_metadata,
-    typed_kind_metadata_payload,
-    upsert_item_kind_metadata,
+    typed_metadata_payload,
 )
 from app.models import (
     AnimeSeries,
@@ -38,13 +35,10 @@ from app.models import (
     ComicIssue,
     ComicStoryArcMembership,
     ComicWork,
-    Edition,
     EntityOrganization,
     EntityPerson,
     GameRelease,
     GameWork,
-    Item,
-    ItemKindMetadata,
     MangaWork,
     MovieRelease,
     MovieWork,
@@ -63,7 +57,6 @@ from app.models import (
     TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
-    Variant,
 )
 from app.models.base import ItemKind
 from app.schemas.admin import (
@@ -213,8 +206,8 @@ class AdminCatalogService:
                             normalized_keys=sorted(str(key) for key in normalized),
                         )
                     )
-            expected_typed = typed_kind_metadata_payload(normalized, kind=kind)
-            actual_typed = typed_kind_metadata_payload(_typed_source(entity, kind), kind=kind)
+            expected_typed = typed_metadata_payload(normalized, kind=kind)
+            actual_typed = typed_metadata_payload(_typed_source(entity, kind), kind=kind)
             issues = []
             for key in sorted(set(expected_typed) | set(actual_typed)):
                 if key not in actual_typed:
@@ -305,6 +298,15 @@ class AdminCatalogService:
             "search_aliases": list(metadata.get("search_aliases") or []),
             "genres": list(metadata.get("genres") or []),
             "platforms": list(metadata.get("platforms") or []),
+            "identifiers": list(metadata.get("identifiers") or []),
+            "company_roles": list(metadata.get("company_roles") or []),
+            "age_ratings": list(metadata.get("age_ratings") or []),
+            "contributors": list(metadata.get("contributors") or []),
+            "mechanics": list(metadata.get("mechanics") or []),
+            "categories": list(metadata.get("categories") or []),
+            "families": list(metadata.get("families") or []),
+            "expansions": list(metadata.get("expansions") or []),
+            "rankings": list(metadata.get("rankings") or []),
             "tracks": list(metadata.get("tracks") or []),
             "trailer_urls": list(metadata.get("trailer_urls") or []),
             "external_links": list(metadata.get("external_links") or []),
@@ -540,6 +542,12 @@ class AdminCatalogService:
                     _set_metadata_value("genres", self._normalize_text_values(payload.genres))
                 if "platforms" in update_data:
                     _set_metadata_value("platforms", self._normalize_text_values(payload.platforms))
+                if "identifiers" in update_data:
+                    _set_metadata_value("identifiers", self._normalize_text_values(payload.identifiers))
+                if "company_roles" in update_data:
+                    _set_metadata_value("company_roles", self._normalize_text_values(payload.company_roles))
+                if "age_ratings" in update_data:
+                    _set_metadata_value("age_ratings", self._normalize_text_values(payload.age_ratings))
                 if "trailer_urls" in update_data:
                     _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
                 if "external_links" in update_data:
@@ -731,6 +739,20 @@ class AdminCatalogService:
                 _set_metadata_value("genres", self._normalize_text_values(payload.genres))
             if "platforms" in update_data:
                 _set_metadata_value("platforms", self._normalize_text_values(payload.platforms))
+            if "identifiers" in update_data:
+                _set_metadata_value("identifiers", self._normalize_text_values(payload.identifiers))
+            if "contributors" in update_data:
+                _set_metadata_value("contributors", self._normalize_text_values(payload.contributors))
+            if "mechanics" in update_data:
+                _set_metadata_value("mechanics", self._normalize_text_values(payload.mechanics))
+            if "categories" in update_data:
+                _set_metadata_value("categories", self._normalize_text_values(payload.categories))
+            if "families" in update_data:
+                _set_metadata_value("families", self._normalize_text_values(payload.families))
+            if "expansions" in update_data:
+                _set_metadata_value("expansions", self._normalize_text_values(payload.expansions))
+            if "rankings" in update_data:
+                _set_metadata_value("rankings", self._normalize_text_values(payload.rankings))
             if "trailer_urls" in update_data:
                 _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
             if "external_links" in update_data:
@@ -790,7 +812,7 @@ class AdminCatalogService:
 
     def _apply_physical_format_to_edition(
         self,
-        edition: Edition,
+        edition: Any,
         physical_format: PhysicalFormatConfig,
         *,
         item_kind: ItemKind,
@@ -808,7 +830,7 @@ class AdminCatalogService:
 
     def _apply_physical_format_to_variant(
         self,
-        variant: Variant,
+        variant: Any,
         physical_format: PhysicalFormatConfig,
         *,
         item_kind: ItemKind,
@@ -865,11 +887,11 @@ class AdminCatalogService:
             kind=item_kind,
         )
 
-    def _primary_edition_model(self, item: Item) -> Edition | None:
+    def _primary_edition_model(self, item: Any) -> Any | None:
         editions = list(item.editions or [])
         return editions[0] if editions else None
 
-    def _primary_variant_model(self, item: Item) -> Variant | None:
+    def _primary_variant_model(self, item: Any) -> Any | None:
         for edition in item.editions or []:
             variants = list(edition.variants or [])
             primary = next((variant for variant in variants if variant.is_primary), None)
@@ -931,7 +953,7 @@ class AdminCatalogService:
             self.db.add(EntityTag(entity_type=entity_type, entity_id=entity_id, tag_id=tag.id))
         await self.db.flush()
 
-    def _current_creators(self, item: Item) -> list[dict[str, Any]]:
+    def _current_creators(self, item: Any) -> list[dict[str, Any]]:
         entries: list[dict[str, Any]] = []
         for link in list(getattr(item, "creator_links", []) or []):
             person = getattr(link, "person", None)
@@ -945,7 +967,7 @@ class AdminCatalogService:
             entries.append(entry)
         return entries
 
-    def _current_characters(self, item: Item) -> list[str]:
+    def _current_characters(self, item: Any) -> list[str]:
         entries: list[str] = []
         for link in list(getattr(item, "character_appearances", []) or []):
             character = getattr(link, "character", None)
@@ -957,7 +979,7 @@ class AdminCatalogService:
                 entries.append(value)
         return entries
 
-    def _current_story_arcs(self, item: Item) -> list[str]:
+    def _current_story_arcs(self, item: Any) -> list[str]:
         rows = sorted(
             getattr(item, "story_arc_items", []) or [],
             key=lambda row: (
@@ -977,7 +999,7 @@ class AdminCatalogService:
                 entries.append(value)
         return entries
 
-    def _current_link_payload(self, item: Item, key: str) -> list[dict[str, Any]]:
+    def _current_link_payload(self, item: Any, key: str) -> list[dict[str, Any]]:
         values = getattr(item, key, None)
         if not isinstance(values, list):
             return []
@@ -998,9 +1020,6 @@ class AdminCatalogService:
                     entry[field] = value
             result.append(entry)
         return result
-
-    def _item_kind_metadata_payload(self, value: ItemKindMetadata | None) -> dict[str, Any]:
-        return item_kind_metadata_payload(value)
 
     async def _ensure_release_status(self, status_value: str) -> None:
         existing = await self.db.scalar(
@@ -1023,20 +1042,6 @@ class AdminCatalogService:
             )
         )
 
-    def _upsert_item_kind_metadata(self, item: Item, normalized_values: dict[str, Any]) -> None:
-        upsert_item_kind_metadata(item, normalized_values)
-        if item.kind_metadata is not None:
-            self.db.add(item.kind_metadata)
-
-    def _patch_item_kind_metadata(self, item: Item, typed_updates: dict[str, Any]) -> None:
-        patch_item_kind_metadata(item, typed_updates)
-        snapshot = self._item_kind_metadata_payload(item.kind_metadata)
-        if not snapshot:
-            item.kind_metadata = None
-        elif item.kind_metadata is not None:
-            # A freshly created polymorphic kind_metadata row is not guaranteed to
-            # be cascaded into the session, so attach it explicitly.
-            self.db.add(item.kind_metadata)
 
     async def _replace_item_creator_links(
         self,
@@ -1206,7 +1211,7 @@ class AdminCatalogService:
             normalized.append(value)
         return normalized
 
-    def _organization_name(self, item: Item, role: str) -> str | None:
+    def _organization_name(self, item: Any, role: str) -> str | None:
         for link in list(getattr(item, "organization_links", []) or []):
             if getattr(link, "role", None) != role:
                 continue

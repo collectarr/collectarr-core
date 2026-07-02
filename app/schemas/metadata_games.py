@@ -42,6 +42,9 @@ class GameWorkV1Response(BaseModel):
     search_aliases: list[str] = Field(default_factory=list)
     genres: list[str] = Field(default_factory=list)
     platforms: list[str] = Field(default_factory=list)
+    identifiers: list[str] = Field(default_factory=list)
+    company_roles: list[str] = Field(default_factory=list)
+    age_ratings: list[str] = Field(default_factory=list)
     trailer_urls: list[dict[str, Any]] = Field(default_factory=list)
     external_links: list[dict[str, Any]] = Field(default_factory=list)
     kind: ItemKind = ItemKind.game

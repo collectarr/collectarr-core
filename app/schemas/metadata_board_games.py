@@ -48,6 +48,13 @@ class BoardGameWorkV1Response(BaseModel):
     search_aliases: list[str] = Field(default_factory=list)
     genres: list[str] = Field(default_factory=list)
     platforms: list[str] = Field(default_factory=list)
+    identifiers: list[str] = Field(default_factory=list)
+    contributors: list[str] = Field(default_factory=list)
+    mechanics: list[str] = Field(default_factory=list)
+    categories: list[str] = Field(default_factory=list)
+    families: list[str] = Field(default_factory=list)
+    expansions: list[str] = Field(default_factory=list)
+    rankings: list[str] = Field(default_factory=list)
     trailer_urls: list[dict[str, Any]] = Field(default_factory=list)
     external_links: list[dict[str, Any]] = Field(default_factory=list)
     kind: ItemKind = ItemKind.boardgame

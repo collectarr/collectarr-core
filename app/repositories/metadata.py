@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
+    BoardGameEdition,
+    BoardGameWork,
     BookContribution,
     BookEdition,
     BookIdentifier,
@@ -16,6 +18,8 @@ from app.models import (
     ComicIdentifier,
     ComicIssue,
     ComicWork,
+    GameRelease,
+    GameWork,
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
@@ -46,6 +50,22 @@ class MetadataRepository:
                     ),
                     selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
                 )
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.game:
+            stmt = (
+                select(GameWork)
+                .where(GameWork.id == item_id)
+                .options(selectinload(GameWork.releases))
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.boardgame:
+            stmt = (
+                select(BoardGameWork)
+                .where(BoardGameWork.id == item_id)
+                .options(selectinload(BoardGameWork.editions))
             )
             result = await self.db.execute(stmt)
             return result.scalar_one_or_none()
@@ -115,6 +135,10 @@ class MetadataRepository:
     ) -> list[Any]:
         if kind == ItemKind.book:
             return list(await self._search_book_works(query=query, limit=limit, publisher=publisher, imprint=imprint, subtitle=subtitle, series_group=series_group, country=country, language=language, age_rating=age_rating, catalog_number=catalog_number, release_status=release_status, year=year, barcode=barcode))
+        if kind == ItemKind.game:
+            return list(await self._search_game_works(query=query, limit=limit, publisher=publisher, subtitle=subtitle, country=country, language=language, age_rating=age_rating, catalog_number=catalog_number, release_status=release_status, year=year, barcode=barcode))
+        if kind == ItemKind.boardgame:
+            return list(await self._search_boardgame_works(query=query, limit=limit, publisher=publisher, subtitle=subtitle, country=country, language=language, age_rating=age_rating, catalog_number=catalog_number, release_status=release_status, year=year, barcode=barcode))
         if kind == ItemKind.comic:
             return list(await self._search_comic_works(query=query, limit=limit, publisher=publisher, imprint=imprint, subtitle=subtitle, series_group=series_group, country=country, language=language, age_rating=age_rating, catalog_number=catalog_number, release_status=release_status, year=year, barcode=barcode))
         if kind == ItemKind.movie:
@@ -138,6 +162,29 @@ class MetadataRepository:
                         self._normalized_barcode_expr(BookIdentifier.normalized_value) == normalized,
                     )
                 )
+                .limit(1)
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.game:
+            stmt = (
+                select(GameWork)
+                .join(GameWork.releases)
+                .where(
+                    or_(
+                        self._normalized_barcode_expr(GameRelease.barcode) == normalized,
+                        self._normalized_barcode_expr(GameRelease.catalog_number) == normalized,
+                    )
+                )
+                .limit(1)
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+        if kind == ItemKind.boardgame:
+            stmt = (
+                select(BoardGameWork)
+                .join(BoardGameWork.editions)
+                .where(self._normalized_barcode_expr(BoardGameEdition.barcode) == normalized)
                 .limit(1)
             )
             result = await self.db.execute(stmt)
@@ -251,6 +298,106 @@ class MetadataRepository:
             )
         if series_group and series_group.strip():
             stmt = stmt.where(BookWork.title.ilike(f"%{series_group.strip()}%"))
+        result = await self.db.execute(stmt)
+        return list(result.scalars().unique())
+
+    async def _search_game_works(
+        self,
+        *,
+        query: str | None,
+        limit: int,
+        publisher: str | None,
+        subtitle: str | None,
+        country: str | None,
+        language: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+    ) -> list[GameWork]:
+        stmt = select(GameWork).order_by(GameWork.sort_title.asc().nullslast(), GameWork.title.asc()).limit(limit)
+        stmt = stmt.join(GameWork.releases, isouter=True)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    GameWork.title.ilike(pattern),
+                    GameWork.subtitle.ilike(pattern),
+                    GameRelease.release_title.ilike(pattern),
+                    GameRelease.publisher.ilike(pattern),
+                    GameRelease.platform.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(GameRelease.publisher.ilike(f"%{publisher.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(GameWork.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(GameRelease.region_code.ilike(f"%{country.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(GameRelease.language.ilike(f"%{language.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(GameWork.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(GameRelease.catalog_number.ilike(f"%{catalog_number.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(GameRelease.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", GameRelease.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode_value(barcode)
+            stmt = stmt.where(self._normalized_barcode_expr(GameRelease.barcode) == normalized)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().unique())
+
+    async def _search_boardgame_works(
+        self,
+        *,
+        query: str | None,
+        limit: int,
+        publisher: str | None,
+        subtitle: str | None,
+        country: str | None,
+        language: str | None,
+        age_rating: str | None,
+        catalog_number: str | None,
+        release_status: str | None,
+        year: int | None,
+        barcode: str | None,
+    ) -> list[BoardGameWork]:
+        stmt = select(BoardGameWork).order_by(BoardGameWork.sort_title.asc().nullslast(), BoardGameWork.title.asc()).limit(limit)
+        stmt = stmt.join(BoardGameWork.editions, isouter=True)
+        if query and query.strip():
+            pattern = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    BoardGameWork.title.ilike(pattern),
+                    BoardGameWork.subtitle.ilike(pattern),
+                    BoardGameEdition.edition_title.ilike(pattern),
+                    BoardGameEdition.publisher.ilike(pattern),
+                    BoardGameEdition.format.ilike(pattern),
+                )
+            )
+        if publisher and publisher.strip():
+            stmt = stmt.where(BoardGameEdition.publisher.ilike(f"%{publisher.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(BoardGameWork.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(BoardGameEdition.country.ilike(f"%{country.strip()}%"))
+        if language and language.strip():
+            stmt = stmt.where(BoardGameEdition.language.ilike(f"%{language.strip()}%"))
+        if age_rating and age_rating.strip():
+            stmt = stmt.where(BoardGameWork.age_rating.ilike(f"%{age_rating.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(BoardGameEdition.catalog_number.ilike(f"%{catalog_number.strip()}%"))
+        if release_status and release_status.strip():
+            stmt = stmt.where(BoardGameEdition.release_status.ilike(f"%{release_status.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(extract("year", BoardGameEdition.release_date) == year)
+        if barcode and barcode.strip():
+            normalized = self._normalized_barcode_value(barcode)
+            stmt = stmt.where(self._normalized_barcode_expr(BoardGameEdition.barcode) == normalized)
         result = await self.db.execute(stmt)
         return list(result.scalars().unique())
 

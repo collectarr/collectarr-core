@@ -4,7 +4,6 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import BookSeries, BookSeriesMembership, ExternalProviderId
-from app.models import Item
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedCredit, ProviderItem
 from app.providers.hardcover import HardcoverProvider
@@ -215,7 +214,6 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
 
     async with AsyncSessionLocal() as db:
         series = await db.scalar(select(BookSeries).where(BookSeries.title == "Middle-earth"))
-        legacy_item = await db.scalar(select(Item).where(Item.title == "The Hobbit"))
         assert series is not None
         membership = await db.scalar(select(BookSeriesMembership).where(BookSeriesMembership.series_id == series.id))
         assert membership is not None
@@ -232,7 +230,6 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
 
     assert provider_ids == [membership.work_id]
     assert membership.sequence == 2
-    assert legacy_item is None
 
 
 @pytest.mark.asyncio

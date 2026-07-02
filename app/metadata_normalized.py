@@ -7,22 +7,6 @@ from app.catalog.metadata_fields import (
     typed_field_keys,
     value_types,
 )
-from app.models import (
-    Item,
-    ItemKindMetadata,
-    ItemKindMetadataAnime,
-    ItemKindMetadataBoardGame,
-    ItemKindMetadataBook,
-    ItemKindMetadataCollection,
-    ItemKindMetadataComic,
-    ItemKindMetadataGame,
-    ItemKindMetadataManga,
-    ItemKindMetadataMovie,
-    ItemKindMetadataMusic,
-    ItemKindMetadataTaxonomy,
-    ItemKindMetadataTv,
-    MetadataTaxonomy,
-)
 from app.models.base import ItemKind
 
 NORMALIZED_SCHEMA_VERSION = 1
@@ -36,19 +20,6 @@ _KIND_ALLOWED_KEYS: dict[ItemKind, set[str]] = kind_allowed_keys()
 _NORMALIZED_VALUE_TYPES: dict[str, str] = value_types()
 
 TYPED_KIND_METADATA_KEYS = typed_field_keys()
-
-_KIND_METADATA_MODEL_BY_KIND: dict[ItemKind, type[ItemKindMetadata]] = {
-    ItemKind.anime: ItemKindMetadataAnime,
-    ItemKind.boardgame: ItemKindMetadataBoardGame,
-    ItemKind.book: ItemKindMetadataBook,
-    ItemKind.collection: ItemKindMetadataCollection,
-    ItemKind.comic: ItemKindMetadataComic,
-    ItemKind.game: ItemKindMetadataGame,
-    ItemKind.manga: ItemKindMetadataManga,
-    ItemKind.movie: ItemKindMetadataMovie,
-    ItemKind.music: ItemKindMetadataMusic,
-    ItemKind.tv: ItemKindMetadataTv,
-}
 
 ALLOWED_NORMALIZED_METADATA_KEYS = _COMMON_ALLOWED_KEYS | {
     key for keys in _KIND_ALLOWED_KEYS.values() for key in keys
@@ -93,7 +64,7 @@ def normalized_metadata_manifest() -> dict[str, Any]:
     }
 
 
-def typed_kind_metadata_payload(
+def typed_metadata_payload(
     values: Mapping[str, Any] | None,
     *,
     kind: ItemKind | None,
@@ -101,110 +72,6 @@ def typed_kind_metadata_payload(
     cleaned = clean_normalized_metadata(values, kind=kind)
     cleaned.pop("schema_version", None)
     return {key: cleaned.get(key) for key in TYPED_KIND_METADATA_KEYS if key in cleaned}
-
-
-def item_kind_metadata_payload(value: ItemKindMetadata | None) -> dict[str, Any]:
-    if value is None:
-        return {}
-    raw: dict[str, Any] = {}
-    metadata_json = getattr(value, "metadata_json", None)
-    metadata_json = metadata_json if isinstance(metadata_json, dict) else {}
-    for key in TYPED_KIND_METADATA_KEYS:
-        if key == "audience_rating":
-            continue
-        if key in {"genres", "platforms"}:
-            raw[key] = getattr(value, key, None)
-            continue
-        if key in metadata_json:
-            raw[key] = metadata_json.get(key)
-        else:
-            raw[key] = getattr(value, key, None)
-    if getattr(value, "audience_rating", None) is not None:
-        raw["audience_rating"] = value.audience_rating
-    return {
-        key: row
-        for key, row in raw.items()
-        if row is not None and row != [] and row != {}
-    }
-
-
-def typed_kind_metadata_for_item(item: object) -> dict[str, Any]:
-    return item_kind_metadata_payload(getattr(item, "kind_metadata", None))
-
-
-def upsert_item_kind_metadata(item: Item, normalized_values: Mapping[str, Any] | None) -> None:
-    typed_payload = typed_kind_metadata_payload(normalized_values, kind=item.kind)
-    genres_payload = typed_payload.pop("genres", None)
-    platforms_payload = typed_payload.pop("platforms", None)
-    has_typed_payload = any(
-        value is not None for key, value in typed_payload.items() if key != "audience_rating"
-    ) or typed_payload.get("audience_rating") is not None
-    if not has_typed_payload and not genres_payload and not platforms_payload:
-        item.kind_metadata = None
-        return
-    metadata = item.kind_metadata
-    metadata_model = _KIND_METADATA_MODEL_BY_KIND[item.kind]
-    if metadata is None or not isinstance(metadata, metadata_model):
-        metadata = metadata_model(item=item, kind=item.kind)
-        item.kind_metadata = metadata
-    metadata.kind = item.kind
-    metadata.metadata_json = {
-        key: value
-        for key, value in typed_payload.items()
-        if key not in {"audience_rating"} and value is not None
-    } or None
-    if "audience_rating" in typed_payload:
-        metadata.audience_rating = typed_payload.get("audience_rating")
-    for key in TYPED_KIND_METADATA_KEYS:
-        if key in {"audience_rating", "genres", "platforms"}:
-            continue
-        if hasattr(metadata, key):
-            setattr(metadata, key, typed_payload.get(key))
-    _set_taxonomy_values(metadata, "genre", genres_payload)
-    _set_taxonomy_values(metadata, "platform", platforms_payload)
-
-
-def _set_taxonomy_values(
-    metadata: ItemKindMetadata,
-    category: str,
-    values: list[str] | None,
-) -> None:
-    raw_values = values if isinstance(values, list) else []
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for raw in raw_values:
-        text = str(raw or "").strip()
-        if not text:
-            continue
-        key = text.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(text)
-    existing = [
-        row
-        for row in list(getattr(metadata, "taxonomy_links", []) or [])
-        if getattr(row, "category", None) != category
-    ]
-    new_links = [
-        ItemKindMetadataTaxonomy(
-            category=category,
-            position=index,
-            taxonomy=MetadataTaxonomy(
-                category=category,
-                name=text,
-                normalized_name=text.casefold(),
-            ),
-        )
-        for index, text in enumerate(deduped)
-    ]
-    metadata.taxonomy_links = [*existing, *new_links]
-
-
-def patch_item_kind_metadata(item: Item, typed_updates: Mapping[str, Any]) -> None:
-    current = item_kind_metadata_payload(item.kind_metadata)
-    current.update(dict(typed_updates))
-    upsert_item_kind_metadata(item, current)
 
 
 def normalized_metadata_issues(

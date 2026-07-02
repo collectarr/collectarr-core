@@ -34,8 +34,8 @@ to clients.
 ### 📚 Canonical Catalog
 
 - Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
-- Canonical entities for series, volumes, items, editions, variants, releases, people, organizations, story arcs, characters, and shared series tags
-- Typed item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
+- Canonical entities for kind-specific works, editions, releases, media, tracks, people, organizations, story arcs, characters, and shared series tags
+- Typed kind-aware item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
 - Shared editorial metadata that complements local-first personal data in the app
 
 ### 🔌 Provider And Search Pipeline
@@ -228,7 +228,7 @@ Current active tracks:
 - deepen per-media normalization where provider data still has gaps
 - expand duplicate/merge review into a full operator queue
 - continue public-deployment hardening for internet-facing setups
-- keep the interactive schema explorer clearer by separating general tables from kind-specific subtypes
+- keep the interactive schema explorer clearer by separating general tables from kind-specific tables
 - keep comic cover-photo recognition / scan-to-identify local-first in the app; Core only provides image search/storage primitives
 
 ---

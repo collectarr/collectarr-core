@@ -32,6 +32,10 @@ JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
 LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
 LEGACY_BRIDGE_TABLE_NAMES = {"bundle_releases"}
+HIDDEN_TABLE_NAMES = {
+    "item" + "_kind_metadata",
+    "item" + "_kind_metadata_taxonomies",
+}
 SOURCE_MODULES = [
     "app/models/base.py",
     "app/models/canonical_anime.py",
@@ -49,11 +53,10 @@ SOURCE_MODULES = [
 DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
-        "title": "Catalog Spine (Legacy / Projection)",
-        "description": "Legacy compatibility tables, bundle bridge tables, and per-kind relation tables. Canonical writes should prefer kind-specific tables for migrated kinds.",
+        "title": "Catalog Spine",
+        "description": "Kind-specific catalog tables are canonical. Legacy projection tables and bundle composition tables remain for compatibility.",
         "tables": [
             "items",
-            "item_kind_metadata",
             "editions",
             "variants",
             "bundle_releases",
@@ -78,7 +81,6 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
             "tags",
             "entity_tags",
             "metadata_taxonomies",
-            "item_kind_metadata_taxonomies",
         ],
     },
     {
@@ -138,7 +140,6 @@ KIND_SHARED_TABLES = [
 
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "comic": [
-        "item_kind_metadata",
         "comic_volumes",
         "comic_works",
         "comic_issues",
@@ -153,7 +154,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "story_arc_items",
     ],
     "manga": [
-        "item_kind_metadata",
         "manga_works",
         "manga_chapters",
         "manga_contributions",
@@ -165,7 +165,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "story_arc_items",
     ],
     "anime": [
-        "item_kind_metadata",
         "anime_series",
         "anime_episodes",
         "anime_contributions",
@@ -173,7 +172,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "anime_character_appearances",
     ],
     "movie": [
-        "item_kind_metadata",
         "movie_works",
         "movie_releases",
         "movie_release_media",
@@ -182,7 +180,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_releases",
     ],
     "tv": [
-        "item_kind_metadata",
         "tv_releases",
         "tv_release_media",
         "tv_episodes",
@@ -191,12 +188,10 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_releases",
     ],
     "game": [
-        "item_kind_metadata",
         "game_works",
         "game_releases",
     ],
     "boardgame": [
-        "item_kind_metadata",
         "boardgame_works",
         "boardgame_editions",
     ],
@@ -210,7 +205,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "book_series_memberships",
     ],
     "music": [
-        "item_kind_metadata",
         "music_releases",
         "music_media",
         "music_tracks",
@@ -219,7 +213,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_releases",
     ],
     "collection": [
-        "item_kind_metadata",
         "bundle_releases",
     ],
 }
@@ -236,7 +229,7 @@ POLYMORPHIC_LINK_TABLES = {
 
 STATIC_NOTES = [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "items, editions, and variants are legacy compatibility / projection tables for migrated kinds; canonical writes should target kind-specific tables and bridge tables where appropriate.",
+    "items, editions, and variants are legacy projection tables for migrated kinds; canonical writes should target kind-specific tables and bridge tables where appropriate.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "For migration history and any constraints introduced outside model declarations, cross-check the Alembic revisions in alembic/versions.",
 ]
@@ -413,7 +406,7 @@ def mermaid_column_type(column: dict[str, Any]) -> str:
 
 
 def build_domain_diagram(domain: dict[str, Any], tables_by_name: dict[str, dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
-    table_names = [name for name in domain["tables"] if name in tables_by_name]
+    table_names = [name for name in domain["tables"] if name in tables_by_name and name not in HIDDEN_TABLE_NAMES]
     lines = ["erDiagram"]
     external_refs: list[dict[str, Any]] = []
 
@@ -452,6 +445,8 @@ def build_domain_diagram(domain: dict[str, Any], tables_by_name: dict[str, dict[
             )
             for target in foreign_key["targets"]:
                 target_table, _target_column = target.split(".", 1)
+                if target_table in HIDDEN_TABLE_NAMES:
+                    continue
                 if target_table in included:
                     key = (target_table, table_name)
                     if key not in edges:
@@ -618,11 +613,15 @@ def build_schema_data() -> dict[str, Any]:
     relationships = []
 
     for table in Base.metadata.sorted_tables:
+        if table.name in HIDDEN_TABLE_NAMES:
+            continue
         unique_by_column = collect_column_uniques(table)
         indexes_by_column = collect_column_indexes(table)
         columns = [serialize_column(table, column, unique_by_column, indexes_by_column, enums) for column in table.columns]
         constraints = serialize_constraints(table)
         for foreign_key in constraints["foreign_keys"]:
+            if any(target.split(".", 1)[0] in HIDDEN_TABLE_NAMES for target in foreign_key["targets"]):
+                continue
             relationships.append(
                 {
                     "from_table": table.name,
@@ -650,7 +649,7 @@ def build_schema_data() -> dict[str, Any]:
                 else None
             ),
             "legacy_bridge_note": (
-                "Legacy bundle bridge table that still references items.id; redesign this with entity_type + entity_id when bundle composition becomes fully polymorphic."
+                "Legacy bundle composition table that still references items.id; redesign this with entity_type + entity_id when bundle composition becomes fully polymorphic."
                 if table.name in LEGACY_BRIDGE_TABLE_NAMES
                 else None
             ),

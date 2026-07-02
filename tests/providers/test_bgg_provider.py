@@ -11,7 +11,6 @@ from app.models import (
     EntityOrganization,
     EntityPerson,
     ExternalProviderId,
-    Item,
     Organization,
     Person,
 )
@@ -157,7 +156,6 @@ async def test_admin_ingest_upserts_bgg_boardgame(client, monkeypatch):
 
     async with AsyncSessionLocal() as db:
         work = await db.scalar(select(BoardGameWork).where(BoardGameWork.title == "CATAN"))
-        legacy_item = await db.scalar(select(Item).where(Item.title == "CATAN"))
         edition = await db.scalar(select(BoardGameEdition).join(BoardGameWork).where(BoardGameWork.title == "CATAN"))
         provider_ids = list(
             await db.scalars(
@@ -189,4 +187,3 @@ async def test_admin_ingest_upserts_bgg_boardgame(client, monkeypatch):
     assert provider_ids == [work.id]
     assert publisher == "KOSMOS"
     assert designer == "Klaus Teuber"
-    assert legacy_item is None

@@ -3,9 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from app.metadata_normalized import typed_kind_metadata_for_item
-
-
 def _metadata_text(metadata: dict[str, object] | None, key: str) -> str | None:
     if not isinstance(metadata, dict):
         return None
@@ -94,8 +91,3 @@ def _metadata_links(metadata: dict[str, object] | None, key: str) -> list[dict[s
             if str(link.get("url") or "").strip():
                 links.append(link)
     return links
-
-
-def _typed_kind_metadata(item: object) -> dict[str, object]:
-    return typed_kind_metadata_for_item(item)
-

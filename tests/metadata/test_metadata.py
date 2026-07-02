@@ -14,6 +14,8 @@ from app.models import (
     BookSeries,
     BookSeriesMembership,
     BookWork,
+    BoardGameEdition,
+    BoardGameWork,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
@@ -25,6 +27,8 @@ from app.models import (
     EntityPerson,
     EntityTag,
     ExternalProviderId,
+    GameRelease,
+    GameWork,
     MovieRelease,
     MovieWork,
     MusicMedia,
@@ -45,8 +49,10 @@ from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSear
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata_shared import SearchResult
 from app.search.documents import (
+    boardgame_search_document,
     book_work_search_document,
     comic_work_search_document,
+    game_work_search_document,
 )
 from app.services.metadata import MetadataService
 from tests.helpers import register_and_login, seed_comic
@@ -245,6 +251,79 @@ async def _seed_music_v1() -> UUID:
         return release.id
 
 
+async def _seed_game_v1() -> tuple[UUID, UUID]:
+    async with AsyncSessionLocal() as db:
+        work = GameWork(
+            title="The Legend of Zelda: Breath of the Wild",
+            sort_title="legend of zelda breath of the wild",
+            description="An open-world adventure.",
+            release_date=date(2017, 3, 3),
+            original_language="en",
+            age_rating="E10+",
+            metadata_json={
+                "identifiers": ["IGDB:1020", "Nintendo:BOTW"],
+                "company_roles": ["developer", "publisher"],
+                "age_ratings": ["E10+"],
+            },
+        )
+        db.add(work)
+        await db.flush()
+        release = GameRelease(
+            work_id=work.id,
+            release_title="Nintendo Switch Release",
+            platform="Nintendo Switch",
+            release_date=date(2017, 3, 3),
+            region_code="US",
+            format="physical",
+            publisher="Nintendo",
+            catalog_number="HAC P AABPA",
+            barcode="045496590420",
+            release_status="released",
+            language="en",
+        )
+        db.add(release)
+        await db.commit()
+        return work.id, release.id
+
+
+async def _seed_boardgame_v1() -> tuple[UUID, UUID]:
+    async with AsyncSessionLocal() as db:
+        work = BoardGameWork(
+            title="Catan",
+            sort_title="catan",
+            description="Settle the island of Catan.",
+            release_date=date(1995, 1, 1),
+            original_language="de",
+            age_rating="8+",
+            metadata_json={
+                "identifiers": ["BGG:13", "Kosmos:6995"],
+                "contributors": ["Klaus Teuber"],
+                "mechanics": ["dice rolling", "resource management"],
+                "categories": ["economic", "negotiation"],
+                "families": ["catan"],
+                "expansions": ["Seafarers"],
+                "rankings": ["BGG Rank #1"],
+            },
+        )
+        db.add(work)
+        await db.flush()
+        edition = BoardGameEdition(
+            work_id=work.id,
+            edition_title="First Edition",
+            format="box",
+            publisher="Kosmos",
+            catalog_number="6995",
+            barcode="4002051699955",
+            release_status="released",
+            release_date=date(1995, 1, 1),
+            language="de",
+            country="DE",
+        )
+        db.add(edition)
+        await db.commit()
+        return work.id, edition.id
+
+
 @pytest.mark.asyncio
 async def test_media_type_catalog_exposes_provider_defaults_and_formats(client):
     response = await client.get("/metadata/media-types")
@@ -305,14 +384,30 @@ async def test_metadata_field_schema_exposes_registry(client):
     # Common normalized field.
     assert by_key["audience_rating"]["common"] is True
     assert by_key["audience_rating"]["normalized"] is True
+    assert by_key["audience_rating"]["scope"] == "common"
+    assert by_key["audience_rating"]["write_target"] == "kind_specific_table"
+    assert by_key["audience_rating"]["source_entity_type"] == "kind"
+    assert by_key["audience_rating"]["source_table"] == "kind_specific_table"
+    assert by_key["audience_rating"]["is_legacy_projection"] is False
     assert by_key["audience_rating"]["section"] == "regional"
     # Kind-scoped typed normalized fields carry their kinds + types.
     assert by_key["genres"]["typed"] is True
     assert by_key["genres"]["value_type"] == "string_list"
     assert set(by_key["platforms"]["kinds"]) == {"game", "boardgame"}
+    assert "identifiers" in by_key
+    assert set(by_key["identifiers"]["kinds"]) == {"game", "boardgame"}
+    assert set(by_key["company_roles"]["kinds"]) == {"game"}
+    assert set(by_key["contributors"]["kinds"]) == {"boardgame"}
+    assert set(by_key["mechanics"]["kinds"]) == {"boardgame"}
+    assert by_key["genres"]["scope"] == "kind"
     # Editorial fields are exposed with their section + input hint.
     assert by_key["title"]["section"] == "item"
     assert by_key["title"]["normalized"] is False
+    assert by_key["title"]["scope"] == "kind"
+    assert by_key["title"]["write_target"] == "canonical_kind_table"
+    assert by_key["title"]["source_entity_type"] == "item"
+    assert by_key["title"]["source_table"] == "items"
+    assert by_key["title"]["is_legacy_projection"] is True
     assert by_key["synopsis"]["input"] == "multiline"
     assert by_key["release_date"]["value_type"] == "date"
     assert by_key["page_count"]["value_type"] == "integer"
@@ -367,8 +462,110 @@ async def test_books_v1_work_and_edition_endpoints(client):
     assert edition_body["publication_date"] == "1954-07-29"
     assert edition_body["identifiers"][0]["value"] == "9780261103573"
 
-    route_response = await client.get(f"/books/{work_id}")
-    assert route_response.status_code == 200
+
+@pytest.mark.asyncio
+async def test_books_v1_routes_are_exposed_in_openapi(client):
+    response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    body = response.json()
+    paths = body["paths"]
+    assert "/metadata/books/works/{work_id}" in paths
+    assert "/metadata/books/works/{work_id}/editions" in paths
+    assert "/metadata/books/editions/{edition_id}" in paths
+    assert "BookWorkV1Response" in body["components"]["schemas"]
+    assert "BookEditionV1Response" in body["components"]["schemas"]
+
+@pytest.mark.asyncio
+async def test_game_and_boardgame_v1_routes_are_exposed_in_openapi(client):
+    response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    body = response.json()
+    paths = body["paths"]
+    assert "/metadata/games/works/{work_id}" in paths
+    assert "/metadata/games/works/{work_id}/releases" in paths
+    assert "/metadata/games/releases/{release_id}" in paths
+    assert "/metadata/boardgames/works/{work_id}" in paths
+    assert "/metadata/boardgames/works/{work_id}/editions" in paths
+    assert "/metadata/boardgames/editions/{edition_id}" in paths
+
+    game_schema = body["components"]["schemas"]["GameWorkV1Response"]
+    boardgame_schema = body["components"]["schemas"]["BoardGameWorkV1Response"]
+    admin_correction_schema = body["components"]["schemas"]["AdminMetadataCorrectionRequest"]
+    assert "identifiers" in game_schema["properties"]
+    assert "company_roles" in game_schema["properties"]
+    assert "contributors" in boardgame_schema["properties"]
+    assert "mechanics" in boardgame_schema["properties"]
+    assert "identifiers" in admin_correction_schema["properties"]
+    assert "contributors" in admin_correction_schema["properties"]
+    assert "rankings" in admin_correction_schema["properties"]
+
+
+@pytest.mark.asyncio
+async def test_game_boardgame_and_music_typed_routes(client):
+    game_work_id, game_release_id = await _seed_game_v1()
+    boardgame_work_id, boardgame_edition_id = await _seed_boardgame_v1()
+    music_release_id = await _seed_music_v1()
+
+    game_work = await client.get(f"/metadata/games/works/{game_work_id}")
+    assert game_work.status_code == 200
+    game_work_body = game_work.json()
+    assert game_work_body["id"] == str(game_work_id)
+    assert game_work_body["identifiers"] == ["IGDB:1020", "Nintendo:BOTW"]
+    assert game_work_body["company_roles"] == ["developer", "publisher"]
+
+    game_releases = await client.get(f"/metadata/games/works/{game_work_id}/releases")
+    assert game_releases.status_code == 200
+    assert game_releases.json()[0]["id"] == str(game_release_id)
+
+    game_release = await client.get(f"/metadata/games/releases/{game_release_id}")
+    assert game_release.status_code == 200
+    assert game_release.json()["platform"] == "Nintendo Switch"
+
+    boardgame_work = await client.get(f"/metadata/boardgames/works/{boardgame_work_id}")
+    assert boardgame_work.status_code == 200
+    boardgame_work_body = boardgame_work.json()
+    assert boardgame_work_body["id"] == str(boardgame_work_id)
+    assert boardgame_work_body["contributors"] == ["Klaus Teuber"]
+    assert boardgame_work_body["mechanics"] == ["dice rolling", "resource management"]
+    assert boardgame_work_body["rankings"] == ["BGG Rank #1"]
+
+    boardgame_editions = await client.get(
+        f"/metadata/boardgames/works/{boardgame_work_id}/editions"
+    )
+    assert boardgame_editions.status_code == 200
+    assert boardgame_editions.json()[0]["id"] == str(boardgame_edition_id)
+
+    boardgame_edition = await client.get(f"/metadata/boardgames/editions/{boardgame_edition_id}")
+    assert boardgame_edition.status_code == 200
+    assert boardgame_edition.json()["publisher"] == "Kosmos"
+
+    music_release = await client.get(f"/metadata/music/releases/{music_release_id}")
+    assert music_release.status_code == 200
+    assert music_release.json()["id"] == str(music_release_id)
+
+    music_media = await client.get(f"/metadata/music/releases/{music_release_id}/media")
+    assert music_media.status_code == 200
+    assert music_media.json()[0]["tracks"][0]["title"] == "Come Together"
+
+    async with AsyncSessionLocal() as db:
+        media_row = await db.scalar(select(MusicMedia).where(MusicMedia.release_id == music_release_id))
+        assert media_row is not None
+        track_row = await db.scalar(select(MusicTrack).where(MusicTrack.media_id == media_row.id))
+        assert track_row is not None
+
+    music_media_detail = await client.get(f"/metadata/music/media/{media_row.id}")
+    assert music_media_detail.status_code == 200
+    assert music_media_detail.json()["id"] == str(media_row.id)
+
+    music_media_tracks = await client.get(f"/metadata/music/media/{media_row.id}/tracks")
+    assert music_media_tracks.status_code == 200
+    assert music_media_tracks.json()[0]["position"] == "A1"
+
+    music_track = await client.get(f"/metadata/music/tracks/{track_row.id}")
+    assert music_track.status_code == 200
+    assert music_track.json()["title"] == "Come Together"
 
 
 @pytest.mark.asyncio
@@ -387,6 +584,37 @@ async def test_book_work_search_document_does_not_lazy_load_series():
 
 
 @pytest.mark.asyncio
+async def test_game_and_boardgame_search_documents_expose_kind_metadata_lists():
+    game_work_id, _ = await _seed_game_v1()
+    boardgame_work_id, _ = await _seed_boardgame_v1()
+
+    async with AsyncSessionLocal() as db:
+        game_work = await db.scalar(
+            select(GameWork)
+            .options(selectinload(GameWork.releases))
+            .where(GameWork.id == game_work_id)
+        )
+        boardgame_work = await db.scalar(
+            select(BoardGameWork)
+            .options(selectinload(BoardGameWork.editions))
+            .where(BoardGameWork.id == boardgame_work_id)
+        )
+
+    assert game_work is not None
+    assert boardgame_work is not None
+
+    game_document = game_work_search_document(game_work)
+    assert game_document["identifiers"] == ["IGDB:1020", "Nintendo:BOTW"]
+    assert game_document["company_roles"] == ["developer", "publisher"]
+
+    boardgame_document = boardgame_search_document(boardgame_work)
+    assert boardgame_document["identifiers"] == ["BGG:13", "Kosmos:6995"]
+    assert boardgame_document["contributors"] == ["Klaus Teuber"]
+    assert boardgame_document["mechanics"] == ["dice rolling", "resource management"]
+    assert boardgame_document["rankings"] == ["BGG Rank #1"]
+
+
+@pytest.mark.asyncio
 async def test_metadata_repository_search_items_uses_native_book_work():
     work_id, _ = await _seed_book_v1()
 
@@ -395,6 +623,21 @@ async def test_metadata_repository_search_items_uses_native_book_work():
 
     assert [item.id for item in items] == [work_id]
     assert isinstance(items[0], BookWork)
+
+
+@pytest.mark.asyncio
+async def test_metadata_repository_search_items_uses_native_game_and_boardgame_work():
+    game_work_id, _ = await _seed_game_v1()
+    boardgame_work_id, _ = await _seed_boardgame_v1()
+
+    async with AsyncSessionLocal() as db:
+        game_items = await MetadataRepository(db).search_items(query="Zelda", kind=ItemKind.game, limit=5)
+        boardgame_items = await MetadataRepository(db).search_items(query="Catan", kind=ItemKind.boardgame, limit=5)
+
+    assert [item.id for item in game_items] == [game_work_id]
+    assert isinstance(game_items[0], GameWork)
+    assert [item.id for item in boardgame_items] == [boardgame_work_id]
+    assert isinstance(boardgame_items[0], BoardGameWork)
 
 
 @pytest.mark.asyncio
@@ -407,6 +650,23 @@ async def test_metadata_repository_find_item_by_barcode_uses_native_book_work():
     assert item is not None
     assert item.id == work_id
     assert isinstance(item, BookWork)
+
+
+@pytest.mark.asyncio
+async def test_metadata_repository_find_item_by_barcode_uses_native_game_and_boardgame_work():
+    game_work_id, game_release_id = await _seed_game_v1()
+    boardgame_work_id, boardgame_edition_id = await _seed_boardgame_v1()
+
+    async with AsyncSessionLocal() as db:
+        game_item = await MetadataRepository(db).find_item_by_barcode("045496590420", ItemKind.game)
+        boardgame_item = await MetadataRepository(db).find_item_by_barcode("4002051699955", ItemKind.boardgame)
+
+    assert game_item is not None
+    assert game_item.id == game_work_id
+    assert isinstance(game_item, GameWork)
+    assert boardgame_item is not None
+    assert boardgame_item.id == boardgame_work_id
+    assert isinstance(boardgame_item, BoardGameWork)
 
 
 @pytest.mark.asyncio
@@ -481,11 +741,6 @@ async def test_comics_v1_work_and_issue_endpoints(client):
     assert issue_body["id"] == str(issue_id)
     assert issue_body["issue_number"] == "1"
     assert issue_body["story_arcs"][0]["name"] == "The Spider Strikes"
-
-    route_response = await client.get(f"/comics/{work_id}")
-    assert route_response.status_code == 200
-    assert route_response.json()["id"] == str(work_id)
-
 
 @pytest.mark.asyncio
 async def test_music_release_v1_response_includes_contributors_identifiers_and_tracks():

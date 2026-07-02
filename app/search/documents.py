@@ -4,7 +4,6 @@ from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
-from app.metadata_normalized import typed_kind_metadata_for_item
 from app.models import (
     AnimeContribution,
     AnimeSeries,
@@ -35,7 +34,7 @@ def item_search_document(item: Any) -> dict[str, Any]:
     creators: list[str] = []
     characters: list[str] = []
     story_arcs: list[str] = []
-    typed_metadata = _typed_kind_metadata(item)
+    typed_metadata = _normalized_metadata(item)
     platforms: list[str] = (
         _string_list(typed_metadata.get("platforms"))
         if isinstance(typed_metadata.get("platforms"), list)
@@ -339,6 +338,9 @@ def game_work_search_document(work: GameWork) -> dict[str, Any]:
         "characters": [],
         "story_arcs": [],
         "platforms": _unique(_string_list(metadata.get("platforms"))),
+        "identifiers": _unique(_string_list(metadata.get("identifiers"))),
+        "company_roles": _unique(_string_list(metadata.get("company_roles"))),
+        "age_ratings": _unique(_string_list(metadata.get("age_ratings"))),
         "release_status": primary_release.release_status if primary_release is not None else None,
         "language": primary_release.language if primary_release is not None else work.original_language,
         "imprint": None,
@@ -397,6 +399,13 @@ def boardgame_search_document(work: BoardGameWork) -> dict[str, Any]:
         "characters": [],
         "story_arcs": [],
         "platforms": _unique(_string_list(metadata.get("platforms"))),
+        "identifiers": _unique(_string_list(metadata.get("identifiers"))),
+        "contributors": _unique(_string_list(metadata.get("contributors"))),
+        "mechanics": _unique(_string_list(metadata.get("mechanics"))),
+        "categories": _unique(_string_list(metadata.get("categories"))),
+        "families": _unique(_string_list(metadata.get("families"))),
+        "expansions": _unique(_string_list(metadata.get("expansions"))),
+        "rankings": _unique(_string_list(metadata.get("rankings"))),
         "release_status": primary_edition.release_status if primary_edition is not None else None,
         "language": primary_edition.language if primary_edition is not None else None,
         "imprint": None,
@@ -831,8 +840,9 @@ def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     return source if isinstance(source, dict) else {}
 
 
-def _typed_kind_metadata(item: Any) -> dict[str, Any]:
-    return typed_kind_metadata_for_item(item)
+def _normalized_metadata(item: Any) -> dict[str, Any]:
+    metadata = getattr(item, "metadata_json", None)
+    return dict(metadata.get("normalized") or {}) if isinstance(metadata, dict) else {}
 
 
 def _physical_format_label(

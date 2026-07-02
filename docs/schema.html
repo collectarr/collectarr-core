@@ -683,7 +683,6 @@
       `;
 
       const renderTableCard = (table, sectionLabel) => {
-        const polymorphicBase = table.name === "item_kind_metadata";
         const columnSearchTokens = table.columns.flatMap((column) => [
           table.name,
           column.name,
@@ -713,7 +712,6 @@
                 <span class="chip chip-flag">PK: ${escapeHtml(table.constraints.primary_key.columns.join(", ") || "-")}</span>
                 <span class="chip chip-kind">${escapeHtml(sectionLabel)}</span>
                 ${kindLabels.length ? `<span class="chip">Kinds: ${escapeHtml(kindLabels.join(", "))}</span>` : ""}
-                ${polymorphicBase ? '<span class="chip chip-flag">polymorphic base</span>' : ""}
                 ${table.polymorphic_note ? '<span class="chip chip-warn">polymorphic</span>' : ""}
               </div>
             </div>

@@ -72,6 +72,11 @@ class MetadataFieldSpecResponse(BaseModel):
     typed: bool
     normalized: bool
     editable: bool
+    scope: str
+    write_target: str
+    source_entity_type: str
+    source_table: str
+    is_legacy_projection: bool
     section: str
     input: str
     kinds: list[ItemKind] = Field(default_factory=list)

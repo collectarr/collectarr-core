@@ -145,7 +145,7 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
         assert book_work is not None
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
+                select(ExternalProviderId.entity_id).where(
                     ExternalProviderId.provider == ExternalProvider.openlibrary,
                     ExternalProviderId.entity_type == "book_work",
                 )
@@ -165,7 +165,7 @@ async def test_admin_ingest_upserts_openlibrary_book(client, monkeypatch):
         )
 
     assert book_work is not None
-    assert provider_ids == ["OL7353617M"]
+    assert provider_ids == [book_work.id]
     assert volume_provider_ids == []
     assert edition is not None
     assert edition.publisher == "George Allen & Unwin"

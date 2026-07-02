@@ -161,7 +161,7 @@ async def test_admin_ingest_upserts_bgg_boardgame(client, monkeypatch):
         edition = await db.scalar(select(BoardGameEdition).join(BoardGameWork).where(BoardGameWork.title == "CATAN"))
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
+                select(ExternalProviderId.entity_id).where(
                     ExternalProviderId.provider == ExternalProvider.bgg,
                     ExternalProviderId.entity_type == "boardgame_work",
                 )
@@ -186,7 +186,7 @@ async def test_admin_ingest_upserts_bgg_boardgame(client, monkeypatch):
 
     assert work is not None
     assert edition is not None
-    assert provider_ids == ["13"]
+    assert provider_ids == [work.id]
     assert publisher == "KOSMOS"
     assert designer == "Klaus Teuber"
     assert legacy_item is None

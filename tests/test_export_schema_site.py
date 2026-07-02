@@ -80,11 +80,17 @@ def test_kind_views_surface_v1_work_tables():
     assert "comic_volumes" in kinds["comic"]["tables"]
     assert "book_works" in kinds["book"]["tables"]
     assert "book_series" in kinds["book"]["tables"]
+    assert "game_works" in kinds["game"]["tables"]
+    assert "game_releases" in kinds["game"]["tables"]
+    assert "boardgame_works" in kinds["boardgame"]["tables"]
+    assert "boardgame_editions" in kinds["boardgame"]["tables"]
     assert "music_releases" in kinds["music"]["tables"]
     assert "tv_releases" in kinds["tv"]["tables"]
 
     assert "comic_works" not in misc_tables
     assert "book_works" not in misc_tables
+    assert "game_works" not in misc_tables
+    assert "boardgame_works" not in misc_tables
     assert "music_releases" not in misc_tables
     assert "tv_releases" not in misc_tables
 

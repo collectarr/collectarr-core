@@ -138,7 +138,7 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
         )
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
+                select(ExternalProviderId.entity_id).where(
                     ExternalProviderId.provider == ExternalProvider.igdb,
                     ExternalProviderId.entity_type == "game_work",
                 )
@@ -159,7 +159,7 @@ async def test_admin_ingest_upserts_igdb_game(client, monkeypatch):
 
     assert work is not None
     assert release is not None
-    assert provider_ids == ["1020"]
+    assert provider_ids == [work.id]
     assert publisher == "Nintendo"
     assert developer == "Nintendo EPD"
     assert legacy_item is None

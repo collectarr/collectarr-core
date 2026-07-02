@@ -223,14 +223,14 @@ async def test_admin_ingest_upserts_hardcover_book_volume_number(client, monkeyp
         # For books v1, provider_ids are stored in ExternalProviderId with entity_type='book_work'
         provider_ids = list(
             await db.scalars(
-                select(ExternalProviderId.provider_item_id).where(
+                select(ExternalProviderId.entity_id).where(
                     ExternalProviderId.entity_type == "book_work",
                     ExternalProviderId.provider == ExternalProvider.hardcover
                 )
             )
         )
 
-    assert provider_ids == ["book:42"]
+    assert provider_ids == [membership.work_id]
     assert membership.sequence == 2
     assert legacy_item is None
 

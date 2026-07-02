@@ -16,7 +16,6 @@ from app.db.session import AsyncSessionLocal
 from app.models import (
     ComicIdentifier,
     ComicIssue,
-    ComicVolume,
     ComicWork,
     ExternalProviderId,
 )
@@ -184,8 +183,7 @@ async def seed() -> None:
     async with AsyncSessionLocal() as db:
         changed_work_ids: set[UUID] = set()
         for comic in SEED_COMICS:
-            volume = await _get_or_create_volume(db, comic)
-            work = await _get_or_create_work(db, comic, volume)
+            work = await _get_or_create_work(db, comic)
             await _upsert_issue(db, comic, work)
             changed_work_ids.add(work.id)
 
@@ -210,24 +208,11 @@ async def seed() -> None:
             )
 
 
-async def _get_or_create_volume(db: AsyncSession, comic: SeedComicIssue) -> ComicVolume:
-    result = await db.execute(select(ComicVolume).where(ComicVolume.title == comic.work_title))
-    volume = result.scalar_one_or_none()
-    if volume is not None:
-        return volume
-
-    volume = ComicVolume(title=comic.work_title, slug=_sort_key(comic.work_title), start_year=comic.release_date.year)
-    db.add(volume)
-    await db.flush()
-    return volume
-
-
-async def _get_or_create_work(db: AsyncSession, comic: SeedComicIssue, volume: ComicVolume) -> ComicWork:
+async def _get_or_create_work(db: AsyncSession, comic: SeedComicIssue) -> ComicWork:
     result = await db.execute(select(ComicWork).where(ComicWork.title == comic.work_title))
     work = result.scalar_one_or_none()
     if work is None:
         work = ComicWork(
-            volume=volume,
             title=comic.work_title,
             sort_title=_sort_key(comic.work_title),
             description=f"Seed data for {comic.work_title}.",
@@ -241,8 +226,6 @@ async def _get_or_create_work(db: AsyncSession, comic: SeedComicIssue, volume: C
     work.sort_title = _sort_key(comic.work_title)
     work.description = f"Seed data for {comic.work_title}."
     work.original_language = "en"
-    if work.volume is None:
-        work.volume = volume
     if work.first_publication_date is None or comic.release_date < work.first_publication_date:
         work.first_publication_date = comic.release_date
     return work

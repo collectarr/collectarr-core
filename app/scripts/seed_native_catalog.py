@@ -25,7 +25,6 @@ from app.models import (
     ComicSeries,
     ComicSeriesMembership,
     ComicStoryArcMembership,
-    ComicVolume,
     ComicWork,
     EntityPerson,
     EntityTag,
@@ -229,9 +228,7 @@ async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider
 
 async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, ComicSeries, entry.series_title, entry.publisher, entry.release_date)
-    volume = await _get_or_create_volume(db, entry.series_title, entry.release_date)
     work = await _get_or_create_work(db, ComicWork, entry.title, entry.release_date, cover_url)
-    work.volume = volume
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.comic], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "comic_work", entry.creator, "creator")
     await _ensure_tag_link(db, work.id, "comic_work", entry.tag)
@@ -355,17 +352,6 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
     db.add(row)
     await db.flush()
     return row
-
-
-async def _get_or_create_volume(db: AsyncSession, title: str, release_date: date) -> ComicVolume:
-    result = await db.execute(select(ComicVolume).where(ComicVolume.title == title))
-    volume = result.scalar_one_or_none()
-    if volume is not None:
-        return volume
-    volume = ComicVolume(title=title, slug=_slug(title), start_year=release_date.year)
-    db.add(volume)
-    await db.flush()
-    return volume
 
 
 async def _get_or_create_work(db: AsyncSession, model: type, title: str, release_date: date, cover_url: str | None):
@@ -631,4 +617,3 @@ async def _delete_kind_rows(db: AsyncSession, entity_type: str, ids: list[Any]) 
     elif entity_type == "boardgame_work":
         await db.execute(delete(BoardGameEdition).where(BoardGameEdition.work_id.in_(ids)))
         await db.execute(delete(BoardGameWork).where(BoardGameWork.id.in_(ids)))
-

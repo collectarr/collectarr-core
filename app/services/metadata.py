@@ -180,6 +180,27 @@ from app.services.metadata_reads import (
     get_tv_series as _get_tv_series,
     get_tv_series_seasons as _get_tv_series_seasons,
 )
+from app.services.metadata_public import (
+    barcode_provider_search as _barcode_provider_search,
+    create_proposal as _create_proposal,
+    get_character_appearances as _get_character_appearances,
+    get_character_facets as _get_character_facets,
+    get_creator_credits as _get_creator_credits,
+    get_creator_facets as _get_creator_facets,
+    get_item_seasons as _get_item_seasons,
+    get_item_volumes as _get_item_volumes,
+    get_provider_seasons as _get_provider_seasons,
+    get_provider_volumes as _get_provider_volumes,
+    get_story_arc_facets as _get_story_arc_facets,
+    get_story_arc_items as _get_story_arc_items,
+    mirror_provider_image_bytes as _mirror_provider_image_bytes,
+    mirror_provider_image_url as _mirror_provider_image_url,
+    search_characters as _search_characters,
+    search_creators as _search_creators,
+    search_default_provider as _search_default_provider,
+    search_provider as _search_provider,
+    search_story_arcs as _search_story_arcs,
+)
 from app.services.provider_search_state import ProviderSearchState
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
@@ -2950,38 +2971,7 @@ class MetadataService:
         kind: ItemKind | None = None,
     ) -> list[ProviderSearchResult]:
         """Search external providers for a barcode/UPC/ISBN."""
-        cache_key = self._provider_search_cache_key("barcode", barcode, kind)
-        cached_results = await self._cached_provider_search_results(cache_key)
-        if cached_results is not None:
-            return await self._with_stable_provider_image_urls(cached_results)
-
-        if kind is not None:
-            providers = self.providers.for_kind(kind)
-        else:
-            providers = self.providers.all()
-
-        for provider in providers:
-            if not provider.is_configured:
-                continue
-            if not hasattr(provider, "search_by_barcode"):
-                continue
-            try:
-                results = await provider.search_by_barcode(barcode, kind)
-            except Exception:
-                logger.warning(
-                    "barcode_provider_search_failed provider=%s barcode=%s",
-                    provider.name,
-                    barcode,
-                    exc_info=True,
-                )
-                continue
-            if results:
-                results = results[:3]
-                await self._store_provider_search_results(cache_key, results)
-                return await self._with_stable_provider_image_urls(results)
-
-        await self._store_provider_search_results(cache_key, [])
-        return []
+        return await _barcode_provider_search(self, barcode, kind)
 
     async def search_provider(
         self,
@@ -2993,88 +2983,7 @@ class MetadataService:
         issue_number: str | None = None,
         year: int | None = None,
     ) -> list[ProviderSearchResultResponse]:
-        provider = self.providers.maybe_get(provider_name)
-        if provider is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_not_configured",
-                detail=f"Provider '{provider_name.value}' is not configured",
-            )
-        if not provider.capabilities.supports_search:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_search_unsupported",
-                detail=f"Provider '{provider_name.value}' does not support search",
-            )
-        if kind is not None and not provider.capabilities.supports_kind(kind):
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_kind_unsupported",
-                detail=(f"Provider '{provider_name.value}' does not support kind '{kind.value}'"),
-            )
-        provider_query = self._provider_search_query(
-            query,
-            kind,
-            series=series,
-            issue_number=issue_number,
-            year=year,
-        )
-        if not provider_query:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_query_required",
-                detail="Provider search requires a query, series title, barcode, or issue context.",
-            )
-        cache_key = self._provider_search_cache_key(provider_name, provider_query, kind)
-        results = await self._cached_provider_search_results(cache_key)
-        should_refresh_cache = False
-        if results is None:
-            try:
-                results = await self._search_provider_live(
-                    provider_name,
-                    provider,
-                    provider_query,
-                    kind,
-                )
-            except ApiHTTPException as exc:
-                fallback_results = await self._search_provider_fallback(
-                    provider_name,
-                    provider_query,
-                    kind,
-                    exc,
-                )
-                if fallback_results is None:
-                    raise
-                results = fallback_results
-            should_refresh_cache = True
-        enriched_results = await self._with_provider_search_enrichment(
-            provider_name,
-            provider_query,
-            kind,
-            results,
-        )
-        if enriched_results is not results:
-            results = enriched_results
-            should_refresh_cache = True
-        preview_results = await self._with_provider_search_credit_previews(
-            provider_name,
-            results,
-        )
-        if preview_results is not results:
-            results = preview_results
-            should_refresh_cache = True
-        if should_refresh_cache:
-            await self._store_provider_search_results(cache_key, results)
-        results = await self._with_stable_provider_image_urls(results)
-        return [
-            ProviderSearchResultResponse(
-                **{
-                    **result.__dict__,
-                    "kind": public_item_kind(getattr(result, "kind", None)),
-                }
-            )
-            for result in results
-        ]
+        return await _search_provider(self, provider_name, query, kind, series=series, issue_number=issue_number, year=year)
 
     async def search_default_provider(
         self,
@@ -3085,21 +2994,7 @@ class MetadataService:
         issue_number: str | None = None,
         year: int | None = None,
     ) -> list[ProviderSearchResultResponse]:
-        provider = self.providers.default_for_kind(kind)
-        if provider is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="provider_not_configured",
-                detail=f"No metadata provider is configured for kind '{kind.value}'",
-            )
-        return await self.search_provider(
-            ExternalProvider(provider.name),
-            query,
-            kind,
-            series=series,
-            issue_number=issue_number,
-            year=year,
-        )
+        return await _search_default_provider(self, query, kind, series=series, issue_number=issue_number, year=year)
 
     async def _search_provider_live(
         self,
@@ -3277,43 +3172,7 @@ class MetadataService:
         provider_item_id: str | None,
         cache_only: bool = False,
     ) -> str | None:
-        if not self._can_mirror_provider_image(provider_name, source_url):
-            return None
-        provider_value = self._provider_value(provider_name)
-        provider_item_id = provider_item_id or "unknown"
-        cache = ImageCache(self.db)
-        try:
-            cached = await cache.cached_provider_cover(
-                provider=provider_value,
-                source_url=source_url or "",
-            )
-            if cached is not None:
-                await self.db.commit()
-                return cached.public_url
-
-            if cache_only:
-                return None
-
-            mirrored = await ImageMirror().mirror_cover_best_effort(
-                source_url,
-                provider_value,
-                provider_item_id,
-            )
-            if mirrored is None:
-                return None
-            await cache.record_mirrored_cover(mirrored)
-            await self.db.commit()
-            return mirrored.url
-        except Exception:
-            await self.db.rollback()
-            logger.warning(
-                "provider_image_mirror_failed provider=%s provider_item_id=%s source=%s",
-                provider_value,
-                provider_item_id,
-                source_url,
-                exc_info=True,
-            )
-            return None
+        return await _mirror_provider_image_url(self, source_url, provider_name=provider_name, provider_item_id=provider_item_id, cache_only=cache_only)
 
     async def mirror_provider_image_bytes(
         self,
@@ -3323,41 +3182,7 @@ class MetadataService:
         provider_name: str | ExternalProvider,
         provider_item_id: str | None,
     ) -> str | None:
-        if not image_bytes or not self._can_mirror_provider_image(provider_name, source_url):
-            return None
-        provider_value = self._provider_value(provider_name)
-        provider_item_id = provider_item_id or "unknown"
-        cache = ImageCache(self.db)
-        try:
-            cached = await cache.cached_provider_cover(
-                provider=provider_value,
-                source_url=source_url or "",
-            )
-            if cached is not None:
-                await self.db.commit()
-                return cached.public_url
-
-            mirrored = await ImageMirror().mirror_cover_bytes_best_effort(
-                image_bytes,
-                source_url=source_url,
-                provider=provider_value,
-                provider_item_id=provider_item_id,
-            )
-            if mirrored is None:
-                return None
-            await cache.record_mirrored_cover(mirrored)
-            await self.db.commit()
-            return mirrored.url
-        except Exception:
-            await self.db.rollback()
-            logger.warning(
-                "provider_image_mirror_failed provider=%s provider_item_id=%s source=%s",
-                provider_value,
-                provider_item_id,
-                source_url,
-                exc_info=True,
-            )
-            return None
+        return await _mirror_provider_image_bytes(self, image_bytes, source_url=source_url, provider_name=provider_name, provider_item_id=provider_item_id)
 
     async def _with_stable_provider_image_urls(
         self,
@@ -3693,19 +3518,7 @@ class MetadataService:
         return provider.capabilities.display_name if provider else provider_name.value
 
     async def create_proposal(self, payload: MetadataProposalCreate) -> MetadataProposalResponse:
-        proposal = MetadataProposal(
-            provider=payload.provider,
-            provider_item_id=payload.provider_item_id,
-            query=payload.query,
-            title=payload.title,
-            summary=payload.summary,
-            image_url=payload.image_url,
-            metadata_payload=compact_metadata_payload(payload.metadata_payload),
-        )
-        self.db.add(proposal)
-        await self.db.commit()
-        await self.db.refresh(proposal)
-        return MetadataProposalResponse.model_validate(proposal)
+        return await _create_proposal(self, payload)
 
     def _search_result(
         self,

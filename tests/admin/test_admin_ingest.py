@@ -23,6 +23,8 @@ from app.models import (
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
+    BookEdition,
+    BookWork,
     EntityOrganization,
     EntityPerson,
     EntityTag,
@@ -1175,6 +1177,8 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     async with AsyncSessionLocal() as db:
         primary = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001")
         duplicate = ComicWork(title="Absolute Batman", sort_title="absolute-batman-000001-duplicate")
+        book_primary = BookWork(title="Hyperion", sort_title="hyperion")
+        book_duplicate = BookWork(title="Hyperion", sort_title="hyperion-duplicate")
         primary_issue = ComicIssue(
             work=primary,
             issue_number="1",
@@ -1184,12 +1188,40 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
             cover_image_url="https://cdn.example/cover.jpg",
         )
         duplicate_issue = ComicIssue(work=duplicate, issue_number="1", display_title="Standard Edition")
+        book_primary_edition = BookEdition(
+            work=book_primary,
+            display_title="First Edition",
+            format="Hardcover",
+            publication_date=date(2026, 1, 1),
+            publisher="Bantam",
+            cover_image_url="https://cdn.example/hyperion.jpg",
+        )
+        book_duplicate_edition = BookEdition(
+            work=book_duplicate,
+            display_title="First Edition",
+            format="Hardcover",
+            publication_date=date(2026, 1, 1),
+            publisher="Bantam",
+            cover_image_url="https://cdn.example/hyperion.jpg",
+        )
         proposal = MetadataProposal(
             provider=ExternalProvider.gcd,
             query="Absolute Batman #1",
             status="pending",
         )
-        db.add_all([primary, duplicate, primary_issue, duplicate_issue, proposal])
+        db.add_all(
+            [
+                primary,
+                duplicate,
+                book_primary,
+                book_duplicate,
+                primary_issue,
+                duplicate_issue,
+                book_primary_edition,
+                book_duplicate_edition,
+                proposal,
+            ]
+        )
         await db.flush()
         db.add(
             ExternalProviderId(
@@ -1197,6 +1229,22 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
                 entity_id=primary.id,
                 provider=ExternalProvider.gcd,
                 provider_item_id="2663120",
+            )
+        )
+        db.add(
+            ExternalProviderId(
+                entity_type="book_work",
+                entity_id=book_primary.id,
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL123W",
+            )
+        )
+        db.add(
+            ExternalProviderId(
+                entity_type="book_work",
+                entity_id=book_duplicate.id,
+                provider=ExternalProvider.openlibrary,
+                provider_item_id="OL456W",
             )
         )
         await db.commit()
@@ -1208,19 +1256,20 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
 
     assert summary.status_code == 200
     body = summary.json()
-    assert body["items"] == 2
+    assert body["items"] == 4
     assert body["items_by_kind"]["comic"] == 2
+    assert body["items_by_kind"]["book"] == 2
     assert body["items_by_kind"]["manga"] == 0
     assert body["items_by_kind"]["movie"] == 0
     assert body["series"] == 0
     assert body["volumes"] == 0
-    assert body["editions"] == 2
+    assert body["editions"] == 4
     assert body["variants"] == 0
-    assert body["provider_links"] == 1
+    assert body["provider_links"] == 3
     assert body["pending_proposals"] == 1
     assert body["missing_cover_items"] == 1
     assert body["missing_provider_link_items"] == 2
-    assert body["duplicate_candidate_groups"] == 1
+    assert body["duplicate_candidate_groups"] == 2
 
     duplicates = await client.get(
         "/admin/duplicates",
@@ -1229,16 +1278,20 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
 
     assert duplicates.status_code == 200
     duplicate_body = duplicates.json()
-    assert duplicate_body[0]["kind"] == "comic"
-    assert duplicate_body[0]["title"] == "Absolute Batman"
-    assert duplicate_body[0]["item_number"] == "1"
-    assert duplicate_body[0]["count"] == 2
-    assert len(duplicate_body[0]["item_ids"]) == 2
-    assert duplicate_body[0]["reason"] == "same title and item number"
-    assert duplicate_body[0]["has_provider_conflicts"] is False
-    assert duplicate_body[0]["has_cover_conflicts"] is False
-    assert duplicate_body[0]["duplicate_score"] > 0
-    assert duplicate_body[0]["recommended_target_item_id"] == str(primary.id)
+    comic_duplicate = next(entry for entry in duplicate_body if entry["kind"] == "comic")
+    book_duplicate_entry = next(entry for entry in duplicate_body if entry["kind"] == "book")
+    assert comic_duplicate["title"] == "Absolute Batman"
+    assert comic_duplicate["item_number"] == "1"
+    assert comic_duplicate["count"] == 2
+    assert len(comic_duplicate["item_ids"]) == 2
+    assert comic_duplicate["reason"] == "same title and item number"
+    assert comic_duplicate["has_provider_conflicts"] is False
+    assert comic_duplicate["has_cover_conflicts"] is False
+    assert comic_duplicate["duplicate_score"] > 0
+    assert comic_duplicate["recommended_target_item_id"] == str(primary.id)
+    assert book_duplicate_entry["title"] == "Hyperion"
+    assert book_duplicate_entry["count"] == 2
+    assert len(book_duplicate_entry["item_ids"]) == 2
 
     ignore = await client.post(
         "/admin/duplicates/ignore",

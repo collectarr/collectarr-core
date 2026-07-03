@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.models.base import ItemKind
-from app.providers.base import ProviderSearchResult
 from app.schemas.metadata_shared import SearchResult, public_item_kind
 from app.services.metadata_helpers import _loaded_rows, _model_text_or_metadata, _organization_name
 

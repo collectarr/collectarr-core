@@ -5,7 +5,13 @@ from datetime import date
 from sqlalchemy import extract, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.models import AnimeCharacterAppearance, AnimeContribution, AnimeEpisode, AnimeIdentifier, AnimeSeries
+from app.models import (
+    AnimeCharacterAppearance,
+    AnimeContribution,
+    AnimeEpisode,
+    AnimeIdentifier,
+    AnimeSeries,
+)
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult
 

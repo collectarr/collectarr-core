@@ -7,6 +7,12 @@ from urllib.parse import urlparse
 
 from app.models import ExternalProvider
 from app.providers.base import MetadataProvider, ProviderSearchResult
+from app.services.metadata_public import (
+    mirror_provider_image_bytes as _mirror_provider_image_bytes,
+)
+from app.services.metadata_public import (
+    mirror_provider_image_url as _mirror_provider_image_url,
+)
 
 logger = logging.getLogger(__name__)
 _UPSTREAM_HTTP_STATUS_RE = re.compile(r"\bHTTP\s+(?P<status>\d{3})\b")
@@ -21,8 +27,6 @@ class ImageService:
         provider_item_id: str | None,
         cache_only: bool = False,
     ) -> str | None:
-        from app.services.metadata_public import mirror_provider_image_url as _mirror_provider_image_url
-
         return await _mirror_provider_image_url(
             self,
             source_url,
@@ -39,8 +43,6 @@ class ImageService:
         provider_name: str | ExternalProvider,
         provider_item_id: str | None,
     ) -> str | None:
-        from app.services.metadata_public import mirror_provider_image_bytes as _mirror_provider_image_bytes
-
         return await _mirror_provider_image_bytes(
             self,
             image_bytes,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import extract, func, or_, select
+from sqlalchemy import extract, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models import MovieRelease, MovieWork, MovieWorkContribution, MovieWorkIdentifier

@@ -8,21 +8,21 @@ from app.schemas import (
     SeasonResponse,
 )
 from app.schemas.metadata_shared import SearchResult
+from app.services import metadata_public
 from app.services.anime_service import AnimeService
 from app.services.boardgames_service import BoardGamesService
-from app.services.bundle_service import BundleService
 from app.services.books_service import BooksService
-from app.services import metadata_public
-from app.services.metadata_common_support import MetadataCommonSupport
-from app.services.field_schema_service import FieldSchemaService
+from app.services.bundle_service import BundleService
 from app.services.comics_service import ComicsService
+from app.services.field_schema_service import FieldSchemaService
 from app.services.games_service import GamesService
 from app.services.image_service import ImageService
 from app.services.manga_service import MangaService
+from app.services.metadata_common_support import MetadataCommonSupport
 from app.services.metadata_provider_search_support import MetadataProviderSearchSupport
-from app.services.proposals_service import ProposalsService
 from app.services.movies_service import MoviesService
 from app.services.music_service import MusicService
+from app.services.proposals_service import ProposalsService
 from app.services.tv_service import TVService
 
 

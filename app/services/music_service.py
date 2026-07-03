@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 from sqlalchemy import extract, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -10,7 +8,6 @@ from app.models import (
     MusicRelease,
     MusicReleaseContribution,
     MusicReleaseIdentifier,
-    MusicTrack,
 )
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult

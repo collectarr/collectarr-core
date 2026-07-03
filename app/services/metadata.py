@@ -42,7 +42,6 @@ from app.models import (
     ExternalProviderId,
     GameRelease,
     GameWork,
-    Item,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -68,7 +67,7 @@ from app.models import (
     TVReleaseIdentifier,
     TVReleaseMedia,
 )
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import Base, ExternalProvider, ItemKind
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
@@ -165,6 +164,7 @@ from app.services.metadata_typed_reads import MetadataTypedReadService
 from app.services.provider_search_state import ProviderSearchState
 
 logger = logging.getLogger(__name__)
+ITEM_TABLE = Base.metadata.tables["items"]
 
 _UPSTREAM_HTTP_STATUS_RE = re.compile(r"\bHTTP\s+(?P<status>\d{3})\b")
 _PROVIDER_INTERNAL_RETRY_NAMES = {ExternalProvider.bgg.value, ExternalProvider.comicvine.value}
@@ -3894,10 +3894,18 @@ class MetadataService:
 
         item_ids = [link.entity_id for link in links]
         items = {
-            item.id: item
-            for item in (
-                await self.db.execute(select(Item).where(Item.id.in_(item_ids)))
-            ).scalars()
+            row.id: row
+            for row in (
+                await self.db.execute(
+                    select(
+                        ITEM_TABLE.c.id,
+                        ITEM_TABLE.c.kind,
+                        ITEM_TABLE.c.title,
+                        ITEM_TABLE.c.item_number,
+                        ITEM_TABLE.c.metadata_json,
+                    ).where(ITEM_TABLE.c.id.in_(item_ids))
+                )
+            ).all()
         }
         results: list[CreatorCreditResponse] = []
         for link in links:
@@ -3912,11 +3920,9 @@ class MetadataService:
                     kind=public_item_kind(item.kind),
                     title=item.title,
                     item_number=item.item_number,
-                    series_title=getattr(item, "series_title", None)
-                    or (item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None),
-                    volume_name=getattr(item, "volume_name", None)
-                    or (item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None),
-                    cover_image_url=self._item_primary_cover_url(item),
+                    series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
+                    volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
+                    cover_image_url=self._item_primary_cover_url(item.metadata_json),
                 )
             )
         return results
@@ -3934,7 +3940,6 @@ class MetadataService:
                 await self.db.execute(
                     select(StoryArcItem)
                     .where(StoryArcItem.story_arc_id == story_arc_id)
-                    .options(selectinload(StoryArcItem.item))
                     .order_by(
                         StoryArcItem.ordinal.asc().nullslast(),
                         StoryArcItem.created_at.asc(),
@@ -3942,23 +3947,40 @@ class MetadataService:
                 )
             ).scalars()
         )
-        return [
-            StoryArcItemResponse(
-                story_arc_id=story_arc_id,
-                item_id=link.item.id,
-                ordinal=link.ordinal,
-                kind=public_item_kind(link.item.kind),
-                title=link.item.title,
-                item_number=link.item.item_number,
-                series_title=getattr(link.item, "series_title", None)
-                or (link.item.metadata_json.get("series_title") if isinstance(link.item.metadata_json, dict) else None),
-                volume_name=getattr(link.item, "volume_name", None)
-                or (link.item.metadata_json.get("volume_name") if isinstance(link.item.metadata_json, dict) else None),
-                cover_image_url=self._item_primary_cover_url(link.item),
+        item_ids = [link.item_id for link in links]
+        items = {
+            row.id: row
+            for row in (
+                await self.db.execute(
+                    select(
+                        ITEM_TABLE.c.id,
+                        ITEM_TABLE.c.kind,
+                        ITEM_TABLE.c.title,
+                        ITEM_TABLE.c.item_number,
+                        ITEM_TABLE.c.metadata_json,
+                    ).where(ITEM_TABLE.c.id.in_(item_ids))
+                )
+            ).all()
+        }
+        results: list[StoryArcItemResponse] = []
+        for link in links:
+            item = items.get(link.item_id)
+            if item is None:
+                continue
+            results.append(
+                StoryArcItemResponse(
+                    story_arc_id=story_arc_id,
+                    item_id=link.item_id,
+                    ordinal=link.ordinal,
+                    kind=public_item_kind(item.kind),
+                    title=item.title,
+                    item_number=item.item_number,
+                    series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
+                    volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
+                    cover_image_url=self._item_primary_cover_url(item.metadata_json),
+                )
             )
-            for link in links
-            if link.item is not None
-        ]
+        return results
 
     async def get_story_arc_facets(
         self,
@@ -4131,7 +4153,6 @@ class MetadataService:
                 await self.db.execute(
                     select(CharacterAppearance)
                     .where(CharacterAppearance.character_id == character_id)
-                    .options(selectinload(CharacterAppearance.item))
                     .order_by(
                         CharacterAppearance.role.asc(),
                         CharacterAppearance.created_at.asc(),
@@ -4139,23 +4160,40 @@ class MetadataService:
                 )
             ).scalars()
         )
-        return [
-            CharacterAppearanceResponse(
-                character_id=character_id,
-                item_id=link.item.id,
-                role=link.role,
-                kind=public_item_kind(link.item.kind),
-                title=link.item.title,
-                item_number=link.item.item_number,
-                series_title=getattr(link.item, "series_title", None)
-                or (link.item.metadata_json.get("series_title") if isinstance(link.item.metadata_json, dict) else None),
-                volume_name=getattr(link.item, "volume_name", None)
-                or (link.item.metadata_json.get("volume_name") if isinstance(link.item.metadata_json, dict) else None),
-                cover_image_url=self._item_primary_cover_url(link.item),
+        item_ids = [link.item_id for link in links]
+        items = {
+            row.id: row
+            for row in (
+                await self.db.execute(
+                    select(
+                        ITEM_TABLE.c.id,
+                        ITEM_TABLE.c.kind,
+                        ITEM_TABLE.c.title,
+                        ITEM_TABLE.c.item_number,
+                        ITEM_TABLE.c.metadata_json,
+                    ).where(ITEM_TABLE.c.id.in_(item_ids))
+                )
+            ).all()
+        }
+        results: list[CharacterAppearanceResponse] = []
+        for link in links:
+            item = items.get(link.item_id)
+            if item is None:
+                continue
+            results.append(
+                CharacterAppearanceResponse(
+                    character_id=character_id,
+                    item_id=link.item_id,
+                    role=link.role,
+                    kind=public_item_kind(item.kind),
+                    title=item.title,
+                    item_number=item.item_number,
+                    series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
+                    volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
+                    cover_image_url=self._item_primary_cover_url(item.metadata_json),
+                )
             )
-            for link in links
-            if link.item is not None
-        ]
+        return results
 
     async def get_character_facets(
         self,
@@ -4296,8 +4334,8 @@ class MetadataService:
         text = re.sub(r"[^0-9a-z\s]", " ", text)
         return re.sub(r"\s+", " ", text).strip()
 
-    def _item_primary_cover_url(self, item: Item) -> str | None:
-        metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+    def _item_primary_cover_url(self, metadata_json: dict[str, Any] | None) -> str | None:
+        metadata = metadata_json if isinstance(metadata_json, dict) else {}
         for key in ("cover_image_url", "image_url", "thumbnail_image_url"):
             value = metadata.get(key)
             if isinstance(value, str) and value.strip():

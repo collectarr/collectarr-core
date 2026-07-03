@@ -4,19 +4,17 @@ from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import (
     Character,
     CharacterAppearance,
     EntityPerson,
-    Item,
     Person,
     StoryArc,
     StoryArcItem,
 )
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import Base, ExternalProvider, ItemKind
 from app.proposal_payload import compact_metadata_payload
 from app.providers.base import ProviderSearchResult
 from app.schemas import (
@@ -41,6 +39,7 @@ from app.storage.images import ImageMirror
 
 _UPSTREAM_HTTP_STATUS_RE = __import__("re").compile(r"\bHTTP\s+(?P<status>\d{3})\b")
 _PROVIDER_INTERNAL_RETRY_NAMES = {ExternalProvider.bgg.value, ExternalProvider.comicvine.value}
+ITEM_TABLE = Base.metadata.tables["items"]
 
 
 async def barcode_provider_search(service, barcode: str, kind: ItemKind | None = None) -> list[ProviderSearchResult]:
@@ -411,10 +410,18 @@ async def get_creator_credits(service, creator_id: UUID) -> list[CreatorCreditRe
         return []
     item_ids = [link.entity_id for link in links]
     items = {
-        item.id: item
-        for item in (
-            await service.db.execute(select(Item).where(Item.id.in_(item_ids)))
-        ).scalars()
+        row.id: row
+        for row in (
+            await service.db.execute(
+                select(
+                    ITEM_TABLE.c.id,
+                    ITEM_TABLE.c.kind,
+                    ITEM_TABLE.c.title,
+                    ITEM_TABLE.c.item_number,
+                    ITEM_TABLE.c.metadata_json,
+                ).where(ITEM_TABLE.c.id.in_(item_ids))
+            )
+        ).all()
     }
     results: list[CreatorCreditResponse] = []
     for link in links:
@@ -429,9 +436,9 @@ async def get_creator_credits(service, creator_id: UUID) -> list[CreatorCreditRe
                 kind=public_item_kind(item.kind),
                 title=item.title,
                 item_number=item.item_number,
-                series_title=getattr(item, "series_title", None) or (item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None),
-                volume_name=getattr(item, "volume_name", None) or (item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None),
-                cover_image_url=service._item_primary_cover_url(item),
+                series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
+                volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
+                cover_image_url=item.metadata_json.get("cover_image_url") if isinstance(item.metadata_json, dict) else None,
             )
         )
     return results
@@ -446,25 +453,39 @@ async def get_story_arc_items(service, story_arc_id: UUID) -> list[StoryArcItemR
             await service.db.execute(
                 select(StoryArcItem)
                 .where(StoryArcItem.story_arc_id == story_arc_id)
-                .options(selectinload(StoryArcItem.item))
                 .order_by(StoryArcItem.ordinal.asc().nullslast(), StoryArcItem.created_at.asc())
             )
         ).scalars()
     )
-    return [
-        StoryArcItemResponse(
-            story_arc_id=story_arc_id,
-            item_id=link.item.id,
-            ordinal=link.ordinal,
-            kind=public_item_kind(link.item.kind),
-            title=link.item.title,
-            item_number=link.item.item_number,
-            series_title=getattr(link.item, "series_title", None) or (link.item.metadata_json.get("series_title") if isinstance(link.item.metadata_json, dict) else None),
-            volume_name=getattr(link.item, "volume_name", None) or (link.item.metadata_json.get("volume_name") if isinstance(link.item.metadata_json, dict) else None),
-            cover_image_url=service._item_primary_cover_url(link.item),
+    item_ids = [link.item_id for link in links]
+    items = {
+    row.id: row
+    for row in (
+        await service.db.execute(
+            select(
+                ITEM_TABLE.c.id,
+                ITEM_TABLE.c.kind,
+                ITEM_TABLE.c.title,
+                ITEM_TABLE.c.item_number,
+                ITEM_TABLE.c.metadata_json,
+            ).where(ITEM_TABLE.c.id.in_(item_ids))
         )
-        for link in links
-        if link.item is not None
+    ).all()
+    }
+    return [
+    StoryArcItemResponse(
+        story_arc_id=story_arc_id,
+        item_id=link.item_id,
+        ordinal=link.ordinal,
+        kind=public_item_kind(items[link.item_id].kind),
+        title=items[link.item_id].title,
+        item_number=items[link.item_id].item_number,
+        series_title=items[link.item_id].metadata_json.get("series_title") if isinstance(items[link.item_id].metadata_json, dict) else None,
+        volume_name=items[link.item_id].metadata_json.get("volume_name") if isinstance(items[link.item_id].metadata_json, dict) else None,
+        cover_image_url=items[link.item_id].metadata_json.get("cover_image_url") if isinstance(items[link.item_id].metadata_json, dict) else None,
+    )
+    for link in links
+    if link.item_id in items
     ]
 
 
@@ -581,25 +602,39 @@ async def get_character_appearances(service, character_id: UUID) -> list[Charact
             await service.db.execute(
                 select(CharacterAppearance)
                 .where(CharacterAppearance.character_id == character_id)
-                .options(selectinload(CharacterAppearance.item))
                 .order_by(CharacterAppearance.role.asc(), CharacterAppearance.created_at.asc())
             )
         ).scalars()
     )
-    return [
-        CharacterAppearanceResponse(
-            character_id=character_id,
-            item_id=link.item.id,
-            role=link.role,
-            kind=public_item_kind(link.item.kind),
-            title=link.item.title,
-            item_number=link.item.item_number,
-            series_title=getattr(link.item, "series_title", None) or (link.item.metadata_json.get("series_title") if isinstance(link.item.metadata_json, dict) else None),
-            volume_name=getattr(link.item, "volume_name", None) or (link.item.metadata_json.get("volume_name") if isinstance(link.item.metadata_json, dict) else None),
-            cover_image_url=service._item_primary_cover_url(link.item),
+    item_ids = [link.item_id for link in links]
+    items = {
+    row.id: row
+    for row in (
+        await service.db.execute(
+            select(
+                ITEM_TABLE.c.id,
+                ITEM_TABLE.c.kind,
+                ITEM_TABLE.c.title,
+                ITEM_TABLE.c.item_number,
+                ITEM_TABLE.c.metadata_json,
+            ).where(ITEM_TABLE.c.id.in_(item_ids))
         )
-        for link in links
-        if link.item is not None
+    ).all()
+    }
+    return [
+    CharacterAppearanceResponse(
+        character_id=character_id,
+        item_id=link.item_id,
+        role=link.role,
+        kind=public_item_kind(items[link.item_id].kind),
+        title=items[link.item_id].title,
+        item_number=items[link.item_id].item_number,
+        series_title=items[link.item_id].metadata_json.get("series_title") if isinstance(items[link.item_id].metadata_json, dict) else None,
+        volume_name=items[link.item_id].metadata_json.get("volume_name") if isinstance(items[link.item_id].metadata_json, dict) else None,
+        cover_image_url=items[link.item_id].metadata_json.get("cover_image_url") if isinstance(items[link.item_id].metadata_json, dict) else None,
+    )
+    for link in links
+    if link.item_id in items
     ]
 
 

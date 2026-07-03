@@ -17,8 +17,7 @@ Related design: `docs/bundle-release-design.md`
 ### Next Core tasks
 
 - Add Pydantic schemas for bundle summary and bundle detail payloads.
-- Add `GET /metadata/items/{item_id}/bundle-releases`.
-- Add `GET /metadata/bundle-releases/{bundle_release_id}`.
+- Add typed bundle summary/detail routes on the dedicated bundle resource.
 - Extend admin/provider ingest schemas so package composition can be persisted.
 - Extend provider normalization contracts with optional bundle output.
 - Add repository/service helpers to load bundle members and compute summaries.

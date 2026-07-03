@@ -192,9 +192,8 @@ Suggested API shape:
 - Keep `/metadata/search` item-first.
 - Include `bundle_count` on item detail or preview payloads when bundle matches
   exist.
-- Add `GET /metadata/items/{item_id}/bundle-releases` returning package rows
-  that include that item.
-- Add `GET /metadata/bundle-releases/{bundle_release_id}` for full bundle detail.
+- Expose bundle lookup on a dedicated typed bundle resource, not through the
+  legacy `items` projection path.
 - Allow provider ingest to create both `item` rows and `bundle_release` rows when
   the upstream source exposes package composition.
 
@@ -262,7 +261,8 @@ Rules:
 2. The preview pane shows a second segmented control: `Media`, `Physical release`, `Bundle release`.
 3. `Media` mode uses only the canonical `item_id`.
 4. `Physical release` mode reuses the existing edition/variant selectors.
-5. `Bundle release` mode shows packages returned by `/metadata/items/{item_id}/bundle-releases`.
+5. `Bundle release` mode shows packages returned by the dedicated bundle lookup
+   endpoint.
 6. Each bundle card shows title, format, region, year, barcode, and a short contents summary.
 7. The primary action label adapts to both target and reference type.
 

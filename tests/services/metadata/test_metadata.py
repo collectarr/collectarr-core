@@ -501,6 +501,19 @@ async def test_game_and_boardgame_v1_routes_are_exposed_in_openapi(client):
 
 
 @pytest.mark.asyncio
+async def test_legacy_metadata_routes_are_not_exposed_in_openapi(client):
+    response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+    assert "/metadata/{kind}/{id}" not in paths
+    assert "/metadata/items/{item_id}/editions" not in paths
+    assert "/metadata/items/{item_id}/volumes" not in paths
+    assert "/metadata/items/{item_id}/seasons" not in paths
+    assert "/metadata/items/{item_id}/bundle-releases" not in paths
+
+
+@pytest.mark.asyncio
 async def test_game_boardgame_and_music_typed_routes(client):
     game_work_id, game_release_id = await _seed_game_v1()
     boardgame_work_id, boardgame_edition_id = await _seed_boardgame_v1()

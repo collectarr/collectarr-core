@@ -34,10 +34,10 @@ from app.models.canonical_support import (  # noqa: F401
     CharacterAppearance,
     ComicSeriesRelation,
     EntityAlias,
+    EntityLink,
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    EntityLink,
     ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
@@ -87,13 +87,6 @@ class Item(UuidMixin, TimestampMixin, Base):
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     editions: Mapped[list["Edition"]] = relationship(back_populates="item")
-    bundle_release_components: Mapped[list["BundleReleaseComponent"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(BundleReleaseComponent.entity_id) == Item.id,
-            BundleReleaseComponent.entity_type == "item",
-        ),
-        viewonly=True,
-    )
     provider_links: Mapped[list["ExternalProviderId"]] = relationship(
         primaryjoin=lambda: and_(
             foreign(ExternalProviderId.entity_id) == Item.id,

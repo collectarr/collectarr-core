@@ -9,10 +9,9 @@ from urllib.parse import urlparse
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import status
-from sqlalchemy import extract, func, inspect, or_, select
+from sqlalchemy import extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.core.config import get_settings
@@ -179,11 +178,94 @@ class MetadataService:
         self.provider_search_state = ProviderSearchState(self.settings)
         self.typed_reads = MetadataTypedReadService(self)
 
-    def __getattr__(self, name: str) -> Any:
-        try:
-            return getattr(self.typed_reads, name)
-        except AttributeError as exc:
-            raise AttributeError(name) from exc
+    async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
+        return await self.typed_reads.get_book_work(work_id)
+
+    async def get_book_work_editions(self, work_id: UUID) -> list[BookEditionV1Response]:
+        return await self.typed_reads.get_book_work_editions(work_id)
+
+    async def get_book_edition(self, edition_id: UUID) -> BookEditionV1Response:
+        return await self.typed_reads.get_book_edition(edition_id)
+
+    async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
+        return await self.typed_reads.get_game_work(work_id)
+
+    async def get_game_work_releases(self, work_id: UUID) -> list[GameReleaseV1Response]:
+        return await self.typed_reads.get_game_work_releases(work_id)
+
+    async def get_game_release(self, release_id: UUID) -> GameReleaseV1Response:
+        return await self.typed_reads.get_game_release(release_id)
+
+    async def get_boardgame_work(self, work_id: UUID) -> BoardGameWorkV1Response:
+        return await self.typed_reads.get_boardgame_work(work_id)
+
+    async def get_boardgame_work_editions(
+        self, work_id: UUID
+    ) -> list[BoardGameEditionV1Response]:
+        return await self.typed_reads.get_boardgame_work_editions(work_id)
+
+    async def get_boardgame_edition(self, edition_id: UUID) -> BoardGameEditionV1Response:
+        return await self.typed_reads.get_boardgame_edition(edition_id)
+
+    async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
+        return await self.typed_reads.get_comic_work(work_id)
+
+    async def get_comic_work_issues(self, work_id: UUID) -> list[ComicIssueV1Response]:
+        return await self.typed_reads.get_comic_work_issues(work_id)
+
+    async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
+        return await self.typed_reads.get_comic_issue(issue_id)
+
+    async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
+        return await self.typed_reads.get_manga_work(work_id)
+
+    async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
+        return await self.typed_reads.get_manga_work_chapters(work_id)
+
+    async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
+        return await self.typed_reads.get_manga_chapter(chapter_id)
+
+    async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
+        return await self.typed_reads.get_anime_series(series_id)
+
+    async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
+        return await self.typed_reads.get_anime_series_episodes(series_id)
+
+    async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
+        return await self.typed_reads.get_anime_episode(episode_id)
+
+    async def get_movie_work(self, work_id: UUID) -> MovieWorkV1Response:
+        return await self.typed_reads.get_movie_work(work_id)
+
+    async def get_movie_work_releases(self, work_id: UUID) -> list[MovieReleaseV1Response]:
+        return await self.typed_reads.get_movie_work_releases(work_id)
+
+    async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
+        return await self.typed_reads.get_movie_release(release_id)
+
+    async def get_music_release(self, release_id: UUID) -> MusicReleaseV1Response:
+        return await self.typed_reads.get_music_release(release_id)
+
+    async def get_music_release_media(self, release_id: UUID) -> list[MusicMediaV1Response]:
+        return await self.typed_reads.get_music_release_media(release_id)
+
+    async def get_music_media(self, media_id: UUID) -> MusicMediaV1Response:
+        return await self.typed_reads.get_music_media(media_id)
+
+    async def get_music_media_tracks(self, media_id: UUID) -> list[MusicTrackV1Response]:
+        return await self.typed_reads.get_music_media_tracks(media_id)
+
+    async def get_music_track(self, track_id: UUID) -> MusicTrackV1Response:
+        return await self.typed_reads.get_music_track(track_id)
+
+    async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
+        return await self.typed_reads.get_tv_series(series_id)
+
+    async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
+        return await self.typed_reads.get_tv_series_seasons(series_id)
+
+    async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
+        return await self.typed_reads.get_tv_episode(episode_id)
 
     async def _provider_links_for_entity(
         self,
@@ -3422,8 +3504,6 @@ class MetadataService:
         imprint_val: str | None = _organization_name(item, "imprint")
         subtitle: str | None = None
         series_group: str | None = None
-        bundle_titles: list[str] | None = None
-        bundle_release_ids: list[str] | None = None
         creator_links = sorted(
             _loaded_rows(item, "creator_links"),
             key=lambda link: (
@@ -3507,32 +3587,6 @@ class MetadataService:
             if primary is not None:
                 cover_price_cents = cover_price_cents or primary.cover_price_cents
                 item_currency = item_currency or primary.currency
-        component_attr = inspect(item).attrs.bundle_release_components.loaded_value
-        bundle_releases = []
-        if component_attr is not NO_VALUE and component_attr is not None:
-            seen_bundle_ids: set[str] = set()
-            for component in component_attr:
-                bundle_release = getattr(component, "bundle_release", None)
-                if bundle_release is None:
-                    continue
-                bundle_release_id = str(getattr(bundle_release, "id", ""))
-                if bundle_release_id in seen_bundle_ids:
-                    continue
-                seen_bundle_ids.add(bundle_release_id)
-                bundle_releases.append(bundle_release)
-        bundle_releases = sorted(
-            bundle_releases,
-            key=lambda bundle: (
-                getattr(bundle, "release_date", None) is None,
-                -getattr(bundle, "release_date", None).toordinal()
-                if getattr(bundle, "release_date", None) is not None
-                else 0,
-                str(getattr(bundle, "title", "")).casefold(),
-            ),
-        )
-        if bundle_releases:
-            bundle_titles = [bundle.title for bundle in bundle_releases if getattr(bundle, "title", None)]
-            bundle_release_ids = [str(bundle.id) for bundle in bundle_releases]
         return SearchResult(
             id=item.id,
             kind=public_item_kind(item.kind),
@@ -3574,8 +3628,6 @@ class MetadataService:
             imprint=imprint_val,
             subtitle=subtitle,
             series_group=series_group,
-            bundle_titles=bundle_titles,
-            bundle_release_ids=bundle_release_ids,
         )
 
     def _preferred_variant(

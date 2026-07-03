@@ -122,37 +122,36 @@ async def _download_mangadex_cover(url: str) -> tuple[str, bytes]:
         async with httpx.AsyncClient(
             follow_redirects=True,
             timeout=settings.image_download_timeout_seconds,
-        ) as client:
-            async with client.stream(
-                "GET",
-                url,
-                headers={
-                    "User-Agent": settings.mangadex_user_agent,
-                    "Referer": "https://mangadex.org/",
-                    "Accept": "image/*",
-                },
-            ) as response:
-                response.raise_for_status()
-                media_type = response.headers.get("content-type", "application/octet-stream")
-                if ";" in media_type:
-                    media_type = media_type.split(";", 1)[0].strip()
-                media_type = media_type.lower() or "application/octet-stream"
-                if media_type not in _MANGADEX_IMAGE_CONTENT_TYPES:
+        ) as client, client.stream(
+            "GET",
+            url,
+            headers={
+                "User-Agent": settings.mangadex_user_agent,
+                "Referer": "https://mangadex.org/",
+                "Accept": "image/*",
+            },
+        ) as response:
+            response.raise_for_status()
+            media_type = response.headers.get("content-type", "application/octet-stream")
+            if ";" in media_type:
+                media_type = media_type.split(";", 1)[0].strip()
+            media_type = media_type.lower() or "application/octet-stream"
+            if media_type not in _MANGADEX_IMAGE_CONTENT_TYPES:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    code="mangadex_cover_unavailable",
+                    detail=f"MangaDex cover request returned unsupported content type: {media_type}",
+                )
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                body.extend(chunk)
+                if len(body) > settings.max_image_bytes:
                     raise ApiHTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
                         code="mangadex_cover_unavailable",
-                        detail=f"MangaDex cover request returned unsupported content type: {media_type}",
+                        detail="MangaDex cover exceeded the configured size limit",
                     )
-                body = bytearray()
-                async for chunk in response.aiter_bytes():
-                    body.extend(chunk)
-                    if len(body) > settings.max_image_bytes:
-                        raise ApiHTTPException(
-                            status_code=status.HTTP_502_BAD_GATEWAY,
-                            code="mangadex_cover_unavailable",
-                            detail="MangaDex cover exceeded the configured size limit",
-                        )
-                return media_type, bytes(body)
+            return media_type, bytes(body)
     except httpx.HTTPStatusError as exc:
         raise ApiHTTPException(
             status_code=exc.response.status_code,

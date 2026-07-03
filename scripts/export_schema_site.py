@@ -31,7 +31,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
 LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
-LEGACY_BRIDGE_TABLE_NAMES = {"bundle_releases"}
+LEGACY_BRIDGE_TABLE_NAMES: set[str] = set()
 HIDDEN_TABLE_NAMES = {
     "item" + "_kind_metadata",
     "item" + "_kind_metadata_taxonomies",
@@ -54,7 +54,7 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
         "title": "Catalog Spine",
-        "description": "Kind-specific catalog tables are canonical. Legacy projection tables and bundle composition tables remain for compatibility.",
+        "description": "Kind-specific catalog tables are canonical. Legacy projection tables remain for compatibility, and bundle composition is polymorphic.",
         "tables": [
             "items",
             "editions",
@@ -649,7 +649,7 @@ def build_schema_data() -> dict[str, Any]:
                 else None
             ),
             "legacy_bridge_note": (
-                "Legacy bundle composition table that still references items.id; redesign this with entity_type + entity_id when bundle composition becomes fully polymorphic."
+                "Bundle composition is polymorphic through entity_type + entity_id."
                 if table.name in LEGACY_BRIDGE_TABLE_NAMES
                 else None
             ),

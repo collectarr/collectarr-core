@@ -6,7 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
+    BoardGameContribution,
     BoardGameEdition,
+    BoardGameIdentifier,
+    BoardGameMechanic,
     BoardGameWork,
     BookContribution,
     BookEdition,
@@ -18,7 +21,11 @@ from app.models import (
     ComicIdentifier,
     ComicIssue,
     ComicWork,
+    GameCompanyRole,
+    GameIdentifier,
+    GamePlatform,
     GameRelease,
+    GameReleasePlatform,
     GameWork,
     MovieRelease,
     MovieWork,
@@ -57,7 +64,16 @@ class MetadataRepository:
             stmt = (
                 select(GameWork)
                 .where(GameWork.id == item_id)
-                .options(selectinload(GameWork.releases))
+                .options(
+                    selectinload(GameWork.platform_entries),
+                    selectinload(GameWork.identifier_entries),
+                    selectinload(GameWork.company_role_entries),
+                    selectinload(GameWork.age_rating_entries),
+                    selectinload(GameWork.series_memberships),
+                    selectinload(GameWork.releases).selectinload(GameRelease.platform_links).selectinload(
+                        GameReleasePlatform.platform
+                    ),
+                )
             )
             result = await self.db.execute(stmt)
             return result.scalar_one_or_none()
@@ -65,7 +81,16 @@ class MetadataRepository:
             stmt = (
                 select(BoardGameWork)
                 .where(BoardGameWork.id == item_id)
-                .options(selectinload(BoardGameWork.editions))
+                .options(
+                    selectinload(BoardGameWork.identifier_entries),
+                    selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
+                    selectinload(BoardGameWork.mechanic_entries),
+                    selectinload(BoardGameWork.category_entries),
+                    selectinload(BoardGameWork.family_entries),
+                    selectinload(BoardGameWork.expansion_entries),
+                    selectinload(BoardGameWork.ranking_snapshots),
+                    selectinload(BoardGameWork.editions).selectinload(BoardGameEdition.player_count_votes),
+                )
             )
             result = await self.db.execute(stmt)
             return result.scalar_one_or_none()
@@ -316,8 +341,27 @@ class MetadataRepository:
         year: int | None,
         barcode: str | None,
     ) -> list[GameWork]:
-        stmt = select(GameWork).order_by(GameWork.sort_title.asc().nullslast(), GameWork.title.asc()).limit(limit)
-        stmt = stmt.join(GameWork.releases, isouter=True)
+        stmt = (
+            select(GameWork)
+            .options(
+                selectinload(GameWork.platform_entries),
+                selectinload(GameWork.identifier_entries),
+                selectinload(GameWork.company_role_entries),
+                selectinload(GameWork.age_rating_entries),
+                selectinload(GameWork.series_memberships),
+                selectinload(GameWork.releases).selectinload(GameRelease.platform_links).selectinload(
+                    GameReleasePlatform.platform
+                ),
+            )
+            .order_by(GameWork.sort_title.asc().nullslast(), GameWork.title.asc())
+            .limit(limit)
+        )
+        stmt = (
+            stmt.join(GameWork.releases, isouter=True)
+            .join(GameWork.platform_entries, isouter=True)
+            .join(GameWork.identifier_entries, isouter=True)
+            .join(GameWork.company_role_entries, isouter=True)
+        )
         if query and query.strip():
             pattern = f"%{query.strip()}%"
             stmt = stmt.where(
@@ -327,6 +371,9 @@ class MetadataRepository:
                     GameRelease.release_title.ilike(pattern),
                     GameRelease.publisher.ilike(pattern),
                     GameRelease.platform.ilike(pattern),
+                    GamePlatform.platform_name.ilike(pattern),
+                    GameIdentifier.value.ilike(pattern),
+                    GameCompanyRole.role.ilike(pattern),
                 )
             )
         if publisher and publisher.strip():
@@ -347,7 +394,14 @@ class MetadataRepository:
             stmt = stmt.where(extract("year", GameRelease.release_date) == year)
         if barcode and barcode.strip():
             normalized = self._normalized_barcode_value(barcode)
-            stmt = stmt.where(self._normalized_barcode_expr(GameRelease.barcode) == normalized)
+            stmt = stmt.where(
+                or_(
+                    self._normalized_barcode_expr(GameIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(GameIdentifier.normalized_value) == normalized,
+                    self._normalized_barcode_expr(GameRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(GameRelease.catalog_number) == normalized,
+                )
+            )
         result = await self.db.execute(stmt)
         return list(result.scalars().unique())
 
@@ -366,8 +420,27 @@ class MetadataRepository:
         year: int | None,
         barcode: str | None,
     ) -> list[BoardGameWork]:
-        stmt = select(BoardGameWork).order_by(BoardGameWork.sort_title.asc().nullslast(), BoardGameWork.title.asc()).limit(limit)
-        stmt = stmt.join(BoardGameWork.editions, isouter=True)
+        stmt = (
+            select(BoardGameWork)
+            .options(
+                selectinload(BoardGameWork.identifier_entries),
+                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
+                selectinload(BoardGameWork.mechanic_entries),
+                selectinload(BoardGameWork.category_entries),
+                selectinload(BoardGameWork.family_entries),
+                selectinload(BoardGameWork.expansion_entries),
+                selectinload(BoardGameWork.ranking_snapshots),
+                selectinload(BoardGameWork.editions).selectinload(BoardGameEdition.player_count_votes),
+            )
+            .order_by(BoardGameWork.sort_title.asc().nullslast(), BoardGameWork.title.asc())
+            .limit(limit)
+        )
+        stmt = (
+            stmt.join(BoardGameWork.editions, isouter=True)
+            .join(BoardGameWork.identifier_entries, isouter=True)
+            .join(BoardGameWork.contribution_entries, isouter=True)
+            .join(BoardGameWork.mechanic_entries, isouter=True)
+        )
         if query and query.strip():
             pattern = f"%{query.strip()}%"
             stmt = stmt.where(
@@ -377,6 +450,9 @@ class MetadataRepository:
                     BoardGameEdition.edition_title.ilike(pattern),
                     BoardGameEdition.publisher.ilike(pattern),
                     BoardGameEdition.format.ilike(pattern),
+                    BoardGameIdentifier.value.ilike(pattern),
+                    BoardGameContribution.role.ilike(pattern),
+                    BoardGameMechanic.value.ilike(pattern),
                 )
             )
         if publisher and publisher.strip():
@@ -397,7 +473,13 @@ class MetadataRepository:
             stmt = stmt.where(extract("year", BoardGameEdition.release_date) == year)
         if barcode and barcode.strip():
             normalized = self._normalized_barcode_value(barcode)
-            stmt = stmt.where(self._normalized_barcode_expr(BoardGameEdition.barcode) == normalized)
+            stmt = stmt.where(
+                or_(
+                    self._normalized_barcode_expr(BoardGameIdentifier.value) == normalized,
+                    self._normalized_barcode_expr(BoardGameIdentifier.normalized_value) == normalized,
+                    self._normalized_barcode_expr(BoardGameEdition.barcode) == normalized,
+                )
+            )
         result = await self.db.execute(stmt)
         return list(result.scalars().unique())
 

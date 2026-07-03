@@ -25,12 +25,15 @@ from app.models import (
     MangaChapter,
     MangaSeries,
     MangaWork,
+    MovieRelease,
     MovieWork,
     MusicRelease,
+    MusicTrack,
     Organization,
     Person,
     StoryArc,
     Tag,
+    TVEpisode,
     TVRelease,
 )
 from app.models.base import ItemKind
@@ -69,11 +72,14 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "manga_series": MangaSeries,
     "manga_work": MangaWork,
     "movie_work": MovieWork,
+    "movie_release": MovieRelease,
     "music_release": MusicRelease,
+    "music_track": MusicTrack,
     "organization": Organization,
     "person": Person,
     "story_arc": StoryArc,
     "tag": Tag,
+    "tv_episode": TVEpisode,
     "tv_release": TVRelease,
 }
 

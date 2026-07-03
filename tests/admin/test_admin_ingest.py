@@ -47,7 +47,6 @@ from app.models import (
     StoryArc,
     StoryArcItem,
     Tag,
-    Variant,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (
@@ -2374,7 +2373,6 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
         assert await db.scalar(select(func.count()).select_from(ComicIdentifier)) == 2
         assert await db.scalar(select(func.count()).select_from(ComicSeries)) == 1
         assert await db.scalar(select(func.count()).select_from(ComicWork)) == 1
-        assert await db.scalar(select(func.count()).select_from(Variant)) == 0
         assert await db.scalar(select(func.count()).select_from(Organization)) == 0
         assert await db.scalar(select(func.count()).select_from(EntityOrganization)) == 0
         assert await db.scalar(select(func.count()).select_from(Person)) == 2
@@ -2435,7 +2433,8 @@ async def test_admin_ingest_upserts_comicvine_issue(client, monkeypatch):
                 character.image_url
                 == "https://comicvine.gamespot.com/a/uploads/scale_medium/spidey.jpg"
             )
-        assert character.first_appearance_item_id is None
+        assert character.first_appearance_entity_type is None
+        assert character.first_appearance_entity_id is None
         cover = await db.scalar(select(ComicIssue.cover_image_key))
         assert cover is None
 
@@ -2495,7 +2494,6 @@ async def test_admin_ingest_populates_comicvine_associated_cover_variants(client
     assert issue["display_title"] == "The Spider Strikes"
 
     async with AsyncSessionLocal() as db:
-        assert await db.scalar(select(func.count()).select_from(Variant)) == 0
         assert await db.scalar(
             select(func.count()).select_from(ComicIssue).where(ComicIssue.work_id == UUID(response.json()["item_id"]))
         ) == 1

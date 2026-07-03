@@ -1263,8 +1263,18 @@ async def test_story_arc_and_character_browse_endpoints(client):
         await db.flush()
         db.add_all(
             [
-                StoryArcItem(story_arc_id=story_arc.id, item_id=item_uuid, ordinal=1),
-                CharacterAppearance(character_id=character.id, item_id=item_uuid, role="main"),
+                StoryArcItem(
+                    story_arc_id=story_arc.id,
+                    entity_type="comic_work",
+                    entity_id=item_uuid,
+                    ordinal=1,
+                ),
+                CharacterAppearance(
+                    character_id=character.id,
+                    entity_type="comic_work",
+                    entity_id=item_uuid,
+                    role="main",
+                ),
             ]
         )
         await db.commit()
@@ -1293,13 +1303,14 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert arc_items_response.status_code == 200
     arc_items_body = arc_items_response.json()
     assert len(arc_items_body) == 1
-    assert arc_items_body[0]["item_id"] == item_id
+    assert arc_items_body[0]["entity_type"] == "comic_work"
+    assert arc_items_body[0]["entity_id"] == item_id
     assert arc_items_body[0]["ordinal"] == 1
     assert arc_items_body[0]["series_title"] is None
 
     arc_facets_response = await client.post(
         "/story-arcs/facets",
-        json={"item_ids": [item_id]},
+        json={"entity_ids": [item_id]},
         headers=headers,
     )
     assert arc_facets_response.status_code == 200
@@ -1313,7 +1324,7 @@ async def test_story_arc_and_character_browse_endpoints(client):
             "start_date": None,
             "end_date": None,
             "item_count": 1,
-            "item_ids": [item_id],
+            "entity_ids": [item_id],
         }
     ]
 
@@ -1336,12 +1347,13 @@ async def test_story_arc_and_character_browse_endpoints(client):
     assert appearances_response.status_code == 200
     appearances_body = appearances_response.json()
     assert len(appearances_body) == 1
-    assert appearances_body[0]["item_id"] == item_id
+    assert appearances_body[0]["entity_type"] == "comic_work"
+    assert appearances_body[0]["entity_id"] == item_id
     assert appearances_body[0]["role"] == "main"
 
     character_facets_response = await client.post(
         "/characters/facets",
-        json={"item_ids": [item_id]},
+        json={"entity_ids": [item_id]},
         headers=headers,
     )
     assert character_facets_response.status_code == 200
@@ -1353,7 +1365,7 @@ async def test_story_arc_and_character_browse_endpoints(client):
             "aliases": ["Peter Parker"],
             "image_url": "https://example.test/spider-man.jpg",
             "item_count": 1,
-            "item_ids": [item_id],
+            "entity_ids": [item_id],
             "role_counts": {"main": 1},
         }
     ]
@@ -1370,7 +1382,8 @@ async def test_story_arc_and_character_browse_endpoints(client):
             "aliases": ["Peter Parker"],
             "description": "Friendly neighborhood hero.",
             "image_url": "https://example.test/spider-man.jpg",
-            "first_appearance_item_id": None,
+            "first_appearance_entity_type": None,
+            "first_appearance_entity_id": None,
         }
     ]
     assert detail_body["story_arcs"] == [

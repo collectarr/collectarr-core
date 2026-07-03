@@ -6,7 +6,7 @@ from app.api.deps import DbSession
 from app.schemas import (
     CharacterFacetResponse,
     CreatorFacetResponse,
-    FacetItemIdsRequest,
+    FacetEntityIdsRequest,
     MetadataProposalCreate,
     MetadataProposalResponse,
     StoryArcFacetResponse,
@@ -27,23 +27,22 @@ async def create_metadata_proposal(
 @router.post("/story-arcs/facets", response_model=list[StoryArcFacetResponse])
 async def get_story_arc_facets(
     db: DbSession,
-    body: FacetItemIdsRequest,
+    body: FacetEntityIdsRequest,
 ) -> list[StoryArcFacetResponse]:
-    return await MetadataService(db).get_story_arc_facets(body.item_ids)
+    return await MetadataService(db).get_story_arc_facets(body.entity_ids)
 
 
 @router.post("/characters/facets", response_model=list[CharacterFacetResponse])
 async def get_character_facets(
     db: DbSession,
-    body: FacetItemIdsRequest,
+    body: FacetEntityIdsRequest,
 ) -> list[CharacterFacetResponse]:
-    return await MetadataService(db).get_character_facets(body.item_ids)
+    return await MetadataService(db).get_character_facets(body.entity_ids)
 
 
 @router.post("/creators/facets", response_model=list[CreatorFacetResponse])
 async def get_creator_facets(
     db: DbSession,
-    body: FacetItemIdsRequest,
+    body: FacetEntityIdsRequest,
 ) -> list[CreatorFacetResponse]:
-    return await MetadataService(db).get_creator_facets(body.item_ids)
-
+    return await MetadataService(db).get_creator_facets(body.entity_ids)

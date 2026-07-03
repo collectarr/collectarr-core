@@ -19,14 +19,20 @@ from app.schemas import MetadataCredit
 from app.services.metadata_helpers import _model_text_or_metadata
 
 
-async def enrich_item_metadata_facets(service, response: dict[str, Any], item_id: UUID, series_id: UUID | None = None) -> None:
+async def enrich_item_metadata_facets(
+    service,
+    response: dict[str, Any],
+    entity_type: str,
+    entity_id: UUID,
+    series_id: UUID | None = None,
+) -> None:
     creator_rows = (
         await service.db.execute(
             select(EntityPerson, Person)
             .join(Person, Person.id == EntityPerson.person_id)
             .where(
-                EntityPerson.entity_type == "item",
-                EntityPerson.entity_id == item_id,
+                EntityPerson.entity_type == entity_type,
+                EntityPerson.entity_id == entity_id,
             )
             .order_by(EntityPerson.role.asc(), Person.name.asc())
         )
@@ -47,7 +53,10 @@ async def enrich_item_metadata_facets(service, response: dict[str, Any], item_id
         await service.db.execute(
             select(CharacterAppearance, Character)
             .join(Character, Character.id == CharacterAppearance.character_id)
-            .where(CharacterAppearance.item_id == item_id)
+            .where(
+                CharacterAppearance.entity_type == entity_type,
+                CharacterAppearance.entity_id == entity_id,
+            )
             .order_by(CharacterAppearance.role.asc(), Character.name.asc())
         )
     ).all()
@@ -59,7 +68,8 @@ async def enrich_item_metadata_facets(service, response: dict[str, Any], item_id
                 aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
                 description=character.description,
                 image_url=character.image_url,
-                first_appearance_item_id=character.first_appearance_item_id,
+                first_appearance_entity_type=character.first_appearance_entity_type,
+                first_appearance_entity_id=character.first_appearance_entity_id,
             )
             for appearance, character in character_rows
         ]
@@ -68,7 +78,10 @@ async def enrich_item_metadata_facets(service, response: dict[str, Any], item_id
         await service.db.execute(
             select(StoryArcItem, StoryArc)
             .join(StoryArc, StoryArc.id == StoryArcItem.story_arc_id)
-            .where(StoryArcItem.item_id == item_id)
+            .where(
+                StoryArcItem.entity_type == entity_type,
+                StoryArcItem.entity_id == entity_id,
+            )
             .order_by(StoryArcItem.ordinal.asc().nullslast(), StoryArc.name.asc())
         )
     ).all()

@@ -236,7 +236,7 @@ async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     if series is not None:
         await _ensure_comic_membership(db, work.id, series.id, index)
     issue = await _get_or_create_comic_issue(db, work.id, entry, cover_url)
-    await _ensure_character_appearance(db, issue.id, entry.character)
+    await _ensure_character_appearance(db, issue.id, entry.character, entity_type="comic_issue")
     await _ensure_story_arc_membership(db, issue.id, entry.story_arc)
     await _ensure_comic_links(db, issue.id, provider, index, entry)
     return [work]
@@ -483,10 +483,14 @@ async def _ensure_story_arc_link(db: AsyncSession, entity_id: Any, entity_type: 
         db.add(arc)
         await db.flush()
     result = await db.execute(
-        select(StoryArcItem).where(StoryArcItem.story_arc_id == arc.id, StoryArcItem.item_id == entity_id)
+        select(StoryArcItem).where(
+            StoryArcItem.story_arc_id == arc.id,
+            StoryArcItem.entity_type == entity_type,
+            StoryArcItem.entity_id == entity_id,
+        )
     )
     if result.scalar_one_or_none() is None:
-        db.add(StoryArcItem(story_arc_id=arc.id, item_id=entity_id, ordinal=1))
+        db.add(StoryArcItem(story_arc_id=arc.id, entity_type=entity_type, entity_id=entity_id, ordinal=1))
 
 
 async def _ensure_book_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
@@ -507,7 +511,13 @@ async def _ensure_manga_membership(db: AsyncSession, work_id: Any, series_id: An
         db.add(MangaSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index), metadata_json={"seed": True}))
 
 
-async def _ensure_character_appearance(db: AsyncSession, entity_id: Any, character_name: str | None, *, entity_type: str = "comic_work") -> None:
+async def _ensure_character_appearance(
+    db: AsyncSession,
+    entity_id: Any,
+    character_name: str | None,
+    *,
+    entity_type: str = "comic_issue",
+) -> None:
     if not character_name:
         return
     from app.models import (  # local import to avoid circulars in all files
@@ -526,9 +536,22 @@ async def _ensure_character_appearance(db: AsyncSession, entity_id: Any, charact
         if result.scalar_one_or_none() is None:
             db.add(AnimeCharacterAppearance(series_id=entity_id, character_id=character.id, role="main"))
         return
-    result = await db.execute(select(CharacterAppearance).where(CharacterAppearance.item_id == entity_id, CharacterAppearance.character_id == character.id))
+    result = await db.execute(
+        select(CharacterAppearance).where(
+            CharacterAppearance.entity_type == entity_type,
+            CharacterAppearance.entity_id == entity_id,
+            CharacterAppearance.character_id == character.id,
+        )
+    )
     if result.scalar_one_or_none() is None:
-        db.add(CharacterAppearance(item_id=entity_id, character_id=character.id, role="main"))
+        db.add(
+            CharacterAppearance(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                character_id=character.id,
+                role="main",
+            )
+        )
 
 
 async def _ensure_story_arc_membership(db: AsyncSession, issue_id: Any, arc_name: str | None) -> None:
@@ -548,13 +571,13 @@ async def _ensure_story_arc_membership(db: AsyncSession, issue_id: Any, arc_name
 async def _ensure_comic_links(db: AsyncSession, issue_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
     await _ensure_provider(db, "comic_issue", issue_id, provider, index, entry)
     if entry.character:
-        await _ensure_character_appearance(db, issue_id, entry.character)
+        await _ensure_character_appearance(db, issue_id, entry.character, entity_type="comic_issue")
 
 
 async def _ensure_manga_links(db: AsyncSession, chapter_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
     await _ensure_provider(db, "manga_chapter", chapter_id, provider, index, entry)
     if entry.character:
-        await _ensure_character_appearance(db, chapter_id, entry.character, entity_type="manga_work")
+        await _ensure_character_appearance(db, chapter_id, entry.character, entity_type="manga_chapter")
 
 
 async def _ensure_anime_links(db: AsyncSession, episode_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:

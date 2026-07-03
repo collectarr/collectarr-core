@@ -12,7 +12,7 @@ from app.schemas import (
     CreatorCreditResponse,
     CreatorFacetResponse,
     CreatorResponse,
-    FacetItemIdsRequest,
+    FacetEntityIdsRequest,
     StoryArcFacetResponse,
     StoryArcItemResponse,
     StoryArcResponse,
@@ -25,9 +25,9 @@ router = APIRouter(tags=["metadata"])
 @router.post("/story-arcs/facets", response_model=list[StoryArcFacetResponse])
 async def get_story_arc_facets(
     db: DbSession,
-    body: FacetItemIdsRequest,
+    body: FacetEntityIdsRequest,
 ) -> list[StoryArcFacetResponse]:
-    return await MetadataService(db).get_story_arc_facets(body.item_ids)
+    return await MetadataService(db).get_story_arc_facets(body.entity_ids)
 
 
 @router.get("/story-arcs", response_model=list[StoryArcResponse])
@@ -67,9 +67,9 @@ async def get_creator_credits(
 @router.post("/creators/facets", response_model=list[CreatorFacetResponse])
 async def get_creator_facets(
     db: DbSession,
-    body: FacetItemIdsRequest,
+    body: FacetEntityIdsRequest,
 ) -> list[CreatorFacetResponse]:
-    return await MetadataService(db).get_creator_facets(body.item_ids)
+    return await MetadataService(db).get_creator_facets(body.entity_ids)
 
 
 @router.get("/characters", response_model=list[CharacterResponse])
@@ -92,6 +92,6 @@ async def get_character_appearances(
 @router.post("/characters/facets", response_model=list[CharacterFacetResponse])
 async def get_character_facets(
     db: DbSession,
-    body: FacetItemIdsRequest,
+    body: FacetEntityIdsRequest,
 ) -> list[CharacterFacetResponse]:
-    return await MetadataService(db).get_character_facets(body.item_ids)
+    return await MetadataService(db).get_character_facets(body.entity_ids)

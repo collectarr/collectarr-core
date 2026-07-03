@@ -28,7 +28,7 @@ from app.models.base import (
 )
 
 if TYPE_CHECKING:
-    from app.models import ComicSeries, Item, MangaSeries
+    from app.models import ComicSeries, MangaSeries
 
 
 class ExternalProviderId(UuidMixin, TimestampMixin, Base):
@@ -191,21 +191,19 @@ class StoryArc(UuidMixin, TimestampMixin, Base):
 class StoryArcItem(UuidMixin, TimestampMixin, Base):
     __tablename__ = "story_arc_items"
     __table_args__ = (
-        UniqueConstraint("story_arc_id", "item_id", name="uq_story_arc_item"),
+        UniqueConstraint("story_arc_id", "entity_type", "entity_id", name="uq_story_arc_item"),
         Index("ix_story_arc_items_story_arc", "story_arc_id"),
-        Index("ix_story_arc_items_item", "item_id"),
+        Index("ix_story_arc_items_entity", "entity_type", "entity_id"),
     )
 
     story_arc_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("story_arcs.id", ondelete="CASCADE"), nullable=False
     )
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False
-    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     ordinal: Mapped[int | None] = mapped_column(Integer)
 
     story_arc: Mapped["StoryArc"] = relationship()
-    item: Mapped["Item"] = relationship(back_populates="story_arc_items")
 
 
 class Character(UuidMixin, TimestampMixin, Base):
@@ -218,8 +216,9 @@ class Character(UuidMixin, TimestampMixin, Base):
     image_url: Mapped[str | None] = mapped_column(String(1024))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
     site_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    first_appearance_item_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="SET NULL"), index=True
+    first_appearance_entity_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    first_appearance_entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), index=True
     )
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -227,21 +226,19 @@ class Character(UuidMixin, TimestampMixin, Base):
 class CharacterAppearance(UuidMixin, TimestampMixin, Base):
     __tablename__ = "character_appearances"
     __table_args__ = (
-        UniqueConstraint("character_id", "item_id", name="uq_character_appearance"),
+        UniqueConstraint("character_id", "entity_type", "entity_id", name="uq_character_appearance"),
         Index("ix_character_appearances_character", "character_id"),
-        Index("ix_character_appearances_item", "item_id"),
+        Index("ix_character_appearances_entity", "entity_type", "entity_id"),
     )
 
     character_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False
     )
-    item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("items.id", ondelete="CASCADE"), nullable=False
-    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
 
     character: Mapped["Character"] = relationship()
-    item: Mapped["Item"] = relationship(back_populates="character_appearances")
 
 
 class Tag(UuidMixin, TimestampMixin, Base):

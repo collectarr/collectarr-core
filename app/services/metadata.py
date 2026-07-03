@@ -66,7 +66,7 @@ from app.models import (
     TVReleaseIdentifier,
     TVReleaseMedia,
 )
-from app.models.base import Base, ExternalProvider, ItemKind
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
@@ -134,6 +134,7 @@ from app.schemas import (
 )
 from app.schemas.metadata_shared import SearchResult, public_item_kind
 from app.search.client import SearchClient
+from app.services.entity_resolution import load_entity_summaries
 from app.services.metadata_helpers import (
     _loaded_rows,
     _metadata_links,
@@ -163,7 +164,6 @@ from app.services.metadata_typed_reads import MetadataTypedReadService
 from app.services.provider_search_state import ProviderSearchState
 
 logger = logging.getLogger(__name__)
-ITEM_TABLE = Base.metadata.tables["items"]
 
 _UPSTREAM_HTTP_STATUS_RE = re.compile(r"\bHTTP\s+(?P<status>\d{3})\b")
 _PROVIDER_INTERNAL_RETRY_NAMES = {ExternalProvider.bgg.value, ExternalProvider.comicvine.value}
@@ -3543,9 +3543,14 @@ class MetadataService:
                     ],
                     "description": getattr(appearance.character, "description", None),
                     "image_url": getattr(appearance.character, "image_url", None),
-                    "first_appearance_item_id": getattr(
+                    "first_appearance_entity_type": getattr(
                         appearance.character,
-                        "first_appearance_item_id",
+                        "first_appearance_entity_type",
+                        None,
+                    ),
+                    "first_appearance_entity_id": getattr(
+                        appearance.character,
+                        "first_appearance_entity_id",
                         None,
                     ),
                 }
@@ -3896,7 +3901,6 @@ class MetadataService:
         stmt = (
             select(Person, count_expr.label("item_count"))
             .join(EntityPerson, EntityPerson.person_id == Person.id)
-            .where(EntityPerson.entity_type == "item")
             .group_by(Person.id)
             .order_by(count_expr.desc(), Person.name.asc())
             .limit(limit)
@@ -3935,7 +3939,6 @@ class MetadataService:
                     select(EntityPerson)
                     .where(
                         EntityPerson.person_id == creator_id,
-                        EntityPerson.entity_type == "item",
                     )
                     .order_by(EntityPerson.role.asc(), EntityPerson.created_at.asc())
                 )
@@ -3943,38 +3946,23 @@ class MetadataService:
         )
         if not links:
             return []
-
-        item_ids = [link.entity_id for link in links]
-        items = {
-            row.id: row
-            for row in (
-                await self.db.execute(
-                    select(
-                        ITEM_TABLE.c.id,
-                        ITEM_TABLE.c.kind,
-                        ITEM_TABLE.c.title,
-                        ITEM_TABLE.c.item_number,
-                        ITEM_TABLE.c.metadata_json,
-                    ).where(ITEM_TABLE.c.id.in_(item_ids))
-                )
-            ).all()
-        }
+        summaries = await load_entity_summaries(self.db, [(link.entity_type, link.entity_id) for link in links])
         results: list[CreatorCreditResponse] = []
         for link in links:
-            item = items.get(link.entity_id)
-            if item is None:
+            summary = summaries.get((link.entity_type, link.entity_id))
+            if summary is None or summary.kind is None:
                 continue
             results.append(
                 CreatorCreditResponse(
                     creator_id=creator_id,
-                    item_id=item.id,
+                    item_id=summary.entity_id,
                     role=link.role,
-                    kind=public_item_kind(item.kind),
-                    title=item.title,
-                    item_number=item.item_number,
-                    series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
-                    volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
-                    cover_image_url=self._item_primary_cover_url(item.metadata_json),
+                    kind=public_item_kind(summary.kind),
+                    title=summary.title,
+                    item_number=summary.item_number,
+                    series_title=summary.series_title,
+                    volume_name=summary.volume_name,
+                    cover_image_url=summary.cover_image_url,
                 )
             )
         return results
@@ -3999,55 +3987,42 @@ class MetadataService:
                 )
             ).scalars()
         )
-        item_ids = [link.item_id for link in links]
-        items = {
-            row.id: row
-            for row in (
-                await self.db.execute(
-                    select(
-                        ITEM_TABLE.c.id,
-                        ITEM_TABLE.c.kind,
-                        ITEM_TABLE.c.title,
-                        ITEM_TABLE.c.item_number,
-                        ITEM_TABLE.c.metadata_json,
-                    ).where(ITEM_TABLE.c.id.in_(item_ids))
-                )
-            ).all()
-        }
+        summaries = await load_entity_summaries(self.db, [(link.entity_type, link.entity_id) for link in links])
         results: list[StoryArcItemResponse] = []
         for link in links:
-            item = items.get(link.item_id)
-            if item is None:
+            summary = summaries.get((link.entity_type, link.entity_id))
+            if summary is None or summary.kind is None:
                 continue
             results.append(
                 StoryArcItemResponse(
                     story_arc_id=story_arc_id,
-                    item_id=link.item_id,
+                    entity_type=link.entity_type,
+                    entity_id=link.entity_id,
                     ordinal=link.ordinal,
-                    kind=public_item_kind(item.kind),
-                    title=item.title,
-                    item_number=item.item_number,
-                    series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
-                    volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
-                    cover_image_url=self._item_primary_cover_url(item.metadata_json),
+                    kind=public_item_kind(summary.kind),
+                    title=summary.title,
+                    item_number=summary.item_number,
+                    series_title=summary.series_title,
+                    volume_name=summary.volume_name,
+                    cover_image_url=summary.cover_image_url,
                 )
             )
         return results
 
     async def get_story_arc_facets(
         self,
-        item_ids: list[UUID],
+        entity_ids: list[UUID],
     ) -> list[StoryArcFacetResponse]:
-        ordered_item_ids = list(dict.fromkeys(item_ids))
-        if not ordered_item_ids:
+        ordered_entity_ids = list(dict.fromkeys(entity_ids))
+        if not ordered_entity_ids:
             return []
 
-        item_order = {item_id: index for index, item_id in enumerate(ordered_item_ids)}
+        entity_order = {entity_id: index for index, entity_id in enumerate(ordered_entity_ids)}
         rows = (
             await self.db.execute(
-                select(StoryArc, StoryArcItem.item_id)
+                select(StoryArc, StoryArcItem.entity_id)
                 .join(StoryArcItem, StoryArcItem.story_arc_id == StoryArc.id)
-                .where(StoryArcItem.item_id.in_(ordered_item_ids))
+                .where(StoryArcItem.entity_id.in_(ordered_entity_ids))
             )
         ).all()
         grouped: dict[UUID, dict[str, object]] = {}
@@ -4056,24 +4031,24 @@ class MetadataService:
                 arc.id,
                 {
                     "arc": arc,
-                    "item_ids": set(),
+                    "entity_ids": set(),
                 },
             )
-            cast_item_ids = bucket["item_ids"]
-            if isinstance(cast_item_ids, set):
-                cast_item_ids.add(item_id)
+            cast_entity_ids = bucket["entity_ids"]
+            if isinstance(cast_entity_ids, set):
+                cast_entity_ids.add(item_id)
 
         facets: list[StoryArcFacetResponse] = []
         for bucket in grouped.values():
             arc = bucket["arc"]
             if not isinstance(arc, StoryArc):
                 continue
-            raw_item_ids = bucket["item_ids"]
-            if not isinstance(raw_item_ids, set):
+            raw_entity_ids = bucket["entity_ids"]
+            if not isinstance(raw_entity_ids, set):
                 continue
-            facet_item_ids = sorted(
-                raw_item_ids,
-                key=lambda item_id: item_order.get(item_id, len(item_order)),
+            facet_entity_ids = sorted(
+                raw_entity_ids,
+                key=lambda entity_id: entity_order.get(entity_id, len(entity_order)),
             )
             facets.append(
                 StoryArcFacetResponse(
@@ -4083,8 +4058,8 @@ class MetadataService:
                     publisher=arc.publisher,
                     start_date=arc.start_date,
                     end_date=arc.end_date,
-                    item_count=len(facet_item_ids),
-                    item_ids=facet_item_ids,
+                    item_count=len(facet_entity_ids),
+                    entity_ids=facet_entity_ids,
                 )
             )
         facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
@@ -4092,21 +4067,18 @@ class MetadataService:
 
     async def get_creator_facets(
         self,
-        item_ids: list[UUID],
+        entity_ids: list[UUID],
     ) -> list[CreatorFacetResponse]:
-        ordered_item_ids = list(dict.fromkeys(item_ids))
-        if not ordered_item_ids:
+        ordered_entity_ids = list(dict.fromkeys(entity_ids))
+        if not ordered_entity_ids:
             return []
 
-        item_order = {item_id: index for index, item_id in enumerate(ordered_item_ids)}
+        entity_order = {entity_id: index for index, entity_id in enumerate(ordered_entity_ids)}
         rows = (
             await self.db.execute(
                 select(Person, EntityPerson.entity_id, EntityPerson.role)
                 .join(EntityPerson, EntityPerson.person_id == Person.id)
-                .where(
-                    EntityPerson.entity_type == "item",
-                    EntityPerson.entity_id.in_(ordered_item_ids),
-                )
+                .where(EntityPerson.entity_id.in_(ordered_entity_ids))
             )
         ).all()
         grouped: dict[UUID, dict[str, object]] = {}
@@ -4115,13 +4087,13 @@ class MetadataService:
                 person.id,
                 {
                     "person": person,
-                    "item_ids": set(),
+                    "entity_ids": set(),
                     "role_counts": {},
                 },
             )
-            cast_item_ids = bucket["item_ids"]
-            if isinstance(cast_item_ids, set):
-                cast_item_ids.add(item_id)
+            cast_entity_ids = bucket["entity_ids"]
+            if isinstance(cast_entity_ids, set):
+                cast_entity_ids.add(item_id)
             cast_role_counts = bucket["role_counts"]
             if isinstance(cast_role_counts, dict):
                 cast_role_counts[role] = int(cast_role_counts.get(role, 0)) + 1
@@ -4131,12 +4103,12 @@ class MetadataService:
             person = bucket["person"]
             if not isinstance(person, Person):
                 continue
-            raw_item_ids = bucket["item_ids"]
-            if not isinstance(raw_item_ids, set):
+            raw_entity_ids = bucket["entity_ids"]
+            if not isinstance(raw_entity_ids, set):
                 continue
-            facet_item_ids = sorted(
-                raw_item_ids,
-                key=lambda item_id: item_order.get(item_id, len(item_order)),
+            facet_entity_ids = sorted(
+                raw_entity_ids,
+                key=lambda entity_id: entity_order.get(entity_id, len(entity_order)),
             )
             role_counts = bucket["role_counts"]
             facets.append(
@@ -4145,8 +4117,8 @@ class MetadataService:
                     name=person.name,
                     description=_model_text_or_metadata(person, "description"),
                     image_url=_model_text_or_metadata(person, "image_url"),
-                    item_count=len(facet_item_ids),
-                    item_ids=facet_item_ids,
+                    item_count=len(facet_entity_ids),
+                    entity_ids=facet_entity_ids,
                     role_counts=role_counts if isinstance(role_counts, dict) else {},
                 )
             )
@@ -4183,7 +4155,8 @@ class MetadataService:
                 aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
                 description=character.description,
                 image_url=character.image_url,
-                first_appearance_item_id=character.first_appearance_item_id,
+                first_appearance_entity_type=character.first_appearance_entity_type,
+                first_appearance_entity_id=character.first_appearance_entity_id,
                 appearance_count=int(appearance_count or 0),
             )
             for character, appearance_count in rows
@@ -4212,58 +4185,45 @@ class MetadataService:
                 )
             ).scalars()
         )
-        item_ids = [link.item_id for link in links]
-        items = {
-            row.id: row
-            for row in (
-                await self.db.execute(
-                    select(
-                        ITEM_TABLE.c.id,
-                        ITEM_TABLE.c.kind,
-                        ITEM_TABLE.c.title,
-                        ITEM_TABLE.c.item_number,
-                        ITEM_TABLE.c.metadata_json,
-                    ).where(ITEM_TABLE.c.id.in_(item_ids))
-                )
-            ).all()
-        }
+        summaries = await load_entity_summaries(self.db, [(link.entity_type, link.entity_id) for link in links])
         results: list[CharacterAppearanceResponse] = []
         for link in links:
-            item = items.get(link.item_id)
-            if item is None:
+            summary = summaries.get((link.entity_type, link.entity_id))
+            if summary is None or summary.kind is None:
                 continue
             results.append(
                 CharacterAppearanceResponse(
                     character_id=character_id,
-                    item_id=link.item_id,
+                    entity_type=link.entity_type,
+                    entity_id=link.entity_id,
                     role=link.role,
-                    kind=public_item_kind(item.kind),
-                    title=item.title,
-                    item_number=item.item_number,
-                    series_title=item.metadata_json.get("series_title") if isinstance(item.metadata_json, dict) else None,
-                    volume_name=item.metadata_json.get("volume_name") if isinstance(item.metadata_json, dict) else None,
-                    cover_image_url=self._item_primary_cover_url(item.metadata_json),
+                    kind=public_item_kind(summary.kind),
+                    title=summary.title,
+                    item_number=summary.item_number,
+                    series_title=summary.series_title,
+                    volume_name=summary.volume_name,
+                    cover_image_url=summary.cover_image_url,
                 )
             )
         return results
 
     async def get_character_facets(
         self,
-        item_ids: list[UUID],
+        entity_ids: list[UUID],
     ) -> list[CharacterFacetResponse]:
-        ordered_item_ids = list(dict.fromkeys(item_ids))
-        if not ordered_item_ids:
+        ordered_entity_ids = list(dict.fromkeys(entity_ids))
+        if not ordered_entity_ids:
             return []
 
-        item_order = {item_id: index for index, item_id in enumerate(ordered_item_ids)}
+        entity_order = {entity_id: index for index, entity_id in enumerate(ordered_entity_ids)}
         rows = (
             await self.db.execute(
-                select(Character, CharacterAppearance.item_id, CharacterAppearance.role)
+                select(Character, CharacterAppearance.entity_id, CharacterAppearance.role)
                 .join(
                     CharacterAppearance,
                     CharacterAppearance.character_id == Character.id,
                 )
-                .where(CharacterAppearance.item_id.in_(ordered_item_ids))
+                .where(CharacterAppearance.entity_id.in_(ordered_entity_ids))
             )
         ).all()
         grouped: dict[UUID, dict[str, object]] = {}
@@ -4272,13 +4232,13 @@ class MetadataService:
                 character.id,
                 {
                     "character": character,
-                    "item_ids": set(),
+                    "entity_ids": set(),
                     "role_counts": {},
                 },
             )
-            cast_item_ids = bucket["item_ids"]
-            if isinstance(cast_item_ids, set):
-                cast_item_ids.add(item_id)
+            cast_entity_ids = bucket["entity_ids"]
+            if isinstance(cast_entity_ids, set):
+                cast_entity_ids.add(item_id)
             cast_role_counts = bucket["role_counts"]
             if isinstance(cast_role_counts, dict):
                 role_key = str(role or "main")
@@ -4289,13 +4249,13 @@ class MetadataService:
             character = bucket["character"]
             if not isinstance(character, Character):
                 continue
-            raw_item_ids = bucket["item_ids"]
+            raw_entity_ids = bucket["entity_ids"]
             raw_role_counts = bucket["role_counts"]
-            if not isinstance(raw_item_ids, set) or not isinstance(raw_role_counts, dict):
+            if not isinstance(raw_entity_ids, set) or not isinstance(raw_role_counts, dict):
                 continue
-            facet_item_ids = sorted(
-                raw_item_ids,
-                key=lambda item_id: item_order.get(item_id, len(item_order)),
+            facet_entity_ids = sorted(
+                raw_entity_ids,
+                key=lambda entity_id: entity_order.get(entity_id, len(entity_order)),
             )
             facets.append(
                 CharacterFacetResponse(
@@ -4305,8 +4265,8 @@ class MetadataService:
                         str(alias) for alias in (character.aliases or []) if str(alias).strip()
                     ],
                     image_url=character.image_url,
-                    item_count=len(facet_item_ids),
-                    item_ids=facet_item_ids,
+                    item_count=len(facet_entity_ids),
+                    entity_ids=facet_entity_ids,
                     role_counts={str(role): int(count) for role, count in raw_role_counts.items()},
                 )
             )

@@ -3518,7 +3518,13 @@ class AdminProviderIngestService:
         *,
         current_item_id: UUID,
     ) -> None:
-        if character.description and character.image_url and character.aliases and character.first_appearance_item_id:
+        if (
+            character.description
+            and character.image_url
+            and character.aliases
+            and character.first_appearance_entity_type
+            and character.first_appearance_entity_id
+        ):
             return
         detail = await self._comicvine_character_detail(provider_item_id)
         if detail is None:
@@ -3543,13 +3549,15 @@ class AdminProviderIngestService:
                 "comic_issue",
             )
             if first_item_id is not None:
-                character.first_appearance_item_id = first_item_id
+                character.first_appearance_entity_type = "comic_issue"
+                character.first_appearance_entity_id = first_item_id
             elif detail.first_appeared_in_issue_id == await self._provider_id_for_entity(
                 ExternalProvider.comicvine,
                 current_item_id,
                 "comic_issue",
             ):
-                character.first_appearance_item_id = current_item_id
+                character.first_appearance_entity_type = "comic_issue"
+                character.first_appearance_entity_id = current_item_id
 
     async def _comicvine_character_detail(self, provider_item_id: str) -> Any | None:
         if provider_item_id in self._comicvine_character_details:

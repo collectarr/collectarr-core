@@ -149,12 +149,13 @@ class StoryArcFacetResponse(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     item_count: int = 0
-    item_ids: list[UUID] = Field(default_factory=list)
+    entity_ids: list[UUID] = Field(default_factory=list)
 
 
 class StoryArcItemResponse(BaseModel):
     story_arc_id: UUID
-    item_id: UUID
+    entity_type: str
+    entity_id: UUID
     ordinal: int | None = None
     kind: ItemKind
     title: str
@@ -180,7 +181,7 @@ class CreatorFacetResponse(BaseModel):
     description: str | None = None
     image_url: str | None = None
     item_count: int = 0
-    item_ids: list[UUID] = Field(default_factory=list)
+    entity_ids: list[UUID] = Field(default_factory=list)
     role_counts: dict[str, int] = Field(default_factory=dict)
 
 
@@ -202,7 +203,8 @@ class CharacterResponse(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     description: str | None = None
     image_url: str | None = None
-    first_appearance_item_id: UUID | None = None
+    first_appearance_entity_type: str | None = None
+    first_appearance_entity_id: UUID | None = None
     appearance_count: int = 0
 
 
@@ -212,17 +214,17 @@ class CharacterFacetResponse(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     image_url: str | None = None
     item_count: int = 0
-    item_ids: list[UUID] = Field(default_factory=list)
+    entity_ids: list[UUID] = Field(default_factory=list)
     role_counts: dict[str, int] = Field(default_factory=dict)
 
-
-class FacetItemIdsRequest(BaseModel):
-    item_ids: list[UUID] = Field(default_factory=list)
+class FacetEntityIdsRequest(BaseModel):
+    entity_ids: list[UUID] = Field(default_factory=list)
 
 
 class CharacterAppearanceResponse(BaseModel):
     character_id: UUID
-    item_id: UUID
+    entity_type: str
+    entity_id: UUID
     role: str
     kind: ItemKind
     title: str

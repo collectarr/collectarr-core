@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
+
 def _metadata_text(metadata: dict[str, object] | None, key: str) -> str | None:
     if not isinstance(metadata, dict):
         return None

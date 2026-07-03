@@ -28,7 +28,6 @@ from app.models import (
     BookSeriesMembership,
     BookWork,
     Character,
-    CharacterAppearance,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIdentifier,
@@ -39,7 +38,6 @@ from app.models import (
     ComicWork,
     EntityOrganization,
     EntityPerson,
-    EntityTag,
     ExternalProviderId,
     GameRelease,
     GameWork,
@@ -69,7 +67,6 @@ from app.models import (
     ProviderPayloadSnapshot,
     ReleaseStatus,
     StoryArc,
-    StoryArcItem,
     Tag,
     TVEpisode,
     TVRelease,
@@ -135,7 +132,6 @@ from app.services.admin_domains.provider_ingest_helpers import (
 )
 from app.services.admin_domains.shared import (
     character_appearance_role,
-    character_role_rank,
     comicvine_credit_provider_id,
     credit_provider_urls,
     provider_link_url_text,

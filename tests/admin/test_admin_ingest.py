@@ -13,6 +13,10 @@ from app.core.errors import ApiHTTPException
 from app.db.session import AsyncSessionLocal
 from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION
 from app.models import (
+    BoardGameEdition,
+    BoardGameWork,
+    BookEdition,
+    BookWork,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
@@ -22,10 +26,6 @@ from app.models import (
     ComicSeries,
     ComicStoryArcMembership,
     ComicWork,
-    BoardGameEdition,
-    BoardGameWork,
-    BookEdition,
-    BookWork,
     EntityOrganization,
     EntityPerson,
     EntityTag,
@@ -47,6 +47,7 @@ from app.models import (
     StoryArc,
     StoryArcItem,
     Tag,
+    Variant,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (
@@ -66,8 +67,8 @@ from app.providers.registry import ProviderRegistry
 from app.schemas.admin import ProviderIngestRequest
 from app.search.client import SearchClient
 from app.services import admin as admin_service
-from app.services.admin_domains.provider_ingest import AdminProviderIngestService
 from app.services.admin_domains.catalog import AdminCatalogService
+from app.services.admin_domains.provider_ingest import AdminProviderIngestService
 from app.services.provider_preview_state import ProviderPreviewState, clear_provider_preview_cache
 from app.storage.images import ImageMirror, MirroredImage
 

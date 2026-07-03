@@ -1,6 +1,5 @@
 from types import SimpleNamespace
 
-import httpx
 import pytest
 
 import app.api.routes.metadata as metadata_routes

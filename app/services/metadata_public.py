@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-from typing import Any
 from uuid import UUID
 
 from fastapi import status
@@ -14,21 +12,14 @@ from app.models import (
     CharacterAppearance,
     Edition,
     EntityPerson,
-    ExternalProviderId,
     Item,
     Person,
     StoryArc,
     StoryArcItem,
-    TVRelease,
-    TVReleaseContribution,
-    TVEpisode,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.providers.base import MetadataProvider, ProviderSearchResult
-from app.providers.comicvine import ComicVineProvider
-from app.providers.gcd import GCDProvider
-from app.providers.musicbrainz import MusicBrainzProvider
-from app.providers.registry import ProviderRegistry
+from app.proposal_payload import compact_metadata_payload
+from app.providers.base import ProviderSearchResult
 from app.schemas import (
     CharacterAppearanceResponse,
     CharacterFacetResponse,
@@ -44,12 +35,10 @@ from app.schemas import (
     StoryArcItemResponse,
     StoryArcResponse,
 )
-from app.schemas.metadata_shared import SearchResult, public_item_kind
 from app.schemas import EpisodeResponse as ProviderEpisodeResponse
-from app.services.provider_search_state import ProviderSearchState
+from app.schemas.metadata_shared import public_item_kind
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
-from app.proposal_payload import compact_metadata_payload
 
 _UPSTREAM_HTTP_STATUS_RE = __import__("re").compile(r"\bHTTP\s+(?P<status>\d{3})\b")
 _PROVIDER_INTERNAL_RETRY_NAMES = {ExternalProvider.bgg.value, ExternalProvider.comicvine.value}
@@ -349,129 +338,6 @@ async def get_provider_volumes(service, provider_name: ExternalProvider, provide
         )
         for v in volumes
     ]
-
-
-async def get_item_volumes(service, item_id: UUID) -> list[SeasonResponse]:
-    from app.providers.base import NormalizedSeason
-
-    volume_providers = [ExternalProvider.mangadex, ExternalProvider.anilist]
-    rows = (
-        (
-            await service.db.execute(
-                select(ExternalProviderId).where(
-                    ExternalProviderId.entity_type.in_(("item", "comic_work", "manga_work")),
-                    ExternalProviderId.entity_id == item_id,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    provider_map = {row.provider: row.provider_item_id for row in rows}
-    if ExternalProvider.mangadex not in provider_map:
-        fallback_id = await service._resolve_mangadex_volume_provider_id(item_id)
-        if fallback_id:
-            provider_map[ExternalProvider.mangadex] = fallback_id
-    for prov_enum in volume_providers:
-        pid = provider_map.get(prov_enum)
-        if pid is None:
-            continue
-        provider = service.providers.maybe_get(prov_enum)
-        if provider is None or not hasattr(provider, "get_volumes"):
-            continue
-        volumes: list[NormalizedSeason] = await provider.get_volumes(pid)
-        return [
-            SeasonResponse(
-                season_number=v.season_number,
-                title=v.title,
-                provider_item_id=v.provider_item_id,
-                overview=v.overview,
-                air_date=v.air_date,
-                episode_count=v.episode_count,
-                poster_url=v.poster_url,
-                episodes=[
-                    ProviderEpisodeResponse(
-                        episode_number=ep.episode_number,
-                        title=ep.title,
-                        provider_item_id=ep.provider_item_id,
-                        overview=ep.overview,
-                        air_date=ep.air_date,
-                        runtime_minutes=ep.runtime_minutes,
-                        page_count=ep.page_count,
-                    )
-                    for ep in v.episodes
-                ],
-            )
-            for v in volumes
-        ]
-    return []
-
-
-async def get_item_seasons(service, item_id: UUID) -> list[SeasonResponse]:
-    from app.providers.base import NormalizedSeason
-
-    release = await service.db.scalar(
-        select(TVRelease)
-        .where(TVRelease.id == item_id)
-        .options(
-            selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-            selectinload(TVRelease.episodes),
-            selectinload(TVRelease.media),
-            selectinload(TVRelease.identifiers),
-        )
-    )
-    if release is not None:
-        return await service._tv_release_seasons(release)
-    catalog_seasons = await service._get_catalog_seasons(item_id)
-    if catalog_seasons:
-        return catalog_seasons
-    season_providers = [ExternalProvider.tmdb]
-    rows = (
-        (
-            await service.db.execute(
-                select(ExternalProviderId).where(
-                    ExternalProviderId.entity_type == "item",
-                    ExternalProviderId.entity_id == item_id,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    provider_map = {row.provider: row.provider_item_id for row in rows}
-    for prov_enum in season_providers:
-        pid = provider_map.get(prov_enum)
-        if pid is None:
-            continue
-        provider = service.providers.maybe_get(prov_enum)
-        if provider is None or not hasattr(provider, "get_seasons"):
-            continue
-        seasons: list[NormalizedSeason] = await provider.get_seasons(pid)
-        return [
-            SeasonResponse(
-                season_number=s.season_number,
-                title=s.title,
-                provider_item_id=s.provider_item_id,
-                overview=s.overview,
-                air_date=s.air_date,
-                episode_count=s.episode_count,
-                poster_url=s.poster_url,
-                episodes=[
-                    ProviderEpisodeResponse(
-                        episode_number=ep.episode_number,
-                        title=ep.title,
-                        provider_item_id=ep.provider_item_id,
-                        overview=ep.overview,
-                        air_date=ep.air_date,
-                        runtime_minutes=ep.runtime_minutes,
-                        page_count=ep.page_count,
-                    )
-                    for ep in s.episodes
-                ],
-            )
-            for s in seasons
-        ]
-    return []
 
 
 async def search_story_arcs(service, *, q: str | None = None, limit: int = 25) -> list[StoryArcResponse]:

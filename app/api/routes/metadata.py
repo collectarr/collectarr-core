@@ -1,20 +1,18 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.deps import DbSession
 from app.api.routes.metadata_images import (
     gcd_provider_image as _gcd_provider_image,
-    _download_mangadex_cover,
-    _mirror_gcd_cover_if_enabled,
-    _mirror_mangadex_cover_if_enabled,
+)
+from app.api.routes.metadata_images import (
     mangadex_provider_image as _mangadex_provider_image,
 )
+from app.api.routes.metadata_typed import router as _typed_router
 from app.catalog.media_types import MediaTypeConfig, top_level_media_types
 from app.catalog.metadata_fields import METADATA_FIELDS, MetadataFieldSpec, fields_for_kind
 from app.catalog.physical_formats import PhysicalFormatConfig
-from app.core.config import get_settings
-from app.core.errors import ApiHTTPException
 from app.core.rate_limit import provider_search_rate_limit
 from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION, normalized_metadata_manifest
 from app.models.base import ExternalProvider, ItemKind
@@ -45,12 +43,13 @@ from app.schemas.admin import (
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
     ProviderPreviewResponse,
+)
+from app.schemas.admin import (
     ProviderIngestRequest as ProviderPreviewRequest,
 )
 from app.schemas.metadata_shared import SearchResult
 from app.services.admin import AdminMetadataService
 from app.services.metadata import MetadataService
-from app.api.routes.metadata_typed import router as _typed_router
 
 router = APIRouter(tags=["metadata"])
 router.include_router(_typed_router)
@@ -411,28 +410,6 @@ async def get_provider_volumes(
     db: DbSession,
 ) -> list[SeasonResponse]:
     return await MetadataService(db).get_provider_volumes(provider, provider_item_id)
-
-
-@router.get(
-    "/metadata/items/{item_id}/volumes",
-    response_model=list[SeasonResponse],
-)
-async def get_item_volumes(
-    item_id: UUID,
-    db: DbSession,
-) -> list[SeasonResponse]:
-    return await MetadataService(db).get_item_volumes(item_id)
-
-
-@router.get(
-    "/metadata/items/{item_id}/seasons",
-    response_model=list[SeasonResponse],
-)
-async def get_item_seasons(
-    item_id: UUID,
-    db: DbSession,
-) -> list[SeasonResponse]:
-    return await MetadataService(db).get_item_seasons(item_id)
 
 
 @router.get(

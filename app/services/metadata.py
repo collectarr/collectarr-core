@@ -3735,143 +3735,6 @@ class MetadataService:
             for v in volumes
         ]
 
-    async def get_item_volumes(self, item_id: UUID) -> list[SeasonResponse]:
-        """Look up provider links for an item and return volumes from the first
-        manga-capable provider (MangaDex, then AniList)."""
-        from app.providers.base import NormalizedSeason
-
-        _VOLUME_PROVIDERS = [ExternalProvider.mangadex, ExternalProvider.anilist]
-
-        rows = (
-            (
-                await self.db.execute(
-                    select(ExternalProviderId).where(
-                        ExternalProviderId.entity_type.in_(
-                            ("item", "comic_work", "manga_work")
-                        ),
-                        ExternalProviderId.entity_id == item_id,
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-        provider_map = {row.provider: row.provider_item_id for row in rows}
-        if ExternalProvider.mangadex not in provider_map:
-            fallback_id = await self._resolve_mangadex_volume_provider_id(item_id)
-            if fallback_id:
-                provider_map[ExternalProvider.mangadex] = fallback_id
-
-        for prov_enum in _VOLUME_PROVIDERS:
-            pid = provider_map.get(prov_enum)
-            if pid is None:
-                continue
-            provider = self.providers.maybe_get(prov_enum)
-            if provider is None or not hasattr(provider, "get_volumes"):
-                continue
-            volumes: list[NormalizedSeason] = await provider.get_volumes(pid)
-            return [
-                SeasonResponse(
-                    season_number=v.season_number,
-                    title=v.title,
-                    provider_item_id=v.provider_item_id,
-                    overview=v.overview,
-                    air_date=v.air_date,
-                    episode_count=v.episode_count,
-                    poster_url=v.poster_url,
-                    episodes=[
-                        ProviderEpisodeResponse(
-                            episode_number=ep.episode_number,
-                            title=ep.title,
-                            provider_item_id=ep.provider_item_id,
-                            overview=ep.overview,
-                            air_date=ep.air_date,
-                            runtime_minutes=ep.runtime_minutes,
-                            page_count=ep.page_count,
-                        )
-                        for ep in v.episodes
-                    ],
-                )
-                for v in volumes
-            ]
-
-        return []
-
-    async def get_item_seasons(self, item_id: UUID) -> list[SeasonResponse]:
-        """Look up provider links for an item and return seasons from the first
-        TV-capable provider (TMDB)."""
-        from app.providers.base import NormalizedSeason
-
-        release = await self.db.scalar(
-            select(TVRelease)
-            .where(TVRelease.id == item_id)
-            .options(
-                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVRelease.episodes),
-                selectinload(TVRelease.media),
-                selectinload(TVRelease.identifiers),
-            )
-        )
-        if release is not None:
-            return await self._tv_release_seasons(release)
-
-        catalog_seasons = await self._get_catalog_seasons(item_id)
-        if catalog_seasons:
-            return catalog_seasons
-
-        _SEASON_PROVIDERS = [ExternalProvider.tmdb]
-
-        rows = (
-            (
-                await self.db.execute(
-                    select(ExternalProviderId).where(
-                        ExternalProviderId.entity_type == "item",
-                        ExternalProviderId.entity_id == item_id,
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-        provider_map = {row.provider: row.provider_item_id for row in rows}
-
-        for prov_enum in _SEASON_PROVIDERS:
-            pid = provider_map.get(prov_enum)
-            if pid is None:
-                continue
-            provider = self.providers.maybe_get(prov_enum)
-            if provider is None or not hasattr(provider, "get_seasons"):
-                continue
-            seasons: list[NormalizedSeason] = await provider.get_seasons(pid)
-            return [
-                SeasonResponse(
-                    season_number=s.season_number,
-                    title=s.title,
-                    provider_item_id=s.provider_item_id,
-                    overview=s.overview,
-                    air_date=s.air_date,
-                    episode_count=s.episode_count,
-                    poster_url=s.poster_url,
-                    episodes=[
-                        ProviderEpisodeResponse(
-                            episode_number=ep.episode_number,
-                            title=ep.title,
-                            provider_item_id=ep.provider_item_id,
-                            overview=ep.overview,
-                            air_date=ep.air_date,
-                            runtime_minutes=ep.runtime_minutes,
-                            page_count=ep.page_count,
-                        )
-                        for ep in s.episodes
-                    ],
-                )
-                for s in seasons
-            ]
-
-        return []
-
     async def _tv_release_seasons(self, release: TVRelease) -> list[SeasonResponse]:
 
         episodes_by_season: dict[int, list[TVEpisode]] = defaultdict(list)
@@ -3934,9 +3797,6 @@ class MetadataService:
                 )
             )
         return seasons
-
-    async def _get_catalog_seasons(self, item_id: UUID) -> list[SeasonResponse]:
-        return []
 
     async def search_story_arcs(
         self,
@@ -4377,36 +4237,6 @@ class MetadataService:
             )
         facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
         return facets
-
-    async def _resolve_mangadex_volume_provider_id(self, item_id: UUID) -> str | None:
-        item = await self.db.scalar(select(ComicWork).where(ComicWork.id == item_id))
-        if item is None:
-            return None
-        provider = self.providers.maybe_get(ExternalProvider.mangadex)
-        if provider is None or not provider.capabilities.supports_search:
-            return None
-
-        query = await self._manga_volume_lookup_query(item)
-        if not query:
-            return None
-
-        try:
-            results = await self._search_provider_live(
-                ExternalProvider.mangadex,
-                provider,
-                query,
-                ItemKind.comic,
-            )
-        except ApiHTTPException:
-            logger.debug(
-                "mangadex_volume_lookup_failed item_id=%s query=%s",
-                item_id,
-                query,
-                exc_info=True,
-            )
-            return None
-        candidate = self._best_mangadex_volume_candidate(item, results)
-        return candidate.provider_item_id if candidate else None
 
     async def _manga_volume_lookup_query(self, item) -> str:
         metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}

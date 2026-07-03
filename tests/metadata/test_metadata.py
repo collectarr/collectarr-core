@@ -8,14 +8,14 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
 from app.models import (
+    BoardGameEdition,
+    BoardGameWork,
     BookContribution,
     BookEdition,
     BookIdentifier,
     BookSeries,
     BookSeriesMembership,
     BookWork,
-    BoardGameEdition,
-    BoardGameWork,
     Character,
     CharacterAppearance,
     ComicCharacterAppearance,
@@ -26,7 +26,6 @@ from app.models import (
     ComicWork,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     GameRelease,
     GameWork,
     MovieRelease,
@@ -40,12 +39,9 @@ from app.models import (
     StoryArc,
     StoryArcItem,
     Tag,
-    TVEpisode,
-    TVRelease,
-    TVReleaseMedia,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.providers.base import NormalizedEpisode, NormalizedSeason, ProviderSearchResult
+from app.providers.base import ProviderSearchResult
 from app.repositories.metadata import MetadataRepository
 from app.schemas.metadata_shared import SearchResult
 from app.search.documents import (
@@ -1097,7 +1093,6 @@ async def test_barcode_provider_search_returns_musicbrainz_results(client, monke
     token = await register_and_login(client)
 
     async def fake_search_by_barcode(self, barcode, kind=None):
-        from app.providers.base import ProviderSearchResult
 
         return [
             ProviderSearchResult(
@@ -1135,7 +1130,6 @@ async def test_barcode_provider_search_uses_query_cache(client, monkeypatch):
     async def fake_search_by_barcode(self, barcode, kind=None):
         nonlocal calls
         calls += 1
-        from app.providers.base import ProviderSearchResult
 
         return [
             ProviderSearchResult(
@@ -1237,131 +1231,6 @@ def test_provider_search_query_prefers_album_field_for_music():
     )
 
     assert result == 'artist:"Ad Infinitum" AND release:"Abyss" AND date:2024'
-
-
-@pytest.mark.asyncio
-async def test_get_item_volumes_falls_back_to_mangadex_search(client, monkeypatch):
-    async def fake_search(self, query, kind=None):
-        assert query == "One Piece"
-        assert kind == ItemKind.comic
-        return [
-            ProviderSearchResult(
-                provider="mangadex",
-                provider_item_id="mangadex-one-piece",
-                title="One Piece",
-                kind=ItemKind.comic,
-            )
-        ]
-
-    async def fake_get_volumes(self, provider_item_id):
-        assert provider_item_id == "mangadex-one-piece"
-        return [
-            NormalizedSeason(
-                season_number=1,
-                title="Volume 1",
-                episode_count=1,
-                episodes=[
-                    NormalizedEpisode(
-                        episode_number=1,
-                        title="Romance Dawn",
-                        page_count=53,
-                    )
-                ],
-            )
-        ]
-
-    monkeypatch.setattr("app.providers.mangadex.MangaDexProvider.search", fake_search)
-    monkeypatch.setattr("app.providers.mangadex.MangaDexProvider.get_volumes", fake_get_volumes)
-
-    async with AsyncSessionLocal() as db:
-        work = ComicWork(title="One Piece", sort_title="one piece")
-        db.add(work)
-        await db.flush()
-        db.add(
-            ExternalProviderId(
-                entity_type="comic_work",
-                entity_id=work.id,
-                provider=ExternalProvider.mangadex,
-                provider_item_id="mangadex-one-piece",
-            )
-        )
-        await db.commit()
-        item_id = str(work.id)
-
-    token = await register_and_login(client)
-    response = await client.get(
-        f"/metadata/items/{item_id}/volumes",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert len(body) == 1
-    assert body[0]["title"] == "Volume 1"
-    assert body[0]["episode_count"] == 1
-    assert body[0]["episodes"][0]["title"] == "Romance Dawn"
-    assert body[0]["episodes"][0]["page_count"] == 53
-    assert body[0]["episodes"][0]["runtime_minutes"] is None
-
-
-@pytest.mark.asyncio
-async def test_get_item_seasons_prefers_catalog_mapped_seasons(client):
-    async with AsyncSessionLocal() as db:
-        release = TVRelease(
-            title="Example Show",
-            format="digital",
-            season_count=1,
-            episode_count=1,
-            metadata_json={"provider_item_id": "tv:100:season:1"},
-        )
-        db.add(release)
-        await db.flush()
-        media = TVReleaseMedia(
-            release_id=release.id,
-            media_number=1,
-            media_type="digital",
-            title="Season 1",
-            episode_count=1,
-        )
-        db.add(media)
-        await db.flush()
-        episode = TVEpisode(
-            release_id=release.id,
-            media_id=media.id,
-            series_title="Example Show",
-            season_number=1,
-            episode_number=1,
-            title="Pilot",
-            duration_seconds=2700,
-            original_air_date=date(2024, 1, 1),
-            metadata_json={"provider_item_id": "tv:100:season:1:episode:1"},
-        )
-        db.add(episode)
-        await db.flush()
-        db.add(
-            ExternalProviderId(
-                entity_type="tv_release",
-                entity_id=release.id,
-                provider=ExternalProvider.tmdb,
-                provider_item_id="tv:100",
-            )
-        )
-        await db.commit()
-        show_item_id = str(release.id)
-
-    token = await register_and_login(client)
-    response = await client.get(
-        f"/metadata/items/{show_item_id}/seasons",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert len(body) == 1
-    assert body[0]["season_number"] == 1
-    assert body[0]["provider_item_id"] == "tv:100:season:1"
-    assert body[0]["episodes"][0]["title"] == "Pilot"
-    assert body[0]["episodes"][0]["provider_item_id"] == "tv:100:season:1:episode:1"
 
 
 @pytest.mark.asyncio

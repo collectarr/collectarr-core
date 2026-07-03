@@ -2825,6 +2825,1322 @@
         }
       }
     },
+    "/metadata/books/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Book Work",
+        "operationId": "get_book_work_metadata_books_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/books/works/{work_id}/editions": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Book Work Editions",
+        "operationId": "get_book_work_editions_metadata_books_works__work_id__editions_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BookEditionV1Response"
+                  },
+                  "title": "Response Get Book Work Editions Metadata Books Works  Work Id  Editions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/books/editions/{edition_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Book Edition",
+        "operationId": "get_book_edition_metadata_books_editions__edition_id__get",
+        "parameters": [
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Edition Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookEditionV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/comics/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Comic Work",
+        "operationId": "get_comic_work_metadata_comics_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/comics/works/{work_id}/issues": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Comic Work Issues",
+        "operationId": "get_comic_work_issues_metadata_comics_works__work_id__issues_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComicIssueV1Response"
+                  },
+                  "title": "Response Get Comic Work Issues Metadata Comics Works  Work Id  Issues Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/comics/issues/{issue_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Comic Issue",
+        "operationId": "get_comic_issue_metadata_comics_issues__issue_id__get",
+        "parameters": [
+          {
+            "name": "issue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Issue Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicIssueV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/manga/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Manga Work",
+        "operationId": "get_manga_work_metadata_manga_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MangaWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/manga/works/{work_id}/chapters": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Manga Work Chapters",
+        "operationId": "get_manga_work_chapters_metadata_manga_works__work_id__chapters_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MangaChapterV1Response"
+                  },
+                  "title": "Response Get Manga Work Chapters Metadata Manga Works  Work Id  Chapters Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/manga/chapters/{chapter_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Manga Chapter",
+        "operationId": "get_manga_chapter_metadata_manga_chapters__chapter_id__get",
+        "parameters": [
+          {
+            "name": "chapter_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Chapter Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MangaChapterV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/anime/series/{series_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Anime Series",
+        "operationId": "get_anime_series_metadata_anime_series__series_id__get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnimeSeriesV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/anime/series/{series_id}/episodes": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Anime Series Episodes",
+        "operationId": "get_anime_series_episodes_metadata_anime_series__series_id__episodes_get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnimeEpisodeV1Response"
+                  },
+                  "title": "Response Get Anime Series Episodes Metadata Anime Series  Series Id  Episodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/anime/episodes/{episode_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Anime Episode",
+        "operationId": "get_anime_episode_metadata_anime_episodes__episode_id__get",
+        "parameters": [
+          {
+            "name": "episode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Episode Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnimeEpisodeV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/movies/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Movie Work",
+        "operationId": "get_movie_work_metadata_movies_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovieWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/movies/works/{work_id}/releases": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Movie Work Releases",
+        "operationId": "get_movie_work_releases_metadata_movies_works__work_id__releases_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovieReleaseV1Response"
+                  },
+                  "title": "Response Get Movie Work Releases Metadata Movies Works  Work Id  Releases Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/movies/releases/{release_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Movie Release",
+        "operationId": "get_movie_release_metadata_movies_releases__release_id__get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovieReleaseV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/series/{series_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Series",
+        "operationId": "get_tv_series_metadata_tv_series__series_id__get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVSeriesV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/series/{series_id}/seasons": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Series Seasons",
+        "operationId": "get_tv_series_seasons_metadata_tv_series__series_id__seasons_get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TVSeasonV1Response"
+                  },
+                  "title": "Response Get Tv Series Seasons Metadata Tv Series  Series Id  Seasons Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/episodes/{episode_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Episode",
+        "operationId": "get_tv_episode_metadata_tv_episodes__episode_id__get",
+        "parameters": [
+          {
+            "name": "episode_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Episode Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVEpisodeV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/games/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Game Work",
+        "operationId": "get_game_work_metadata_games_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/games/works/{work_id}/releases": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Game Work Releases",
+        "operationId": "get_game_work_releases_metadata_games_works__work_id__releases_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GameReleaseV1Response"
+                  },
+                  "title": "Response Get Game Work Releases Metadata Games Works  Work Id  Releases Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/games/releases/{release_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Game Release",
+        "operationId": "get_game_release_metadata_games_releases__release_id__get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameReleaseV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/boardgames/works/{work_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Boardgame Work",
+        "operationId": "get_boardgame_work_metadata_boardgames_works__work_id__get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardGameWorkV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/boardgames/works/{work_id}/editions": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Boardgame Work Editions",
+        "operationId": "get_boardgame_work_editions_metadata_boardgames_works__work_id__editions_get",
+        "parameters": [
+          {
+            "name": "work_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Work Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BoardGameEditionV1Response"
+                  },
+                  "title": "Response Get Boardgame Work Editions Metadata Boardgames Works  Work Id  Editions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/boardgames/editions/{edition_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Boardgame Edition",
+        "operationId": "get_boardgame_edition_metadata_boardgames_editions__edition_id__get",
+        "parameters": [
+          {
+            "name": "edition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Edition Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardGameEditionV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/music/releases/{release_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Music Release",
+        "operationId": "get_music_release_metadata_music_releases__release_id__get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicReleaseV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/music/releases/{release_id}/media": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Music Release Media",
+        "operationId": "get_music_release_media_metadata_music_releases__release_id__media_get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MusicMediaV1Response"
+                  },
+                  "title": "Response Get Music Release Media Metadata Music Releases  Release Id  Media Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/music/media/{media_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Music Media",
+        "operationId": "get_music_media_metadata_music_media__media_id__get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicMediaV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/music/media/{media_id}/tracks": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Music Media Tracks",
+        "operationId": "get_music_media_tracks_metadata_music_media__media_id__tracks_get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MusicTrackV1Response"
+                  },
+                  "title": "Response Get Music Media Tracks Metadata Music Media  Media Id  Tracks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/music/tracks/{track_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Music Track",
+        "operationId": "get_music_track_metadata_music_tracks__track_id__get",
+        "parameters": [
+          {
+            "name": "track_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Track Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MusicTrackV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metadata/media-types": {
       "get": {
         "tags": [
@@ -3952,804 +5268,6 @@
         }
       }
     },
-    "/metadata/books/works/{work_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Book Work",
-        "operationId": "get_book_work_metadata_books_works__work_id__get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookWorkV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/books/works/{work_id}/editions": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Book Work Editions",
-        "operationId": "get_book_work_editions_metadata_books_works__work_id__editions_get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BookEditionV1Response"
-                  },
-                  "title": "Response Get Book Work Editions Metadata Books Works  Work Id  Editions Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/books/editions/{edition_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Book Edition",
-        "operationId": "get_book_edition_metadata_books_editions__edition_id__get",
-        "parameters": [
-          {
-            "name": "edition_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Edition Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BookEditionV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/comics/works/{work_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Comic Work",
-        "operationId": "get_comic_work_metadata_comics_works__work_id__get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ComicWorkV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/comics/works/{work_id}/issues": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Comic Work Issues",
-        "operationId": "get_comic_work_issues_metadata_comics_works__work_id__issues_get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ComicIssueV1Response"
-                  },
-                  "title": "Response Get Comic Work Issues Metadata Comics Works  Work Id  Issues Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/comics/issues/{issue_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Comic Issue",
-        "operationId": "get_comic_issue_metadata_comics_issues__issue_id__get",
-        "parameters": [
-          {
-            "name": "issue_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Issue Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ComicIssueV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/manga/works/{work_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Manga Work",
-        "operationId": "get_manga_work_metadata_manga_works__work_id__get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MangaWorkV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/manga/works/{work_id}/chapters": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Manga Work Chapters",
-        "operationId": "get_manga_work_chapters_metadata_manga_works__work_id__chapters_get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MangaChapterV1Response"
-                  },
-                  "title": "Response Get Manga Work Chapters Metadata Manga Works  Work Id  Chapters Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/manga/chapters/{chapter_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Manga Chapter",
-        "operationId": "get_manga_chapter_metadata_manga_chapters__chapter_id__get",
-        "parameters": [
-          {
-            "name": "chapter_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Chapter Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MangaChapterV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/anime/series/{series_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Anime Series",
-        "operationId": "get_anime_series_metadata_anime_series__series_id__get",
-        "parameters": [
-          {
-            "name": "series_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Series Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnimeSeriesV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/anime/series/{series_id}/episodes": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Anime Series Episodes",
-        "operationId": "get_anime_series_episodes_metadata_anime_series__series_id__episodes_get",
-        "parameters": [
-          {
-            "name": "series_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Series Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnimeEpisodeV1Response"
-                  },
-                  "title": "Response Get Anime Series Episodes Metadata Anime Series  Series Id  Episodes Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/anime/episodes/{episode_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Anime Episode",
-        "operationId": "get_anime_episode_metadata_anime_episodes__episode_id__get",
-        "parameters": [
-          {
-            "name": "episode_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Episode Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnimeEpisodeV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/movies/works/{work_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Movie Work",
-        "operationId": "get_movie_work_metadata_movies_works__work_id__get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MovieWorkV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/movies/works/{work_id}/releases": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Movie Work Releases",
-        "operationId": "get_movie_work_releases_metadata_movies_works__work_id__releases_get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MovieReleaseV1Response"
-                  },
-                  "title": "Response Get Movie Work Releases Metadata Movies Works  Work Id  Releases Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/movies/releases/{release_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Movie Release",
-        "operationId": "get_movie_release_metadata_movies_releases__release_id__get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MovieReleaseV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/tv/series/{series_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Tv Series",
-        "operationId": "get_tv_series_metadata_tv_series__series_id__get",
-        "parameters": [
-          {
-            "name": "series_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Series Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TVSeriesV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/tv/series/{series_id}/seasons": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Tv Series Seasons",
-        "operationId": "get_tv_series_seasons_metadata_tv_series__series_id__seasons_get",
-        "parameters": [
-          {
-            "name": "series_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Series Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TVSeasonV1Response"
-                  },
-                  "title": "Response Get Tv Series Seasons Metadata Tv Series  Series Id  Seasons Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/tv/episodes/{episode_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Tv Episode",
-        "operationId": "get_tv_episode_metadata_tv_episodes__episode_id__get",
-        "parameters": [
-          {
-            "name": "episode_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Episode Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TVEpisodeV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/metadata/providers/{provider}/seasons/{provider_item_id}": {
       "get": {
         "tags": [
@@ -4841,589 +5359,6 @@
                     "$ref": "#/components/schemas/SeasonResponse"
                   },
                   "title": "Response Get Provider Volumes Metadata Providers  Provider  Volumes  Provider Item Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/items/{item_id}/volumes": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Item Volumes",
-        "operationId": "get_item_volumes_metadata_items__item_id__volumes_get",
-        "parameters": [
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SeasonResponse"
-                  },
-                  "title": "Response Get Item Volumes Metadata Items  Item Id  Volumes Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/items/{item_id}/seasons": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Item Seasons",
-        "operationId": "get_item_seasons_metadata_items__item_id__seasons_get",
-        "parameters": [
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SeasonResponse"
-                  },
-                  "title": "Response Get Item Seasons Metadata Items  Item Id  Seasons Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/games/works/{work_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Game Work",
-        "operationId": "get_game_work_metadata_games_works__work_id__get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GameWorkV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/games/works/{work_id}/releases": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Game Work Releases",
-        "operationId": "get_game_work_releases_metadata_games_works__work_id__releases_get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GameReleaseV1Response"
-                  },
-                  "title": "Response Get Game Work Releases Metadata Games Works  Work Id  Releases Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/games/releases/{release_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Game Release",
-        "operationId": "get_game_release_metadata_games_releases__release_id__get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GameReleaseV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/boardgames/works/{work_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Boardgame Work",
-        "operationId": "get_boardgame_work_metadata_boardgames_works__work_id__get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BoardGameWorkV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/boardgames/works/{work_id}/editions": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Boardgame Work Editions",
-        "operationId": "get_boardgame_work_editions_metadata_boardgames_works__work_id__editions_get",
-        "parameters": [
-          {
-            "name": "work_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Work Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BoardGameEditionV1Response"
-                  },
-                  "title": "Response Get Boardgame Work Editions Metadata Boardgames Works  Work Id  Editions Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/boardgames/editions/{edition_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Boardgame Edition",
-        "operationId": "get_boardgame_edition_metadata_boardgames_editions__edition_id__get",
-        "parameters": [
-          {
-            "name": "edition_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Edition Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BoardGameEditionV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/music/releases/{release_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Music Release",
-        "operationId": "get_music_release_metadata_music_releases__release_id__get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicReleaseV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/music/releases/{release_id}/media": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Music Release Media",
-        "operationId": "get_music_release_media_metadata_music_releases__release_id__media_get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MusicMediaV1Response"
-                  },
-                  "title": "Response Get Music Release Media Metadata Music Releases  Release Id  Media Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/music/media/{media_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Music Media",
-        "operationId": "get_music_media_metadata_music_media__media_id__get",
-        "parameters": [
-          {
-            "name": "media_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Media Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicMediaV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/music/media/{media_id}/tracks": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Music Media Tracks",
-        "operationId": "get_music_media_tracks_metadata_music_media__media_id__tracks_get",
-        "parameters": [
-          {
-            "name": "media_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Media Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MusicTrackV1Response"
-                  },
-                  "title": "Response Get Music Media Tracks Metadata Music Media  Media Id  Tracks Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/metadata/music/tracks/{track_id}": {
-      "get": {
-        "tags": [
-          "metadata"
-        ],
-        "summary": "Get Music Track",
-        "operationId": "get_music_track_metadata_music_tracks__track_id__get",
-        "parameters": [
-          {
-            "name": "track_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Track Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicTrackV1Response"
                 }
               }
             }

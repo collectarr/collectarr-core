@@ -10,6 +10,7 @@ from app.catalog.metadata_fields import (
     METADATA_FIELDS,
     common_field_keys,
     editable_fields,
+    field_spec,
     fields_for_kind,
     kind_allowed_keys,
     typed_field_keys,
@@ -134,3 +135,29 @@ def test_fields_for_kind_is_common_plus_kind_scoped():
             spec = next(s for s in METADATA_FIELDS if s.key == key)
             should_apply = spec.common or kind in spec.kinds
             assert (key in keys) is should_apply
+
+
+def test_game_and_boardgame_fields_route_to_dedicated_tables():
+    assert field_spec("platforms").source_entity_type_for_kind(ItemKind.game) == "game_work"
+    assert field_spec("platforms").source_table_for_kind(ItemKind.game) == "game_platforms"
+    assert field_spec("identifiers").source_entity_type_for_kind(ItemKind.game) == "game_work"
+    assert field_spec("identifiers").source_table_for_kind(ItemKind.game) == "game_identifiers"
+    assert field_spec("company_roles").source_entity_type_for_kind(ItemKind.game) == "game_work"
+    assert field_spec("company_roles").source_table_for_kind(ItemKind.game) == "game_company_roles"
+    assert field_spec("age_rating").source_entity_type_for_kind(ItemKind.game) == "game_work"
+    assert field_spec("age_rating").source_table_for_kind(ItemKind.game) == "game_age_ratings"
+
+    assert field_spec("identifiers").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("identifiers").source_table_for_kind(ItemKind.boardgame) == "boardgame_identifiers"
+    assert field_spec("contributors").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("contributors").source_table_for_kind(ItemKind.boardgame) == "boardgame_contributions"
+    assert field_spec("mechanics").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("mechanics").source_table_for_kind(ItemKind.boardgame) == "boardgame_mechanics"
+    assert field_spec("categories").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("categories").source_table_for_kind(ItemKind.boardgame) == "boardgame_categories"
+    assert field_spec("families").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("families").source_table_for_kind(ItemKind.boardgame) == "boardgame_families"
+    assert field_spec("expansions").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("expansions").source_table_for_kind(ItemKind.boardgame) == "boardgame_expansions"
+    assert field_spec("rankings").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
+    assert field_spec("rankings").source_table_for_kind(ItemKind.boardgame) == "boardgame_rankings_snapshot"

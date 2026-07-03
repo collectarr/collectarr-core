@@ -234,13 +234,26 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
     },
     ItemKind.game: {
         "work": ("game_work", "game_works"),
+        "platform": ("game_work", "game_platforms"),
+        "identifier": ("game_work", "game_identifiers"),
+        "company_role": ("game_work", "game_company_roles"),
+        "age_rating": ("game_work", "game_age_ratings"),
         "release": ("game_release", "game_releases"),
         "media": ("game_release", "game_releases"),
         "track": ("game_release", "game_releases"),
+        "series_membership": ("game_work", "game_series_memberships"),
     },
     ItemKind.boardgame: {
         "work": ("boardgame_work", "boardgame_works"),
         "edition": ("boardgame_edition", "boardgame_editions"),
+        "identifier": ("boardgame_work", "boardgame_identifiers"),
+        "contributor": ("boardgame_work", "boardgame_contributions"),
+        "mechanic": ("boardgame_work", "boardgame_mechanics"),
+        "category": ("boardgame_work", "boardgame_categories"),
+        "family": ("boardgame_work", "boardgame_families"),
+        "expansion": ("boardgame_work", "boardgame_expansions"),
+        "ranking": ("boardgame_work", "boardgame_rankings_snapshot"),
+        "player_count_vote": ("boardgame_edition", "boardgame_player_count_votes"),
         "media": ("boardgame_edition", "boardgame_editions"),
         "track": ("boardgame_edition", "boardgame_editions"),
     },
@@ -289,6 +302,8 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
             return "episode"
         return "release"
     if key in {"release_date", "publisher", "barcode", "catalog_number", "release_status", "country", "language", "age_rating", "variant_name", "page_count", "imprint", "subtitle", "series_group"}:
+        if kind == ItemKind.game and key == "age_rating":
+            return "age_rating"
         if kind in {ItemKind.book, ItemKind.boardgame}:
             return "edition"
         if kind in {ItemKind.comic, ItemKind.manga}:
@@ -298,6 +313,27 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
         if kind == ItemKind.music:
             return "release"
         return "release"
+    if key == "platforms" and kind == ItemKind.game:
+        return "platform"
+    if key == "identifiers":
+        if kind == ItemKind.game:
+            return "identifier"
+        if kind == ItemKind.boardgame:
+            return "identifier"
+    if key == "company_roles" and kind == ItemKind.game:
+        return "company_role"
+    if key == "contributors" and kind == ItemKind.boardgame:
+        return "contributor"
+    if key == "mechanics" and kind == ItemKind.boardgame:
+        return "mechanic"
+    if key == "categories" and kind == ItemKind.boardgame:
+        return "category"
+    if key == "families" and kind == ItemKind.boardgame:
+        return "family"
+    if key == "expansions" and kind == ItemKind.boardgame:
+        return "expansion"
+    if key == "rankings" and kind == ItemKind.boardgame:
+        return "ranking"
     if key in _WORK_SCOPE_KEYS:
         return "work"
     return "legacy_projection"

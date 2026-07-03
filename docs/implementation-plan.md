@@ -21,8 +21,8 @@
 - Ingest persistence hardening for normalized metadata (`audience_rating`, `volume_number`) and comic-only story-arc fallback semantics
 
 ### 📚 Catalog
-- Kind-specific catalog tables are canonical and drive the OpenAPI contract bundle.
-- Legacy projection tables remain read-only compatibility surfaces; bundle composition uses `bundle_release_components`.
+- Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.
+- Bundle composition uses `bundle_release_components`.
 - MangaDex volume/chapter support through metadata volumes API
 - DB-backed ingest job queue with automatic worker processing
 

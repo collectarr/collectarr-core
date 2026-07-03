@@ -54,11 +54,8 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
         "title": "Catalog Spine",
-        "description": "Kind-specific catalog tables are canonical. Legacy projection tables remain for compatibility, and bundle composition is polymorphic.",
+        "description": "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific, and bundle composition is polymorphic.",
         "tables": [
-            "items",
-            "editions",
-            "variants",
             "bundle_releases",
             "bundle_release_components",
         ],
@@ -229,7 +226,7 @@ POLYMORPHIC_LINK_TABLES = {
 
 STATIC_NOTES = [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "items, editions, and variants are legacy projection tables for migrated kinds; canonical writes should target kind-specific tables and bridge tables where appropriate.",
+    "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "For migration history and any constraints introduced outside model declarations, cross-check the Alembic revisions in alembic/versions.",
 ]
@@ -738,7 +735,7 @@ def build_schema_data() -> dict[str, Any]:
         "source_modules": SOURCE_MODULES,
         "notes": [
             *STATIC_NOTES,
-            "Legacy generic tables (`items`, `editions`, `variants`) are omitted from the interactive view while compatibility code remains in the model layer.",
+            "Legacy generic tables (`items`, `editions`, `variants`) are no longer part of the canonical schema or interactive view.",
         ],
         "domains": domains,
         "kinds": kinds,

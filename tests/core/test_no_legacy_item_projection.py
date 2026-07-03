@@ -7,10 +7,15 @@ import pytest
 from sqlalchemy import text
 
 from app.db.session import AsyncSessionLocal
+from app.models.base import Base
 
 
 @pytest.mark.asyncio
 async def test_legacy_item_projection_tables_and_fks_do_not_exist(migrated_database):
+    assert "items" not in Base.metadata.tables
+    assert "editions" not in Base.metadata.tables
+    assert "variants" not in Base.metadata.tables
+
     async with AsyncSessionLocal() as db:
         tables = {
             row[0]
@@ -51,12 +56,16 @@ async def test_legacy_item_projection_tables_and_fks_do_not_exist(migrated_datab
         assert fk_rows == []
 
 
-def test_services_do_not_import_legacy_projection_models():
-    services_dir = Path(__file__).resolve().parents[2] / "app" / "services"
+def test_app_does_not_reference_legacy_projection_models_or_routes():
+    app_dir = Path(__file__).resolve().parents[2] / "app"
     legacy_names = {"Item", "Edition", "Variant"}
-    violations: list[str] = []
+    import_violations: list[str] = []
+    route_violations: list[str] = []
 
-    for path in services_dir.rglob("*.py"):
+    for path in app_dir.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        if "/metadata/items" in text:
+            route_violations.append(str(path))
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom):
@@ -66,6 +75,7 @@ def test_services_do_not_import_legacy_projection_models():
                 continue
             for alias in node.names:
                 if alias.name in legacy_names:
-                    violations.append(f"{path}:{alias.name}")
+                    import_violations.append(f"{path}:{alias.name}")
 
-    assert violations == []
+    assert route_violations == []
+    assert import_violations == []

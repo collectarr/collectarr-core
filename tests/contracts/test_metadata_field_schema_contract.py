@@ -6,6 +6,8 @@ locks its shape so that any change to a field (key, value type, section, flags o
 applicable kinds) is a deliberate, reviewed edit rather than silent drift.
 """
 
+import json
+
 from app.catalog.metadata_fields import (
     METADATA_FIELDS,
     common_field_keys,
@@ -17,10 +19,33 @@ from app.catalog.metadata_fields import (
     value_types,
 )
 from app.models.base import ItemKind
+from scripts.export_contract_bundle import CONTRACT_VERSION, write_contract_bundle
 
 VIDEO = ("anime", "movie", "tv")
 PRINT = ("book", "comic", "manga")
 ALL = tuple(sorted(k.value for k in ItemKind))
+
+ALLOWED_LEGACY_PROJECTION_KEYS = {
+    "associated_image_id",
+    "audience_rating",
+    "cover_delivery_url",
+    "cover_image_url",
+    "cover_policy",
+    "cover_source_url",
+    "cover_status",
+    "cover_storage",
+    "crossover",
+    "external_links",
+    "physical_format_label",
+    "physical_format_media_family",
+    "physical_format_variant_type",
+    "plot_description",
+    "plot_summary",
+    "series_tags",
+    "synopsis",
+    "thumbnail_image_url",
+    "trailer_urls",
+}
 
 # key -> (value_type, normalized, editable, section, sorted kinds) snapshot.
 EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
@@ -161,3 +186,21 @@ def test_game_and_boardgame_fields_route_to_dedicated_tables():
     assert field_spec("expansions").source_table_for_kind(ItemKind.boardgame) == "boardgame_expansions"
     assert field_spec("rankings").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
     assert field_spec("rankings").source_table_for_kind(ItemKind.boardgame) == "boardgame_rankings_snapshot"
+
+
+def test_contract_bundle_metadata_field_schema_contract(tmp_path):
+    write_contract_bundle(tmp_path)
+    field_schema = json.loads((tmp_path / "metadata-field-schema.json").read_text(encoding="utf-8"))
+
+    assert field_schema["contractVersion"] == CONTRACT_VERSION
+    assert field_schema["fields"]
+
+    for row in field_schema["fields"]:
+        assert row["scope"]
+        assert row["writeTarget"]
+        assert row["sourceEntityType"]
+        assert row["sourceTable"]
+        if row["scope"] == "legacy_projection":
+            assert row["key"] in ALLOWED_LEGACY_PROJECTION_KEYS
+        else:
+            assert row["key"] not in ALLOWED_LEGACY_PROJECTION_KEYS

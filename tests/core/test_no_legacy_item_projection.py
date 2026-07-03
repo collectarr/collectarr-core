@@ -102,25 +102,24 @@ def test_app_does_not_reference_legacy_projection_models_or_routes():
 def test_metadata_service_is_thin_and_uses_response_builder_mixin():
     app_dir = Path(__file__).resolve().parents[2] / "app"
     metadata_service = (app_dir / "services" / "metadata.py").read_text(encoding="utf-8")
-    response_builders = (
-        app_dir / "services" / "metadata_response_builders.py"
-    ).read_text(encoding="utf-8")
+    response_builders = (app_dir / "services" / "metadata_response_builders.py").read_text(encoding="utf-8")
 
-    legacy_builder_markers = [
-        "_comic_contributor_response",
-        "_comic_issue_response",
-        "_manga_work_response",
-        "_anime_series_response",
-        "_movie_work_response",
-        "_music_release_response",
-        "_tv_series_response",
-        "async def get_item(",
-    ]
-    for marker in legacy_builder_markers:
+    builder_files = {
+        "metadata_builders_comics.py": ["_comic_contributor_response", "_comic_issue_response", "_comic_work_response"],
+        "metadata_builders_manga.py": ["_manga_series_response", "_manga_chapter_response", "_manga_work_response"],
+        "metadata_builders_anime.py": ["_anime_series_response", "_anime_episode_response", "_anime_contributor_response"],
+        "metadata_builders_movies.py": ["_movie_work_response", "_movie_release_response", "_movie_release_media_response"],
+        "metadata_builders_music.py": ["_music_release_response", "_music_media_response", "_music_track_response"],
+        "metadata_builders_tv.py": ["_tv_series_response", "_tv_season_response", "_tv_episode_response"],
+    }
+    for filename, markers in builder_files.items():
+        content = (app_dir / "services" / filename).read_text(encoding="utf-8")
+        for marker in markers:
+            assert marker in content
+
+    for marker in [marker for markers in builder_files.values() for marker in markers] + ["async def get_item("]:
         assert marker not in metadata_service
-
-    for marker in legacy_builder_markers[:-1]:
-        assert marker in response_builders
+        assert marker not in response_builders
 
     metadata_routes = app_dir / "api" / "routes" / "metadata"
     for path in metadata_routes.rglob("*.py"):

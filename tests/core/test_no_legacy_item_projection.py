@@ -97,3 +97,31 @@ def test_app_does_not_reference_legacy_projection_models_or_routes():
 
     assert route_violations == []
     assert import_violations == []
+
+
+def test_metadata_service_is_thin_and_uses_response_builder_mixin():
+    app_dir = Path(__file__).resolve().parents[2] / "app"
+    metadata_service = (app_dir / "services" / "metadata.py").read_text(encoding="utf-8")
+    response_builders = (
+        app_dir / "services" / "metadata_response_builders.py"
+    ).read_text(encoding="utf-8")
+
+    legacy_builder_markers = [
+        "_comic_contributor_response",
+        "_comic_issue_response",
+        "_manga_work_response",
+        "_anime_series_response",
+        "_movie_work_response",
+        "_music_release_response",
+        "_tv_series_response",
+        "async def get_item(",
+    ]
+    for marker in legacy_builder_markers:
+        assert marker not in metadata_service
+
+    for marker in legacy_builder_markers[:-1]:
+        assert marker in response_builders
+
+    metadata_routes = app_dir / "api" / "routes" / "metadata"
+    for path in metadata_routes.rglob("*.py"):
+        assert "/metadata/items" not in path.read_text(encoding="utf-8")

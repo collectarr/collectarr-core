@@ -15,7 +15,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.catalog.metadata_fields import METADATA_FIELDS, contract_rows, fields_for_kind  # noqa: E402
+from app.catalog.metadata_fields import (  # noqa: E402
+    METADATA_FIELDS,
+    contract_rows,
+    fields_for_kind,
+)
 from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION  # noqa: E402
 from app.models.base import ItemKind  # noqa: E402
 
@@ -25,7 +29,9 @@ def _yes_no(value: bool) -> str:
 
 
 def _join_unique(values: list[str]) -> str:
-    unique = [value for value in dict.fromkeys(value.strip() for value in values if value and value.strip())]
+    unique = list(
+        dict.fromkeys(value.strip() for value in values if value and value.strip())
+    )
     if not unique:
         return "—"
     return ", ".join(unique)

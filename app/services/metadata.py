@@ -38,7 +38,6 @@ from app.models import (
     ComicIssue,
     ComicStoryArcMembership,
     ComicWork,
-    Edition,
     EntityPerson,
     ExternalProviderId,
     GameRelease,
@@ -3897,14 +3896,8 @@ class MetadataService:
         items = {
             item.id: item
             for item in (
-                await self.db.execute(
-                    select(Item)
-                            .where(Item.id.in_(item_ids))
-                            .options(
-                                selectinload(Item.editions).selectinload(Edition.variants),
-                            )
-                        )
-                    ).scalars()
+                await self.db.execute(select(Item).where(Item.id.in_(item_ids)))
+            ).scalars()
         }
         results: list[CreatorCreditResponse] = []
         for link in links:
@@ -3941,11 +3934,7 @@ class MetadataService:
                 await self.db.execute(
                     select(StoryArcItem)
                     .where(StoryArcItem.story_arc_id == story_arc_id)
-                    .options(
-                        selectinload(StoryArcItem.item)
-                        .selectinload(Item.editions)
-                        .selectinload(Edition.variants),
-                    )
+                    .options(selectinload(StoryArcItem.item))
                     .order_by(
                         StoryArcItem.ordinal.asc().nullslast(),
                         StoryArcItem.created_at.asc(),
@@ -4142,11 +4131,7 @@ class MetadataService:
                 await self.db.execute(
                     select(CharacterAppearance)
                     .where(CharacterAppearance.character_id == character_id)
-                    .options(
-                        selectinload(CharacterAppearance.item)
-                        .selectinload(Item.editions)
-                        .selectinload(Edition.variants),
-                    )
+                    .options(selectinload(CharacterAppearance.item))
                     .order_by(
                         CharacterAppearance.role.asc(),
                         CharacterAppearance.created_at.asc(),
@@ -4312,11 +4297,9 @@ class MetadataService:
         return re.sub(r"\s+", " ", text).strip()
 
     def _item_primary_cover_url(self, item: Item) -> str | None:
-        for edition in item.editions or []:
-            variants = list(edition.variants or [])
-            primary = next((variant for variant in variants if variant.is_primary), None)
-            if primary and primary.cover_image_url:
-                return primary.cover_image_url
-            if variants and variants[0].cover_image_url:
-                return variants[0].cover_image_url
+        metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+        for key in ("cover_image_url", "image_url", "thumbnail_image_url"):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
         return None

@@ -10,7 +10,6 @@ from app.core.errors import ApiHTTPException
 from app.models import (
     Character,
     CharacterAppearance,
-    Edition,
     EntityPerson,
     Item,
     Person,
@@ -414,7 +413,7 @@ async def get_creator_credits(service, creator_id: UUID) -> list[CreatorCreditRe
     items = {
         item.id: item
         for item in (
-            await service.db.execute(select(Item).where(Item.id.in_(item_ids)).options(selectinload(Item.editions).selectinload(Edition.variants)))
+            await service.db.execute(select(Item).where(Item.id.in_(item_ids)))
         ).scalars()
     }
     results: list[CreatorCreditResponse] = []
@@ -447,7 +446,7 @@ async def get_story_arc_items(service, story_arc_id: UUID) -> list[StoryArcItemR
             await service.db.execute(
                 select(StoryArcItem)
                 .where(StoryArcItem.story_arc_id == story_arc_id)
-                .options(selectinload(StoryArcItem.item).selectinload(Item.editions).selectinload(Edition.variants))
+                .options(selectinload(StoryArcItem.item))
                 .order_by(StoryArcItem.ordinal.asc().nullslast(), StoryArcItem.created_at.asc())
             )
         ).scalars()
@@ -582,7 +581,7 @@ async def get_character_appearances(service, character_id: UUID) -> list[Charact
             await service.db.execute(
                 select(CharacterAppearance)
                 .where(CharacterAppearance.character_id == character_id)
-                .options(selectinload(CharacterAppearance.item).selectinload(Item.editions).selectinload(Edition.variants))
+                .options(selectinload(CharacterAppearance.item))
                 .order_by(CharacterAppearance.role.asc(), CharacterAppearance.created_at.asc())
             )
         ).scalars()

@@ -25,8 +25,8 @@ Two concerns are modelled by a single spec:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from collections.abc import Iterable
+from dataclasses import dataclass, field
 
 from app.catalog.grouping_models import PRINT_GROUPING_KINDS
 from app.models.base import ItemKind
@@ -196,21 +196,18 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "work": ("book_work", "book_works"),
         "edition": ("book_edition", "book_editions"),
-        "legacy_projection": ("item", "items"),
         "media": ("book_edition", "book_editions"),
         "track": ("book_edition", "book_editions"),
     },
     ItemKind.comic: {
         "work": ("comic_work", "comic_works"),
         "edition": ("comic_issue", "comic_issues"),
-        "legacy_projection": ("item", "items"),
         "media": ("comic_issue", "comic_issues"),
         "track": ("comic_issue", "comic_issues"),
     },
     ItemKind.manga: {
         "work": ("manga_work", "manga_works"),
         "edition": ("manga_chapter", "manga_chapters"),
-        "legacy_projection": ("item", "items"),
         "media": ("manga_chapter", "manga_chapters"),
         "track": ("manga_chapter", "manga_chapters"),
     },
@@ -220,14 +217,12 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "episode": ("anime_episode", "anime_episodes"),
         "release": ("anime_series", "anime_series"),
         "media": ("anime_episode", "anime_episodes"),
-        "legacy_projection": ("item", "items"),
         "track": ("anime_episode", "anime_episodes"),
     },
     ItemKind.movie: {
         "work": ("movie_work", "movie_works"),
         "release": ("movie_release", "movie_releases"),
         "media": ("movie_release_media", "movie_release_media"),
-        "legacy_projection": ("item", "items"),
         "track": ("movie_release_media", "movie_release_media"),
     },
     ItemKind.tv: {
@@ -235,20 +230,17 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "release": ("tv_release", "tv_releases"),
         "episode": ("tv_episode", "tv_episodes"),
         "media": ("tv_release_media", "tv_release_media"),
-        "legacy_projection": ("item", "items"),
         "track": ("tv_release_media", "tv_release_media"),
     },
     ItemKind.game: {
         "work": ("game_work", "game_works"),
         "release": ("game_release", "game_releases"),
-        "legacy_projection": ("item", "items"),
         "media": ("game_release", "game_releases"),
         "track": ("game_release", "game_releases"),
     },
     ItemKind.boardgame: {
         "work": ("boardgame_work", "boardgame_works"),
         "edition": ("boardgame_edition", "boardgame_editions"),
-        "legacy_projection": ("item", "items"),
         "media": ("boardgame_edition", "boardgame_editions"),
         "track": ("boardgame_edition", "boardgame_editions"),
     },
@@ -256,10 +248,17 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "release": ("music_release", "music_releases"),
         "media": ("music_media", "music_media"),
         "track": ("music_track", "music_tracks"),
-        "legacy_projection": ("item", "items"),
         "work": ("music_release", "music_releases"),
     },
 }
+
+
+def _default_entity_ref(kind: ItemKind) -> tuple[str, str]:
+    scope_map = _KIND_SCOPE_ENTITY_TYPES[kind]
+    for scope in ("work", "release", "edition", "episode", "media", "track"):
+        if scope in scope_map:
+            return scope_map[scope]
+    return next(iter(scope_map.values()))
 
 
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
@@ -306,13 +305,13 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
 
 def _field_source_entity_type(key: str, kind: ItemKind) -> str:
     scope = _scope_for_kind(kind, key)
-    entity_type, _ = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, ("item", "items"))
+    entity_type, _ = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, _default_entity_ref(kind))
     return entity_type
 
 
 def _field_source_table(key: str, kind: ItemKind) -> str:
     scope = _scope_for_kind(kind, key)
-    _, table_name = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, ("items", "items"))
+    _, table_name = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, _default_entity_ref(kind))
     return table_name
 
 

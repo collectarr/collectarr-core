@@ -36,7 +36,6 @@ class EntityRefRegistry:
 
 DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry(
     {
-        "item": EntityRefSpec("item", "items", "Legacy item"),
         "bundle_release": EntityRefSpec(
             "bundle_release",
             "bundle_releases",

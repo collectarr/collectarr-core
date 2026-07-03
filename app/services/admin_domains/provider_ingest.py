@@ -438,6 +438,8 @@ class AdminProviderIngestService:
             attempts=0,
             max_attempts=payload.max_attempts,
             next_run_at=datetime.now(UTC),
+            resolved_entity_type=None,
+            resolved_entity_id=None,
         )
         self.db.add(job)
         await self.db.flush()
@@ -852,7 +854,8 @@ class AdminProviderIngestService:
                     payload=payload,
                     status="created" if response.created else "existing",
                     attempts=attempt,
-                    item_id=response.item_id,
+                    resolved_entity_type=self._resolved_entity_type_for_response(response.item),
+                    resolved_entity_id=response.item_id,
                 )
                 await self.provider_preview_state.invalidate(
                     payload.provider.value,
@@ -1226,6 +1229,20 @@ class AdminProviderIngestService:
                 detail="Provider link is stale or unsupported",
             )
 
+    def _resolved_entity_type_for_response(self, item: Any) -> str | None:
+        name = item.__class__.__name__
+        return {
+            "BookWorkV1Response": "book_work",
+            "ComicWorkV1Response": "comic_work",
+            "GameWorkV1Response": "game_work",
+            "BoardGameWorkV1Response": "boardgame_work",
+            "MangaWorkV1Response": "manga_work",
+            "AnimeSeriesV1Response": "anime_series",
+            "MovieWorkV1Response": "movie_work",
+            "MusicReleaseV1Response": "music_release",
+            "TVSeriesV1Response": "tv_series",
+        }.get(name)
+
     def _physical_format_for_normalized(
         self,
         normalized: NormalizedItem,
@@ -1397,17 +1414,19 @@ class AdminProviderIngestService:
                 detail="Ingest job disappeared during execution",
             )
         refreshed.status = "done"
-        refreshed.item_id = response.item_id
+        refreshed.resolved_entity_type = self._resolved_entity_type_for_response(response.item)
+        refreshed.resolved_entity_id = response.item_id
         refreshed.last_error = None
         refreshed.next_run_at = None
         await self.db.commit()
         await self.db.refresh(refreshed)
         logger.info(
-            "provider_ingest_job_finished job_id=%s provider=%s provider_item_id=%s item_id=%s",
+            "provider_ingest_job_finished job_id=%s provider=%s provider_item_id=%s resolved_entity_type=%s resolved_entity_id=%s",
             refreshed.id,
             refreshed.provider.value,
             refreshed.provider_item_id,
-            refreshed.item_id,
+            refreshed.resolved_entity_type,
+            refreshed.resolved_entity_id,
         )
         return refreshed
 

@@ -321,7 +321,8 @@ class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
+    resolved_entity_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    resolved_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
     last_error: Mapped[str | None] = mapped_column(Text)
 
 

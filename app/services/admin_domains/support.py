@@ -101,7 +101,8 @@ class AdminSupportService:
         payload: Any,
         status: str,
         attempts: int,
-        item_id: UUID | None = None,
+        resolved_entity_type: str | None = None,
+        resolved_entity_id: UUID | None = None,
         error: str | None = None,
     ) -> None:
         global _INGEST_HISTORY_SEQUENCE
@@ -114,7 +115,8 @@ class AdminSupportService:
                 provider_item_id=payload.provider_item_id,
                 status=status,
                 attempts=attempts,
-                item_id=item_id,
+                resolved_entity_type=resolved_entity_type,
+                resolved_entity_id=resolved_entity_id,
                 error=error,
             )
         )
@@ -144,7 +146,8 @@ class AdminSupportService:
             "status": job.status,
             "attempts": job.attempts,
             "max_attempts": job.max_attempts,
-            "item_id": job.item_id,
+            "resolved_entity_type": job.resolved_entity_type,
+            "resolved_entity_id": job.resolved_entity_id,
             "last_error": job.last_error,
         }
 

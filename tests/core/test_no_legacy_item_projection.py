@@ -35,6 +35,24 @@ async def test_legacy_item_projection_tables_and_fks_do_not_exist(migrated_datab
         assert "items" not in tables
         assert "editions" not in tables
         assert "variants" not in tables
+        provider_ingest_columns = {
+            row[0]
+            for row in (
+                await db.execute(
+                    text(
+                        """
+                        select column_name
+                        from information_schema.columns
+                        where table_schema = 'public'
+                          and table_name = 'provider_ingest_jobs'
+                        """
+                    )
+                )
+            ).all()
+        }
+        assert "resolved_entity_type" in provider_ingest_columns
+        assert "resolved_entity_id" in provider_ingest_columns
+        assert "item_id" not in provider_ingest_columns
 
         fk_rows = (
             await db.execute(

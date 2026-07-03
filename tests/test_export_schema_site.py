@@ -43,9 +43,9 @@ def test_catalog_spine_diagram_hides_deprecated_kind_metadata():
     catalog = diagrams["catalog"]
     assert "ITEM_KIND_METADATA {" not in catalog
     assert "ITEM_KIND_METADATA_TAXONOMIES {" not in catalog
-    # The exact case that broke rendering: FK + UK on item_id.
-    assert "item_id FK, UK" in catalog
-    assert "FK UK" not in catalog
+    assert "items {" not in catalog
+    assert "editions {" not in catalog
+    assert "variants {" not in catalog
 
 
 def test_kind_views_do_not_surface_kind_metadata_subtypes():
@@ -111,8 +111,9 @@ def test_catalog_spine_marks_bundle_composition_tables():
     catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
 
     assert catalog["title"] == "Catalog Spine"
-    assert "kind-specific catalog tables are canonical" in catalog["description"].lower()
-    assert "bundle composition tables" in catalog["description"].lower()
+    assert "historical generic projection tables were removed" in catalog["description"].lower()
+    assert "all canonical metadata is kind-specific" in catalog["description"].lower()
+    assert "bundle composition" in catalog["description"].lower()
     assert "bundle_releases" in catalog["tables"]
     assert "bundle_release_components" in catalog["tables"]
     assert "bundle_release_items" not in catalog["tables"]

@@ -154,7 +154,8 @@ class ProviderIngestHistoryEntry(BaseModel):
     provider_item_id: str
     status: str
     attempts: int
-    item_id: UUID | None = None
+    resolved_entity_type: str | None = None
+    resolved_entity_id: UUID | None = None
     error: str | None = None
 
 
@@ -257,7 +258,8 @@ class ProviderIngestJobResponse(BaseModel):
     attempts: int
     max_attempts: int
     next_run_at: datetime | None = None
-    item_id: UUID | None = None
+    resolved_entity_type: str | None = None
+    resolved_entity_id: UUID | None = None
     last_error: str | None = None
     created_at: datetime
     updated_at: datetime

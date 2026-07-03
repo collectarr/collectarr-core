@@ -88,6 +88,7 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "admin_audit_logs",
         }.issubset(tables)
         assert "bundle_release_items" not in tables
+        assert "provider_ingest_jobs" in tables
         assert f"{deprecated_table}_anime" not in tables
         assert f"{deprecated_table}_boardgame" not in tables
         assert f"{deprecated_table}_book" not in tables
@@ -103,6 +104,24 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         assert deprecated_taxonomy_table in tables
         assert "tracking_entries" not in tables
         assert "releases" not in tables
+        provider_ingest_columns = {
+            row[0]
+            for row in (
+                await db.execute(
+                    text(
+                        """
+                        select column_name
+                        from information_schema.columns
+                        where table_schema = 'public'
+                          and table_name = 'provider_ingest_jobs'
+                        """
+                    )
+                )
+            ).all()
+        }
+        assert "resolved_entity_type" in provider_ingest_columns
+        assert "resolved_entity_id" in provider_ingest_columns
+        assert "item_id" not in provider_ingest_columns
 
         deprecated_kind_columns = {
             row[0]

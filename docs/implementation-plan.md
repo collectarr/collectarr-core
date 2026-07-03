@@ -21,8 +21,8 @@
 - Ingest persistence hardening for normalized metadata (`audience_rating`, `volume_number`) and comic-only story-arc fallback semantics
 
 ### 📚 Catalog
-- Kind-specific catalog tables are canonical.
-- Legacy projection tables remain read-only; bundle composition uses `bundle_release_components`.
+- Kind-specific catalog tables are canonical and drive the OpenAPI contract bundle.
+- Legacy projection tables remain read-only compatibility surfaces; bundle composition uses `bundle_release_components`.
 - MangaDex volume/chapter support through metadata volumes API
 - DB-backed ingest job queue with automatic worker processing
 
@@ -44,6 +44,7 @@
 
 ### 📄 Contracts
 - OpenAPI auto-generated with tags (system, auth, metadata, admin)
+- Exported contract bundle: `contracts/openapi.json`, `contracts/metadata-field-schema.json`, `contracts/active-kinds.json`, `contracts/provider-support.json`, `contracts/contract-manifest.json`
 - `scripts/export_openapi.py` for versioned schema snapshots
 
 ### 🔓 API Access
@@ -58,6 +59,8 @@
 	- Typed per-kind fields now live in kind-specific canonical tables.
 	- Shared genre/platform classification now uses taxonomy link tables again instead of per-kind scalar columns.
 	- Keep admin drift diagnostics (`typed_*` issue keys) as the release gate.
+- [x] Split metadata service seams
+	- Typed reads, facets, search, providers, proposals, and legacy projection now have separate service entrypoints/helpers.
 - [ ] Continue per-media normalization depth
 	- Expand provider mapping where upstream data still exists for video, book/manga, and game metadata.
 

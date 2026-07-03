@@ -9,11 +9,10 @@ from urllib.parse import urlparse
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import status
-from sqlalchemy import extract, func, or_, select
+from sqlalchemy import extract, func, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import NO_VALUE
 from sqlalchemy.orm import selectinload
-from sqlalchemy import inspect
+from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.core.config import get_settings
@@ -39,8 +38,8 @@ from app.models import (
     ComicIssue,
     ComicStoryArcMembership,
     ComicWork,
+    Edition,
     EntityPerson,
-    EntityTag,
     ExternalProviderId,
     GameRelease,
     GameWork,
@@ -51,7 +50,6 @@ from app.models import (
     MangaIdentifier,
     MangaSeriesMembership,
     MangaWork,
-    MetadataProposal,
     MovieRelease,
     MovieReleaseMedia,
     MovieWork,
@@ -65,7 +63,6 @@ from app.models import (
     Person,
     StoryArc,
     StoryArcItem,
-    Tag,
     TVEpisode,
     TVRelease,
     TVReleaseContribution,
@@ -73,7 +70,6 @@ from app.models import (
     TVReleaseMedia,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.proposal_payload import compact_metadata_payload
 from app.providers.base import MetadataProvider, ProviderSearchResult
 from app.providers.comicvine import ComicVineProvider
 from app.providers.gcd import GCDProvider
@@ -112,7 +108,6 @@ from app.schemas import (
     MangaIdentifierResponse,
     MangaSeriesResponse,
     MangaWorkV1Response,
-    MetadataCredit,
     MetadataProposalCreate,
     MetadataProposalResponse,
     MovieContributorResponse,
@@ -149,61 +144,26 @@ from app.services.metadata_helpers import (
     _model_text_or_metadata,
     _organization_name,
 )
-from app.services.metadata_reads import (
-    get_anime_episode as _get_anime_episode,
-    get_anime_series as _get_anime_series,
-    get_anime_series_episodes as _get_anime_series_episodes,
-    get_boardgame_edition as _get_boardgame_edition,
-    get_boardgame_work as _get_boardgame_work,
-    get_boardgame_work_editions as _get_boardgame_work_editions,
-    get_book_edition as _get_book_edition,
-    get_book_work as _get_book_work,
-    get_book_work_editions as _get_book_work_editions,
-    get_comic_issue as _get_comic_issue,
-    get_comic_work as _get_comic_work,
-    get_comic_work_issues as _get_comic_work_issues,
-    get_game_release as _get_game_release,
-    get_game_work as _get_game_work,
-    get_game_work_releases as _get_game_work_releases,
-    get_manga_chapter as _get_manga_chapter,
-    get_manga_work as _get_manga_work,
-    get_manga_work_chapters as _get_manga_work_chapters,
-    get_movie_release as _get_movie_release,
-    get_movie_work as _get_movie_work,
-    get_movie_work_releases as _get_movie_work_releases,
-    get_music_media as _get_music_media,
-    get_music_media_tracks as _get_music_media_tracks,
-    get_music_release as _get_music_release,
-    get_music_release_media as _get_music_release_media,
-    get_music_track as _get_music_track,
-    get_tv_episode as _get_tv_episode,
-    get_tv_series as _get_tv_series,
-    get_tv_series_seasons as _get_tv_series_seasons,
-)
 from app.services.metadata_public import (
     barcode_provider_search as _barcode_provider_search,
-    create_proposal as _create_proposal,
-    get_character_appearances as _get_character_appearances,
-    get_character_facets as _get_character_facets,
-    get_creator_credits as _get_creator_credits,
-    get_creator_facets as _get_creator_facets,
-    get_item_seasons as _get_item_seasons,
-    get_item_volumes as _get_item_volumes,
-    get_provider_seasons as _get_provider_seasons,
-    get_provider_volumes as _get_provider_volumes,
-    get_story_arc_facets as _get_story_arc_facets,
-    get_story_arc_items as _get_story_arc_items,
-    mirror_provider_image_bytes as _mirror_provider_image_bytes,
-    mirror_provider_image_url as _mirror_provider_image_url,
-    search_characters as _search_characters,
-    search_creators as _search_creators,
-    search_default_provider as _search_default_provider,
-    search_provider as _search_provider,
-    search_story_arcs as _search_story_arcs,
 )
+from app.services.metadata_public import (
+    create_proposal as _create_proposal,
+)
+from app.services.metadata_public import (
+    mirror_provider_image_bytes as _mirror_provider_image_bytes,
+)
+from app.services.metadata_public import (
+    mirror_provider_image_url as _mirror_provider_image_url,
+)
+from app.services.metadata_public import (
+    search_default_provider as _search_default_provider,
+)
+from app.services.metadata_public import (
+    search_provider as _search_provider,
+)
+from app.services.metadata_typed_reads import MetadataTypedReadService
 from app.services.provider_search_state import ProviderSearchState
-from app.storage.image_cache import ImageCache
-from app.storage.images import ImageMirror
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +178,13 @@ class MetadataService:
         self.search_client = SearchClient()
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
+        self.typed_reads = MetadataTypedReadService(self)
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return getattr(self.typed_reads, name)
+        except AttributeError as exc:
+            raise AttributeError(name) from exc
 
     async def _provider_links_for_entity(
         self,
@@ -284,33 +251,6 @@ class MetadataService:
             code="metadata_item_not_found",
             detail="Item not found",
         )
-
-    async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
-        return await _get_book_work(self, work_id)
-
-    async def get_book_work_editions(self, work_id: UUID) -> list[BookEditionV1Response]:
-        return await _get_book_work_editions(self, work_id)
-
-    async def get_book_edition(self, edition_id: UUID) -> BookEditionV1Response:
-        return await _get_book_edition(self, edition_id)
-
-    async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
-        return await _get_game_work(self, work_id)
-
-    async def get_game_work_releases(self, work_id: UUID) -> list[GameReleaseV1Response]:
-        return await _get_game_work_releases(self, work_id)
-
-    async def get_game_release(self, release_id: UUID) -> GameReleaseV1Response:
-        return await _get_game_release(self, release_id)
-
-    async def get_boardgame_work(self, work_id: UUID) -> BoardGameWorkV1Response:
-        return await _get_boardgame_work(self, work_id)
-
-    async def get_boardgame_work_editions(self, work_id: UUID) -> list[BoardGameEditionV1Response]:
-        return await _get_boardgame_work_editions(self, work_id)
-
-    async def get_boardgame_edition(self, edition_id: UUID) -> BoardGameEditionV1Response:
-        return await _get_boardgame_edition(self, edition_id)
 
     def _book_contributor_response(
         self,
@@ -1269,151 +1209,6 @@ class MetadataService:
             sequence=membership.sequence,
             display_number=membership.display_number,
         )
-
-    async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
-        return await _get_comic_work(self, work_id)
-
-    async def get_comic_work_issues(self, work_id: UUID) -> list[ComicIssueV1Response]:
-        return await _get_comic_work_issues(self, work_id)
-
-    async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
-        return await _get_comic_issue(self, issue_id)
-
-    async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
-        return await _get_manga_work(self, work_id)
-
-    async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
-        return await _get_manga_work_chapters(self, work_id)
-
-    async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
-        return await _get_manga_chapter(self, chapter_id)
-
-    async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
-        return await _get_anime_series(self, series_id)
-
-    async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
-        return await _get_anime_series_episodes(self, series_id)
-
-    async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
-        return await _get_anime_episode(self, episode_id)
-
-    async def get_movie_work(self, work_id: UUID) -> MovieWorkV1Response:
-        return await _get_movie_work(self, work_id)
-
-    async def get_movie_work_releases(self, work_id: UUID) -> list[MovieReleaseV1Response]:
-        return await _get_movie_work_releases(self, work_id)
-
-    async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
-        return await _get_movie_release(self, release_id)
-
-    async def get_music_release(self, release_id: UUID) -> MusicReleaseV1Response:
-        return await _get_music_release(self, release_id)
-
-    async def get_music_release_media(self, release_id: UUID) -> list[MusicMediaV1Response]:
-        return await _get_music_release_media(self, release_id)
-
-    async def get_music_media(self, media_id: UUID) -> MusicMediaV1Response:
-        return await _get_music_media(self, media_id)
-
-    async def get_music_media_tracks(self, media_id: UUID) -> list[MusicTrackV1Response]:
-        return await _get_music_media_tracks(self, media_id)
-
-    async def get_music_track(self, track_id: UUID) -> MusicTrackV1Response:
-        return await _get_music_track(self, track_id)
-
-    async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
-        return await _get_tv_series(self, series_id)
-
-    async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
-        return await _get_tv_series_seasons(self, series_id)
-
-    async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
-        return await _get_tv_episode(self, episode_id)
-
-    async def _enrich_item_metadata_facets(
-        self,
-        response: dict[str, Any],
-        item_id: UUID,
-        series_id: UUID | None = None,
-    ) -> None:
-        creator_rows = (
-            await self.db.execute(
-                select(EntityPerson, Person)
-                .join(Person, Person.id == EntityPerson.person_id)
-                .where(
-                    EntityPerson.entity_type == "item",
-                    EntityPerson.entity_id == item_id,
-                )
-                .order_by(EntityPerson.role.asc(), Person.name.asc())
-            )
-        ).all()
-        if creator_rows:
-            response["creators"] = [
-                MetadataCredit(
-                    name=person.name,
-                    role=link.role,
-                    api_detail_url=_model_text_or_metadata(person, "api_detail_url"),
-                    site_detail_url=_model_text_or_metadata(person, "site_detail_url"),
-                    image_url=_model_text_or_metadata(person, "image_url"),
-                )
-                for link, person in creator_rows
-            ]
-
-        character_rows = (
-            await self.db.execute(
-                select(CharacterAppearance, Character)
-                .join(Character, Character.id == CharacterAppearance.character_id)
-                .where(CharacterAppearance.item_id == item_id)
-                .order_by(CharacterAppearance.role.asc(), Character.name.asc())
-            )
-        ).all()
-        if character_rows:
-            response["characters"] = [
-                MetadataCredit(
-                    name=character.name,
-                    role=appearance.role,
-                    aliases=[
-                        str(alias) for alias in (character.aliases or []) if str(alias).strip()
-                    ],
-                    description=character.description,
-                    image_url=character.image_url,
-                    first_appearance_item_id=character.first_appearance_item_id,
-                )
-                for appearance, character in character_rows
-            ]
-
-        arc_rows = (
-            await self.db.execute(
-                select(StoryArcItem, StoryArc)
-                .join(StoryArc, StoryArc.id == StoryArcItem.story_arc_id)
-                .where(StoryArcItem.item_id == item_id)
-                .order_by(StoryArcItem.ordinal.asc().nullslast(), StoryArc.name.asc())
-            )
-        ).all()
-        if arc_rows:
-            response["story_arcs"] = [
-                MetadataCredit(
-                    name=arc.name,
-                    description=arc.description,
-                    ordinal=link.ordinal,
-                    publisher=arc.publisher,
-                )
-                for link, arc in arc_rows
-            ]
-        if series_id is not None:
-            response["tags"] = await self._entity_tags("series", series_id)
-
-    async def _entity_tags(self, entity_type: str, entity_id: UUID) -> list[str]:
-        rows = await self.db.scalars(
-            select(Tag.name)
-            .join(EntityTag, EntityTag.tag_id == Tag.id)
-            .where(
-                EntityTag.entity_type == entity_type,
-                EntityTag.entity_id == entity_id,
-            )
-            .order_by(Tag.name.asc())
-        )
-        return [name for name in rows if isinstance(name, str) and name.strip()]
 
     async def search(
         self,

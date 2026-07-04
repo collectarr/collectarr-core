@@ -18,6 +18,7 @@ from app.catalog.metadata_fields import (
     typed_field_keys,
     value_types,
 )
+from app.models.base import Base
 from app.models.base import ItemKind
 from scripts.export_contract_bundle import CONTRACT_VERSION, write_contract_bundle
 
@@ -204,3 +205,17 @@ def test_contract_bundle_metadata_field_schema_contract(tmp_path):
             assert row["key"] in ALLOWED_LEGACY_PROJECTION_KEYS
         else:
             assert row["key"] not in ALLOWED_LEGACY_PROJECTION_KEYS
+
+
+def test_exported_field_schema_tables_exist_in_metadata(tmp_path):
+    write_contract_bundle(tmp_path)
+    field_schema = json.loads(
+        (tmp_path / "metadata-field-schema.json").read_text(encoding="utf-8")
+    )
+    source_tables = {
+        row["sourceTable"]
+        for row in field_schema["fields"]
+        if row.get("sourceTable")
+    }
+
+    assert source_tables <= set(Base.metadata.tables)

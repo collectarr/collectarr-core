@@ -57,6 +57,9 @@ class TVRelease(UuidMixin, TimestampMixin, Base):
         Index("idx_tv_releases_sku", "sku"),
     )
 
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_series.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
     description: Mapped[str | None] = mapped_column(Text)
@@ -77,6 +80,7 @@ class TVRelease(UuidMixin, TimestampMixin, Base):
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
+    series: Mapped["TVSeries"] = relationship(back_populates="releases")
     media: Mapped[list["TVReleaseMedia"]] = relationship(
         back_populates="release",
         cascade="all, delete-orphan",
@@ -91,6 +95,74 @@ class TVRelease(UuidMixin, TimestampMixin, Base):
     )
     identifiers: Mapped[list["TVReleaseIdentifier"]] = relationship(
         back_populates="release",
+        cascade="all, delete-orphan",
+    )
+    episode_mappings: Mapped[list["TVReleaseEpisodeMap"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+    )
+
+
+class TVSeries(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tv_series"
+    __table_args__ = (
+        Index("idx_tv_series_sort_title", "sort_title"),
+        Index("idx_tv_series_first_air_date", "first_air_date"),
+    )
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    original_title: Mapped[str | None] = mapped_column(String(255), index=True)
+    sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
+    overview: Mapped[str | None] = mapped_column(Text)
+    first_air_date: Mapped[date | None] = mapped_column(Date)
+    last_air_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str | None] = mapped_column(String(64))
+    type: Mapped[str | None] = mapped_column(String(64))
+    network: Mapped[str | None] = mapped_column(String(255))
+    original_language: Mapped[str | None] = mapped_column(String(16))
+    country: Mapped[str | None] = mapped_column(String(16))
+    runtime_minutes: Mapped[int | None] = mapped_column(Integer)
+    season_count: Mapped[int | None] = mapped_column(Integer)
+    episode_count: Mapped[int | None] = mapped_column(Integer)
+    poster_url: Mapped[str | None] = mapped_column(String(2048))
+    backdrop_url: Mapped[str | None] = mapped_column(String(2048))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    seasons: Mapped[list["TVSeason"]] = relationship(
+        back_populates="series",
+        cascade="all, delete-orphan",
+    )
+    episodes: Mapped[list["TVEpisode"]] = relationship(
+        back_populates="series",
+        cascade="all, delete-orphan",
+    )
+    releases: Mapped[list["TVRelease"]] = relationship(
+        back_populates="series",
+        cascade="all, delete-orphan",
+    )
+
+
+class TVSeason(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tv_seasons"
+    __table_args__ = (
+        UniqueConstraint("series_id", "season_number", name="unique_tv_season"),
+        Index("idx_tv_seasons_series_id", "series_id"),
+    )
+
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_series.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    season_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255))
+    overview: Mapped[str | None] = mapped_column(Text)
+    air_date: Mapped[date | None] = mapped_column(Date)
+    episode_count: Mapped[int | None] = mapped_column(Integer)
+    poster_url: Mapped[str | None] = mapped_column(String(2048))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    series: Mapped["TVSeries"] = relationship(back_populates="seasons")
+    episodes: Mapped[list["TVEpisode"]] = relationship(
+        back_populates="season",
         cascade="all, delete-orphan",
     )
 
@@ -128,23 +200,34 @@ class TVReleaseMedia(UuidMixin, TimestampMixin, Base):
         back_populates="media",
         cascade="all, delete-orphan",
     )
+    episode_mappings: Mapped[list["TVReleaseEpisodeMap"]] = relationship(
+        back_populates="media",
+        cascade="all, delete-orphan",
+    )
 
 
 class TVEpisode(UuidMixin, TimestampMixin, Base):
     __tablename__ = "tv_episodes"
     __table_args__ = (
-        UniqueConstraint("release_id", "season_number", "episode_number", name="unique_tv_episode"),
+        UniqueConstraint("series_id", "season_id", "episode_number", name="unique_tv_episode"),
+        Index("idx_tv_episodes_series_id", "series_id"),
+        Index("idx_tv_episodes_season_id", "season_id"),
         Index("idx_tv_episodes_release_id", "release_id"),
         Index("idx_tv_episodes_media_id", "media_id"),
     )
 
-    release_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tv_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_series.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    media_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tv_release_media.id", ondelete="CASCADE"), nullable=False, index=True
+    season_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_seasons.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    series_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    release_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_releases.id", ondelete="SET NULL"), index=True
+    )
+    media_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_release_media.id", ondelete="SET NULL"), index=True
+    )
     season_number: Mapped[int] = mapped_column(Integer, nullable=False)
     episode_number: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -153,12 +236,100 @@ class TVEpisode(UuidMixin, TimestampMixin, Base):
     original_air_date: Mapped[date | None] = mapped_column(Date)
     still_url: Mapped[str | None] = mapped_column(String(2048))
     still_key: Mapped[str | None] = mapped_column(String(512))
-    audio_tracks: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    subtitle_tracks: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    production_code: Mapped[str | None] = mapped_column(String(128))
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
+    series: Mapped["TVSeries"] = relationship(back_populates="episodes")
+    season: Mapped["TVSeason"] = relationship(back_populates="episodes")
     release: Mapped[TVRelease] = relationship(back_populates="episodes")
     media: Mapped[TVReleaseMedia] = relationship(back_populates="episodes")
+    identifiers: Mapped[list["TVEpisodeIdentifier"]] = relationship(
+        back_populates="episode",
+        cascade="all, delete-orphan",
+    )
+    contributions: Mapped[list["TVEpisodeContribution"]] = relationship(
+        back_populates="episode",
+        cascade="all, delete-orphan",
+    )
+    release_mappings: Mapped[list["TVReleaseEpisodeMap"]] = relationship(
+        back_populates="episode",
+        cascade="all, delete-orphan",
+    )
+
+
+class TVReleaseEpisodeMap(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tv_release_episode_map"
+    __table_args__ = (
+        UniqueConstraint("release_id", "media_id", "episode_id", name="unique_tv_release_episode_map"),
+        Index("idx_tv_release_episode_map_release_id", "release_id"),
+        Index("idx_tv_release_episode_map_media_id", "media_id"),
+        Index("idx_tv_release_episode_map_episode_id", "episode_id"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    media_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_release_media.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    episode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_episodes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    disc_number: Mapped[int | None] = mapped_column(Integer)
+    sequence_number: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    release: Mapped[TVRelease] = relationship(back_populates="episode_mappings")
+    media: Mapped[TVReleaseMedia] = relationship(back_populates="episode_mappings")
+    episode: Mapped[TVEpisode] = relationship(back_populates="release_mappings")
+
+
+class TVEpisodeIdentifier(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tv_episode_identifiers"
+    __table_args__ = (
+        UniqueConstraint("episode_id", "identifier_type", "value", name="unique_tv_episode_identifier"),
+        Index("idx_tv_episode_identifiers_episode_id", "episode_id"),
+        Index("idx_tv_episode_identifiers_type_value", "identifier_type", "value"),
+    )
+
+    episode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_episodes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str | None] = mapped_column(String(255))
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_provider: Mapped[ExternalProvider | None] = mapped_column(
+        Enum(ExternalProvider, name="external_provider", create_type=False),
+        index=True,
+    )
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    episode: Mapped[TVEpisode] = relationship(back_populates="identifiers")
+
+
+class TVEpisodeContribution(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tv_episode_contributions"
+    __table_args__ = (
+        UniqueConstraint("episode_id", "person_id", "role", name="unique_tv_episode_contribution"),
+        Index("idx_tv_episode_contributions_episode_id", "episode_id"),
+        Index("idx_tv_episode_contributions_person_id", "person_id"),
+        Index("idx_tv_episode_contributions_role", "episode_id", "role"),
+    )
+
+    episode_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tv_episodes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sequence: Mapped[int | None] = mapped_column(Integer)
+    character_name: Mapped[str | None] = mapped_column(String(255))
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+
+    episode: Mapped[TVEpisode] = relationship(back_populates="contributions")
+    person: Mapped["Person"] = relationship()
 
 
 class TVReleaseContribution(UuidMixin, TimestampMixin, Base):

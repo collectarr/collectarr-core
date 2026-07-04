@@ -52,6 +52,8 @@ from app.models import (
     TVReleaseContribution,
     TVReleaseIdentifier,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
@@ -68,7 +70,7 @@ _ENTITY_TYPE: dict[type, str] = {
     MangaWork: "manga_work",
     AnimeSeries: "anime_series",
     MovieWork: "movie_work",
-    TVRelease: "tv_release",
+    TVSeries: "tv_series",
     GameWork: "game_work",
     BoardGameWork: "boardgame_work",
     MusicRelease: "music_release",
@@ -81,7 +83,7 @@ _KIND_LABEL: dict[type, str] = {
     MangaWork: "manga",
     AnimeSeries: "anime",
     MovieWork: "movie",
-    TVRelease: "tv",
+    TVSeries: "tv",
     GameWork: "game",
     BoardGameWork: "boardgame",
     MusicRelease: "music",
@@ -672,19 +674,10 @@ class AdminDuplicateService:
                 .values(work_id=tid)
             )
 
-        elif isinstance(source, TVRelease):
-            await self.db.execute(update(TVReleaseMedia).where(TVReleaseMedia.release_id == sid).values(release_id=tid))
-            await self.db.execute(update(TVEpisode).where(TVEpisode.release_id == sid).values(release_id=tid))
-            await self.db.execute(
-                update(TVReleaseContribution)
-                .where(TVReleaseContribution.release_id == sid)
-                .values(release_id=tid)
-            )
-            await self.db.execute(
-                update(TVReleaseIdentifier)
-                .where(TVReleaseIdentifier.release_id == sid)
-                .values(release_id=tid)
-            )
+        elif isinstance(source, TVSeries):
+            await self.db.execute(update(TVRelease).where(TVRelease.series_id == sid).values(series_id=tid))
+            await self.db.execute(update(TVSeason).where(TVSeason.series_id == sid).values(series_id=tid))
+            await self.db.execute(update(TVEpisode).where(TVEpisode.series_id == sid).values(series_id=tid))
 
         elif isinstance(source, GameWork):
             await self.db.execute(update(GameRelease).where(GameRelease.work_id == sid).values(work_id=tid))

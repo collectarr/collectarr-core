@@ -48,6 +48,8 @@ from app.models import (
     TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.schemas.admin import ProviderIngestJobRunResponse
 from app.search.client import SearchClient
@@ -83,7 +85,7 @@ def _compute_phash(image_data: bytes) -> str:
 
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
-    root_tables = (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease, GameWork, BoardGameWork, MusicRelease)
+    root_tables = (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVSeries, GameWork, BoardGameWork, MusicRelease)
     edition_tables = (
         BookEdition,
         ComicIssue,
@@ -189,10 +191,13 @@ async def index_once(search: SearchClient | None = None) -> None:
         documents.extend(movie_work_search_document(row) for row in movie_rows.scalars().unique())
 
         tv_rows = await db.execute(
-            select(TVRelease).options(
-                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVRelease.episodes),
-                selectinload(TVRelease.identifiers),
+            select(TVSeries).options(
+                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
+                    TVReleaseContribution.person
+                ),
+                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
+                selectinload(TVSeries.releases).selectinload(TVRelease.media),
             )
         )
         documents.extend(tv_release_search_document(row) for row in tv_rows.scalars().unique())

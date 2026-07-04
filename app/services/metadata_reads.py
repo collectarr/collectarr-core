@@ -38,8 +38,12 @@ from app.models import (
     MusicReleaseContribution,
     MusicTrack,
     TVEpisode,
+    TVEpisodeContribution,
     TVRelease,
     TVReleaseContribution,
+    TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.schemas import (
     AnimeEpisodeV1Response,
@@ -393,6 +397,67 @@ async def get_anime_episode(service, episode_id: UUID) -> AnimeEpisodeV1Response
     return service._anime_episode_response(episode)
 
 
+async def get_tv_series(service, series_id: UUID) -> TVSeriesV1Response:
+    series = await service.db.scalar(
+        select(TVSeries)
+        .where(TVSeries.id == series_id)
+        .options(
+            selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+            selectinload(TVSeries.releases).selectinload(TVRelease.media),
+            selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
+                TVReleaseContribution.person
+            ),
+            selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
+        )
+    )
+    if series is None:
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="tv_series_not_found",
+            detail="TV series not found",
+        )
+    return service._tv_series_response(series)
+
+
+async def get_tv_series_seasons(service, series_id: UUID) -> list[TVSeasonV1Response]:
+    series = await service.db.scalar(
+        select(TVSeries)
+        .where(TVSeries.id == series_id)
+        .options(selectinload(TVSeries.seasons).selectinload(TVSeason.episodes))
+    )
+    if series is None:
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="tv_series_not_found",
+            detail="TV series not found",
+        )
+    return [
+        service._tv_season_response(season)
+        for season in sorted(series.seasons or [], key=lambda row: (row.season_number, str(row.id)))
+    ]
+
+
+async def get_tv_episode(service, episode_id: UUID) -> TVEpisodeV1Response:
+    episode = await service.db.scalar(
+        select(TVEpisode)
+        .where(TVEpisode.id == episode_id)
+        .options(
+            selectinload(TVEpisode.season),
+            selectinload(TVEpisode.release),
+            selectinload(TVEpisode.media),
+            selectinload(TVEpisode.identifiers),
+            selectinload(TVEpisode.contributions).selectinload(TVEpisodeContribution.person),
+        )
+    )
+    if episode is None:
+        raise ApiHTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="tv_episode_not_found",
+            detail="TV episode not found",
+        )
+    return service._tv_episode_response(episode)
+
+
 async def get_movie_work(service, work_id: UUID) -> MovieWorkV1Response:
     work = await service.db.scalar(
         select(MovieWork)
@@ -527,53 +592,3 @@ async def get_music_track(service, track_id: UUID) -> MusicTrackV1Response:
         )
     return service._music_track_response(track)
 
-
-async def get_tv_series(service, series_id: UUID) -> TVSeriesV1Response:
-    release = await service.db.scalar(
-        select(TVRelease)
-        .where(TVRelease.id == series_id)
-        .options(
-            selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-            selectinload(TVRelease.episodes),
-            selectinload(TVRelease.media),
-            selectinload(TVRelease.identifiers),
-        )
-    )
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="tv_release_not_found",
-            detail="TV release not found",
-        )
-    return service._tv_series_response(release)
-
-
-async def get_tv_series_seasons(service, series_id: UUID) -> list[TVSeasonV1Response]:
-    release = await service.db.scalar(
-        select(TVRelease)
-        .where(TVRelease.id == series_id)
-        .options(
-            selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-            selectinload(TVRelease.episodes),
-            selectinload(TVRelease.media),
-            selectinload(TVRelease.identifiers),
-        )
-    )
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="tv_release_not_found",
-            detail="TV release not found",
-        )
-    return service._tv_series_response(release).seasons
-
-
-async def get_tv_episode(service, episode_id: UUID) -> TVEpisodeV1Response:
-    episode = await service.db.scalar(select(TVEpisode).where(TVEpisode.id == episode_id))
-    if episode is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="tv_episode_not_found",
-            detail="TV episode not found",
-        )
-    return service._tv_episode_response(episode)

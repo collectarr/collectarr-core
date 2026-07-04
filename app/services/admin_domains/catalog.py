@@ -52,6 +52,8 @@ from app.models import (
     TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.models.base import ItemKind
 from app.schemas.admin import (
@@ -162,7 +164,7 @@ class AdminCatalogService:
                 if tracks:
                     metadata["tracks"] = tracks
                     metadata["track_count"] = getattr(entity, "track_count", None) or len(tracks)
-            primary_media = next(iter(getattr(entity, "media", []) or []), None)
+            primary_media = next(iter(getattr(primary_release, "media", []) or []), None) if primary_release is not None else None
             if kind in {ItemKind.movie, ItemKind.tv} and primary_media is not None:
                 for key in ("color", "audio_tracks", "subtitles", "layers", "screen_ratio"):
                     value = getattr(primary_media, key, None)
@@ -239,7 +241,7 @@ class AdminCatalogService:
         await _scan(MusicRelease, ItemKind.music, "music_release")
         await _scan(GameWork, ItemKind.game, "game_work")
         await _scan(MovieWork, ItemKind.movie, "movie_work")
-        await _scan(TVRelease, ItemKind.tv, "tv_release")
+        await _scan(TVSeries, ItemKind.tv, "tv_series")
         await _scan(BoardGameWork, ItemKind.boardgame, "boardgame_work")
 
         schema_issue_count = sum(count for issue, count in issue_counts.items() if issue in schema_issue_keys)
@@ -551,14 +553,16 @@ class AdminCatalogService:
                     entity.audience_rating = payload.audience_rating
 
         elif kind in {ItemKind.movie, ItemKind.tv}:
-            release = primary_release if kind == ItemKind.movie else entity
+            release = primary_release if kind == ItemKind.movie else next(iter(getattr(entity, "releases", []) or []), None)
             media = primary_media
             if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode", "physical_format")):
                 if kind == ItemKind.movie:
                     release = MovieRelease(work_id=entity.id, format=payload.physical_format or "digital")
                     self.db.add(release)
                 else:
-                    release = entity
+                    release = TVRelease(series_id=entity.id, title=payload.edition_title or entity.title, format=payload.physical_format or "dvd")
+                    self.db.add(release)
+                    await self.db.flush()
             if release is not None:
                 before["edition_title"] = getattr(release, "format", None)
                 before["publisher"] = getattr(release, "publisher", None)
@@ -1153,7 +1157,7 @@ class AdminCatalogService:
             ItemKind.manga: MangaWork,
             ItemKind.anime: AnimeSeries,
             ItemKind.movie: MovieWork,
-            ItemKind.tv: TVRelease,
+            ItemKind.tv: TVSeries,
             ItemKind.music: MusicRelease,
             ItemKind.game: GameWork,
             ItemKind.boardgame: BoardGameWork,
@@ -1204,10 +1208,12 @@ class AdminCatalogService:
             ]
         if kind == ItemKind.tv:
             return [
-                selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
-                selectinload(TVRelease.episodes).selectinload(TVEpisode.media),
-                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVRelease.identifiers),
+                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                selectinload(TVSeries.releases).selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
+                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
+                    TVReleaseContribution.person
+                ),
+                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
             ]
         if kind == ItemKind.boardgame:
             return [selectinload(BoardGameWork.editions)]

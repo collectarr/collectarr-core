@@ -18,6 +18,7 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     TVRelease,
+    TVSeries,
 )
 from app.models.base import ItemKind
 
@@ -742,10 +743,42 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
     }
 
 
-def tv_release_search_document(release: TVRelease) -> dict[str, Any]:
+def tv_release_search_document(entity: TVSeries | TVRelease) -> dict[str, Any]:
+    series = entity if isinstance(entity, TVSeries) else getattr(entity, "series", None) or entity
+    release = entity if isinstance(entity, TVRelease) else None
+    title = _optional_text(getattr(series, "title", None)) or _optional_text(getattr(release, "title", None))
+    poster_url = _optional_text(getattr(series, "poster_url", None)) or _optional_text(
+        getattr(release, "cover_image_url", None)
+    )
+    network = _optional_text(getattr(series, "network", None)) or _optional_text(getattr(release, "publisher", None))
+    runtime_minutes = getattr(series, "runtime_minutes", None)
+    if runtime_minutes is None:
+        runtime_minutes = getattr(release, "runtime_minutes", None)
+    country = _optional_text(getattr(series, "country", None)) or _optional_text(getattr(release, "region_code", None))
+    original_language = _optional_text(getattr(series, "original_language", None))
+    if original_language is None and release is not None and getattr(release, "language_audio", None):
+        original_language = _string_list(release.language_audio)[0]
+    release_status = _optional_text(getattr(series, "status", None)) or _optional_text(
+        getattr(release, "content_rating", None)
+    )
+    season_count = getattr(series, "season_count", None)
+    if season_count is None:
+        season_count = getattr(release, "season_count", None)
+    episode_count = getattr(series, "episode_count", None)
+    if episode_count is None:
+        episode_count = getattr(release, "episode_count", None)
+    releases = sorted(
+        getattr(series, "releases", []) or [],
+        key=lambda row: (
+            getattr(row, "release_date", None) is None,
+            getattr(row, "release_date", None),
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_release = releases[0] if releases else None
     creators: list[str] = []
     for contribution in sorted(
-        getattr(release, "contributions", []) or [],
+        [contribution for release in releases for contribution in (getattr(release, "contributions", []) or [])],
         key=lambda row: (
             getattr(row, "sequence", None) is None,
             getattr(row, "sequence", None) or 0,
@@ -756,40 +789,43 @@ def tv_release_search_document(release: TVRelease) -> dict[str, Any]:
         person_name = _optional_text(getattr(person, "name", None))
         if person_name:
             _append_unique(creators, person_name)
-    release_date = (
-        release.release_date.isoformat() if release.release_date is not None else None
-    )
+    release_date_value = primary_release.release_date if primary_release is not None else getattr(release, "release_date", None)
+    release_date = release_date_value.isoformat() if release_date_value is not None else None
     return {
-        "id": str(release.id),
+        "id": str(series.id),
         "kind": ItemKind.tv.value,
-        "title": release.title,
+        "title": title or str(series.id),
         "item_number": None,
-        "runtime_minutes": release.runtime_minutes,
-        "cover_image_url": release.cover_image_url,
+        "runtime_minutes": runtime_minutes if runtime_minutes is not None else (
+            primary_release.runtime_minutes if primary_release is not None else None
+        ),
+        "cover_image_url": poster_url if poster_url is not None else (
+            primary_release.cover_image_url if primary_release is not None else None
+        ),
         "thumbnail_image_url": None,
-        "publisher": release.publisher,
+        "publisher": network if network is not None else (primary_release.publisher if primary_release is not None else None),
         "release_date": release_date,
-        "region": release.region_code,
-        "release_year": release.release_date.year if release.release_date is not None else None,
-        "barcode": _optional_text(getattr(release, "sku", None)),
-        "barcodes": [release.sku] if release.sku else [],
-        "variant": release.format,
-        "variant_names": [release.format] if release.format else [],
+        "region": primary_release.region_code if primary_release is not None else country,
+        "release_year": release_date_value.year if release_date_value is not None else None,
+        "barcode": _optional_text(getattr(primary_release, "sku", None)) if primary_release is not None else None,
+        "barcodes": [primary_release.sku] if primary_release and primary_release.sku else [],
+        "variant": primary_release.format if primary_release is not None else None,
+        "variant_names": [primary_release.format] if primary_release and primary_release.format else [],
         "bundle_titles": [],
         "bundle_release_ids": [],
-        "series_title": release.title,
+        "series_title": title or str(series.id),
         "volume_name": None,
-        "catalog_number": release.sku,
+        "catalog_number": primary_release.sku if primary_release is not None else None,
         "creators": creators,
         "characters": [],
         "story_arcs": [],
         "platforms": [],
-        "release_status": release.content_rating,
-        "language": _string_list(release.language_audio)[0] if release.language_audio else None,
+        "release_status": release_status,
+        "language": original_language,
         "imprint": None,
         "subtitle": None,
         "series_group": None,
-        "age_rating": release.content_rating,
+        "age_rating": release_status,
     }
 
 
@@ -804,7 +840,7 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
         return anime_series_search_document(entity)
     if isinstance(entity, MovieWork):
         return movie_work_search_document(entity)
-    if isinstance(entity, TVRelease):
+    if isinstance(entity, (TVSeries, TVRelease)):
         return tv_release_search_document(entity)
     if isinstance(entity, GameWork):
         return game_work_search_document(entity)

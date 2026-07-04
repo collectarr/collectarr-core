@@ -207,8 +207,10 @@ class AdminSupportService:
             return await metadata.get_anime_series(item.id)
         if isinstance(item, MovieWork):
             return await metadata.get_movie_work(item.id)
-        if isinstance(item, TVRelease):
+        if isinstance(item, TVSeries):
             return await metadata.get_tv_series(item.id)
+        if isinstance(item, TVRelease):
+            return await metadata.get_tv_series(item.series_id)
         if isinstance(item, GameWork):
             return await metadata.get_game_work(item.id)
         if isinstance(item, BoardGameWork):

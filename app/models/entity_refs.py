@@ -64,6 +64,8 @@ DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry(
         "music_release": EntityRefSpec("music_release", "music_releases", "Music release", kind=ItemKind.music, supports_links=True, supports_provider_ids=True),
         "music_track": EntityRefSpec("music_track", "music_tracks", "Music track", kind=ItemKind.music, supports_links=True, supports_provider_ids=True),
         "tv_release": EntityRefSpec("tv_release", "tv_releases", "TV release", kind=ItemKind.tv, supports_links=True, supports_provider_ids=True),
+        "tv_season": EntityRefSpec("tv_season", "tv_seasons", "TV season", kind=ItemKind.tv, supports_links=True, supports_provider_ids=True),
+        "tv_series": EntityRefSpec("tv_series", "tv_series", "TV series", kind=ItemKind.tv, supports_aliases=True, supports_links=True, supports_provider_ids=True),
         "tv_episode": EntityRefSpec("tv_episode", "tv_episodes", "TV episode", kind=ItemKind.tv, supports_links=True, supports_provider_ids=True),
         "character": EntityRefSpec("character", "characters", "Character", supports_aliases=True, supports_links=True, supports_provider_ids=True),
         "story_arc": EntityRefSpec("story_arc", "story_arcs", "Story arc", supports_aliases=True, supports_links=True, supports_provider_ids=True),

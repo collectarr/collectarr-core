@@ -50,9 +50,11 @@ from app.models import (
     MusicRelease,
     MusicTrack,
     ProviderIngestJob,
-    TVRelease,
+    TVSeries,
     TVReleaseContribution,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.models.base import ItemKind
 from app.schemas.admin import (
@@ -166,7 +168,7 @@ class AdminOverviewService:
                 + await self._count(MangaChapter)
                 + await self._count(AnimeEpisode)
                 + await self._count(MovieRelease)
-                + await self._count(TVReleaseMedia)
+                + await self._count(TVSeries)
                 + await self._count(GameRelease)
                 + await self._count(BoardGameEdition)
                 + await self._count(MusicMedia)
@@ -265,7 +267,7 @@ class AdminOverviewService:
             ItemKind.manga: MangaWork,
             ItemKind.anime: AnimeSeries,
             ItemKind.movie: MovieWork,
-            ItemKind.tv: TVRelease,
+            ItemKind.tv: TVSeries,
             ItemKind.music: MusicRelease,
             ItemKind.game: GameWork,
             ItemKind.boardgame: BoardGameWork,
@@ -327,7 +329,7 @@ class AdminOverviewService:
         total += await self._count_missing_provider_links_for_entity("manga_work", MangaWork)
         total += await self._count_missing_provider_links_for_entity("anime_series", AnimeSeries)
         total += await self._count_missing_provider_links_for_entity("movie_work", MovieWork)
-        total += await self._count_missing_provider_links_for_entity("tv_release", TVRelease)
+        total += await self._count_missing_provider_links_for_entity("tv_series", TVSeries)
         total += await self._count_missing_provider_links_for_entity("game_work", GameWork)
         total += await self._count_missing_provider_links_for_entity("boardgame_work", BoardGameWork)
         return total
@@ -431,10 +433,13 @@ class AdminOverviewService:
         documents.extend(catalog_search_document(work) for work in movie_result.scalars().unique())
 
         tv_result = await self.db.execute(
-            select(TVRelease).options(
-                selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVRelease.media),
-                selectinload(TVRelease.identifiers),
+            select(TVSeries).options(
+                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
+                    TVReleaseContribution.person
+                ),
+                selectinload(TVSeries.releases).selectinload(TVReleaseMedia.episodes),
+                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
             )
         )
         documents.extend(catalog_search_document(release) for release in tv_result.scalars().unique())

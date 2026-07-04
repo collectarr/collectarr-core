@@ -32,10 +32,13 @@ from app.models import (
     MovieWorkContribution,
     MovieWorkIdentifier,
     StoryArcItem,
+    TVEpisode,
     TVRelease,
     TVReleaseContribution,
     TVReleaseIdentifier,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.models.base import ItemKind
 
@@ -127,12 +130,15 @@ class MetadataRepository:
             return result.scalar_one_or_none()
         if kind == ItemKind.tv:
             stmt = (
-                select(TVRelease)
-                .where(TVRelease.id == item_id)
+                select(TVSeries)
+                .where(TVSeries.id == item_id)
                 .options(
-                    selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                    selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
-                    selectinload(TVRelease.identifiers),
+                    selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                    selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
+                        TVReleaseContribution.person
+                    ),
+                    selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
+                    selectinload(TVSeries.releases).selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
                 )
             )
             result = await self.db.execute(stmt)
@@ -248,7 +254,8 @@ class MetadataRepository:
             return None
         if kind == ItemKind.tv:
             stmt = (
-                select(TVRelease)
+                select(TVSeries)
+                .join(TVSeries.releases, isouter=True)
                 .join(TVRelease.identifiers, isouter=True)
                 .where(
                     or_(
@@ -609,39 +616,50 @@ class MetadataRepository:
         release_status: str | None,
         year: int | None,
         barcode: str | None,
-    ) -> list[TVRelease]:
-        stmt = select(TVRelease).order_by(TVRelease.sort_title.asc().nullslast(), TVRelease.title.asc()).limit(limit)
-        stmt = stmt.join(TVRelease.identifiers, isouter=True)
+    ) -> list[TVSeries]:
+        stmt = (
+            select(TVSeries)
+            .options(
+                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
+                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
+                    TVReleaseContribution.person
+                ),
+                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
+                selectinload(TVSeries.releases).selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
+            )
+            .order_by(TVSeries.sort_title.asc().nullslast(), TVSeries.title.asc())
+            .limit(limit)
+        )
+        stmt = stmt.join(TVSeries.releases, isouter=True).join(TVRelease.identifiers, isouter=True)
         if query and query.strip():
             pattern = f"%{query.strip()}%"
             stmt = stmt.where(
                 or_(
-                    TVRelease.title.ilike(pattern),
-                    TVRelease.description.ilike(pattern),
-                    TVRelease.publisher.ilike(pattern),
+                    TVSeries.title.ilike(pattern),
+                    TVSeries.overview.ilike(pattern),
+                    TVSeries.network.ilike(pattern),
                     TVRelease.sku.ilike(pattern),
-                    TVRelease.content_rating.ilike(pattern),
+                    TVSeries.status.ilike(pattern),
                 )
             )
         if publisher and publisher.strip():
-            stmt = stmt.where(TVRelease.publisher.ilike(f"%{publisher.strip()}%"))
+            stmt = stmt.where(TVSeries.network.ilike(f"%{publisher.strip()}%"))
         if subtitle and subtitle.strip():
-            stmt = stmt.where(TVRelease.description.ilike(f"%{subtitle.strip()}%"))
+            stmt = stmt.where(TVSeries.overview.ilike(f"%{subtitle.strip()}%"))
         if country and country.strip():
-            stmt = stmt.where(TVRelease.region_code.ilike(f"%{country.strip()}%"))
+            stmt = stmt.where(TVSeries.country.ilike(f"%{country.strip()}%"))
         if language and language.strip():
-            stmt = stmt.where(or_(TVRelease.language_audio.any(language.strip()), TVRelease.language_subtitles.any(language.strip())))
+            stmt = stmt.where(TVSeries.original_language.ilike(f"%{language.strip()}%"))
         if age_rating and age_rating.strip():
-            stmt = stmt.where(TVRelease.content_rating.ilike(f"%{age_rating.strip()}%"))
+            stmt = stmt.where(TVSeries.status.ilike(f"%{age_rating.strip()}%"))
         if catalog_number and catalog_number.strip():
             stmt = stmt.where(TVRelease.sku.ilike(f"%{catalog_number.strip()}%"))
         if release_status and release_status.strip():
-            stmt = stmt.where(TVRelease.format.ilike(f"%{release_status.strip()}%"))
+            stmt = stmt.where(TVSeries.status.ilike(f"%{release_status.strip()}%"))
         if year is not None:
-            stmt = stmt.where(extract("year", TVRelease.release_date) == year)
+            stmt = stmt.where(extract("year", TVSeries.first_air_date) == year)
         if barcode and barcode.strip():
             normalized = self._normalized_barcode_value(barcode)
-            stmt = stmt.join(TVRelease.identifiers, isouter=True)
             stmt = stmt.where(
                 or_(
                     self._normalized_barcode_expr(TVReleaseIdentifier.value) == normalized,

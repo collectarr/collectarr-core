@@ -7,7 +7,9 @@ from app.schemas import (
     TVContributorResponse,
     TVEpisodeV1Response,
     TVIdentifierResponse,
+    TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
+    TVReleaseV1Response,
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
@@ -49,6 +51,19 @@ class TVMetadataResponseBuilders:
             hdr_format=media.hdr_format,
         )
 
+    def _tv_release_episode_map_response(
+        self,
+        mapping,
+    ) -> TVReleaseEpisodeMapV1Response:
+        return TVReleaseEpisodeMapV1Response(
+            id=mapping.id,
+            release_id=mapping.release_id,
+            media_id=mapping.media_id,
+            episode_id=mapping.episode_id,
+            disc_number=mapping.disc_number,
+            sequence_number=mapping.sequence_number,
+        )
+
     def _tv_season_response(self, season: TVSeason) -> TVSeasonV1Response:
         ordered_episodes = sorted(
             season.episodes or [],
@@ -64,6 +79,52 @@ class TVMetadataResponseBuilders:
             cover_image_url=season.poster_url,
             cover_image_key=None,
             episodes=[self._tv_episode_response(episode) for episode in ordered_episodes],
+        )
+
+    def _tv_release_response(self, release) -> TVReleaseV1Response:
+        media = sorted(
+            release.media or [],
+            key=lambda row: (
+                row.media_number is None,
+                row.media_number or 0,
+                str(row.id),
+            ),
+        )
+        episode_mappings = sorted(
+            release.episode_mappings or [],
+            key=lambda row: (
+                row.disc_number is None,
+                row.disc_number or 0,
+                row.sequence_number is None,
+                row.sequence_number or 0,
+                str(row.id),
+            ),
+        )
+        return TVReleaseV1Response(
+            id=release.id,
+            series_id=release.series_id,
+            title=release.title,
+            sort_title=release.sort_title,
+            description=release.description,
+            media_count=release.media_count,
+            format=release.format,
+            region_code=release.region_code,
+            release_date=release.release_date,
+            publisher=release.publisher,
+            sku=release.sku,
+            case_type=release.case_type,
+            episode_count=release.episode_count,
+            season_count=release.season_count,
+            runtime_minutes=release.runtime_minutes,
+            language_audio=release.language_audio,
+            language_subtitles=release.language_subtitles,
+            content_rating=release.content_rating,
+            cover_image_url=release.cover_image_url,
+            cover_image_key=release.cover_image_key,
+            media=[self._tv_release_media_response(row) for row in media],
+            episode_mappings=[
+                self._tv_release_episode_map_response(row) for row in episode_mappings
+            ],
         )
 
     def _tv_series_response(self, series: TVSeries) -> TVSeriesV1Response:

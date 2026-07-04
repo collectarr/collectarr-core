@@ -32,6 +32,9 @@ from app.schemas import (
     MusicTrackV1Response,
     TVEpisodeV1Response,
     TVSeasonV1Response,
+    TVReleaseEpisodeMapV1Response,
+    TVReleaseMediaResponse,
+    TVReleaseV1Response,
     TVSeriesV1Response,
 )
 from app.schemas.metadata_shared import SearchResult
@@ -143,6 +146,29 @@ class MetadataService(MetadataFacade, MetadataResponseBuilders):
 
     async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
         return await self.typed_reads.get_tv_series_seasons(series_id)
+
+    async def get_tv_series_releases(self, series_id: UUID) -> list[TVReleaseV1Response]:
+        return await self.typed_reads.get_tv_series_releases(series_id)
+
+    async def get_tv_season(self, season_id: UUID) -> TVSeasonV1Response:
+        return await self.typed_reads.get_tv_season(season_id)
+
+    async def get_tv_season_episodes(self, season_id: UUID) -> list[TVEpisodeV1Response]:
+        return await self.typed_reads.get_tv_season_episodes(season_id)
+
+    async def get_tv_release(self, release_id: UUID) -> TVReleaseV1Response:
+        return await self.typed_reads.get_tv_release(release_id)
+
+    async def get_tv_release_media(self, release_id: UUID) -> list[TVReleaseMediaResponse]:
+        return await self.typed_reads.get_tv_release_media(release_id)
+
+    async def get_tv_release_episode_map(
+        self, release_id: UUID
+    ) -> list[TVReleaseEpisodeMapV1Response]:
+        return await self.typed_reads.get_tv_release_episode_map(release_id)
+
+    async def get_tv_release_media_item(self, media_id: UUID) -> TVReleaseMediaResponse:
+        return await self.typed_reads.get_tv_release_media_item(media_id)
 
     async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
         return await self.typed_reads.get_tv_episode(episode_id)

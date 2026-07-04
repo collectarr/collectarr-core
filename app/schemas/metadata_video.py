@@ -132,6 +132,17 @@ class TVReleaseMediaResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TVReleaseEpisodeMapV1Response(BaseModel):
+    id: UUID
+    release_id: UUID
+    media_id: UUID
+    episode_id: UUID
+    disc_number: int | None = None
+    sequence_number: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class TVEpisodeV1Response(BaseModel):
     id: UUID
     season_id: UUID
@@ -156,6 +167,34 @@ class TVSeasonV1Response(BaseModel):
     cover_image_url: str | None = None
     cover_image_key: str | None = None
     episodes: list[TVEpisodeV1Response] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+class TVReleaseV1Response(BaseModel):
+    id: UUID
+    series_id: UUID
+    title: str
+    sort_title: str | None = None
+    description: str | None = None
+    media_count: int | None = None
+    format: str
+    region_code: str | None = None
+    release_date: date | None = None
+    publisher: str | None = None
+    sku: str | None = None
+    case_type: str | None = None
+    episode_count: int | None = None
+    season_count: int | None = None
+    runtime_minutes: int | None = None
+    language_audio: list[str] | None = None
+    language_subtitles: list[str] | None = None
+    content_rating: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    media: list[TVReleaseMediaResponse] = Field(default_factory=list)
+    episode_mappings: list[TVReleaseEpisodeMapV1Response] = Field(default_factory=list)
+    kind: ItemKind = ItemKind.tv
 
     model_config = {"from_attributes": True}
 

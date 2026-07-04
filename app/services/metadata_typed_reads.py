@@ -22,6 +22,9 @@ from app.schemas import (
     MusicTrackV1Response,
     TVEpisodeV1Response,
     TVSeasonV1Response,
+    TVReleaseEpisodeMapV1Response,
+    TVReleaseMediaResponse,
+    TVReleaseV1Response,
     TVSeriesV1Response,
 )
 from app.services.metadata_reads import (
@@ -110,6 +113,27 @@ from app.services.metadata_reads import (
 )
 from app.services.metadata_reads import (
     get_tv_series_seasons as _get_tv_series_seasons,
+)
+from app.services.metadata_reads import (
+    get_tv_series_releases as _get_tv_series_releases,
+)
+from app.services.metadata_reads import (
+    get_tv_season as _get_tv_season,
+)
+from app.services.metadata_reads import (
+    get_tv_season_episodes as _get_tv_season_episodes,
+)
+from app.services.metadata_reads import (
+    get_tv_release as _get_tv_release,
+)
+from app.services.metadata_reads import (
+    get_tv_release_media as _get_tv_release_media,
+)
+from app.services.metadata_reads import (
+    get_tv_release_episode_map as _get_tv_release_episode_map,
+)
+from app.services.metadata_reads import (
+    get_tv_release_media_item as _get_tv_release_media_item,
 )
 
 
@@ -200,6 +224,29 @@ class MetadataTypedReadService:
 
     async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
         return await _get_tv_series_seasons(self.service, series_id)
+
+    async def get_tv_series_releases(self, series_id: UUID) -> list[TVReleaseV1Response]:
+        return await _get_tv_series_releases(self.service, series_id)
+
+    async def get_tv_season(self, season_id: UUID) -> TVSeasonV1Response:
+        return await _get_tv_season(self.service, season_id)
+
+    async def get_tv_season_episodes(self, season_id: UUID) -> list[TVEpisodeV1Response]:
+        return await _get_tv_season_episodes(self.service, season_id)
+
+    async def get_tv_release(self, release_id: UUID) -> TVReleaseV1Response:
+        return await _get_tv_release(self.service, release_id)
+
+    async def get_tv_release_media(self, release_id: UUID) -> list[TVReleaseMediaResponse]:
+        return await _get_tv_release_media(self.service, release_id)
+
+    async def get_tv_release_episode_map(
+        self, release_id: UUID
+    ) -> list[TVReleaseEpisodeMapV1Response]:
+        return await _get_tv_release_episode_map(self.service, release_id)
+
+    async def get_tv_release_media_item(self, media_id: UUID) -> TVReleaseMediaResponse:
+        return await _get_tv_release_media_item(self.service, media_id)
 
     async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
         return await _get_tv_episode(self.service, episode_id)

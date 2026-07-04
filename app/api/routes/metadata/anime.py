@@ -30,4 +30,3 @@ async def get_anime_series_episodes(
 @router.get("/metadata/anime/episodes/{episode_id}", response_model=AnimeEpisodeV1Response)
 async def get_anime_episode(episode_id: UUID, db: DbSession) -> AnimeEpisodeV1Response:
     return await MetadataService(db).get_anime_episode(episode_id)
-

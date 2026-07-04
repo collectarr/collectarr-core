@@ -27,4 +27,3 @@ async def get_game_work_releases(
 @router.get("/metadata/games/releases/{release_id}", response_model=GameReleaseV1Response)
 async def get_game_release(release_id: UUID, db: DbSession) -> GameReleaseV1Response:
     return await MetadataService(db).get_game_release(release_id)
-

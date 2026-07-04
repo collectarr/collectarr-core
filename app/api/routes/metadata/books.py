@@ -27,4 +27,3 @@ async def get_book_work_editions(
 @router.get("/metadata/books/editions/{edition_id}", response_model=BookEditionV1Response)
 async def get_book_edition(edition_id: UUID, db: DbSession) -> BookEditionV1Response:
     return await MetadataService(db).get_book_edition(edition_id)
-

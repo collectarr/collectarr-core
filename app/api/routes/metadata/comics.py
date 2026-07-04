@@ -27,4 +27,3 @@ async def get_comic_work_issues(
 @router.get("/metadata/comics/issues/{issue_id}", response_model=ComicIssueV1Response)
 async def get_comic_issue(issue_id: UUID, db: DbSession) -> ComicIssueV1Response:
     return await MetadataService(db).get_comic_issue(issue_id)
-

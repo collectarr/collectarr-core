@@ -30,4 +30,3 @@ async def get_movie_work_releases(
 @router.get("/metadata/movies/releases/{release_id}", response_model=MovieReleaseV1Response)
 async def get_movie_release(release_id: UUID, db: DbSession) -> MovieReleaseV1Response:
     return await MetadataService(db).get_movie_release(release_id)
-

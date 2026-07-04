@@ -27,4 +27,3 @@ async def get_tv_series_seasons(
 @router.get("/metadata/tv/episodes/{episode_id}", response_model=TVEpisodeV1Response)
 async def get_tv_episode(episode_id: UUID, db: DbSession) -> TVEpisodeV1Response:
     return await MetadataService(db).get_tv_episode(episode_id)
-

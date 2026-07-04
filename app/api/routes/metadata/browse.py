@@ -81,7 +81,9 @@ async def search_characters(
     return await MetadataService(db).search_characters(q=q, limit=limit)
 
 
-@router.get("/characters/{character_id}/appearances", response_model=list[CharacterAppearanceResponse])
+@router.get(
+    "/characters/{character_id}/appearances", response_model=list[CharacterAppearanceResponse]
+)
 async def get_character_appearances(
     character_id: UUID,
     db: DbSession,

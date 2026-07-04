@@ -16,7 +16,9 @@ async def get_music_release(release_id: UUID, db: DbSession) -> MusicReleaseV1Re
     return await MetadataService(db).get_music_release(release_id)
 
 
-@router.get("/metadata/music/releases/{release_id}/media", response_model=list[MusicMediaV1Response])
+@router.get(
+    "/metadata/music/releases/{release_id}/media", response_model=list[MusicMediaV1Response]
+)
 async def get_music_release_media(
     release_id: UUID,
     db: DbSession,
@@ -40,4 +42,3 @@ async def get_music_media_tracks(
 @router.get("/metadata/music/tracks/{track_id}", response_model=MusicTrackV1Response)
 async def get_music_track(track_id: UUID, db: DbSession) -> MusicTrackV1Response:
     return await MetadataService(db).get_music_track(track_id)
-

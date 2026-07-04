@@ -39,4 +39,3 @@ async def get_boardgame_edition(
     db: DbSession,
 ) -> BoardGameEditionV1Response:
     return await MetadataService(db).get_boardgame_edition(edition_id)
-

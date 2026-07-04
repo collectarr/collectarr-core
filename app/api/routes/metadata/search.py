@@ -57,4 +57,3 @@ async def lookup_barcode(
     kind: ItemKind | None = None,
 ) -> SearchResult:
     return await MetadataService(db).lookup_barcode(barcode, kind)
-

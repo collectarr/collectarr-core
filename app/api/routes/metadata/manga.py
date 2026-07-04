@@ -30,4 +30,3 @@ async def get_manga_work_chapters(
 @router.get("/metadata/manga/chapters/{chapter_id}", response_model=MangaChapterV1Response)
 async def get_manga_chapter(chapter_id: UUID, db: DbSession) -> MangaChapterV1Response:
     return await MetadataService(db).get_manga_chapter(chapter_id)
-

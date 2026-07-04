@@ -33,4 +33,3 @@ async def mangadex_provider_image_route(
     db: DbSession,
 ) -> Response:
     return await mangadex_provider_image(db, provider_item_id)
-

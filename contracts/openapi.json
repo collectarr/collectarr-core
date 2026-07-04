@@ -6677,7 +6677,14 @@
             "title": "Id",
             "type": "integer"
           },
-          "item_id": {
+          "provider": {
+            "$ref": "#/components/schemas/ExternalProvider"
+          },
+          "provider_item_id": {
+            "title": "Provider Item Id",
+            "type": "string"
+          },
+          "resolved_entity_id": {
             "anyOf": [
               {
                 "format": "uuid",
@@ -6687,14 +6694,18 @@
                 "type": "null"
               }
             ],
-            "title": "Item Id"
+            "title": "Resolved Entity Id"
           },
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "title": "Provider Item Id",
-            "type": "string"
+          "resolved_entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Entity Type"
           },
           "status": {
             "title": "Status",
@@ -6759,18 +6770,6 @@
             "title": "Id",
             "type": "string"
           },
-          "item_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Item Id"
-          },
           "last_error": {
             "anyOf": [
               {
@@ -6804,6 +6803,29 @@
           "provider_item_id": {
             "title": "Provider Item Id",
             "type": "string"
+          },
+          "resolved_entity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Entity Id"
+          },
+          "resolved_entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved Entity Type"
           },
           "status": {
             "title": "Status",

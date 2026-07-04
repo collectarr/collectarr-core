@@ -8,6 +8,8 @@ from sqlalchemy import text
 
 from app.db.session import AsyncSessionLocal
 from app.models.base import Base
+from app.main import app
+from fastapi.routing import APIRoute
 
 
 @pytest.mark.asyncio
@@ -97,6 +99,15 @@ def test_app_does_not_reference_legacy_projection_models_or_routes():
 
     assert route_violations == []
     assert import_violations == []
+
+
+def test_fastapi_routes_do_not_start_with_metadata_items():
+    routes = [
+        route.path
+        for route in app.routes
+        if isinstance(route, APIRoute)
+    ]
+    assert all(not path.startswith("/metadata/items") for path in routes)
 
 
 def test_metadata_service_is_thin_and_uses_response_builder_mixin():

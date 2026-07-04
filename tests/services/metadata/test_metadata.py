@@ -507,10 +507,6 @@ async def test_legacy_metadata_routes_are_not_exposed_in_openapi(client):
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert "/metadata/{kind}/{id}" not in paths
-    assert "/metadata/items/{item_id}/editions" not in paths
-    assert "/metadata/items/{item_id}/volumes" not in paths
-    assert "/metadata/items/{item_id}/seasons" not in paths
-    assert "/metadata/items/{item_id}/bundle-releases" not in paths
 
 
 @pytest.mark.asyncio

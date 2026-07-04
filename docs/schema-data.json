@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-03T18:33:36Z",
+  "generated_at": "2026-07-04T21:21:14Z",
   "generator": "scripts/export_schema_site.py",
   "source_modules": [
     "app/models/base.py",
@@ -120,9 +120,12 @@
         "manga_series_memberships",
         "manga_series_relations",
         "physical_format_refs",
-        "release_statuses"
+        "release_statuses",
+        "tv_episode_contributions",
+        "tv_episode_identifiers",
+        "tv_releases"
       ],
-      "diagram": "erDiagram\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CATEGORIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EXPANSIONS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_FAMILIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_MECHANICS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLAYER_COUNT_VOTES {\n    UUID edition_id FK\n    INTEGER players_min\n    INTEGER players_max\n    INTEGER vote_count\n    INTEGER recommended_count\n    INTEGER not_recommended_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_RANKINGS_SNAPSHOT {\n    UUID work_id FK\n    VARCHAR_255 ranking_name\n    INTEGER rank_position\n    INTEGER users_rated\n    FLOAT bayes_average\n    DATE snapshot_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB entity_ids\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    JSONB source_entity_ids\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    JSONB details_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_AGE_RATINGS {\n    UUID work_id FK\n    VARCHAR_64 rating_system\n    VARCHAR_64 rating\n    VARCHAR_32 region_code\n    VARCHAR_255 descriptor\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_COMPANY_ROLES {\n    UUID work_id FK\n    UUID organization_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 platform_name\n    VARCHAR_255 normalized_name\n    INTEGER sequence\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_PLATFORMS {\n    UUID release_id FK\n    UUID platform_id FK\n    INTEGER sequence\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    VARCHAR_255 series_name\n    VARCHAR_255 normalized_series_name\n    FLOAT sequence\n    VARCHAR_64 display_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES ||--o{ COMIC_SERIES_RELATIONS : \"target_series_id, source_series_id\"\n  GAME_PLATFORMS ||--o{ GAME_RELEASE_PLATFORMS : platform_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_MEMBERSHIPS : series_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_RELATIONS : \"source_series_id, target_series_id\"",
+      "diagram": "erDiagram\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CATEGORIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EXPANSIONS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_FAMILIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_MECHANICS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLAYER_COUNT_VOTES {\n    UUID edition_id FK\n    INTEGER players_min\n    INTEGER players_max\n    INTEGER vote_count\n    INTEGER recommended_count\n    INTEGER not_recommended_count\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_RANKINGS_SNAPSHOT {\n    UUID work_id FK\n    VARCHAR_255 ranking_name\n    INTEGER rank_position\n    INTEGER users_rated\n    FLOAT bayes_average\n    DATE snapshot_date\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB entity_ids\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    JSONB source_entity_ids\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    JSONB details_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_AGE_RATINGS {\n    UUID work_id FK\n    VARCHAR_64 rating_system\n    VARCHAR_64 rating\n    VARCHAR_32 region_code\n    VARCHAR_255 descriptor\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_COMPANY_ROLES {\n    UUID work_id FK\n    UUID organization_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 platform_name\n    VARCHAR_255 normalized_name\n    INTEGER sequence\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_PLATFORMS {\n    UUID release_id FK\n    UUID platform_id FK\n    INTEGER sequence\n    BOOLEAN is_primary\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    VARCHAR_255 series_name\n    VARCHAR_255 normalized_series_name\n    FLOAT sequence\n    VARCHAR_64 display_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_CONTRIBUTIONS {\n    UUID episode_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    VARCHAR_255 character_name\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_IDENTIFIERS {\n    UUID episode_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASES {\n    UUID series_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_2 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_64 case_type\n    INTEGER episode_count\n    INTEGER season_count\n    INTEGER runtime_minutes\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_64 content_rating\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES ||--o{ COMIC_SERIES_RELATIONS : \"source_series_id, target_series_id\"\n  GAME_PLATFORMS ||--o{ GAME_RELEASE_PLATFORMS : platform_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_MEMBERSHIPS : series_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_RELATIONS : \"target_series_id, source_series_id\"",
       "external_references": [
         {
           "from_table": "boardgame_categories",
@@ -339,6 +342,54 @@
           ],
           "ondelete": "CASCADE",
           "onupdate": null
+        },
+        {
+          "from_table": "tv_episode_contributions",
+          "from_columns": [
+            "person_id"
+          ],
+          "to_table": "persons",
+          "targets": [
+            "persons.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_episode_contributions",
+          "from_columns": [
+            "episode_id"
+          ],
+          "to_table": "tv_episodes",
+          "targets": [
+            "tv_episodes.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_episode_identifiers",
+          "from_columns": [
+            "episode_id"
+          ],
+          "to_table": "tv_episodes",
+          "targets": [
+            "tv_episodes.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_releases",
+          "from_columns": [
+            "series_id"
+          ],
+          "to_table": "tv_series",
+          "targets": [
+            "tv_series.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
         }
       ]
     }
@@ -493,15 +544,78 @@
         "entity_tags",
         "external_provider_ids",
         "provider_payload_snapshots",
-        "tv_releases",
-        "tv_release_media",
+        "tv_series",
+        "tv_seasons",
         "tv_episodes",
+        "tv_release_media",
+        "tv_release_episode_map",
         "tv_release_contributions",
         "tv_release_identifiers",
         "bundle_releases"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASES {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_2 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_64 case_type\n    INTEGER episode_count\n    INTEGER season_count\n    INTEGER runtime_minutes\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_64 content_rating\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_MEDIA {\n    UUID release_id FK\n    INTEGER media_number\n    VARCHAR_64 media_type\n    VARCHAR_255 title\n    INTEGER episode_count\n    INTEGER runtime_minutes\n    VARCHAR_2 region_code\n    VARCHAR_64 encoding\n    VARCHAR_16 aspect_ratio\n    VARCHAR_64 color\n    VARCHAR_500 audio_tracks\n    VARCHAR_500 subtitles\n    VARCHAR_50 layers\n    VARCHAR_16 frame_rate\n    VARCHAR_16 bit_depth\n    VARCHAR_16 resolution\n    VARCHAR_64 hdr_format\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODES {\n    UUID release_id FK\n    UUID media_id FK\n    VARCHAR_255 series_title\n    INTEGER season_number\n    INTEGER episode_number\n    VARCHAR_255 title\n    TEXT overview\n    INTEGER duration_seconds\n    DATE original_air_date\n    VARCHAR_2048 still_url\n    VARCHAR_512 still_key\n    JSONB audio_tracks\n    JSONB subtitle_tracks\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_CONTRIBUTIONS {\n    UUID release_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_255 character_name\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  TV_RELEASES ||--o{ TV_RELEASE_MEDIA : release_id\n  TV_RELEASE_MEDIA ||--o{ TV_EPISODES : media_id\n  TV_RELEASES ||--o{ TV_EPISODES : release_id\n  PERSONS ||--o{ TV_RELEASE_CONTRIBUTIONS : person_id\n  TV_RELEASES ||--o{ TV_RELEASE_CONTRIBUTIONS : release_id\n  TV_RELEASES ||--o{ TV_RELEASE_IDENTIFIERS : release_id",
-      "external_references": []
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    JSONB source_payload\n    JSONB normalized_payload\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 original_title\n    VARCHAR_255 sort_title\n    TEXT overview\n    DATE first_air_date\n    DATE last_air_date\n    VARCHAR_64 status\n    VARCHAR_64 type\n    VARCHAR_255 network\n    VARCHAR_16 original_language\n    VARCHAR_16 country\n    INTEGER runtime_minutes\n    INTEGER season_count\n    INTEGER episode_count\n    VARCHAR_2048 poster_url\n    VARCHAR_2048 backdrop_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_SEASONS {\n    UUID series_id FK\n    INTEGER season_number\n    VARCHAR_255 title\n    TEXT overview\n    DATE air_date\n    INTEGER episode_count\n    VARCHAR_2048 poster_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODES {\n    UUID series_id FK\n    UUID season_id FK\n    UUID release_id FK\n    UUID media_id FK\n    INTEGER season_number\n    INTEGER episode_number\n    VARCHAR_255 title\n    TEXT overview\n    INTEGER duration_seconds\n    DATE original_air_date\n    VARCHAR_2048 still_url\n    VARCHAR_512 still_key\n    VARCHAR_128 production_code\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_MEDIA {\n    UUID release_id FK\n    INTEGER media_number\n    VARCHAR_64 media_type\n    VARCHAR_255 title\n    INTEGER episode_count\n    INTEGER runtime_minutes\n    VARCHAR_2 region_code\n    VARCHAR_64 encoding\n    VARCHAR_16 aspect_ratio\n    VARCHAR_64 color\n    VARCHAR_500 audio_tracks\n    VARCHAR_500 subtitles\n    VARCHAR_50 layers\n    VARCHAR_16 frame_rate\n    VARCHAR_16 bit_depth\n    VARCHAR_16 resolution\n    VARCHAR_64 hdr_format\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_EPISODE_MAP {\n    UUID release_id FK\n    UUID media_id FK\n    UUID episode_id FK\n    INTEGER disc_number\n    INTEGER sequence_number\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_CONTRIBUTIONS {\n    UUID release_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_255 character_name\n    INTEGER sequence\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    JSONB metadata_json\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  TV_SERIES ||--o{ TV_SEASONS : series_id\n  TV_SERIES ||--o{ TV_EPISODES : series_id\n  TV_RELEASE_MEDIA o|--o{ TV_EPISODES : media_id\n  TV_SEASONS ||--o{ TV_EPISODES : season_id\n  TV_RELEASE_MEDIA ||--o{ TV_RELEASE_EPISODE_MAP : media_id\n  TV_EPISODES ||--o{ TV_RELEASE_EPISODE_MAP : episode_id\n  PERSONS ||--o{ TV_RELEASE_CONTRIBUTIONS : person_id",
+      "external_references": [
+        {
+          "from_table": "tv_episodes",
+          "from_columns": [
+            "release_id"
+          ],
+          "to_table": "tv_releases",
+          "targets": [
+            "tv_releases.id"
+          ],
+          "ondelete": "SET NULL",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_release_media",
+          "from_columns": [
+            "release_id"
+          ],
+          "to_table": "tv_releases",
+          "targets": [
+            "tv_releases.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_release_episode_map",
+          "from_columns": [
+            "release_id"
+          ],
+          "to_table": "tv_releases",
+          "targets": [
+            "tv_releases.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_release_contributions",
+          "from_columns": [
+            "release_id"
+          ],
+          "to_table": "tv_releases",
+          "targets": [
+            "tv_releases.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "tv_release_identifiers",
+          "from_columns": [
+            "release_id"
+          ],
+          "to_table": "tv_releases",
+          "targets": [
+            "tv_releases.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        }
+      ]
     },
     {
       "id": "game",
@@ -5914,8 +6028,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_music_releases_barcode",
-            "idx_music_releases_barcode"
+            "idx_music_releases_barcode",
+            "ix_music_releases_barcode"
           ],
           "default": null,
           "server_default": null,
@@ -7629,7 +7743,7 @@
       "legacy_bridge_note": null
     },
     {
-      "name": "tv_releases",
+      "name": "tv_series",
       "domain": "misc",
       "columns": [
         {
@@ -7641,7 +7755,24 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_tv_releases_title"
+            "ix_tv_series_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "original_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_series_original_title"
           ],
           "default": null,
           "server_default": null,
@@ -7658,8 +7789,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "idx_tv_releases_sort_title",
-            "ix_tv_releases_sort_title"
+            "idx_tv_series_sort_title",
+            "ix_tv_series_sort_title"
           ],
           "default": null,
           "server_default": null,
@@ -7668,7 +7799,7 @@
           "enum": null
         },
         {
-          "name": "description",
+          "name": "overview",
           "type": "TEXT",
           "nullable": true,
           "primary_key": false,
@@ -7683,14 +7814,16 @@
           "enum": null
         },
         {
-          "name": "media_count",
-          "type": "INTEGER",
+          "name": "first_air_date",
+          "type": "DATE",
           "nullable": true,
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "idx_tv_series_first_air_date"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -7698,37 +7831,7 @@
           "enum": null
         },
         {
-          "name": "format",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "region_code",
-          "type": "VARCHAR(2)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "release_date",
+          "name": "last_air_date",
           "type": "DATE",
           "nullable": true,
           "primary_key": false,
@@ -7743,40 +7846,7 @@
           "enum": null
         },
         {
-          "name": "publisher",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "sku",
-          "type": "VARCHAR(100)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_releases_sku",
-            "idx_tv_releases_sku"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "case_type",
+          "name": "status",
           "type": "VARCHAR(64)",
           "nullable": true,
           "primary_key": false,
@@ -7791,7 +7861,67 @@
           "enum": null
         },
         {
-          "name": "episode_count",
+          "name": "type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "network",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "original_language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "country",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "runtime_minutes",
           "type": "INTEGER",
           "nullable": true,
           "primary_key": false,
@@ -7821,7 +7951,7 @@
           "enum": null
         },
         {
-          "name": "runtime_minutes",
+          "name": "episode_count",
           "type": "INTEGER",
           "nullable": true,
           "primary_key": false,
@@ -7836,52 +7966,7 @@
           "enum": null
         },
         {
-          "name": "language_audio",
-          "type": "VARCHAR[]",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "language_subtitles",
-          "type": "VARCHAR[]",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "content_rating",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "cover_image_url",
+          "name": "poster_url",
           "type": "VARCHAR(2048)",
           "nullable": true,
           "primary_key": false,
@@ -7896,8 +7981,8 @@
           "enum": null
         },
         {
-          "name": "cover_image_key",
-          "type": "VARCHAR(512)",
+          "name": "backdrop_url",
+          "type": "VARCHAR(2048)",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -7983,35 +8068,35 @@
         "check_constraints": [],
         "indexes": [
           {
-            "name": "idx_tv_releases_sku",
+            "name": "idx_tv_series_first_air_date",
             "columns": [
-              "sku"
+              "first_air_date"
             ],
             "unique": false
           },
           {
-            "name": "idx_tv_releases_sort_title",
-            "columns": [
-              "sort_title"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_releases_sku",
-            "columns": [
-              "sku"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_releases_sort_title",
+            "name": "idx_tv_series_sort_title",
             "columns": [
               "sort_title"
             ],
             "unique": false
           },
           {
-            "name": "ix_tv_releases_title",
+            "name": "ix_tv_series_original_title",
+            "columns": [
+              "original_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_series_sort_title",
+            "columns": [
+              "sort_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_series_title",
             "columns": [
               "title"
             ],
@@ -12469,7 +12554,7 @@
           {
             "name": null,
             "columns": [
-              "target_series_id"
+              "source_series_id"
             ],
             "targets": [
               "comic_series.id"
@@ -12480,7 +12565,7 @@
           {
             "name": null,
             "columns": [
-              "source_series_id"
+              "target_series_id"
             ],
             "targets": [
               "comic_series.id"
@@ -16345,7 +16430,7 @@
           {
             "name": null,
             "columns": [
-              "source_series_id"
+              "target_series_id"
             ],
             "targets": [
               "manga_series.id"
@@ -16356,7 +16441,7 @@
           {
             "name": null,
             "columns": [
-              "target_series_id"
+              "source_series_id"
             ],
             "targets": [
               "manga_series.id"
@@ -16851,8 +16936,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "idx_movie_work_contributions_work_id",
-            "ix_movie_work_contributions_work_id"
+            "ix_movie_work_contributions_work_id",
+            "idx_movie_work_contributions_work_id"
           ],
           "default": null,
           "server_default": null,
@@ -17103,8 +17188,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "idx_movie_work_identifiers_work_id",
-            "ix_movie_work_identifiers_work_id"
+            "ix_movie_work_identifiers_work_id",
+            "idx_movie_work_identifiers_work_id"
           ],
           "default": null,
           "server_default": null,
@@ -17349,8 +17434,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_music_media_release_id",
-            "idx_music_media_release_id"
+            "idx_music_media_release_id",
+            "ix_music_media_release_id"
           ],
           "default": null,
           "server_default": null,
@@ -17895,8 +17980,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "idx_music_release_identifiers_release_id",
-            "ix_music_release_identifiers_release_id"
+            "ix_music_release_identifiers_release_id",
+            "idx_music_release_identifiers_release_id"
           ],
           "default": null,
           "server_default": null,
@@ -18322,11 +18407,11 @@
       "legacy_bridge_note": null
     },
     {
-      "name": "tv_release_contributions",
+      "name": "tv_releases",
       "domain": "misc",
       "columns": [
         {
-          "name": "release_id",
+          "name": "series_id",
           "type": "UUID",
           "nullable": false,
           "primary_key": false,
@@ -18334,564 +18419,170 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_tv_release_contributions_release_id",
-            "idx_tv_release_contributions_release_id"
+            "ix_tv_releases_series_id"
           ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
           "foreign_keys": [
             {
-              "column": "release_id",
-              "target_table": "tv_releases",
+              "column": "series_id",
+              "target_table": "tv_series",
               "target_column": "id",
-              "target": "tv_releases.id",
+              "target": "tv_series.id",
               "ondelete": "CASCADE",
               "onupdate": null,
               "name": null
             }
           ],
-          "enum": null
-        },
-        {
-          "name": "person_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_release_contributions_person_id",
-            "idx_tv_release_contributions_person_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "person_id",
-              "target_table": "persons",
-              "target_column": "id",
-              "target": "persons.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "role",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_release_contributions_role"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "character_name",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "sequence",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "metadata_json",
-          "type": "JSONB",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": "{}",
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "person_id"
-            ],
-            "targets": [
-              "persons.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
-              "release_id"
-            ],
-            "targets": [
-              "tv_releases.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "unique_tv_release_contribution",
-            "columns": [
-              "release_id",
-              "person_id",
-              "role"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "idx_tv_release_contributions_person_id",
-            "columns": [
-              "person_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "idx_tv_release_contributions_release_id",
-            "columns": [
-              "release_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "idx_tv_release_contributions_role",
-            "columns": [
-              "release_id",
-              "role"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_release_contributions_person_id",
-            "columns": [
-              "person_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_release_contributions_release_id",
-            "columns": [
-              "release_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_release_contributions_role",
-            "columns": [
-              "role"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
-    },
-    {
-      "name": "tv_release_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "release_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_release_identifiers_release_id",
-            "idx_tv_release_identifiers_release_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "release_id",
-              "target_table": "tv_releases",
-              "target_column": "id",
-              "target": "tv_releases.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_release_identifiers_identifier_type"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "source_provider",
-          "type": "external_provider",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_release_identifiers_source_provider"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": "external_provider"
-        },
-        {
-          "name": "metadata_json",
-          "type": "JSONB",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": "{}",
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "release_id"
-            ],
-            "targets": [
-              "tv_releases.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "unique_tv_release_identifier",
-            "columns": [
-              "release_id",
-              "identifier_type",
-              "value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "idx_tv_release_identifiers_release_id",
-            "columns": [
-              "release_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "idx_tv_release_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "value"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_release_identifiers_identifier_type",
-            "columns": [
-              "identifier_type"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_release_identifiers_release_id",
-            "columns": [
-              "release_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_tv_release_identifiers_source_provider",
-            "columns": [
-              "source_provider"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
-    },
-    {
-      "name": "tv_release_media",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "release_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_tv_release_media_release_id",
-            "idx_tv_release_media_release_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "release_id",
-              "target_table": "tv_releases",
-              "target_column": "id",
-              "target": "tv_releases.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "media_number",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "media_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
           "enum": null
         },
         {
           "name": "title",
           "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_releases_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_releases_sort_title",
+            "ix_tv_releases_sort_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "media_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "format",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region_code",
+          "type": "VARCHAR(2)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sku",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_releases_sku",
+            "idx_tv_releases_sku"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "case_type",
+          "type": "VARCHAR(64)",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -18906,6 +18597,21 @@
         },
         {
           "name": "episode_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "season_count",
           "type": "INTEGER",
           "nullable": true,
           "primary_key": false,
@@ -18935,8 +18641,8 @@
           "enum": null
         },
         {
-          "name": "region_code",
-          "type": "VARCHAR(2)",
+          "name": "language_audio",
+          "type": "VARCHAR[]",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -18950,7 +18656,22 @@
           "enum": null
         },
         {
-          "name": "encoding",
+          "name": "language_subtitles",
+          "type": "VARCHAR[]",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "content_rating",
           "type": "VARCHAR(64)",
           "nullable": true,
           "primary_key": false,
@@ -18965,8 +18686,8 @@
           "enum": null
         },
         {
-          "name": "aspect_ratio",
-          "type": "VARCHAR(16)",
+          "name": "cover_image_url",
+          "type": "VARCHAR(2048)",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -18980,113 +18701,8 @@
           "enum": null
         },
         {
-          "name": "color",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "VARCHAR(500)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitles",
-          "type": "VARCHAR(500)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "layers",
-          "type": "VARCHAR(50)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "frame_rate",
-          "type": "VARCHAR(16)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "bit_depth",
-          "type": "VARCHAR(16)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "resolution",
-          "type": "VARCHAR(16)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "hdr_format",
-          "type": "VARCHAR(64)",
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -19171,10 +18787,264 @@
           {
             "name": null,
             "columns": [
-              "release_id"
+              "series_id"
             ],
             "targets": [
-              "tv_releases.id"
+              "tv_series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_releases_sku",
+            "columns": [
+              "sku"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_releases_sort_title",
+            "columns": [
+              "sort_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_releases_series_id",
+            "columns": [
+              "series_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_releases_sku",
+            "columns": [
+              "sku"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_releases_sort_title",
+            "columns": [
+              "sort_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_releases_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_seasons",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "series_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_seasons_series_id",
+            "idx_tv_seasons_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "series_id",
+              "target_table": "tv_series",
+              "target_column": "id",
+              "target": "tv_series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "season_number",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "overview",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "air_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "episode_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "poster_url",
+          "type": "VARCHAR(2048)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "series_id"
+            ],
+            "targets": [
+              "tv_series.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -19182,26 +19052,26 @@
         ],
         "unique_constraints": [
           {
-            "name": "unique_tv_release_media",
+            "name": "unique_tv_season",
             "columns": [
-              "release_id",
-              "media_number"
+              "series_id",
+              "season_number"
             ]
           }
         ],
         "check_constraints": [],
         "indexes": [
           {
-            "name": "idx_tv_release_media_release_id",
+            "name": "idx_tv_seasons_series_id",
             "columns": [
-              "release_id"
+              "series_id"
             ],
             "unique": false
           },
           {
-            "name": "ix_tv_release_media_release_id",
+            "name": "ix_tv_seasons_series_id",
             "columns": [
-              "release_id"
+              "series_id"
             ],
             "unique": false
           }
@@ -19486,8 +19356,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_boardgame_player_count_votes_edition",
-            "ix_boardgame_player_count_votes_edition_id"
+            "ix_boardgame_player_count_votes_edition_id",
+            "ix_boardgame_player_count_votes_edition"
           ],
           "default": null,
           "server_default": null,
@@ -21899,8 +21769,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "idx_music_tracks_release_id",
-            "ix_music_tracks_release_id"
+            "ix_music_tracks_release_id",
+            "idx_music_tracks_release_id"
           ],
           "default": null,
           "server_default": null,
@@ -22124,7 +21994,7 @@
       "legacy_bridge_note": null
     },
     {
-      "name": "tv_episodes",
+      "name": "tv_release_contributions",
       "domain": "misc",
       "columns": [
         {
@@ -22136,8 +22006,8 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "ix_tv_episodes_release_id",
-            "idx_tv_episodes_release_id"
+            "idx_tv_release_contributions_release_id",
+            "ix_tv_release_contributions_release_id"
           ],
           "default": null,
           "server_default": null,
@@ -22156,7 +22026,7 @@
           "enum": null
         },
         {
-          "name": "media_id",
+          "name": "person_id",
           "type": "UUID",
           "nullable": false,
           "primary_key": false,
@@ -22164,18 +22034,18 @@
           "unique_constraint": null,
           "index": true,
           "indexes": [
-            "idx_tv_episodes_media_id",
-            "ix_tv_episodes_media_id"
+            "idx_tv_release_contributions_person_id",
+            "ix_tv_release_contributions_person_id"
           ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
           "foreign_keys": [
             {
-              "column": "media_id",
-              "target_table": "tv_release_media",
+              "column": "person_id",
+              "target_table": "persons",
               "target_column": "id",
-              "target": "tv_release_media.id",
+              "target": "persons.id",
               "ondelete": "CASCADE",
               "onupdate": null,
               "name": null
@@ -22184,9 +22054,26 @@
           "enum": null
         },
         {
-          "name": "series_title",
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_release_contributions_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "character_name",
           "type": "VARCHAR(255)",
-          "nullable": false,
+          "nullable": true,
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
@@ -22199,143 +22086,8 @@
           "enum": null
         },
         {
-          "name": "season_number",
+          "name": "sequence",
           "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "episode_number",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "overview",
-          "type": "TEXT",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "duration_seconds",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "original_air_date",
-          "type": "DATE",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "still_url",
-          "type": "VARCHAR(2048)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "still_key",
-          "type": "VARCHAR(512)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "JSONB",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitle_tracks",
-          "type": "JSONB",
           "nullable": true,
           "primary_key": false,
           "unique": false,
@@ -22420,10 +22172,10 @@
           {
             "name": null,
             "columns": [
-              "media_id"
+              "person_id"
             ],
             "targets": [
-              "tv_release_media.id"
+              "persons.id"
             ],
             "ondelete": "CASCADE",
             "onupdate": null
@@ -22442,39 +22194,684 @@
         ],
         "unique_constraints": [
           {
-            "name": "unique_tv_episode",
+            "name": "unique_tv_release_contribution",
             "columns": [
               "release_id",
-              "season_number",
-              "episode_number"
+              "person_id",
+              "role"
             ]
           }
         ],
         "check_constraints": [],
         "indexes": [
           {
-            "name": "idx_tv_episodes_media_id",
+            "name": "idx_tv_release_contributions_person_id",
             "columns": [
-              "media_id"
+              "person_id"
             ],
             "unique": false
           },
           {
-            "name": "idx_tv_episodes_release_id",
+            "name": "idx_tv_release_contributions_release_id",
             "columns": [
               "release_id"
             ],
             "unique": false
           },
           {
-            "name": "ix_tv_episodes_media_id",
+            "name": "idx_tv_release_contributions_role",
             "columns": [
-              "media_id"
+              "release_id",
+              "role"
             ],
             "unique": false
           },
           {
-            "name": "ix_tv_episodes_release_id",
+            "name": "ix_tv_release_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_contributions_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_contributions_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_release_identifiers",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_release_identifiers_release_id",
+            "idx_tv_release_identifiers_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "tv_releases",
+              "target_column": "id",
+              "target": "tv_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "identifier_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_release_identifiers_identifier_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "normalized_value",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_provider",
+          "type": "external_provider",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_release_identifiers_source_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "tv_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "unique_tv_release_identifier",
+            "columns": [
+              "release_id",
+              "identifier_type",
+              "value"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_release_identifiers_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_release_identifiers_type_value",
+            "columns": [
+              "identifier_type",
+              "value"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_identifiers_identifier_type",
+            "columns": [
+              "identifier_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_identifiers_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_identifiers_source_provider",
+            "columns": [
+              "source_provider"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_release_media",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_release_media_release_id",
+            "idx_tv_release_media_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "tv_releases",
+              "target_column": "id",
+              "target": "tv_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "media_number",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "media_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "episode_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "runtime_minutes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region_code",
+          "type": "VARCHAR(2)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "encoding",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "aspect_ratio",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "color",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "audio_tracks",
+          "type": "VARCHAR(500)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "subtitles",
+          "type": "VARCHAR(500)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "layers",
+          "type": "VARCHAR(50)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "frame_rate",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "bit_depth",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "resolution",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "hdr_format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "tv_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "unique_tv_release_media",
+            "columns": [
+              "release_id",
+              "media_number"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_release_media_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_media_release_id",
             "columns": [
               "release_id"
             ],
@@ -23421,6 +23818,1232 @@
       "polymorphic_note": null,
       "legacy_projection_note": null,
       "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_episodes",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "series_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_episodes_series_id",
+            "ix_tv_episodes_series_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "series_id",
+              "target_table": "tv_series",
+              "target_column": "id",
+              "target": "tv_series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "season_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_episodes_season_id",
+            "ix_tv_episodes_season_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "season_id",
+              "target_table": "tv_seasons",
+              "target_column": "id",
+              "target": "tv_seasons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_episodes_release_id",
+            "ix_tv_episodes_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "tv_releases",
+              "target_column": "id",
+              "target": "tv_releases.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "media_id",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_episodes_media_id",
+            "idx_tv_episodes_media_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "media_id",
+              "target_table": "tv_release_media",
+              "target_column": "id",
+              "target": "tv_release_media.id",
+              "ondelete": "SET NULL",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "season_number",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "episode_number",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "overview",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "duration_seconds",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "original_air_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "still_url",
+          "type": "VARCHAR(2048)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "still_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "production_code",
+          "type": "VARCHAR(128)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "tv_releases.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "series_id"
+            ],
+            "targets": [
+              "tv_series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "media_id"
+            ],
+            "targets": [
+              "tv_release_media.id"
+            ],
+            "ondelete": "SET NULL",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "season_id"
+            ],
+            "targets": [
+              "tv_seasons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "unique_tv_episode",
+            "columns": [
+              "series_id",
+              "season_id",
+              "episode_number"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_episodes_media_id",
+            "columns": [
+              "media_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_episodes_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_episodes_season_id",
+            "columns": [
+              "season_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_episodes_series_id",
+            "columns": [
+              "series_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episodes_media_id",
+            "columns": [
+              "media_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episodes_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episodes_season_id",
+            "columns": [
+              "season_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episodes_series_id",
+            "columns": [
+              "series_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_episode_contributions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "episode_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_episode_contributions_episode_id",
+            "ix_tv_episode_contributions_episode_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "episode_id",
+              "target_table": "tv_episodes",
+              "target_column": "id",
+              "target": "tv_episodes.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "person_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_episode_contributions_person_id",
+            "ix_tv_episode_contributions_person_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "person_id",
+              "target_table": "persons",
+              "target_column": "id",
+              "target": "persons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_episode_contributions_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "character_name",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "person_id"
+            ],
+            "targets": [
+              "persons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "episode_id"
+            ],
+            "targets": [
+              "tv_episodes.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "unique_tv_episode_contribution",
+            "columns": [
+              "episode_id",
+              "person_id",
+              "role"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_episode_contributions_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_episode_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_episode_contributions_role",
+            "columns": [
+              "episode_id",
+              "role"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episode_contributions_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episode_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episode_contributions_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_episode_identifiers",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "episode_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_episode_identifiers_episode_id",
+            "ix_tv_episode_identifiers_episode_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "episode_id",
+              "target_table": "tv_episodes",
+              "target_column": "id",
+              "target": "tv_episodes.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "identifier_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_episode_identifiers_identifier_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "normalized_value",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_provider",
+          "type": "external_provider",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_episode_identifiers_source_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "episode_id"
+            ],
+            "targets": [
+              "tv_episodes.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "unique_tv_episode_identifier",
+            "columns": [
+              "episode_id",
+              "identifier_type",
+              "value"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_episode_identifiers_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_episode_identifiers_type_value",
+            "columns": [
+              "identifier_type",
+              "value"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episode_identifiers_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episode_identifiers_identifier_type",
+            "columns": [
+              "identifier_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_episode_identifiers_source_provider",
+            "columns": [
+              "source_provider"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "tv_release_episode_map",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_release_episode_map_release_id",
+            "ix_tv_release_episode_map_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "tv_releases",
+              "target_column": "id",
+              "target": "tv_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "media_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "idx_tv_release_episode_map_media_id",
+            "ix_tv_release_episode_map_media_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "media_id",
+              "target_table": "tv_release_media",
+              "target_column": "id",
+              "target": "tv_release_media.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "episode_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_tv_release_episode_map_episode_id",
+            "idx_tv_release_episode_map_episode_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "episode_id",
+              "target_table": "tv_episodes",
+              "target_column": "id",
+              "target": "tv_episodes.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "disc_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "metadata_json",
+          "type": "JSONB",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": "{}",
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "tv_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "media_id"
+            ],
+            "targets": [
+              "tv_release_media.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "episode_id"
+            ],
+            "targets": [
+              "tv_episodes.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "unique_tv_release_episode_map",
+            "columns": [
+              "release_id",
+              "media_id",
+              "episode_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "idx_tv_release_episode_map_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_release_episode_map_media_id",
+            "columns": [
+              "media_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "idx_tv_release_episode_map_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_episode_map_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_episode_map_media_id",
+            "columns": [
+              "media_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_release_episode_map_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
     }
   ],
   "enums": {
@@ -23710,7 +25333,7 @@
     {
       "from_table": "comic_series_relations",
       "from_columns": [
-        "target_series_id"
+        "source_series_id"
       ],
       "to_targets": [
         "comic_series.id"
@@ -23722,7 +25345,7 @@
     {
       "from_table": "comic_series_relations",
       "from_columns": [
-        "source_series_id"
+        "target_series_id"
       ],
       "to_targets": [
         "comic_series.id"
@@ -23950,7 +25573,7 @@
     {
       "from_table": "manga_series_relations",
       "from_columns": [
-        "source_series_id"
+        "target_series_id"
       ],
       "to_targets": [
         "manga_series.id"
@@ -23962,7 +25585,7 @@
     {
       "from_table": "manga_series_relations",
       "from_columns": [
-        "target_series_id"
+        "source_series_id"
       ],
       "to_targets": [
         "manga_series.id"
@@ -24080,48 +25703,24 @@
       "onupdate": null
     },
     {
-      "from_table": "tv_release_contributions",
+      "from_table": "tv_releases",
       "from_columns": [
-        "person_id"
+        "series_id"
       ],
       "to_targets": [
-        "persons.id"
+        "tv_series.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
       "onupdate": null
     },
     {
-      "from_table": "tv_release_contributions",
+      "from_table": "tv_seasons",
       "from_columns": [
-        "release_id"
+        "series_id"
       ],
       "to_targets": [
-        "tv_releases.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "tv_release_identifiers",
-      "from_columns": [
-        "release_id"
-      ],
-      "to_targets": [
-        "tv_releases.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "tv_release_media",
-      "from_columns": [
-        "release_id"
-      ],
-      "to_targets": [
-        "tv_releases.id"
+        "tv_series.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -24368,19 +25967,43 @@
       "onupdate": null
     },
     {
-      "from_table": "tv_episodes",
+      "from_table": "tv_release_contributions",
       "from_columns": [
-        "media_id"
+        "person_id"
       ],
       "to_targets": [
-        "tv_release_media.id"
+        "persons.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
       "onupdate": null
     },
     {
-      "from_table": "tv_episodes",
+      "from_table": "tv_release_contributions",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "tv_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_release_identifiers",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "tv_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_release_media",
       "from_columns": [
         "release_id"
       ],
@@ -24486,14 +26109,134 @@
       "name": null,
       "ondelete": "CASCADE",
       "onupdate": null
+    },
+    {
+      "from_table": "tv_episodes",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "tv_releases.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_episodes",
+      "from_columns": [
+        "series_id"
+      ],
+      "to_targets": [
+        "tv_series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_episodes",
+      "from_columns": [
+        "media_id"
+      ],
+      "to_targets": [
+        "tv_release_media.id"
+      ],
+      "name": null,
+      "ondelete": "SET NULL",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_episodes",
+      "from_columns": [
+        "season_id"
+      ],
+      "to_targets": [
+        "tv_seasons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_episode_contributions",
+      "from_columns": [
+        "person_id"
+      ],
+      "to_targets": [
+        "persons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_episode_contributions",
+      "from_columns": [
+        "episode_id"
+      ],
+      "to_targets": [
+        "tv_episodes.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_episode_identifiers",
+      "from_columns": [
+        "episode_id"
+      ],
+      "to_targets": [
+        "tv_episodes.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_release_episode_map",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "tv_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_release_episode_map",
+      "from_columns": [
+        "media_id"
+      ],
+      "to_targets": [
+        "tv_release_media.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "tv_release_episode_map",
+      "from_columns": [
+        "episode_id"
+      ],
+      "to_targets": [
+        "tv_episodes.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
     }
   ],
   "summary": {
-    "tables": 90,
-    "columns": 1012,
-    "foreign_keys": 84,
-    "indexes": 378,
-    "unique_constraints": 53,
+    "tables": 95,
+    "columns": 1072,
+    "foreign_keys": 94,
+    "indexes": 407,
+    "unique_constraints": 57,
     "check_constraints": 6
   }
 }

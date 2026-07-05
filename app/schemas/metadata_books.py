@@ -13,6 +13,29 @@ from app.schemas.metadata_shared import (
 
 class BookContributorResponse(ContributorResponse):
     scope: str
+    role_id: str | None = None
+    biography: str | None = None
+    sort_name: str | None = None
+
+
+class BookOriginalDetailsResponse(BaseModel):
+    original_language: str | None = None
+    original_publication_date: date | None = None
+    original_publisher: str | None = None
+    dewey: str | None = None
+    lccn: str | None = None
+    loc_control_number: str | None = None
+
+
+class BookPhysicalDetailsResponse(BaseModel):
+    dimensions: str | None = None
+    dust_jacket: bool | None = None
+    printing: str | None = None
+    first_edition: bool | None = None
+    number_line: str | None = None
+    local_cover_image_path: str | None = None
+    local_back_image_path: str | None = None
+    local_thumbnail_image_path: str | None = None
 
 
 class BookIdentifierResponse(BaseModel):
@@ -40,6 +63,7 @@ class BookEditionV1Response(BaseModel):
     audio_length_minutes: int | None = None
     age_rating: str | None = None
     release_status: str | None = None
+    physical_details: BookPhysicalDetailsResponse | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
     description: str | None = None
@@ -64,6 +88,7 @@ class BookWorkV1Response(BaseModel):
     original_language: str | None = None
     original_publication_date: date | None = None
     first_publication_date: date | None = None
+    original_details: BookOriginalDetailsResponse | None = None
     kind: ItemKind = ItemKind.book
     contributors: list[BookContributorResponse] = Field(default_factory=list)
     series: list[BookSeriesResponse] = Field(default_factory=list)

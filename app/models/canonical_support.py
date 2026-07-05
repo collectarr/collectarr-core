@@ -81,10 +81,13 @@ class Person(UuidMixin, TimestampMixin, Base):
     __tablename__ = "persons"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    biography: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
     site_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 

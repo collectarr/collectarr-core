@@ -61,6 +61,10 @@ class BookWork(UuidMixin, TimestampMixin, Base):
     original_language: Mapped[str | None] = mapped_column(String(16), index=True)
     original_publication_date: Mapped[date | None] = mapped_column(Date, index=True)
     first_publication_date: Mapped[date | None] = mapped_column(Date, index=True)
+    original_publisher: Mapped[str | None] = mapped_column(String(255), index=True)
+    dewey: Mapped[str | None] = mapped_column(String(64), index=True)
+    lccn: Mapped[str | None] = mapped_column(String(64), index=True)
+    loc_control_number: Mapped[str | None] = mapped_column(String(64), index=True)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     editions: Mapped[list["BookEdition"]] = relationship(
@@ -126,8 +130,16 @@ class BookEdition(UuidMixin, TimestampMixin, Base):
     audio_length_minutes: Mapped[int | None] = mapped_column(Integer)
     age_rating: Mapped[str | None] = mapped_column(String(64), index=True)
     release_status: Mapped[str | None] = mapped_column(String(64), index=True)
+    dimensions: Mapped[str | None] = mapped_column(String(255))
+    dust_jacket: Mapped[bool | None] = mapped_column(Boolean)
+    printing: Mapped[str | None] = mapped_column(String(255))
+    first_edition: Mapped[bool | None] = mapped_column(Boolean)
+    number_line: Mapped[str | None] = mapped_column(String(255))
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    local_cover_image_path: Mapped[str | None] = mapped_column(String(1024))
+    local_back_image_path: Mapped[str | None] = mapped_column(String(1024))
+    local_thumbnail_image_path: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 

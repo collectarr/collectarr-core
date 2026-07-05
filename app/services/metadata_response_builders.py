@@ -19,6 +19,8 @@ from app.schemas import (
     BookContributorResponse,
     BookEditionV1Response,
     BookIdentifierResponse,
+    BookOriginalDetailsResponse,
+    BookPhysicalDetailsResponse,
     BookSeriesResponse,
     BookWorkV1Response,
     GameReleaseV1Response,
@@ -41,11 +43,16 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
         scope: str,
     ) -> BookContributorResponse:
         person = contribution.person
+        metadata = contribution.metadata_json or {}
         return BookContributorResponse(
             person_id=contribution.person_id,
             name=person.name if person is not None else "",
             role=contribution.role,
             sequence=contribution.sequence,
+            image_url=person.image_url if person is not None else None,
+            biography=person.biography if person is not None else None,
+            sort_name=person.sort_name if person is not None else None,
+            role_id=metadata.get("role_id"),
             scope=scope,
         )
 
@@ -76,6 +83,16 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             audio_length_minutes=edition.audio_length_minutes,
             age_rating=edition.age_rating,
             release_status=edition.release_status,
+            physical_details=BookPhysicalDetailsResponse(
+                dimensions=edition.dimensions,
+                dust_jacket=edition.dust_jacket,
+                printing=edition.printing,
+                first_edition=edition.first_edition,
+                number_line=edition.number_line,
+                local_cover_image_path=edition.local_cover_image_path,
+                local_back_image_path=edition.local_back_image_path,
+                local_thumbnail_image_path=edition.local_thumbnail_image_path,
+            ),
             cover_image_url=edition.cover_image_url,
             cover_image_key=edition.cover_image_key,
             description=edition.description,
@@ -132,6 +149,14 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             original_language=work.original_language,
             original_publication_date=work.original_publication_date,
             first_publication_date=work.first_publication_date,
+            original_details=BookOriginalDetailsResponse(
+                original_language=work.original_language,
+                original_publication_date=work.original_publication_date,
+                original_publisher=work.original_publisher,
+                dewey=work.dewey,
+                lccn=work.lccn,
+                loc_control_number=work.loc_control_number,
+            ),
             contributors=[
                 self._book_contributor_response(row, scope="work")
                 for row in sorted(
@@ -269,4 +294,3 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             external_links=_metadata_links(metadata, "external_links"),
             editions=[self._boardgame_edition_response(row) for row in editions],
         )
-

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+
+from app.core.config import get_settings
 from app.models.base import ExternalProvider, ItemKind
 from app.schemas import (
     MetadataProposalCreate,
@@ -18,17 +21,25 @@ from app.services.field_schema_service import FieldSchemaService
 from app.services.games_service import GamesService
 from app.services.image_service import ImageService
 from app.services.manga_service import MangaService
+from app.services.metadata_response_builders import MetadataResponseBuilders
 from app.services.metadata_common_support import MetadataCommonSupport
+from app.services.metadata_search_service import MetadataSearchService
 from app.services.metadata_provider_search_support import MetadataProviderSearchSupport
+from app.services.metadata_typed_reads import MetadataTypedReadService
 from app.services.movies_service import MoviesService
 from app.services.music_service import MusicService
 from app.services.proposals_service import ProposalsService
+from app.services.provider_search_state import ProviderSearchState
+from app.providers.registry import ProviderRegistry
+from app.search.client import SearchClient
 from app.services.tv_service import TVService
 
 
 class MetadataFacade(
     MetadataProviderSearchSupport,
     MetadataCommonSupport,
+    MetadataTypedReadService,
+    MetadataResponseBuilders,
     BooksService,
     MoviesService,
     TVService,
@@ -43,6 +54,15 @@ class MetadataFacade(
     FieldSchemaService,
     BundleService,
 ):
+    def __init__(self, db) -> None:
+        self.db = db
+        self.settings = get_settings()
+        self.logger = logging.getLogger(__name__)
+        self.search_client = SearchClient()
+        self.providers = ProviderRegistry()
+        self.provider_search_state = ProviderSearchState(self.settings)
+        self.search_service = MetadataSearchService(self)
+
     async def search(
         self,
         query: str | None = None,

@@ -138,115 +138,113 @@ from app.services.metadata_reads import (
 
 
 class MetadataTypedReadService:
-    def __init__(self, service) -> None:
-        self.service = service
 
     async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
-        return await _get_book_work(self.service, work_id)
+        return await _get_book_work(self, work_id)
 
     async def get_book_work_editions(self, work_id: UUID) -> list[BookEditionV1Response]:
-        return await _get_book_work_editions(self.service, work_id)
+        return await _get_book_work_editions(self, work_id)
 
     async def get_book_edition(self, edition_id: UUID) -> BookEditionV1Response:
-        return await _get_book_edition(self.service, edition_id)
+        return await _get_book_edition(self, edition_id)
 
     async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
-        return await _get_game_work(self.service, work_id)
+        return await _get_game_work(self, work_id)
 
     async def get_game_work_releases(self, work_id: UUID) -> list[GameReleaseV1Response]:
-        return await _get_game_work_releases(self.service, work_id)
+        return await _get_game_work_releases(self, work_id)
 
     async def get_game_release(self, release_id: UUID) -> GameReleaseV1Response:
-        return await _get_game_release(self.service, release_id)
+        return await _get_game_release(self, release_id)
 
     async def get_boardgame_work(self, work_id: UUID) -> BoardGameWorkV1Response:
-        return await _get_boardgame_work(self.service, work_id)
+        return await _get_boardgame_work(self, work_id)
 
     async def get_boardgame_work_editions(self, work_id: UUID) -> list[BoardGameEditionV1Response]:
-        return await _get_boardgame_work_editions(self.service, work_id)
+        return await _get_boardgame_work_editions(self, work_id)
 
     async def get_boardgame_edition(self, edition_id: UUID) -> BoardGameEditionV1Response:
-        return await _get_boardgame_edition(self.service, edition_id)
+        return await _get_boardgame_edition(self, edition_id)
 
     async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
-        return await _get_comic_work(self.service, work_id)
+        return await _get_comic_work(self, work_id)
 
     async def get_comic_work_issues(self, work_id: UUID) -> list[ComicIssueV1Response]:
-        return await _get_comic_work_issues(self.service, work_id)
+        return await _get_comic_work_issues(self, work_id)
 
     async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
-        return await _get_comic_issue(self.service, issue_id)
+        return await _get_comic_issue(self, issue_id)
 
     async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
-        return await _get_manga_work(self.service, work_id)
+        return await _get_manga_work(self, work_id)
 
     async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
-        return await _get_manga_work_chapters(self.service, work_id)
+        return await _get_manga_work_chapters(self, work_id)
 
     async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
-        return await _get_manga_chapter(self.service, chapter_id)
+        return await _get_manga_chapter(self, chapter_id)
 
     async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
-        return await _get_anime_series(self.service, series_id)
+        return await _get_anime_series(self, series_id)
 
     async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
-        return await _get_anime_series_episodes(self.service, series_id)
+        return await _get_anime_series_episodes(self, series_id)
 
     async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
-        return await _get_anime_episode(self.service, episode_id)
+        return await _get_anime_episode(self, episode_id)
 
     async def get_movie_work(self, work_id: UUID) -> MovieWorkV1Response:
-        return await _get_movie_work(self.service, work_id)
+        return await _get_movie_work(self, work_id)
 
     async def get_movie_work_releases(self, work_id: UUID) -> list[MovieReleaseV1Response]:
-        return await _get_movie_work_releases(self.service, work_id)
+        return await _get_movie_work_releases(self, work_id)
 
     async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
-        return await _get_movie_release(self.service, release_id)
+        return await _get_movie_release(self, release_id)
 
     async def get_music_release(self, release_id: UUID) -> MusicReleaseV1Response:
-        return await _get_music_release(self.service, release_id)
+        return await _get_music_release(self, release_id)
 
     async def get_music_release_media(self, release_id: UUID) -> list[MusicMediaV1Response]:
-        return await _get_music_release_media(self.service, release_id)
+        return await _get_music_release_media(self, release_id)
 
     async def get_music_media(self, media_id: UUID) -> MusicMediaV1Response:
-        return await _get_music_media(self.service, media_id)
+        return await _get_music_media(self, media_id)
 
     async def get_music_media_tracks(self, media_id: UUID) -> list[MusicTrackV1Response]:
-        return await _get_music_media_tracks(self.service, media_id)
+        return await _get_music_media_tracks(self, media_id)
 
     async def get_music_track(self, track_id: UUID) -> MusicTrackV1Response:
-        return await _get_music_track(self.service, track_id)
+        return await _get_music_track(self, track_id)
 
     async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
-        return await _get_tv_series(self.service, series_id)
+        return await _get_tv_series(self, series_id)
 
     async def get_tv_series_seasons(self, series_id: UUID) -> list[TVSeasonV1Response]:
-        return await _get_tv_series_seasons(self.service, series_id)
+        return await _get_tv_series_seasons(self, series_id)
 
     async def get_tv_series_releases(self, series_id: UUID) -> list[TVReleaseV1Response]:
-        return await _get_tv_series_releases(self.service, series_id)
+        return await _get_tv_series_releases(self, series_id)
 
     async def get_tv_season(self, season_id: UUID) -> TVSeasonV1Response:
-        return await _get_tv_season(self.service, season_id)
+        return await _get_tv_season(self, season_id)
 
     async def get_tv_season_episodes(self, season_id: UUID) -> list[TVEpisodeV1Response]:
-        return await _get_tv_season_episodes(self.service, season_id)
+        return await _get_tv_season_episodes(self, season_id)
 
     async def get_tv_release(self, release_id: UUID) -> TVReleaseV1Response:
-        return await _get_tv_release(self.service, release_id)
+        return await _get_tv_release(self, release_id)
 
     async def get_tv_release_media(self, release_id: UUID) -> list[TVReleaseMediaResponse]:
-        return await _get_tv_release_media(self.service, release_id)
+        return await _get_tv_release_media(self, release_id)
 
     async def get_tv_release_episode_map(
         self, release_id: UUID
     ) -> list[TVReleaseEpisodeMapV1Response]:
-        return await _get_tv_release_episode_map(self.service, release_id)
+        return await _get_tv_release_episode_map(self, release_id)
 
     async def get_tv_release_media_item(self, media_id: UUID) -> TVReleaseMediaResponse:
-        return await _get_tv_release_media_item(self.service, media_id)
+        return await _get_tv_release_media_item(self, media_id)
 
     async def get_tv_episode(self, episode_id: UUID) -> TVEpisodeV1Response:
-        return await _get_tv_episode(self.service, episode_id)
+        return await _get_tv_episode(self, episode_id)

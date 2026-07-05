@@ -323,6 +323,9 @@ class AdminProviderIngestService:
             changed_fields.append("image_url")
 
         if payload.metadata_payload is not None:
+            from app.proposal_payload import validate_metadata_payload
+
+            validate_metadata_payload(payload.metadata_payload)
             compacted_payload = compact_metadata_payload(payload.metadata_payload)
             if compacted_payload != proposal.metadata_payload:
                 proposal.metadata_payload = compacted_payload

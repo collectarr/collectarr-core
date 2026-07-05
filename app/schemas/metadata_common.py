@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.catalog.grouping_models import GroupingModel
 from app.models.base import ExternalProvider, ItemKind
@@ -96,6 +96,16 @@ class MetadataProposalCreate(BaseModel):
     summary: str | None = None
     image_url: str | None = Field(default=None, max_length=1024)
     metadata_payload: dict[str, Any] | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("metadata_payload")
+    @classmethod
+    def _validate_metadata_payload(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        from app.proposal_payload import validate_metadata_payload
+
+        validate_metadata_payload(value)
+        return value
 
 
 class MetadataProposalResponse(BaseModel):

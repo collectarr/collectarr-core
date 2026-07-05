@@ -49,9 +49,6 @@ class ClzBookRecord:
     printing: str | None
     first_edition: bool | None
     number_line: str | None
-    local_cover_image_path: str | None
-    local_back_image_path: str | None
-    local_thumbnail_image_path: str | None
     creators: list[ClzBookCreator]
     metadata_json: dict[str, Any]
 
@@ -93,20 +90,9 @@ class ClzBooksXmlImporter:
     def _parse_record(self, node: ElementTree.Element) -> ClzBookRecord:
         title = self._text(node, "Title") or self._text(node, "Series") or "Unknown book"
         series_title = self._text(node, "Series") or title
-        local_cover_image_path = self._first_text(node, "LocalCoverImagePath", "CoverImagePath", "FrontCoverPath")
-        local_back_image_path = self._first_text(node, "LocalBackImagePath", "BackImagePath")
-        local_thumbnail_image_path = self._first_text(
-            node,
-            "LocalThumbnailImagePath",
-            "ThumbnailImagePath",
-            "PreviewImagePath",
-        )
         creators = [self._parse_creator(creator) for creator in self._child_nodes(node, "Creators", "Creator", "Contributors", "Contributor", "Authors", "Author")]
         metadata_json = {
             "import_source": "clz_xml",
-            "local_cover_image_path": local_cover_image_path,
-            "local_back_image_path": local_back_image_path,
-            "local_thumbnail_image_path": local_thumbnail_image_path,
             "cover_icon": self._first_text(node, "CoverIcon", "CoverImage", "TemplateImage"),
         }
         return ClzBookRecord(
@@ -134,9 +120,6 @@ class ClzBooksXmlImporter:
             printing=self._text(node, "Printing"),
             first_edition=self._bool_text(node, "FirstEdition"),
             number_line=self._text(node, "NumberLine"),
-            local_cover_image_path=local_cover_image_path,
-            local_back_image_path=local_back_image_path,
-            local_thumbnail_image_path=local_thumbnail_image_path,
             creators=creators,
             metadata_json=metadata_json,
         )
@@ -329,9 +312,6 @@ class ClzBooksXmlImporter:
         edition.printing = record.printing
         edition.first_edition = record.first_edition
         edition.number_line = record.number_line
-        edition.local_cover_image_path = record.local_cover_image_path
-        edition.local_back_image_path = record.local_back_image_path
-        edition.local_thumbnail_image_path = record.local_thumbnail_image_path
         edition.description = record.summary
         edition.metadata_json = {
             **(edition.metadata_json or {}),

@@ -48,7 +48,6 @@ class MusicMediaV1Response(BaseModel):
     title: str | None = None
     track_count: int | None = None
     expected_track_count: int | None = None
-    owned_track_count: int | None = None
     missing_track_count: int | None = None
     missing_track_positions: list[str] = Field(default_factory=list)
     toc: str | None = None
@@ -78,7 +77,6 @@ class MusicReleaseV1Response(BaseModel):
     recording_date: date | None = None
     track_count: int | None = None
     expected_media_count: int | None = None
-    owned_media_count: int | None = None
     missing_media_count: int | None = None
     missing_disc_numbers: list[int] = Field(default_factory=list)
     publisher: str | None = None
@@ -90,9 +88,6 @@ class MusicReleaseV1Response(BaseModel):
     language: str | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
-    local_cover_image_path: str | None = None
-    local_back_image_path: str | None = None
-    local_thumbnail_image_path: str | None = None
     extras: str | None = None
     kind: ItemKind = ItemKind.music
     media: list[MusicMediaV1Response] = Field(default_factory=list)

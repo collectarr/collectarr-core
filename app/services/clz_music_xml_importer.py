@@ -43,7 +43,6 @@ class ClzMusicDisc:
     media_type: str | None = None
     track_count: int | None = None
     expected_track_count: int | None = None
-    owned_track_count: int | None = None
     missing_track_count: int | None = None
     missing_track_positions: list[str] | None = None
     toc: str | None = None
@@ -57,9 +56,6 @@ class ClzMusicDisc:
     vinyl_weight: str | None = None
     rpm: int | None = None
     spars: str | None = None
-    local_cover_image_path: str | None = None
-    local_back_image_path: str | None = None
-    local_thumbnail_image_path: str | None = None
     tracks: list[ClzMusicTrack] | None = None
     metadata_json: dict[str, Any] | None = None
 
@@ -82,14 +78,9 @@ class ClzMusicRecord:
     language: str | None
     track_count: int | None
     expected_media_count: int | None
-    owned_media_count: int | None
     missing_media_count: int | None
     missing_disc_numbers: list[int]
     cover_image_url: str | None
-    cover_image_key: str | None
-    local_cover_image_path: str | None
-    local_back_image_path: str | None
-    local_thumbnail_image_path: str | None
     extras: str | None
     credits: list[ClzMusicCredit]
     discs: list[ClzMusicDisc]
@@ -132,9 +123,6 @@ class ClzMusicXmlImporter:
         ]
         metadata_json = {
             "import_source": "clz_xml",
-            "local_cover_image_path": self._first_text(node, "LocalCoverImagePath", "CoverImagePath"),
-            "local_back_image_path": self._first_text(node, "LocalBackImagePath", "BackImagePath"),
-            "local_thumbnail_image_path": self._first_text(node, "LocalThumbnailImagePath", "ThumbnailImagePath"),
         }
         return ClzMusicRecord(
             title=title,
@@ -153,14 +141,9 @@ class ClzMusicXmlImporter:
             language=self._text(node, "Language"),
             track_count=self._parse_int(node, "TrackCount"),
             expected_media_count=self._parse_int(node, "DiscCount") or self._parse_int(node, "MediaCount"),
-            owned_media_count=self._parse_int(node, "OwnedDiscCount"),
             missing_media_count=self._parse_int(node, "MissingDiscCount"),
             missing_disc_numbers=self._parse_int_list(node, "MissingDiscNumbers"),
             cover_image_url=self._first_text(node, "CoverImageUrl", "FrontCoverUrl"),
-            cover_image_key=self._text(node, "CoverImageKey"),
-            local_cover_image_path=self._first_text(node, "LocalCoverImagePath", "CoverImagePath"),
-            local_back_image_path=self._first_text(node, "LocalBackImagePath", "BackImagePath"),
-            local_thumbnail_image_path=self._first_text(node, "LocalThumbnailImagePath", "ThumbnailImagePath"),
             extras=self._text(node, "Notes") or self._text(node, "Extras"),
             credits=credits,
             discs=discs,
@@ -178,7 +161,6 @@ class ClzMusicXmlImporter:
             media_type=self._text(node, "MediaType") or self._text(node, "Format"),
             track_count=self._parse_int(node, "TrackCount"),
             expected_track_count=self._parse_int(node, "ExpectedTrackCount"),
-            owned_track_count=self._parse_int(node, "OwnedTrackCount"),
             missing_track_count=self._parse_int(node, "MissingTrackCount"),
             missing_track_positions=self._parse_string_list(node, "MissingTrackPositions"),
             toc=self._text(node, "TOC"),
@@ -192,9 +174,6 @@ class ClzMusicXmlImporter:
             vinyl_weight=self._text(node, "VinylWeight"),
             rpm=self._parse_int(node, "RPM"),
             spars=self._text(node, "SPARS"),
-            local_cover_image_path=self._first_text(node, "LocalCoverImagePath", "CoverImagePath"),
-            local_back_image_path=self._first_text(node, "LocalBackImagePath", "BackImagePath"),
-            local_thumbnail_image_path=self._first_text(node, "LocalThumbnailImagePath", "ThumbnailImagePath"),
             tracks=tracks,
             metadata_json={
                 "import_source": "clz_xml",
@@ -270,7 +249,6 @@ class ClzMusicXmlImporter:
                 title=disc.title,
                 track_count=disc.track_count,
                 expected_track_count=disc.expected_track_count,
-                owned_track_count=disc.owned_track_count,
                 missing_track_count=disc.missing_track_count,
                 missing_track_positions=disc.missing_track_positions,
                 toc=disc.toc,
@@ -335,16 +313,11 @@ class ClzMusicXmlImporter:
         release.recording_date = self._date_value(record.recording_date)
         release.media_count = len(record.discs)
         release.expected_media_count = record.expected_media_count
-        release.owned_media_count = record.owned_media_count
         release.missing_media_count = record.missing_media_count
         release.missing_disc_numbers = record.missing_disc_numbers or None
         release.track_count = record.track_count
         release.upc = record.upc
         release.cover_image_url = record.cover_image_url
-        release.cover_image_key = record.cover_image_key
-        release.local_cover_image_path = record.local_cover_image_path
-        release.local_back_image_path = record.local_back_image_path
-        release.local_thumbnail_image_path = record.local_thumbnail_image_path
         release.publisher = record.publisher
         release.studio = record.studio
         release.country_code = record.country_code

@@ -137,9 +137,6 @@ class BookEdition(UuidMixin, TimestampMixin, Base):
     number_line: Mapped[str | None] = mapped_column(String(255))
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
-    local_cover_image_path: Mapped[str | None] = mapped_column(String(1024))
-    local_back_image_path: Mapped[str | None] = mapped_column(String(1024))
-    local_thumbnail_image_path: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -167,7 +164,6 @@ class BookPrinting(UuidMixin, TimestampMixin, Base):
     printing_number: Mapped[int | None] = mapped_column(Integer, index=True)
     printing_statement: Mapped[str | None] = mapped_column(String(255))
     print_run: Mapped[int | None] = mapped_column(Integer)
-    notes: Mapped[str | None] = mapped_column(Text)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     edition: Mapped[BookEdition] = relationship(back_populates="printings")

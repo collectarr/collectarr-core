@@ -252,7 +252,9 @@ async def mirror_provider_image_bytes(
 
 async def create_proposal(service, payload: MetadataProposalCreate) -> MetadataProposalResponse:
     from app.models import MetadataProposal
+    from app.proposal_payload import validate_metadata_payload
 
+    validate_metadata_payload(payload.metadata_payload)
     proposal = MetadataProposal(
         provider=payload.provider,
         provider_item_id=payload.provider_item_id,

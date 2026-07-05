@@ -57,13 +57,6 @@ class ComicIssueV1Response(BaseModel):
     release_status: str | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
-    local_image_path: str | None = None
-    value_cents: int | None = None
-    value_currency: str | None = None
-    grade: str | None = None
-    grading_company: str | None = None
-    raw_or_slabbed: str | None = None
-    storage_box: str | None = None
     key_comic: bool = False
     key_reason: str | None = None
     description: str | None = None
@@ -82,7 +75,6 @@ class ComicWorkV1Response(BaseModel):
     original_language: str | None = None
     first_publication_date: date | None = None
     expected_issue_count: int | None = None
-    owned_issue_count: int | None = None
     missing_issue_count: int | None = None
     missing_issue_numbers: list[int] = Field(default_factory=list)
     kind: ItemKind = ItemKind.comic

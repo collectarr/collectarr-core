@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
 from app.schemas.metadata_anime import AnimeSeriesV1Response
@@ -65,11 +65,15 @@ class ProviderIngestRequest(BaseModel):
     provider_item_id: str = Field(min_length=1, max_length=255)
     kind: ItemKind | None = None
 
+    model_config = {"extra": "forbid"}
+
 
 class ProviderSearchRequest(BaseModel):
     provider: ExternalProvider
     query: str = Field(min_length=1, max_length=255)
     kind: ItemKind | None = None
+
+    model_config = {"extra": "forbid"}
 
 
 class ProviderIngestResponse(BaseModel):
@@ -264,6 +268,8 @@ class ProviderIngestJobCreateRequest(BaseModel):
     provider_item_id: str = Field(min_length=1, max_length=255)
     max_attempts: int = Field(default=3, ge=1, le=10)
 
+    model_config = {"extra": "forbid"}
+
 
 class ProviderIngestJobResponse(BaseModel):
     id: UUID
@@ -359,6 +365,8 @@ class AdminMetadataCorrectionRequest(BaseModel):
     barcode: str | None = Field(default=None, max_length=32)
     cover_image_url: str | None = Field(default=None, max_length=1024)
     thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+
+    model_config = {"extra": "forbid"}
 
 
 class AdminBundleReleaseMemberUpdateRequest(BaseModel):
@@ -560,6 +568,16 @@ class MetadataProposalAdminUpdateRequest(BaseModel):
     summary: str | None = None
     image_url: str | None = None
     metadata_payload: dict[str, Any] | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("metadata_payload")
+    @classmethod
+    def _validate_metadata_payload(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        from app.proposal_payload import validate_metadata_payload
+
+        validate_metadata_payload(value)
+        return value
 
 
 class UserResponse(BaseModel):

@@ -50,17 +50,9 @@ class ClzComicRecord:
     language: str | None
     release_date: str | None
     summary: str | None
-    value_cents: int | None
-    value_currency: str | None
-    grade: str | None
-    grading_company: str | None
-    raw_or_slabbed: str | None
-    storage_box: str | None
     key_comic: bool
     key_reason: str | None
-    local_image_path: str | None
     expected_issue_count: int | None
-    owned_issue_count: int | None
     missing_issue_count: int | None
     missing_issue_numbers: list[int]
     creators: list[ClzComicCreator]
@@ -106,15 +98,6 @@ class ClzComicsXmlImporter:
         series_title = self._text(node, "Series") or title
         issue_number = self._text(node, "Number") or self._text(node, "IssueNumber")
         release_date = self._date_text(node)
-        local_image_path = self._first_text(
-            node,
-            "LocalImagePath",
-            "ImagePath",
-            "ImageFile",
-            "CoverImagePath",
-            "FrontCoverPath",
-            "BackCoverPath",
-        )
         creators = [
             self._parse_creator(creator)
             for creator in self._child_nodes(node, "Creators", "Creator", "Contributors", "Contributor")
@@ -130,7 +113,6 @@ class ClzComicsXmlImporter:
             "format_icon": self._first_text(node, "FormatIcon", "FormatImage", "TemplateImage"),
             "country_icon": self._first_text(node, "CountryIcon", "CountryImage", "CountryScaledImage"),
             "language_icon": self._first_text(node, "LanguageIcon", "LanguageImage", "LanguageScaledImage"),
-            "local_image_path": local_image_path,
         }
         return ClzComicRecord(
             title=title,
@@ -142,17 +124,9 @@ class ClzComicsXmlImporter:
             language=self._text(node, "Language"),
             release_date=release_date,
             summary=self._text(node, "Summary") or self._text(node, "Plot"),
-            value_cents=self._parse_money_cents(node),
-            value_currency=self._text(node, "ValueCurrency") or self._text(node, "Currency"),
-            grade=self._text(node, "Grade"),
-            grading_company=self._text(node, "GradingCompany"),
-            raw_or_slabbed=self._text(node, "RawOrSlabbed"),
-            storage_box=self._text(node, "StorageBox"),
             key_comic=self._bool_text(node, "KeyComic"),
             key_reason=self._text(node, "KeyReason"),
-            local_image_path=local_image_path,
             expected_issue_count=self._parse_int(node, "IssueCount"),
-            owned_issue_count=self._parse_int(node, "OwnedIssueCount"),
             missing_issue_count=self._parse_int(node, "MissingIssueCount"),
             missing_issue_numbers=missing_numbers,
             creators=creators,
@@ -193,7 +167,6 @@ class ClzComicsXmlImporter:
         if existing is not None:
             existing.description = existing.description or record.summary
             existing.expected_issue_count = record.expected_issue_count
-            existing.owned_issue_count = record.owned_issue_count
             existing.missing_issue_count = record.missing_issue_count
             existing.missing_issue_numbers = record.missing_issue_numbers or None
             return existing
@@ -204,7 +177,6 @@ class ClzComicsXmlImporter:
             original_language=record.language,
             first_publication_date=None,
             expected_issue_count=record.expected_issue_count,
-            owned_issue_count=record.owned_issue_count,
             missing_issue_count=record.missing_issue_count,
             missing_issue_numbers=record.missing_issue_numbers or None,
             metadata_json=record.metadata_json,
@@ -341,13 +313,6 @@ class ClzComicsXmlImporter:
         issue.release_status = None
         issue.cover_image_url = None
         issue.cover_image_key = None
-        issue.local_image_path = record.local_image_path
-        issue.value_cents = record.value_cents
-        issue.value_currency = record.value_currency
-        issue.grade = record.grade
-        issue.grading_company = record.grading_company
-        issue.raw_or_slabbed = record.raw_or_slabbed
-        issue.storage_box = record.storage_box
         issue.key_comic = record.key_comic
         issue.key_reason = record.key_reason
         issue.description = record.summary
@@ -361,8 +326,6 @@ class ClzComicsXmlImporter:
     def _apply_series_counts(self, series: ComicSeries, record: ClzComicRecord) -> None:
         if record.expected_issue_count is not None:
             series.expected_issue_count = record.expected_issue_count
-        if record.owned_issue_count is not None:
-            series.owned_issue_count = record.owned_issue_count
         if record.missing_issue_count is not None:
             series.missing_issue_count = record.missing_issue_count
         if record.missing_issue_numbers:

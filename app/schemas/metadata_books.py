@@ -33,9 +33,6 @@ class BookPhysicalDetailsResponse(BaseModel):
     printing: str | None = None
     first_edition: bool | None = None
     number_line: str | None = None
-    local_cover_image_path: str | None = None
-    local_back_image_path: str | None = None
-    local_thumbnail_image_path: str | None = None
 
 
 class BookIdentifierResponse(BaseModel):

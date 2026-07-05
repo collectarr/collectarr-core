@@ -593,3 +593,8 @@ def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[Meta
 def editable_fields() -> list[MetadataFieldSpec]:
     """All user-editable specs, in registry order."""
     return [spec for spec in METADATA_FIELDS if spec.editable]
+
+
+def editable_field_keys() -> set[str]:
+    """Editable canonical field keys accepted by proposal/correction payloads."""
+    return {spec.key for spec in editable_fields()}

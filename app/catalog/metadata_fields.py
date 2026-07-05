@@ -29,6 +29,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from app.catalog.grouping_models import PRINT_GROUPING_KINDS
+from app.catalog.metadata_legacy_projection import (
+    INTERNAL_BOOKKEEPING_KEYS,
+    LEGACY_PROJECTION_KEYS,
+    warn_if_legacy_projection_used,
+)
 from app.models.base import ItemKind
 
 # Value types understood by normalization/validation + the edit surfaces.
@@ -133,28 +138,6 @@ class MetadataFieldSpec:
     def is_legacy_projection(self) -> bool:
         return not self.common and not self.typed and self.section != SECTION_INTERNAL
 
-
-_INTERNAL_BOOKKEEPING_KEYS = {
-    "physical_format_label",
-    "physical_format_media_family",
-    "physical_format_variant_type",
-    "associated_image_id",
-    "cover_delivery_url",
-    "cover_policy",
-    "cover_source_url",
-    "cover_status",
-    "cover_storage",
-}
-
-_LEGACY_PROJECTION_KEYS = {
-    "cover_image_url",
-    "thumbnail_image_url",
-    "synopsis",
-    "crossover",
-    "plot_summary",
-    "plot_description",
-    "series_tags",
-}
 
 _WORK_SCOPE_KEYS = {
     "title",
@@ -275,9 +258,9 @@ def _default_entity_ref(kind: ItemKind) -> tuple[str, str]:
 
 
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
-    if key in _INTERNAL_BOOKKEEPING_KEYS:
+    if key in INTERNAL_BOOKKEEPING_KEYS:
         return "legacy_projection"
-    if key in _LEGACY_PROJECTION_KEYS:
+    if key in LEGACY_PROJECTION_KEYS:
         return "legacy_projection"
     if key == "physical_format":
         if kind in {ItemKind.book, ItemKind.boardgame}:
@@ -352,9 +335,9 @@ def _field_source_table(key: str, kind: ItemKind) -> str:
 
 
 def _field_write_target(key: str, kind: ItemKind) -> str:
-    if key in _INTERNAL_BOOKKEEPING_KEYS:
+    if key in INTERNAL_BOOKKEEPING_KEYS:
         return "readonly_computed"
-    if key in _LEGACY_PROJECTION_KEYS:
+    if key in LEGACY_PROJECTION_KEYS:
         return "legacy_projection"
     if key in _PROPOSAL_KEYS:
         return "core_admin_proposal"
@@ -389,6 +372,10 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
                     "sourceTable": spec.source_table_for_kind(kind),
                 }
             )
+    warn_if_legacy_projection_used(
+        "metadata field schema",
+        (row["key"] for row in rows if row["scope"] == "legacy_projection"),
+    )
     return rows
 
 
@@ -403,6 +390,20 @@ _INTERNAL_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("physical_format_variant_type", VALUE_TYPE_STRING,
                       "Physical format variant type", common=True, normalized=True,
                       editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("format_templateimage", VALUE_TYPE_STRING, "Format template image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("format_scaledimage", VALUE_TYPE_STRING, "Format scaled image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("country_scaledimage", VALUE_TYPE_STRING, "Country scaled image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("language_scaledimage", VALUE_TYPE_STRING, "Language scaled image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("audiencerating_templateimage", VALUE_TYPE_STRING, "Audience rating template image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("region_scaledimage", VALUE_TYPE_STRING, "Region scaled image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+    MetadataFieldSpec("audio_templateimage", VALUE_TYPE_STRING, "Audio template image",
+                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
     MetadataFieldSpec("associated_image_id", VALUE_TYPE_STRING, "Associated image",
                       common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
     MetadataFieldSpec("cover_delivery_url", VALUE_TYPE_STRING, "Cover delivery URL",

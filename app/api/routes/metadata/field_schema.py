@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 
 from app.catalog.media_types import top_level_media_types
 from app.catalog.metadata_fields import METADATA_FIELDS, MetadataFieldSpec, fields_for_kind
+from app.catalog.metadata_legacy_projection import warn_if_legacy_projection_used
 from app.catalog.physical_formats import PhysicalFormatConfig
 from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION, normalized_metadata_manifest
 from app.models.base import ItemKind
@@ -62,6 +63,7 @@ async def metadata_field_schema(
     editable_only: bool = Query(default=True),
 ) -> MetadataFieldSchemaResponse:
     specs = [spec for spec in METADATA_FIELDS if spec.editable or not editable_only]
+    warn_if_legacy_projection_used("GET /metadata/field-schema", (spec.key for spec in specs))
     fields = [_field_spec_response(spec) for spec in specs]
     kind_fields = {
         kind: [spec.key for spec in fields_for_kind(kind, editable_only=editable_only)]

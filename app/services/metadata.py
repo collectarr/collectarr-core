@@ -5,4 +5,7 @@ from __future__ import annotations
 Prefer the split service modules under app.services.* for new code.
 """
 
+from app.services.facade import MetadataFacade as MetadataService
+
+__all__ = ["MetadataService"]
 

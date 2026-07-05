@@ -20,6 +20,7 @@ from app.models import (
     MovieWork,
     ProviderIngestJob,
     TVRelease,
+    TVSeries,
 )
 from app.schemas import ExternalProviderIdResponse
 from app.schemas.admin import ProviderIngestHistoryEntry

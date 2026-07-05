@@ -19,8 +19,7 @@ from app.catalog.metadata_fields import (
     value_types,
 )
 from app.catalog.metadata_legacy_projection import LEGACY_PROJECTION_KEYS
-from app.models.base import Base
-from app.models.base import ItemKind
+from app.models.base import Base, ItemKind
 from scripts.export_contract_bundle import CONTRACT_VERSION, write_contract_bundle
 
 VIDEO = ("anime", "movie", "tv")

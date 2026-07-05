@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from app.models import MusicMedia, MusicRelease, MusicReleaseContribution, MusicReleaseIdentifier, MusicTrack
+from app.models import (
+    MusicMedia,
+    MusicRelease,
+    MusicReleaseContribution,
+    MusicReleaseIdentifier,
+    MusicTrack,
+)
 from app.schemas import (
     MusicContributorResponse,
     MusicIdentifierResponse,

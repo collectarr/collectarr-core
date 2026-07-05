@@ -14,6 +14,7 @@ from app.models import (
     MangaWork,
     MovieWork,
     MusicRelease,
+    TVRelease,
 )
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult, public_item_kind

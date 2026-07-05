@@ -48,7 +48,6 @@ from app.models import (
     PhysicalFormatRef,
     ReleaseStatus,
     StoryArc,
-    TVEpisode,
     TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
@@ -164,7 +163,12 @@ class AdminCatalogService:
                 if tracks:
                     metadata["tracks"] = tracks
                     metadata["track_count"] = getattr(entity, "track_count", None) or len(tracks)
-            primary_media = next(iter(getattr(primary_release, "media", []) or []), None) if primary_release is not None else None
+            primary_release = next(iter(getattr(entity, "releases", []) or []), None)
+            primary_media = (
+                next(iter(getattr(primary_release, "media", []) or []), None)
+                if primary_release is not None
+                else None
+            )
             if kind in {ItemKind.movie, ItemKind.tv} and primary_media is not None:
                 for key in ("color", "audio_tracks", "subtitles", "layers", "screen_ratio"):
                     value = getattr(primary_media, key, None)

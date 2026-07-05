@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.models import TVEpisode, TVReleaseContribution, TVReleaseIdentifier, TVReleaseMedia, TVSeason, TVSeries
+from app.models import (
+    TVEpisode,
+    TVReleaseContribution,
+    TVReleaseIdentifier,
+    TVReleaseMedia,
+    TVSeason,
+    TVSeries,
+)
 from app.schemas import (
     TVContributorResponse,
     TVEpisodeV1Response,

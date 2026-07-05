@@ -4,6 +4,7 @@ import logging
 
 from app.core.config import get_settings
 from app.models.base import ExternalProvider, ItemKind
+from app.providers.registry import ProviderRegistry
 from app.schemas import (
     MetadataProposalCreate,
     MetadataProposalResponse,
@@ -11,12 +12,11 @@ from app.schemas import (
     SeasonResponse,
 )
 from app.schemas.metadata_shared import SearchResult
+from app.search.client import SearchClient
 from app.services import metadata_public
 from app.services.metadata_read_service import MetadataReadService
 from app.services.metadata_search_service import MetadataSearchService
 from app.services.provider_search_state import ProviderSearchState
-from app.providers.registry import ProviderRegistry
-from app.search.client import SearchClient
 
 
 class MetadataFacade:

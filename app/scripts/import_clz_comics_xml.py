@@ -14,7 +14,7 @@ def parse_args() -> argparse.Namespace:
 
 
 async def main_async(path: str) -> int:
-    with open(path, "r", encoding="utf-8") as handle:
+    with open(path, encoding="utf-8") as handle:
         xml_text = handle.read()
     async with AsyncSessionLocal() as db:
         importer = ClzComicsXmlImporter()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import date
 
 from fastapi import status
@@ -8,8 +7,14 @@ from sqlalchemy import extract, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
-from app.models import TVEpisode, TVRelease, TVReleaseContribution, TVReleaseIdentifier, TVSeason, TVSeries
-from app.models.base import ExternalProvider, ItemKind
+from app.models import (
+    TVRelease,
+    TVReleaseContribution,
+    TVReleaseIdentifier,
+    TVSeason,
+    TVSeries,
+)
+from app.models.base import ItemKind
 from app.providers.base import NormalizedSeason
 from app.schemas import EpisodeResponse as ProviderEpisodeResponse
 from app.schemas import SeasonResponse

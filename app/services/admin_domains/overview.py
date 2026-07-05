@@ -50,7 +50,7 @@ from app.models import (
     MusicRelease,
     MusicTrack,
     ProviderIngestJob,
-    TVSeries,
+    TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
     TVSeason,

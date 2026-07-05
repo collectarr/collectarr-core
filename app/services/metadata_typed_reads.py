@@ -21,10 +21,10 @@ from app.schemas import (
     MusicReleaseV1Response,
     MusicTrackV1Response,
     TVEpisodeV1Response,
-    TVSeasonV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
     TVReleaseV1Response,
+    TVSeasonV1Response,
     TVSeriesV1Response,
 )
 from app.services.metadata_reads import (
@@ -109,13 +109,16 @@ from app.services.metadata_reads import (
     get_tv_episode as _get_tv_episode,
 )
 from app.services.metadata_reads import (
-    get_tv_series as _get_tv_series,
+    get_tv_release as _get_tv_release,
 )
 from app.services.metadata_reads import (
-    get_tv_series_seasons as _get_tv_series_seasons,
+    get_tv_release_episode_map as _get_tv_release_episode_map,
 )
 from app.services.metadata_reads import (
-    get_tv_series_releases as _get_tv_series_releases,
+    get_tv_release_media as _get_tv_release_media,
+)
+from app.services.metadata_reads import (
+    get_tv_release_media_item as _get_tv_release_media_item,
 )
 from app.services.metadata_reads import (
     get_tv_season as _get_tv_season,
@@ -124,16 +127,13 @@ from app.services.metadata_reads import (
     get_tv_season_episodes as _get_tv_season_episodes,
 )
 from app.services.metadata_reads import (
-    get_tv_release as _get_tv_release,
+    get_tv_series as _get_tv_series,
 )
 from app.services.metadata_reads import (
-    get_tv_release_media as _get_tv_release_media,
+    get_tv_series_releases as _get_tv_series_releases,
 )
 from app.services.metadata_reads import (
-    get_tv_release_episode_map as _get_tv_release_episode_map,
-)
-from app.services.metadata_reads import (
-    get_tv_release_media_item as _get_tv_release_media_item,
+    get_tv_series_seasons as _get_tv_series_seasons,
 )
 
 

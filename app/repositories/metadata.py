@@ -32,7 +32,6 @@ from app.models import (
     MovieWorkContribution,
     MovieWorkIdentifier,
     StoryArcItem,
-    TVEpisode,
     TVRelease,
     TVReleaseContribution,
     TVReleaseIdentifier,

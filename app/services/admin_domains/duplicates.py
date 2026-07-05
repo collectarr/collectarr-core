@@ -49,9 +49,6 @@ from app.models import (
     MusicTrack,
     TVEpisode,
     TVRelease,
-    TVReleaseContribution,
-    TVReleaseIdentifier,
-    TVReleaseMedia,
     TVSeason,
     TVSeries,
 )
@@ -60,9 +57,9 @@ from app.schemas.admin import (
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
-    AdminDuplicateReviewRequest,
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
+    AdminDuplicateReviewRequest,
 )
 
 # Maps each native root model class to the entity_type string used in generic link tables.

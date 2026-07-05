@@ -4,12 +4,12 @@ import ast
 from pathlib import Path
 
 import pytest
+from fastapi.routing import APIRoute
 from sqlalchemy import text
 
 from app.db.session import AsyncSessionLocal
-from app.models.base import Base
 from app.main import app
-from fastapi.routing import APIRoute
+from app.models.base import Base
 
 
 @pytest.mark.asyncio

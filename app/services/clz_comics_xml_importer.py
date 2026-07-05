@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
@@ -16,7 +14,6 @@ from app.models import (
     ComicContribution,
     ComicIssue,
     ComicSeries,
-    ComicSeriesMembership,
     ComicWork,
 )
 from app.models.canonical_support import Person

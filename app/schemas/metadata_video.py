@@ -152,6 +152,8 @@ class TVEpisodeV1Response(BaseModel):
     description: str | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
+    image_url: str | None = None
+    large_image_url: str | None = None
     runtime_minutes: int | None = None
 
     model_config = {"from_attributes": True}

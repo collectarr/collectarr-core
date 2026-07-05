@@ -51,7 +51,8 @@ class MangaMetadataResponseBuilders:
                 name=contrib.person.name if contrib.person is not None else "",
                 role=contrib.role,
                 sequence=contrib.sequence,
-            )
+                    image_url=contrib.person.image_url if contrib.person is not None else None,
+                )
 
         def _manga_identifier_response(self, identifier: MangaIdentifier) -> MangaIdentifierResponse:
             return MangaIdentifierResponse(

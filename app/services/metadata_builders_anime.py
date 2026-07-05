@@ -97,7 +97,8 @@ class AnimeMetadataResponseBuilders:
                 name=contrib.person.name if contrib.person is not None else "",
                 role=contrib.role,
                 sequence=contrib.sequence,
-            )
+                    image_url=contrib.person.image_url if contrib.person is not None else None,
+                )
 
         def _anime_identifier_response(self, identifier: AnimeIdentifier) -> AnimeIdentifierResponse:
             return AnimeIdentifierResponse(

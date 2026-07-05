@@ -377,7 +377,16 @@ class TMDbProvider(BaseHttpProvider):
                 continue
             name = self._optional_text(entry.get("name"))
             if name:
-                creators.append(NormalizedCredit(name=name, role=job))
+                creators.append(
+                    NormalizedCredit(
+                        name=name,
+                        role=job,
+                        sort_name=self._optional_text(entry.get("original_name")),
+                        image_url=self._profile_url(entry),
+                        external_ids=self._person_external_ids(entry),
+                        role_id=self._role_id_for_job(job),
+                    )
+                )
         return creators
 
     def _cast(self, credits: Any) -> list[NormalizedCredit]:
@@ -394,6 +403,10 @@ class TMDbProvider(BaseHttpProvider):
                     NormalizedCredit(
                         name=name,
                         role=self._optional_text(entry.get("character")),
+                        sort_name=self._optional_text(entry.get("original_name")),
+                        image_url=self._profile_url(entry),
+                        external_ids=self._person_external_ids(entry),
+                        role_id="dfActor",
                     )
                 )
         return characters
@@ -693,6 +706,8 @@ class TMDbProvider(BaseHttpProvider):
                         air_date=self._date(ep.get("air_date")),
                         runtime_minutes=self._id(ep.get("runtime")),
                         still_url=self._image_url(ep.get("still_path")),
+                        image_url=self._image_url(ep.get("still_path")),
+                        large_image_url=self._image_url(ep.get("still_path")),
                     )
                 )
             seasons.append(
@@ -714,3 +729,27 @@ class TMDbProvider(BaseHttpProvider):
         if not text:
             return None
         return f"{self.settings.tmdb_image_base_url.rstrip('/')}/w500/{text.lstrip('/')}"
+
+    def _profile_url(self, data: Mapping[str, Any]) -> str | None:
+        return self._image_url(data.get("profile_path"))
+
+    def _person_external_ids(self, data: Mapping[str, Any]) -> dict[str, str]:
+        person_id = self._optional_text(data.get("id"))
+        if not person_id:
+            return {}
+        return {"tmdb_person_id": person_id}
+
+    def _role_id_for_job(self, job: str | None) -> str | None:
+        if not job:
+            return None
+        normalized = job.strip().casefold()
+        return {
+            "actor": "dfActor",
+            "director": "dfDirector",
+            "writer": "dfWriter",
+            "screenplay": "dfWriter",
+            "producer": "dfProducer",
+            "music": "dfMusic",
+            "cinematography": "dfCamera",
+            "camera": "dfCamera",
+        }.get(normalized)

@@ -16,7 +16,7 @@ from app.models import (
     TVReleaseMedia,
 )
 from app.models.base import ItemKind
-from app.providers.base import NormalizedItem, ProviderItem
+from app.providers.base import NormalizedCredit, NormalizedItem, ProviderItem
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
 
@@ -69,11 +69,29 @@ def _movie_raw() -> dict:
         ],
         "credits": {
             "crew": [
-                {"name": "Lana Wachowski", "job": "Director"},
-                {"name": "Lilly Wachowski", "job": "Writer"},
+                {
+                    "name": "Lana Wachowski",
+                    "original_name": "Wachowski, Lana",
+                    "job": "Director",
+                    "profile_path": "/lana.jpg",
+                    "id": 101,
+                },
+                {
+                    "name": "Lilly Wachowski",
+                    "original_name": "Wachowski, Lilly",
+                    "job": "Writer",
+                    "profile_path": "/lilly.jpg",
+                    "id": 102,
+                },
             ],
             "cast": [
-                {"name": "Keanu Reeves", "character": "Neo"},
+                {
+                    "name": "Keanu Reeves",
+                    "original_name": "Reeves, Keanu",
+                    "character": "Neo",
+                    "profile_path": "/keanu.jpg",
+                    "id": 103,
+                },
             ],
         },
     }
@@ -199,7 +217,13 @@ async def test_tmdb_provider_fetches_and_normalizes_movie(monkeypatch):
     assert normalized.runtime_minutes == 136
     assert normalized.edition_format == "Movie"
     assert normalized.creators[0].name == "Lana Wachowski"
+    assert normalized.creators[0].sort_name == "Wachowski, Lana"
+    assert normalized.creators[0].image_url == "https://image.tmdb.org/t/p/w500/lana.jpg"
+    assert normalized.creators[0].role_id == "dfDirector"
     assert normalized.characters[0].name == "Keanu Reeves"
+    assert normalized.characters[0].sort_name == "Reeves, Keanu"
+    assert normalized.characters[0].image_url == "https://image.tmdb.org/t/p/w500/keanu.jpg"
+    assert normalized.characters[0].role_id == "dfActor"
     assert normalized.story_arcs == []
     assert normalized.audience_rating == "8.7"
     assert normalized.age_rating == "R"
@@ -348,6 +372,7 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert body["item"]["runtime_minutes"] == 136
     assert body["item"]["trailer_urls"][0]["site"] == "YouTube"
     assert body["item"]["external_links"][0]["kind"] == "tmdb"
+    assert body["item"]["contributors"][0]["image_url"] == "https://image.tmdb.org/t/p/w500/lana.jpg"
 
     async with AsyncSessionLocal() as db:
         movie_work = await db.scalar(select(MovieWork).where(MovieWork.title == "The Matrix"))
@@ -381,6 +406,7 @@ async def test_admin_ingest_upserts_tmdb_movie(client, monkeypatch):
     assert movie_work.metadata_json["trailer_urls"][0]["kind"] == "trailer"
     assert movie_work.metadata_json["external_links"][0]["kind"] == "tmdb"
     assert any(row.role == "cast" and row.character_name == "Neo" for row in contributions)
+    assert any(row.metadata_json and row.metadata_json.get("role_id") == "dfDirector" for row in contributions)
     assert {row.identifier_type for row in identifiers} >= {"provider_item_id", "imdb_id", "tmdb_id"}
     assert provider_ids == ["movie:603"]
     assert release is not None
@@ -408,6 +434,14 @@ async def test_admin_ingest_persists_tv_media_color(client, monkeypatch):
             audio_tracks="English Dolby",
             subtitles="English, Romanian",
             layers="BD-50",
+            creators=[
+                NormalizedCredit(
+                    name="Lana Wachowski",
+                    role="Director",
+                    image_url="https://image.tmdb.org/t/p/w500/lana.jpg",
+                    role_id="dfDirector",
+                )
+            ],
             provider_ids={"tmdb": "tv:1399"},
         )
 
@@ -428,6 +462,7 @@ async def test_admin_ingest_persists_tv_media_color(client, monkeypatch):
     body = response.json()["item"]
     assert body["kind"] == "tv"
     assert body["media"][0]["color"] == "Color"
+    assert body["contributors"][0]["image_url"] == "https://image.tmdb.org/t/p/w500/lana.jpg"
 
     async with AsyncSessionLocal() as db:
         release = await db.scalar(select(TVRelease).where(TVRelease.title == "Game of Thrones"))
@@ -581,5 +616,7 @@ async def test_tmdb_provider_get_seasons(monkeypatch):
     assert seasons[0].episodes[0].title == "Winter Is Coming"
     assert seasons[0].episodes[0].runtime_minutes == 62
     assert seasons[0].episodes[0].still_url == "https://image.tmdb.org/t/p/w500/ep1.jpg"
+    assert seasons[0].episodes[0].image_url == "https://image.tmdb.org/t/p/w500/ep1.jpg"
+    assert seasons[0].episodes[0].large_image_url == "https://image.tmdb.org/t/p/w500/ep1.jpg"
     assert seasons[1].season_number == 2
     assert len(seasons[1].episodes) == 1

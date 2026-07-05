@@ -26,6 +26,8 @@ class TVMetadataResponseBuilders:
             description=episode.overview,
             cover_image_url=episode.still_url,
             cover_image_key=episode.still_key,
+            image_url=episode.image_url,
+            large_image_url=episode.large_image_url,
             runtime_minutes=episode.duration_seconds // 60 if episode.duration_seconds is not None else None,
         )
 
@@ -183,6 +185,7 @@ class TVMetadataResponseBuilders:
             name=contrib.person.name if contrib.person is not None else "",
             role=contrib.role,
             sequence=contrib.sequence,
+            image_url=contrib.person.image_url if contrib.person is not None else None,
         )
 
     def _tv_identifier_response(self, identifier: TVReleaseIdentifier) -> TVIdentifierResponse:

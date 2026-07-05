@@ -31,7 +31,9 @@ class ComicMetadataResponseBuilders:
                 name=person.name if person is not None else "",
                 role=contribution.role,
                 sequence=contribution.sequence,
+                image_url=person.image_url if person is not None else None,
                 scope=scope,
+                role_id=contribution.role_id,
             )
 
         def _comic_identifier_response(self, identifier: ComicIdentifier) -> ComicIdentifierResponse:
@@ -62,6 +64,15 @@ class ComicMetadataResponseBuilders:
                 release_status=issue.release_status,
                 cover_image_url=issue.cover_image_url,
                 cover_image_key=issue.cover_image_key,
+                local_image_path=issue.local_image_path,
+                value_cents=issue.value_cents,
+                value_currency=issue.value_currency,
+                grade=issue.grade,
+                grading_company=issue.grading_company,
+                raw_or_slabbed=issue.raw_or_slabbed,
+                storage_box=issue.storage_box,
+                key_comic=issue.key_comic,
+                key_reason=issue.key_reason,
                 description=issue.description,
                 contributors=[
                     self._comic_contributor_response(row, scope="issue")
@@ -91,6 +102,11 @@ class ComicMetadataResponseBuilders:
                         character_id=row.character_id,
                         name=row.character.name if row.character is not None else "",
                         role=row.role,
+                        image_url=row.character.image_url if row.character is not None else None,
+                        sort_name=row.character.canonical_name if row.character is not None else None,
+                        external_ids=row.character.metadata_json.get("external_ids")
+                        if row.character is not None and isinstance(row.character.metadata_json, dict)
+                        else None,
                     )
                     for row in sorted(
                         issue.character_appearances or [],
@@ -136,6 +152,10 @@ class ComicMetadataResponseBuilders:
                 description=work.description,
                 original_language=work.original_language,
                 first_publication_date=work.first_publication_date,
+                expected_issue_count=work.expected_issue_count,
+                owned_issue_count=work.owned_issue_count,
+                missing_issue_count=work.missing_issue_count,
+                missing_issue_numbers=work.missing_issue_numbers or [],
                 contributors=[
                     self._comic_contributor_response(row, scope="work")
                     for row in sorted(

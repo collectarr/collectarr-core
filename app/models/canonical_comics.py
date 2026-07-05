@@ -90,6 +90,10 @@ class ComicWork(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     original_language: Mapped[str | None] = mapped_column(String(16), index=True)
     first_publication_date: Mapped[date | None] = mapped_column(Date, index=True)
+    expected_issue_count: Mapped[int | None] = mapped_column(Integer)
+    owned_issue_count: Mapped[int | None] = mapped_column(Integer)
+    missing_issue_count: Mapped[int | None] = mapped_column(Integer)
+    missing_issue_numbers: Mapped[list[int] | None] = mapped_column(JSONB)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     volume: Mapped["ComicVolume | None"] = relationship(back_populates="works")
@@ -156,6 +160,15 @@ class ComicIssue(UuidMixin, TimestampMixin, Base):
     release_status: Mapped[str | None] = mapped_column(String(64), index=True)
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
+    local_image_path: Mapped[str | None] = mapped_column(String(1024))
+    value_cents: Mapped[int | None] = mapped_column(Integer)
+    value_currency: Mapped[str | None] = mapped_column(String(8))
+    grade: Mapped[str | None] = mapped_column(String(64), index=True)
+    grading_company: Mapped[str | None] = mapped_column(String(64), index=True)
+    raw_or_slabbed: Mapped[str | None] = mapped_column(String(32), index=True)
+    storage_box: Mapped[str | None] = mapped_column(String(255), index=True)
+    key_comic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    key_reason: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -199,6 +212,7 @@ class ComicContribution(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
@@ -299,3 +313,17 @@ class ComicSeriesMembership(UuidMixin, TimestampMixin, Base):
 
     work: Mapped[ComicWork] = relationship(back_populates="series_memberships")
     series: Mapped[ComicSeries] = relationship(back_populates="works")
+
+
+class ComicCharacter(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "comic_characters"
+    __table_args__ = (
+        Index("ix_comic_characters_name", "name"),
+        Index("ix_comic_characters_sort_name", "sort_name"),
+    )
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

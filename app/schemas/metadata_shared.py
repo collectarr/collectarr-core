@@ -114,6 +114,7 @@ class ContributorResponse(BaseModel):
     name: str
     role: str
     sequence: int | None = None
+    image_url: str | None = None
 
     model_config = {"from_attributes": True}
 

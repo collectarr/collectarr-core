@@ -66,9 +66,12 @@ class ProviderItem(Generic[ProviderRawT]):
 class NormalizedCredit:
     name: str
     role: str | None = None
+    sort_name: str | None = None
     api_detail_url: str | None = None
     site_detail_url: str | None = None
     image_url: str | None = None
+    external_ids: dict[str, str] = field(default_factory=dict)
+    role_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +116,8 @@ class NormalizedEpisode:
     runtime_minutes: int | None = None
     page_count: int | None = None
     still_url: str | None = None
+    image_url: str | None = None
+    large_image_url: str | None = None
 
 
 @dataclass(frozen=True)

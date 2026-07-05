@@ -956,6 +956,86 @@
         }
       }
     },
+    "/admin/duplicates/summary": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Duplicate Queue Summary",
+        "operationId": "duplicate_queue_summary_admin_duplicates_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDuplicateQueueSummaryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/duplicates/reviews": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Duplicate Review History",
+        "operationId": "duplicate_review_history_admin_duplicates_reviews_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminDuplicateReviewEntryResponse"
+                  },
+                  "title": "Response Duplicate Review History Admin Duplicates Reviews Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/duplicates/ignore": {
       "post": {
         "tags": [
@@ -5162,6 +5242,146 @@
         }
       }
     },
+    "/metadata/tv/series/{series_id}/releases": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Series Releases",
+        "operationId": "get_tv_series_releases_metadata_tv_series__series_id__releases_get",
+        "parameters": [
+          {
+            "name": "series_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Series Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TVReleaseV1Response"
+                  },
+                  "title": "Response Get Tv Series Releases Metadata Tv Series  Series Id  Releases Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/seasons/{season_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Season",
+        "operationId": "get_tv_season_metadata_tv_seasons__season_id__get",
+        "parameters": [
+          {
+            "name": "season_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Season Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVSeasonV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/seasons/{season_id}/episodes": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Season Episodes",
+        "operationId": "get_tv_season_episodes_metadata_tv_seasons__season_id__episodes_get",
+        "parameters": [
+          {
+            "name": "season_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Season Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TVEpisodeV1Response"
+                  },
+                  "title": "Response Get Tv Season Episodes Metadata Tv Seasons  Season Id  Episodes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metadata/tv/episodes/{episode_id}": {
       "get": {
         "tags": [
@@ -5189,6 +5409,190 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TVEpisodeV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/releases/{release_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Release",
+        "operationId": "get_tv_release_metadata_tv_releases__release_id__get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVReleaseV1Response"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/releases/{release_id}/media": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Release Media",
+        "operationId": "get_tv_release_media_metadata_tv_releases__release_id__media_get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TVReleaseMediaResponse"
+                  },
+                  "title": "Response Get Tv Release Media Metadata Tv Releases  Release Id  Media Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/releases/{release_id}/episode-map": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Release Episode Map",
+        "operationId": "get_tv_release_episode_map_metadata_tv_releases__release_id__episode_map_get",
+        "parameters": [
+          {
+            "name": "release_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Release Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TVReleaseEpisodeMapV1Response"
+                  },
+                  "title": "Response Get Tv Release Episode Map Metadata Tv Releases  Release Id  Episode Map Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metadata/tv/media/{media_id}": {
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Get Tv Release Media Item",
+        "operationId": "get_tv_release_media_item_metadata_tv_media__media_id__get",
+        "parameters": [
+          {
+            "name": "media_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Media Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TVReleaseMediaResponse"
                 }
               }
             }
@@ -6061,6 +6465,182 @@
         ],
         "title": "AdminDuplicateMergeRequest"
       },
+      "AdminDuplicateQueueSummaryResponse": {
+        "properties": {
+          "pending_candidates": {
+            "type": "integer",
+            "title": "Pending Candidates"
+          },
+          "merged_reviews": {
+            "type": "integer",
+            "title": "Merged Reviews"
+          },
+          "ignored_reviews": {
+            "type": "integer",
+            "title": "Ignored Reviews"
+          },
+          "total_reviews": {
+            "type": "integer",
+            "title": "Total Reviews"
+          },
+          "latest_review_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Review At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pending_candidates",
+          "merged_reviews",
+          "ignored_reviews",
+          "total_reviews"
+        ],
+        "title": "AdminDuplicateQueueSummaryResponse"
+      },
+      "AdminDuplicateReviewEntryResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "entity_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Entity Ids"
+          },
+          "ignore_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ignore Token"
+          },
+          "target_entity_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Entity Id"
+          },
+          "source_entity_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Entity Ids"
+          },
+          "duplicate_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Score"
+          },
+          "actor_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor User Id"
+          },
+          "actor_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Email"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "details_json": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details Json"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "entity_type",
+          "created_at"
+        ],
+        "title": "AdminDuplicateReviewEntryResponse"
+      },
       "AdminDuplicateReviewRequest": {
         "properties": {
           "decision": {
@@ -6793,6 +7373,7 @@
             "title": "Thumbnail Image Url"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "AdminMetadataCorrectionRequest"
       },
@@ -7494,6 +8075,17 @@
               }
             ],
             "title": "Sequence"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "id": {
             "type": "string",
@@ -8299,9 +8891,53 @@
             ],
             "title": "Sequence"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "scope": {
             "type": "string",
             "title": "Scope"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
+          },
+          "biography": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Biography"
+          },
+          "sort_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Name"
           }
         },
         "type": "object",
@@ -8469,6 +9105,16 @@
             ],
             "title": "Release Status"
           },
+          "physical_details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookPhysicalDetailsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cover_image_url": {
             "anyOf": [
               {
@@ -8567,6 +9213,140 @@
           "is_primary"
         ],
         "title": "BookIdentifierResponse"
+      },
+      "BookOriginalDetailsResponse": {
+        "properties": {
+          "original_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Language"
+          },
+          "original_publication_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Publication Date"
+          },
+          "original_publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Publisher"
+          },
+          "dewey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dewey"
+          },
+          "lccn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lccn"
+          },
+          "loc_control_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loc Control Number"
+          }
+        },
+        "type": "object",
+        "title": "BookOriginalDetailsResponse"
+      },
+      "BookPhysicalDetailsResponse": {
+        "properties": {
+          "dimensions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dimensions"
+          },
+          "dust_jacket": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dust Jacket"
+          },
+          "printing": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Printing"
+          },
+          "first_edition": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Edition"
+          },
+          "number_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number Line"
+          }
+        },
+        "type": "object",
+        "title": "BookPhysicalDetailsResponse"
       },
       "BookSeriesResponse": {
         "properties": {
@@ -8698,6 +9478,16 @@
               }
             ],
             "title": "First Publication Date"
+          },
+          "original_details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BookOriginalDetailsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "kind": {
             "$ref": "#/components/schemas/ItemKind",
@@ -8962,6 +9752,42 @@
           "role": {
             "type": "string",
             "title": "Role"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "sort_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Name"
+          },
+          "external_ids": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Ids"
           }
         },
         "type": "object",
@@ -8998,9 +9824,31 @@
             ],
             "title": "Sequence"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "scope": {
             "type": "string",
             "title": "Scope"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
           }
         },
         "type": "object",
@@ -9224,6 +10072,22 @@
             ],
             "title": "Cover Image Key"
           },
+          "key_comic": {
+            "type": "boolean",
+            "title": "Key Comic",
+            "default": false
+          },
+          "key_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Reason"
+          },
           "description": {
             "anyOf": [
               {
@@ -9367,6 +10231,35 @@
               }
             ],
             "title": "First Publication Date"
+          },
+          "expected_issue_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Issue Count"
+          },
+          "missing_issue_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Issue Count"
+          },
+          "missing_issue_numbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Missing Issue Numbers"
           },
           "kind": {
             "$ref": "#/components/schemas/ItemKind",
@@ -10308,6 +11201,17 @@
             ],
             "title": "Sequence"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -10944,6 +11848,7 @@
             "title": "Metadata Payload"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "title": "MetadataProposalAdminUpdateRequest"
       },
@@ -11018,6 +11923,7 @@
             "title": "Metadata Payload"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "provider",
@@ -11172,6 +12078,17 @@
               }
             ],
             "title": "Sequence"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "id": {
             "type": "string",
@@ -11693,6 +12610,28 @@
               }
             ],
             "title": "Sequence"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Id"
           }
         },
         "type": "object",
@@ -11795,6 +12734,79 @@
               }
             ],
             "title": "Track Count"
+          },
+          "expected_track_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Track Count"
+          },
+          "missing_track_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Track Count"
+          },
+          "missing_track_positions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Track Positions"
+          },
+          "toc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toc"
+          },
+          "cddb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cddb Id"
+          },
+          "leadout_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leadout Offset"
+          },
+          "bp_disc_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bp Disc Id"
           },
           "packaging": {
             "anyOf": [
@@ -11979,6 +12991,35 @@
             ],
             "title": "Track Count"
           },
+          "expected_media_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Media Count"
+          },
+          "missing_media_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Media Count"
+          },
+          "missing_disc_numbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Missing Disc Numbers"
+          },
           "publisher": {
             "anyOf": [
               {
@@ -12000,6 +13041,17 @@
               }
             ],
             "title": "Studio"
+          },
+          "upc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upc"
           },
           "catalog_number": {
             "anyOf": [
@@ -12141,6 +13193,50 @@
               }
             ],
             "title": "Duration Ms"
+          },
+          "offset_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset Ms"
+          },
+          "bitrate_kbps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bitrate Kbps"
+          },
+          "file_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size Bytes"
+          },
+          "track_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Track Hash"
           },
           "instrument": {
             "anyOf": [
@@ -12383,6 +13479,41 @@
         ],
         "title": "ProviderCacheSummaryResponse"
       },
+      "ProviderFieldStateResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "present",
+              "missing_from_provider",
+              "not_supported_by_provider",
+              "unsupported_by_collectarr",
+              "user_only",
+              "import_only"
+            ],
+            "title": "State"
+          },
+          "value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "state"
+        ],
+        "title": "ProviderFieldStateResponse"
+      },
       "ProviderIngestHistoryEntry": {
         "properties": {
           "id": {
@@ -12474,6 +13605,7 @@
             "default": 3
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "provider",
@@ -12697,6 +13829,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "provider",
@@ -13210,6 +14343,13 @@
             },
             "type": "array",
             "title": "Tracks"
+          },
+          "field_states": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderFieldStateResponse"
+            },
+            "type": "array",
+            "title": "Field States"
           }
         },
         "type": "object",
@@ -13301,6 +14441,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "provider",
@@ -13536,6 +14677,11 @@
             "type": "boolean",
             "title": "Allows Image Mirroring",
             "default": false
+          },
+          "image_policy": {
+            "type": "string",
+            "title": "Image Policy",
+            "default": "remote_image_only"
           },
           "requires_attribution": {
             "type": "boolean",
@@ -14503,6 +15649,17 @@
             ],
             "title": "Sequence"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -14597,6 +15754,28 @@
             ],
             "title": "Cover Image Key"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "large_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Large Image Url"
+          },
           "runtime_minutes": {
             "anyOf": [
               {
@@ -14644,6 +15823,60 @@
           "is_primary"
         ],
         "title": "TVIdentifierResponse"
+      },
+      "TVReleaseEpisodeMapV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "release_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Release Id"
+          },
+          "media_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Media Id"
+          },
+          "episode_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Episode Id"
+          },
+          "disc_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disc Number"
+          },
+          "sequence_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "release_id",
+          "media_id",
+          "episode_id"
+        ],
+        "title": "TVReleaseEpisodeMapV1Response"
       },
       "TVReleaseMediaResponse": {
         "properties": {
@@ -14840,6 +16073,237 @@
           "release_id"
         ],
         "title": "TVReleaseMediaResponse"
+      },
+      "TVReleaseV1Response": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "media_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Count"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "region_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Code"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Date"
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher"
+          },
+          "sku": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sku"
+          },
+          "case_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Type"
+          },
+          "episode_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Episode Count"
+          },
+          "season_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Season Count"
+          },
+          "runtime_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Minutes"
+          },
+          "language_audio": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Audio"
+          },
+          "language_subtitles": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Subtitles"
+          },
+          "content_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Rating"
+          },
+          "cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Url"
+          },
+          "cover_image_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Image Key"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/TVReleaseMediaResponse"
+            },
+            "type": "array",
+            "title": "Media"
+          },
+          "episode_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/TVReleaseEpisodeMapV1Response"
+            },
+            "type": "array",
+            "title": "Episode Mappings"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind",
+            "default": "tv"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "series_id",
+          "title",
+          "format"
+        ],
+        "title": "TVReleaseV1Response"
       },
       "TVSeasonV1Response": {
         "properties": {

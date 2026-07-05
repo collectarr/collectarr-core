@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from typing import Any
 from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -103,6 +104,19 @@ class ProviderPreviewTrack(BaseModel):
     disc_number: int | None = None
 
 
+class ProviderFieldStateResponse(BaseModel):
+    key: str
+    state: Literal[
+        "present",
+        "missing_from_provider",
+        "not_supported_by_provider",
+        "unsupported_by_collectarr",
+        "user_only",
+        "import_only",
+    ]
+    value: Any | None = None
+
+
 class ProviderPreviewResponse(BaseModel):
     """Normalized provider data returned WITHOUT creating anything in the DB."""
 
@@ -146,6 +160,7 @@ class ProviderPreviewResponse(BaseModel):
     genres: list[str] = Field(default_factory=list)
     release_status: str | None = None
     tracks: list[ProviderPreviewTrack] = Field(default_factory=list)
+    field_states: list[ProviderFieldStateResponse] = Field(default_factory=list)
 
 
 class ProviderIngestHistoryEntry(BaseModel):

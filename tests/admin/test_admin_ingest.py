@@ -3104,6 +3104,9 @@ async def test_admin_preview_preserves_provider_raw_id(monkeypatch):
     assert preview.provider == "hardcover"
     assert preview.provider_item_id == "book:42"
     assert preview.kind == ItemKind.book
+    field_states = {row.key: row.state for row in preview.field_states}
+    assert field_states["title"] == "present"
+    assert field_states["synopsis"] == "missing_from_provider"
 
 
 @pytest.mark.asyncio

@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
 )
+from app.catalog.provider_field_states import provider_preview_field_states
 from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeCharacterAppearance,
@@ -806,6 +807,11 @@ class AdminProviderIngestService:
                 )
                 for t in normalized.tracks
             ],
+            field_states=provider_preview_field_states(
+                normalized,
+                physical_format_id=physical_format.id if physical_format else None,
+                physical_format_label=physical_format.label if physical_format else None,
+            ),
         )
 
     async def batch_hydrate(
@@ -2294,6 +2300,7 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "author").strip().lower(),
                     sequence=index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -2468,6 +2475,8 @@ class AdminProviderIngestService:
                             air_date=normalized.release_date,
                             runtime_minutes=normalized.runtime_minutes,
                             still_url=normalized.cover_image_url,
+                            image_url=normalized.cover_image_url,
+                            large_image_url=normalized.cover_image_url,
                         )
                     ],
                 )
@@ -2502,10 +2511,12 @@ class AdminProviderIngestService:
                     duration_seconds=episode_data.runtime_minutes * 60 if episode_data.runtime_minutes else None,
                     original_air_date=episode_data.air_date,
                     still_url=episode_data.still_url,
-                    metadata_json={
-                        "provider_item_id": episode_data.provider_item_id,
-                    },
-                )
+                            image_url=episode_data.image_url,
+                            large_image_url=episode_data.large_image_url,
+                            metadata_json={
+                                "provider_item_id": episode_data.provider_item_id,
+                            },
+                        )
                 self.db.add(episode)
                 await self.db.flush()
                 self.db.add(
@@ -2527,6 +2538,7 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "cast").strip().lower(),
                     sequence=index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -2882,6 +2894,7 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "creator").strip().lower(),
                     sequence=index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -3063,6 +3076,7 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "creator").strip().lower(),
                     sequence=index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
         for index, credit in enumerate(normalized.characters, start=1):
@@ -3077,6 +3091,7 @@ class AdminProviderIngestService:
                     role="cast",
                     character_name=credit.role.strip() if credit.role else None,
                     sequence=index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -3270,6 +3285,7 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "artist").strip().lower(),
                     sequence=index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -3489,19 +3505,30 @@ class AdminProviderIngestService:
         if person is None:
             person = Person(
                 name=display_name,
+                sort_name=credit.sort_name,
                 api_detail_url=credit.api_detail_url,
                 site_detail_url=credit.site_detail_url,
                 image_url=credit.image_url,
+                external_ids=dict(credit.external_ids or {}) or None,
             )
             self.db.add(person)
             await self.db.flush()
             return person
+        if not person.sort_name and credit.sort_name:
+            person.sort_name = credit.sort_name
         if not person.api_detail_url and credit.api_detail_url:
             person.api_detail_url = credit.api_detail_url
         if not person.site_detail_url and credit.site_detail_url:
             person.site_detail_url = credit.site_detail_url
         if not person.image_url and credit.image_url:
             person.image_url = credit.image_url
+        if credit.external_ids:
+            merged_external_ids = dict(person.external_ids or {})
+            for key, value in credit.external_ids.items():
+                if value and not merged_external_ids.get(key):
+                    merged_external_ids[key] = value
+            if merged_external_ids != (person.external_ids or {}):
+                person.external_ids = merged_external_ids
         credit_description = getattr(credit, "description", None)
         if not person.description and credit_description:
             person.description = credit_description

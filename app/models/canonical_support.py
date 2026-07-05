@@ -359,7 +359,7 @@ class DuplicateReview(UuidMixin, TimestampMixin, Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
     entity_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
-    ignore_token: Mapped[str | None] = mapped_column(String(128), index=True)
+    ignore_token: Mapped[str | None] = mapped_column(String(128))
     target_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
     source_entity_ids: Mapped[list[str] | None] = mapped_column(JSONB)
     duplicate_score: Mapped[int | None] = mapped_column(Integer)

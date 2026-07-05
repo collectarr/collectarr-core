@@ -314,8 +314,8 @@ class ComicCharacter(UuidMixin, TimestampMixin, Base):
         Index("ix_comic_characters_sort_name", "sort_name"),
     )
 
-    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    sort_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    sort_name: Mapped[str | None] = mapped_column(String(255))
     image_url: Mapped[str | None] = mapped_column(String(1024))
     external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

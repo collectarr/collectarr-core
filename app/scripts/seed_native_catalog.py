@@ -132,6 +132,86 @@ def _slug(value: str) -> str:
     return value.lower().replace(":", "").replace("'", "").replace(" ", "-")
 
 
+def _seed_age_rating(kind: ItemKind) -> str | None:
+    if kind == ItemKind.movie:
+        return "PG-13"
+    if kind == ItemKind.tv:
+        return "TV-MA"
+    if kind == ItemKind.anime:
+        return "TV-14"
+    if kind == ItemKind.game:
+        return "Teen"
+    if kind == ItemKind.boardgame:
+        return "10+"
+    return "PG"
+
+
+def _seed_runtime_minutes(kind: ItemKind) -> int | None:
+    if kind == ItemKind.movie:
+        return 120
+    if kind == ItemKind.tv:
+        return 42
+    if kind == ItemKind.anime:
+        return 24
+    return None
+
+
+def _seed_media_count(kind: ItemKind) -> int | None:
+    if kind in {ItemKind.movie, ItemKind.tv, ItemKind.music}:
+        return 1
+    return None
+
+
+def _apply_seed_metadata(
+    target: Any,
+    entry: _Entry,
+    kind: ItemKind,
+    index: int,
+    cover_url: str | None,
+    thumbnail_url: str | None,
+) -> None:
+    values = {
+        "original_title": entry.title,
+        "original_language": "en",
+        "original_publication_date": entry.release_date,
+        "original_publisher": entry.publisher,
+        "original_release_date": entry.release_date,
+        "original_air_date": entry.release_date,
+        "first_air_date": entry.release_date,
+        "last_air_date": entry.release_date,
+        "release_status": "released",
+        "status": "completed",
+        "content_rating": _seed_age_rating(kind),
+        "age_rating": _seed_age_rating(kind),
+        "audience_rating": _seed_age_rating(kind),
+        "cover_image_url": cover_url,
+        "poster_url": cover_url,
+        "backdrop_url": thumbnail_url,
+        "runtime_minutes": _seed_runtime_minutes(kind),
+        "media_count": _seed_media_count(kind),
+        "episode_count": 1 if kind in {ItemKind.tv, ItemKind.anime} else None,
+        "season_count": 1 if kind == ItemKind.tv else None,
+        "track_count": 1 if kind == ItemKind.music else None,
+        "catalog_number": f"SEED-{kind.value.upper()}-{index:03d}",
+        "barcode": f"SEED-{kind.value.upper()}-{index:03d}",
+        "platform": "PC" if kind == ItemKind.game else None,
+        "media_type": "disc" if kind in {ItemKind.movie, ItemKind.tv} else None,
+        "format": "Blu-ray" if kind == ItemKind.movie else None,
+        "packaging": "digipak" if kind == ItemKind.music else None,
+        "sound_type": "stereo" if kind == ItemKind.music else None,
+        "vinyl_color": "black" if kind == ItemKind.music else None,
+        "vinyl_weight": "180g" if kind == ItemKind.music else None,
+        "rpm": 33 if kind == ItemKind.music else None,
+        "media_condition": "excellent" if kind == ItemKind.music else None,
+        "instrument": "ensemble" if kind == ItemKind.music else None,
+        "composition": entry.title if kind == ItemKind.music else None,
+    }
+
+    for attr, value in values.items():
+        if value is not None and hasattr(target, attr):
+            setattr(target, attr, value)
+
+
 async def seed_catalog(db: AsyncSession, *, entries_per_kind: int) -> list[Any]:
     created: list[Any] = []
     for kind, entries in _ENTRIES.items():
@@ -213,6 +293,9 @@ async def _seed_entry(db: AsyncSession, kind: ItemKind, entry: _Entry, index: in
 async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, BookSeries, entry.series_title, entry.publisher, entry.release_date)
     work = await _get_or_create_work(db, BookWork, entry.title, entry.release_date, cover_url)
+    if series is not None:
+        _apply_seed_metadata(series, entry, ItemKind.book, index, cover_url, thumbnail_url)
+    _apply_seed_metadata(work, entry, ItemKind.book, index, cover_url, thumbnail_url)
     if work not in []:
         work.original_publication_date = entry.release_date
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.book], work.id, provider, index, entry)
@@ -222,6 +305,7 @@ async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider
     if series is not None:
         await _ensure_book_membership(db, work.id, series.id, index)
     edition = await _get_or_create_book_edition(db, work.id, entry, cover_url)
+    _apply_seed_metadata(edition, entry, ItemKind.book, index, cover_url, thumbnail_url)
     await _ensure_book_links(db, edition.id, provider, index, entry)
     return [work]
 
@@ -229,6 +313,9 @@ async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider
 async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, ComicSeries, entry.series_title, entry.publisher, entry.release_date)
     work = await _get_or_create_work(db, ComicWork, entry.title, entry.release_date, cover_url)
+    if series is not None:
+        _apply_seed_metadata(series, entry, ItemKind.comic, index, cover_url, thumbnail_url)
+    _apply_seed_metadata(work, entry, ItemKind.comic, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.comic], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "comic_work", entry.creator, "creator")
     await _ensure_tag_link(db, work.id, "comic_work", entry.tag)
@@ -236,6 +323,7 @@ async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     if series is not None:
         await _ensure_comic_membership(db, work.id, series.id, index)
     issue = await _get_or_create_comic_issue(db, work.id, entry, cover_url)
+    _apply_seed_metadata(issue, entry, ItemKind.comic, index, cover_url, thumbnail_url)
     await _ensure_character_appearance(db, issue.id, entry.character, entity_type="comic_issue")
     await _ensure_story_arc_membership(db, issue.id, entry.story_arc)
     await _ensure_comic_links(db, issue.id, provider, index, entry)
@@ -245,6 +333,9 @@ async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvide
 async def _seed_manga(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, MangaSeries, entry.series_title, entry.publisher, entry.release_date)
     work = await _get_or_create_work(db, MangaWork, entry.title, entry.release_date, cover_url)
+    if series is not None:
+        _apply_seed_metadata(series, entry, ItemKind.manga, index, cover_url, thumbnail_url)
+    _apply_seed_metadata(work, entry, ItemKind.manga, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.manga], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "manga_work", entry.creator, "creator")
     await _ensure_tag_link(db, work.id, "manga_work", entry.tag)
@@ -253,6 +344,7 @@ async def _seed_manga(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     chapter = MangaChapter(work=work, chapter_number=float(index), chapter_title=entry.title, publication_date=entry.release_date, description=entry.series_title, cover_image_url=cover_url)
     db.add(chapter)
     await db.flush()
+    _apply_seed_metadata(chapter, entry, ItemKind.manga, index, cover_url, thumbnail_url)
     await _ensure_manga_links(db, chapter.id, provider, index, entry)
     return [work]
 
@@ -262,12 +354,14 @@ async def _seed_anime(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     if series is not None:
         series.original_air_date = entry.release_date
         series.status = "completed"
+        _apply_seed_metadata(series, entry, ItemKind.anime, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.anime], series.id, provider, index, entry)
     await _ensure_person_link(db, series.id, "anime_series", entry.creator, "creator")
     await _ensure_tag_link(db, series.id, "anime_series", entry.tag)
     episode = AnimeEpisode(series=series, episode_number=index, episode_title=entry.title, air_date=entry.release_date, description=entry.series_title, cover_image_url=cover_url, runtime_minutes=24)
     db.add(episode)
     await db.flush()
+    _apply_seed_metadata(episode, entry, ItemKind.anime, index, cover_url, thumbnail_url)
     await _ensure_character_appearance(db, series.id, entry.character, entity_type="anime_series")
     await _ensure_anime_links(db, episode.id, provider, index, entry)
     return [series]
@@ -276,38 +370,48 @@ async def _seed_anime(db: AsyncSession, entry: _Entry, provider: ExternalProvide
 async def _seed_movie(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     work = await _get_or_create_work(db, MovieWork, entry.title, entry.release_date, cover_url)
     work.original_release_date = entry.release_date
+    _apply_seed_metadata(work, entry, ItemKind.movie, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.movie], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "movie_work", entry.creator, "director")
     release = MovieRelease(work=work, format="Blu-ray", region_code="US", release_date=entry.release_date, release_type="home_video", publisher=entry.publisher, barcode=f"MOV-{index:03d}", cover_image_url=cover_url)
     db.add(release)
     await db.flush()
+    _apply_seed_metadata(release, entry, ItemKind.movie, index, cover_url, thumbnail_url)
     media = MovieReleaseMedia(release=release, media_number=1, media_type="disc", title=entry.title, color="color")
     db.add(media)
     await db.flush()
+    _apply_seed_metadata(media, entry, ItemKind.movie, index, cover_url, thumbnail_url)
     return [work]
 
 
 async def _seed_tv(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     release = await _get_or_create_tv_release(db, entry)
+    if release.series is not None:
+        _apply_seed_metadata(release.series, entry, ItemKind.tv, index, cover_url, thumbnail_url)
+    _apply_seed_metadata(release, entry, ItemKind.tv, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.tv], release.id, provider, index, entry)
     await _ensure_person_link(db, release.id, "tv_release", entry.creator, "creator")
     media = TVReleaseMedia(release=release, media_number=1, media_type="season", title=entry.title, episode_count=1, runtime_minutes=42, region_code="US", encoding="digital")
     db.add(media)
     await db.flush()
+    _apply_seed_metadata(media, entry, ItemKind.tv, index, cover_url, thumbnail_url)
     episode = TVEpisode(release=release, media=media, series_title=entry.series_title, season_number=1, episode_number=index, title=entry.title, original_air_date=entry.release_date)
     db.add(episode)
     await db.flush()
+    _apply_seed_metadata(episode, entry, ItemKind.tv, index, cover_url, thumbnail_url)
     await _ensure_tv_links(db, release.id, provider, index, entry)
     return [release]
 
 
 async def _seed_music(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     release = await _get_or_create_music_release(db, entry, cover_url)
+    _apply_seed_metadata(release, entry, ItemKind.music, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.music], release.id, provider, index, entry)
     await _ensure_person_link(db, release.id, "music_release", entry.creator, "artist")
     media = MusicMedia(release=release, media_number=1, media_type="album", title=entry.title, packaging="digipak")
     db.add(media)
     await db.flush()
+    _apply_seed_metadata(media, entry, ItemKind.music, index, cover_url, thumbnail_url)
     db.add(MusicTrack(media=media, release=release, position="1", title=f"{entry.title} Track 1", duration_ms=180000))
     await db.flush()
     return [release]
@@ -316,19 +420,25 @@ async def _seed_music(db: AsyncSession, entry: _Entry, provider: ExternalProvide
 async def _seed_game(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     work = await _get_or_create_work(db, GameWork, entry.title, entry.release_date, cover_url)
     work.original_language = "en"
+    _apply_seed_metadata(work, entry, ItemKind.game, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.game], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "game_work", entry.creator, "designer")
-    db.add(GameRelease(work=work, release_title=entry.title, platform="PC", release_date=entry.release_date, region_code="US", format="digital", publisher=entry.publisher, barcode=f"GAME-{index:03d}", cover_image_url=cover_url))
+    release = GameRelease(work=work, release_title=entry.title, platform="PC", release_date=entry.release_date, region_code="US", format="digital", publisher=entry.publisher, barcode=f"GAME-{index:03d}", cover_image_url=cover_url)
+    db.add(release)
     await db.flush()
+    _apply_seed_metadata(release, entry, ItemKind.game, index, cover_url, thumbnail_url)
     return [work]
 
 
 async def _seed_boardgame(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     work = await _get_or_create_work(db, BoardGameWork, entry.title, entry.release_date, cover_url)
+    _apply_seed_metadata(work, entry, ItemKind.boardgame, index, cover_url, thumbnail_url)
     await _upsert_provider(db, _ENTITY_TYPE[ItemKind.boardgame], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "boardgame_work", entry.creator, "designer")
-    db.add(BoardGameEdition(work=work, edition_title=entry.title, format="standard", publisher=entry.publisher, release_date=entry.release_date, country="US", cover_image_url=cover_url))
+    edition = BoardGameEdition(work=work, edition_title=entry.title, format="standard", publisher=entry.publisher, release_date=entry.release_date, country="US", cover_image_url=cover_url)
+    db.add(edition)
     await db.flush()
+    _apply_seed_metadata(edition, entry, ItemKind.boardgame, index, cover_url, thumbnail_url)
     return [work]
 
 

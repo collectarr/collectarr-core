@@ -14,6 +14,8 @@ from app.schemas.admin import (
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
+    AdminDuplicateQueueSummaryResponse,
+    AdminDuplicateReviewEntryResponse,
     AdminDuplicateReviewRequest,
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
@@ -240,6 +242,23 @@ async def duplicate_candidates(
     limit: int = Query(default=10, ge=1, le=50),
 ) -> list[AdminDuplicateCandidateResponse]:
     return await AdminMetadataService(db).duplicate_candidates(limit)
+
+
+@router.get("/duplicates/summary", response_model=AdminDuplicateQueueSummaryResponse)
+async def duplicate_queue_summary(
+    db: DbSession,
+    _reader: CurrentAdminReader,
+) -> AdminDuplicateQueueSummaryResponse:
+    return await AdminMetadataService(db).duplicate_queue_summary()
+
+
+@router.get("/duplicates/reviews", response_model=list[AdminDuplicateReviewEntryResponse])
+async def duplicate_review_history(
+    db: DbSession,
+    _reader: CurrentAdminReader,
+    limit: int = Query(default=25, ge=1, le=100),
+) -> list[AdminDuplicateReviewEntryResponse]:
+    return await AdminMetadataService(db).duplicate_review_history(limit)
 
 
 @router.post("/duplicates/ignore", response_model=AdminDuplicateActionResponse)

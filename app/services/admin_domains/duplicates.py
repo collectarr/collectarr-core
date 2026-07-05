@@ -61,6 +61,8 @@ from app.schemas.admin import (
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
     AdminDuplicateReviewRequest,
+    AdminDuplicateQueueSummaryResponse,
+    AdminDuplicateReviewEntryResponse,
 )
 
 # Maps each native root model class to the entity_type string used in generic link tables.
@@ -167,6 +169,36 @@ class AdminDuplicateService:
             key=lambda c: (-c.duplicate_score, -c.count, c.title.lower())
         )
         return candidates[:limit]
+
+    async def duplicate_queue_summary(self) -> AdminDuplicateQueueSummaryResponse:
+        pending_candidates = await self.duplicate_group_count()
+        review_rows = await self.db.execute(
+            select(
+                DuplicateReview.action,
+                func.count(DuplicateReview.id),
+            ).group_by(DuplicateReview.action)
+        )
+        counts = dict(review_rows.all())
+        latest_review_at = await self.db.scalar(select(func.max(DuplicateReview.created_at)))
+        return AdminDuplicateQueueSummaryResponse(
+            pending_candidates=pending_candidates,
+            merged_reviews=int(counts.get("merge", 0) or 0),
+            ignored_reviews=int(counts.get("ignore", 0) or 0),
+            total_reviews=sum(int(value or 0) for value in counts.values()),
+            latest_review_at=latest_review_at,
+        )
+
+    async def duplicate_review_history(
+        self,
+        limit: int = 25,
+    ) -> list[AdminDuplicateReviewEntryResponse]:
+        stmt = (
+            select(DuplicateReview)
+            .order_by(DuplicateReview.created_at.desc(), DuplicateReview.id.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(stmt)
+        return [AdminDuplicateReviewEntryResponse.model_validate(row) for row in result.scalars()]
 
     async def ignore_duplicate_candidate(
         self,

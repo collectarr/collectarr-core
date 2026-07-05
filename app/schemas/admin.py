@@ -28,6 +28,7 @@ class ProviderStatusResponse(BaseModel):
     non_commercial_only: bool = False
     allows_redistribution: bool = False
     allows_image_mirroring: bool = False
+    image_policy: str = "remote_image_only"
     requires_attribution: bool = False
     license_name: str | None = None
     terms_url: str | None = None
@@ -465,6 +466,33 @@ class AdminDuplicateCandidateResponse(BaseModel):
     recommended_target_item_id: UUID | None = None
     confidence_factors: list[str] = Field(default_factory=list)
     merge_warnings: list[str] = Field(default_factory=list)
+
+
+class AdminDuplicateQueueSummaryResponse(BaseModel):
+    pending_candidates: int
+    merged_reviews: int
+    ignored_reviews: int
+    total_reviews: int
+    latest_review_at: datetime | None = None
+
+
+class AdminDuplicateReviewEntryResponse(BaseModel):
+    id: UUID
+    action: str
+    entity_type: str
+    entity_id: UUID | None = None
+    entity_ids: list[str] = Field(default_factory=list)
+    ignore_token: str | None = None
+    target_entity_id: UUID | None = None
+    source_entity_ids: list[str] | None = None
+    duplicate_score: int | None = None
+    actor_user_id: UUID | None = None
+    actor_email: str | None = None
+    note: str | None = None
+    details_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class AdminDuplicateIgnoreRequest(BaseModel):

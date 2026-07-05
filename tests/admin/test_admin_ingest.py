@@ -1353,6 +1353,19 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     assert book_duplicate_entry["count"] == 2
     assert len(book_duplicate_entry["item_ids"]) == 2
 
+    duplicate_summary = await client.get(
+        "/admin/duplicates/summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert duplicate_summary.status_code == 200
+    duplicate_summary_body = duplicate_summary.json()
+    assert duplicate_summary_body["pending_candidates"] == 2
+    assert duplicate_summary_body["merged_reviews"] == 0
+    assert duplicate_summary_body["ignored_reviews"] == 0
+    assert duplicate_summary_body["total_reviews"] == 0
+    assert duplicate_summary_body["latest_review_at"] is None
+
     ignore = await client.post(
         "/admin/duplicates/ignore",
         headers={"Authorization": f"Bearer {token}"},
@@ -1376,7 +1389,32 @@ async def test_admin_catalog_summary_and_duplicate_candidates(client, monkeypatc
     )
 
     assert ignored_summary.status_code == 200
-    assert ignored_summary.json()["duplicate_candidate_groups"] == 0
+    assert ignored_summary.json()["duplicate_candidate_groups"] == 1
+
+    duplicate_reviews = await client.get(
+        "/admin/duplicates/reviews",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert duplicate_reviews.status_code == 200
+    duplicate_reviews_body = duplicate_reviews.json()
+    assert len(duplicate_reviews_body) == 1
+    assert duplicate_reviews_body[0]["action"] == "ignore"
+    assert duplicate_reviews_body[0]["entity_type"] == "comic_issue"
+    assert sorted(duplicate_reviews_body[0]["entity_ids"]) == sorted(comic_duplicate["item_ids"])
+
+    ignored_duplicate_summary = await client.get(
+        "/admin/duplicates/summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert ignored_duplicate_summary.status_code == 200
+    ignored_duplicate_summary_body = ignored_duplicate_summary.json()
+    assert ignored_duplicate_summary_body["pending_candidates"] == 1
+    assert ignored_duplicate_summary_body["merged_reviews"] == 0
+    assert ignored_duplicate_summary_body["ignored_reviews"] == 1
+    assert ignored_duplicate_summary_body["total_reviews"] == 1
+    assert ignored_duplicate_summary_body["latest_review_at"] is not None
 
 
 @pytest.mark.asyncio

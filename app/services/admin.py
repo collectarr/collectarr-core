@@ -13,6 +13,8 @@ from app.schemas.admin import (
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateMergeRequest,
+    AdminDuplicateQueueSummaryResponse,
+    AdminDuplicateReviewEntryResponse,
     AdminDuplicateReviewRequest,
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
@@ -189,6 +191,15 @@ class AdminMetadataService:
 
     async def duplicate_candidates(self, limit: int = 10) -> list[AdminDuplicateCandidateResponse]:
         return await self.duplicates_admin.duplicate_candidates(limit)
+
+    async def duplicate_queue_summary(self) -> AdminDuplicateQueueSummaryResponse:
+        return await self.duplicates_admin.duplicate_queue_summary()
+
+    async def duplicate_review_history(
+        self,
+        limit: int = 25,
+    ) -> list[AdminDuplicateReviewEntryResponse]:
+        return await self.duplicates_admin.duplicate_review_history(limit)
 
     async def ignore_duplicate_candidate(
         self, payload: AdminDuplicateIgnoreRequest

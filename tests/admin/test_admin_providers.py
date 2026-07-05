@@ -55,6 +55,7 @@ async def test_admin_provider_statuses_are_public_and_report_stubs(client, monke
     assert providers["comicvine"]["status"] == "stub"
     assert providers["comicvine"]["supported_kinds"] == ["comic", "manga"]
     assert providers["comicvine"]["non_commercial_only"] is True
+    assert providers["comicvine"]["image_policy"] == "remote_image_only"
     assert providers["gcd"]["kind"] == "comic"
     assert providers["gcd"]["status"] == "live"
     assert providers["gcd"]["license_name"] == "CC BY-SA 4.0"
@@ -78,6 +79,7 @@ async def test_admin_provider_statuses_are_public_and_report_stubs(client, monke
     assert providers["musicbrainz"]["kind"] == "music"
     assert providers["musicbrainz"]["status"] == "live"
     assert providers["musicbrainz"]["supports_ingest"] is True
+    assert providers["musicbrainz"]["image_policy"] == "mirrored_image"
 
 
 @pytest.mark.asyncio

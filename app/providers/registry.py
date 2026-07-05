@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from app.catalog.media_types import media_type_for_kind
+from app.core.config import Settings, get_settings
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.anilist import AniListProvider
 from app.providers.base import MetadataProvider
@@ -29,6 +30,7 @@ class ProviderRegistryStatus:
     non_commercial_only: bool
     allows_redistribution: bool
     allows_image_mirroring: bool
+    image_policy: str
     requires_attribution: bool
     license_name: str | None
     terms_url: str | None
@@ -37,7 +39,12 @@ class ProviderRegistryStatus:
     cache_policy: str | None
 
     @classmethod
-    def from_provider(cls, provider: MetadataProvider) -> "ProviderRegistryStatus":
+    def from_provider(
+        cls,
+        provider: MetadataProvider,
+        *,
+        settings: Settings,
+    ) -> "ProviderRegistryStatus":
         capabilities = provider.capabilities
         return cls(
             name=provider.name,
@@ -52,6 +59,7 @@ class ProviderRegistryStatus:
             non_commercial_only=capabilities.non_commercial_only,
             allows_redistribution=capabilities.allows_redistribution,
             allows_image_mirroring=capabilities.allows_image_mirroring,
+            image_policy=_provider_image_policy(capabilities.allows_image_mirroring, settings),
             requires_attribution=capabilities.requires_attribution,
             license_name=capabilities.license_name,
             terms_url=capabilities.terms_url,
@@ -88,7 +96,10 @@ class ProviderRegistry:
         return list(self._providers.values())
 
     def status_entries(self) -> list[ProviderRegistryStatus]:
-        return [ProviderRegistryStatus.from_provider(provider) for provider in self.all()]
+        return self.status_entries_for_settings(get_settings())
+
+    def status_entries_for_settings(self, settings: Settings) -> list[ProviderRegistryStatus]:
+        return [ProviderRegistryStatus.from_provider(provider, settings=settings) for provider in self.all()]
 
     def for_kind(self, kind: ItemKind) -> list[MetadataProvider]:
         media_type = media_type_for_kind(kind)
@@ -115,3 +126,9 @@ class ProviderRegistry:
 
     def _provider_name(self, name: str | ExternalProvider) -> str:
         return name.value if isinstance(name, ExternalProvider) else name
+
+
+def _provider_image_policy(allows_image_mirroring: bool, settings: Settings) -> str:
+    if allows_image_mirroring:
+        return "mirrored_image"
+    return "remote_image_only"

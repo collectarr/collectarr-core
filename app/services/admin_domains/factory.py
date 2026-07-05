@@ -90,6 +90,7 @@ def build_admin_domain_services(
     )
     overview_admin = AdminOverviewService(
         db=db,
+        settings=settings,
         providers=providers,
         search_client_cls=search_client_cls,
         provider_search_state=provider_search_state,

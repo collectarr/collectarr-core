@@ -102,6 +102,7 @@ class AdminOverviewService:
         self,
         *,
         db: AsyncSession,
+        settings: Any,
         providers: Any,
         search_client_cls: type[SearchClient] | None = None,
         provider_search_state: Any,
@@ -110,6 +111,7 @@ class AdminOverviewService:
         ingest_history_reader: Callable[[], list[ProviderIngestHistoryEntry]],
     ) -> None:
         self.db = db
+        self.settings = settings
         self.providers = providers
         self.search_client_cls = search_client_cls or SearchClient
         self.provider_search_state = provider_search_state
@@ -132,6 +134,7 @@ class AdminOverviewService:
                 non_commercial_only=status.non_commercial_only,
                 allows_redistribution=status.allows_redistribution,
                 allows_image_mirroring=status.allows_image_mirroring,
+                image_policy=status.image_policy,
                 requires_attribution=status.requires_attribution,
                 license_name=status.license_name,
                 terms_url=status.terms_url,
@@ -140,7 +143,7 @@ class AdminOverviewService:
                 cache_policy=status.cache_policy,
                 message=status.status_message,
             )
-            for status in self.providers.status_entries()
+            for status in self.providers.status_entries_for_settings(self.settings)
         ]
 
     async def provider_cache_stats(self) -> ProviderCacheSummaryResponse:

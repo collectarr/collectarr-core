@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from dataclasses import replace
@@ -86,6 +87,32 @@ class MetadataProviderSearchSupport:
 
     async def _raise_if_provider_on_backoff(self, provider_name: ExternalProvider) -> None:
         await self.provider_search_state.raise_if_backoff(provider_name)
+
+    async def _search_provider_live(
+        self,
+        provider_name: ExternalProvider,
+        provider: MetadataProvider,
+        query: str,
+        kind: ItemKind | None,
+    ) -> list[ProviderSearchResult]:
+        await self._raise_if_provider_on_backoff(provider_name)
+
+        attempts = max(1, self.settings.provider_search_retry_attempts + 1)
+        last_error: ApiHTTPException | None = None
+        for attempt in range(attempts):
+            try:
+                return await provider.search(query, kind)
+            except ApiHTTPException as exc:
+                last_error = exc
+                if not self._should_retry_provider_search(exc) or attempt >= attempts - 1:
+                    await self._record_provider_search_backoff(provider_name, exc)
+                    raise
+                await asyncio.sleep(self._provider_search_retry_delay(exc, attempt))
+
+        if last_error is not None:
+            await self._record_provider_search_backoff(provider_name, last_error)
+            raise last_error
+        return []
 
     async def _record_provider_search_backoff(self, provider_name: ExternalProvider, exc: ApiHTTPException) -> None:
         seconds = self._provider_search_retry_after(exc) or self.settings.provider_search_backoff_seconds

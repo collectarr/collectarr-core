@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query
 from app.api.deps import DbSession
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 

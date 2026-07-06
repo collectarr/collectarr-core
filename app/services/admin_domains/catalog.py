@@ -62,7 +62,7 @@ from app.schemas.admin import (
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 _LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 _REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")

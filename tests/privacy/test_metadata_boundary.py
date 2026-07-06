@@ -13,6 +13,7 @@ from app.providers.base import (
     NormalizedItem,
     NormalizedTrack,
 )
+from app.proposal_payload import compact_metadata_payload, validate_metadata_payload
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,
     MetadataProposalAdminUpdateRequest,
@@ -121,3 +122,27 @@ def test_request_models_forbid_unknown_and_personal_payload_fields() -> None:
             query="spider",
             metadata_payload={"kind": "comic", "nested": {"personal": "nope"}},
         )
+
+
+def test_metadata_payload_validation_rejects_personal_state_keys() -> None:
+    root_payload = compact_metadata_payload(
+        {
+            "kind": "book",
+            "owned": True,
+            "wishlist": False,
+            "tracking": {"status": "reading"},
+        }
+    )
+    normalized_payload = compact_metadata_payload(
+        {
+            "kind": "book",
+            "normalized": {"owned": True, "wishlist": False, "tracking": {"status": "reading"}},
+        }
+    )
+
+    assert root_payload is not None
+    assert normalized_payload is not None
+    with pytest.raises(ValueError):
+        validate_metadata_payload(root_payload)
+    with pytest.raises(ValueError):
+        validate_metadata_payload(normalized_payload)

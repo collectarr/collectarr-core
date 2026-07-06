@@ -13,7 +13,7 @@ from app.schemas.admin import (
 )
 from app.schemas.admin import ProviderIngestRequest as ProviderPreviewRequest
 from app.services.admin import AdminMetadataService
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 

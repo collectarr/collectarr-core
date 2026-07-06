@@ -26,7 +26,7 @@ from app.schemas import ExternalProviderIdResponse
 from app.schemas.admin import ProviderIngestHistoryEntry
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 _INGEST_HISTORY: deque[ProviderIngestHistoryEntry] = deque(maxlen=50)
 _INGEST_HISTORY_SEQUENCE = 0

@@ -11,7 +11,7 @@ from app.schemas import (
     MetadataProposalResponse,
     StoryArcFacetResponse,
 )
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 

@@ -135,7 +135,7 @@ async def test_support_service_item_response_uses_native_book_loader(monkeypatch
         called["work_id"] = work_id
         return {"id": str(work_id), "kind": "book"}
 
-    monkeypatch.setattr("app.services.metadata.MetadataService.get_book_work", fake_get_book_work)
+    monkeypatch.setattr("app.services.facade.MetadataFacade.get_book_work", fake_get_book_work)
 
     service = AdminSupportService(db=object(), actor_user_id=None, actor_email=None)
     work = BookWork(id=uuid4(), title="Dune")

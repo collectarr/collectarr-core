@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from app.api.deps import DbSession
 from app.schemas import MusicMediaV1Response, MusicReleaseV1Response, MusicTrackV1Response
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 

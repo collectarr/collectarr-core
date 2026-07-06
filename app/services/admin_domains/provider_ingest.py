@@ -145,7 +145,7 @@ from app.services.admin_domains.shared import (
     slug,
     sort_key,
 )
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 from app.services.provider_preview_state import HydratedProviderPreview
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror

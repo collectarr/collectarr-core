@@ -56,6 +56,8 @@ from app.models import (
     TVReleaseContribution,
     TVReleaseIdentifier,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.models.base import ExternalProvider, ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
@@ -183,7 +185,7 @@ def _apply_seed_metadata(
         "status": "completed",
         "content_rating": _seed_age_rating(kind),
         "age_rating": _seed_age_rating(kind),
-        "audience_rating": _seed_age_rating(kind),
+        "audience_rating": 4.5 if kind == ItemKind.music else _seed_age_rating(kind),
         "cover_image_url": cover_url,
         "poster_url": cover_url,
         "backdrop_url": thumbnail_url,
@@ -395,7 +397,18 @@ async def _seed_tv(db: AsyncSession, entry: _Entry, provider: ExternalProvider, 
     db.add(media)
     await db.flush()
     _apply_seed_metadata(media, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    episode = TVEpisode(release=release, media=media, series_title=entry.series_title, season_number=1, episode_number=index, title=entry.title, original_air_date=entry.release_date)
+    season = await _get_or_create_tv_season(db, release.series, entry)
+    episode = TVEpisode(
+        series=release.series,
+        season=season,
+        release=release,
+        media=media,
+        season_number=1,
+        episode_number=index,
+        title=entry.title,
+        overview=entry.series_title,
+        original_air_date=entry.release_date,
+    )
     db.add(episode)
     await db.flush()
     _apply_seed_metadata(episode, entry, ItemKind.tv, index, cover_url, thumbnail_url)
@@ -447,17 +460,31 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
     row = result.scalar_one_or_none()
     if row is not None:
         return row
-    kwargs = {
-        "title": title,
-        "slug": _slug(title),
-        "description": f"Seed data for {title}.",
-        "original_title": title,
-        "start_date": release_date,
-        "status": "completed",
-        "language": "en",
-        "country": "US",
-        "metadata_json": {"seed": True, "publisher": publisher},
-    }
+    kwargs = {"title": title, "description": f"Seed data for {title}.", "metadata_json": {"seed": True, "publisher": publisher}}
+    if hasattr(model, "slug"):
+        kwargs["slug"] = _slug(title)
+    if hasattr(model, "sort_title"):
+        kwargs["sort_title"] = _slug(title)
+    if hasattr(model, "original_title"):
+        kwargs["original_title"] = title
+    if hasattr(model, "start_date"):
+        kwargs["start_date"] = release_date
+    if hasattr(model, "original_publication_date"):
+        kwargs["original_publication_date"] = release_date
+    if hasattr(model, "original_air_date"):
+        kwargs["original_air_date"] = release_date
+    if hasattr(model, "status"):
+        kwargs["status"] = "completed"
+    if hasattr(model, "language"):
+        kwargs["language"] = "en"
+    if hasattr(model, "country"):
+        kwargs["country"] = "US"
+    if hasattr(model, "original_language"):
+        kwargs["original_language"] = "en"
+    if hasattr(model, "anime_type"):
+        kwargs["anime_type"] = "tv"
+    if hasattr(model, "episode_count"):
+        kwargs["episode_count"] = 12
     row = model(**kwargs)
     db.add(row)
     await db.flush()
@@ -513,7 +540,54 @@ async def _get_or_create_tv_release(db: AsyncSession, entry: _Entry) -> TVReleas
     row = result.scalar_one_or_none()
     if row is not None:
         return row
-    row = TVRelease(title=entry.title, sort_title=_slug(entry.title), description=f"Seed data for {entry.title}.", format="digital", release_date=entry.release_date, publisher=entry.publisher, content_rating="TV-MA", cover_image_url=None, metadata_json={"seed": True})
+    series = await _get_or_create_tv_series(db, entry)
+    row = TVRelease(series=series, title=entry.title, sort_title=_slug(entry.title), description=f"Seed data for {entry.title}.", format="digital", release_date=entry.release_date, publisher=entry.publisher, content_rating="TV-MA", cover_image_url=None, metadata_json={"seed": True})
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def _get_or_create_tv_series(db: AsyncSession, entry: _Entry) -> TVSeries:
+    result = await db.execute(select(TVSeries).where(TVSeries.title == entry.series_title))
+    row = result.scalar_one_or_none()
+    if row is not None:
+        return row
+    row = TVSeries(
+        title=entry.series_title,
+        original_title=entry.series_title,
+        sort_title=_slug(entry.series_title),
+        overview=f"Seed data for {entry.series_title}.",
+        first_air_date=entry.release_date,
+        status="ended",
+        type="scripted",
+        network=entry.publisher,
+        original_language="en",
+        country="US",
+        season_count=1,
+        episode_count=1,
+        metadata_json={"seed": True},
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def _get_or_create_tv_season(db: AsyncSession, series: TVSeries, entry: _Entry) -> TVSeason:
+    result = await db.execute(
+        select(TVSeason).where(TVSeason.series_id == series.id, TVSeason.season_number == 1)
+    )
+    row = result.scalar_one_or_none()
+    if row is not None:
+        return row
+    row = TVSeason(
+        series=series,
+        season_number=1,
+        title=entry.series_title,
+        overview=f"Seed season for {entry.series_title}.",
+        air_date=entry.release_date,
+        episode_count=1,
+        metadata_json={"seed": True},
+    )
     db.add(row)
     await db.flush()
     return row

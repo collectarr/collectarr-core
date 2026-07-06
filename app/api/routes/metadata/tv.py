@@ -13,7 +13,7 @@ from app.schemas import (
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 

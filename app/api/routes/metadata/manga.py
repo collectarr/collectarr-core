@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from app.api.deps import DbSession
 from app.schemas import MangaChapterV1Response, MangaWorkV1Response
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 

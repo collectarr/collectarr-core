@@ -13,7 +13,7 @@ from app.schemas import (
 )
 from app.schemas.metadata_shared import SearchResult
 from app.search.client import SearchClient
-from app.services import metadata_public
+from app.services.metadata import metadata_public
 from app.services.metadata_read_service import MetadataReadService
 from app.services.metadata_search_service import MetadataSearchService
 from app.services.provider_search_state import ProviderSearchState
@@ -167,4 +167,3 @@ class MetadataFacade:
         provider_item_id: str,
     ) -> list[SeasonResponse]:
         return await metadata_public.get_provider_volumes(self, provider_name, provider_item_id)
-

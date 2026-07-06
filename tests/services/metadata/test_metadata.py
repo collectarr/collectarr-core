@@ -50,7 +50,7 @@ from app.search.documents import (
     comic_work_search_document,
     game_work_search_document,
 )
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 from tests.helpers import register_and_login, seed_comic
 
 
@@ -698,7 +698,7 @@ async def test_metadata_service_search_uses_native_anime_branch_without_legacy_f
         return [SearchResult(id=uuid4(), kind=ItemKind.anime, title="Anime Result")]
 
     monkeypatch.setattr("app.search.client.SearchClient.search", fake_search)
-    monkeypatch.setattr("app.services.metadata.MetadataService._search_anime_series", fake_anime_search)
+    monkeypatch.setattr("app.services.facade.MetadataFacade._search_anime_series", fake_anime_search)
 
     async with AsyncSessionLocal() as db:
         service = MetadataService(db)
@@ -720,8 +720,8 @@ async def test_metadata_service_lookup_barcode_uses_native_music_branch_without_
     def fake_music_result(self, release):
         return SearchResult(id=release.id, kind=ItemKind.music, title=release.title, barcode=release.barcode)
 
-    monkeypatch.setattr("app.services.metadata.MetadataService._music_release_by_barcode", fake_music_by_barcode)
-    monkeypatch.setattr("app.services.metadata.MetadataService._music_search_result", fake_music_result)
+    monkeypatch.setattr("app.services.facade.MetadataFacade._music_release_by_barcode", fake_music_by_barcode)
+    monkeypatch.setattr("app.services.facade.MetadataFacade._music_search_result", fake_music_result)
 
     async with AsyncSessionLocal() as db:
         service = MetadataService(db)

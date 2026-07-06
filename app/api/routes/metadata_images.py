@@ -10,7 +10,7 @@ from app.core.errors import ApiHTTPException
 from app.models.base import ExternalProvider
 from app.providers.gcd import GCDCoverFallback, GCDCoverImage, GCDProvider
 from app.providers.mangadex import MangaDexProvider
-from app.services.metadata import MetadataService
+from app.services.facade import MetadataFacade as MetadataService
 
 _MANGADEX_IMAGE_CONTENT_TYPES = {
     "image/jpeg",

@@ -2545,6 +2545,22 @@ class AdminProviderIngestService:
                 )
             )
 
+        for index, credit in enumerate(normalized.characters, start=1):
+            name = credit.name.strip()
+            if not name:
+                continue
+            person = await self._get_or_create_person(name, credit)
+            self.db.add(
+                TVReleaseContribution(
+                    release_id=release.id,
+                    person_id=person.id,
+                    role="cast",
+                    character_name=credit.role.strip() if credit.role else None,
+                    sequence=1000 + index,
+                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
+                )
+            )
+
         identifiers: list[tuple[str, str, bool]] = []
         if normalized.barcode:
             identifiers.append(("barcode", normalized.barcode, True))

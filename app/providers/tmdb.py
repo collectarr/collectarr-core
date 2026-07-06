@@ -362,10 +362,50 @@ class TMDbProvider(BaseHttpProvider):
     def _creators(self, data: Mapping[str, Any], kind: ItemKind) -> list[NormalizedCredit]:
         raw_media_type = str(data.get("media_type") or "").strip().lower()
         if kind == ItemKind.tv or raw_media_type in {"anime", "tv"}:
-            return [
+            creators: list[NormalizedCredit] = [
                 NormalizedCredit(name=name, role="Creator")
                 for name in self._names(data.get("created_by"))
             ]
+            credits = data.get("credits") if isinstance(data.get("credits"), Mapping) else {}
+            crew = credits.get("crew") if isinstance(credits.get("crew"), list) else []
+            allowed_jobs = {
+                "Creator",
+                "Director",
+                "Writer",
+                "Screenplay",
+                "Story",
+                "Teleplay",
+                "Executive Producer",
+                "Producer",
+            }
+            seen = {
+                (credit.name.casefold(), (credit.role or "").casefold())
+                for credit in creators
+            }
+            for entry in crew:
+                if not isinstance(entry, Mapping):
+                    continue
+                job = self._optional_text(entry.get("job"))
+                if job not in allowed_jobs:
+                    continue
+                name = self._optional_text(entry.get("name"))
+                if not name:
+                    continue
+                key = (name.casefold(), job.casefold())
+                if key in seen:
+                    continue
+                seen.add(key)
+                creators.append(
+                    NormalizedCredit(
+                        name=name,
+                        role=job,
+                        sort_name=self._optional_text(entry.get("original_name")),
+                        image_url=self._profile_url(entry),
+                        external_ids=self._person_external_ids(entry),
+                        role_id=self._role_id_for_job(job),
+                    )
+                )
+            return creators
         credits = data.get("credits") if isinstance(data.get("credits"), Mapping) else {}
         crew = credits.get("crew") if isinstance(credits.get("crew"), list) else []
         creators: list[NormalizedCredit] = []

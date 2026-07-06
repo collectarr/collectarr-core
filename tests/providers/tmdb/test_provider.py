@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
@@ -13,6 +14,7 @@ from app.models import (
     MovieWorkContribution,
     MovieWorkIdentifier,
     TVRelease,
+    TVReleaseContribution,
     TVReleaseMedia,
 )
 from app.models.base import ItemKind
@@ -112,6 +114,22 @@ def _tv_raw() -> dict:
         "production_companies": [{"name": "HBO"}],
         "created_by": [{"name": "David Benioff"}, {"name": "D. B. Weiss"}],
         "credits": {
+            "crew": [
+                {
+                    "name": "Miguel Sapochnik",
+                    "original_name": "Sapochnik, Miguel",
+                    "job": "Director",
+                    "profile_path": "/miguel.jpg",
+                    "id": 201,
+                },
+                {
+                    "name": "Bryan Cogman",
+                    "original_name": "Cogman, Bryan",
+                    "job": "Writer",
+                    "profile_path": "/bryan.jpg",
+                    "id": 202,
+                },
+            ],
             "cast": [
                 {"name": "Emilia Clarke", "character": "Daenerys Targaryen"},
             ],
@@ -255,6 +273,10 @@ async def test_tmdb_provider_fetches_and_normalizes_tv(monkeypatch):
     assert normalized.runtime_minutes == 60
     assert normalized.edition_format == "TV Series"
     assert normalized.creators[0].role == "Creator"
+    assert any(credit.role == "Director" for credit in normalized.creators)
+    assert any(credit.role == "Writer" for credit in normalized.creators)
+    assert normalized.characters[0].name == "Emilia Clarke"
+    assert normalized.characters[0].role == "Daenerys Targaryen"
     assert normalized.audience_rating == "8.4"
     assert normalized.provider_ids == {"tmdb": "tv:1399"}
 
@@ -475,6 +497,45 @@ async def test_admin_ingest_persists_tv_media_color(client, monkeypatch):
     assert media.audio_tracks == "English Dolby"
     assert media.subtitles == "English, Romanian"
     assert media.layers == "BD-50"
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_upserts_tmdb_tv_cast_and_crew(client, monkeypatch):
+    token = await _admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="tmdb", provider_item_id="tv:1399", raw=_tv_raw())
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(TMDbProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"******"},
+        json={"provider": "tmdb", "provider_item_id": "tv:1399"},
+    )
+
+    assert response.status_code == 201
+
+    async with AsyncSessionLocal() as db:
+        release = await db.scalar(select(TVRelease).where(TVRelease.title == "Game of Thrones"))
+        contributions = list(
+            await db.scalars(
+                select(TVReleaseContribution)
+                .options(selectinload(TVReleaseContribution.person))
+                .join(TVRelease)
+                .where(TVRelease.title == "Game of Thrones")
+                .order_by(TVReleaseContribution.sequence.asc())
+            )
+        )
+
+    assert release is not None
+    assert any(row.role == "cast" and row.character_name == "Daenerys Targaryen" for row in contributions)
+    assert any(row.role == "director" and row.person.name == "Miguel Sapochnik" for row in contributions)
+    assert any(row.role == "writer" and row.person.name == "Bryan Cogman" for row in contributions)
 
 
 @pytest.mark.asyncio

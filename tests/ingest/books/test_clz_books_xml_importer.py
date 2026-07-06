@@ -1,4 +1,4 @@
-from app.services.clz_books_xml_importer import ClzBooksXmlImporter
+from app.services.importers.clz.clz_books_xml_importer import ClzBooksXmlImporter
 
 
 def test_clz_books_xml_importer_parses_creator_and_book_fields() -> None:

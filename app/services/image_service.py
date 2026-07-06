@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 
 from app.models import ExternalProvider
 from app.providers.base import MetadataProvider, ProviderSearchResult
-from app.services.metadata_public import (
+from app.services.metadata.metadata_public import (
     mirror_provider_image_bytes as _mirror_provider_image_bytes,
 )
-from app.services.metadata_public import (
+from app.services.metadata.metadata_public import (
     mirror_provider_image_url as _mirror_provider_image_url,
 )
 

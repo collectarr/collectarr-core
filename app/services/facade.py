@@ -14,8 +14,8 @@ from app.schemas import (
 from app.schemas.metadata_shared import SearchResult
 from app.search.client import SearchClient
 from app.services.metadata import metadata_public
-from app.services.metadata_read_service import MetadataReadService
-from app.services.metadata_search_service import MetadataSearchService
+from app.services.metadata.metadata_read_service import MetadataReadService
+from app.services.metadata.metadata_search_service import MetadataSearchService
 from app.services.provider_search_state import ProviderSearchState
 
 

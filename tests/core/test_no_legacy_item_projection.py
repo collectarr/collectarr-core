@@ -112,8 +112,10 @@ def test_fastapi_routes_do_not_start_with_metadata_items():
 
 def test_metadata_service_is_thin_and_uses_response_builder_mixin():
     app_dir = Path(__file__).resolve().parents[2] / "app"
-    metadata_service = (app_dir / "services" / "metadata.py").read_text(encoding="utf-8")
-    response_builders = (app_dir / "services" / "metadata_response_builders.py").read_text(encoding="utf-8")
+    facade_service = (app_dir / "services" / "facade.py").read_text(encoding="utf-8")
+    response_builders = (
+        app_dir / "services" / "metadata" / "metadata_response_builders.py"
+    ).read_text(encoding="utf-8")
 
     builder_files = {
         "metadata_builders_comics.py": ["_comic_contributor_response", "_comic_issue_response", "_comic_work_response"],
@@ -124,12 +126,12 @@ def test_metadata_service_is_thin_and_uses_response_builder_mixin():
         "metadata_builders_tv.py": ["_tv_series_response", "_tv_season_response", "_tv_episode_response"],
     }
     for filename, markers in builder_files.items():
-        content = (app_dir / "services" / filename).read_text(encoding="utf-8")
+        content = (app_dir / "services" / "metadata" / filename).read_text(encoding="utf-8")
         for marker in markers:
             assert marker in content
 
     for marker in [marker for markers in builder_files.values() for marker in markers] + ["async def get_item("]:
-        assert marker not in metadata_service
+        assert marker not in facade_service
         assert marker not in response_builders
 
     metadata_routes = app_dir / "api" / "routes" / "metadata"

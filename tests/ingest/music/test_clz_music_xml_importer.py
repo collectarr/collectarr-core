@@ -1,4 +1,4 @@
-from app.services.clz_music_xml_importer import ClzMusicXmlImporter
+from app.services.importers.clz.clz_music_xml_importer import ClzMusicXmlImporter
 
 
 def test_clz_music_xml_importer_parses_disc_track_and_credit_fields() -> None:

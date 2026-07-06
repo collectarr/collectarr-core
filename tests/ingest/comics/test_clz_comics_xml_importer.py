@@ -1,4 +1,4 @@
-from app.services.clz_comics_xml_importer import ClzComicsXmlImporter
+from app.services.importers.clz.clz_comics_xml_importer import ClzComicsXmlImporter
 
 
 def test_clz_comics_xml_importer_parses_creator_and_character_fields() -> None:

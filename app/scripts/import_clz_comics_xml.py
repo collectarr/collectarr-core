@@ -4,7 +4,7 @@ import argparse
 import asyncio
 
 from app.db.session import AsyncSessionLocal
-from app.services.clz_comics_xml_importer import ClzComicsXmlImporter
+from app.services.importers.clz.clz_comics_xml_importer import ClzComicsXmlImporter
 
 
 def parse_args() -> argparse.Namespace:

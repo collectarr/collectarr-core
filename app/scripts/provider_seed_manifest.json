@@ -1,0 +1,98 @@
+{
+  "cases": {
+    "movie.tmdb.blade-runner": {
+      "provider": "tmdb",
+      "kind": "movie",
+      "query": "Blade Runner",
+      "expected_title": "Blade Runner"
+    },
+    "tv.tmdb.breaking-bad": {
+      "provider": "tmdb",
+      "kind": "tv",
+      "query": "Breaking Bad",
+      "expected_title": "Breaking Bad"
+    },
+    "comic.gcd.batman-1": {
+      "provider": "gcd",
+      "kind": "comic",
+      "query": "Batman #1",
+      "expected_title_contains": "Batman"
+    },
+    "comic.comicvine.saga-1": {
+      "provider": "comicvine",
+      "kind": "comic",
+      "query": "Saga #1",
+      "expected_title_contains": "Saga"
+    },
+    "book.openlibrary.dune": {
+      "provider": "openlibrary",
+      "kind": "book",
+      "query": "Dune Frank Herbert",
+      "expected_title": "Dune"
+    },
+    "anime.anilist.cowboy-bebop": {
+      "provider": "anilist",
+      "kind": "anime",
+      "query": "Cowboy Bebop",
+      "expected_title": "Cowboy Bebop"
+    },
+    "manga.mangadex.one-piece": {
+      "provider": "mangadex",
+      "kind": "manga",
+      "query": "One Piece",
+      "expected_title_contains": "One Piece"
+    },
+    "music.musicbrainz.ok-computer": {
+      "provider": "musicbrainz",
+      "kind": "music",
+      "query": "OK Computer",
+      "expected_title": "OK Computer"
+    },
+    "game.igdb.skyrim": {
+      "provider": "igdb",
+      "kind": "game",
+      "query": "The Elder Scrolls V: Skyrim",
+      "expected_title_contains": "Skyrim"
+    },
+    "boardgame.bgg.catan": {
+      "provider": "bgg",
+      "kind": "boardgame",
+      "query": "Catan",
+      "expected_title": "Catan"
+    }
+  },
+  "profiles": {
+    "smoke": [
+      "movie.tmdb.blade-runner",
+      "tv.tmdb.breaking-bad",
+      "comic.gcd.batman-1",
+      "book.openlibrary.dune",
+      "anime.anilist.cowboy-bebop",
+      "music.musicbrainz.ok-computer"
+    ],
+    "showcase": [
+      "movie.tmdb.blade-runner",
+      "tv.tmdb.breaking-bad",
+      "comic.gcd.batman-1",
+      "comic.comicvine.saga-1",
+      "book.openlibrary.dune",
+      "anime.anilist.cowboy-bebop",
+      "manga.mangadex.one-piece",
+      "music.musicbrainz.ok-computer",
+      "game.igdb.skyrim",
+      "boardgame.bgg.catan"
+    ],
+    "all": [
+      "movie.tmdb.blade-runner",
+      "tv.tmdb.breaking-bad",
+      "comic.gcd.batman-1",
+      "comic.comicvine.saga-1",
+      "book.openlibrary.dune",
+      "anime.anilist.cowboy-bebop",
+      "manga.mangadex.one-piece",
+      "music.musicbrainz.ok-computer",
+      "game.igdb.skyrim",
+      "boardgame.bgg.catan"
+    ]
+  }
+}

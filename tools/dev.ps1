@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("start", "stop", "migrate", "seed", "test", "check", "smoke-providers", "reset-stack", "clean-state")]
+    [ValidateSet("start", "stop", "migrate", "seed", "seed-providers", "seed-showcase", "test", "check", "smoke-providers", "reset-stack", "clean-state")]
     [string]$Command,
     [switch]$UseWslDocker,
     [switch]$WithSync
@@ -37,8 +37,13 @@ switch ($Command) {
         Invoke-CollectarrSchemaSetup -RepoRoot $Root -WithSync:$WithSync
     }
     "seed" {
-        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_comics")
-        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_all_libraries")
+        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_full", "--wipe")
+    }
+    "seed-providers" {
+        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_provider_catalog", "--profile", "smoke", "--skip-existing")
+    }
+    "seed-showcase" {
+        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_provider_catalog", "--profile", "showcase", "--skip-existing")
     }
     "test" {
         python -m pytest

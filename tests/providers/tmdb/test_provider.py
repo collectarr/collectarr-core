@@ -13,12 +13,21 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
+    TVEpisode,
     TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
+    TVSeason,
+    TVSeries,
 )
 from app.models.base import ItemKind
-from app.providers.base import NormalizedCredit, NormalizedItem, ProviderItem
+from app.providers.base import (
+    NormalizedCredit,
+    NormalizedEpisode,
+    NormalizedItem,
+    NormalizedSeason,
+    ProviderItem,
+)
 from app.providers.tmdb import TMDbProvider
 from app.search.client import SearchClient
 
@@ -497,6 +506,89 @@ async def test_admin_ingest_persists_tv_media_color(client, monkeypatch):
     assert media.audio_tracks == "English Dolby"
     assert media.subtitles == "English, Romanian"
     assert media.layers == "BD-50"
+
+
+@pytest.mark.asyncio
+async def test_admin_ingest_persists_tmdb_tv_seasons_and_episodes(client, monkeypatch):
+    token = await _admin_token(client, monkeypatch)
+
+    async def fake_get_item(self, provider_item_id):
+        return ProviderItem(provider="tmdb", provider_item_id="tv:1399", raw=_tv_raw())
+
+    async def fake_get_seasons(self, provider_item_id):
+        return [
+            NormalizedSeason(
+                season_number=1,
+                title="Season 1",
+                provider_item_id="tv:1399:season:1",
+                air_date=date(2011, 4, 17),
+                episode_count=2,
+                episodes=[
+                    NormalizedEpisode(
+                        episode_number=1,
+                        title="Winter Is Coming",
+                        provider_item_id="tv:1399:season:1:episode:1",
+                        air_date=date(2011, 4, 17),
+                        runtime_minutes=62,
+                    ),
+                    NormalizedEpisode(
+                        episode_number=2,
+                        title="The Kingsroad",
+                        provider_item_id="tv:1399:season:1:episode:2",
+                        air_date=date(2011, 4, 24),
+                        runtime_minutes=56,
+                    ),
+                ],
+            )
+        ]
+
+    async def fake_normalize(self, raw):
+        return NormalizedItem(
+            kind=ItemKind.tv,
+            title="Game of Thrones",
+            edition_title="Game of Thrones",
+            edition_format="TV Series",
+            release_date=date(2011, 4, 17),
+            runtime_minutes=60,
+            age_rating="TV-MA",
+            audience_rating="8.4",
+            creators=[NormalizedCredit(name="David Benioff", role="Creator")],
+            provider_ids={"tmdb": "tv:1399"},
+        )
+
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(TMDbProvider, "get_item", fake_get_item)
+    monkeypatch.setattr(TMDbProvider, "get_seasons", fake_get_seasons)
+    monkeypatch.setattr(TMDbProvider, "normalize", fake_normalize)
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+
+    response = await client.post(
+        "/admin/providers/ingest",
+        headers={"Authorization": f"******"},
+        json={"provider": "tmdb", "provider_item_id": "tv:1399"},
+    )
+
+    assert response.status_code == 201
+
+    async with AsyncSessionLocal() as db:
+        series = await db.scalar(select(TVSeries).where(TVSeries.title == "Game of Thrones"))
+        seasons = list(
+            await db.scalars(
+                select(TVSeason).join(TVSeries).where(TVSeries.title == "Game of Thrones")
+            )
+        )
+        episodes = list(
+            await db.scalars(
+                select(TVEpisode).join(TVSeries).where(TVSeries.title == "Game of Thrones")
+            )
+        )
+
+    assert series is not None
+    assert len(seasons) == 1
+    assert len(episodes) == 2
+    assert episodes[0].title == "Winter Is Coming"
 
 
 @pytest.mark.asyncio

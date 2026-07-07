@@ -37,6 +37,7 @@ title {
 description(asHtml: false)
 format
 status
+averageScore
 chapters
 volumes
 episodes
@@ -51,6 +52,15 @@ coverImage {
   medium
 }
 genres
+trailer {
+  id
+  site
+  thumbnail
+}
+externalLinks {
+  site
+  url
+}
 staff(perPage: 10) {
   edges {
     role
@@ -252,6 +262,11 @@ class AniListProvider:
             creators=self._staff(data.get("staff")),
             characters=self._characters(data.get("characters")),
             genres=genres,
+            audience_rating=self._audience_rating(data.get("averageScore")),
+            release_status=self._optional_text(data.get("status")),
+            external_ids=self._external_ids(data),
+            trailer_urls=self._trailer_urls(data),
+            external_links=self._external_links(data, kind),
             provider_ids={self.name: provider_item_id} if provider_item_id else {},
             volume_provider_ids={self.name: provider_item_id} if provider_item_id else {},
             relations=self._relations(data.get("relations"), kind),
@@ -373,6 +388,96 @@ class AniListProvider:
     def _cover_url(self, data: Mapping[str, Any]) -> str | None:
         cover = data.get("coverImage") if isinstance(data.get("coverImage"), Mapping) else {}
         return self._optional_text(cover.get("large")) or self._optional_text(cover.get("medium"))
+
+    def _external_ids(self, data: Mapping[str, Any]) -> dict[str, str]:
+        result: dict[str, str] = {}
+        anilist_id = self._id(data.get("id"))
+        if anilist_id is not None:
+            result["anilist_id"] = str(anilist_id)
+        mal_id = self._id(data.get("idMal"))
+        if mal_id is not None:
+            result["mal_id"] = str(mal_id)
+        return result
+
+    def _external_links(self, data: Mapping[str, Any], kind: ItemKind) -> list[dict[str, str]]:
+        links: list[dict[str, str]] = []
+        site_url = self._optional_text(data.get("siteUrl"))
+        if site_url:
+            links.append(
+                {
+                    "kind": "anilist",
+                    "site": "AniList",
+                    "url": site_url,
+                    "name": "AniList page",
+                    "description": "AniList title page",
+                }
+            )
+
+        mal_id = self._id(data.get("idMal"))
+        if mal_id is not None:
+            mal_kind = "anime" if kind == ItemKind.anime else "manga"
+            links.append(
+                {
+                    "kind": "myanimelist",
+                    "site": "MyAnimeList",
+                    "url": f"https://myanimelist.net/{mal_kind}/{mal_id}",
+                    "name": "MyAnimeList page",
+                    "description": "MyAnimeList title page",
+                }
+            )
+
+        extra_links = data.get("externalLinks")
+        if isinstance(extra_links, list):
+            for entry in extra_links:
+                if not isinstance(entry, Mapping):
+                    continue
+                url = self._optional_text(entry.get("url"))
+                if not url:
+                    continue
+                site = self._optional_text(entry.get("site")) or "External"
+                links.append(
+                    {
+                        "kind": site.casefold().replace(" ", "_"),
+                        "site": site,
+                        "url": url,
+                        "name": site,
+                        "description": "AniList external link",
+                    }
+                )
+        return links
+
+    def _trailer_urls(self, data: Mapping[str, Any]) -> list[dict[str, str]]:
+        trailer = data.get("trailer") if isinstance(data.get("trailer"), Mapping) else None
+        if not isinstance(trailer, Mapping):
+            return []
+        site = self._optional_text(trailer.get("site"))
+        trailer_id = self._optional_text(trailer.get("id"))
+        if not site or not trailer_id:
+            return []
+        site_key = site.casefold()
+        if site_key == "youtube":
+            url = f"https://www.youtube.com/watch?v={trailer_id}"
+        elif site_key == "vimeo":
+            url = f"https://vimeo.com/{trailer_id}"
+        else:
+            url = trailer_id
+        result: dict[str, str] = {
+            "site": site,
+            "kind": "trailer",
+            "url": url,
+            "name": "Trailer",
+            "description": "AniList trailer",
+        }
+        thumbnail = self._optional_text(trailer.get("thumbnail"))
+        if thumbnail:
+            result["thumbnail"] = thumbnail
+        return [result]
+
+    def _audience_rating(self, value: Any) -> str | None:
+        score = self._int(value)
+        if score is None:
+            return None
+        return f"{score / 10:.1f}".rstrip("0").rstrip(".")
 
     def _staff(self, value: Any) -> list[NormalizedCredit]:
         if not isinstance(value, Mapping):

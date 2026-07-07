@@ -45,9 +45,21 @@ def _anilist_raw() -> dict:
         "description": "A grand pirate adventure.",
         "format": "MANGA",
         "status": "RELEASING",
+        "averageScore": 88,
         "chapters": None,
         "volumes": None,
         "startDate": {"year": 1997, "month": 7, "day": 22},
+        "trailer": {
+            "id": "dQw4w9WgXcQ",
+            "site": "youtube",
+            "thumbnail": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+        },
+        "externalLinks": [
+            {
+                "site": "Official Site",
+                "url": "https://one-piece.com/",
+            }
+        ],
         "coverImage": {
             "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/30013.jpg",
             "medium": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/30013.jpg",
@@ -112,9 +124,21 @@ def _anilist_anime_raw() -> dict:
         "description": "A grand pirate adventure.",
         "format": "TV",
         "status": "RELEASING",
+        "averageScore": 84,
         "episodes": None,
         "duration": 24,
         "startDate": {"year": 1999, "month": 10, "day": 20},
+        "trailer": {
+            "id": "dQw4w9WgXcQ",
+            "site": "youtube",
+            "thumbnail": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+        },
+        "externalLinks": [
+            {
+                "site": "Official Site",
+                "url": "https://one-piece.com/",
+            }
+        ],
         "coverImage": {
             "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/21.jpg",
             "medium": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/21.jpg",
@@ -226,6 +250,11 @@ async def test_anilist_provider_fetches_media_and_normalizes(monkeypatch):
     assert normalized.creators[0].role == "Story & Art"
     assert [credit.name for credit in normalized.characters] == ["Monkey D. Luffy"]
     assert normalized.story_arcs == []
+    assert normalized.audience_rating == "8.8"
+    assert normalized.release_status == "RELEASING"
+    assert normalized.external_ids == {"anilist_id": "30013", "mal_id": "13"}
+    assert normalized.trailer_urls[0]["site"] == "youtube"
+    assert normalized.external_links[0]["kind"] == "anilist"
     assert normalized.provider_ids == {"anilist": "30013"}
 
 
@@ -281,6 +310,10 @@ async def test_anilist_provider_searches_and_normalizes_anime(monkeypatch):
     assert [credit.name for credit in normalized.characters] == ["Monkey D. Luffy"]
     assert normalized.story_arcs == []
     assert normalized.genres == ["Action", "Adventure"]
+    assert normalized.audience_rating == "8.4"
+    assert normalized.release_status == "RELEASING"
+    assert normalized.external_ids == {"anilist_id": "21", "mal_id": "21"}
+    assert normalized.trailer_urls[0]["site"] == "youtube"
     assert normalized.provider_ids == {"anilist": "anime:21"}
 
 

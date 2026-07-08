@@ -76,7 +76,7 @@ You can pin a specific release by setting `APP_WEB_IMAGE` in `.env.unraid`,
 for example:
 
 ```env
-APP_WEB_IMAGE=ghcr.io/collectarr/collectarr-app-web:v1.0.4
+APP_WEB_IMAGE=ghcr.io/collectarr/collectarr-app-web:v0.2.0
 ```
 
 After changing image tags, redeploy the stack:

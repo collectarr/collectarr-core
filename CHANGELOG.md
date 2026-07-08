@@ -1,7 +1,5 @@
 # Changelog
 
-## [1.1.0](https://github.com/collectarr/collectarr-core/compare/v1.0.4...v1.1.0) (2026-07-08)
-
 ## What's Changed
 
 ### ✨ Features
@@ -29,7 +27,7 @@
 - Added coverage for TV routes, provider integrity, duplicate review, and metadata field schema contracts.
 
 ### Docker
-- ghcr.io/collectarr/collectarr-core:v1.1.0
+- ghcr.io/collectarr/collectarr-core:v0.2.0
 - ghcr.io/collectarr/collectarr-core:latest
 
-**Full Changelog**: https://github.com/collectarr/collectarr-core/compare/v1.0.4...v1.1.0
+**Full Changelog**: https://github.com/collectarr/collectarr-core/compare/v0.1.4...v0.2.0

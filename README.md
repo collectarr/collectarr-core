@@ -71,9 +71,9 @@ references.
 - [Open generated markdown snapshot](docs/schema-full.md)
 - Refresh locally with `python -m scripts.export_schema_site` or keep it live with `python -m scripts.export_schema_site --watch`.
 
-### Migration policy (pre-2.0)
+### Migration policy (pre-1.0)
 
-While the schema is still evolving toward the current 2.0 baseline, Core ships
+While the schema is still evolving toward the current 1.0 baseline, Core ships
 a **single squashed Alembic baseline** rather than an incremental migration
 history. The server database starts empty, so when the models change the
 baseline is regenerated and the database is recreated instead of stacking
@@ -158,11 +158,11 @@ catalog/search/admin contract instead of inventing parallel app-only fields.
 Release publishing is manual-only. The `Release` GitHub Actions workflow uses
 `workflow_dispatch`; pushing to `main` runs CI only and never auto-publishes.
 
-Current stable release: `v1.0.4`
+Current beta release: `v0.2.0`
 
 Current backend image tags:
 
-- `ghcr.io/collectarr/collectarr-core:v1.0.4`
+- `ghcr.io/collectarr/collectarr-core:v0.2.0`
 - `ghcr.io/collectarr/collectarr-core:latest`
 
 Release docs and container tags are kept in sync with the GitHub release state

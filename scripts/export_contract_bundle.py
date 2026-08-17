@@ -21,6 +21,10 @@ from app.catalog.media_types import top_level_media_types  # noqa: E402
 from app.catalog.metadata_fields import contract_rows  # noqa: E402
 from app.main import app  # noqa: E402
 from app.providers.registry import ProviderRegistry  # noqa: E402
+from scripts.export_provider_golden_fixtures import (  # noqa: E402
+    generate_envelope_schema,
+    generate_golden_envelopes,
+)
 
 CONTRACT_VERSION = "1.0.0"
 
@@ -88,6 +92,8 @@ def build_contract_bundle() -> dict[str, Any]:
             for row in registry.status_entries()
         ],
     }
+    provider_envelope_schema = generate_envelope_schema()
+    golden_provider_envelopes = generate_golden_envelopes()
     return {
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
@@ -95,6 +101,8 @@ def build_contract_bundle() -> dict[str, Any]:
         "field_schema": field_schema,
         "active_kinds": active_kinds,
         "provider_support": provider_support,
+        "provider_envelope_schema": provider_envelope_schema,
+        "golden_provider_envelopes": golden_provider_envelopes,
     }
 
 
@@ -108,6 +116,8 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
         "metadata-field-schema.json": bundle["field_schema"],
         "active-kinds.json": bundle["active_kinds"],
         "provider-support.json": bundle["provider_support"],
+        "provider-envelope-schema-v1.json": bundle["provider_envelope_schema"],
+        "golden-provider-envelopes.json": bundle["golden_provider_envelopes"],
     }
     hashes: dict[str, str] = {}
     for filename, payload in outputs.items():
@@ -124,6 +134,8 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
         "fieldSchemaHash": hashes["metadata-field-schema.json"],
         "activeKindsHash": hashes["active-kinds.json"],
         "providerSupportHash": hashes["provider-support.json"],
+        "providerEnvelopeSchemaHash": hashes["provider-envelope-schema-v1.json"],
+        "goldenProviderEnvelopesHash": hashes["golden-provider-envelopes.json"],
     }
     manifest_text = _json_text(manifest)
     manifest_data = manifest_text.encode("utf-8")

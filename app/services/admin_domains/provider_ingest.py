@@ -90,7 +90,6 @@ from app.providers.base import (
     NormalizedTrack,
     NormalizedVariantCover,
 )
-from app.providers.comicvine import ComicVineProvider
 from app.providers.envelope import (
     NormalizedProviderEnvelopeV1,
     ProviderAttribution,

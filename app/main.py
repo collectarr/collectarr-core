@@ -8,7 +8,6 @@ from app.api.routes import admin, auth, images, metadata
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
-from app.providers.hardcover import HardcoverProvider
 from app.services.health import HealthService
 
 settings = get_settings()
@@ -19,10 +18,8 @@ API_VERSION = "0.1.0"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    try:
-        yield
-    finally:
-        await HardcoverProvider().aclose()
+    yield
+
 
 app = FastAPI(
     lifespan=lifespan,

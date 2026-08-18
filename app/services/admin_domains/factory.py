@@ -5,7 +5,6 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.providers.comicvine import ComicVineCharacterDetail
 from app.providers.registry import ProviderRegistry
 from app.search.client import SearchClient
 from app.services.admin_domains.catalog import AdminCatalogService
@@ -44,7 +43,7 @@ def build_admin_domain_services(
     providers = ProviderRegistry()
     provider_preview_state = ProviderPreviewState()
     provider_search_state = ProviderSearchState(settings)
-    comicvine_character_details: dict[str, ComicVineCharacterDetail | None] = {}
+    comicvine_character_details: dict[str, Any] = {}
 
     support_admin = AdminSupportService(
         db=db,

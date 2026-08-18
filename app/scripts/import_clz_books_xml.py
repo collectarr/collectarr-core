@@ -4,7 +4,7 @@ import argparse
 import asyncio
 from pathlib import Path
 
-from app.database import async_session
+from app.db.session import AsyncSessionLocal as async_session
 from app.services.importers.clz.clz_books_xml_importer import ClzBooksXmlImporter
 
 

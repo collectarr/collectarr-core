@@ -91,6 +91,11 @@ from app.providers.base import (
     NormalizedVariantCover,
 )
 from app.providers.comicvine import ComicVineProvider
+from app.providers.envelope import (
+    NormalizedProviderEnvelopeV1,
+    ProviderAttribution,
+    ProviderProvenance,
+)
 from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.schemas.admin import (
@@ -354,18 +359,52 @@ class AdminProviderIngestService:
                 code="metadata_proposal_not_found",
                 detail="Proposal not found",
             )
-        if proposal.provider_item_id is None:
+        if proposal.provider_item_id is None and not proposal.metadata_payload:
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="metadata_proposal_missing_provider_item",
-                detail="Proposal does not have a provider item id",
+                detail="Proposal does not have a provider item id or metadata payload",
             )
-        response = await self.ingest(
-            ProviderIngestRequest(
-                provider=proposal.provider,
-                provider_item_id=proposal.provider_item_id,
+
+        # Convert proposal approval: normalized submission -> canonical writer
+        # Does not do provider lookup -> normalize -> writer
+        if proposal.metadata_payload and isinstance(proposal.metadata_payload, dict):
+            payload_data = proposal.metadata_payload
+            if payload_data.get("schema_version") == "v1" and "normalized" in payload_data:
+                envelope = NormalizedProviderEnvelopeV1.from_dict(payload_data)
+            else:
+                kind = payload_data.get("kind", "comic")
+                envelope = NormalizedProviderEnvelopeV1(
+                    schema_version="v1",
+                    provider=proposal.provider.value if hasattr(proposal.provider, "value") else str(proposal.provider),
+                    provider_item_id=proposal.provider_item_id or str(proposal.id),
+                    kind=kind,
+                    normalized=payload_data,
+                    provenance=ProviderProvenance(fetched_at=datetime.now(UTC).isoformat()),
+                    images=[],
+                    attribution=ProviderAttribution(required=False),
+                )
+            from app.services.canonical_catalog_writer import CanonicalCatalogWriter
+
+            writer = CanonicalCatalogWriter(
+                self.db,
+                search_client=self.search_client,
+                image_cache=self.image_cache,
             )
-        )
+            write_result = await writer.write_envelope(envelope)
+            response = ProviderIngestResponse(
+                item_id=write_result.item_id,
+                created=write_result.created,
+                item=write_result.item,
+            )
+        else:
+            response = await self.ingest(
+                ProviderIngestRequest(
+                    provider=proposal.provider,
+                    provider_item_id=proposal.provider_item_id or "",
+                )
+            )
+
         proposal.status = "approved"
         self._audit_recorder(
             action="metadata_proposal.approve",

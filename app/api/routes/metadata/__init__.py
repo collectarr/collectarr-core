@@ -25,6 +25,7 @@ from . import (
     proposals,
     providers,
     search,
+    submissions,
     tv,
 )
 
@@ -33,6 +34,7 @@ router.include_router(field_schema.router)
 router.include_router(search.router)
 router.include_router(providers.router)
 router.include_router(proposals.router)
+router.include_router(submissions.router)
 router.include_router(browse.router)
 router.include_router(images.router)
 router.include_router(books.router)

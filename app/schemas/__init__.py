@@ -9,4 +9,5 @@ from app.schemas.metadata_games import *  # noqa: F401,F403
 from app.schemas.metadata_manga import *  # noqa: F401,F403
 from app.schemas.metadata_music import *  # noqa: F401,F403
 from app.schemas.metadata_shared import *  # noqa: F401,F403
+from app.schemas.metadata_submissions import *  # noqa: F401,F403
 from app.schemas.metadata_video import *  # noqa: F401,F403

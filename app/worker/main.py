@@ -47,6 +47,7 @@ from app.models import (
     TVEpisode,
     TVRelease,
     TVReleaseContribution,
+    TVReleaseEpisodeMap,
     TVReleaseMedia,
     TVSeason,
     TVSeries,
@@ -145,7 +146,6 @@ async def index_once(search: SearchClient) -> None:
                 selectinload(BookWork.contributions).selectinload(BookContribution.person),
                 selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
                 selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
-                selectinload(BookWork.identifiers),
             )
         )
         documents.extend(book_work_search_document(row) for row in book_rows.scalars().unique())
@@ -157,7 +157,6 @@ async def index_once(search: SearchClient) -> None:
                 selectinload(ComicWork.series_memberships).selectinload(ComicSeriesMembership.series),
                 selectinload(ComicWork.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
                 selectinload(ComicWork.character_appearances).selectinload(ComicCharacterAppearance.character),
-                selectinload(ComicWork.identifiers),
             )
         )
         documents.extend(comic_work_search_document(row) for row in comic_rows.scalars().unique())
@@ -168,7 +167,6 @@ async def index_once(search: SearchClient) -> None:
                 selectinload(MangaWork.chapters).selectinload(MangaChapter.identifiers),
                 selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
                 selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
-                selectinload(MangaWork.identifiers),
             )
         )
         documents.extend(manga_work_search_document(row) for row in manga_rows.scalars().unique())

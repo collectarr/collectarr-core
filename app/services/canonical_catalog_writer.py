@@ -1196,7 +1196,18 @@ class CanonicalCatalogWriter:
     async def _reindex_book_work(self, work_id: UUID) -> None:
         if not self.search_client:
             return
-        work = await self.db.scalar(select(BookWork).where(BookWork.id == work_id))
+        work = await self.db.scalar(
+            select(BookWork)
+            .where(BookWork.id == work_id)
+            .options(
+                selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
+                selectinload(BookWork.editions)
+                .selectinload(BookEdition.contributions)
+                .selectinload(BookContribution.person),
+                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
+            )
+        )
         if work:
             await self.search_client.index_document(book_work_search_document(work))
 

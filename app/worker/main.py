@@ -28,6 +28,7 @@ from app.models import (
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
+    ComicSeriesMembership,
     ComicStoryArcMembership,
     ComicWork,
     GameRelease,
@@ -37,6 +38,7 @@ from app.models import (
     MangaCharacterAppearance,
     MangaContribution,
     MangaWork,
+    MangaSeriesMembership,
     MovieRelease,
     MovieReleaseMedia,
     MovieWork,
@@ -144,6 +146,9 @@ async def index_once(search: SearchClient) -> None:
         book_rows = await db.execute(
             select(BookWork).options(
                 selectinload(BookWork.contributions).selectinload(BookContribution.person),
+                selectinload(BookWork.editions)
+                .selectinload(BookEdition.contributions)
+                .selectinload(BookContribution.person),
                 selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
                 selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
             )
@@ -153,10 +158,17 @@ async def index_once(search: SearchClient) -> None:
         comic_rows = await db.execute(
             select(ComicWork).options(
                 selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.contributions)
+                .selectinload(ComicContribution.person),
                 selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
                 selectinload(ComicWork.series_memberships).selectinload(ComicSeriesMembership.series),
-                selectinload(ComicWork.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
-                selectinload(ComicWork.character_appearances).selectinload(ComicCharacterAppearance.character),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.story_arc_memberships)
+                .selectinload(ComicStoryArcMembership.story_arc),
+                selectinload(ComicWork.issues)
+                .selectinload(ComicIssue.character_appearances)
+                .selectinload(ComicCharacterAppearance.character),
             )
         )
         documents.extend(comic_work_search_document(row) for row in comic_rows.scalars().unique())
@@ -164,7 +176,7 @@ async def index_once(search: SearchClient) -> None:
         manga_rows = await db.execute(
             select(MangaWork).options(
                 selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.chapters).selectinload(MangaChapter.identifiers),
+                selectinload(MangaWork.chapters),
                 selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
                 selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
             )

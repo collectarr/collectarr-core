@@ -18,6 +18,7 @@ from app.models import (
     AnimeContribution,
     AnimeEpisode,
     AnimeSeries,
+    BoardGameContribution,
     BoardGameEdition,
     BoardGameWork,
     BookContribution,
@@ -201,10 +202,29 @@ async def index_once(search: SearchClient) -> None:
         )
         documents.extend(tv_release_search_document(row) for row in tv_rows.scalars().unique())
 
-        game_rows = await db.execute(select(GameWork).options(selectinload(GameWork.releases)))
+        game_rows = await db.execute(
+            select(GameWork).options(
+                selectinload(GameWork.releases),
+                selectinload(GameWork.platform_entries),
+                selectinload(GameWork.identifier_entries),
+                selectinload(GameWork.company_role_entries),
+                selectinload(GameWork.age_rating_entries),
+            )
+        )
         documents.extend(game_work_search_document(row) for row in game_rows.scalars().unique())
 
-        boardgame_rows = await db.execute(select(BoardGameWork).options(selectinload(BoardGameWork.editions)))
+        boardgame_rows = await db.execute(
+            select(BoardGameWork).options(
+                selectinload(BoardGameWork.editions),
+                selectinload(BoardGameWork.identifier_entries),
+                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
+                selectinload(BoardGameWork.mechanic_entries),
+                selectinload(BoardGameWork.category_entries),
+                selectinload(BoardGameWork.family_entries),
+                selectinload(BoardGameWork.expansion_entries),
+                selectinload(BoardGameWork.ranking_snapshots),
+            )
+        )
         documents.extend(boardgame_search_document(row) for row in boardgame_rows.scalars().unique())
 
         anime_rows = await db.execute(

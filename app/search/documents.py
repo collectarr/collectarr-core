@@ -19,6 +19,7 @@ from app.models import (
     MovieWorkContribution,
     TVRelease,
     TVSeries,
+    MusicRelease,
 )
 from app.models.base import ItemKind
 
@@ -743,6 +744,89 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
     }
 
 
+def music_release_search_document(release: MusicRelease) -> dict[str, Any]:
+    media = sorted(
+        getattr(release, "media", []) or [],
+        key=lambda row: (
+            getattr(row, "media_number", None) is None,
+            getattr(row, "media_number", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    )
+    primary_media = media[0] if media else None
+    creators: list[str] = []
+    for contribution in sorted(
+        getattr(release, "contributions", []) or [],
+        key=lambda row: (
+            getattr(row, "sequence", None) is None,
+            getattr(row, "sequence", None) or 0,
+            str(getattr(row, "id", "")),
+        ),
+    ):
+        person = getattr(contribution, "person", None)
+        person_name = _optional_text(getattr(person, "name", None))
+        if person_name:
+            _append_unique(creators, person_name)
+
+    barcodes: list[str] = []
+    for value in (
+        getattr(release, "barcode", None),
+        getattr(release, "upc", None),
+        getattr(release, "catalog_number", None),
+    ):
+        normalized = _optional_text(value)
+        if normalized:
+            _append_unique(barcodes, _normalized_barcode(normalized))
+    for identifier in getattr(release, "identifiers", []) or []:
+        value = _optional_text(getattr(identifier, "value", None))
+        if value:
+            _append_unique(barcodes, _normalized_barcode(value))
+
+    variant_names: list[str] = []
+    for value in (
+        getattr(release, "release_type", None),
+        getattr(primary_media, "media_type", None) if primary_media else None,
+        getattr(primary_media, "packaging", None) if primary_media else None,
+    ):
+        normalized = _optional_text(value)
+        if normalized:
+            _append_unique(variant_names, normalized)
+
+    release_date = getattr(release, "release_date", None)
+    return {
+        "id": str(release.id),
+        "kind": ItemKind.music.value,
+        "title": release.title,
+        "item_number": primary_media.title if primary_media is not None else None,
+        "runtime_minutes": None,
+        "cover_image_url": release.cover_image_url,
+        "thumbnail_image_url": release.cover_image_url,
+        "publisher": release.publisher or release.studio,
+        "release_date": release_date.isoformat() if release_date else None,
+        "region": release.country_code,
+        "release_year": release_date.year if release_date else None,
+        "barcode": barcodes[0] if barcodes else None,
+        "barcodes": barcodes,
+        "variant": variant_names[0] if variant_names else None,
+        "variant_names": variant_names,
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": None,
+        "volume_name": None,
+        "catalog_number": release.catalog_number,
+        "creators": creators,
+        "characters": [],
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": release.release_status,
+        "language": release.language,
+        "imprint": None,
+        "subtitle": release.subtitle,
+        "series_group": None,
+        "age_rating": None,
+    }
+
+
 def tv_release_search_document(entity: TVSeries | TVRelease) -> dict[str, Any]:
     series = entity if isinstance(entity, TVSeries) else getattr(entity, "series", None) or entity
     release = entity if isinstance(entity, TVRelease) else None
@@ -846,6 +930,8 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
         return game_work_search_document(entity)
     if isinstance(entity, BoardGameWork):
         return boardgame_search_document(entity)
+    if isinstance(entity, MusicRelease):
+        return music_release_search_document(entity)
     raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
 
 

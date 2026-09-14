@@ -15,6 +15,7 @@ from app.models import (
     AnimeContribution,
     AnimeEpisode,
     AnimeSeries,
+    BoardGameContribution,
     BoardGameEdition,
     BoardGameWork,
     BookContribution,
@@ -47,6 +48,7 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MusicMedia,
+    MusicReleaseContribution,
     MusicRelease,
     MusicTrack,
     ProviderIngestJob,
@@ -441,17 +443,44 @@ class AdminOverviewService:
                 selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
                     TVReleaseContribution.person
                 ),
-                selectinload(TVSeries.releases).selectinload(TVReleaseMedia.episodes),
                 selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
             )
         )
         documents.extend(catalog_search_document(release) for release in tv_result.scalars().unique())
 
-        game_result = await self.db.execute(select(GameWork).options(selectinload(GameWork.releases)))
+        game_result = await self.db.execute(
+            select(GameWork).options(
+                selectinload(GameWork.releases),
+                selectinload(GameWork.platform_entries),
+                selectinload(GameWork.identifier_entries),
+                selectinload(GameWork.company_role_entries),
+                selectinload(GameWork.age_rating_entries),
+            )
+        )
         documents.extend(catalog_search_document(work) for work in game_result.scalars().unique())
 
-        boardgame_result = await self.db.execute(select(BoardGameWork).options(selectinload(BoardGameWork.editions)))
+        boardgame_result = await self.db.execute(
+            select(BoardGameWork).options(
+                selectinload(BoardGameWork.editions),
+                selectinload(BoardGameWork.identifier_entries),
+                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
+                selectinload(BoardGameWork.mechanic_entries),
+                selectinload(BoardGameWork.category_entries),
+                selectinload(BoardGameWork.family_entries),
+                selectinload(BoardGameWork.expansion_entries),
+                selectinload(BoardGameWork.ranking_snapshots),
+            )
+        )
         documents.extend(catalog_search_document(work) for work in boardgame_result.scalars().unique())
+
+        music_result = await self.db.execute(
+            select(MusicRelease).options(
+                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
+                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
+                selectinload(MusicRelease.identifiers),
+            )
+        )
+        documents.extend(catalog_search_document(release) for release in music_result.scalars().unique())
 
         return documents
 

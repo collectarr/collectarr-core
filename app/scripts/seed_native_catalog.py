@@ -234,19 +234,23 @@ async def wipe_seed_data(db: AsyncSession) -> int:
         )
         ids_by_type[entity_type] = [row[0] for row in result.all()]
     total = sum(len(ids) for ids in ids_by_type.values())
-    if total == 0:
-        return 0
 
     for entity_type, ids in ids_by_type.items():
         if not ids:
             continue
         await _delete_kind_rows(db, entity_type, ids)
-        await db.execute(
-            delete(ExternalProviderId).where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.provider_item_id.startswith(SEED_MARKER),
-            )
+
+    # A seed entry can create provider IDs for child entities (editions,
+    # issues, chapters, episodes, etc.) that are not represented in
+    # `_ENTITY_TYPE`.  Those rows are not removed by the kind graph deletes
+    # because provider IDs intentionally have no database-level cascade.
+    # Delete every marked seed provider ID after the graphs are gone so a
+    # failed/repeated seed is always idempotent.
+    await db.execute(
+        delete(ExternalProviderId).where(
+            ExternalProviderId.provider_item_id.startswith(SEED_MARKER),
         )
+    )
     await db.commit()
     return total
 

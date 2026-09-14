@@ -56,9 +56,10 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicReleaseIdentifier,
     MusicTrack,
     Organization,
@@ -1039,7 +1040,7 @@ class AdminProviderIngestService:
                 item=await MetadataService(self.db).get_book_work(work.id),
             )
         if normalized.kind == ItemKind.music:
-           release = await self._create_music_release_from_normalized(
+           group = await self._create_music_release_from_normalized(
                provider=provider,
                provider_name=payload.provider,
                provider_item_id=provider_item.provider_item_id,
@@ -1048,9 +1049,9 @@ class AdminProviderIngestService:
            )
            await self.db.commit()
            return ProviderIngestResponse(
-               item_id=release.id,
+               item_id=group.id,
                created=True,
-               item=await MetadataService(self.db).get_music_release(release.id),
+               item=await MetadataService(self.db).get_music_release_group(group.id),
            )
         if normalized.kind == ItemKind.game:
            work = await self._create_game_work_from_normalized(
@@ -1194,7 +1195,7 @@ class AdminProviderIngestService:
                         "anime_series",
                         "movie_work",
                         "tv_series",
-                        "music_release",
+                        "music_release_group",
                     ]
                 ),
             )
@@ -1209,6 +1210,19 @@ class AdminProviderIngestService:
         return None
 
     async def _existing_response(self, provider_id: CatalogExternalProviderIdRef) -> ProviderIngestResponse:
+        if provider_id.entity_type == "music_release_group":
+            group = await self.db.get(MusicReleaseGroup, provider_id.entity_id)
+            if group is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    code="provider_link_stale",
+                    detail="Provider link is stale",
+                )
+            return ProviderIngestResponse(
+                item_id=group.id,
+                created=False,
+                item=await MetadataService(self.db).get_music_release_group(group.id),
+            )
         if provider_id.entity_type == "game_work":
             game_work = await self.db.get(GameWork, provider_id.entity_id)
             if game_work is None:
@@ -1291,7 +1305,7 @@ class AdminProviderIngestService:
             "MangaWorkV1Response": "manga_work",
             "AnimeSeriesV1Response": "anime_series",
             "MovieWorkV1Response": "movie_work",
-            "MusicReleaseV1Response": "music_release",
+            "MusicReleaseGroupV1Response": "music_release_group",
             "TVSeriesV1Response": "tv_series",
         }.get(name)
 
@@ -3244,65 +3258,78 @@ class AdminProviderIngestService:
         provider_item_id: str,
         provider_raw: Any | None,
         normalized: NormalizedItem,
-    ) -> MusicRelease:
-        """Create MusicRelease from normalized item with media, tracks, contributions, identifiers, and provider links."""
+    ) -> MusicReleaseGroup:
+        """Create a release group, concrete release, mediums, tracks and links."""
         mirrored_cover = None
         if normalized.cover_image_url and self._should_mirror_provider_images(provider):
-           mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
-               source_url=normalized.cover_image_url,
-               provider=provider_name,
-               provider_item_id=provider_item_id,
-           )
+            mirrored_cover = await ImageMirror(self.db).mirror_cover_best_effort(
+                source_url=normalized.cover_image_url,
+                provider=provider_name,
+                provider_item_id=provider_item_id,
+            )
 
-        # Create MusicRelease (represents the published product/album)
+        cover_url = mirrored_cover.url if mirrored_cover else normalized.cover_image_url
+        cover_key = mirrored_cover.key if mirrored_cover else None
+        group = MusicReleaseGroup(
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.music, normalized.title, None),
+            synopsis=normalized.synopsis,
+            artist=", ".join(credit.name for credit in normalized.creators) or None,
+            original_release_date=normalized.release_date,
+            recording_date=normalized.recording_date,
+            studio=normalized.studio,
+            genres=normalized.genres or None,
+            cover_image_url=cover_url,
+            cover_image_key=cover_key,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.music,
+                normalized={},
+            ),
+        )
+        self.db.add(group)
+        await self.db.flush()
+
         release = MusicRelease(
-           title=normalized.title,
-           sort_title=sort_key(ItemKind.music, normalized.title, None),
-           subtitle=normalized.subtitle,
-           release_date=normalized.release_date,
-           media_count=len({track.disc_number or 1 for track in (normalized.tracks or [])}) or None,
-           track_count=normalized.track_count or (len(normalized.tracks) if normalized.tracks else None),
-           catalog_number=normalized.catalog_number,
-           release_status=normalized.release_status,
-           publisher=normalized.publisher,
-           studio=normalized.studio,
-           recording_date=normalized.recording_date,
-           barcode=normalized.barcode,
-           country_code=normalized.country,
-           language=self._normalized_language(normalized.language),
-           extras=normalized.extras,
-           cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
-           cover_image_key=mirrored_cover.key if mirrored_cover else None,
-           metadata_json=self._provider_metadata_json(
-               provider_name,
-               provider_item_id,
-               kind=ItemKind.music,
-               normalized={},
-           ),
+            release_group_id=group.id,
+            title=normalized.edition_title or normalized.title,
+            sort_title=sort_key(ItemKind.music, normalized.edition_title or normalized.title, None),
+            subtitle=normalized.subtitle,
+            release_type=normalized.release_type,
+            release_status=normalized.release_status,
+            release_date=normalized.release_date,
+            publisher=normalized.publisher,
+            barcode=normalized.barcode,
+            catalog_number=normalized.catalog_number,
+            country_code=self._normalized_region(normalized.country),
+            language=self._normalized_language(normalized.language),
+            packaging=normalized.packaging,
+            cover_image_url=cover_url,
+            cover_image_key=cover_key,
+            metadata_json=self._provider_metadata_json(
+                provider_name,
+                provider_item_id,
+                kind=ItemKind.music,
+                normalized={},
+            ),
         )
         self.db.add(release)
         await self.db.flush()
 
-        # Create MusicMedia (represents physical media, typically discs)
-        # Group tracks by disc_number if available
-        discs: dict[int | None, list[NormalizedTrack]] = {}
+        discs: dict[int, list[NormalizedTrack]] = {}
         for track in (normalized.tracks or []):
             disc_num = track.disc_number or 1
-            if disc_num not in discs:
-                discs[disc_num] = []
-            discs[disc_num].append(track)
-
-        # If no tracks, create a single media entry
+            discs.setdefault(disc_num, []).append(track)
         if not discs:
             discs = {1: []}
 
-        for media_number, disc_tracks in sorted(discs.items()):
-            media = MusicMedia(
+        for medium_number, disc_tracks in sorted(discs.items()):
+            medium = MusicMedium(
                 release_id=release.id,
-                media_number=media_number,
-                media_type=normalized.physical_format or normalized.edition_format or "digital",
+                medium_number=medium_number,
+                medium_type=normalized.physical_format or normalized.edition_format or "digital",
                 track_count=len(disc_tracks) or None,
-                packaging=normalized.packaging,
                 media_condition=normalized.media_condition,
                 sound_type=normalized.sound_type,
                 vinyl_color=normalized.vinyl_color,
@@ -3316,22 +3343,21 @@ class AdminProviderIngestService:
                     normalized={"format": normalized.physical_format or normalized.edition_format},
                 ),
             )
-            self.db.add(media)
+            self.db.add(medium)
             await self.db.flush()
 
-            # Create MusicTrack entities for this disc
             for track_index, track in enumerate(disc_tracks, start=1):
-                music_track = MusicTrack(
-                   media_id=media.id,
-                   release_id=release.id,
-                   position=str(track.position or track_index),
-                   title=track.title,
-                   duration_ms=(track.duration_seconds * 1000) if track.duration_seconds else None,
-                   instrument=track.instrument,
-                   composition=track.composition,
-                   metadata_json={},
+                self.db.add(
+                    MusicTrack(
+                        medium_id=medium.id,
+                        position=str(track.position or track_index),
+                        title=track.title,
+                        duration_ms=(track.duration_seconds * 1000) if track.duration_seconds else None,
+                        instrument=track.instrument,
+                        composition=track.composition,
+                        metadata_json={},
+                    )
                 )
-                self.db.add(music_track)
 
         # Add contributions (artists, composers, producers)
         for index, credit in enumerate(normalized.creators, start=1):
@@ -3381,35 +3407,31 @@ class AdminProviderIngestService:
         provider_ids = dict(normalized.provider_ids or {})
         provider_ids[provider_name.value] = provider_item_id
         await self._add_provider_links(
-           provider_name,
-           provider_ids,
-           "music_release",
-           release.id,
-           provider_urls=provider_link_urls_for_provider(
-               provider_name,
-               provider_ids,
-               provider_raw,
-           ),
+            provider_name,
+            provider_ids,
+            "music_release_group",
+            group.id,
+            provider_urls=provider_link_urls_for_provider(provider_name, provider_ids, provider_raw),
         )
 
         # Record provider snapshot
         await self._record_provider_snapshot(
-           provider=provider_name,
-           provider_item_id=provider_item_id,
-           entity_type="music_release",
-           entity_id=release.id,
-           source=provider_raw,
-           normalized={
-               "title": release.title,
-               "language": release.language,
-               "track_count": len(normalized.tracks) if normalized.tracks else 0,
-           },
+            provider=provider_name,
+            provider_item_id=provider_item_id,
+            entity_type="music_release_group",
+            entity_id=group.id,
+            source=provider_raw,
+            normalized={
+                "title": group.title,
+                "language": release.language,
+                "track_count": len(normalized.tracks) if normalized.tracks else 0,
+            },
         )
 
         if mirrored_cover:
-           await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
+            await ImageCache(self.db).record_mirrored_cover(mirrored_cover)
 
-        return release
+        return group
 
     async def _reindex_comic_work(self, work_id: UUID) -> None:
         work = await self.db.scalar(

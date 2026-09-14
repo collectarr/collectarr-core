@@ -1,72 +1,104 @@
 from __future__ import annotations
 
 from app.models import (
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicReleaseIdentifier,
     MusicTrack,
 )
 from app.schemas import (
     MusicContributorResponse,
     MusicIdentifierResponse,
-    MusicMediaV1Response,
+    MusicMediumV1Response,
+    MusicReleaseGroupV1Response,
+    MusicReleaseSummaryV1Response,
     MusicReleaseV1Response,
     MusicTrackV1Response,
 )
 
 
 class MusicMetadataResponseBuilders:
+    def _music_release_group_response(
+        self, group: MusicReleaseGroup
+    ) -> MusicReleaseGroupV1Response:
+        releases = sorted(
+            group.releases or [],
+            key=lambda row: (
+                row.release_date is None,
+                row.release_date,
+                row.title.casefold(),
+                str(row.id),
+            ),
+        )
+        return MusicReleaseGroupV1Response(
+            id=group.id,
+            title=group.title,
+            sort_title=group.sort_title,
+            original_title=group.original_title,
+            synopsis=group.synopsis,
+            artist=group.artist,
+            original_release_date=group.original_release_date,
+            recording_date=group.recording_date,
+            studio=group.studio,
+            is_live=group.is_live,
+            genres=group.genres or [],
+            cover_image_url=group.cover_image_url,
+            cover_image_key=group.cover_image_key,
+            releases=[self._music_release_summary_response(row) for row in releases],
+        )
+
+    def _music_release_summary_response(
+        self, release: MusicRelease
+    ) -> MusicReleaseSummaryV1Response:
+        return MusicReleaseSummaryV1Response(
+            id=release.id,
+            release_group_id=release.release_group_id,
+            title=release.title,
+            release_date=release.release_date,
+            release_type=release.release_type,
+            release_status=release.release_status,
+            publisher=release.publisher,
+            barcode=release.barcode or release.upc,
+            catalog_number=release.catalog_number,
+            cover_image_url=release.cover_image_url,
+        )
+
     def _music_release_response(self, release: MusicRelease) -> MusicReleaseV1Response:
-        track_count = release.track_count
-        if track_count is None:
-            media_track_counts = [
-                media.track_count
-                for media in (release.media or [])
-                if media.track_count is not None
-            ]
-            if media_track_counts:
-                track_count = sum(media_track_counts)
-            else:
-                track_count = sum(len(media.tracks or []) for media in (release.media or [])) or None
-
-        media_list = []
-        if release.media:
-            for media in sorted(release.media, key=lambda row: (row.media_number, str(row.id))):
-                media_list.append(self._music_media_response(media))
-
         return MusicReleaseV1Response(
             id=release.id,
+            release_group_id=release.release_group_id,
             title=release.title,
             sort_title=release.sort_title,
             subtitle=release.subtitle,
             release_status=release.release_status,
             release_date=release.release_date,
-            recording_date=release.recording_date,
-            track_count=track_count,
-            expected_media_count=release.expected_media_count,
-            missing_media_count=release.missing_media_count,
-            missing_disc_numbers=release.missing_disc_numbers or [],
+            release_type=release.release_type,
             publisher=release.publisher,
-            studio=release.studio,
             upc=release.upc,
             catalog_number=release.catalog_number,
             barcode=release.barcode,
             country_code=release.country_code,
             language=release.language,
+            packaging=release.packaging,
             cover_image_url=release.cover_image_url,
             cover_image_key=release.cover_image_key,
-            extras=release.extras,
-            media=media_list,
+            mediums=[
+                self._music_medium_response(row)
+                for row in sorted(
+                    release.mediums or [], key=lambda row: (row.medium_number, str(row.id))
+                )
+            ],
             contributions=[
                 self._music_contributor_response(row)
                 for row in sorted(
                     release.contributions or [],
-                    key=lambda c: (
-                        c.sequence is None,
-                        c.sequence or 0,
-                        c.role.casefold(),
-                        str(c.person_id),
+                    key=lambda row: (
+                        row.sequence is None,
+                        row.sequence or 0,
+                        row.role.casefold(),
+                        str(row.person_id),
                     ),
                 )
             ],
@@ -74,47 +106,46 @@ class MusicMetadataResponseBuilders:
                 self._music_identifier_response(row)
                 for row in sorted(
                     release.identifiers or [],
-                    key=lambda i: (
-                        i.identifier_type.casefold(),
-                        (i.normalized_value or i.value or "").casefold(),
-                        str(i.id),
+                    key=lambda row: (
+                        row.identifier_type.casefold(),
+                        (row.normalized_value or row.value or '').casefold(),
+                        str(row.id),
                     ),
                 )
             ],
         )
 
-    def _music_media_response(self, media: MusicMedia) -> MusicMediaV1Response:
-        return MusicMediaV1Response(
-            id=media.id,
-            release_id=media.release_id,
-            media_number=media.media_number,
-            media_type=media.media_type,
-            title=media.title,
-            track_count=media.track_count,
-            expected_track_count=media.expected_track_count,
-            missing_track_count=media.missing_track_count,
-            missing_track_positions=media.missing_track_positions or [],
-            toc=media.toc,
-            cddb_id=media.cddb_id,
-            leadout_offset=media.leadout_offset,
-            bp_disc_id=media.bp_disc_id,
-            packaging=media.packaging,
-            media_condition=media.media_condition,
-            sound_type=media.sound_type,
-            vinyl_color=media.vinyl_color,
-            vinyl_weight=media.vinyl_weight,
-            rpm=media.rpm,
-            spars=media.spars,
-            tracks=[self._music_track_response(track) for track in sorted(
-                media.tracks or [],
-                key=lambda track: (track.position.casefold(), str(track.id)),
-            )],
+    def _music_medium_response(self, medium: MusicMedium) -> MusicMediumV1Response:
+        return MusicMediumV1Response(
+            id=medium.id,
+            release_id=medium.release_id,
+            medium_number=medium.medium_number,
+            medium_type=medium.medium_type,
+            title=medium.title,
+            track_count=medium.track_count,
+            expected_track_count=medium.expected_track_count,
+            missing_track_count=medium.missing_track_count,
+            missing_track_positions=medium.missing_track_positions or [],
+            toc=medium.toc,
+            cddb_id=medium.cddb_id,
+            leadout_offset=medium.leadout_offset,
+            bp_disc_id=medium.bp_disc_id,
+            media_condition=medium.media_condition,
+            sound_type=medium.sound_type,
+            vinyl_color=medium.vinyl_color,
+            vinyl_weight=medium.vinyl_weight,
+            rpm=medium.rpm,
+            spars=medium.spars,
+            tracks=[
+                self._music_track_response(row)
+                for row in sorted(medium.tracks or [], key=lambda row: (row.position.casefold(), str(row.id)))
+            ],
         )
 
     def _music_track_response(self, track: MusicTrack) -> MusicTrackV1Response:
         return MusicTrackV1Response(
             id=track.id,
-            media_id=track.media_id,
+            medium_id=track.medium_id,
             position=track.position,
             title=track.title,
             duration_ms=track.duration_ms,
@@ -126,14 +157,14 @@ class MusicMetadataResponseBuilders:
             composition=track.composition,
         )
 
-    def _music_contributor_response(self, contrib: MusicReleaseContribution) -> MusicContributorResponse:
+    def _music_contributor_response(self, contribution: MusicReleaseContribution) -> MusicContributorResponse:
         return MusicContributorResponse(
-            person_id=contrib.person_id,
-            name=contrib.person.name if contrib.person is not None else "",
-            role=contrib.role,
-            sequence=contrib.sequence,
-            image_url=contrib.person.image_url if contrib.person is not None else None,
-            role_id=contrib.role_id,
+            person_id=contribution.person_id,
+            name=contribution.person.name if contribution.person is not None else '',
+            role=contribution.role,
+            sequence=contribution.sequence,
+            image_url=contribution.person.image_url if contribution.person is not None else None,
+            role_id=contribution.role_id,
         )
 
     def _music_identifier_response(self, identifier: MusicReleaseIdentifier) -> MusicIdentifierResponse:

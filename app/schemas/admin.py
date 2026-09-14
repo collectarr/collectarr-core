@@ -11,7 +11,7 @@ from app.schemas.metadata_books import BookWorkV1Response
 from app.schemas.metadata_comics import ComicWorkV1Response
 from app.schemas.metadata_games import GameWorkV1Response
 from app.schemas.metadata_manga import MangaWorkV1Response
-from app.schemas.metadata_music import MusicReleaseV1Response
+from app.schemas.metadata_music import MusicReleaseGroupV1Response, MusicReleaseV1Response
 from app.schemas.metadata_video import MovieWorkV1Response, TVSeriesV1Response
 
 
@@ -88,6 +88,7 @@ class ProviderIngestResponse(BaseModel):
         | MangaWorkV1Response
         | AnimeSeriesV1Response
         | MovieWorkV1Response
+        | MusicReleaseGroupV1Response
         | MusicReleaseV1Response
         | TVSeriesV1Response
     )

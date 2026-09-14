@@ -42,9 +42,10 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicReleaseIdentifier,
     MusicTrack,
     TVEpisode,
@@ -72,7 +73,7 @@ _ENTITY_TYPE: dict[type, str] = {
     TVSeries: "tv_series",
     GameWork: "game_work",
     BoardGameWork: "boardgame_work",
-    MusicRelease: "music_release",
+    MusicReleaseGroup: "music_release_group",
 }
 
 # Maps each native root model class to a human-readable kind label.
@@ -85,7 +86,7 @@ _KIND_LABEL: dict[type, str] = {
     TVSeries: "tv",
     GameWork: "game",
     BoardGameWork: "boardgame",
-    MusicRelease: "music",
+    MusicReleaseGroup: "music",
 }
 
 # All native root model classes in scan order.
@@ -378,7 +379,7 @@ class AdminDuplicateService:
         return len(await self.duplicate_candidates(limit=200))
 
     # ------------------------------------------------------------------ #
-    # Private helpers — entity loading                                     #
+    # Private helpers â€” entity loading                                     #
     # ------------------------------------------------------------------ #
 
     async def _entities_by_ids(
@@ -445,7 +446,7 @@ class AdminDuplicateService:
         )
 
     # ------------------------------------------------------------------ #
-    # Private helpers — conflict detection & scoring                       #
+    # Private helpers â€” conflict detection & scoring                       #
     # ------------------------------------------------------------------ #
 
     async def _duplicate_conflict_flags(
@@ -605,7 +606,7 @@ class AdminDuplicateService:
         return "|".join(sorted(str(eid) for eid in entity_ids))
 
     # ------------------------------------------------------------------ #
-    # Private helpers — merge / child reassignment                         #
+    # Private helpers â€” merge / child reassignment                         #
     # ------------------------------------------------------------------ #
 
     async def _move_entity_children(self, source: Any, target: Any) -> None:
@@ -714,9 +715,14 @@ class AdminDuplicateService:
         elif isinstance(source, BoardGameWork):
             await self.db.execute(update(BoardGameEdition).where(BoardGameEdition.work_id == sid).values(work_id=tid))
 
+        elif isinstance(source, MusicReleaseGroup):
+            await self.db.execute(
+                update(MusicRelease)
+                .where(MusicRelease.release_group_id == sid)
+                .values(release_group_id=tid)
+            )
         elif isinstance(source, MusicRelease):
-            await self.db.execute(update(MusicMedia).where(MusicMedia.release_id == sid).values(release_id=tid))
-            await self.db.execute(update(MusicTrack).where(MusicTrack.release_id == sid).values(release_id=tid))
+            await self.db.execute(update(MusicMedium).where(MusicMedium.release_id == sid).values(release_id=tid))
             await self.db.execute(
                 update(MusicReleaseContribution)
                 .where(MusicReleaseContribution.release_id == sid)

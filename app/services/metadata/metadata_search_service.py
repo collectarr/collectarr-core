@@ -13,7 +13,7 @@ from app.models import (
     GameWork,
     MangaWork,
     MovieWork,
-    MusicRelease,
+    MusicReleaseGroup,
     TVRelease,
 )
 from app.models.base import ItemKind
@@ -413,7 +413,7 @@ class MetadataSearchService:
                     return self.service._tv_search_result(match)
                 if isinstance(match, AnimeSeries):
                     return self.service._anime_search_result(match)
-                if isinstance(match, MusicRelease):
+                if isinstance(match, MusicReleaseGroup):
                     return self.service._music_search_result(match)
                 if isinstance(match, BoardGameWork):
                     return self.service._boardgame_search_result(match)

@@ -4,9 +4,10 @@ from sqlalchemy import extract, or_, select
 from sqlalchemy.orm import selectinload
 
 from app.models import (
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicReleaseIdentifier,
 )
 from app.models.base import ItemKind
@@ -14,70 +15,93 @@ from app.schemas.metadata_shared import SearchResult
 
 
 class MusicService:
-    def _music_search_result(self, release: MusicRelease) -> SearchResult:
-        media = sorted(
-            release.media or [],
-            key=lambda row: (
-                row.media_number is None,
-                row.media_number or 0,
-                str(row.id),
-            ),
+    """Searches and barcode resolution at Music's release-group boundary."""
+
+    def _music_search_result(
+        self,
+        group: MusicReleaseGroup,
+        release: MusicRelease | None = None,
+    ) -> SearchResult:
+        releases = sorted(
+            group.releases or [],
+            key=lambda row: (row.release_date is None, row.release_date, row.title.casefold()),
         )
-        primary = media[0] if media else None
-        tracks = []
-        if primary is not None:
-            for track in sorted(primary.tracks or [], key=lambda row: (row.position.casefold(), str(row.id))):
-                tracks.append(
-                    {
-                        "id": track.id,
-                        "media_id": track.media_id,
-                        "position": track.position,
-                        "title": track.title,
-                        "duration_ms": track.duration_ms,
-                        "instrument": track.instrument,
-                        "composition": track.composition,
-                    }
+        selected = release or (releases[0] if releases else None)
+        mediums = (
+            sorted(selected.mediums or [], key=lambda row: (row.medium_number, str(row.id)))
+            if selected is not None
+            else []
+        )
+        primary = mediums[0] if mediums else None
+        tracks = (
+            [
+                {
+                    "id": track.id,
+                    "medium_id": track.medium_id,
+                    "position": track.position,
+                    "title": track.title,
+                    "duration_ms": track.duration_ms,
+                    "instrument": track.instrument,
+                    "composition": track.composition,
+                }
+                for track in sorted(
+                    primary.tracks or [],
+                    key=lambda row: (row.position.casefold(), str(row.id)),
                 )
+            ]
+            if primary is not None
+            else []
+        )
+        date_value = group.original_release_date or (selected.release_date if selected else None)
         return SearchResult(
-            id=release.id,
+            id=group.id,
             kind=ItemKind.music,
-            title=release.title,
-            synopsis=release.extras,
-            cover_image_url=release.cover_image_url,
-            release_date=release.release_date,
-            release_year=release.release_date.year if release.release_date else None,
-            barcode=release.barcode,
-            catalog_number=release.catalog_number,
-            publisher=release.publisher,
-            country=release.country_code,
-            language=release.language,
-            release_status=release.release_status,
-            track_count=release.track_count,
+            title=group.title,
+            synopsis=group.synopsis,
+            cover_image_url=group.cover_image_url or (selected.cover_image_url if selected else None),
+            release_date=date_value,
+            release_year=date_value.year if date_value else None,
+            barcode=(selected.barcode or selected.upc) if selected else None,
+            catalog_number=selected.catalog_number if selected else None,
+            publisher=selected.publisher if selected else None,
+            country=selected.country_code if selected else None,
+            language=selected.language if selected else None,
+            release_status=selected.release_status if selected else None,
+            track_count=sum(medium.track_count or len(medium.tracks or []) for medium in mediums),
             tracks=tracks or None,
             item_number=primary.title if primary is not None else None,
-            edition_title=primary.title if primary is not None else None,
+            edition_title=selected.title if selected else None,
         )
 
-    async def _music_release_by_barcode(self, barcode: str) -> MusicRelease | None:
+    def _music_options(self):
+        return (
+            selectinload(MusicReleaseGroup.releases)
+            .selectinload(MusicRelease.mediums)
+            .selectinload(MusicMedium.tracks),
+            selectinload(MusicReleaseGroup.releases)
+            .selectinload(MusicRelease.contributions)
+            .selectinload(MusicReleaseContribution.person),
+            selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
+        )
+
+    async def _music_release_by_barcode(self, barcode: str) -> MusicReleaseGroup | None:
         normalized = self._normalized_barcode(barcode)
         if not normalized:
             return None
         stmt = (
-            select(MusicRelease)
+            select(MusicReleaseGroup)
+            .join(MusicReleaseGroup.releases)
             .join(MusicRelease.identifiers, isouter=True)
             .where(
                 or_(
                     self._normalized_barcode_expr(MusicReleaseIdentifier.value) == normalized,
                     self._normalized_barcode_expr(MusicReleaseIdentifier.normalized_value) == normalized,
                     self._normalized_barcode_expr(MusicRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(MusicRelease.upc) == normalized,
                     self._normalized_barcode_expr(MusicRelease.catalog_number) == normalized,
                 )
             )
-            .options(
-                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
-                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
-                selectinload(MusicRelease.identifiers),
-            )
+            .options(*self._music_options())
             .limit(1)
         )
         return await self.db.scalar(stmt)
@@ -97,33 +121,28 @@ class MusicService:
         limit: int,
     ) -> list[SearchResult]:
         stmt = (
-            select(MusicRelease)
-            .options(
-                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
-                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
-                selectinload(MusicRelease.identifiers),
-            )
-            .order_by(MusicRelease.sort_title.asc().nullslast(), MusicRelease.title.asc())
+            select(MusicReleaseGroup)
+            .join(MusicReleaseGroup.releases, isouter=True)
+            .options(*self._music_options())
+            .order_by(MusicReleaseGroup.sort_title.asc().nullslast(), MusicReleaseGroup.title.asc())
+            .distinct()
             .limit(limit)
         )
         if query and query.strip():
             pattern = f"%{query.strip()}%"
-            stmt = stmt.join(MusicRelease.media, isouter=True).where(
+            stmt = stmt.where(
                 or_(
+                    MusicReleaseGroup.title.ilike(pattern),
+                    MusicReleaseGroup.artist.ilike(pattern),
+                    MusicReleaseGroup.synopsis.ilike(pattern),
                     MusicRelease.title.ilike(pattern),
                     MusicRelease.subtitle.ilike(pattern),
                     MusicRelease.publisher.ilike(pattern),
-                    MusicRelease.studio.ilike(pattern),
-                    MusicMedia.title.ilike(pattern),
+                    MusicRelease.catalog_number.ilike(pattern),
                 )
             )
         if publisher and publisher.strip():
-            stmt = stmt.where(
-                or_(
-                    MusicRelease.publisher.ilike(f"%{publisher.strip()}%"),
-                    MusicRelease.studio.ilike(f"%{publisher.strip()}%"),
-                )
-            )
+            stmt = stmt.where(MusicRelease.publisher.ilike(f"%{publisher.strip()}%"))
         if subtitle and subtitle.strip():
             stmt = stmt.where(MusicRelease.subtitle.ilike(f"%{subtitle.strip()}%"))
         if language and language.strip():
@@ -143,8 +162,9 @@ class MusicService:
                     self._normalized_barcode_expr(MusicReleaseIdentifier.value) == normalized,
                     self._normalized_barcode_expr(MusicReleaseIdentifier.normalized_value) == normalized,
                     self._normalized_barcode_expr(MusicRelease.barcode) == normalized,
+                    self._normalized_barcode_expr(MusicRelease.upc) == normalized,
                     self._normalized_barcode_expr(MusicRelease.catalog_number) == normalized,
                 )
             )
-        rows = list((await self.db.execute(stmt)).scalars().unique())
-        return [self._music_search_result(release) for release in rows]
+        groups = list((await self.db.execute(stmt)).scalars().unique())
+        return [self._music_search_result(group) for group in groups]

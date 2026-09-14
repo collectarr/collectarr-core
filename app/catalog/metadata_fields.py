@@ -241,10 +241,11 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "track": ("boardgame_edition", "boardgame_editions"),
     },
     ItemKind.music: {
+        "work": ("music_release_group", "music_release_groups"),
+        "release_group": ("music_release_group", "music_release_groups"),
         "release": ("music_release", "music_releases"),
-        "media": ("music_media", "music_media"),
+        "medium": ("music_medium", "music_mediums"),
         "track": ("music_track", "music_tracks"),
-        "work": ("music_release", "music_releases"),
     },
 }
 

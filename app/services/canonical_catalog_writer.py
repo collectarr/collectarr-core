@@ -61,9 +61,10 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicReleaseIdentifier,
     MusicTrack,
     Organization,
@@ -473,13 +474,13 @@ class CanonicalCatalogWriter:
             await self._reindex_book_work(work.id)
 
         elif kind == ItemKind.music:
-            release = await self._create_music_release_from_normalized(
+            release_group = await self._create_music_release_from_normalized(
                 provider_name=provider_name,
                 provider_item_id=provider_item_id,
                 envelope=envelope,
                 normalized=normalized,
             )
-            item_id = release.id
+            item_id = release_group.id
             await self.db.commit()
 
         elif kind == ItemKind.game:
@@ -534,7 +535,7 @@ class CanonicalCatalogWriter:
         if kind == ItemKind.book:
             return await facade.get_book_work(item_id)
         if kind == ItemKind.music:
-            return await facade.get_music_release(item_id)
+            return await facade.get_music_release_group(item_id)
         if kind == ItemKind.game:
             return await facade.get_game_work(item_id)
         if kind == ItemKind.boardgame:
@@ -1008,14 +1009,40 @@ class CanonicalCatalogWriter:
         provider_item_id: str,
         envelope: NormalizedProviderEnvelopeV1,
         normalized: NormalizedItem,
-    ) -> MusicRelease:
+    ) -> MusicReleaseGroup:
         p_enum = ExternalProvider(provider_name) if provider_name in ExternalProvider._value2member_map_ else provider_name
-        release = MusicRelease(
+        group = MusicReleaseGroup(
             title=normalized.title,
             sort_title=sort_key(ItemKind.music, normalized.title, None),
+            synopsis=normalized.synopsis,
+            artist=", ".join(credit.name for credit in normalized.creators) or None,
+            original_release_date=normalized.release_date,
+            recording_date=normalized.recording_date,
+            studio=normalized.studio,
+            genres=normalized.genres or None,
+            cover_image_url=normalized.cover_image_url,
+            metadata_json=provider_metadata_json(
+                p_enum,
+                provider_item_id,
+                kind=ItemKind.music,
+            ),
+        )
+        self.db.add(group)
+        await self.db.flush()
+        release = MusicRelease(
+            release_group_id=group.id,
+            title=normalized.title,
+            sort_title=sort_key(ItemKind.music, normalized.title, None),
+            subtitle=normalized.subtitle,
+            release_type=normalized.release_type,
+            release_status=normalized.release_status,
             release_date=normalized.release_date,
             publisher=normalized.publisher,
-            country=normalized_region(normalized.country),
+            country_code=normalized_region(normalized.country),
+            language=normalized.language,
+            barcode=normalized.barcode,
+            catalog_number=normalized.catalog_number,
+            packaging=normalized.packaging,
             cover_image_url=normalized.cover_image_url,
             metadata_json=provider_metadata_json(
                 p_enum,
@@ -1027,27 +1054,29 @@ class CanonicalCatalogWriter:
         await self.db.flush()
 
         if normalized.tracks:
-            media = MusicMedia(
+            medium = MusicMedium(
                 release_id=release.id,
-                media_type="digital",
-                disc_number=1,
+                medium_type="digital",
+                medium_number=1,
+                track_count=len(normalized.tracks),
             )
-            self.db.add(media)
+            self.db.add(medium)
             await self.db.flush()
-
-            for track_data in normalized.tracks:
-                track = MusicTrack(
-                    media_id=media.id,
-                    track_number=track_data.position,
-                    title=track_data.title,
-                    duration_seconds=track_data.duration_seconds,
-                    artist=track_data.artist,
+            for index, track_data in enumerate(normalized.tracks, start=1):
+                self.db.add(
+                    MusicTrack(
+                        medium_id=medium.id,
+                        position=str(track_data.position or index),
+                        title=track_data.title,
+                        duration_ms=track_data.duration_seconds * 1000 if track_data.duration_seconds else None,
+                        instrument=track_data.instrument,
+                        composition=track_data.composition,
+                    )
                 )
-                self.db.add(track)
 
         await self._replace_catalog_provider_links(
-            entity_type="music_release",
-            entity_id=release.id,
+            entity_type="music_release_group",
+            entity_id=group.id,
             provider_name=p_enum,
             provider_item_id=provider_item_id,
             normalized=normalized,
@@ -1062,7 +1091,7 @@ class CanonicalCatalogWriter:
             )
             self.db.add(contribution)
 
-        return release
+        return group
 
     async def _create_game_work_from_normalized(
         self,

@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import MusicMedia, MusicRelease, MusicReleaseContribution, MusicTrack
+from app.models import MusicMedium, MusicRelease, MusicReleaseContribution, MusicReleaseGroup, MusicTrack
 from app.models.canonical_support import Person
 
 
@@ -212,11 +212,27 @@ class ClzMusicXmlImporter:
         )
 
     async def _get_or_create_release(self, db: AsyncSession, record: ClzMusicRecord) -> MusicRelease:
-        existing = (await db.execute(select(MusicRelease).where(MusicRelease.title == record.title))).scalar_one_or_none()
-        if existing is not None:
-            self._apply_release(existing, record)
-            return existing
-        release = MusicRelease(title=record.title)
+        group = (
+            await db.execute(select(MusicReleaseGroup).where(MusicReleaseGroup.title == record.title))
+        ).scalar_one_or_none()
+        if group is None:
+            group = MusicReleaseGroup(title=record.title)
+            db.add(group)
+            await db.flush()
+        self._apply_group(group, record)
+        release = (
+            await db.execute(
+                select(MusicRelease)
+                .where(
+                    MusicRelease.release_group_id == group.id,
+                    MusicRelease.title == record.title,
+                )
+            )
+        ).scalar_one_or_none()
+        if release is not None:
+            self._apply_release(release, record)
+            return release
+        release = MusicRelease(release_group_id=group.id, title=record.title)
         self._apply_release(release, record)
         db.add(release)
         await db.flush()
@@ -224,7 +240,7 @@ class ClzMusicXmlImporter:
 
     async def _replace_children(self, db: AsyncSession, release: MusicRelease, record: ClzMusicRecord) -> None:
         await db.execute(delete(MusicReleaseContribution).where(MusicReleaseContribution.release_id == release.id))
-        await db.execute(delete(MusicMedia).where(MusicMedia.release_id == release.id))
+        await db.execute(delete(MusicMedium).where(MusicMedium.release_id == release.id))
         for index, credit in enumerate(record.credits, start=1):
             person = await self._get_or_create_person(db, credit)
             db.add(
@@ -242,10 +258,10 @@ class ClzMusicXmlImporter:
                 )
             )
         for disc in record.discs:
-            media = MusicMedia(
+            media = MusicMedium(
                 release_id=release.id,
-                media_number=disc.media_number,
-                media_type=disc.media_type,
+                medium_number=disc.media_number,
+                medium_type=disc.media_type,
                 title=disc.title,
                 track_count=disc.track_count,
                 expected_track_count=disc.expected_track_count,
@@ -255,7 +271,6 @@ class ClzMusicXmlImporter:
                 cddb_id=disc.cddb_id,
                 leadout_offset=disc.leadout_offset,
                 bp_disc_id=disc.bp_disc_id,
-                packaging=disc.packaging,
                 media_condition=disc.media_condition,
                 sound_type=disc.sound_type,
                 vinyl_color=disc.vinyl_color,
@@ -269,8 +284,7 @@ class ClzMusicXmlImporter:
             for track in disc.tracks or []:
                 db.add(
                     MusicTrack(
-                        media_id=media.id,
-                        release_id=release.id,
+                        medium_id=media.id,
                         position=track.position,
                         title=track.title,
                         duration_ms=track.duration_ms,
@@ -305,30 +319,39 @@ class ClzMusicXmlImporter:
         await db.flush()
         return person
 
+    def _apply_group(self, group: MusicReleaseGroup, record: ClzMusicRecord) -> None:
+        group.sort_title = record.title
+        group.artist = record.artist
+        group.recording_date = self._date_value(record.recording_date)
+        group.studio = record.studio
+        group.cover_image_url = record.cover_image_url
+        group.metadata_json = {
+            **(group.metadata_json or {}),
+            **record.metadata_json,
+            "extras": record.extras,
+        }
+
     def _apply_release(self, release: MusicRelease, record: ClzMusicRecord) -> None:
         release.subtitle = record.subtitle
         release.release_type = record.release_type
         release.release_status = record.release_status
         release.release_date = self._date_value(record.release_date)
-        release.recording_date = self._date_value(record.recording_date)
-        release.media_count = len(record.discs)
-        release.expected_media_count = record.expected_media_count
-        release.missing_media_count = record.missing_media_count
-        release.missing_disc_numbers = record.missing_disc_numbers or None
-        release.track_count = record.track_count
         release.upc = record.upc
         release.cover_image_url = record.cover_image_url
         release.publisher = record.publisher
-        release.studio = record.studio
         release.country_code = record.country_code
         release.language = record.language
         release.barcode = record.barcode or record.upc
         release.catalog_number = record.catalog_number
-        release.extras = record.extras
         release.metadata_json = {
             **(release.metadata_json or {}),
             **record.metadata_json,
             "artist": record.artist,
+            "expected_medium_count": record.expected_media_count,
+            "missing_medium_count": record.missing_media_count,
+            "missing_medium_numbers": record.missing_disc_numbers or None,
+            "track_count": record.track_count,
+            "extras": record.extras,
         }
 
     def _parse_external_ids(self, node: ElementTree.Element) -> dict[str, Any] | None:

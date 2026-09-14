@@ -40,9 +40,10 @@ from app.models import (
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicTrack,
     Person,
     PhysicalFormatRef,
@@ -143,26 +144,28 @@ class AdminCatalogService:
             metadata.pop("normalized", None)
             if kind == ItemKind.music:
                 tracks: list[dict[str, Any]] = []
-                for media in sorted(
-                    getattr(entity, "media", []) or [],
-                    key=lambda row: (getattr(row, "media_number", 0), str(getattr(row, "id", ""))),
-                ):
-                    for track in sorted(
-                        getattr(media, "tracks", []) or [],
-                        key=lambda row: (str(getattr(row, "position", "")), str(getattr(row, "id", ""))),
+                releases = getattr(entity, "releases", []) or []
+                for release in releases:
+                    for media in sorted(
+                        getattr(release, "mediums", []) or [],
+                        key=lambda row: (getattr(row, "medium_number", 0), str(getattr(row, "id", ""))),
                     ):
-                        tracks.append(
-                            {
-                                "position": int(track.position) if str(track.position).isdigit() else track.position,
-                                "title": track.title,
-                                "duration_seconds": (
-                                    track.duration_ms // 1000 if track.duration_ms is not None else None
-                                ),
-                            }
-                        )
+                        for track in sorted(
+                            getattr(media, "tracks", []) or [],
+                            key=lambda row: (str(getattr(row, "position", "")), str(getattr(row, "id", ""))),
+                        ):
+                            tracks.append(
+                                {
+                                    "position": int(track.position) if str(track.position).isdigit() else track.position,
+                                    "title": track.title,
+                                    "duration_seconds": (
+                                        track.duration_ms // 1000 if track.duration_ms is not None else None
+                                    ),
+                                }
+                            )
                 if tracks:
                     metadata["tracks"] = tracks
-                    metadata["track_count"] = getattr(entity, "track_count", None) or len(tracks)
+                    metadata["track_count"] = len(tracks)
             primary_release = next(iter(getattr(entity, "releases", []) or []), None)
             primary_media = (
                 next(iter(getattr(primary_release, "media", []) or []), None)
@@ -242,7 +245,7 @@ class AdminCatalogService:
 
         await _scan(BookWork, ItemKind.book, "book_work")
         await _scan(ComicWork, ItemKind.comic, "comic_work")
-        await _scan(MusicRelease, ItemKind.music, "music_release")
+        await _scan(MusicReleaseGroup, ItemKind.music, "music_release_group")
         await _scan(GameWork, ItemKind.game, "game_work")
         await _scan(MovieWork, ItemKind.movie, "movie_work")
         await _scan(TVSeries, ItemKind.tv, "tv_series")
@@ -440,66 +443,79 @@ class AdminCatalogService:
                     _set_metadata_value("audience_rating", payload.audience_rating)
 
         elif kind == ItemKind.music:
-            release = entity
-            if "subtitle" in update_data:
-                _set_metadata_value("subtitle", self._normalize_optional_text(payload.subtitle))
-            if "publisher" in update_data:
-                release.publisher = payload.publisher
-            if "release_date" in update_data:
-                release.release_date = payload.release_date
-            if "catalog_number" in update_data:
-                release.catalog_number = payload.catalog_number
-            if "barcode" in update_data:
-                release.barcode = payload.barcode
-            if "language" in update_data:
-                release.language = self._normalize_language(payload.language)
-            if "country" in update_data:
-                release.country_code = self._normalize_region(payload.country)
-            if "release_status" in update_data:
-                release.release_status = self._normalize_release_status(payload.release_status)
-            if "audience_rating" in update_data:
-                release.audience_rating = float(payload.audience_rating) if payload.audience_rating else None
+            group = entity
+            release = primary_release
+            if "title" in update_data and payload.title:
+                group.title = payload.title
+                if release is not None and "edition_title" not in update_data:
+                    release.title = payload.title
+            if "original_title" in update_data:
+                group.original_title = payload.original_title
+            if "synopsis" in update_data:
+                group.synopsis = payload.synopsis
             if "genres" in update_data:
-                _set_metadata_value("genres", self._normalize_text_values(payload.genres))
-            if "tracks" in update_data:
-                tracks = self._normalize_tracks(payload.tracks)
-                media = primary_media
-                if media is None:
-                    media = MusicMedia(release_id=release.id, media_number=1)
-                    self.db.add(media)
+                group.genres = self._normalize_text_values(payload.genres) or None
+            if "cover_image_url" in update_data:
+                group.cover_image_url = payload.cover_image_url
+                group.cover_image_key = None
+            if "release_date" in update_data:
+                group.original_release_date = payload.release_date
+            if release is not None:
+                if "subtitle" in update_data:
+                    release.subtitle = self._normalize_optional_text(payload.subtitle)
+                if "publisher" in update_data:
+                    release.publisher = payload.publisher
+                if "catalog_number" in update_data:
+                    release.catalog_number = payload.catalog_number
+                if "barcode" in update_data:
+                    release.barcode = payload.barcode
+                if "language" in update_data:
+                    release.language = self._normalize_language(payload.language)
+                if "country" in update_data:
+                    release.country_code = self._normalize_region(payload.country)
+                if "release_status" in update_data:
+                    release.release_status = self._normalize_release_status(payload.release_status)
+                if "tracks" in update_data:
+                    tracks = self._normalize_tracks(payload.tracks)
+                    medium = next(iter(release.mediums or []), None)
+                    if medium is None:
+                        medium = MusicMedium(
+                            release_id=release.id,
+                            medium_number=1,
+                            medium_type="digital",
+                        )
+                        self.db.add(medium)
+                        await self.db.flush()
+                    await _clear_existing(list(medium.tracks or []))
                     await self.db.flush()
-                await _clear_existing(list(getattr(media, "tracks", []) or []))
-                await self.db.flush()
-                for track in tracks:
-                    self.db.add(
-                        MusicTrack(
-                            release_id=release.id,
-                            media_id=media.id,
-                            position=str(track.get("position") or len(getattr(media, "tracks", []) or []) + 1),
-                            title=track["title"],
-                            duration_ms=(track.get("duration_seconds") * 1000) if track.get("duration_seconds") else None,
+                    for index, track in enumerate(tracks, start=1):
+                        self.db.add(
+                            MusicTrack(
+                                medium_id=medium.id,
+                                position=str(track.get("position") or index),
+                                title=track["title"],
+                                duration_ms=(track.get("duration_seconds") * 1000) if track.get("duration_seconds") else None,
+                            )
                         )
-                    )
-                release.track_count = len(tracks)
-                media.track_count = len(tracks)
-                _set_metadata_value("tracks", tracks)
-                _set_metadata_value("track_count", len(tracks))
-            if "creators" in update_data:
-                await _clear_existing(list(getattr(release, "contributions", []) or []))
-                await self.db.flush()
-                for index, creator in enumerate(payload.creators or [], start=1):
-                    name = " ".join(str(creator.name or "").split()).strip()
-                    if not name:
-                        continue
-                    person = await self._get_or_create_person(name)
-                    self.db.add(
-                        MusicReleaseContribution(
-                            release_id=release.id,
-                            person_id=person.id,
-                            role=(creator.role or "creator").strip() or "creator",
-                            sequence=index,
+                    medium.track_count = len(tracks)
+                    _set_metadata_value("tracks", tracks)
+                    _set_metadata_value("track_count", len(tracks))
+                if "creators" in update_data:
+                    await _clear_existing(list(release.contributions or []))
+                    await self.db.flush()
+                    for index, creator in enumerate(payload.creators or [], start=1):
+                        name = " ".join(str(creator.name or "").split()).strip()
+                        if not name:
+                            continue
+                        person = await self._get_or_create_person(name)
+                        self.db.add(
+                            MusicReleaseContribution(
+                                release_id=release.id,
+                                person_id=person.id,
+                                role=(creator.role or "creator").strip() or "creator",
+                                sequence=index,
+                            )
                         )
-                    )
 
         elif kind == ItemKind.game:
             release = primary_release
@@ -1162,7 +1178,7 @@ class AdminCatalogService:
             ItemKind.anime: AnimeSeries,
             ItemKind.movie: MovieWork,
             ItemKind.tv: TVSeries,
-            ItemKind.music: MusicRelease,
+            ItemKind.music: MusicReleaseGroup,
             ItemKind.game: GameWork,
             ItemKind.boardgame: BoardGameWork,
         }
@@ -1206,9 +1222,13 @@ class AdminCatalogService:
             ]
         if kind == ItemKind.music:
             return [
-                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
-                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
-                selectinload(MusicRelease.identifiers),
+                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
+                    MusicMedium.tracks
+                ),
+                selectinload(MusicReleaseGroup.releases)
+                .selectinload(MusicRelease.contributions)
+                .selectinload(MusicReleaseContribution.person),
+                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
             ]
         if kind == ItemKind.tv:
             return [

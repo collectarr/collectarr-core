@@ -17,7 +17,8 @@ from app.schemas import (
     MangaWorkV1Response,
     MovieReleaseV1Response,
     MovieWorkV1Response,
-    MusicMediaV1Response,
+    MusicMediumV1Response,
+    MusicReleaseGroupV1Response,
     MusicReleaseV1Response,
     MusicTrackV1Response,
     TVEpisodeV1Response,
@@ -91,16 +92,17 @@ from app.services.metadata.metadata_reads import (
     get_movie_work_releases as _get_movie_work_releases,
 )
 from app.services.metadata.metadata_reads import (
-    get_music_media as _get_music_media,
+    get_music_medium as _get_music_medium,
 )
 from app.services.metadata.metadata_reads import (
-    get_music_media_tracks as _get_music_media_tracks,
+    get_music_medium_tracks as _get_music_medium_tracks,
 )
 from app.services.metadata.metadata_reads import (
     get_music_release as _get_music_release,
+    get_music_release_group as _get_music_release_group,
 )
 from app.services.metadata.metadata_reads import (
-    get_music_release_media as _get_music_release_media,
+    get_music_release_mediums as _get_music_release_mediums,
 )
 from app.services.metadata.metadata_reads import (
     get_music_track as _get_music_track,
@@ -202,17 +204,20 @@ class MetadataTypedReadService:
     async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
         return await _get_movie_release(self, release_id)
 
+    async def get_music_release_group(self, group_id: UUID) -> MusicReleaseGroupV1Response:
+        return await _get_music_release_group(self, group_id)
+
     async def get_music_release(self, release_id: UUID) -> MusicReleaseV1Response:
         return await _get_music_release(self, release_id)
 
-    async def get_music_release_media(self, release_id: UUID) -> list[MusicMediaV1Response]:
-        return await _get_music_release_media(self, release_id)
+    async def get_music_release_mediums(self, release_id: UUID) -> list[MusicMediumV1Response]:
+        return await _get_music_release_mediums(self, release_id)
 
-    async def get_music_media(self, media_id: UUID) -> MusicMediaV1Response:
-        return await _get_music_media(self, media_id)
+    async def get_music_medium(self, medium_id: UUID) -> MusicMediumV1Response:
+        return await _get_music_medium(self, medium_id)
 
-    async def get_music_media_tracks(self, media_id: UUID) -> list[MusicTrackV1Response]:
-        return await _get_music_media_tracks(self, media_id)
+    async def get_music_medium_tracks(self, medium_id: UUID) -> list[MusicTrackV1Response]:
+        return await _get_music_medium_tracks(self, medium_id)
 
     async def get_music_track(self, track_id: UUID) -> MusicTrackV1Response:
         return await _get_music_track(self, track_id)

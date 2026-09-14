@@ -44,8 +44,10 @@ from app.models import (
     MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
+    MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicTrack,
     TVEpisode,
     TVRelease,
@@ -65,6 +67,8 @@ from app.search.documents import (
     manga_work_search_document,
     movie_work_search_document,
     tv_release_search_document,
+    music_release_group_search_document,
+    music_release_search_document,
 )
 from app.storage.client import ObjectStorage
 
@@ -87,7 +91,7 @@ def _compute_phash(image_data: bytes) -> str:
 
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
-    root_tables = (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVSeries, GameWork, BoardGameWork, MusicRelease)
+    root_tables = (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVSeries, GameWork, BoardGameWork, MusicReleaseGroup)
     edition_tables = (
         BookEdition,
         ComicIssue,
@@ -97,7 +101,8 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         TVReleaseMedia,
         GameRelease,
         BoardGameEdition,
-        MusicMedia,
+        MusicRelease,
+        MusicMedium,
     )
     variant_tables = (
         BookPrinting,
@@ -236,6 +241,21 @@ async def index_once(search: SearchClient) -> None:
             )
         )
         documents.extend(anime_series_search_document(row) for row in anime_rows.scalars().unique())
+
+        music_rows = await db.execute(
+            select(MusicReleaseGroup).options(
+                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
+                    MusicMedium.tracks
+                ),
+                selectinload(MusicReleaseGroup.releases)
+                .selectinload(MusicRelease.contributions)
+                .selectinload(MusicReleaseContribution.person),
+                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
+            )
+        )
+        for group in music_rows.scalars().unique():
+            documents.append(music_release_group_search_document(group))
+            documents.extend(music_release_search_document(release) for release in group.releases or [])
         await search.index_documents(documents)
 
 

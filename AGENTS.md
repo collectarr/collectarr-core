@@ -12,7 +12,7 @@ Canonical metadata writes for migrated kinds must go to kind-specific tables:
 - Books: book_works, book_editions, book_printings, book_contributions, book_identifiers, book_series_memberships
 - Games: game_works, game_releases
 - Board games: boardgame_works, boardgame_editions
-- Music: music_releases, music_media, music_tracks
+- Music: music_release_groups, music_releases, music_mediums, music_tracks
 - Movies/TV/Comics/Manga/Anime: use their typed canonical slices
 
 items, editions, and variants are legacy compatibility/search/projection tables only. Do not add new canonical metadata semantics to them.

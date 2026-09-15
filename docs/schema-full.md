@@ -264,8 +264,9 @@ Tables:
 - `entity_tags`
 - `external_provider_ids`
 - `provider_payload_snapshots`
+- `music_release_groups`
 - `music_releases`
-- `music_media`
+- `music_mediums`
 - `music_tracks`
 - `music_release_contributions`
 - `music_release_identifiers`
@@ -1119,8 +1120,6 @@ Tables not yet mapped to a primary domain bucket.
 - Primary key: `id`
 - Unique constraints: none
 - Index `ix_comic_characters_name` (non-unique): `name`
-- Index `ix_comic_characters_name` (non-unique): `name`
-- Index `ix_comic_characters_sort_name` (non-unique): `sort_name`
 - Index `ix_comic_characters_sort_name` (non-unique): `sort_name`
 - Check constraints: none
 - Foreign keys: none
@@ -1216,7 +1215,6 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_duplicate_reviews_entity` (non-unique): `entity_type, entity_id`
 - Index `ix_duplicate_reviews_entity_id` (non-unique): `entity_id`
 - Index `ix_duplicate_reviews_entity_type` (non-unique): `entity_type`
-- Index `ix_duplicate_reviews_ignore_token` (non-unique): `ignore_token`
 - Index `ix_duplicate_reviews_ignore_token` (non-unique): `ignore_token`
 - Index `ix_duplicate_reviews_target_entity_id` (non-unique): `target_entity_id`
 - Check constraints: none

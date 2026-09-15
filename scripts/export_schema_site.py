@@ -44,6 +44,7 @@ SOURCE_MODULES = [
     "app/models/canonical_common.py",
     "app/models/canonical_games.py",
     "app/models/canonical_manga.py",
+    "app/models/canonical_music.py",
     "app/models/canonical_support.py",
     "app/models/canonical_video.py",
     "app/models/user.py",
@@ -203,8 +204,9 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "book_series_memberships",
     ],
     "music": [
+        "music_release_groups",
         "music_releases",
-        "music_media",
+        "music_mediums",
         "music_tracks",
         "music_release_contributions",
         "music_release_identifiers",
@@ -283,7 +285,7 @@ def collect_column_indexes(table: Table) -> dict[str, list[str]]:
     for column in table.columns:
         if column.index and not result[column.name]:
             result[column.name].append(column.name)
-    for column_name, indexes in result.items():
+    for _column_name, indexes in result.items():
         indexes.sort()
     return result
 

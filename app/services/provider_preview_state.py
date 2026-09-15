@@ -475,6 +475,9 @@ class ProviderPreviewState:
             "duration_seconds": value.duration_seconds,
             "artist": value.artist,
             "disc_number": value.disc_number,
+            "is_header": value.is_header,
+            "indent_level": value.indent_level,
+            "parent_header_id": value.parent_header_id,
         }
 
     def _track_from_payload(self, payload: dict[str, object]) -> NormalizedTrack:
@@ -484,6 +487,9 @@ class ProviderPreviewState:
             duration_seconds=self._optional_int(payload.get("duration_seconds")),
             artist=self._optional_text(payload.get("artist")),
             disc_number=self._optional_int(payload.get("disc_number")),
+            is_header=bool(payload.get("is_header", False)),
+            indent_level=max(0, self._optional_int(payload.get("indent_level")) or 0),
+            parent_header_id=self._optional_text(payload.get("parent_header_id")),
         )
 
     def _track_list_from_payload(self, payload: object) -> list[NormalizedTrack]:

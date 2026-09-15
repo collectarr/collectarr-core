@@ -3285,9 +3285,17 @@ class AdminProviderIngestService:
                 provider_name,
                 provider_item_id,
                 kind=ItemKind.music,
-                normalized={},
+                normalized={
+                    "trailer_urls": normalized.trailer_urls,
+                    "external_links": normalized.external_links,
+                },
             ),
         )
+        if normalized.trailer_urls or normalized.external_links:
+            metadata = dict(group.metadata_json or {})
+            metadata["trailer_urls"] = normalized.trailer_urls
+            metadata["external_links"] = normalized.external_links
+            group.metadata_json = metadata
         self.db.add(group)
         await self.db.flush()
 
@@ -3329,7 +3337,7 @@ class AdminProviderIngestService:
                 release_id=release.id,
                 medium_number=medium_number,
                 medium_type=normalized.physical_format or normalized.edition_format or "digital",
-                track_count=len(disc_tracks) or None,
+                track_count=sum(1 for track in disc_tracks if not track.is_header) or None,
                 media_condition=normalized.media_condition,
                 sound_type=normalized.sound_type,
                 vinyl_color=normalized.vinyl_color,
@@ -3352,6 +3360,10 @@ class AdminProviderIngestService:
                         medium_id=medium.id,
                         position=str(track.position or track_index),
                         title=track.title,
+                        artist=track.artist,
+                        is_header=track.is_header,
+                        indent_level=track.indent_level,
+                        parent_header_id=track.parent_header_id,
                         duration_ms=(track.duration_seconds * 1000) if track.duration_seconds else None,
                         instrument=track.instrument,
                         composition=track.composition,

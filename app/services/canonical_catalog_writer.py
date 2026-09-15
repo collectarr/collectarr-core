@@ -226,19 +226,35 @@ def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> Nor
         if isinstance(r, dict)
     ]
 
-    tracks = [
-        NormalizedTrack(
-            position=int(t.get("position", idx + 1)),
-            title=t.get("title", ""),
-            duration_seconds=t.get("duration_seconds"),
-            artist=t.get("artist"),
-            disc_number=t.get("disc_number"),
-            instrument=t.get("instrument"),
-            composition=t.get("composition"),
+    tracks = []
+    for idx, t in enumerate(d.get("tracks") or []):
+        if not isinstance(t, dict):
+            continue
+        raw_position = t.get("position", idx + 1)
+        try:
+            position = int(raw_position)
+        except (TypeError, ValueError):
+            position = idx + 1
+        raw_indent = t.get("indent_level", 0)
+        try:
+            indent_level = max(0, int(raw_indent))
+        except (TypeError, ValueError):
+            indent_level = 0
+        parent_header_id = t.get("parent_header_id")
+        tracks.append(
+            NormalizedTrack(
+                position=position,
+                title=t.get("title", ""),
+                duration_seconds=t.get("duration_seconds"),
+                artist=t.get("artist"),
+                disc_number=t.get("disc_number"),
+                instrument=t.get("instrument"),
+                composition=t.get("composition"),
+                is_header=bool(t.get("is_header", False)),
+                indent_level=indent_level,
+                parent_header_id=(str(parent_header_id) if parent_header_id else None),
+            )
         )
-        for idx, t in enumerate(d.get("tracks") or [])
-        if isinstance(t, dict)
-    ]
 
     seasons = []
     for s in d.get("seasons") or []:
@@ -1025,8 +1041,17 @@ class CanonicalCatalogWriter:
                 p_enum,
                 provider_item_id,
                 kind=ItemKind.music,
+                normalized={
+                    "trailer_urls": normalized.trailer_urls,
+                    "external_links": normalized.external_links,
+                },
             ),
         )
+        if normalized.trailer_urls or normalized.external_links:
+            metadata = dict(group.metadata_json or {})
+            metadata["trailer_urls"] = normalized.trailer_urls
+            metadata["external_links"] = normalized.external_links
+            group.metadata_json = metadata
         self.db.add(group)
         await self.db.flush()
         release = MusicRelease(
@@ -1058,7 +1083,7 @@ class CanonicalCatalogWriter:
                 release_id=release.id,
                 medium_type="digital",
                 medium_number=1,
-                track_count=len(normalized.tracks),
+                track_count=sum(1 for track in normalized.tracks if not track.is_header),
             )
             self.db.add(medium)
             await self.db.flush()
@@ -1068,6 +1093,10 @@ class CanonicalCatalogWriter:
                         medium_id=medium.id,
                         position=str(track_data.position or index),
                         title=track_data.title,
+                        artist=track_data.artist,
+                        is_header=track_data.is_header,
+                        indent_level=track_data.indent_level,
+                        parent_header_id=track_data.parent_header_id,
                         duration_ms=track_data.duration_seconds * 1000 if track_data.duration_seconds else None,
                         instrument=track_data.instrument,
                         composition=track_data.composition,

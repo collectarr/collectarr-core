@@ -158,6 +158,10 @@ class AdminCatalogService:
                                 {
                                     "position": int(track.position) if str(track.position).isdigit() else track.position,
                                     "title": track.title,
+                                    "artist": track.artist,
+                                    "is_header": track.is_header,
+                                    "indent_level": track.indent_level,
+                                    "parent_header_id": track.parent_header_id,
                                     "duration_seconds": (
                                         track.duration_ms // 1000 if track.duration_ms is not None else None
                                     ),
@@ -494,12 +498,19 @@ class AdminCatalogService:
                                 medium_id=medium.id,
                                 position=str(track.get("position") or index),
                                 title=track["title"],
+                                artist=track.get("artist"),
+                                is_header=bool(track.get("is_header", False)),
+                                indent_level=max(0, int(track.get("indent_level", 0) or 0)),
+                                parent_header_id=track.get("parent_header_id"),
                                 duration_ms=(track.get("duration_seconds") * 1000) if track.get("duration_seconds") else None,
                             )
                         )
-                    medium.track_count = len(tracks)
+                    medium.track_count = sum(1 for track in tracks if not track.get("is_header", False))
                     _set_metadata_value("tracks", tracks)
-                    _set_metadata_value("track_count", len(tracks))
+                    _set_metadata_value(
+                        "track_count",
+                        sum(1 for track in tracks if not track.get("is_header", False)),
+                    )
                 if "creators" in update_data:
                     await _clear_existing(list(release.contributions or []))
                     await self.db.flush()
@@ -1140,6 +1151,14 @@ class AdminCatalogService:
             artist = " ".join(str(raw.get("artist") or "").split()).strip()
             if artist:
                 track["artist"] = artist
+            if raw.get("is_header") is True:
+                track["is_header"] = True
+            indent_level = raw.get("indent_level")
+            if isinstance(indent_level, int) and indent_level >= 0:
+                track["indent_level"] = indent_level
+            parent_header_id = " ".join(str(raw.get("parent_header_id") or "").split()).strip()
+            if parent_header_id:
+                track["parent_header_id"] = parent_header_id
             disc_number = raw.get("disc_number")
             if isinstance(disc_number, int):
                 track["disc_number"] = disc_number

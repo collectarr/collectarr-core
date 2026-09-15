@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -27,6 +28,10 @@ class MusicTrackV1Response(BaseModel):
     medium_id: UUID
     position: str
     title: str
+    artist: str | None = None
+    is_header: bool = False
+    indent_level: int = 0
+    parent_header_id: str | None = None
     duration_ms: int | None = None
     offset_ms: int | None = None
     bitrate_kbps: int | None = None
@@ -91,6 +96,7 @@ class MusicReleaseGroupV1Response(BaseModel):
     genres: list[str] = Field(default_factory=list)
     cover_image_url: str | None = None
     cover_image_key: str | None = None
+    external_links: list[dict[str, Any]] = Field(default_factory=list)
     releases: list[MusicReleaseSummaryV1Response] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

@@ -41,6 +41,7 @@ class ProviderSearchResult:
     summary: str | None = None
     image_url: str | None = None
     candidate_type: str | None = None
+    artist: str | None = None
     series_title: str | None = None
     issue_number: str | None = None
     volume_start_year: int | None = None
@@ -104,6 +105,9 @@ class NormalizedTrack:
     disc_number: int | None = None
     instrument: str | None = None
     composition: str | None = None
+    is_header: bool = False
+    indent_level: int = 0
+    parent_header_id: str | None = None
 
 
 @dataclass(frozen=True)

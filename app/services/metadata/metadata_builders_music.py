@@ -17,6 +17,7 @@ from app.schemas import (
     MusicReleaseV1Response,
     MusicTrackV1Response,
 )
+from app.services.metadata.metadata_helpers import _metadata_links
 
 
 class MusicMetadataResponseBuilders:
@@ -46,6 +47,7 @@ class MusicMetadataResponseBuilders:
             genres=group.genres or [],
             cover_image_url=group.cover_image_url,
             cover_image_key=group.cover_image_key,
+            external_links=_metadata_links(group.metadata_json, "external_links"),
             releases=[self._music_release_summary_response(row) for row in releases],
         )
 
@@ -148,6 +150,10 @@ class MusicMetadataResponseBuilders:
             medium_id=track.medium_id,
             position=track.position,
             title=track.title,
+            artist=track.artist,
+            is_header=track.is_header,
+            indent_level=track.indent_level,
+            parent_header_id=track.parent_header_id,
             duration_ms=track.duration_ms,
             offset_ms=track.offset_ms,
             bitrate_kbps=track.bitrate_kbps,

@@ -175,6 +175,7 @@ class SearchResult(BaseModel):
     edition_title: str | None = None
     physical_format: str | None = None
     physical_format_label: str | None = None
+    artist: str | None = None
     publisher: str | None = None
     release_date: date | None = None
     release_year: int | None = None

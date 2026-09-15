@@ -26,6 +26,7 @@ class ClzMusicCredit:
 class ClzMusicTrack:
     position: str
     title: str
+    artist: str | None = None
     duration_ms: int | None = None
     offset_ms: int | None = None
     bitrate_kbps: int | None = None
@@ -33,6 +34,9 @@ class ClzMusicTrack:
     track_hash: str | None = None
     instrument: str | None = None
     composition: str | None = None
+    is_header: bool = False
+    indent_level: int = 0
+    parent_header_id: str | None = None
     metadata_json: dict[str, Any] | None = None
 
 
@@ -188,6 +192,7 @@ class ClzMusicXmlImporter:
         return ClzMusicTrack(
             position=self._text(node, "Position") or self._text(node, "TrackNumber") or "1",
             title=self._text(node, "Title") or "Untitled track",
+            artist=self._text(node, "Artist") or self._text(node, "Performer"),
             duration_ms=self._parse_duration_ms(node),
             offset_ms=self._parse_int(node, "OffsetMs") or self._parse_int(node, "Offset"),
             bitrate_kbps=self._parse_int(node, "BitrateKbps") or self._parse_int(node, "Bitrate"),
@@ -195,6 +200,9 @@ class ClzMusicXmlImporter:
             track_hash=self._text(node, "Hash") or self._text(node, "TrackHash"),
             instrument=self._text(node, "Instrument"),
             composition=self._text(node, "Composition"),
+            is_header=(self._text(node, "IsHeader") or "").lower() in {"1", "true", "yes"},
+            indent_level=max(0, self._parse_int(node, "IndentLevel") or 0),
+            parent_header_id=self._text(node, "ParentHeaderId"),
             metadata_json={
                 "file_path": self._text(node, "FilePath"),
             },
@@ -287,6 +295,7 @@ class ClzMusicXmlImporter:
                         medium_id=media.id,
                         position=track.position,
                         title=track.title,
+                        artist=track.artist,
                         duration_ms=track.duration_ms,
                         offset_ms=track.offset_ms,
                         bitrate_kbps=track.bitrate_kbps,
@@ -294,6 +303,9 @@ class ClzMusicXmlImporter:
                         track_hash=track.track_hash,
                         instrument=track.instrument,
                         composition=track.composition,
+                        is_header=track.is_header,
+                        indent_level=track.indent_level,
+                        parent_header_id=track.parent_header_id,
                         metadata_json=track.metadata_json,
                     )
                 )

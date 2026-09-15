@@ -40,6 +40,10 @@ class MusicService:
                     "medium_id": track.medium_id,
                     "position": track.position,
                     "title": track.title,
+                    "artist": track.artist,
+                    "is_header": track.is_header,
+                    "indent_level": track.indent_level,
+                    "parent_header_id": track.parent_header_id,
                     "duration_ms": track.duration_ms,
                     "instrument": track.instrument,
                     "composition": track.composition,
@@ -63,11 +67,17 @@ class MusicService:
             release_year=date_value.year if date_value else None,
             barcode=(selected.barcode or selected.upc) if selected else None,
             catalog_number=selected.catalog_number if selected else None,
+            artist=group.artist,
             publisher=selected.publisher if selected else None,
             country=selected.country_code if selected else None,
             language=selected.language if selected else None,
             release_status=selected.release_status if selected else None,
-            track_count=sum(medium.track_count or len(medium.tracks or []) for medium in mediums),
+            track_count=sum(
+                1
+                for medium in mediums
+                for track in (medium.tracks or [])
+                if not track.is_header
+            ),
             tracks=tracks or None,
             item_number=primary.title if primary is not None else None,
             edition_title=selected.title if selected else None,

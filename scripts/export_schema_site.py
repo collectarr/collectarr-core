@@ -231,7 +231,7 @@ STATIC_NOTES = [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
     "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
-    "For migration history and any constraints introduced outside model declarations, cross-check the Alembic revisions in alembic/versions.",
+    "The clean server schema is created by the version-1 Alembic baseline; constraints outside model declarations are defined there.",
 ]
 
 
@@ -778,7 +778,7 @@ def build_schema_data() -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export the interactive schema site.")
-    parser.add_argument("--watch", action="store_true", help="Rebuild when model or migration files change.")
+    parser.add_argument("--watch", action="store_true", help="Rebuild when model or schema baseline files change.")
     parser.add_argument("--interval", type=float, default=1.0, help="Polling interval for --watch mode.")
     args = parser.parse_args()
 

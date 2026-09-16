@@ -32,7 +32,7 @@ from app.services.metadata.metadata_builders_manga import MangaMetadataResponseB
 from app.services.metadata.metadata_builders_movies import MovieMetadataResponseBuilders
 from app.services.metadata.metadata_builders_music import MusicMetadataResponseBuilders
 from app.services.metadata.metadata_builders_tv import TVMetadataResponseBuilders
-from app.services.metadata.metadata_helpers import _metadata_links, _metadata_list
+from app.services.metadata.metadata_helpers import entity_link_values
 
 
 class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataResponseBuilders, AnimeMetadataResponseBuilders, MovieMetadataResponseBuilders, MusicMetadataResponseBuilders, TVMetadataResponseBuilders):
@@ -43,7 +43,6 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
         scope: str,
     ) -> BookContributorResponse:
         person = contribution.person
-        metadata = contribution.metadata_json or {}
         return BookContributorResponse(
             person_id=contribution.person_id,
             name=person.name if person is not None else "",
@@ -52,7 +51,7 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             image_url=person.image_url if person is not None else None,
             biography=person.biography if person is not None else None,
             sort_name=person.sort_name if person is not None else None,
-            role_id=metadata.get("role_id"),
+            role_id=contribution.role_id,
             scope=scope,
         )
 
@@ -208,7 +207,6 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             ),
         )
         primary_release = releases[0] if releases else None
-        metadata = work.metadata_json or {}
         return GameWorkV1Response(
             id=work.id,
             title=work.title,
@@ -220,14 +218,14 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             publisher=primary_release.publisher if primary_release is not None else None,
             age_rating=work.age_rating,
             audience_rating=work.audience_rating,
-            search_aliases=_metadata_list(metadata, "search_aliases"),
-            genres=_metadata_list(metadata, "genres"),
-            platforms=_metadata_list(metadata, "platforms"),
-            identifiers=_metadata_list(metadata, "identifiers"),
-            company_roles=_metadata_list(metadata, "company_roles"),
-            age_ratings=_metadata_list(metadata, "age_ratings"),
-            trailer_urls=_metadata_links(metadata, "trailer_urls"),
-            external_links=_metadata_links(metadata, "external_links"),
+            search_aliases=[row.alias for row in work.alias_entries],
+            genres=work.genres,
+            platforms=work.platforms,
+            identifiers=work.identifiers,
+            company_roles=work.company_roles,
+            age_ratings=work.age_ratings,
+            trailer_urls=entity_link_values(work.entity_links, "trailer"),
+            external_links=entity_link_values(work.entity_links, "external"),
             releases=[self._game_release_response(row) for row in releases],
         )
 
@@ -265,7 +263,6 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             ),
         )
         primary_edition = editions[0] if editions else None
-        metadata = work.metadata_json or {}
         return BoardGameWorkV1Response(
             id=work.id,
             title=work.title,
@@ -277,17 +274,17 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             publisher=primary_edition.publisher if primary_edition is not None else None,
             age_rating=work.age_rating,
             audience_rating=work.audience_rating,
-            search_aliases=_metadata_list(metadata, "search_aliases"),
-            genres=_metadata_list(metadata, "genres"),
-            platforms=_metadata_list(metadata, "platforms"),
-            identifiers=_metadata_list(metadata, "identifiers"),
-            contributors=_metadata_list(metadata, "contributors"),
-            mechanics=_metadata_list(metadata, "mechanics"),
-            categories=_metadata_list(metadata, "categories"),
-            families=_metadata_list(metadata, "families"),
-            expansions=_metadata_list(metadata, "expansions"),
-            rankings=_metadata_list(metadata, "rankings"),
-            trailer_urls=_metadata_links(metadata, "trailer_urls"),
-            external_links=_metadata_links(metadata, "external_links"),
+            search_aliases=[row.alias for row in work.alias_entries],
+            genres=work.genres,
+            platforms=work.platforms,
+            identifiers=work.identifiers,
+            contributors=work.contributors,
+            mechanics=work.mechanics,
+            categories=work.categories,
+            families=work.families,
+            expansions=work.expansions,
+            rankings=work.rankings,
+            trailer_urls=entity_link_values(work.entity_links, "trailer"),
+            external_links=entity_link_values(work.entity_links, "external"),
             editions=[self._boardgame_edition_response(row) for row in editions],
         )

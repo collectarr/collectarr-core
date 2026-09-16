@@ -1,11 +1,11 @@
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import (
@@ -25,6 +25,8 @@ from app.models import (
     ComicSeriesMembership,
     ComicWork,
     DuplicateReview,
+    DuplicateReviewDetail,
+    DuplicateReviewEntity,
     EntityOrganization,
     EntityPerson,
     EntityTag,
@@ -47,7 +49,6 @@ from app.models import (
     MusicReleaseContribution,
     MusicReleaseGroup,
     MusicReleaseIdentifier,
-    MusicTrack,
     TVEpisode,
     TVRelease,
     TVSeason,
@@ -62,6 +63,7 @@ from app.schemas.admin import (
     AdminDuplicateReviewEntryResponse,
     AdminDuplicateReviewRequest,
 )
+from app.services.typed_values import flatten_typed_values, materialize_typed_values
 
 # Maps each native root model class to the entity_type string used in generic link tables.
 _ENTITY_TYPE: dict[type, str] = {
@@ -195,8 +197,29 @@ class AdminDuplicateService:
             .order_by(DuplicateReview.created_at.desc(), DuplicateReview.id.desc())
             .limit(limit)
         )
-        result = await self.db.execute(stmt)
-        return [AdminDuplicateReviewEntryResponse.model_validate(row) for row in result.scalars()]
+        result = await self.db.execute(
+            stmt.options(
+                selectinload(DuplicateReview.entities),
+                selectinload(DuplicateReview.details),
+            )
+        )
+        responses: list[AdminDuplicateReviewEntryResponse] = []
+        for row in result.scalars():
+            response = AdminDuplicateReviewEntryResponse.model_validate(row)
+            entity_ids = [str(entry.entity_id) for entry in row.entities]
+            source_entity_ids = [
+                str(entry.entity_id) for entry in row.entities if entry.role == "source"
+            ]
+            responses.append(
+                response.model_copy(
+                    update={
+                        "entity_ids": entity_ids,
+                        "source_entity_ids": source_entity_ids or None,
+                        "details_json": materialize_typed_values(row.details),
+                    }
+                )
+            )
+        return responses
 
     async def ignore_duplicate_candidate(
         self,
@@ -222,23 +245,24 @@ class AdminDuplicateService:
         duplicate_score, recommended_target_id = self._score_duplicate_candidate(
             entities, provider_counts, conflicts=conflicts
         )
-        for entity in entities:
-            metadata = dict(entity.metadata_json or {})
-            metadata["admin_duplicate_ignore_token"] = token
-            metadata["admin_duplicate_ignored_at"] = datetime.now(UTC).isoformat()
-            entity.metadata_json = metadata
-        self.db.add(
-            DuplicateReview(
+        review = DuplicateReview(
                 action="ignore",
                 entity_type=entity_type,
                 entity_id=ids[0],
-                entity_ids=[str(entity_id) for entity_id in ids],
                 ignore_token=token,
                 duplicate_score=duplicate_score,
                 actor_user_id=self._actor_user_id,
                 actor_email=self._actor_email,
                 note=note,
-                details_json={
+            )
+        review.entities = [
+            DuplicateReviewEntity(role="candidate", entity_id=entity_id, position=index)
+            for index, entity_id in enumerate(ids)
+        ]
+        review.details = [
+            DuplicateReviewDetail(**detail)
+            for detail in flatten_typed_values(
+                {
                     "decision": "ignore",
                     "item_ids": [str(entity_id) for entity_id in ids],
                     "duplicate_score": duplicate_score,
@@ -246,9 +270,10 @@ class AdminDuplicateService:
                     "confidence_factors": confidence_factors,
                     "merge_warnings": merge_warnings,
                     **({"note": note} if note else {}),
-                },
+                }
             )
-        )
+        ]
+        self.db.add(review)
         self._record_duplicate_review_audit(
             action="duplicates.ignore",
             entities=entities,
@@ -299,19 +324,27 @@ class AdminDuplicateService:
         for source in sources:
             await self._move_entity_children(source, target)
             await self.db.delete(source)
-        self.db.add(
-            DuplicateReview(
+        review = DuplicateReview(
                 action="merge",
                 entity_type=entity_type,
                 entity_id=target.id,
-                entity_ids=[str(entity_id) for entity_id in all_ids],
                 target_entity_id=target.id,
-                source_entity_ids=[str(source.id) for source in sources],
                 duplicate_score=duplicate_score,
                 actor_user_id=self._actor_user_id,
                 actor_email=self._actor_email,
                 note=note,
-                details_json={
+            )
+        review.entities = [
+            DuplicateReviewEntity(role="target", entity_id=target.id, position=0),
+            *[
+                DuplicateReviewEntity(role="source", entity_id=source.id, position=index)
+                for index, source in enumerate(sources, start=1)
+            ],
+        ]
+        review.details = [
+            DuplicateReviewDetail(**detail)
+            for detail in flatten_typed_values(
+                {
                     "decision": "merge",
                     "target_item_id": str(target.id),
                     "source_item_ids": [str(source.id) for source in sources],
@@ -320,9 +353,10 @@ class AdminDuplicateService:
                     "confidence_factors": confidence_factors,
                     "merge_warnings": merge_warnings,
                     **({"note": note} if note else {}),
-                },
+                }
             )
-        )
+        ]
+        self.db.add(review)
         self._record_duplicate_review_audit(
             action="duplicates.merge",
             entities=[target, *sources],
@@ -434,16 +468,7 @@ class AdminDuplicateService:
         )
         if stored is not None:
             return True
-        result = await self.db.execute(
-            select(model_cls.metadata_json).where(model_cls.id.in_(entity_ids))
-        )
-        rows = list(result.scalars())
-        if len(rows) != len(entity_ids):
-            return False
-        return all(
-            isinstance(m, dict) and m.get("admin_duplicate_ignore_token") == token
-            for m in rows
-        )
+        return False
 
     # ------------------------------------------------------------------ #
     # Private helpers â€” conflict detection & scoring                       #
@@ -623,10 +648,6 @@ class AdminDuplicateService:
             .where(ImageAsset.entity_type == entity_type, ImageAsset.entity_id == source.id)
             .values(entity_id=target.id)
         )
-        # Merge metadata_json: target values win; source fills in missing keys.
-        if source.metadata_json:
-            merged = {**dict(source.metadata_json), **dict(target.metadata_json or {})}
-            target.metadata_json = merged
 
     async def _move_native_children(self, source: Any, target: Any) -> None:
         """Per-model child-row reassignment via bulk UPDATE statements."""

@@ -122,12 +122,12 @@ def clean_normalized_metadata(
 
 
 def set_normalized_metadata(
-    metadata_json: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
     normalized_values: Mapping[str, Any] | None,
     *,
     kind: ItemKind | None = None,
 ) -> dict[str, Any]:
-    metadata = dict(metadata_json or {})
+    metadata = dict(metadata or {})
     normalized = clean_normalized_metadata(normalized_values, kind=kind)
     if normalized:
         metadata["normalized"] = normalized
@@ -137,15 +137,15 @@ def set_normalized_metadata(
 
 
 def merge_normalized_metadata(
-    metadata_json: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
     updates: Mapping[str, Any] | None,
     *,
     kind: ItemKind | None = None,
 ) -> dict[str, Any]:
-    metadata = dict(metadata_json or {})
-    current = metadata.get("normalized")
+    result = dict(metadata or {})
+    current = result.get("normalized")
     merged = dict(current) if isinstance(current, dict) else {}
     merged.pop("schema_version", None)
     if isinstance(updates, Mapping):
         merged.update(dict(updates))
-    return set_normalized_metadata(metadata, merged, kind=kind)
+    return set_normalized_metadata(result, merged, kind=kind)

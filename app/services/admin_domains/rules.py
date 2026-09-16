@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import and_, case, or_, select
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import AdminReleaseMediaMappingRule, MetadataProposal
@@ -16,6 +17,7 @@ from app.schemas.admin import (
     AdminReleaseMediaMappingRuleUpdateRequest,
     ProviderIngestHistoryEntry,
 )
+from app.services.typed_values import materialize_typed_values
 
 
 class AdminRulesService:
@@ -165,7 +167,11 @@ class AdminRulesService:
         notes: list[str] = []
 
         if payload.source == "proposal" and payload.proposal_id is not None:
-            proposal = await self.db.get(MetadataProposal, payload.proposal_id)
+            proposal = await self.db.scalar(
+                select(MetadataProposal)
+                .where(MetadataProposal.id == payload.proposal_id)
+                .options(selectinload(MetadataProposal.values))
+            )
             if proposal is None:
                 raise ApiHTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -182,11 +188,12 @@ class AdminRulesService:
             if provider_item_id is None and proposal.provider_item_id:
                 provider_item_id = proposal.provider_item_id
                 notes.append("Provider item id prefilled from proposal")
-            proposal_kind = _proposal_kind(proposal.metadata_payload)
+            proposal_payload = materialize_typed_values(proposal.values)
+            proposal_kind = _proposal_kind(proposal_payload)
             if kind is None and proposal_kind is not None:
                 kind = proposal_kind
                 notes.append("Kind prefilled from proposal payload")
-            proposal_release_type = _proposal_release_type(proposal.metadata_payload)
+            proposal_release_type = _proposal_release_type(proposal_payload)
             if release_type is None and proposal_release_type is not None:
                 release_type = proposal_release_type
                 notes.append("Release type inferred from proposal payload")

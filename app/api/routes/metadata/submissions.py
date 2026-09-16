@@ -147,10 +147,17 @@ async def submit_normalized_metadata(
             title=title,
             summary=payload.normalized.get("synopsis") or payload.normalized.get("description"),
             image_url=payload.normalized.get("cover_image_url"),
-            metadata_payload=envelope.to_dict(),
             status="pending",
         )
         db.add(proposal)
+        await db.flush()
+        from app.models import MetadataProposalValue
+        from app.services.typed_values import flatten_typed_values
+
+        db.add_all(
+            MetadataProposalValue(proposal_id=proposal.id, **row)
+            for row in flatten_typed_values(envelope.to_dict())
+        )
         await db.commit()
         await db.refresh(proposal)
 

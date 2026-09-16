@@ -37,6 +37,7 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "release_statuses",
             "physical_format_refs",
             "provider_payload_snapshots",
+            "provider_payload_snapshot_values",
             "book_works",
             "book_series",
             "book_editions",
@@ -47,7 +48,9 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "comic_series",
             "game_works",
             "game_releases",
+            "game_release_identifiers",
             "game_platforms",
+            "game_genres",
             "game_release_platforms",
             "game_identifiers",
             "game_company_roles",
@@ -55,6 +58,9 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "game_series_memberships",
             "boardgame_works",
             "boardgame_editions",
+            "boardgame_genres",
+            "boardgame_platforms",
+            "boardgame_edition_identifiers",
             "boardgame_identifiers",
             "boardgame_contributions",
             "boardgame_mechanics",
@@ -86,6 +92,14 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "image_assets",
             "image_cache_entries",
             "admin_audit_logs",
+            "admin_audit_log_details",
+            "duplicate_review_entities",
+            "duplicate_review_details",
+            "metadata_proposal_values",
+            "person_external_identifiers",
+            "music_release_group_genres",
+            "music_medium_missing_track_positions",
+            "comic_work_missing_issue_numbers",
         }.issubset(tables)
         assert "bundle_release_items" not in tables
         assert "provider_ingest_jobs" in tables
@@ -101,7 +115,7 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         assert f"{deprecated_table}_tv" not in tables
         assert f"{deprecated_table}_music_tracks" not in tables
         assert "metadata_taxonomies" in tables
-        assert deprecated_taxonomy_table in tables
+        assert deprecated_taxonomy_table not in tables
         assert "tracking_entries" not in tables
         assert "releases" not in tables
         provider_ingest_columns = {
@@ -123,22 +137,19 @@ async def test_generalized_catalog_schema_exists(migrated_database):
         assert "resolved_entity_id" in provider_ingest_columns
         assert "item_id" not in provider_ingest_columns
 
-        deprecated_kind_columns = {
-            row[0]
-            for row in (
-                await db.execute(
-                    text(
-                        """
-                        select column_name
-                        from information_schema.columns
-                        where table_schema = 'public'
-                          and table_name = 'item' || '_kind_metadata'
-                        """
-                    )
+        json_columns = (
+            await db.execute(
+                text(
+                    """
+                    select table_name, column_name, data_type
+                    from information_schema.columns
+                    where table_schema = 'public'
+                      and data_type in ('json', 'jsonb')
+                    """
                 )
-            ).all()
-        }
-        assert "metadata_json" in deprecated_kind_columns
+            )
+        ).all()
+        assert json_columns == []
 
         enum_values = {
             row[0]

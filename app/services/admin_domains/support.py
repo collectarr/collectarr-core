@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     AdminAuditLog,
+    AdminAuditLogDetail,
     AnimeSeries,
     BoardGameWork,
     BookWork,
@@ -27,6 +28,7 @@ from app.schemas.admin import ProviderIngestHistoryEntry
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
 from app.services.facade import MetadataFacade as MetadataService
+from app.services.typed_values import flatten_typed_values
 
 _INGEST_HISTORY: deque[ProviderIngestHistoryEntry] = deque(maxlen=50)
 _INGEST_HISTORY_SEQUENCE = 0
@@ -129,16 +131,17 @@ class AdminSupportService:
         entity_id: UUID | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        self.db.add(
-            AdminAuditLog(
-                action=action,
-                actor_user_id=self.actor_user_id,
-                actor_email=self.actor_email,
-                entity_type=entity_type,
-                entity_id=entity_id,
-                details_json=self._audit_json_safe(details or {}),
-            )
+        audit_log = AdminAuditLog(
+            action=action,
+            actor_user_id=self.actor_user_id,
+            actor_email=self.actor_email,
+            entity_type=entity_type,
+            entity_id=entity_id,
         )
+        audit_log.details = [
+            AdminAuditLogDetail(**row) for row in flatten_typed_values(details or {})
+        ]
+        self.db.add(audit_log)
 
     def ingest_job_audit_details(self, job: ProviderIngestJob) -> dict[str, Any]:
         return {

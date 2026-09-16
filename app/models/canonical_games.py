@@ -16,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -30,6 +30,8 @@ from app.models.canonical_support import (  # noqa: F401
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
+    EntityAlias,
+    EntityLink,
     EntityOrganization,
     EntityPerson,
     EntityTag,
@@ -78,7 +80,6 @@ class GameWork(UuidMixin, TimestampMixin, Base):
     audience_rating: Mapped[str | None] = mapped_column(String(64))
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     releases: Mapped[list["GameRelease"]] = relationship(
         back_populates="work",
@@ -118,26 +119,64 @@ class GameWork(UuidMixin, TimestampMixin, Base):
         ),
         viewonly=True,
     )
-
-    def _metadata_list(self, key: str) -> list[str]:
-        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
-        return _clean_text_list(values)
+    genre_entries: Mapped[list["GameGenre"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+        order_by="GameGenre.sequence",
+    )
+    entity_links: Mapped[list["EntityLink"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityLink.entity_id) == GameWork.id,
+            EntityLink.entity_type == "game_work",
+        ),
+        order_by="EntityLink.position",
+        viewonly=True,
+    )
+    alias_entries: Mapped[list["EntityAlias"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityAlias.entity_id) == GameWork.id,
+            EntityAlias.entity_type == "game_work",
+        ),
+        order_by="EntityAlias.position",
+        viewonly=True,
+    )
 
     @property
     def platforms(self) -> list[str]:
-        return _clean_text_list([row.platform_name for row in self.platform_entries]) or self._metadata_list("platforms")
+        return _clean_text_list([row.platform_name for row in self.platform_entries])
 
     @property
     def identifiers(self) -> list[str]:
-        return _clean_text_list([row.value for row in self.identifier_entries]) or self._metadata_list("identifiers")
+        return _clean_text_list([row.value for row in self.identifier_entries])
 
     @property
     def company_roles(self) -> list[str]:
-        return _clean_text_list([row.role for row in self.company_role_entries]) or self._metadata_list("company_roles")
+        return _clean_text_list([row.role for row in self.company_role_entries])
 
     @property
     def age_ratings(self) -> list[str]:
-        return _clean_text_list([row.rating for row in self.age_rating_entries]) or self._metadata_list("age_ratings")
+        return _clean_text_list([row.rating for row in self.age_rating_entries])
+
+    @property
+    def genres(self) -> list[str]:
+        return _clean_text_list([row.value for row in self.genre_entries])
+
+
+class GameGenre(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "game_genres"
+    __table_args__ = (
+        UniqueConstraint("work_id", "normalized_value", name="uq_game_genres_work_normalized"),
+        Index("ix_game_genres_work_sequence", "work_id", "sequence"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("game_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    work: Mapped[GameWork] = relationship(back_populates="genre_entries")
 
 
 class GamePlatform(UuidMixin, TimestampMixin, Base):
@@ -154,7 +193,6 @@ class GamePlatform(UuidMixin, TimestampMixin, Base):
     normalized_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="platform_entries")
 
@@ -174,7 +212,6 @@ class GameReleasePlatform(UuidMixin, TimestampMixin, Base):
     )
     sequence: Mapped[int | None] = mapped_column(Integer)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     release: Mapped["GameRelease"] = relationship(back_populates="platform_links")
     platform: Mapped[GamePlatform] = relationship()
@@ -195,7 +232,6 @@ class GameIdentifier(UuidMixin, TimestampMixin, Base):
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="identifier_entries")
 
@@ -210,15 +246,14 @@ class GameCompanyRole(UuidMixin, TimestampMixin, Base):
     work_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("game_works.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    organization_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="company_role_entries")
-    organization: Mapped["Organization"] = relationship()
+    organization: Mapped["Organization | None"] = relationship()
 
 
 class GameAgeRating(UuidMixin, TimestampMixin, Base):
@@ -235,7 +270,6 @@ class GameAgeRating(UuidMixin, TimestampMixin, Base):
     rating: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     region_code: Mapped[str | None] = mapped_column(String(32), index=True)
     descriptor: Mapped[str | None] = mapped_column(String(255))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="age_rating_entries")
 
@@ -254,7 +288,6 @@ class GameSeriesMembership(UuidMixin, TimestampMixin, Base):
     normalized_series_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     sequence: Mapped[float | None] = mapped_column(Float)
     display_number: Mapped[str | None] = mapped_column(String(64))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="series_memberships")
 
@@ -280,18 +313,41 @@ class GameRelease(UuidMixin, TimestampMixin, Base):
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[GameWork] = relationship(back_populates="releases")
     platform_links: Mapped[list[GameReleasePlatform]] = relationship(
         back_populates="release",
         cascade="all, delete-orphan",
     )
-
-    def _metadata_list(self, key: str) -> list[str]:
-        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
-        return _clean_text_list(values)
+    identifier_entries: Mapped[list["GameReleaseIdentifier"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def identifiers(self) -> list[str]:
-        return self._metadata_list("identifiers")
+        return _clean_text_list([row.value for row in self.identifier_entries])
+
+
+class GameReleaseIdentifier(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "game_release_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "release_id",
+            "identifier_type",
+            "normalized_value",
+            name="uq_game_release_identifiers_release_type_normalized",
+        ),
+        Index("ix_game_release_identifiers_type_value", "identifier_type", "normalized_value"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("game_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
+
+    release: Mapped[GameRelease] = relationship(back_populates="identifier_entries")

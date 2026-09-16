@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -18,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -65,7 +64,6 @@ class BookWork(UuidMixin, TimestampMixin, Base):
     dewey: Mapped[str | None] = mapped_column(String(64), index=True)
     lccn: Mapped[str | None] = mapped_column(String(64), index=True)
     loc_control_number: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     editions: Mapped[list["BookEdition"]] = relationship(
         back_populates="work",
@@ -93,7 +91,6 @@ class BookSeries(UuidMixin, TimestampMixin, Base):
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     works: Mapped[list["BookSeriesMembership"]] = relationship(
         back_populates="series",
@@ -138,7 +135,6 @@ class BookEdition(UuidMixin, TimestampMixin, Base):
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     description: Mapped[str | None] = mapped_column(Text)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BookWork] = relationship(back_populates="editions")
     printings: Mapped[list["BookPrinting"]] = relationship(
@@ -164,7 +160,6 @@ class BookPrinting(UuidMixin, TimestampMixin, Base):
     printing_number: Mapped[int | None] = mapped_column(Integer, index=True)
     printing_statement: Mapped[str | None] = mapped_column(String(255))
     print_run: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     edition: Mapped[BookEdition] = relationship(back_populates="printings")
 
@@ -200,8 +195,8 @@ class BookContribution(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BookWork | None] = relationship(back_populates="contributions")
     edition: Mapped[BookEdition | None] = relationship(back_populates="contributions")
@@ -231,7 +226,6 @@ class BookIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     edition: Mapped[BookEdition] = relationship(back_populates="identifiers")
 
@@ -251,7 +245,6 @@ class BookSeriesMembership(UuidMixin, TimestampMixin, Base):
     )
     sequence: Mapped[float | None] = mapped_column(Float)
     display_number: Mapped[str | None] = mapped_column(String(64))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BookWork] = relationship(back_populates="series_memberships")
     series: Mapped[BookSeries] = relationship(back_populates="works")

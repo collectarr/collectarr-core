@@ -161,7 +161,7 @@ class TVService:
                 SeasonResponse(
                     season_number=season.season_number,
                     title=season.title or f"Season {season.season_number}",
-                    provider_item_id=season.metadata_json.get("provider_item_id") if isinstance(season.metadata_json, dict) else None,
+                    provider_item_id=season.provider_item_id,
                     overview=season.overview or series.overview,
                     air_date=season.air_date or next((episode.original_air_date for episode in ordered_episodes if episode.original_air_date), None),
                     episode_count=len(ordered_episodes),
@@ -170,7 +170,7 @@ class TVService:
                         ProviderEpisodeResponse(
                             episode_number=episode.episode_number,
                             title=episode.title,
-                            provider_item_id=episode.metadata_json.get("provider_item_id") if isinstance(episode.metadata_json, dict) else None,
+                            provider_item_id=episode.provider_item_id,
                             overview=episode.overview,
                             air_date=episode.original_air_date,
                             runtime_minutes=episode.duration_seconds // 60 if episode.duration_seconds is not None else None,

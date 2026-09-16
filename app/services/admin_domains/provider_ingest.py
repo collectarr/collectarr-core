@@ -1,4 +1,6 @@
 import contextlib
+import hashlib
+import json
 import logging
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -21,6 +23,8 @@ from app.models import (
     AnimeIdentifier,
     AnimeSeries,
     BoardGameEdition,
+    BoardGameGenre,
+    BoardGamePlatform,
     BoardGameWork,
     BookContribution,
     BookEdition,
@@ -37,9 +41,13 @@ from app.models import (
     ComicSeriesMembership,
     ComicStoryArcMembership,
     ComicWork,
+    EntityAlias,
+    EntityLink,
     EntityOrganization,
     EntityPerson,
     ExternalProviderId,
+    GameGenre,
+    GamePlatform,
     GameRelease,
     GameWork,
     MangaChapter,
@@ -51,6 +59,7 @@ from app.models import (
     MangaSeriesRelation,
     MangaWork,
     MetadataProposal,
+    MetadataProposalValue,
     MovieRelease,
     MovieReleaseMedia,
     MovieWork,
@@ -60,13 +69,16 @@ from app.models import (
     MusicRelease,
     MusicReleaseContribution,
     MusicReleaseGroup,
+    MusicReleaseGroupGenre,
     MusicReleaseIdentifier,
     MusicTrack,
     Organization,
     Person,
+    PersonExternalIdentifier,
     PhysicalFormatRef,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
+    ProviderPayloadSnapshotValue,
     ReleaseStatus,
     StoryArc,
     Tag,
@@ -80,7 +92,6 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
-from app.proposal_payload import compact_metadata_payload
 from app.providers.base import (
     MetadataProvider,
     NormalizedCredit,
@@ -138,7 +149,6 @@ from app.services.admin_domains.provider_ingest_helpers import (
     normalized_region,
     normalized_release_status,
     physical_format_for_normalized,
-    provider_metadata_json,
     variant_cover_name,
 )
 from app.services.admin_domains.shared import (
@@ -152,6 +162,7 @@ from app.services.admin_domains.shared import (
 )
 from app.services.facade import MetadataFacade as MetadataService
 from app.services.provider_preview_state import HydratedProviderPreview
+from app.services.typed_values import flatten_typed_values, materialize_typed_values
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
@@ -229,11 +240,14 @@ class AdminProviderIngestService:
         if not snapshot_ids:
             return 0
         await self.db.execute(
+            delete(ProviderPayloadSnapshotValue).where(
+                ProviderPayloadSnapshotValue.snapshot_id.in_(snapshot_ids)
+            )
+        )
+        await self.db.execute(
             update(ProviderPayloadSnapshot)
             .where(ProviderPayloadSnapshot.id.in_(snapshot_ids))
             .values(
-                source_payload=None,
-                normalized_payload=None,
                 purged_at=now,
             )
         )
@@ -262,16 +276,18 @@ class AdminProviderIngestService:
         status_filter: str = "pending",
         provider_filter: ExternalProvider | None = None,
     ) -> list[MetadataProposalAdminResponse]:
-        stmt = select(MetadataProposal).where(MetadataProposal.status == status_filter)
+        stmt = select(MetadataProposal).options(selectinload(MetadataProposal.values)).where(
+            MetadataProposal.status == status_filter
+        )
         if provider_filter:
             stmt = stmt.where(MetadataProposal.provider == provider_filter)
         result = await self.db.execute(stmt.order_by(MetadataProposal.created_at.asc()))
         responses: list[MetadataProposalAdminResponse] = []
         for proposal in result.scalars():
             response = MetadataProposalAdminResponse.model_validate(proposal)
-            compacted_payload = compact_metadata_payload(response.metadata_payload)
-            if compacted_payload != response.metadata_payload:
-                response = response.model_copy(update={"metadata_payload": compacted_payload})
+            response = response.model_copy(
+                update={"metadata_payload": materialize_typed_values(proposal.values)}
+            )
             responses.append(response)
         return responses
 
@@ -331,10 +347,14 @@ class AdminProviderIngestService:
             from app.proposal_payload import validate_metadata_payload
 
             validate_metadata_payload(payload.metadata_payload)
-            compacted_payload = compact_metadata_payload(payload.metadata_payload)
-            if compacted_payload != proposal.metadata_payload:
-                proposal.metadata_payload = compacted_payload
-                changed_fields.append("metadata_payload")
+            await self.db.execute(
+                delete(MetadataProposalValue).where(MetadataProposalValue.proposal_id == proposal.id)
+            )
+            self.db.add_all(
+                MetadataProposalValue(proposal_id=proposal.id, **row)
+                for row in flatten_typed_values(payload.metadata_payload)
+            )
+            changed_fields.append("metadata_payload")
 
         if changed_fields:
             self._audit_recorder(
@@ -349,7 +369,9 @@ class AdminProviderIngestService:
             )
             await self.db.commit()
             await self.db.refresh(proposal)
-        return MetadataProposalAdminResponse.model_validate(proposal)
+        await self.db.refresh(proposal, attribute_names=["values"])
+        response = MetadataProposalAdminResponse.model_validate(proposal)
+        return response.model_copy(update={"metadata_payload": materialize_typed_values(proposal.values)})
 
     async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
         proposal = await self.db.get(MetadataProposal, proposal_id)
@@ -359,7 +381,9 @@ class AdminProviderIngestService:
                 code="metadata_proposal_not_found",
                 detail="Proposal not found",
             )
-        if proposal.provider_item_id is None and not proposal.metadata_payload:
+        await self.db.refresh(proposal, attribute_names=["values"])
+        payload_data = materialize_typed_values(proposal.values)
+        if proposal.provider_item_id is None and not payload_data:
             raise ApiHTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="metadata_proposal_missing_provider_item",
@@ -368,8 +392,7 @@ class AdminProviderIngestService:
 
         # Convert proposal approval: normalized submission -> canonical writer
         # Does not do provider lookup -> normalize -> writer
-        if proposal.metadata_payload and isinstance(proposal.metadata_payload, dict):
-            payload_data = proposal.metadata_payload
+        if payload_data and isinstance(payload_data, dict):
             if payload_data.get("schema_version") == "v1" and "normalized" in payload_data:
                 envelope = NormalizedProviderEnvelopeV1.from_dict(payload_data)
             else:
@@ -471,7 +494,9 @@ class AdminProviderIngestService:
         )
         await self.db.commit()
         await self.db.refresh(proposal)
-        return MetadataProposalAdminResponse.model_validate(proposal)
+        await self.db.refresh(proposal, attribute_names=["values"])
+        response = MetadataProposalAdminResponse.model_validate(proposal)
+        return response.model_copy(update={"metadata_payload": materialize_typed_values(proposal.values)})
 
     async def create_ingest_job(
         self,
@@ -1325,23 +1350,6 @@ class AdminProviderIngestService:
     ) -> dict[str, Any]:
         return cover_metadata(source_url, mirrored_cover)
 
-    def _provider_metadata_json(
-        self,
-        provider_name: ExternalProvider,
-        provider_item_id: str,
-        *,
-        kind: ItemKind,
-        normalized: dict[str, Any] | None = None,
-        source: Any | None = None,
-    ) -> dict[str, Any]:
-        return provider_metadata_json(
-            provider_name,
-            provider_item_id,
-            kind=kind,
-            normalized=normalized,
-            source=source,
-        )
-
     def _normalized_release_status(self, value: str | None) -> str | None:
         return normalized_release_status(value)
 
@@ -1382,17 +1390,28 @@ class AdminProviderIngestService:
         source: Any | None,
         normalized: dict[str, Any] | None,
     ) -> None:
-        self.db.add(
-            ProviderPayloadSnapshot(
-                provider=provider,
-                provider_item_id=provider_item_id,
-                entity_type=entity_type,
-                entity_id=entity_id,
-                source_payload=source if isinstance(source, dict) else None,
-                normalized_payload=normalized if isinstance(normalized, dict) else None,
-                expires_at=datetime.now(UTC) + _SNAPSHOT_TTL,
-            )
+        raw_payload_hash = None
+        if source is not None:
+            raw_payload_hash = hashlib.sha256(
+                json.dumps(source, default=str, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+        snapshot = ProviderPayloadSnapshot(
+            provider=provider,
+            provider_item_id=provider_item_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            raw_payload_hash=raw_payload_hash,
+            provider_version="normalized-v1",
+            fetched_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + _SNAPSHOT_TTL,
         )
+        snapshot.values = [
+            ProviderPayloadSnapshotValue(payload_kind=payload_kind, **row)
+            for payload_kind, payload in (("source", source), ("normalized", normalized))
+            if payload is not None
+            for row in flatten_typed_values(payload)
+        ]
+        self.db.add(snapshot)
 
     async def _enrich_missing_comic_cover(
         self,
@@ -1410,7 +1429,11 @@ class AdminProviderIngestService:
             provider = self.providers.get("comicvine")
         except KeyError:
             return normalized
-        if not isinstance(provider, ComicVineProvider) or not provider.is_configured:
+        if (
+            provider is None
+            or not getattr(provider, "is_configured", False)
+            or not callable(getattr(provider, "find_issue_cover", None))
+        ):
             return normalized
         try:
             cover = await provider.find_issue_cover(
@@ -1510,20 +1533,7 @@ class AdminProviderIngestService:
         existing = await self.db.scalar(select(BookSeries).where(BookSeries.title == series_title))
         if existing is not None:
             return existing
-        series = BookSeries(
-            title=series_title,
-            slug=slug(series_title),
-            metadata_json=self._provider_metadata_json(
-                provider,
-                provider_item_id,
-                kind=ItemKind.book,
-                normalized={
-                    "series_title": series_title,
-                    "release_date": normalized.release_date.isoformat() if normalized.release_date else None,
-                },
-                source=provider_raw,
-            ),
-        )
+        series = BookSeries(title=series_title, slug=slug(series_title))
         self.db.add(series)
         await self.db.flush()
         return series
@@ -1575,7 +1585,7 @@ class AdminProviderIngestService:
                 if api_url and api_url != existing.api_url:
                     existing.api_url = api_url
                 continue
-            
+
             # Check if any entry with same provider/provider_item_id already exists
             # (could be for a different entity_type, which violates unique constraint)
             existing_any = await self.db.scalar(
@@ -1672,6 +1682,44 @@ class AdminProviderIngestService:
                 )
             )
 
+    async def _replace_entity_links(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+        trailer_urls: list[dict[str, Any]] | None = None,
+        external_links: list[dict[str, Any]] | None = None,
+    ) -> None:
+        await self.db.execute(
+            delete(EntityLink).where(
+                EntityLink.entity_type == entity_type,
+                EntityLink.entity_id == entity_id,
+            )
+        )
+        for link_type, values in (
+            ("trailer", trailer_urls or []),
+            ("external", external_links or []),
+        ):
+            for position, value in enumerate(values):
+                if not isinstance(value, dict):
+                    continue
+                url = str(value.get("url") or "").strip()
+                if not url:
+                    continue
+                self.db.add(
+                    EntityLink(
+                        entity_type=entity_type,
+                        entity_id=entity_id,
+                        link_type=link_type,
+                        url=url,
+                        site=str(value.get("site") or "").strip() or None,
+                        name=str(value.get("name") or "").strip() or None,
+                        kind=str(value.get("kind") or "").strip() or None,
+                        description=str(value.get("description") or "").strip() or None,
+                        position=position,
+                    )
+                )
+
     async def _link_organization_for_entity(
         self,
         entity_type: str,
@@ -1759,14 +1807,33 @@ class AdminProviderIngestService:
             audience_rating=normalized.audience_rating,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json={
-                **cover_metadata,
-                "genres": normalized.genres or None,
-                "platforms": normalized.platforms or None,
-            },
         )
         self.db.add(work)
         await self.db.flush()
+
+        for sequence, value in enumerate(normalized.genres):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    GameGenre(
+                        work_id=work.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        sequence=sequence,
+                    )
+                )
+        for sequence, value in enumerate(normalized.platforms):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    GamePlatform(
+                        work_id=work.id,
+                        platform_name=clean_value,
+                        normalized_name=clean_value.casefold(),
+                        sequence=sequence,
+                        is_primary=sequence == 0,
+                    )
+                )
 
         release = GameRelease(
             work_id=work.id,
@@ -1782,19 +1849,15 @@ class AdminProviderIngestService:
             language=self._normalized_language(normalized.language),
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.game,
-                normalized={
-                    **cover_metadata,
-                    "platforms": normalized.platforms,
-                    "genres": normalized.genres,
-                },
-                source=provider_raw,
-            ),
         )
         self.db.add(release)
+        await self.db.flush()
+        await self._replace_entity_links(
+            entity_type="game_work",
+            entity_id=work.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
+        )
 
         for credit in normalized.creators:
             await self._link_organization_for_entity(
@@ -1866,16 +1929,32 @@ class AdminProviderIngestService:
             audience_rating=normalized.audience_rating,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json={
-                **cover_metadata,
-                "genres": normalized.genres or None,
-                "platforms": normalized.platforms or None,
-                "categories": [credit.name for credit in normalized.characters] or None,
-                "families": [credit.name for credit in normalized.story_arcs] or None,
-            },
         )
         self.db.add(work)
         await self.db.flush()
+
+        for sequence, value in enumerate(normalized.genres):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    BoardGameGenre(
+                        work_id=work.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        sequence=sequence,
+                    )
+                )
+        for sequence, value in enumerate(normalized.platforms):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    BoardGamePlatform(
+                        work_id=work.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        sequence=sequence,
+                    )
+                )
 
         edition = BoardGameEdition(
             work_id=work.id,
@@ -1897,23 +1976,15 @@ class AdminProviderIngestService:
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             description=normalized.synopsis,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.boardgame,
-                normalized={
-                    **cover_metadata,
-                    "genres": normalized.genres,
-                    "platforms": normalized.platforms,
-                    "min_players": normalized.min_players,
-                    "max_players": normalized.max_players,
-                    "playing_time_minutes": normalized.playing_time_minutes,
-                    "min_age": normalized.min_age,
-                },
-                source=provider_raw,
-            ),
         )
         self.db.add(edition)
+        await self.db.flush()
+        await self._replace_entity_links(
+            entity_type="boardgame_work",
+            entity_id=work.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
+        )
 
         for credit in normalized.creators:
             await self._link_person_for_entity(
@@ -1997,12 +2068,6 @@ class AdminProviderIngestService:
                 description=normalized.synopsis,
                 original_language=self._normalized_language(normalized.language),
                 first_publication_date=normalized.release_date,
-                metadata_json=self._provider_metadata_json(
-                    provider_name,
-                    provider_item_id,
-                    kind=ItemKind.comic,
-                    normalized={"series_title": normalized.series_title},
-                ),
             )
             self.db.add(work)
             await self.db.flush()
@@ -2051,12 +2116,6 @@ class AdminProviderIngestService:
                 cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
                 cover_image_key=mirrored_cover.key if mirrored_cover else None,
                 description=normalized.synopsis,
-                metadata_json=self._provider_metadata_json(
-                    provider_name,
-                    provider_item_id,
-                    kind=ItemKind.comic,
-                    normalized={"cover_storage": "mirror" if mirrored_cover else "provider"},
-                ),
             )
             self.db.add(issue)
             await self.db.flush()
@@ -2180,7 +2239,7 @@ class AdminProviderIngestService:
                             series_id=series.id,
                             sequence=sequence,
                             display_number=normalized.item_number,
-                        )
+                )
                     )
 
         normalized_provider_item_id = (normalized.provider_ids or {}).get(provider_name.value)
@@ -2278,12 +2337,6 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.book,
-                normalized={"series_title": normalized.series_title},
-            ),
         )
         self.db.add(work)
         await self.db.flush()
@@ -2308,7 +2361,6 @@ class AdminProviderIngestService:
                     series_id=series.id,
                     sequence=sequence,
                     display_number=normalized.item_number or normalized.volume_name,
-                    metadata_json={"release_date": normalized.release_date.isoformat() if normalized.release_date else None},
                 )
             )
 
@@ -2334,14 +2386,6 @@ class AdminProviderIngestService:
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             description=normalized.synopsis,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.book,
-                normalized={
-                    "cover_storage": "mirror" if mirrored_cover else "provider",
-                },
-            ),
         )
         self.db.add(edition)
         await self.db.flush()
@@ -2355,7 +2399,6 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "author").strip().lower(),
                     sequence=index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -2468,12 +2511,6 @@ class AdminProviderIngestService:
             episode_count=sum(len(season.episodes) for season in normalized_seasons) or None,
             poster_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             backdrop_url=None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.tv,
-                normalized={"series_title": normalized.series_title},
-            ),
         )
         self.db.add(series)
         await self.db.flush()
@@ -2492,12 +2529,6 @@ class AdminProviderIngestService:
             content_rating=normalized.age_rating,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.tv,
-                normalized={"series_title": normalized.series_title},
-            ),
         )
         self.db.add(release)
         await self.db.flush()
@@ -2512,7 +2543,6 @@ class AdminProviderIngestService:
             audio_tracks=normalized.audio_tracks,
             subtitles=normalized.subtitles,
             layers=normalized.layers,
-            metadata_json={},
         )
         self.db.add(media)
         await self.db.flush()
@@ -2546,9 +2576,7 @@ class AdminProviderIngestService:
                 air_date=season_data.air_date,
                 episode_count=season_data.episode_count or len(season_data.episodes),
                 poster_url=season_data.poster_url,
-                metadata_json={
-                    "provider_item_id": season_data.provider_item_id,
-                },
+                provider_item_id=season_data.provider_item_id,
             )
             self.db.add(season)
             await self.db.flush()
@@ -2566,12 +2594,10 @@ class AdminProviderIngestService:
                     duration_seconds=episode_data.runtime_minutes * 60 if episode_data.runtime_minutes else None,
                     original_air_date=episode_data.air_date,
                     still_url=episode_data.still_url,
-                            image_url=episode_data.image_url,
-                            large_image_url=episode_data.large_image_url,
-                            metadata_json={
-                                "provider_item_id": episode_data.provider_item_id,
-                            },
-                        )
+                    image_url=episode_data.image_url,
+                    large_image_url=episode_data.large_image_url,
+                    provider_item_id=episode_data.provider_item_id,
+                )
                 self.db.add(episode)
                 await self.db.flush()
                 self.db.add(
@@ -2581,7 +2607,6 @@ class AdminProviderIngestService:
                         episode_id=episode.id,
                         disc_number=1,
                         sequence_number=seq,
-                        metadata_json={},
                     )
                 )
 
@@ -2593,7 +2618,6 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "cast").strip().lower(),
                     sequence=index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -2609,7 +2633,6 @@ class AdminProviderIngestService:
                     role="cast",
                     character_name=credit.role.strip() if credit.role else None,
                     sequence=1000 + index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -2712,12 +2735,6 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.manga,
-                normalized={"series_title": normalized.series_title},
-            ),
         )
         self.db.add(work)
         await self.db.flush()
@@ -2759,12 +2776,6 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.manga,
-                normalized={"chapter_number": normalized.item_number},
-            ),
         )
         self.db.add(chapter)
         await self.db.flush()
@@ -2926,12 +2937,6 @@ class AdminProviderIngestService:
             original_language=self._normalized_language(normalized.language),
             original_air_date=normalized.release_date,
             status=normalized.release_status or "unknown",
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.anime,
-                normalized={},
-            ),
         )
         self.db.add(series)
         await self.db.flush()
@@ -2946,12 +2951,6 @@ class AdminProviderIngestService:
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
             runtime_minutes=normalized.runtime_minutes,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.anime,
-                normalized={"episode_number": normalized.item_number},
-            ),
         )
         self.db.add(episode)
         await self.db.flush()
@@ -2965,7 +2964,6 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "creator").strip().lower(),
                     sequence=index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -3074,21 +3072,7 @@ class AdminProviderIngestService:
             runtime_minutes=normalized.runtime_minutes,
             age_rating=normalized.age_rating,
             audience_rating=normalized.audience_rating,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.movie,
-                normalized={
-                    "trailer_urls": normalized.trailer_urls,
-                    "external_links": normalized.external_links,
-                },
-            ),
         )
-        if normalized.trailer_urls or normalized.external_links:
-            metadata = dict(work.metadata_json or {})
-            metadata["trailer_urls"] = normalized.trailer_urls
-            metadata["external_links"] = normalized.external_links
-            work.metadata_json = metadata
         self.db.add(work)
         await self.db.flush()
 
@@ -3103,12 +3087,6 @@ class AdminProviderIngestService:
             distributor=normalized.distributor,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.movie,
-                normalized={"format": normalized.physical_format},
-            ),
         )
         self.db.add(release)
         await self.db.flush()
@@ -3125,16 +3103,6 @@ class AdminProviderIngestService:
             layers=normalized.layers,
             audio_tracks=normalized.audio_tracks,
             subtitles=normalized.subtitles,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.movie,
-                normalized={
-                    "format": normalized.physical_format,
-                    "screen_ratio": normalized.screen_ratio,
-                    "color": normalized.color,
-                },
-            ),
         )
         self.db.add(media)
         await self.db.flush()
@@ -3147,7 +3115,6 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "creator").strip().lower(),
                     sequence=index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
         for index, credit in enumerate(normalized.characters, start=1):
@@ -3162,7 +3129,6 @@ class AdminProviderIngestService:
                     role="cast",
                     character_name=credit.role.strip() if credit.role else None,
                     sequence=index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -3232,6 +3198,12 @@ class AdminProviderIngestService:
                 provider_raw,
             ),
         )
+        await self._replace_entity_links(
+            entity_type="movie_work",
+            entity_id=work.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
+        )
         await self._record_provider_snapshot(
             provider=provider_name,
             provider_item_id=provider_item_id,
@@ -3278,26 +3250,23 @@ class AdminProviderIngestService:
             original_release_date=normalized.release_date,
             recording_date=normalized.recording_date,
             studio=normalized.studio,
-            genres=normalized.genres or None,
             cover_image_url=cover_url,
             cover_image_key=cover_key,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.music,
-                normalized={
-                    "trailer_urls": normalized.trailer_urls,
-                    "external_links": normalized.external_links,
-                },
-            ),
         )
-        if normalized.trailer_urls or normalized.external_links:
-            metadata = dict(group.metadata_json or {})
-            metadata["trailer_urls"] = normalized.trailer_urls
-            metadata["external_links"] = normalized.external_links
-            group.metadata_json = metadata
         self.db.add(group)
         await self.db.flush()
+
+        for position, value in enumerate(normalized.genres):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    MusicReleaseGroupGenre(
+                        release_group_id=group.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        position=position,
+                    )
+                )
 
         release = MusicRelease(
             release_group_id=group.id,
@@ -3315,12 +3284,6 @@ class AdminProviderIngestService:
             packaging=normalized.packaging,
             cover_image_url=cover_url,
             cover_image_key=cover_key,
-            metadata_json=self._provider_metadata_json(
-                provider_name,
-                provider_item_id,
-                kind=ItemKind.music,
-                normalized={},
-            ),
         )
         self.db.add(release)
         await self.db.flush()
@@ -3344,12 +3307,6 @@ class AdminProviderIngestService:
                 vinyl_weight=normalized.vinyl_weight,
                 rpm=normalized.rpm,
                 spars=normalized.spars,
-                metadata_json=self._provider_metadata_json(
-                    provider_name,
-                    provider_item_id,
-                    kind=ItemKind.music,
-                    normalized={"format": normalized.physical_format or normalized.edition_format},
-                ),
             )
             self.db.add(medium)
             await self.db.flush()
@@ -3367,7 +3324,6 @@ class AdminProviderIngestService:
                         duration_ms=(track.duration_seconds * 1000) if track.duration_seconds else None,
                         instrument=track.instrument,
                         composition=track.composition,
-                        metadata_json={},
                     )
                 )
 
@@ -3380,7 +3336,6 @@ class AdminProviderIngestService:
                     person_id=person.id,
                     role=(credit.role or "artist").strip().lower(),
                     sequence=index,
-                    metadata_json={"role_id": credit.role_id} if credit.role_id else {},
                 )
             )
 
@@ -3424,6 +3379,12 @@ class AdminProviderIngestService:
             "music_release_group",
             group.id,
             provider_urls=provider_link_urls_for_provider(provider_name, provider_ids, provider_raw),
+        )
+        await self._replace_entity_links(
+            entity_type="music_release_group",
+            entity_id=group.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
         )
 
         # Record provider snapshot
@@ -3471,7 +3432,11 @@ class AdminProviderIngestService:
         work = await self.db.scalar(
             select(GameWork)
             .where(GameWork.id == work_id)
-            .options(selectinload(GameWork.releases))
+            .options(
+                selectinload(GameWork.releases),
+                selectinload(GameWork.genre_entries),
+                selectinload(GameWork.platform_entries),
+            )
         )
         if work is None:
             return
@@ -3498,7 +3463,11 @@ class AdminProviderIngestService:
         work = await self.db.scalar(
             select(BoardGameWork)
             .where(BoardGameWork.id == work_id)
-            .options(selectinload(BoardGameWork.editions))
+            .options(
+                selectinload(BoardGameWork.editions),
+                selectinload(BoardGameWork.genre_entries),
+                selectinload(BoardGameWork.platform_entries),
+            )
         )
         if work is None:
             return
@@ -3600,11 +3569,29 @@ class AdminProviderIngestService:
                 api_detail_url=credit.api_detail_url,
                 site_detail_url=credit.site_detail_url,
                 image_url=credit.image_url,
-                external_ids=dict(credit.external_ids or {}) or None,
             )
             self.db.add(person)
             await self.db.flush()
-            return person
+        for identifier_type, value in (credit.external_ids or {}).items():
+            normalized_value = self._normalized_identifier(value)
+            if not normalized_value:
+                continue
+            existing_identifier = await self.db.scalar(
+                select(PersonExternalIdentifier).where(
+                    PersonExternalIdentifier.person_id == person.id,
+                    PersonExternalIdentifier.identifier_type == identifier_type,
+                    PersonExternalIdentifier.normalized_value == normalized_value,
+                )
+            )
+            if existing_identifier is None:
+                self.db.add(
+                    PersonExternalIdentifier(
+                        person_id=person.id,
+                        identifier_type=identifier_type,
+                        value=value,
+                        normalized_value=normalized_value,
+                    )
+                )
         if not person.sort_name and credit.sort_name:
             person.sort_name = credit.sort_name
         if not person.api_detail_url and credit.api_detail_url:
@@ -3613,13 +3600,6 @@ class AdminProviderIngestService:
             person.site_detail_url = credit.site_detail_url
         if not person.image_url and credit.image_url:
             person.image_url = credit.image_url
-        if credit.external_ids:
-            merged_external_ids = dict(person.external_ids or {})
-            for key, value in credit.external_ids.items():
-                if value and not merged_external_ids.get(key):
-                    merged_external_ids[key] = value
-            if merged_external_ids != (person.external_ids or {}):
-                person.external_ids = merged_external_ids
         credit_description = getattr(credit, "description", None)
         if not person.description and credit_description:
             person.description = credit_description
@@ -3751,7 +3731,7 @@ class AdminProviderIngestService:
         if (
             character.description
             and character.image_url
-            and character.aliases
+            and character.alias_entries
             and character.first_appearance_entity_type
             and character.first_appearance_entity_id
         ):
@@ -3763,11 +3743,24 @@ class AdminProviderIngestService:
             character.description = detail.description
         if not character.image_url and detail.image_url:
             character.image_url = detail.image_url
-        character.aliases = self._merge_aliases(
-            character.aliases or [],
+        aliases = self._merge_aliases(
+            [row.alias for row in character.alias_entries],
             detail.aliases,
             primary_name=character.name,
         )
+        existing_aliases = {row.alias.casefold() for row in character.alias_entries}
+        for position, alias in enumerate(aliases):
+            if alias.casefold() in existing_aliases:
+                continue
+            self.db.add(
+                EntityAlias(
+                    entity_type="character",
+                    entity_id=character.id,
+                    alias=alias,
+                    normalized_alias=alias.casefold(),
+                    position=position,
+                )
+            )
         if not character.api_detail_url and detail.api_detail_url:
             character.api_detail_url = detail.api_detail_url
         if not character.site_detail_url and detail.site_detail_url:
@@ -3793,7 +3786,7 @@ class AdminProviderIngestService:
         if provider_item_id in self._comicvine_character_details:
             return self._comicvine_character_details[provider_item_id]
         provider = self.providers.maybe_get(ExternalProvider.comicvine)
-        if not isinstance(provider, ComicVineProvider):
+        if provider is None or not callable(getattr(provider, "get_character_detail", None)):
             self._comicvine_character_details[provider_item_id] = None
             return None
         try:

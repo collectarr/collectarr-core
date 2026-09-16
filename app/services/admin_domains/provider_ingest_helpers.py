@@ -8,16 +8,10 @@ from app.catalog.physical_formats import (
     is_video_item_kind,
     physical_format_for_id,
 )
-from app.metadata_normalized import clean_normalized_metadata
-from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import NormalizedVariantCover
 
 _LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 _REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
-
-
-def normalized_residual(values: dict[str, Any], *, kind: ItemKind) -> dict[str, Any]:
-    return clean_normalized_metadata(values, kind=kind)
 
 
 def physical_format_for_normalized(normalized: Any) -> PhysicalFormatConfig | None:
@@ -61,26 +55,6 @@ def cover_metadata(
         "cover_storage": "generated_client_fallback",
         "cover_policy": "generated_cover_fallback",
     }
-
-
-def provider_metadata_json(
-    provider_name: ExternalProvider,
-    provider_item_id: str,
-    *,
-    kind: ItemKind,
-    normalized: dict[str, Any] | None = None,
-    source: Any | None = None,
-) -> dict[str, Any]:
-    metadata: dict[str, Any] = {
-        "provider": provider_name.value,
-        "provider_item_id": provider_item_id,
-    }
-    normalized_payload = normalized_residual(normalized or {}, kind=kind)
-    if normalized_payload:
-        metadata["normalized"] = normalized_payload
-    if source is not None:
-        metadata["source"] = source
-    return metadata
 
 
 def normalized_release_status(value: str | None) -> str | None:

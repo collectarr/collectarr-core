@@ -44,6 +44,7 @@ from app.models import (
     Person,
     ProviderIngestJob,
     ProviderPayloadSnapshot,
+    ProviderPayloadSnapshotValue,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -152,7 +153,7 @@ async def test_get_or_create_character_prefers_provider_links_over_shared_name()
 
 
 @pytest.mark.asyncio
-async def test_purge_expired_provider_snapshots_redacts_payloads_only_for_expired_rows():
+async def test_purge_expired_provider_snapshots_marks_only_expired_rows():
     async def _reindex_items(_: set[UUID]) -> None:
         return None
 
@@ -180,8 +181,7 @@ async def test_purge_expired_provider_snapshots_redacts_payloads_only_for_expire
             provider_item_id="4000-1",
             entity_type="item",
             entity_id=UUID("00000000-0000-0000-0000-000000000101"),
-            source_payload={"raw": "expired"},
-            normalized_payload={"n": "expired"},
+            raw_payload_hash="expired-hash",
             expires_at=now - timedelta(days=1),
         )
         active = ProviderPayloadSnapshot(
@@ -189,10 +189,25 @@ async def test_purge_expired_provider_snapshots_redacts_payloads_only_for_expire
             provider_item_id="4000-2",
             entity_type="item",
             entity_id=UUID("00000000-0000-0000-0000-000000000102"),
-            source_payload={"raw": "active"},
-            normalized_payload={"n": "active"},
+            raw_payload_hash="active-hash",
             expires_at=now + timedelta(days=1),
         )
+        expired.values = [
+            ProviderPayloadSnapshotValue(
+                payload_kind="source",
+                path="/title",
+                value_type="string",
+                string_value="expired payload",
+            )
+        ]
+        active.values = [
+            ProviderPayloadSnapshotValue(
+                payload_kind="source",
+                path="/title",
+                value_type="string",
+                string_value="active payload",
+            )
+        ]
         db.add_all([expired, active])
         await db.flush()
 
@@ -205,14 +220,21 @@ async def test_purge_expired_provider_snapshots_redacts_payloads_only_for_expire
             await db.refresh(expired_db)
         if active_db is not None:
             await db.refresh(active_db)
+        remaining_values = list(
+            await db.scalars(
+                select(ProviderPayloadSnapshotValue).order_by(
+                    ProviderPayloadSnapshotValue.snapshot_id
+                )
+            )
+        )
 
     assert purged == 1
-    assert expired_db is not None and expired_db.source_payload is None
-    assert expired_db is not None and expired_db.normalized_payload is None
+    assert expired_db is not None and expired_db.raw_payload_hash == "expired-hash"
     assert expired_db is not None and expired_db.purged_at is not None
-    assert active_db is not None and active_db.source_payload == {"raw": "active"}
-    assert active_db is not None and active_db.normalized_payload == {"n": "active"}
+    assert active_db is not None and active_db.raw_payload_hash == "active-hash"
     assert active_db is not None and active_db.purged_at is None
+    assert len(remaining_values) == 1
+    assert remaining_values[0].snapshot_id == active.id
 
 
 @pytest.mark.asyncio

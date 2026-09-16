@@ -6,6 +6,7 @@ from app.models.canonical_board_games import (
     BoardGameCategory,
     BoardGameContribution,
     BoardGameEdition,
+    BoardGameEditionIdentifier,
     BoardGameExpansion,
     BoardGameFamily,
     BoardGameIdentifier,
@@ -19,6 +20,7 @@ from app.models.canonical_games import (
     GameIdentifier,
     GamePlatform,
     GameRelease,
+    GameReleaseIdentifier,
     GameSeriesMembership,
     GameWork,
 )
@@ -52,7 +54,18 @@ def test_game_metadata_accessors_normalize_lists():
     )
     release = GameRelease(
         work_id=UUID("00000000-0000-0000-0000-000000000001"),
-        metadata_json={"identifiers": ["Release:1", "release:1", "SKU-1"]},
+        identifier_entries=[
+            GameReleaseIdentifier(
+                identifier_type="release",
+                value="Release:1",
+                normalized_value="release:1",
+            ),
+            GameReleaseIdentifier(
+                identifier_type="sku",
+                value="SKU-1",
+                normalized_value="sku-1",
+            ),
+        ],
     )
 
     assert work.platforms == ["PC", "PlayStation 5"]
@@ -94,7 +107,18 @@ def test_boardgame_metadata_accessors_normalize_lists():
     )
     edition = BoardGameEdition(
         work_id=UUID("00000000-0000-0000-0000-000000000002"),
-        metadata_json={"identifiers": ["ED:1", "ed:1", "ED:2"]},
+        identifier_entries=[
+            BoardGameEditionIdentifier(
+                identifier_type="edition",
+                value="ED:1",
+                normalized_value="ed:1",
+            ),
+            BoardGameEditionIdentifier(
+                identifier_type="edition",
+                value="ED:2",
+                normalized_value="ed:2",
+            ),
+        ],
     )
 
     assert work.identifiers == ["BGG:13"]

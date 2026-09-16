@@ -2,23 +2,22 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
     Date,
     Enum,
-    Float,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    and_,
 )
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
     Base,
@@ -32,6 +31,7 @@ from app.models.canonical_support import (  # noqa: F401
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
+    EntityLink,
     EntityOrganization,
     EntityPerson,
     EntityTag,
@@ -78,7 +78,6 @@ class TVRelease(UuidMixin, TimestampMixin, Base):
     content_rating: Mapped[str | None] = mapped_column(String(64))
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     series: Mapped["TVSeries"] = relationship(back_populates="releases")
     media: Mapped[list["TVReleaseMedia"]] = relationship(
@@ -125,8 +124,8 @@ class TVSeries(UuidMixin, TimestampMixin, Base):
     season_count: Mapped[int | None] = mapped_column(Integer)
     episode_count: Mapped[int | None] = mapped_column(Integer)
     poster_url: Mapped[str | None] = mapped_column(String(2048))
+    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
     backdrop_url: Mapped[str | None] = mapped_column(String(2048))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     seasons: Mapped[list["TVSeason"]] = relationship(
         back_populates="series",
@@ -158,7 +157,7 @@ class TVSeason(UuidMixin, TimestampMixin, Base):
     air_date: Mapped[date | None] = mapped_column(Date)
     episode_count: Mapped[int | None] = mapped_column(Integer)
     poster_url: Mapped[str | None] = mapped_column(String(2048))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
 
     series: Mapped["TVSeries"] = relationship(back_populates="seasons")
     episodes: Mapped[list["TVEpisode"]] = relationship(
@@ -193,7 +192,6 @@ class TVReleaseMedia(UuidMixin, TimestampMixin, Base):
     bit_depth: Mapped[str | None] = mapped_column(String(16))
     resolution: Mapped[str | None] = mapped_column(String(16))
     hdr_format: Mapped[str | None] = mapped_column(String(64))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     release: Mapped[TVRelease] = relationship(back_populates="media")
     episodes: Mapped[list["TVEpisode"]] = relationship(
@@ -239,7 +237,7 @@ class TVEpisode(UuidMixin, TimestampMixin, Base):
     large_image_url: Mapped[str | None] = mapped_column(String(2048))
     still_key: Mapped[str | None] = mapped_column(String(512))
     production_code: Mapped[str | None] = mapped_column(String(128))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
+    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
 
     series: Mapped["TVSeries"] = relationship(back_populates="episodes")
     season: Mapped["TVSeason"] = relationship(back_populates="episodes")
@@ -279,7 +277,6 @@ class TVReleaseEpisodeMap(UuidMixin, TimestampMixin, Base):
     )
     disc_number: Mapped[int | None] = mapped_column(Integer)
     sequence_number: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     release: Mapped[TVRelease] = relationship(back_populates="episode_mappings")
     media: Mapped[TVReleaseMedia] = relationship(back_populates="episode_mappings")
@@ -305,7 +302,6 @@ class TVEpisodeIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     episode: Mapped[TVEpisode] = relationship(back_populates="identifiers")
 
@@ -328,7 +324,6 @@ class TVEpisodeContribution(UuidMixin, TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
     character_name: Mapped[str | None] = mapped_column(String(255))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     episode: Mapped[TVEpisode] = relationship(back_populates="contributions")
     person: Mapped["Person"] = relationship()
@@ -350,9 +345,9 @@ class TVReleaseContribution(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     character_name: Mapped[str | None] = mapped_column(String(255))
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     release: Mapped[TVRelease] = relationship(back_populates="contributions")
     person: Mapped["Person"] = relationship()
@@ -377,7 +372,6 @@ class TVReleaseIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     release: Mapped[TVRelease] = relationship(back_populates="identifiers")
 
@@ -411,7 +405,6 @@ class MovieWork(UuidMixin, TimestampMixin, Base):
     poster_image_key: Mapped[str | None] = mapped_column(String(512))
     backdrop_image_url: Mapped[str | None] = mapped_column(String(2048))
     backdrop_image_key: Mapped[str | None] = mapped_column(String(512))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     releases: Mapped[list["MovieRelease"]] = relationship(
         back_populates="work",
@@ -424,6 +417,14 @@ class MovieWork(UuidMixin, TimestampMixin, Base):
     identifiers: Mapped[list["MovieWorkIdentifier"]] = relationship(
         back_populates="work",
         cascade="all, delete-orphan",
+    )
+    entity_links: Mapped[list["EntityLink"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityLink.entity_id) == MovieWork.id,
+            EntityLink.entity_type == "movie_work",
+        ),
+        order_by="EntityLink.position",
+        viewonly=True,
     )
 
 
@@ -455,12 +456,19 @@ class MovieRelease(UuidMixin, TimestampMixin, Base):
     language_subtitles: Mapped[list[str] | None] = mapped_column(postgresql.ARRAY(String))
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     work: Mapped[MovieWork] = relationship(back_populates="releases")
     media: Mapped[list["MovieReleaseMedia"]] = relationship(
         back_populates="release",
         cascade="all, delete-orphan",
+    )
+    entity_links: Mapped[list["EntityLink"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityLink.entity_id) == MovieRelease.id,
+            EntityLink.entity_type == "movie_release",
+        ),
+        order_by="EntityLink.position",
+        viewonly=True,
     )
 
 
@@ -485,7 +493,6 @@ class MovieReleaseMedia(UuidMixin, TimestampMixin, Base):
     layers: Mapped[str | None] = mapped_column(String(50))
     audio_tracks: Mapped[str | None] = mapped_column(String(500))
     subtitles: Mapped[str | None] = mapped_column(String(500))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     release: Mapped[MovieRelease] = relationship(back_populates="media")
 
@@ -505,9 +512,9 @@ class MovieWorkContribution(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     character_name: Mapped[str | None] = mapped_column(String(255))
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     work: Mapped[MovieWork] = relationship(back_populates="contributions")
     person: Mapped["Person"] = relationship()
@@ -532,6 +539,5 @@ class MovieWorkIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, server_default="{}")
 
     work: Mapped[MovieWork] = relationship(back_populates="identifiers")

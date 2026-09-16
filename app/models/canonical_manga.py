@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -18,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -62,7 +61,6 @@ class MangaWork(UuidMixin, TimestampMixin, Base):
     original_publication_date: Mapped[date | None] = mapped_column(Date)
     first_publication_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     chapters: Mapped[list["MangaChapter"]] = relationship(
         back_populates="work", cascade="all, delete-orphan", lazy="selectin"
@@ -94,7 +92,6 @@ class MangaChapter(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(255))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[MangaWork] = relationship(back_populates="chapters")
 
@@ -118,8 +115,8 @@ class MangaContribution(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[MangaWork | None] = relationship(back_populates="contributions")
     person: Mapped["Person"] = relationship()
@@ -148,7 +145,6 @@ class MangaIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[MangaWork] = relationship(back_populates="identifiers")
 
@@ -172,7 +168,6 @@ class MangaCharacterAppearance(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, default="featured", index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[MangaWork] = relationship(back_populates="character_appearances")
     character: Mapped["Character"] = relationship()
@@ -190,7 +185,6 @@ class MangaSeries(UuidMixin, TimestampMixin, Base):
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     works: Mapped[list["MangaSeriesMembership"]] = relationship(
         back_populates="series",
@@ -220,7 +214,6 @@ class MangaSeriesMembership(UuidMixin, TimestampMixin, Base):
     )
     sequence: Mapped[float | None] = mapped_column(Float)
     display_number: Mapped[str | None] = mapped_column(String(64))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[MangaWork] = relationship(back_populates="series_memberships")
     series: Mapped[MangaSeries] = relationship(back_populates="works")

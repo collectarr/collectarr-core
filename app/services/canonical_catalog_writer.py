@@ -9,24 +9,23 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.catalog.physical_formats import PhysicalFormatConfig
 from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeCharacterAppearance,
     AnimeContribution,
-    AnimeEpisode,
-    AnimeIdentifier,
     AnimeSeries,
     BoardGameEdition,
+    BoardGameGenre,
+    BoardGamePlatform,
     BoardGameWork,
     BookContribution,
     BookEdition,
@@ -37,56 +36,43 @@ from app.models import (
     Character,
     ComicCharacterAppearance,
     ComicContribution,
-    ComicIdentifier,
     ComicIssue,
     ComicSeries,
     ComicSeriesMembership,
     ComicStoryArcMembership,
     ComicWork,
-    EntityOrganization,
-    EntityPerson,
+    EntityLink,
     ExternalProviderId,
+    GameGenre,
+    GamePlatform,
     GameRelease,
     GameWork,
-    MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
-    MangaIdentifier,
     MangaSeries,
     MangaSeriesMembership,
-    MangaSeriesRelation,
     MangaWork,
     MovieRelease,
-    MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
-    MovieWorkIdentifier,
     MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
     MusicReleaseGroup,
-    MusicReleaseIdentifier,
+    MusicReleaseGroupGenre,
     MusicTrack,
     Organization,
     Person,
-    PhysicalFormatRef,
-    ProviderPayloadSnapshot,
     ReleaseStatus,
     StoryArc,
-    Tag,
     TVEpisode,
     TVRelease,
     TVReleaseContribution,
-    TVReleaseEpisodeMap,
-    TVReleaseIdentifier,
-    TVReleaseMedia,
     TVSeason,
     TVSeries,
 )
-from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
+from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import (
-    NormalizedBundleMember,
-    NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedEpisode,
     NormalizedItem,
@@ -95,9 +81,8 @@ from app.providers.base import (
     NormalizedTrack,
     NormalizedVariantCover,
 )
-from app.providers.envelope import NormalizedProviderEnvelopeV1, ProviderImageRef
+from app.providers.envelope import NormalizedProviderEnvelopeV1
 from app.providers.normalize import normalize_arc_title, normalize_person_name
-from app.schemas.admin import ProviderIngestResponse
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
@@ -110,24 +95,12 @@ from app.search.documents import (
     tv_release_search_document,
 )
 from app.services.admin_domains.provider_ingest_helpers import (
-    book_identifier_type,
-    comic_identifier_type,
-    cover_metadata,
-    normalized_identifier,
     normalized_language,
     normalized_region,
     normalized_release_status,
-    physical_format_for_normalized,
-    provider_metadata_json,
-    variant_cover_name,
 )
 from app.services.admin_domains.shared import (
     character_appearance_role,
-    comicvine_credit_provider_id,
-    credit_provider_urls,
-    provider_link_url_text,
-    provider_link_urls_for_provider,
-    slug,
     sort_key,
 )
 from app.services.facade import MetadataFacade as MetadataService
@@ -410,14 +383,7 @@ class CanonicalCatalogWriter:
 
         normalized = normalized_item_from_envelope(envelope)
 
-        # 2. Record provenance snapshot
-        await self._record_provider_snapshot(
-            provider_name=provider_name,
-            provider_item_id=provider_item_id,
-            envelope=envelope,
-        )
-
-        # 3. Dispatch to kind-specific canonical creator
+        # 2. Dispatch to kind-specific canonical creator
         kind = normalized.kind
         created = True
         item_id: UUID
@@ -558,26 +524,6 @@ class CanonicalCatalogWriter:
             return await facade.get_boardgame_work(item_id)
         return None
 
-    async def _record_provider_snapshot(
-        self,
-        *,
-        provider_name: ExternalProvider | str,
-        provider_item_id: str,
-        envelope: NormalizedProviderEnvelopeV1,
-    ) -> None:
-        p_name = provider_name.value if isinstance(provider_name, ExternalProvider) else str(provider_name)
-        now = datetime.now(UTC)
-        snapshot = ProviderPayloadSnapshot(
-            provider=p_name,
-            provider_item_id=provider_item_id,
-            raw_payload=envelope.to_dict(),
-            payload_hash=envelope.provenance.raw_payload_hash or "",
-            fetched_at=now,
-            expires_at=now + timedelta(days=30),
-        )
-        self.db.add(snapshot)
-        await self.db.flush()
-
     # --- KIND WRITERS ---
 
     async def _create_comic_work_from_normalized(
@@ -604,12 +550,6 @@ class CanonicalCatalogWriter:
                 description=normalized.synopsis,
                 original_language=normalized_language(normalized.language),
                 first_publication_date=normalized.release_date,
-                metadata_json=provider_metadata_json(
-                    p_enum,
-                    provider_item_id,
-                    kind=ItemKind.comic,
-                    normalized={"series_title": normalized.series_title},
-                ),
             )
             self.db.add(work)
             await self.db.flush()
@@ -653,17 +593,10 @@ class CanonicalCatalogWriter:
                 cover_price_cents=normalized.cover_price_cents,
                 currency=(normalized.currency or "").upper()[:8] or None,
                 release_status=release_status,
+                age_rating=normalized.age_rating,
+                catalog_number=normalized.catalog_number,
+                barcode=normalized.barcode,
                 cover_image_url=normalized.cover_image_url,
-                metadata_json=provider_metadata_json(
-                    p_enum,
-                    provider_item_id,
-                    kind=ItemKind.comic,
-                    normalized={
-                        "item_number": normalized.item_number,
-                        "variant_name": normalized.variant_name,
-                        "variant_type": normalized.variant_type,
-                    },
-                ),
             )
             self.db.add(issue)
             await self.db.flush()
@@ -679,7 +612,8 @@ class CanonicalCatalogWriter:
                 membership = ComicSeriesMembership(
                     series_id=series.id,
                     work_id=work.id,
-                    volume_number=normalized.volume_number,
+                    sequence=normalized.volume_number,
+                    display_number=(str(normalized.volume_number) if normalized.volume_number is not None else None),
                 )
                 self.db.add(membership)
 
@@ -714,7 +648,7 @@ class CanonicalCatalogWriter:
                 provider=p_enum,
             )
             appearance = ComicCharacterAppearance(
-                work_id=work.id,
+                issue_id=issue.id,
                 character_id=character.id,
                 role=character_appearance_role(character_credit.role),
             )
@@ -724,7 +658,7 @@ class CanonicalCatalogWriter:
             story_arc = await self._get_or_create_story_arc(arc_credit.name, arc_credit)
             membership = ComicStoryArcMembership(
                 story_arc_id=story_arc.id,
-                work_id=work.id,
+                issue_id=issue.id,
             )
             self.db.add(membership)
 
@@ -749,11 +683,6 @@ class CanonicalCatalogWriter:
             description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.manga,
-            ),
         )
         self.db.add(work)
         await self.db.flush()
@@ -761,7 +690,8 @@ class CanonicalCatalogWriter:
         membership = MangaSeriesMembership(
             series_id=series.id,
             work_id=work.id,
-            volume_number=normalized.volume_number,
+            sequence=normalized.volume_number,
+            display_number=(str(normalized.volume_number) if normalized.volume_number is not None else None),
         )
         self.db.add(membership)
 
@@ -809,15 +739,9 @@ class CanonicalCatalogWriter:
         series = AnimeSeries(
             title=normalized.title,
             sort_title=sort_key(ItemKind.anime, normalized.title, None),
-            synopsis=normalized.synopsis,
+            description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
-            release_date=normalized.release_date,
-            cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.anime,
-            ),
+            original_air_date=normalized.release_date,
         )
         self.db.add(series)
         await self.db.flush()
@@ -866,26 +790,21 @@ class CanonicalCatalogWriter:
         work = MovieWork(
             title=normalized.title,
             sort_title=sort_key(ItemKind.movie, normalized.title, None),
-            synopsis=normalized.synopsis,
+            description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
-            release_date=normalized.release_date,
+            original_release_date=normalized.release_date,
             runtime_minutes=normalized.runtime_minutes,
-            cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.movie,
-            ),
+            poster_image_url=normalized.cover_image_url,
         )
         self.db.add(work)
         await self.db.flush()
 
         release = MovieRelease(
             work_id=work.id,
-            title=normalized.edition_title or normalized.title,
+            format=normalized.edition_format or normalized.physical_format or "digital",
             release_date=normalized.release_date,
             publisher=normalized.publisher,
-            country=normalized_region(normalized.country),
+            region_code=normalized_region(normalized.country),
             cover_image_url=normalized.cover_image_url,
         )
         self.db.add(release)
@@ -897,6 +816,12 @@ class CanonicalCatalogWriter:
             provider_name=p_enum,
             provider_item_id=provider_item_id,
             normalized=normalized,
+        )
+        await self._replace_entity_links(
+            entity_type="movie_work",
+            entity_id=work.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
         )
 
         for credit in normalized.creators:
@@ -922,18 +847,63 @@ class CanonicalCatalogWriter:
         series = TVSeries(
             title=normalized.title,
             sort_title=sort_key(ItemKind.tv, normalized.title, None),
-            synopsis=normalized.synopsis,
+            overview=normalized.synopsis,
             original_language=normalized_language(normalized.language),
-            release_date=normalized.release_date,
-            cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.tv,
-            ),
+            first_air_date=normalized.release_date,
+            poster_url=normalized.cover_image_url,
+            season_count=len(normalized.seasons) or None,
+            episode_count=sum(len(season.episodes) for season in normalized.seasons) or None,
         )
         self.db.add(series)
         await self.db.flush()
+
+        release = TVRelease(
+            series_id=series.id,
+            title=normalized.edition_title or normalized.title,
+            description=normalized.synopsis,
+            format=normalized.edition_format or normalized.physical_format or "digital",
+            region_code=normalized_region(normalized.country),
+            release_date=normalized.release_date,
+            publisher=normalized.publisher,
+            episode_count=sum(len(season.episodes) for season in normalized.seasons) or None,
+            season_count=len(normalized.seasons) or None,
+            runtime_minutes=normalized.runtime_minutes,
+            content_rating=normalized.age_rating,
+            cover_image_url=normalized.cover_image_url,
+        )
+        self.db.add(release)
+        await self.db.flush()
+
+        for season_data in normalized.seasons:
+            season = TVSeason(
+                series_id=series.id,
+                season_number=season_data.season_number,
+                title=season_data.title or None,
+                overview=season_data.overview,
+                air_date=season_data.air_date,
+                episode_count=season_data.episode_count or len(season_data.episodes) or None,
+                poster_url=season_data.poster_url,
+            )
+            self.db.add(season)
+            await self.db.flush()
+            for episode_data in season_data.episodes:
+                self.db.add(
+                    TVEpisode(
+                        series_id=series.id,
+                        season_id=season.id,
+                        release_id=release.id,
+                        season_number=season.season_number,
+                        episode_number=episode_data.episode_number,
+                        title=episode_data.title,
+                        overview=episode_data.overview,
+                        duration_seconds=(episode_data.runtime_minutes * 60 if episode_data.runtime_minutes else None),
+                        original_air_date=episode_data.air_date,
+                        still_url=episode_data.still_url,
+                        image_url=episode_data.image_url,
+                        large_image_url=episode_data.large_image_url,
+                        provider_item_id=episode_data.provider_item_id,
+                    )
+                )
 
         await self._replace_catalog_provider_links(
             entity_type="tv_series",
@@ -942,11 +912,17 @@ class CanonicalCatalogWriter:
             provider_item_id=provider_item_id,
             normalized=normalized,
         )
+        await self._replace_entity_links(
+            entity_type="tv_series",
+            entity_id=series.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
+        )
 
         for credit in normalized.creators:
             person = await self._get_or_create_person(credit.name, credit)
             contribution = TVReleaseContribution(
-                release_id=series.id,
+                release_id=release.id,
                 person_id=person.id,
                 role=credit.role or "creator",
             )
@@ -970,32 +946,48 @@ class CanonicalCatalogWriter:
             description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.book,
-            ),
         )
         self.db.add(work)
         await self.db.flush()
 
         edition = BookEdition(
             work_id=work.id,
-            edition_title=normalized.edition_title or normalized.title,
+            display_title=normalized.edition_title or normalized.title,
+            format=normalized.edition_format,
             publication_date=normalized.release_date,
             publisher=normalized.publisher,
+            imprint=normalized.imprint,
+            language=normalized_language(normalized.language),
+            region=normalized_region(normalized.country),
             page_count=normalized.page_count,
+            age_rating=normalized.age_rating,
+            description=normalized.synopsis,
             cover_image_url=normalized.cover_image_url,
         )
         self.db.add(edition)
         await self.db.flush()
+
+        for identifier_type, value in (("isbn", normalized.isbn), ("barcode", normalized.barcode)):
+            clean_value = str(value or "").strip()
+            if clean_value:
+                self.db.add(
+                    BookIdentifier(
+                        edition_id=edition.id,
+                        identifier_type=identifier_type,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        is_primary=identifier_type == "isbn",
+                        source_provider=p_enum,
+                    )
+                )
 
         if normalized.series_title:
             series = await self._upsert_book_series(normalized.series_title)
             membership = BookSeriesMembership(
                 series_id=series.id,
                 work_id=work.id,
-                book_number=str(normalized.volume_number) if normalized.volume_number else None,
+                display_number=(str(normalized.volume_number) if normalized.volume_number is not None else None),
+                sequence=normalized.volume_number,
             )
             self.db.add(membership)
 
@@ -1035,25 +1027,20 @@ class CanonicalCatalogWriter:
             original_release_date=normalized.release_date,
             recording_date=normalized.recording_date,
             studio=normalized.studio,
-            genres=normalized.genres or None,
             cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.music,
-                normalized={
-                    "trailer_urls": normalized.trailer_urls,
-                    "external_links": normalized.external_links,
-                },
-            ),
         )
-        if normalized.trailer_urls or normalized.external_links:
-            metadata = dict(group.metadata_json or {})
-            metadata["trailer_urls"] = normalized.trailer_urls
-            metadata["external_links"] = normalized.external_links
-            group.metadata_json = metadata
         self.db.add(group)
         await self.db.flush()
+        for sequence, value in enumerate(normalized.genres):
+            clean_value = value.strip()
+            if clean_value:
+                group.genre_entries.append(
+                    MusicReleaseGroupGenre(
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        position=sequence,
+                    )
+                )
         release = MusicRelease(
             release_group_id=group.id,
             title=normalized.title,
@@ -1069,11 +1056,6 @@ class CanonicalCatalogWriter:
             catalog_number=normalized.catalog_number,
             packaging=normalized.packaging,
             cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.music,
-            ),
         )
         self.db.add(release)
         await self.db.flush()
@@ -1110,6 +1092,12 @@ class CanonicalCatalogWriter:
             provider_item_id=provider_item_id,
             normalized=normalized,
         )
+        await self._replace_entity_links(
+            entity_type="music_release_group",
+            entity_id=group.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
+        )
 
         for credit in normalized.creators:
             person = await self._get_or_create_person(credit.name, credit)
@@ -1134,23 +1122,52 @@ class CanonicalCatalogWriter:
         work = GameWork(
             title=normalized.title,
             sort_title=sort_key(ItemKind.game, normalized.title, None),
-            synopsis=normalized.synopsis,
+            description=normalized.synopsis,
             release_date=normalized.release_date,
+            original_language=normalized_language(normalized.language),
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
             cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.game,
-            ),
         )
         self.db.add(work)
         await self.db.flush()
 
+        for sequence, value in enumerate(normalized.genres):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    GameGenre(
+                        work_id=work.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        sequence=sequence,
+                    )
+                )
+        for sequence, value in enumerate(normalized.platforms):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    GamePlatform(
+                        work_id=work.id,
+                        platform_name=clean_value,
+                        normalized_name=clean_value.casefold(),
+                        sequence=sequence,
+                        is_primary=sequence == 0,
+                    )
+                )
+
         release = GameRelease(
             work_id=work.id,
-            title=normalized.edition_title or normalized.title,
+            release_title=normalized.edition_title or normalized.title,
+            platform=normalized.platforms[0] if normalized.platforms else normalized.edition_format,
             release_date=normalized.release_date,
+            region_code=normalized_region(normalized.country),
+            format=normalized.edition_format or normalized.physical_format,
             publisher=normalized.publisher,
+            catalog_number=normalized.catalog_number,
+            barcode=normalized.barcode,
+            release_status=normalized_release_status(normalized.release_status),
+            language=normalized_language(normalized.language),
             cover_image_url=normalized.cover_image_url,
         )
         self.db.add(release)
@@ -1162,6 +1179,12 @@ class CanonicalCatalogWriter:
             provider_name=p_enum,
             provider_item_id=provider_item_id,
             normalized=normalized,
+        )
+        await self._replace_entity_links(
+            entity_type="game_work",
+            entity_id=work.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
         )
 
         return work
@@ -1178,28 +1201,58 @@ class CanonicalCatalogWriter:
         work = BoardGameWork(
             title=normalized.title,
             sort_title=sort_key(ItemKind.boardgame, normalized.title, None),
-            synopsis=normalized.synopsis,
+            description=normalized.synopsis,
             release_date=normalized.release_date,
+            original_language=normalized_language(normalized.language),
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
+            cover_image_url=normalized.cover_image_url,
+        )
+        self.db.add(work)
+        await self.db.flush()
+
+        for sequence, value in enumerate(normalized.genres):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    BoardGameGenre(
+                        work_id=work.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        sequence=sequence,
+                    )
+                )
+        for sequence, value in enumerate(normalized.platforms):
+            clean_value = value.strip()
+            if clean_value:
+                self.db.add(
+                    BoardGamePlatform(
+                        work_id=work.id,
+                        value=clean_value,
+                        normalized_value=clean_value.casefold(),
+                        sequence=sequence,
+                    )
+                )
+
+        edition = BoardGameEdition(
+            work_id=work.id,
+            edition_title=normalized.edition_title or normalized.title,
+            format=normalized.edition_format or normalized.physical_format or "board_game",
+            catalog_number=normalized.catalog_number,
+            barcode=normalized.barcode,
+            release_status=normalized_release_status(normalized.release_status),
+            release_date=normalized.release_date,
+            publisher=normalized.publisher,
+            language=normalized_language(normalized.language),
+            country=normalized_region(normalized.country),
+            age_rating=normalized.age_rating,
+            audience_rating=normalized.audience_rating,
             min_players=normalized.min_players,
             max_players=normalized.max_players,
             playing_time_minutes=normalized.playing_time_minutes,
             min_age=normalized.min_age,
             cover_image_url=normalized.cover_image_url,
-            metadata_json=provider_metadata_json(
-                p_enum,
-                provider_item_id,
-                kind=ItemKind.boardgame,
-            ),
-        )
-        self.db.add(work)
-        await self.db.flush()
-
-        edition = BoardGameEdition(
-            work_id=work.id,
-            edition_title=normalized.edition_title or normalized.title,
-            release_date=normalized.release_date,
-            publisher=normalized.publisher,
-            cover_image_url=normalized.cover_image_url,
+            description=normalized.synopsis,
         )
         self.db.add(edition)
         await self.db.flush()
@@ -1210,6 +1263,12 @@ class CanonicalCatalogWriter:
             provider_name=p_enum,
             provider_item_id=provider_item_id,
             normalized=normalized,
+        )
+        await self._replace_entity_links(
+            entity_type="boardgame_work",
+            entity_id=work.id,
+            trailer_urls=normalized.trailer_urls,
+            external_links=normalized.external_links,
         )
 
         return work
@@ -1287,10 +1346,10 @@ class CanonicalCatalogWriter:
 
     async def _ensure_release_status(self, status_value: str) -> None:
         exists = await self.db.scalar(
-            select(ReleaseStatus).where(ReleaseStatus.name == status_value)
+            select(ReleaseStatus).where(ReleaseStatus.code == status_value)
         )
         if not exists:
-            self.db.add(ReleaseStatus(name=status_value))
+            self.db.add(ReleaseStatus(code=status_value, label=status_value))
             await self.db.flush()
 
     async def _get_or_create_comic_series(self, title: str | None) -> ComicSeries | None:
@@ -1340,7 +1399,7 @@ class CanonicalCatalogWriter:
         if not org:
             org = Organization(
                 name=clean,
-                organization_type=org_type,
+                type=org_type,
             )
             self.db.add(org)
             await self.db.flush()
@@ -1363,9 +1422,9 @@ class CanonicalCatalogWriter:
 
     async def _get_or_create_story_arc(self, name: str, credit: NormalizedCredit) -> StoryArc:
         clean = normalize_arc_title(name)
-        arc = await self.db.scalar(select(StoryArc).where(StoryArc.title == clean))
+        arc = await self.db.scalar(select(StoryArc).where(StoryArc.name == clean))
         if not arc:
-            arc = StoryArc(title=clean)
+            arc = StoryArc(name=clean)
             self.db.add(arc)
             await self.db.flush()
         return arc
@@ -1396,3 +1455,41 @@ class CanonicalCatalogWriter:
                     provider_item_id=str(provider_item_id),
                 )
             )
+
+    async def _replace_entity_links(
+        self,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+        trailer_urls: list[dict[str, Any]] | None = None,
+        external_links: list[dict[str, Any]] | None = None,
+    ) -> None:
+        await self.db.execute(
+            delete(EntityLink).where(
+                EntityLink.entity_type == entity_type,
+                EntityLink.entity_id == entity_id,
+            )
+        )
+        for link_type, values in (
+            ("trailer", trailer_urls or []),
+            ("external", external_links or []),
+        ):
+            for position, value in enumerate(values):
+                if not isinstance(value, dict):
+                    continue
+                url = str(value.get("url") or "").strip()
+                if not url:
+                    continue
+                self.db.add(
+                    EntityLink(
+                        entity_type=entity_type,
+                        entity_id=entity_id,
+                        link_type=link_type,
+                        url=url,
+                        site=str(value.get("site") or "").strip() or None,
+                        name=str(value.get("name") or "").strip() or None,
+                        kind=str(value.get("kind") or "").strip() or None,
+                        description=str(value.get("description") or "").strip() or None,
+                        position=position,
+                    )
+                )

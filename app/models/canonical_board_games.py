@@ -16,7 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -30,6 +30,8 @@ from app.models.canonical_support import (  # noqa: F401
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
+    EntityAlias,
+    EntityLink,
     EntityOrganization,
     EntityPerson,
     EntityTag,
@@ -78,7 +80,6 @@ class BoardGameWork(UuidMixin, TimestampMixin, Base):
     audience_rating: Mapped[str | None] = mapped_column(String(64))
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     editions: Mapped[list["BoardGameEdition"]] = relationship(
         back_populates="work",
@@ -133,42 +134,102 @@ class BoardGameWork(UuidMixin, TimestampMixin, Base):
         ),
         viewonly=True,
     )
-
-    def _metadata_list(self, key: str) -> list[str]:
-        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
-        return _clean_text_list(values)
+    genre_entries: Mapped[list["BoardGameGenre"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+        order_by="BoardGameGenre.sequence",
+    )
+    platform_entries: Mapped[list["BoardGamePlatform"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+        order_by="BoardGamePlatform.sequence",
+    )
+    entity_links: Mapped[list["EntityLink"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityLink.entity_id) == BoardGameWork.id,
+            EntityLink.entity_type == "boardgame_work",
+        ),
+        order_by="EntityLink.position",
+        viewonly=True,
+    )
+    alias_entries: Mapped[list["EntityAlias"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityAlias.entity_id) == BoardGameWork.id,
+            EntityAlias.entity_type == "boardgame_work",
+        ),
+        order_by="EntityAlias.position",
+        viewonly=True,
+    )
 
     @property
     def platforms(self) -> list[str]:
-        return self._metadata_list("platforms")
+        return _clean_text_list([row.value for row in self.platform_entries])
 
     @property
     def identifiers(self) -> list[str]:
-        return _clean_text_list([row.value for row in self.identifier_entries]) or self._metadata_list("identifiers")
+        return _clean_text_list([row.value for row in self.identifier_entries])
 
     @property
     def contributors(self) -> list[str]:
-        return _clean_text_list([row.person.name for row in self.contribution_entries if row.person is not None]) or self._metadata_list("contributors")
+        return _clean_text_list([row.person.name for row in self.contribution_entries if row.person is not None])
 
     @property
     def mechanics(self) -> list[str]:
-        return _clean_text_list([row.value for row in self.mechanic_entries]) or self._metadata_list("mechanics")
+        return _clean_text_list([row.value for row in self.mechanic_entries])
 
     @property
     def categories(self) -> list[str]:
-        return _clean_text_list([row.value for row in self.category_entries]) or self._metadata_list("categories")
+        return _clean_text_list([row.value for row in self.category_entries])
 
     @property
     def families(self) -> list[str]:
-        return _clean_text_list([row.value for row in self.family_entries]) or self._metadata_list("families")
+        return _clean_text_list([row.value for row in self.family_entries])
 
     @property
     def expansions(self) -> list[str]:
-        return _clean_text_list([row.value for row in self.expansion_entries]) or self._metadata_list("expansions")
+        return _clean_text_list([row.value for row in self.expansion_entries])
 
     @property
     def rankings(self) -> list[str]:
-        return _clean_text_list([row.ranking_name for row in self.ranking_snapshots]) or self._metadata_list("rankings")
+        return _clean_text_list([row.ranking_name for row in self.ranking_snapshots])
+
+    @property
+    def genres(self) -> list[str]:
+        return _clean_text_list([row.value for row in self.genre_entries])
+
+
+class BoardGameGenre(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "boardgame_genres"
+    __table_args__ = (
+        UniqueConstraint("work_id", "normalized_value", name="uq_boardgame_genres_work_normalized"),
+        Index("ix_boardgame_genres_work_sequence", "work_id", "sequence"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("boardgame_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    work: Mapped[BoardGameWork] = relationship(back_populates="genre_entries")
+
+
+class BoardGamePlatform(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "boardgame_platforms"
+    __table_args__ = (
+        UniqueConstraint("work_id", "normalized_value", name="uq_boardgame_platforms_work_normalized"),
+        Index("ix_boardgame_platforms_work_sequence", "work_id", "sequence"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("boardgame_works.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    work: Mapped[BoardGameWork] = relationship(back_populates="platform_entries")
 
 
 class BoardGameIdentifier(UuidMixin, TimestampMixin, Base):
@@ -191,7 +252,6 @@ class BoardGameIdentifier(UuidMixin, TimestampMixin, Base):
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="identifier_entries")
 
@@ -211,7 +271,6 @@ class BoardGameContribution(UuidMixin, TimestampMixin, Base):
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="contribution_entries")
     person: Mapped["Person"] = relationship()
@@ -230,7 +289,6 @@ class BoardGameMechanic(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="mechanic_entries")
 
@@ -248,7 +306,6 @@ class BoardGameCategory(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="category_entries")
 
@@ -266,7 +323,6 @@ class BoardGameFamily(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="family_entries")
 
@@ -284,7 +340,6 @@ class BoardGameExpansion(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="expansion_entries")
 
@@ -309,7 +364,6 @@ class BoardGameRankingSnapshot(UuidMixin, TimestampMixin, Base):
     users_rated: Mapped[int | None] = mapped_column(Integer)
     bayes_average: Mapped[float | None] = mapped_column(Float)
     snapshot_date: Mapped[date | None] = mapped_column(Date, index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="ranking_snapshots")
 
@@ -334,7 +388,6 @@ class BoardGamePlayerCountVote(UuidMixin, TimestampMixin, Base):
     vote_count: Mapped[int | None] = mapped_column(Integer)
     recommended_count: Mapped[int | None] = mapped_column(Integer)
     not_recommended_count: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     edition: Mapped["BoardGameEdition"] = relationship(back_populates="player_count_votes")
 
@@ -366,18 +419,41 @@ class BoardGameEdition(UuidMixin, TimestampMixin, Base):
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     description: Mapped[str | None] = mapped_column(Text)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="editions")
     player_count_votes: Mapped[list[BoardGamePlayerCountVote]] = relationship(
         back_populates="edition",
         cascade="all, delete-orphan",
     )
-
-    def _metadata_list(self, key: str) -> list[str]:
-        values = self.metadata_json.get(key) if isinstance(self.metadata_json, dict) else None
-        return _clean_text_list(values)
+    identifier_entries: Mapped[list["BoardGameEditionIdentifier"]] = relationship(
+        back_populates="edition",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def identifiers(self) -> list[str]:
-        return self._metadata_list("identifiers")
+        return _clean_text_list([row.value for row in self.identifier_entries])
+
+
+class BoardGameEditionIdentifier(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "boardgame_edition_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "edition_id",
+            "identifier_type",
+            "normalized_value",
+            name="uq_boardgame_edition_identifiers_edition_type_normalized",
+        ),
+        Index("ix_boardgame_edition_identifiers_type_value", "identifier_type", "normalized_value"),
+    )
+
+    edition_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("boardgame_editions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
+
+    edition: Mapped[BoardGameEdition] = relationship(back_populates="identifier_entries")

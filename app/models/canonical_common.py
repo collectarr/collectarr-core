@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -16,7 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -108,7 +107,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     components: Mapped[list["BundleReleaseComponent"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
@@ -154,6 +152,5 @@ class BundleReleaseComponent(UuidMixin, TimestampMixin, Base):
     disc_label: Mapped[str | None] = mapped_column(String(255))
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     bundle_release: Mapped[BundleRelease] = relationship(back_populates="components")

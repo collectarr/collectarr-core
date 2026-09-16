@@ -48,14 +48,13 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MusicMedium,
-    MusicReleaseContribution,
     MusicRelease,
+    MusicReleaseContribution,
     MusicReleaseGroup,
     MusicTrack,
     ProviderIngestJob,
     TVRelease,
     TVReleaseContribution,
-    TVReleaseMedia,
     TVSeason,
     TVSeries,
 )
@@ -73,6 +72,7 @@ from app.schemas.admin import (
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
+from app.services.typed_values import materialize_typed_values
 
 _SEARCH_HISTORY: deque[AdminSearchHistoryEntry] = deque(maxlen=20)
 logger = logging.getLogger(__name__)
@@ -259,8 +259,15 @@ class AdminOverviewService:
             stmt = stmt.where(AdminAuditLog.entity_type == entity_type)
         if entity_id:
             stmt = stmt.where(AdminAuditLog.entity_id == entity_id)
-        result = await self.db.execute(stmt.limit(limit))
-        return [AdminAuditLogResponse.model_validate(row) for row in result.scalars()]
+        result = await self.db.execute(
+            stmt.options(selectinload(AdminAuditLog.details)).limit(limit)
+        )
+        return [
+            AdminAuditLogResponse.model_validate(row).model_copy(
+                update={"details_json": materialize_typed_values(row.details)}
+            )
+            for row in result.scalars()
+        ]
 
     async def _count(self, model: type) -> int:
         return int(await self.db.scalar(select(func.count()).select_from(model)) or 0)

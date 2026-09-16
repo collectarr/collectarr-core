@@ -45,8 +45,6 @@ from app.models import (
     MusicMedium,
     MusicRelease,
     MusicReleaseGroup,
-    MusicReleaseContribution,
-    MusicReleaseIdentifier,
     MusicTrack,
     Person,
     StoryArc,
@@ -450,7 +448,6 @@ async def _seed_music(
             title="1",
             media_condition="excellent",
             sound_type="stereo",
-            metadata_json={"seed": True, "cover_image_url": cover_url},
         )
         db.add(medium)
         await db.flush()
@@ -470,7 +467,6 @@ async def _seed_music(
                 position="1",
                 title=f"{entry.title} Track 1",
                 duration_ms=180000,
-                metadata_json={"seed": True},
             )
         )
     medium.track_count = 1
@@ -508,7 +504,7 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
     row = result.scalar_one_or_none()
     if row is not None:
         return row
-    kwargs = {"title": title, "description": f"Seed data for {title}.", "metadata_json": {"seed": True, "publisher": publisher}}
+    kwargs = {"title": title, "description": f"Seed data for {title}."}
     if hasattr(model, "slug"):
         kwargs["slug"] = _slug(title)
     if hasattr(model, "sort_title"):
@@ -546,7 +542,7 @@ async def _get_or_create_work(db: AsyncSession, model: type, title: str, release
         if getattr(work, "cover_image_url", None) is None:
             work.cover_image_url = cover_url
         return work
-    kwargs = {"title": title, "sort_title": _slug(title), "metadata_json": {"seed": True}}
+    kwargs = {"title": title, "sort_title": _slug(title)}
     if hasattr(model, "description"):
         kwargs["description"] = f"Seed data for {title}."
     if hasattr(model, "cover_image_url"):
@@ -566,7 +562,7 @@ async def _get_or_create_book_edition(db: AsyncSession, work_id: Any, entry: _En
     edition = result.scalar_one_or_none()
     if edition is not None:
         return edition
-    edition = BookEdition(work_id=work_id, display_title=entry.title, format="Paperback", publication_date=entry.release_date, publisher=entry.publisher, language="en", region="US", cover_image_url=cover_url, metadata_json={"seed": True})
+    edition = BookEdition(work_id=work_id, display_title=entry.title, format="Paperback", publication_date=entry.release_date, publisher=entry.publisher, language="en", region="US", cover_image_url=cover_url)
     db.add(edition)
     await db.flush()
     return edition
@@ -577,7 +573,7 @@ async def _get_or_create_comic_issue(db: AsyncSession, work_id: Any, entry: _Ent
     issue = result.scalar_one_or_none()
     if issue is not None:
         return issue
-    issue = ComicIssue(work_id=work_id, issue_number="1", display_title=entry.title, publication_date=entry.release_date, release_date=entry.release_date, publisher=entry.publisher, language="en", region="US", release_status="released", cover_image_url=cover_url, metadata_json={"seed": True})
+    issue = ComicIssue(work_id=work_id, issue_number="1", display_title=entry.title, publication_date=entry.release_date, release_date=entry.release_date, publisher=entry.publisher, language="en", region="US", release_status="released", cover_image_url=cover_url)
     db.add(issue)
     await db.flush()
     return issue
@@ -589,7 +585,7 @@ async def _get_or_create_tv_release(db: AsyncSession, entry: _Entry) -> TVReleas
     if row is not None:
         return row
     series = await _get_or_create_tv_series(db, entry)
-    row = TVRelease(series=series, title=entry.title, sort_title=_slug(entry.title), description=f"Seed data for {entry.title}.", format="digital", release_date=entry.release_date, publisher=entry.publisher, content_rating="TV-MA", cover_image_url=None, metadata_json={"seed": True})
+    row = TVRelease(series=series, title=entry.title, sort_title=_slug(entry.title), description=f"Seed data for {entry.title}.", format="digital", release_date=entry.release_date, publisher=entry.publisher, content_rating="TV-MA", cover_image_url=None)
     db.add(row)
     await db.flush()
     return row
@@ -613,7 +609,6 @@ async def _get_or_create_tv_series(db: AsyncSession, entry: _Entry) -> TVSeries:
         country="US",
         season_count=1,
         episode_count=1,
-        metadata_json={"seed": True},
     )
     db.add(row)
     await db.flush()
@@ -634,7 +629,6 @@ async def _get_or_create_tv_season(db: AsyncSession, series: TVSeries, entry: _E
         overview=f"Seed season for {entry.series_title}.",
         air_date=entry.release_date,
         episode_count=1,
-        metadata_json={"seed": True},
     )
     db.add(row)
     await db.flush()
@@ -655,9 +649,7 @@ async def _get_or_create_music_release_group_and_release(
             sort_title=_slug(entry.title),
             artist=entry.creator[0],
             original_release_date=entry.release_date,
-            genres=[entry.tag] if entry.tag else [],
             cover_image_url=cover_url,
-            metadata_json={"seed": True},
         )
         db.add(group)
         await db.flush()
@@ -681,7 +673,6 @@ async def _get_or_create_music_release_group_and_release(
             publisher=entry.publisher,
             language="en",
             barcode=f"MUS-{_slug(entry.title)}",
-            metadata_json={"seed": True},
         )
         db.add(release)
         await db.flush()
@@ -710,7 +701,7 @@ async def _ensure_person_link(db: AsyncSession, entity_id: Any, entity_type: str
     result = await db.execute(select(Person).where(Person.name == name))
     person = result.scalar_one_or_none()
     if person is None:
-        person = Person(name=name, metadata_json={"seed": True, "primary_role": creator_role})
+        person = Person(name=name)
         db.add(person)
         await db.flush()
     result = await db.execute(
@@ -747,7 +738,7 @@ async def _ensure_story_arc_link(db: AsyncSession, entity_id: Any, entity_type: 
     result = await db.execute(select(StoryArc).where(StoryArc.name == arc_name))
     arc = result.scalar_one_or_none()
     if arc is None:
-        arc = StoryArc(name=arc_name, description=f"Seed arc {arc_name}", publisher=None, metadata_json={"seed": True})
+        arc = StoryArc(name=arc_name, description=f"Seed arc {arc_name}", publisher=None)
         db.add(arc)
         await db.flush()
     result = await db.execute(
@@ -764,19 +755,19 @@ async def _ensure_story_arc_link(db: AsyncSession, entity_id: Any, entity_type: 
 async def _ensure_book_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
     result = await db.execute(select(BookSeriesMembership).where(BookSeriesMembership.work_id == work_id, BookSeriesMembership.series_id == series_id))
     if result.scalar_one_or_none() is None:
-        db.add(BookSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index), metadata_json={"seed": True}))
+        db.add(BookSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index)))
 
 
 async def _ensure_comic_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
     result = await db.execute(select(ComicSeriesMembership).where(ComicSeriesMembership.work_id == work_id, ComicSeriesMembership.series_id == series_id))
     if result.scalar_one_or_none() is None:
-        db.add(ComicSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index), metadata_json={"seed": True}))
+        db.add(ComicSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index)))
 
 
 async def _ensure_manga_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
     result = await db.execute(select(MangaSeriesMembership).where(MangaSeriesMembership.work_id == work_id, MangaSeriesMembership.series_id == series_id))
     if result.scalar_one_or_none() is None:
-        db.add(MangaSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index), metadata_json={"seed": True}))
+        db.add(MangaSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index)))
 
 
 async def _ensure_character_appearance(
@@ -796,7 +787,7 @@ async def _ensure_character_appearance(
     result = await db.execute(select(Character).where(Character.name == character_name))
     character = result.scalar_one_or_none()
     if character is None:
-        character = Character(name=character_name, aliases=[f"{character_name} (seed)"], description=f"Seed character {character_name}", metadata_json={"seed": True})
+        character = Character(name=character_name, description=f"Seed character {character_name}")
         db.add(character)
         await db.flush()
     if entity_type == "anime_series":
@@ -828,12 +819,12 @@ async def _ensure_story_arc_membership(db: AsyncSession, issue_id: Any, arc_name
     result = await db.execute(select(StoryArc).where(StoryArc.name == arc_name))
     arc = result.scalar_one_or_none()
     if arc is None:
-        arc = StoryArc(name=arc_name, description=f"Seed arc {arc_name}", publisher=None, metadata_json={"seed": True})
+        arc = StoryArc(name=arc_name, description=f"Seed arc {arc_name}", publisher=None)
         db.add(arc)
         await db.flush()
     result = await db.execute(select(ComicStoryArcMembership).where(ComicStoryArcMembership.issue_id == issue_id, ComicStoryArcMembership.story_arc_id == arc.id))
     if result.scalar_one_or_none() is None:
-        db.add(ComicStoryArcMembership(issue_id=issue_id, story_arc_id=arc.id, ordinal=1, metadata_json={"seed": True}))
+        db.add(ComicStoryArcMembership(issue_id=issue_id, story_arc_id=arc.id, ordinal=1))
 
 
 async def _ensure_comic_links(db: AsyncSession, issue_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:

@@ -27,9 +27,9 @@ from app.models import (
     MangaWork,
     MovieRelease,
     MovieWork,
+    MusicMedium,
     MusicRelease,
     MusicReleaseGroup,
-    MusicMedium,
     MusicTrack,
     Organization,
     Person,
@@ -52,7 +52,6 @@ class EntitySummary:
     series_title: str | None
     volume_name: str | None
     cover_image_url: str | None
-    metadata_json: dict[str, Any] | None
 
 
 ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
@@ -99,12 +98,6 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
-def _metadata_text(metadata: dict[str, Any] | None, key: str) -> str | None:
-    if not isinstance(metadata, dict):
-        return None
-    return _text(metadata.get(key))
-
-
 def _first_text(entity: object, fields: tuple[str, ...]) -> str | None:
     for field in fields:
         value = _text(getattr(entity, field, None))
@@ -119,12 +112,11 @@ def _entity_kind(entity_type: str) -> ItemKind | None:
 
 
 def entity_summary(entity_type: str, entity_id: UUID, entity: object) -> EntitySummary:
-    metadata = getattr(entity, "metadata_json", None)
     title = _first_text(entity, _TITLE_FIELDS) or entity_type
     item_number = _first_text(entity, _NUMBER_FIELDS)
-    series_title = _metadata_text(metadata, "series_title")
-    volume_name = _metadata_text(metadata, "volume_name")
-    cover_image_url = _first_text(entity, _COVER_FIELDS) or _metadata_text(metadata, "cover_image_url")
+    series_title = _first_text(entity, ("series_title",))
+    volume_name = _first_text(entity, ("volume_name",))
+    cover_image_url = _first_text(entity, _COVER_FIELDS)
     return EntitySummary(
         entity_type=entity_type,
         entity_id=entity_id,
@@ -134,7 +126,6 @@ def entity_summary(entity_type: str, entity_id: UUID, entity: object) -> EntityS
         series_title=series_title,
         volume_name=volume_name,
         cover_image_url=cover_image_url,
-        metadata_json=metadata if isinstance(metadata, dict) else None,
     )
 
 

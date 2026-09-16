@@ -17,11 +17,10 @@ from app.models import (
     MangaWork,
     MovieWork,
     MovieWorkContribution,
-    TVRelease,
-    TVSeries,
-    MusicMedium,
     MusicRelease,
     MusicReleaseGroup,
+    TVRelease,
+    TVSeries,
 )
 from app.models.base import ItemKind
 
@@ -38,12 +37,7 @@ def item_search_document(item: Any) -> dict[str, Any]:
     creators: list[str] = []
     characters: list[str] = []
     story_arcs: list[str] = []
-    typed_metadata = _normalized_metadata(item)
-    platforms: list[str] = (
-        _string_list(typed_metadata.get("platforms"))
-        if isinstance(typed_metadata.get("platforms"), list)
-        else []
-    )
+    platforms = _string_list(getattr(item, "platforms", []))
     catalog_number = None
     release_status = None
     language = None
@@ -112,7 +106,6 @@ def item_search_document(item: Any) -> dict[str, Any]:
     for edition in item.editions:
         publisher = publisher or edition.publisher
         physical_format = _physical_format_label(
-            edition.metadata_json,
             fallback_format=edition.format,
             kind=item.kind,
             preferred=getattr(edition, "physical_format", None),
@@ -748,7 +741,6 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
 
 def music_release_group_search_document(group: MusicReleaseGroup) -> dict[str, Any]:
     releases = sorted(group.releases or [], key=lambda row: (row.release_date is None, row.release_date, row.title.casefold()))
-    primary = releases[0] if releases else None
     return {
         "id": str(group.id),
         "kind": ItemKind.music.value,
@@ -959,30 +951,13 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
     raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
 
 
-def _source_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(metadata, dict):
-        return {}
-    source = metadata.get("source")
-    return source if isinstance(source, dict) else {}
-
-
-def _normalized_metadata(item: Any) -> dict[str, Any]:
-    metadata = getattr(item, "metadata_json", None)
-    return dict(metadata.get("normalized") or {}) if isinstance(metadata, dict) else {}
-
-
 def _physical_format_label(
-    metadata: dict[str, Any] | None,
     *,
     fallback_format: str | None,
     kind: Any,
     preferred: str | None = None,
 ) -> str | None:
     config = physical_format_for_id(preferred) if preferred else None
-    if isinstance(metadata, dict):
-        normalized = metadata.get("normalized")
-        if isinstance(normalized, dict) and normalized.get("physical_format"):
-            config = physical_format_for_id(str(normalized["physical_format"]))
     if config is None and fallback_format and is_video_item_kind(kind):
         config = physical_format_for_id(fallback_format)
     return config.label if config else None

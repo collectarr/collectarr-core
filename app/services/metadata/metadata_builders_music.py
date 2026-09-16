@@ -17,7 +17,7 @@ from app.schemas import (
     MusicReleaseV1Response,
     MusicTrackV1Response,
 )
-from app.services.metadata.metadata_helpers import _metadata_links
+from app.services.metadata.metadata_helpers import entity_link_values
 
 
 class MusicMetadataResponseBuilders:
@@ -44,10 +44,10 @@ class MusicMetadataResponseBuilders:
             recording_date=group.recording_date,
             studio=group.studio,
             is_live=group.is_live,
-            genres=group.genres or [],
+            genres=[entry.value for entry in sorted(group.genre_entries, key=lambda row: row.position)],
             cover_image_url=group.cover_image_url,
             cover_image_key=group.cover_image_key,
-            external_links=_metadata_links(group.metadata_json, "external_links"),
+            external_links=entity_link_values(group.entity_links, "external"),
             releases=[self._music_release_summary_response(row) for row in releases],
         )
 
@@ -127,7 +127,13 @@ class MusicMetadataResponseBuilders:
             track_count=medium.track_count,
             expected_track_count=medium.expected_track_count,
             missing_track_count=medium.missing_track_count,
-            missing_track_positions=medium.missing_track_positions or [],
+            missing_track_positions=[
+                entry.position
+                for entry in sorted(
+                    medium.missing_track_entries,
+                    key=lambda row: row.position_order,
+                )
+            ],
             toc=medium.toc,
             cddb_id=medium.cddb_id,
             leadout_offset=medium.leadout_offset,

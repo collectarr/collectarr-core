@@ -177,18 +177,6 @@ class AdminMetadataService:
     ) -> Any:
         return await self.catalog_admin.update_catalog_item(item_id, payload, kind)
 
-    def _metadata_with_cover(
-        self,
-        metadata_json: dict[str, Any] | None,
-        source_url: str | None,
-    ) -> dict[str, Any]:
-        metadata = dict(metadata_json or {})
-        normalized_source = metadata.get("normalized")
-        normalized = dict(normalized_source) if isinstance(normalized_source, dict) else {}
-        normalized.update(self._cover_metadata(source_url, None))
-        metadata["normalized"] = normalized
-        return metadata
-
     async def duplicate_candidates(self, limit: int = 10) -> list[AdminDuplicateCandidateResponse]:
         return await self.duplicates_admin.duplicate_candidates(limit)
 

@@ -16,7 +16,7 @@ from app.schemas import (
         MovieReleaseV1Response,
         MovieWorkV1Response,
 )
-from app.services.metadata.metadata_helpers import _metadata_links
+from app.services.metadata.metadata_helpers import entity_link_values
 
 
 class MovieMetadataResponseBuilders:
@@ -53,8 +53,8 @@ class MovieMetadataResponseBuilders:
                         ),
                     )
                 ],
-                trailer_urls=_metadata_links(work.metadata_json, "trailer_urls"),
-                external_links=_metadata_links(work.metadata_json, "external_links"),
+                trailer_urls=entity_link_values(work.entity_links, "trailer"),
+                external_links=entity_link_values(work.entity_links, "external"),
                 identifiers=[
                     self._movie_identifier_response(row)
                     for row in sorted(
@@ -104,8 +104,8 @@ class MovieMetadataResponseBuilders:
                 distributor=release.distributor,
                 cover_image_url=release.cover_image_url,
                 cover_image_key=release.cover_image_key,
-                trailer_urls=_metadata_links(release.metadata_json, "trailer_urls"),
-                external_links=_metadata_links(release.metadata_json, "external_links"),
+                trailer_urls=entity_link_values(release.entity_links, "trailer"),
+                external_links=entity_link_values(release.entity_links, "external"),
                 media=[self._movie_release_media_response(row) for row in media],
             )
 

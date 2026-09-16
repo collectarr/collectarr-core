@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import (
@@ -15,7 +16,6 @@ from app.models import (
     StoryArcItem,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.proposal_payload import compact_metadata_payload
 from app.providers.base import ProviderSearchResult
 from app.schemas import (
     CharacterAppearanceResponse,
@@ -35,6 +35,7 @@ from app.schemas import (
 from app.schemas import EpisodeResponse as ProviderEpisodeResponse
 from app.schemas.metadata_shared import public_item_kind
 from app.services.entity_resolution import load_entity_summaries
+from app.services.typed_values import flatten_typed_values
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
@@ -251,7 +252,7 @@ async def mirror_provider_image_bytes(
 
 
 async def create_proposal(service, payload: MetadataProposalCreate) -> MetadataProposalResponse:
-    from app.models import MetadataProposal
+    from app.models import MetadataProposal, MetadataProposalValue
     from app.proposal_payload import validate_metadata_payload
 
     validate_metadata_payload(payload.metadata_payload)
@@ -262,12 +263,18 @@ async def create_proposal(service, payload: MetadataProposalCreate) -> MetadataP
         title=payload.title,
         summary=payload.summary,
         image_url=payload.image_url,
-        metadata_payload=compact_metadata_payload(payload.metadata_payload),
     )
     service.db.add(proposal)
+    await service.db.flush()
+    service.db.add_all(
+        MetadataProposalValue(proposal_id=proposal.id, **row)
+        for row in flatten_typed_values(payload.metadata_payload)
+    )
     await service.db.commit()
     await service.db.refresh(proposal)
-    return MetadataProposalResponse.model_validate(proposal)
+    return MetadataProposalResponse.model_validate(proposal).model_copy(
+        update={"metadata_payload": payload.metadata_payload}
+    )
 
 
 async def get_provider_seasons(service, provider_name: ExternalProvider, provider_item_id: str) -> list[SeasonResponse]:
@@ -384,10 +391,10 @@ async def search_creators(service, *, q: str | None = None, limit: int = 25) -> 
         CreatorResponse(
             id=person.id,
             name=person.name,
-            description=service._model_text_or_metadata(person, "description"),
-            image_url=service._model_text_or_metadata(person, "image_url"),
-            api_detail_url=service._model_text_or_metadata(person, "api_detail_url"),
-            site_detail_url=service._model_text_or_metadata(person, "site_detail_url"),
+            description=person.description,
+            image_url=person.image_url,
+            api_detail_url=person.api_detail_url,
+            site_detail_url=person.site_detail_url,
             item_count=int(item_count or 0),
         )
         for person, item_count in rows
@@ -549,8 +556,8 @@ async def get_creator_facets(service, entity_ids: list[UUID]) -> list[CreatorFac
             CreatorFacetResponse(
                 id=person.id,
                 name=person.name,
-                description=service._model_text_or_metadata(person, "description"),
-                image_url=service._model_text_or_metadata(person, "image_url"),
+            description=person.description,
+            image_url=person.image_url,
                 item_count=len(facet_entity_ids),
                 entity_ids=facet_entity_ids,
                 role_counts=role_counts if isinstance(role_counts, dict) else {},
@@ -565,6 +572,7 @@ async def search_characters(service, *, q: str | None = None, limit: int = 25) -
     stmt = (
         select(Character, count_expr.label("appearance_count"))
         .outerjoin(CharacterAppearance, CharacterAppearance.character_id == Character.id)
+        .options(selectinload(Character.alias_entries))
         .group_by(Character.id)
         .order_by(count_expr.desc(), Character.name.asc())
         .limit(limit)
@@ -577,7 +585,7 @@ async def search_characters(service, *, q: str | None = None, limit: int = 25) -
         CharacterResponse(
             id=character.id,
             name=character.name,
-            aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
+            aliases=[alias.alias for alias in character.alias_entries if alias.alias.strip()],
             description=character.description,
             image_url=character.image_url,
             first_appearance_entity_type=character.first_appearance_entity_type,
@@ -631,6 +639,7 @@ async def get_character_facets(service, entity_ids: list[UUID]) -> list[Characte
             select(Character, CharacterAppearance.entity_id, CharacterAppearance.role)
             .join(CharacterAppearance, CharacterAppearance.character_id == Character.id)
             .where(CharacterAppearance.entity_id.in_(ordered_entity_ids))
+            .options(selectinload(Character.alias_entries))
         )
     ).all()
     grouped: dict[UUID, dict[str, object]] = {}
@@ -660,7 +669,7 @@ async def get_character_facets(service, entity_ids: list[UUID]) -> list[Characte
             CharacterFacetResponse(
                 id=character.id,
                 name=character.name,
-                aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
+                aliases=[alias.alias for alias in character.alias_entries if alias.alias.strip()],
                 image_url=character.image_url,
                 item_count=len(facet_entity_ids),
                 entity_ids=facet_entity_ids,

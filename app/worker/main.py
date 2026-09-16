@@ -38,23 +38,19 @@ from app.models import (
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
-    MangaWork,
     MangaSeriesMembership,
+    MangaWork,
     MovieRelease,
-    MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
     MusicMedium,
     MusicRelease,
     MusicReleaseContribution,
     MusicReleaseGroup,
-    MusicTrack,
-    TVEpisode,
     TVRelease,
     TVReleaseContribution,
     TVReleaseEpisodeMap,
     TVReleaseMedia,
-    TVSeason,
     TVSeries,
 )
 from app.search.client import SearchClient
@@ -66,9 +62,9 @@ from app.search.documents import (
     game_work_search_document,
     manga_work_search_document,
     movie_work_search_document,
-    tv_release_search_document,
     music_release_group_search_document,
     music_release_search_document,
+    tv_release_search_document,
 )
 from app.storage.client import ObjectStorage
 

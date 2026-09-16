@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.base import ProviderSearchResult

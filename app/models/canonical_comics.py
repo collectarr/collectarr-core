@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -18,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
@@ -63,7 +62,6 @@ class ComicSeries(UuidMixin, TimestampMixin, Base):
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     works: Mapped[list["ComicSeriesMembership"]] = relationship(
         back_populates="series",
@@ -92,8 +90,6 @@ class ComicWork(UuidMixin, TimestampMixin, Base):
     first_publication_date: Mapped[date | None] = mapped_column(Date, index=True)
     expected_issue_count: Mapped[int | None] = mapped_column(Integer)
     missing_issue_count: Mapped[int | None] = mapped_column(Integer)
-    missing_issue_numbers: Mapped[list[int] | None] = mapped_column(JSONB)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     volume: Mapped["ComicVolume | None"] = relationship(back_populates="works")
     issues: Mapped[list["ComicIssue"]] = relationship(
@@ -108,6 +104,27 @@ class ComicWork(UuidMixin, TimestampMixin, Base):
         back_populates="work",
         cascade="all, delete-orphan",
     )
+    missing_issue_entries: Mapped[list["ComicWorkMissingIssueNumber"]] = relationship(
+        back_populates="work",
+        cascade="all, delete-orphan",
+        order_by="ComicWorkMissingIssueNumber.position",
+    )
+
+
+class ComicWorkMissingIssueNumber(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "comic_work_missing_issue_numbers"
+    __table_args__ = (
+        UniqueConstraint("work_id", "issue_number", name="uq_comic_work_missing_issue_number"),
+        Index("ix_comic_work_missing_issue_numbers_work_position", "work_id", "position"),
+    )
+
+    work_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("comic_works.id", ondelete="CASCADE"), nullable=False
+    )
+    issue_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    work: Mapped[ComicWork] = relationship(back_populates="missing_issue_entries")
 
 
 class ComicVolume(UuidMixin, TimestampMixin, Base):
@@ -123,7 +140,6 @@ class ComicVolume(UuidMixin, TimestampMixin, Base):
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     works: Mapped[list["ComicWork"]] = relationship(back_populates="volume")
     provider_links: Mapped[list["ExternalProviderId"]] = relationship(
@@ -157,12 +173,14 @@ class ComicIssue(UuidMixin, TimestampMixin, Base):
     cover_price_cents: Mapped[int | None] = mapped_column(Integer)
     currency: Mapped[str | None] = mapped_column(String(8))
     release_status: Mapped[str | None] = mapped_column(String(64), index=True)
+    age_rating: Mapped[str | None] = mapped_column(String(64), index=True)
+    catalog_number: Mapped[str | None] = mapped_column(String(100), index=True)
+    barcode: Mapped[str | None] = mapped_column(String(100), index=True)
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     key_comic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     key_reason: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[ComicWork] = relationship(back_populates="issues")
     contributions: Mapped[list["ComicContribution"]] = relationship(
@@ -206,7 +224,6 @@ class ComicContribution(UuidMixin, TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[ComicWork | None] = relationship(back_populates="contributions")
     issue: Mapped[ComicIssue | None] = relationship(back_populates="contributions")
@@ -236,7 +253,6 @@ class ComicIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     issue: Mapped[ComicIssue] = relationship(back_populates="identifiers")
 
@@ -255,7 +271,6 @@ class ComicStoryArcMembership(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("story_arcs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     ordinal: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     issue: Mapped[ComicIssue] = relationship(back_populates="story_arc_memberships")
     story_arc: Mapped["StoryArc"] = relationship()
@@ -280,7 +295,6 @@ class ComicCharacterAppearance(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, default="featured", index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     issue: Mapped[ComicIssue] = relationship(back_populates="character_appearances")
     character: Mapped["Character"] = relationship()
@@ -301,7 +315,6 @@ class ComicSeriesMembership(UuidMixin, TimestampMixin, Base):
     )
     sequence: Mapped[float | None] = mapped_column(Float)
     display_number: Mapped[str | None] = mapped_column(String(64))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     work: Mapped[ComicWork] = relationship(back_populates="series_memberships")
     series: Mapped[ComicSeries] = relationship(back_populates="works")
@@ -317,5 +330,32 @@ class ComicCharacter(UuidMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     sort_name: Mapped[str | None] = mapped_column(String(255))
     image_url: Mapped[str | None] = mapped_column(String(1024))
-    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(ExternalProviderId.entity_id) == ComicCharacter.id,
+            ExternalProviderId.entity_type == "comic_character",
+        ),
+        viewonly=True,
+    )
+    external_identifiers: Mapped[list["ComicCharacterExternalIdentifier"]] = relationship(
+        back_populates="character",
+        cascade="all, delete-orphan",
+        order_by="ComicCharacterExternalIdentifier.identifier_type",
+    )
+
+
+class ComicCharacterExternalIdentifier(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "comic_character_external_identifiers"
+    __table_args__ = (
+        UniqueConstraint("character_id", "identifier_type", "normalized_value", name="uq_comic_character_external_identifier"),
+        Index("ix_comic_character_external_identifiers_type_value", "identifier_type", "normalized_value"),
+    )
+
+    character_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("comic_characters.id", ondelete="CASCADE"), nullable=False
+    )
+    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    character: Mapped[ComicCharacter] = relationship(back_populates="external_identifiers")

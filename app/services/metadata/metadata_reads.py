@@ -13,17 +13,20 @@ from app.models import (
     AnimeContribution,
     AnimeEpisode,
     AnimeSeries,
+    BoardGameContribution,
     BoardGameEdition,
     BoardGameWork,
     BookContribution,
     BookEdition,
     BookSeriesMembership,
     BookWork,
+    Character,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
     ComicStoryArcMembership,
     ComicWork,
+    GameCompanyRole,
     GameRelease,
     GameWork,
     MangaChapter,
@@ -36,8 +39,8 @@ from app.models import (
     MovieWorkContribution,
     MusicMedium,
     MusicRelease,
-    MusicReleaseGroup,
     MusicReleaseContribution,
+    MusicReleaseGroup,
     MusicTrack,
     TVEpisode,
     TVEpisodeContribution,
@@ -140,7 +143,16 @@ async def get_book_edition(service, edition_id: UUID) -> BookEditionV1Response:
 
 async def get_game_work(service, work_id: UUID) -> GameWorkV1Response:
     work = await service.db.scalar(
-        select(GameWork).where(GameWork.id == work_id).options(selectinload(GameWork.releases))
+        select(GameWork).where(GameWork.id == work_id).options(
+            selectinload(GameWork.releases).selectinload(GameRelease.identifier_entries),
+            selectinload(GameWork.genre_entries),
+            selectinload(GameWork.platform_entries),
+            selectinload(GameWork.identifier_entries),
+            selectinload(GameWork.company_role_entries).selectinload(GameCompanyRole.organization),
+            selectinload(GameWork.age_rating_entries),
+            selectinload(GameWork.alias_entries),
+            selectinload(GameWork.entity_links),
+        )
     )
     if work is None:
         raise ApiHTTPException(
@@ -164,6 +176,7 @@ async def get_game_work_releases(service, work_id: UUID) -> list[GameReleaseV1Re
             await service.db.execute(
                 select(GameRelease)
                 .where(GameRelease.work_id == work_id)
+                .options(selectinload(GameRelease.identifier_entries))
                 .order_by(GameRelease.release_date.asc().nullslast(), GameRelease.created_at.asc())
             )
         ).scalars()
@@ -172,7 +185,11 @@ async def get_game_work_releases(service, work_id: UUID) -> list[GameReleaseV1Re
 
 
 async def get_game_release(service, release_id: UUID) -> GameReleaseV1Response:
-    release = await service.db.scalar(select(GameRelease).where(GameRelease.id == release_id))
+    release = await service.db.scalar(
+        select(GameRelease)
+        .where(GameRelease.id == release_id)
+        .options(selectinload(GameRelease.identifier_entries))
+    )
     if release is None:
         raise ApiHTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -184,7 +201,20 @@ async def get_game_release(service, release_id: UUID) -> GameReleaseV1Response:
 
 async def get_boardgame_work(service, work_id: UUID) -> BoardGameWorkV1Response:
     work = await service.db.scalar(
-        select(BoardGameWork).where(BoardGameWork.id == work_id).options(selectinload(BoardGameWork.editions))
+        select(BoardGameWork).where(BoardGameWork.id == work_id).options(
+            selectinload(BoardGameWork.editions).selectinload(BoardGameEdition.identifier_entries),
+            selectinload(BoardGameWork.genre_entries),
+            selectinload(BoardGameWork.platform_entries),
+            selectinload(BoardGameWork.identifier_entries),
+            selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
+            selectinload(BoardGameWork.mechanic_entries),
+            selectinload(BoardGameWork.category_entries),
+            selectinload(BoardGameWork.family_entries),
+            selectinload(BoardGameWork.expansion_entries),
+            selectinload(BoardGameWork.ranking_snapshots),
+            selectinload(BoardGameWork.alias_entries),
+            selectinload(BoardGameWork.entity_links),
+        )
     )
     if work is None:
         raise ApiHTTPException(
@@ -208,6 +238,7 @@ async def get_boardgame_work_editions(service, work_id: UUID) -> list[BoardGameE
             await service.db.execute(
                 select(BoardGameEdition)
                 .where(BoardGameEdition.work_id == work_id)
+                .options(selectinload(BoardGameEdition.identifier_entries))
                 .order_by(BoardGameEdition.release_date.asc().nullslast(), BoardGameEdition.created_at.asc())
             )
         ).scalars()
@@ -216,7 +247,11 @@ async def get_boardgame_work_editions(service, work_id: UUID) -> list[BoardGameE
 
 
 async def get_boardgame_edition(service, edition_id: UUID) -> BoardGameEditionV1Response:
-    edition = await service.db.scalar(select(BoardGameEdition).where(BoardGameEdition.id == edition_id))
+    edition = await service.db.scalar(
+        select(BoardGameEdition)
+        .where(BoardGameEdition.id == edition_id)
+        .options(selectinload(BoardGameEdition.identifier_entries))
+    )
     if edition is None:
         raise ApiHTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -236,7 +271,8 @@ async def get_comic_work(service, work_id: UUID) -> ComicWorkV1Response:
             selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
             selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
                 ComicCharacterAppearance.character
-            ),
+            ).selectinload(Character.external_identifiers),
+            selectinload(ComicWork.missing_issue_entries),
             selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
                 ComicStoryArcMembership.story_arc
             ),
@@ -267,7 +303,9 @@ async def get_comic_work_issues(service, work_id: UUID) -> list[ComicIssueV1Resp
                 .options(
                     selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
                     selectinload(ComicIssue.identifiers),
-                    selectinload(ComicIssue.character_appearances).selectinload(ComicCharacterAppearance.character),
+                    selectinload(ComicIssue.character_appearances)
+                    .selectinload(ComicCharacterAppearance.character)
+                    .selectinload(Character.external_identifiers),
                     selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
                 )
                 .order_by(
@@ -288,7 +326,9 @@ async def get_comic_issue(service, issue_id: UUID) -> ComicIssueV1Response:
         .options(
             selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
             selectinload(ComicIssue.identifiers),
-            selectinload(ComicIssue.character_appearances).selectinload(ComicCharacterAppearance.character),
+            selectinload(ComicIssue.character_appearances)
+            .selectinload(ComicCharacterAppearance.character)
+            .selectinload(Character.external_identifiers),
             selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
         )
     )
@@ -611,6 +651,7 @@ async def get_movie_work(service, work_id: UUID) -> MovieWorkV1Response:
             selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
             selectinload(MovieWork.releases).selectinload(MovieRelease.media),
             selectinload(MovieWork.identifiers),
+            selectinload(MovieWork.entity_links),
         )
     )
     if work is None:
@@ -635,7 +676,7 @@ async def get_movie_work_releases(service, work_id: UUID) -> list[MovieReleaseV1
             await service.db.execute(
                 select(MovieRelease)
                 .where(MovieRelease.work_id == work_id)
-                .options(selectinload(MovieRelease.media))
+        .options(selectinload(MovieRelease.media), selectinload(MovieRelease.entity_links))
                 .order_by(MovieRelease.release_date.asc().nullslast(), MovieRelease.created_at.asc())
             )
         ).scalars()
@@ -660,7 +701,11 @@ async def get_music_release_group(service, group_id: UUID) -> MusicReleaseGroupV
     group = await service.db.scalar(
         select(MusicReleaseGroup)
         .where(MusicReleaseGroup.id == group_id)
-        .options(selectinload(MusicReleaseGroup.releases))
+        .options(
+            selectinload(MusicReleaseGroup.releases),
+            selectinload(MusicReleaseGroup.genre_entries),
+            selectinload(MusicReleaseGroup.entity_links),
+        )
     )
     if group is None:
         raise ApiHTTPException(
@@ -677,6 +722,7 @@ async def get_music_release(service, release_id: UUID) -> MusicReleaseV1Response
         .where(MusicRelease.id == release_id)
         .options(
             selectinload(MusicRelease.mediums).selectinload(MusicMedium.tracks),
+            selectinload(MusicRelease.mediums).selectinload(MusicMedium.missing_track_entries),
             selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
             selectinload(MusicRelease.identifiers),
         )
@@ -703,7 +749,10 @@ async def get_music_release_mediums(service, release_id: UUID) -> list[MusicMedi
             await service.db.execute(
                 select(MusicMedium)
                 .where(MusicMedium.release_id == release_id)
-                .options(selectinload(MusicMedium.tracks))
+                .options(
+                    selectinload(MusicMedium.tracks),
+                    selectinload(MusicMedium.missing_track_entries),
+                )
                 .order_by(MusicMedium.medium_number.asc(), MusicMedium.created_at.asc())
             )
         ).scalars()
@@ -715,7 +764,10 @@ async def get_music_medium(service, medium_id: UUID) -> MusicMediumV1Response:
     medium = await service.db.scalar(
         select(MusicMedium)
         .where(MusicMedium.id == medium_id)
-        .options(selectinload(MusicMedium.tracks))
+        .options(
+            selectinload(MusicMedium.tracks),
+            selectinload(MusicMedium.missing_track_entries),
+        )
     )
     if medium is None:
         raise ApiHTTPException(

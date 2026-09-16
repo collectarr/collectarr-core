@@ -12,31 +12,19 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.models.base import ItemKind
-from app.providers.anilist import AniListProvider
 from app.providers.base import (
     NormalizedCredit,
     NormalizedItem,
-    NormalizedRelation,
     NormalizedTrack,
     NormalizedVariantCover,
 )
-from app.providers.bgg import BGGProvider
-from app.providers.comicvine import ComicVineProvider
 from app.providers.envelope import NormalizedProviderEnvelopeV1
-from app.providers.gcd import GCDProvider
-from app.providers.hardcover import HardcoverProvider
-from app.providers.igdb import IGDBProvider
-from app.providers.mangadex import MangaDexProvider
-from app.providers.musicbrainz import MusicBrainzProvider
-from app.providers.openlibrary import OpenLibraryProvider
-from app.providers.tmdb import TMDbProvider
 
 
 def generate_golden_envelopes() -> list[dict[str, Any]]:
     envelopes: list[NormalizedProviderEnvelopeV1] = []
 
     # 1. Open Library (book)
-    ol = OpenLibraryProvider()
     ol_norm = NormalizedItem(
         kind=ItemKind.book,
         title="The Fellowship of the Ring",
@@ -57,7 +45,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="OL27479W",
             kind=ItemKind.book,
             normalized=ol_norm,
-            capabilities=ol.capabilities,
             source_url="https://openlibrary.org/works/OL27479W",
             raw_payload_hash=hashlib.sha256(b"ol_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -66,7 +53,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 2. AniList (manga & anime)
-    ani = AniListProvider()
     ani_norm = NormalizedItem(
         kind=ItemKind.manga,
         title="Berserk",
@@ -83,7 +69,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="30002",
             kind=ItemKind.manga,
             normalized=ani_norm,
-            capabilities=ani.capabilities,
             source_url="https://anilist.co/manga/30002",
             raw_payload_hash=hashlib.sha256(b"anilist_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -92,7 +77,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 3. MusicBrainz (music)
-    mb = MusicBrainzProvider()
     mb_norm = NormalizedItem(
         kind=ItemKind.music,
         title="The Dark Side of the Moon",
@@ -114,7 +98,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
             kind=ItemKind.music,
             normalized=mb_norm,
-            capabilities=mb.capabilities,
             source_url="https://musicbrainz.org/release/a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
             raw_payload_hash=hashlib.sha256(b"mb_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -123,7 +106,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 4. MangaDex (manga)
-    md = MangaDexProvider()
     md_norm = NormalizedItem(
         kind=ItemKind.manga,
         title="Chainsaw Man",
@@ -140,7 +122,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="d7037b2a-874a-4360-8a7b-07f2001542a9",
             kind=ItemKind.manga,
             normalized=md_norm,
-            capabilities=md.capabilities,
             source_url="https://mangadex.org/title/d7037b2a-874a-4360-8a7b-07f2001542a9",
             raw_payload_hash=hashlib.sha256(b"md_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -149,7 +130,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 5. GCD (comic)
-    gcd = GCDProvider()
     gcd_norm = NormalizedItem(
         kind=ItemKind.comic,
         title="Amazing Spider-Man #300",
@@ -171,7 +151,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="12345",
             kind=ItemKind.comic,
             normalized=gcd_norm,
-            capabilities=gcd.capabilities,
             source_url="https://www.comics.org/issue/12345/",
             raw_payload_hash=hashlib.sha256(b"gcd_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -180,7 +159,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 6. TMDb (movie)
-    tmdb = TMDbProvider()
     tmdb_norm = NormalizedItem(
         kind=ItemKind.movie,
         title="Fight Club",
@@ -203,7 +181,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="550",
             kind=ItemKind.movie,
             normalized=tmdb_norm,
-            capabilities=tmdb.capabilities,
             source_url="https://www.themoviedb.org/movie/550",
             raw_payload_hash=hashlib.sha256(b"tmdb_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -212,7 +189,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 7. Hardcover (book)
-    hc = HardcoverProvider()
     hc_norm = NormalizedItem(
         kind=ItemKind.book,
         title="Dune",
@@ -230,7 +206,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="1234",
             kind=ItemKind.book,
             normalized=hc_norm,
-            capabilities=hc.capabilities,
             source_url="https://hardcover.app/books/dune",
             raw_payload_hash=hashlib.sha256(b"hardcover_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -239,7 +214,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 8. Comic Vine (comic)
-    cv = ComicVineProvider()
     cv_norm = NormalizedItem(
         kind=ItemKind.comic,
         title="Absolute Batman #1",
@@ -268,7 +242,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="4000-160294",
             kind=ItemKind.comic,
             normalized=cv_norm,
-            capabilities=cv.capabilities,
             source_url="https://comicvine.gamespot.com/absolute-batman-1/4000-160294/",
             raw_payload_hash=hashlib.sha256(b"cv_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -277,7 +250,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 9. BGG (boardgame)
-    bgg = BGGProvider()
     bgg_norm = NormalizedItem(
         kind=ItemKind.boardgame,
         title="Gloomhaven",
@@ -298,7 +270,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="174430",
             kind=ItemKind.boardgame,
             normalized=bgg_norm,
-            capabilities=bgg.capabilities,
             source_url="https://boardgamegeek.com/boardgame/174430/gloomhaven",
             raw_payload_hash=hashlib.sha256(b"bgg_raw_payload").hexdigest(),
             provider_version="1.0.0",
@@ -307,7 +278,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
     )
 
     # 10. IGDB (game)
-    igdb = IGDBProvider()
     igdb_norm = NormalizedItem(
         kind=ItemKind.game,
         title="The Witcher 3: Wild Hunt",
@@ -325,7 +295,6 @@ def generate_golden_envelopes() -> list[dict[str, Any]]:
             provider_item_id="1942",
             kind=ItemKind.game,
             normalized=igdb_norm,
-            capabilities=igdb.capabilities,
             source_url="https://www.igdb.com/games/the-witcher-3-wild-hunt",
             raw_payload_hash=hashlib.sha256(b"igdb_raw_payload").hexdigest(),
             provider_version="1.0.0",

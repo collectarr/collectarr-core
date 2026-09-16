@@ -7,8 +7,8 @@ personal ownership and consumption tracking stay split between App and Sync.
 ## Goals
 
 - Model a purchasable package that contains multiple canonical items.
-- Keep the existing `item -> edition -> variant -> release` path for
-  single-item releases.
+- Use the kind-specific work/release/edition tables for single-item
+  releases.
 - Keep personal ownership, wishlist, progress, rating, and history out of
   Core.
 - Let the App distinguish between adding a work, adding a specific physical
@@ -71,8 +71,6 @@ Suggested columns:
 | `cover_image_url` | `String(1024)` nullable | External package art |
 | `thumbnail_image_key` | `String(512)` nullable | Thumbnail asset key |
 | `thumbnail_image_url` | `String(1024)` nullable | Thumbnail URL |
-| `external_ids` | `JSONB` nullable | Provider-specific package IDs |
-| `metadata_json` | `JSONB` nullable | Disc structure, provider raw fields, normalized format IDs |
 | `created_at` | timestamp | Standard `TimestampMixin` |
 | `updated_at` | timestamp | Standard `TimestampMixin` |
 
@@ -86,8 +84,8 @@ Notes:
 
 - `bundle_releases` is intentionally SKU-like. V1 does not add a separate
   logical bundle parent plus bundle variants layer.
-- `external_provider_ids.entity_type` should accept `bundle_release` so Core
-  can map provider bundle/package IDs without a second provider mapping table.
+- `external_provider_ids.entity_type` accepts `bundle_release` so Core can map
+  provider bundle/package IDs without a second provider mapping table.
 - `image_assets`, `entity_tags`, `entity_organizations`, and `entity_persons`
   should also accept `bundle_release` as an entity type.
 
@@ -109,7 +107,6 @@ Suggested columns:
 | `disc_label` | `String(255)` nullable | Display label for a disc or tray |
 | `quantity` | `Integer` not null default `1` | Usually `1`, but explicit when needed |
 | `is_primary` | `Boolean` not null default `False` | Primary content item for summaries |
-| `metadata_json` | `JSONB` nullable | Provider-specific placement data |
 | `created_at` | timestamp | Standard `TimestampMixin` |
 | `updated_at` | timestamp | Standard `TimestampMixin` |
 
@@ -124,9 +121,10 @@ Notes:
 - V1 supports mixed contents by item membership, but still assumes one media
   family per bundle row through `bundle_releases.kind`.
 - Bundle membership is polymorphic via `bundle_release_components.entity_type`
-  + `entity_id`; it does not point at `items.id`.
-- If providers later expose package parts richer than disc/sequence, that extra
-  shape belongs in `metadata_json` first.
+  + `entity_id`; it points at the canonical kind-specific entity.
+- Provider-specific bundle identifiers belong in `external_provider_ids` and
+  additional placement semantics require explicit typed columns or a dedicated
+  relation table.
 
 ### SQLAlchemy shape
 
@@ -154,9 +152,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
-    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
     components: Mapped[list["BundleReleaseComponent"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
     )
@@ -176,10 +171,7 @@ class BundleReleaseComponent(UuidMixin, TimestampMixin, Base):
     disc_label: Mapped[str | None] = mapped_column(String(255))
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    bundle_release: Mapped[BundleRelease] = relationship(back_populates="items")
-    item: Mapped[Item] = relationship()
+    bundle_release: Mapped[BundleRelease] = relationship(back_populates="components")
 ```
 
 ## Core API Contract Changes
@@ -192,8 +184,7 @@ Suggested API shape:
 - Keep `/metadata/search` item-first.
 - Include `bundle_count` on item detail or preview payloads when bundle matches
   exist.
-- Expose bundle lookup on a dedicated typed bundle resource, not through the
-  legacy `items` projection path.
+- Expose bundle lookup on a dedicated typed bundle resource.
 - Allow provider ingest to create both `item` rows and `bundle_release` rows when
   the upstream source exposes package composition.
 

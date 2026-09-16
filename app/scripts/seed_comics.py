@@ -5,7 +5,6 @@ import asyncio
 import re
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -246,16 +245,6 @@ async def _upsert_issue(db: AsyncSession, comic: SeedComicIssue, work: ComicWork
         series=comic.work_title,
         fallback_key=f"collectarr-comic-{comic.slug}-{comic.issue_number}",
     )
-    metadata_json: dict[str, Any] = {
-        "provider": ExternalProvider.comicvine.value,
-        "provider_item_id": comic.provider_id,
-        "normalized": {
-            "title": comic.title,
-            "issue_number": comic.issue_number,
-            "release_date": comic.release_date.isoformat(),
-            "publisher": comic.publisher,
-        },
-    }
     if issue is None:
         issue = ComicIssue(
             work=work,
@@ -269,7 +258,6 @@ async def _upsert_issue(db: AsyncSession, comic: SeedComicIssue, work: ComicWork
             release_status="released",
             cover_image_url=cover_url,
             description=comic.synopsis,
-            metadata_json=metadata_json,
         )
         db.add(issue)
         await db.flush()
@@ -283,7 +271,6 @@ async def _upsert_issue(db: AsyncSession, comic: SeedComicIssue, work: ComicWork
         issue.release_status = "released"
         issue.cover_image_url = cover_url
         issue.description = comic.synopsis
-        issue.metadata_json = metadata_json
 
     await _ensure_identifier(
         db,

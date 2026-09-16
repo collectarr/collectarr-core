@@ -99,6 +99,8 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_music_release as _get_music_release,
+)
+from app.services.metadata.metadata_reads import (
     get_music_release_group as _get_music_release_group,
 )
 from app.services.metadata.metadata_reads import (

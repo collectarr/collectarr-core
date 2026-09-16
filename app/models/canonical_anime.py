@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -16,7 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import (
@@ -61,7 +60,6 @@ class AnimeSeries(UuidMixin, TimestampMixin, Base):
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     anime_type: Mapped[str | None] = mapped_column(String(64), index=True)
     episode_count: Mapped[int | None]
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     episodes: Mapped[list["AnimeEpisode"]] = relationship(
         back_populates="series", cascade="all, delete-orphan", lazy="selectin"
@@ -90,7 +88,6 @@ class AnimeEpisode(UuidMixin, TimestampMixin, Base):
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(255))
     runtime_minutes: Mapped[int | None]
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     series: Mapped[AnimeSeries] = relationship(back_populates="episodes")
 
@@ -114,8 +111,8 @@ class AnimeContribution(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    role_id: Mapped[str | None] = mapped_column(String(64), index=True)
     sequence: Mapped[int | None] = mapped_column(Integer)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     series: Mapped[AnimeSeries | None] = relationship(back_populates="contributions")
     person: Mapped["Person"] = relationship()
@@ -144,7 +141,6 @@ class AnimeIdentifier(UuidMixin, TimestampMixin, Base):
         Enum(ExternalProvider, name="external_provider", create_type=False),
         index=True,
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     series: Mapped[AnimeSeries] = relationship(back_populates="identifiers")
 
@@ -168,7 +164,6 @@ class AnimeCharacterAppearance(UuidMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False, default="featured", index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     series: Mapped[AnimeSeries] = relationship(back_populates="character_appearances")
     character: Mapped["Character"] = relationship()

@@ -97,9 +97,14 @@ class ComicMetadataResponseBuilders:
                         role=row.role,
                         image_url=row.character.image_url if row.character is not None else None,
                         sort_name=row.character.canonical_name if row.character is not None else None,
-                        external_ids=row.character.metadata_json.get("external_ids")
-                        if row.character is not None and isinstance(row.character.metadata_json, dict)
-                        else None,
+                        external_ids=(
+                            {
+                                identifier.identifier_type: identifier.value
+                                for identifier in row.character.external_identifiers
+                            }
+                            if row.character is not None and row.character.external_identifiers
+                            else None
+                        ),
                     )
                     for row in sorted(
                         issue.character_appearances or [],
@@ -147,7 +152,13 @@ class ComicMetadataResponseBuilders:
                 first_publication_date=work.first_publication_date,
                 expected_issue_count=work.expected_issue_count,
                 missing_issue_count=work.missing_issue_count,
-                missing_issue_numbers=work.missing_issue_numbers or [],
+                missing_issue_numbers=[
+                    entry.issue_number
+                    for entry in sorted(
+                        work.missing_issue_entries,
+                        key=lambda row: row.position,
+                    )
+                ],
                 contributors=[
                     self._comic_contributor_response(row, scope="work")
                     for row in sorted(

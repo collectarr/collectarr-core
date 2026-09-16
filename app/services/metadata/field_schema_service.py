@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import status
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import Character, CharacterAppearance, EntityPerson, Person, StoryArc, StoryArcItem
@@ -20,7 +21,7 @@ from app.schemas import (
 )
 from app.schemas.metadata_shared import public_item_kind
 from app.services.entity_resolution import load_entity_summaries
-from app.services.metadata.metadata_helpers import _model_text_or_metadata
+from app.services.metadata.metadata_helpers import model_text
 
 
 class FieldSchemaService:
@@ -83,10 +84,10 @@ class FieldSchemaService:
             CreatorResponse(
                 id=person.id,
                 name=person.name,
-                description=_model_text_or_metadata(person, "description"),
-                image_url=_model_text_or_metadata(person, "image_url"),
-                api_detail_url=_model_text_or_metadata(person, "api_detail_url"),
-                site_detail_url=_model_text_or_metadata(person, "site_detail_url"),
+                description=model_text(person, "description"),
+                image_url=model_text(person, "image_url"),
+                api_detail_url=model_text(person, "api_detail_url"),
+                site_detail_url=model_text(person, "site_detail_url"),
                 item_count=int(item_count or 0),
             )
             for person, item_count in rows
@@ -172,7 +173,7 @@ class FieldSchemaService:
                 continue
             facet_entity_ids = sorted(raw_entity_ids, key=lambda entity_id: entity_order.get(entity_id, len(entity_order)))
             role_counts = bucket["role_counts"]
-            facets.append(CreatorFacetResponse(id=person.id, name=person.name, description=_model_text_or_metadata(person, "description"), image_url=_model_text_or_metadata(person, "image_url"), item_count=len(facet_entity_ids), entity_ids=facet_entity_ids, role_counts=role_counts if isinstance(role_counts, dict) else {}))
+            facets.append(CreatorFacetResponse(id=person.id, name=person.name, description=model_text(person, "description"), image_url=model_text(person, "image_url"), item_count=len(facet_entity_ids), entity_ids=facet_entity_ids, role_counts=role_counts if isinstance(role_counts, dict) else {}))
         facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
         return facets
 
@@ -181,6 +182,7 @@ class FieldSchemaService:
         stmt = (
             select(Character, count_expr.label("appearance_count"))
             .outerjoin(CharacterAppearance, CharacterAppearance.character_id == Character.id)
+            .options(selectinload(Character.alias_entries))
             .group_by(Character.id)
             .order_by(count_expr.desc(), Character.name.asc())
             .limit(limit)
@@ -193,7 +195,7 @@ class FieldSchemaService:
             CharacterResponse(
                 id=character.id,
                 name=character.name,
-                aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
+                aliases=[alias.alias for alias in character.alias_entries if alias.alias.strip()],
                 description=character.description,
                 image_url=character.image_url,
                 first_appearance_entity_type=character.first_appearance_entity_type,
@@ -222,7 +224,14 @@ class FieldSchemaService:
         if not ordered_entity_ids:
             return []
         entity_order = {entity_id: index for index, entity_id in enumerate(ordered_entity_ids)}
-        rows = (await self.db.execute(select(Character, CharacterAppearance.entity_id, CharacterAppearance.role).join(CharacterAppearance, CharacterAppearance.character_id == Character.id).where(CharacterAppearance.entity_id.in_(ordered_entity_ids)))).all()
+        rows = (
+            await self.db.execute(
+                select(Character, CharacterAppearance.entity_id, CharacterAppearance.role)
+                .join(CharacterAppearance, CharacterAppearance.character_id == Character.id)
+                .where(CharacterAppearance.entity_id.in_(ordered_entity_ids))
+                .options(selectinload(Character.alias_entries))
+            )
+        ).all()
         grouped: dict[UUID, dict[str, object]] = {}
         for character, item_id, role in rows:
             bucket = grouped.setdefault(character.id, {"character": character, "entity_ids": set(), "role_counts": {}})
@@ -243,6 +252,6 @@ class FieldSchemaService:
             if not isinstance(raw_entity_ids, set) or not isinstance(raw_role_counts, dict):
                 continue
             facet_entity_ids = sorted(raw_entity_ids, key=lambda entity_id: entity_order.get(entity_id, len(entity_order)))
-            facets.append(CharacterFacetResponse(id=character.id, name=character.name, aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()], image_url=character.image_url, item_count=len(facet_entity_ids), entity_ids=facet_entity_ids, role_counts={str(role): int(count) for role, count in raw_role_counts.items()}))
+            facets.append(CharacterFacetResponse(id=character.id, name=character.name, aliases=[alias.alias for alias in character.alias_entries if alias.alias.strip()], image_url=character.image_url, item_count=len(facet_entity_ids), entity_ids=facet_entity_ids, role_counts={str(role): int(count) for role, count in raw_role_counts.items()}))
         facets.sort(key=lambda facet: (-facet.item_count, facet.name.casefold()))
         return facets

@@ -1,32 +1,14 @@
-import sys
-from pathlib import Path
 from datetime import date
-
-ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(ROOT))
-
-import pytest
 
 from app.models.base import ItemKind
 from app.providers.base import (
     NormalizedCredit,
-    NormalizedEpisode,
     NormalizedItem,
     NormalizedRelation,
-    NormalizedSeason,
     NormalizedTrack,
 )
-from app.providers.envelope import (
-    NormalizedProviderEnvelopeV1,
-    ProviderAttribution,
-    ProviderImageRef,
-    ProviderProvenance,
-)
-from app.services.canonical_catalog_writer import (
-    CanonicalCatalogWriter,
-    CanonicalCatalogWriteResult,
-    normalized_item_from_envelope,
-)
+from app.providers.envelope import NormalizedProviderEnvelopeV1
+from app.services.canonical_catalog_writer import normalized_item_from_envelope
 
 
 def test_normalized_item_from_envelope_all_fields() -> None:

@@ -19,13 +19,14 @@
 ![TV](docs/badges/catalog-tv.svg)
 ![Music](docs/badges/catalog-music.svg)
 
-> Shared metadata engine for Collectarr: canonical catalog, provider ingest, image delivery, admin tooling, and search infrastructure.
+> Shared metadata engine for Collectarr: canonical catalog, typed metadata submissions, image delivery, admin tooling, and search infrastructure.
 
-Collectarr Core owns the shared catalog and provider pipeline. Personal library
-state such as owned items, grades, notes, wishlists, and local tags stays in
-`collectarr-app` and can optionally sync through `collectarr-sync`. Core is the
-place where canonical metadata gets normalized, enriched, indexed, and exposed
-to clients.
+Collectarr Core owns the shared catalog and the normalized metadata contract.
+Provider adapters and importers run in `collectarr-app`; Core receives typed
+submissions, applies canonical writes, indexes metadata, and exposes it to
+clients. Personal library state such as owned items, grades, notes, wishlists,
+and local tags stays in `collectarr-app` and can optionally sync through
+`collectarr-sync`.
 
 ---
 
@@ -38,26 +39,25 @@ to clients.
 - Typed kind-aware item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
 - Shared editorial metadata that complements local-first personal data in the app
 
-### 🔌 Provider And Search Pipeline
+### 🔌 Metadata Contract And Search Infrastructure
 
-- 10 provider integrations: GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, and TMDb
-- Provider-aware title normalization, alias handling, issue matching, and barcode / UPC lookup
-- DB-backed ingest queue with retries, status tracking, and worker processing
+- Versioned normalized provider envelopes with provenance, attribution, and image references
+- Kind-specific canonical writes for submissions from app-side providers and importers
 - Optional Meilisearch indexing for fast catalog queries and richer search previews
 
 ### 🖼️ Image And Storage Infrastructure
 
 - External image URLs by default, with optional MinIO / S3 mirroring for controlled hosting
-- MangaDex cover proxy support, WebP normalization, cache budgeting, and origin tracking
+- Image URL normalization, cache budgeting, and origin tracking
 - Content-addressed image handling for uploaded assets and derived media variants
 - Image cache health surfaced through admin tooling instead of ad hoc scripts
 
 ### 🛠️ Admin And Operations
 
-- Admin dashboard in the Collectarr desktop app for provider health, ingest queues, duplicate review, user management, image cache stats, and audit logs
+- Admin dashboard in the Collectarr desktop app for catalog review, duplicate handling, user management, image cache stats, and audit logs
 - Role-based access with viewer / editor / admin permissions
 - OpenAPI docs at `/docs` for API exploration and schema-backed integration work
-- Daily-refreshable catalog badges and provider support docs generated from the live registry
+- Daily-refreshable catalog badges and machine-readable contract snapshots
 
 ---
 
@@ -109,32 +109,26 @@ python -m pytest
 .\tools\dev.ps1 seed             # Seed sample comics data
 .\tools\dev.ps1 test             # Run test suite
 .\tools\dev.ps1 check            # Lint + type check
-.\tools\dev.ps1 smoke-providers  # Smoke test all providers
 .\tools\dev.ps1 reset-stack      # Clean reset of containers and volumes
-python -m scripts.export_provider_support
 ```
 
 ---
 
 ## 🧩 Extending Metadata For New Libraries
 
-Core is the canonical source of cross-library metadata. When a provider exposes
-a new field, wire it through the normalized metadata contract first and only
-then project it into the client.
+Core is the canonical source of cross-library metadata. When an app-side
+provider exposes a new field, wire it through the normalized metadata contract
+first and only then project it into the client.
 
-1. Normalize the field in the provider ingest pipeline.
-2. Expose it through public schemas used by the app: item responses, search results, and admin / provider previews.
+1. Add the typed field to the normalized submission contract.
+2. Persist it in the appropriate kind-specific table or relation.
 3. Add it to Meilisearch documents and display attributes when it should affect search or preview UX.
 4. Keep field names stable so `collectarr-app` can cache and render the same canonical shape offline.
 
-When normalizing provider data, preserve the provider-native raw payload exactly
-as returned upstream. If a workflow also needs the canonical provider item id,
-use `ProviderItem.provider_item_id` alongside the raw mapping instead of
-rewriting `raw['id']`, because some providers expose numeric or kind-specific
-identifiers that are not interchangeable with the canonical route id.
-
-That keeps provider growth additive: new library kinds can share the same
-catalog/search/admin contract instead of inventing parallel app-only fields.
+Provider-native payloads stay on the app side. Core receives the normalized
+fields plus explicit provenance and provider identifiers, so new providers can
+share the same catalog/search/admin contract without adding provider-specific
+server models.
 
 ---
 
@@ -208,11 +202,6 @@ The workflow logs in through `/auth/login` when a bearer token is not provided.
 | `collectarr-app` | Flutter client for local-first collection browsing, editing, and admin-facing UX |
 | `collectarr-sync` | Optional personal sync service for multi-device shelf state |
 
-## 📦 Provider Support
-
-See [docs/provider-support.md](docs/provider-support.md) for the generated
-support matrix derived from the provider registry.
-
 ## 🧭 Library Parity Contract
 
 See [docs/library-parity-contract.md](docs/library-parity-contract.md) for the
@@ -225,7 +214,7 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the full road
 Current active tracks:
 
 - stabilize typed-per-kind metadata storage as the canonical contract
-- deepen per-media normalization where provider data still has gaps
+- deepen per-kind canonical field coverage where normalized submissions still have gaps
 - expand duplicate/merge review into a full operator queue
 - continue public-deployment hardening for internet-facing setups
 - keep the interactive schema explorer clearer by separating general tables from kind-specific tables

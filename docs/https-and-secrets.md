@@ -59,9 +59,6 @@ Configure the proxy with the generated `.pem` files.
 | `REDIS_URL` | Redis connection string | Restart API + worker |
 | `MEILI_MASTER_KEY` | Meilisearch admin key | Restart API + worker, re-index |
 | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | MinIO/S3 credentials | Restart API + worker |
-| `COMICVINE_API_KEY` | ComicVine provider | Restart API (hot-reloaded per request) |
-| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | IGDB/Twitch credentials | Restart API |
-| `TMDB_API_KEY` / `TMDB_API_READ_ACCESS_TOKEN` | TMDb provider | Restart API |
 | `SYNC_API_KEY` | Sync service auth | Re-pair all devices |
 
 ## Secrets Rotation
@@ -98,13 +95,7 @@ docker compose up -d api worker
 3. Restart API and worker.
 4. Revoke the old key.
 
-### 4. Provider API keys
-
-Provider keys (`COMICVINE_API_KEY`, `IGDB_CLIENT_SECRET`, `TMDB_API_KEY`) can be
-rotated by updating `.env` and restarting. No data migration is needed — provider
-metadata is cached locally.
-
-### 5. `SYNC_API_KEY`
+### 4. `SYNC_API_KEY`
 
 Changing the sync key requires all paired devices to re-authenticate. Update
 `.env` in both `collectarr-core` and `collectarr-sync`, restart the sync

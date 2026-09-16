@@ -3,16 +3,21 @@ from uuid import UUID
 import pytest
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import ComicWork, MetadataProposal
+from app.models import MetadataProposal
 from app.models.base import ExternalProvider
-from app.providers.base import ProviderItem
-from app.providers.comicvine import ComicVineProvider
-from app.search.client import SearchClient
-from app.storage.images import ImageMirror
 
-from .test_admin_ingest import comicvine_issue_raw
-from .test_admin_providers import admin_token
+
+async def admin_token(client, monkeypatch) -> str:
+    settings = get_settings()
+    monkeypatch.setattr(settings, "bootstrap_admin_emails", {"admin@example.com"})
+    response = await client.post(
+        "/auth/register",
+        json={"email": "admin@example.com", "password": "password123", "display_name": "Admin"},
+    )
+    assert response.status_code == 201
+    return response.json()["access_token"]
 
 
 @pytest.mark.asyncio
@@ -95,59 +100,3 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
             select(MetadataProposal.status).where(MetadataProposal.id == UUID(proposal_id))
         )
         assert status == "rejected"
-
-
-@pytest.mark.asyncio
-async def test_admin_can_approve_manual_proposal_with_provider_item(client, monkeypatch):
-    token = await admin_token(client, monkeypatch)
-
-    async def fake_get_item(self, provider_item_id):
-        return ProviderItem(
-            provider="comicvine",
-            provider_item_id=provider_item_id,
-            raw=comicvine_issue_raw(),
-        )
-
-    async def fake_index_documents(self, documents):
-        return True
-
-    async def fake_mirror_cover(self, source_url, provider, provider_item_id):
-        return None
-
-    monkeypatch.setattr(ComicVineProvider, "get_item", fake_get_item)
-    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
-    monkeypatch.setattr(ImageMirror, "mirror_cover_best_effort", fake_mirror_cover)
-
-    async with AsyncSessionLocal() as db:
-        proposal = MetadataProposal(
-            provider=ExternalProvider.comicvine,
-            query="The Amazing Spider-Man #1",
-            title="The Amazing Spider-Man",
-            summary="Manual proposal from CSV import",
-        )
-        db.add(proposal)
-        await db.commit()
-        proposal_id = str(proposal.id)
-
-    response = await client.post(
-        f"/admin/metadata/proposals/{proposal_id}/approve-provider",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"provider": "comicvine", "provider_item_id": "4000-12345"},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["created"] is True
-    assert body["item"]["title"] == "The Amazing Spider-Man"
-
-    async with AsyncSessionLocal() as db:
-        proposal = await db.get(MetadataProposal, UUID(proposal_id))
-        assert proposal is not None
-        assert proposal.status == "approved"
-        assert proposal.provider == ExternalProvider.comicvine
-        assert proposal.provider_item_id == "4000-12345"
-        # For comics v1, we now create ComicWork instead of Item
-        # Check that a ComicWork was created with the right title
-        comic_work = await db.scalar(select(ComicWork))
-        assert comic_work is not None
-        assert comic_work.title == "The Amazing Spider-Man"

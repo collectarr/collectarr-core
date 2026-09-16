@@ -47,7 +47,7 @@ and documented in `docs/field-schema.md`.
 
 - Media-kind routing/defaults: `app/catalog/media_types.py`
 - Provider capabilities: `app/providers/*` via `ProviderRegistry`
-- Provider support snapshot: `docs/provider-support.md`
+- Provider support snapshot: `contracts/provider-support.json`
 
 ## Enforcement
 

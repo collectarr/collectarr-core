@@ -10,7 +10,6 @@ from app.catalog.physical_formats import (
     video_physical_formats,
 )
 from app.models.base import ExternalProvider, ItemKind
-from app.providers.registry import ProviderRegistry
 
 
 def test_media_catalog_covers_all_item_kinds():
@@ -68,21 +67,3 @@ def test_media_catalog_maps_route_segments_and_default_providers():
     assert anime.default_provider == ExternalProvider.anilist
     assert games is not None
     assert games.default_provider == ExternalProvider.igdb
-
-
-def test_provider_registry_can_filter_and_pick_media_defaults():
-    registry = ProviderRegistry()
-
-    comic_providers = registry.for_kind(ItemKind.comic)
-
-    assert [provider.name for provider in comic_providers] == ["comicvine", "gcd"]
-    assert registry.default_for_kind(ItemKind.comic).name == "gcd"
-    assert registry.default_for_kind(ItemKind.manga).name == "hardcover"
-    assert registry.default_for_kind(ItemKind.anime).name == "anilist"
-    assert registry.default_for_kind(ItemKind.game).name == "igdb"
-    assert registry.default_for_kind(ItemKind.movie).name == "tmdb"
-    assert registry.default_for_kind(ItemKind.tv).name == "tmdb"
-    assert registry.default_for_kind(ItemKind.book).name == "openlibrary"
-    # Removed kinds: no defaults for `manga`/`anime`
-    assert registry.default_for_kind(ItemKind.boardgame).name == "bgg"
-    assert registry.default_for_kind(ItemKind.music).name == "musicbrainz"

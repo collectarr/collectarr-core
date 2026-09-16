@@ -1,4 +1,4 @@
-"""Export golden fixtures for NormalizedProviderEnvelopeV1 across all 10 providers."""
+"""Export golden fixtures for the normalized provider envelope contract."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.models.base import ItemKind
-from app.providers.base import (
+from app.models.base import ItemKind  # noqa: E402
+from app.providers.base import (  # noqa: E402
     NormalizedCredit,
     NormalizedItem,
     NormalizedTrack,
     NormalizedVariantCover,
 )
-from app.providers.envelope import NormalizedProviderEnvelopeV1
+from app.providers.envelope import NormalizedProviderEnvelopeV1  # noqa: E402
 
 
 def generate_golden_envelopes() -> list[dict[str, Any]]:

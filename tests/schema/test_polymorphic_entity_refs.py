@@ -11,7 +11,7 @@ from app.models import (
     GameWork,
     MovieRelease,
     MovieWork,
-    MusicMedia,
+    MusicMedium,
     MusicRelease,
     MusicTrack,
     TVEpisode,
@@ -77,7 +77,7 @@ async def test_bundle_release_components_support_multiple_entity_types(migrated_
 
         movie_release = MovieRelease(work_id=movie_work.id, format="Blu-ray")
         tv_media = TVReleaseMedia(release_id=tv_release.id, media_number=1, media_type="disc")
-        music_media = MusicMedia(release_id=music_release.id, media_number=1, media_type="CD")
+        music_media = MusicMedium(release_id=music_release.id, media_number=1, media_type="CD")
         comic_issue = ComicIssue(work_id=comic_work.id)
         game_release = GameRelease(work_id=game_work.id)
         db.add_all([movie_release, tv_media, music_media, comic_issue, game_release])

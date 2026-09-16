@@ -65,7 +65,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypatch):
+async def test_admin_audit_logs_duplicate_merge(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
         target = ComicWork(title="Duplicate Book", sort_title="duplicate book")
@@ -95,15 +95,6 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
     assert review_row.target_entity_id == UUID(target_id)
     assert review_row.source_entity_ids == [source_id]
 
-    queued = await client.post(
-        "/admin/providers/ingest/jobs",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"provider": "gcd", "provider_item_id": "256114"},
-    )
-
-    assert queued.status_code == 201
-    job_id = queued.json()["id"]
-
     logs = await client.get(
         "/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
@@ -118,17 +109,6 @@ async def test_admin_audit_logs_duplicate_merge_and_job_create(client, monkeypat
     assert rows["duplicates.merge"]["details_json"]["duplicate_score"] >= 55
     assert "confidence_factors" in rows["duplicates.merge"]["details_json"]
     assert "merge_warnings" in rows["duplicates.merge"]["details_json"]
-    assert rows["provider_ingest.job_create"]["entity_id"] == job_id
-    assert rows["provider_ingest.job_create"]["details_json"]["provider_item_id"] == "256114"
-
-    filtered = await client.get(
-        "/admin/audit/logs",
-        headers={"Authorization": f"Bearer {token}"},
-        params={"entity_type": "provider_ingest_job"},
-    )
-
-    assert filtered.status_code == 200
-    assert [UUID(row["entity_id"]) for row in filtered.json()] == [UUID(job_id)]
 
 
 @pytest.mark.asyncio

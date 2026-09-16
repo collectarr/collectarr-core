@@ -15,8 +15,8 @@ traceability.
 `collectarr-core` owns shared metadata and operations:
 
 - canonical catalog schema and migrations
-- provider integrations and provider routing
-- search, indexing, provider ingest jobs, and worker processes
+- normalized metadata submission contracts and canonical writes
+- search, indexing, and worker processes
 - image references, optional MinIO/S3 image cache, generated fallback covers,
   and cover inspection/replacement operations
 - admin identity, permissions, audit logs, destructive-operation guardrails, and
@@ -36,7 +36,7 @@ traceability.
 - local Drift database
 - local catalog snapshots used for offline-first browsing
 - owned/wishlist/personal fields
-- CSV/CLZ import-export
+- provider adapters, CSV/CLZ import-export, and importer workflows
 - barcode scanning/manual fallback UX
 - sync client, pairing UX, conflict review/actions, and local retry queue
 

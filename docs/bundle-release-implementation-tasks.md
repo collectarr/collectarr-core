@@ -18,21 +18,21 @@ Related design: `docs/bundle-release-design.md`
 
 - Add Pydantic schemas for bundle summary and bundle detail payloads.
 - Add typed bundle summary/detail routes on the dedicated bundle resource.
-- Extend admin/provider ingest schemas so package composition can be persisted.
-- Extend provider normalization contracts with optional bundle output.
+- Extend normalized submission schemas so package composition can be persisted.
+- Extend the normalized provider envelope with optional bundle output.
 - Add repository/service helpers to load bundle members and compute summaries.
 - Allow `external_provider_ids.entity_type = bundle_release` in service-layer validation.
 - Allow `image_assets`, `entity_tags`, `entity_persons`, and `entity_organizations`
   to attach to `bundle_release` in admin/editor flows.
 - Add focused API tests for bundle list and bundle detail routes.
-- Add ingest tests for one provider fixture that emits a bundle/package.
+- Add submission tests for one bundle/package envelope.
 
 ### Core sequencing
 
 1. Schemas
 2. Service/repository layer
 3. Read endpoints
-4. Provider ingest support
+4. Normalized bundle submission support
 5. Tests
 
 ## App
@@ -109,7 +109,7 @@ Related design: `docs/bundle-release-design.md`
 3. App add dialog reference-type flow
 4. Sync schema extension
 5. Derived bundle progress in App UI
-6. Provider ingest bundle support in Core
+6. Bundle submission support in Core
 
 ## Immediate next task
 

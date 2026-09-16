@@ -7,13 +7,13 @@ from app import main as app_main
 from app import models as app_models
 from app.catalog.metadata_fields import METADATA_FIELDS
 from app.models.base import Base, ExternalProvider
+from app.proposal_payload import compact_metadata_payload, validate_metadata_payload
 from app.providers.base import (
     NormalizedBundleRelease,
     NormalizedCredit,
     NormalizedItem,
     NormalizedTrack,
 )
-from app.proposal_payload import compact_metadata_payload, validate_metadata_payload
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,
     MetadataProposalAdminUpdateRequest,

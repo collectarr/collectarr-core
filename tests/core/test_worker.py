@@ -1,12 +1,9 @@
 import pytest
 
 from app.db.session import AsyncSessionLocal
-from app.schemas.admin import ProviderIngestJobRunResponse
 from app.worker.main import (
     catalog_fingerprint,
     index_changed_catalog,
-    refresh_stale_catalog_items,
-    run_pending_provider_ingest_jobs_best_effort,
 )
 from tests.helpers import seed_comic
 
@@ -41,50 +38,3 @@ async def test_index_changed_catalog_keeps_last_fingerprint_on_index_failure():
     next_fingerprint = await index_changed_catalog(FailingSearch(), initial)
 
     assert next_fingerprint == initial
-
-
-@pytest.mark.asyncio
-async def test_run_pending_provider_ingest_jobs_best_effort_returns_result(monkeypatch):
-    async def fake_run_pending_provider_ingest_jobs(limit):
-        return ProviderIngestJobRunResponse(processed=2, recovered=1, jobs=[])
-
-    monkeypatch.setattr(
-        "app.worker.main.run_pending_provider_ingest_jobs",
-        fake_run_pending_provider_ingest_jobs,
-    )
-
-    result = await run_pending_provider_ingest_jobs_best_effort(5)
-
-    assert result is not None
-    assert result.processed == 2
-    assert result.recovered == 1
-
-
-@pytest.mark.asyncio
-async def test_run_pending_provider_ingest_jobs_best_effort_swallows_errors(monkeypatch):
-    async def fail_run_pending_provider_ingest_jobs(limit):
-        raise RuntimeError("database unavailable")
-
-    monkeypatch.setattr(
-        "app.worker.main.run_pending_provider_ingest_jobs",
-        fail_run_pending_provider_ingest_jobs,
-    )
-
-    result = await run_pending_provider_ingest_jobs_best_effort(5)
-
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_refresh_stale_catalog_items_swallows_errors(monkeypatch):
-    async def fail_refresh(self, limit):
-        raise RuntimeError("database unavailable")
-
-    monkeypatch.setattr(
-        "app.services.admin.AdminMetadataService.refresh_stale_items",
-        fail_refresh,
-    )
-
-    result = await refresh_stale_catalog_items(5)
-
-    assert result == 0

@@ -14,14 +14,6 @@ docker compose exec api python -m app.scripts.seed_comics
 For a personal unRAID deployment without a reverse proxy or public domain, see
 `docs/unraid.md`.
 
-For live GCD-backed comics metadata, run a dry run first and then ingest with
-duplicate skipping:
-
-```powershell
-docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --issue 12 --dry-run
-docker compose exec api python -m app.scripts.ingest_gcd --series "Batman" --from-issue 1 --to-issue 12 --skip-existing
-```
-
 Back up:
 
 - PostgreSQL volume or logical `pg_dump`
@@ -117,7 +109,7 @@ each deployment.
 The API and worker are stateless containers. Scale them separately from storage:
 
 - PostgreSQL for source-of-truth metadata and operational data
-- Redis for shared rate limits, provider search cache, and provider cooldowns
+- Redis for shared rate limits and other ephemeral API state
 - Meilisearch for derived search indexes
 - S3-compatible storage for images
 - optional CDN in front of image URLs.
@@ -143,8 +135,8 @@ The default Compose stack is tuned for local development:
 - API and sync access logs are disabled to avoid writing one Docker log line for every health/status request.
 - Docker JSON logs are rotated at `10m` with three retained files per service.
 - The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when catalog tables changed.
-- The same worker drains DB-backed provider ingest jobs every `WORKER_PROVIDER_INGEST_INTERVAL_SECONDS` seconds, processing up to `WORKER_PROVIDER_INGEST_BATCH_SIZE` jobs at a time and requeueing stale `running` jobs after `WORKER_PROVIDER_INGEST_STALE_AFTER_SECONDS`. Admin queue endpoints expose health counts and filters for status/provider/error text so failures remain inspectable after restarts.
-- Public provider image URLs are stored as URLs by default, without copying covers into MinIO.
+- Normalized metadata submissions are persisted by the API and indexed by the worker when the search index is enabled.
+- External image URLs are stored by default, without copying covers into MinIO.
 - Object storage bucket setup is cached per process, so repeated image uploads do not rewrite MinIO bucket policy each time.
 
 PostgreSQL checkpoint lines such as `wrote 331 buffers` are normal and usually small. The `write=33s` value means PostgreSQL spread the write work over that interval; the `sync` duration is the part that more directly reflects waiting for disk flushes.
@@ -154,12 +146,15 @@ For a lower-write development stack, keep this in `.env`:
 ```env
 MIRROR_PROVIDER_IMAGES=false
 WORKER_INDEX_INTERVAL_SECONDS=3600
-WORKER_PROVIDER_INGEST_INTERVAL_SECONDS=60
 ```
 
-With image mirroring disabled, provider ingest keeps external cover URLs and avoids downloading covers into MinIO. MinIO/S3 remains the place for manual uploads, generated assets, or providers without stable public cover URLs. If you want a fully self-contained catalog, set `MIRROR_PROVIDER_IMAGES=true` and place MinIO/S3 data on storage you are comfortable writing to. Core only mirrors providers marked image-mirroring safe unless `MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED=true` is also set; use that override only when your deployment accepts the provider-specific image terms. Mirrored provider covers are normalized to a single WebP asset per source image; clients reuse that same asset for grids and detail views. Provider ingest, external provider search results, and the GCD cover proxy all use the same cache policy. Mirrored covers are tracked in `image_cache_entries` and cleaned as a least-recently-used cache. Defaults keep up to 100 GB and evict down to 85 GB; tune `IMAGE_CACHE_MAX_BYTES`, `IMAGE_CACHE_EVICT_TARGET_BYTES`, and `IMAGE_CACHE_CLEANUP_BATCH_SIZE` for your storage.
+With image mirroring disabled, Core keeps external image URLs and avoids
+downloading covers into MinIO. MinIO/S3 remains the place for manual uploads,
+generated assets, or explicitly mirrored images. If you want a self-contained
+catalog, set `MIRROR_PROVIDER_IMAGES=true`. Mirrored covers are normalized to a
+single WebP asset and tracked in `image_cache_entries` with a bounded LRU cache.
 
-Auth endpoints and admin provider-triggering endpoints use a lightweight
+Auth endpoints and admin endpoints use a lightweight
 in-process rate limiter by default. Tune the request/window pairs if you expose
 Core beyond a trusted LAN:
 
@@ -168,17 +163,11 @@ AUTH_RATE_LIMIT_REQUESTS=20
 AUTH_RATE_LIMIT_WINDOW_SECONDS=60
 ADMIN_PROVIDER_RATE_LIMIT_REQUESTS=60
 ADMIN_PROVIDER_RATE_LIMIT_WINDOW_SECONDS=60
-PROVIDER_SEARCH_RATE_LIMIT_REQUESTS=30
-PROVIDER_SEARCH_RATE_LIMIT_WINDOW_SECONDS=60
-PROVIDER_SEARCH_CACHE_TTL_SECONDS=21600
-PROVIDER_SEARCH_BACKOFF_SECONDS=300
 ```
 
-When `REDIS_URL` is set, Core stores rate-limit windows, provider search cache,
-and provider cooldown/backoff state in Redis so multiple API replicas share the
-same protection. If Redis is unavailable or `REDIS_URL` is empty, Core falls
-back to in-process state so local development can continue, but limits and
-cooldowns are then per API process.
+When `REDIS_URL` is set, Core stores rate-limit windows in Redis so multiple API
+replicas share the same protection. If Redis is unavailable or `REDIS_URL` is
+empty, Core falls back to in-process state so local development can continue.
 
 ## Readiness
 

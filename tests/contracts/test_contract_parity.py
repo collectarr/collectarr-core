@@ -34,7 +34,7 @@ def test_provider_support_matrix_only_exposes_known_kinds() -> None:
 
     for row in registry.status_entries():
         assert row.kind.value in supported_kinds
-        assert set(kind.value for kind in row.supported_kinds) <= supported_kinds
+        assert {kind.value for kind in row.supported_kinds} <= supported_kinds
 
 
 def test_provider_support_matrix_matches_committed_stable_fields() -> None:

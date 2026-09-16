@@ -185,8 +185,8 @@ Suggested API shape:
 - Include `bundle_count` on item detail or preview payloads when bundle matches
   exist.
 - Expose bundle lookup on a dedicated typed bundle resource.
-- Allow provider ingest to create both `item` rows and `bundle_release` rows when
-  the upstream source exposes package composition.
+- Allow a normalized submission to create both canonical item rows and
+  `bundle_release` rows when the upstream source exposes package composition.
 
 Suggested item bundle summary payload:
 
@@ -405,8 +405,8 @@ entry. The primary identity remains the canonical `itemId`.
 1. Add `bundle_releases` and `bundle_release_components` to Core models and Alembic.
 2. Extend generic entity tables and provider mappings to accept `bundle_release`.
 3. Add item-scoped bundle lookup endpoints.
-4. Teach provider normalization and ingest to emit bundle rows when upstream
-   data exposes package contents.
+4. Teach app-side provider normalization and the Core submission writer to emit
+   bundle rows when upstream data exposes package contents.
 5. Add `track` as a first-class add target in App.
 6. Add `bundleReleaseId` and `anchorType` to local personal entities in App and Sync.
 7. Update add dialog preview and save workflow to choose `media`, `release`, or `bundle`.

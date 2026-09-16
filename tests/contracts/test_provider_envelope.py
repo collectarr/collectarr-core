@@ -1,20 +1,6 @@
-import json
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(ROOT))
-
-import pytest
-
 from app.models.base import ItemKind
 from app.providers.base import NormalizedItem
-from app.providers.envelope import (
-    NormalizedProviderEnvelopeV1,
-    ProviderAttribution,
-    ProviderImageRef,
-    ProviderProvenance,
-)
+from app.providers.envelope import NormalizedProviderEnvelopeV1
 from scripts.export_provider_golden_fixtures import generate_golden_envelopes
 
 
@@ -56,7 +42,7 @@ def test_envelope_creation_and_serialization() -> None:
     assert restored.attribution == envelope.attribution
 
 
-def test_golden_envelopes_contain_all_10_providers() -> None:
+def test_golden_envelopes_cover_contract_examples() -> None:
     fixtures = generate_golden_envelopes()
     assert len(fixtures) == 10
 
@@ -91,5 +77,5 @@ def test_golden_envelopes_contain_all_10_providers() -> None:
 
 if __name__ == "__main__":
     test_envelope_creation_and_serialization()
-    test_golden_envelopes_contain_all_10_providers()
+    test_golden_envelopes_cover_contract_examples()
     print("All core envelope unit tests passed!")

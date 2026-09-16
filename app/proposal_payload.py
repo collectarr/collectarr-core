@@ -1,8 +1,8 @@
 from collections.abc import Mapping
-from typing import Any
 
 from app.catalog.metadata_fields import editable_field_keys
 from app.metadata_normalized import ALLOWED_NORMALIZED_METADATA_KEYS
+from app.types import JsonObject, JsonValue
 
 _PROPOSAL_ROOT_ALLOWLIST = editable_field_keys() | {
     "candidate_type",
@@ -18,7 +18,7 @@ _PROPOSAL_NORMALIZED_ALLOWLIST = ALLOWED_NORMALIZED_METADATA_KEYS | {
 }
 
 
-def compact_metadata_payload(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+def compact_metadata_payload(payload: Mapping[str, object] | None) -> JsonObject | None:
     if not isinstance(payload, Mapping):
         return None
     compacted = _compact_json_like(payload)
@@ -27,7 +27,7 @@ def compact_metadata_payload(payload: Mapping[str, Any] | None) -> dict[str, Any
     return None
 
 
-def validate_metadata_payload(payload: Mapping[str, Any] | None) -> None:
+def validate_metadata_payload(payload: Mapping[str, object] | None) -> None:
     if not isinstance(payload, Mapping):
         return
     for raw_key, raw_value in payload.items():
@@ -40,7 +40,7 @@ def validate_metadata_payload(payload: Mapping[str, Any] | None) -> None:
             _validate_normalized_payload(raw_value)
 
 
-def _validate_normalized_payload(value: Any) -> None:
+def _validate_normalized_payload(value: object) -> None:
     if value is None:
         return
     if not isinstance(value, Mapping):
@@ -53,9 +53,9 @@ def _validate_normalized_payload(value: Any) -> None:
             raise ValueError(f"metadata_payload.normalized contains unknown key: {key}")
 
 
-def _compact_json_like(value: Any) -> Any:
+def _compact_json_like(value: object) -> JsonValue:
     if isinstance(value, Mapping):
-        compacted: dict[str, Any] = {}
+        compacted: JsonObject = {}
         for raw_key, raw_value in value.items():
             key = str(raw_key).strip()
             if not key:
@@ -67,7 +67,7 @@ def _compact_json_like(value: Any) -> Any:
         return compacted
 
     if isinstance(value, list):
-        compacted_list = []
+        compacted_list: list[JsonValue] = []
         for entry in value:
             normalized = _compact_json_like(entry)
             if _is_empty(normalized):
@@ -79,10 +79,12 @@ def _compact_json_like(value: Any) -> Any:
         text = value.strip()
         return text if text else None
 
-    return value
+    if value is None or isinstance(value, bool | int | float):
+        return value
+    return str(value)
 
 
-def _is_empty(value: Any) -> bool:
+def _is_empty(value: JsonValue) -> bool:
     if value is None:
         return True
     if value == {}:

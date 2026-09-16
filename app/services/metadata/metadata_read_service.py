@@ -36,8 +36,4 @@ class MetadataReadService(
     ProposalsService,
     FieldSchemaService,
 ):
-    def __init__(self, service) -> None:
-        self.service = service
-
-    def __getattr__(self, name: str):
-        return getattr(self.service, name)
+    """Composed typed read surface mixed directly into MetadataFacade."""

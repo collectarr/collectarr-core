@@ -20,6 +20,7 @@ from app.models import (
     MangaWork,
     MovieWork,
     ProviderIngestJob,
+    Tag,
     TVRelease,
     TVSeries,
 )
@@ -73,6 +74,15 @@ class AdminSupportService:
                 )
             )
         return links_by_entity
+
+    async def get_or_create_tag(self, kind: str, name: str) -> Tag:
+        result = await self.db.execute(select(Tag).where(Tag.kind == kind, Tag.name == name))
+        tag = result.scalar_one_or_none()
+        if tag is None:
+            tag = Tag(kind=kind, name=name)
+            self.db.add(tag)
+            await self.db.flush()
+        return tag
 
     async def item_response(self, item: Any) -> Any:
         native_response = await self._native_item_response(item)

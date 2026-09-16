@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime
-from typing import Any
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
 from fastapi import status
@@ -18,6 +17,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.catalog.normalization import (
+    normalize_arc_title,
+    normalize_person_name,
+    normalized_language,
+    normalized_region,
+    normalized_release_status,
+)
 from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeCharacterAppearance,
@@ -63,6 +69,8 @@ from app.models import (
     MusicTrack,
     Organization,
     Person,
+    ProviderPayloadSnapshot,
+    ProviderPayloadSnapshotValue,
     ReleaseStatus,
     StoryArc,
     TVEpisode,
@@ -82,7 +90,6 @@ from app.providers.base import (
     NormalizedVariantCover,
 )
 from app.providers.envelope import NormalizedProviderEnvelopeV1
-from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
@@ -94,32 +101,38 @@ from app.search.documents import (
     movie_work_search_document,
     tv_release_search_document,
 )
-from app.services.admin_domains.provider_ingest_helpers import (
-    normalized_language,
-    normalized_region,
-    normalized_release_status,
-)
 from app.services.admin_domains.shared import (
     character_appearance_role,
     sort_key,
 )
 from app.services.facade import MetadataFacade as MetadataService
-from app.storage.image_cache import ImageCache
+from app.services.typed_values import flatten_typed_values
+from app.types import JsonObject
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_date(val: Any) -> date | None:
-    if isinstance(val, date):
-        return val
+def _parse_date(val: object) -> date | None:
     if isinstance(val, datetime):
         return val.date()
+    if isinstance(val, date):
+        return val
     if isinstance(val, str) and val.strip():
         try:
             return date.fromisoformat(val.strip()[:10])
         except ValueError:
             return None
     return None
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
 def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> NormalizedItem:
@@ -336,7 +349,7 @@ class CanonicalCatalogWriteResult:
     item_id: UUID
     kind: str
     created: bool
-    item: Any = None
+    item: object | None = None
 
 
 class CanonicalCatalogWriter:
@@ -347,11 +360,9 @@ class CanonicalCatalogWriter:
         db: AsyncSession,
         *,
         search_client: SearchClient | None = None,
-        image_cache: ImageCache | None = None,
     ) -> None:
         self.db = db
         self.search_client = search_client
-        self.image_cache = image_cache
 
     async def write_envelope(
         self,
@@ -397,8 +408,6 @@ class CanonicalCatalogWriter:
             )
             item_id = work.id
             created = work_created
-            await self.db.commit()
-            await self._reindex_comic_work(work.id)
 
         elif kind == ItemKind.manga:
             work = await self._create_manga_work_from_normalized(
@@ -408,8 +417,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = work.id
-            await self.db.commit()
-            await self._reindex_manga_work(work.id)
 
         elif kind == ItemKind.anime:
             series = await self._create_anime_series_from_normalized(
@@ -419,8 +426,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = series.id
-            await self.db.commit()
-            await self._reindex_anime_series(series.id)
 
         elif kind == ItemKind.movie:
             work = await self._create_movie_work_from_normalized(
@@ -430,8 +435,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = work.id
-            await self.db.commit()
-            await self._reindex_movie_work(work.id)
 
         elif kind == ItemKind.tv:
             series = await self._create_tv_series_from_normalized(
@@ -441,8 +444,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = series.id
-            await self.db.commit()
-            await self._reindex_tv_series(series.id)
 
         elif kind == ItemKind.book:
             work = await self._create_book_work_from_normalized(
@@ -452,8 +453,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = work.id
-            await self.db.commit()
-            await self._reindex_book_work(work.id)
 
         elif kind == ItemKind.music:
             release_group = await self._create_music_release_from_normalized(
@@ -463,7 +462,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = release_group.id
-            await self.db.commit()
 
         elif kind == ItemKind.game:
             work = await self._create_game_work_from_normalized(
@@ -473,8 +471,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = work.id
-            await self.db.commit()
-            await self._reindex_game_work(work.id)
 
         elif kind == ItemKind.boardgame:
             work = await self._create_boardgame_work_from_normalized(
@@ -484,8 +480,6 @@ class CanonicalCatalogWriter:
                 normalized=normalized,
             )
             item_id = work.id
-            await self.db.commit()
-            await self._reindex_boardgame_work(work.id)
 
         else:
             raise ApiHTTPException(
@@ -494,6 +488,13 @@ class CanonicalCatalogWriter:
                 detail=f"Kind {kind} is not supported by CanonicalCatalogWriter",
             )
 
+        await self._record_provenance(
+            envelope,
+            entity_type=self._entity_type_for_kind(kind),
+            entity_id=item_id,
+        )
+        await self.db.commit()
+        await self._reindex_kind(kind, item_id)
         facade = MetadataService(self.db)
         item_dto = await self._load_item_dto(facade, kind, item_id)
         return CanonicalCatalogWriteResult(
@@ -503,7 +504,69 @@ class CanonicalCatalogWriter:
             item=item_dto,
         )
 
-    async def _load_item_dto(self, facade: MetadataService, kind: ItemKind, item_id: UUID) -> Any:
+    async def _reindex_kind(self, kind: ItemKind, item_id: UUID) -> None:
+        if kind == ItemKind.comic:
+            await self._reindex_comic_work(item_id)
+        elif kind == ItemKind.manga:
+            await self._reindex_manga_work(item_id)
+        elif kind == ItemKind.anime:
+            await self._reindex_anime_series(item_id)
+        elif kind == ItemKind.movie:
+            await self._reindex_movie_work(item_id)
+        elif kind == ItemKind.tv:
+            await self._reindex_tv_series(item_id)
+        elif kind == ItemKind.book:
+            await self._reindex_book_work(item_id)
+        elif kind == ItemKind.game:
+            await self._reindex_game_work(item_id)
+        elif kind == ItemKind.boardgame:
+            await self._reindex_boardgame_work(item_id)
+
+    async def _record_provenance(
+        self,
+        envelope: NormalizedProviderEnvelopeV1,
+        *,
+        entity_type: str,
+        entity_id: UUID,
+    ) -> None:
+        try:
+            provider = ExternalProvider(envelope.provider)
+        except ValueError:
+            return
+
+        fetched_at = _parse_datetime(envelope.provenance.fetched_at)
+        snapshot = ProviderPayloadSnapshot(
+            provider=provider,
+            provider_item_id=envelope.provider_item_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            source_url=envelope.provenance.source_url,
+            raw_payload_hash=envelope.provenance.raw_payload_hash,
+            provider_version=envelope.provenance.provider_version,
+            fetched_at=fetched_at,
+            expires_at=fetched_at + timedelta(days=30) if fetched_at else None,
+        )
+        snapshot.values = [
+            ProviderPayloadSnapshotValue(payload_kind="normalized", **row)
+            for row in flatten_typed_values(envelope.normalized)
+        ]
+        self.db.add(snapshot)
+
+    @staticmethod
+    def _entity_type_for_kind(kind: ItemKind) -> str:
+        return {
+            ItemKind.anime: "anime_series",
+            ItemKind.boardgame: "boardgame_work",
+            ItemKind.book: "book_work",
+            ItemKind.comic: "comic_work",
+            ItemKind.game: "game_work",
+            ItemKind.manga: "manga_work",
+            ItemKind.movie: "movie_work",
+            ItemKind.music: "music_release_group",
+            ItemKind.tv: "tv_series",
+        }[kind]
+
+    async def _load_item_dto(self, facade: MetadataService, kind: ItemKind, item_id: UUID) -> object | None:
         if kind == ItemKind.comic:
             return await facade.get_comic_work(item_id)
         if kind == ItemKind.manga:
@@ -1461,8 +1524,8 @@ class CanonicalCatalogWriter:
         *,
         entity_type: str,
         entity_id: UUID,
-        trailer_urls: list[dict[str, Any]] | None = None,
-        external_links: list[dict[str, Any]] | None = None,
+        trailer_urls: list[JsonObject] | None = None,
+        external_links: list[JsonObject] | None = None,
     ) -> None:
         await self.db.execute(
             delete(EntityLink).where(

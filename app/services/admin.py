@@ -26,6 +26,7 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
+    CanonicalCatalogWriteResponse,
     MetadataProposalAdminResponse,
     MetadataProposalAdminUpdateRequest,
     MetadataProposalSummaryResponse,
@@ -62,6 +63,8 @@ class AdminMetadataService:
             search_client_cls=SearchClient,
         )
         self.provider_ingest_admin = services.provider_ingest_admin
+        self.proposals_admin = services.proposals_admin
+        self.snapshots_admin = services.snapshots_admin
         self.rules_admin = services.rules_admin
         self.catalog_admin = services.catalog_admin
         self.duplicates_admin = services.duplicates_admin
@@ -208,20 +211,20 @@ class AdminMetadataService:
         return await self.provider_ingest_admin.provider_search(payload)
 
     async def proposal_summary(self) -> MetadataProposalSummaryResponse:
-        return await self.provider_ingest_admin.proposal_summary()
+        return await self.proposals_admin.summary()
 
     async def list_proposals(
         self, status_filter: str = "pending", provider_filter: ExternalProvider | None = None
     ) -> list[MetadataProposalAdminResponse]:
-        return await self.provider_ingest_admin.list_proposals(status_filter, provider_filter)
+        return await self.proposals_admin.list(status_filter, provider_filter)
 
     async def update_proposal(
         self, proposal_id: UUID, payload: MetadataProposalAdminUpdateRequest
     ) -> MetadataProposalAdminResponse:
-        return await self.provider_ingest_admin.update_proposal(proposal_id, payload)
+        return await self.proposals_admin.update(proposal_id, payload)
 
-    async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
-        return await self.provider_ingest_admin.approve_proposal(proposal_id)
+    async def approve_proposal(self, proposal_id: UUID) -> CanonicalCatalogWriteResponse:
+        return await self.proposals_admin.approve(proposal_id)
 
     async def approve_proposal_with_provider_item(
         self,
@@ -231,7 +234,7 @@ class AdminMetadataService:
         return await self.provider_ingest_admin.approve_proposal_with_provider_item(proposal_id, payload)
 
     async def reject_proposal(self, proposal_id: UUID) -> MetadataProposalAdminResponse:
-        return await self.provider_ingest_admin.reject_proposal(proposal_id)
+        return await self.proposals_admin.reject(proposal_id)
 
     async def create_ingest_job(
         self,
@@ -308,6 +311,6 @@ class AdminMetadataService:
         *,
         limit: int = 5000,
     ) -> ProviderPayloadSnapshotPurgeResponse:
-        purged = await self.provider_ingest_admin.purge_expired_provider_snapshots(limit=limit)
-        await self.provider_ingest_admin.db.commit()
+        purged = await self.snapshots_admin.purge_expired(limit=limit)
+        await self.snapshots_admin.db.commit()
         return ProviderPayloadSnapshotPurgeResponse(purged=purged)

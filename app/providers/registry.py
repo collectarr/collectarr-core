@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
+from app.core.config import Settings
 from app.models.base import ExternalProvider, ItemKind
+from app.providers.base import MetadataProvider
 
 
 @dataclass(frozen=True)
@@ -37,17 +38,17 @@ class ProviderRegistry:
     def __init__(self) -> None:
         pass
 
-    def get(self, name: str | ExternalProvider) -> Any | None:
+    def get(self, name: str | ExternalProvider) -> MetadataProvider | None:
         return None
 
-    def maybe_get(self, name: str | ExternalProvider) -> Any | None:
+    def maybe_get(self, name: str | ExternalProvider) -> MetadataProvider | None:
         return None
 
-    def all(self) -> list[Any]:
+    def all(self) -> list[MetadataProvider]:
         return []
 
     def status_entries(self) -> list[ProviderRegistryStatus]:
         return []
 
-    def status_entries_for_settings(self, settings: Any) -> list[ProviderRegistryStatus]:
+    def status_entries_for_settings(self, settings: Settings) -> list[ProviderRegistryStatus]:
         return []

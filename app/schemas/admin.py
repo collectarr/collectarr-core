@@ -13,6 +13,7 @@ from app.schemas.metadata_games import GameWorkV1Response
 from app.schemas.metadata_manga import MangaWorkV1Response
 from app.schemas.metadata_music import MusicReleaseGroupV1Response, MusicReleaseV1Response
 from app.schemas.metadata_video import MovieWorkV1Response, TVSeriesV1Response
+from app.types import JsonObject
 
 
 class ProviderStatusResponse(BaseModel):
@@ -92,6 +93,15 @@ class ProviderIngestResponse(BaseModel):
         | MusicReleaseV1Response
         | TVSeriesV1Response
     )
+
+
+class CanonicalCatalogWriteResponse(BaseModel):
+    """Result of writing a normalized envelope into the canonical catalog."""
+
+    item_id: UUID
+    kind: str
+    created: bool
+    item: object | None = None
 
 
 class ProviderPreviewCredit(BaseModel):
@@ -556,7 +566,7 @@ class MetadataProposalAdminResponse(BaseModel):
     title: str | None
     summary: str | None
     image_url: str | None
-    metadata_payload: dict[str, Any] | None = None
+    metadata_payload: JsonObject | None = None
     status: str
 
     model_config = {"from_attributes": True}
@@ -568,13 +578,13 @@ class MetadataProposalAdminUpdateRequest(BaseModel):
     title: str | None = None
     summary: str | None = None
     image_url: str | None = None
-    metadata_payload: dict[str, Any] | None = None
+    metadata_payload: JsonObject | None = None
 
     model_config = {"extra": "forbid"}
 
     @field_validator("metadata_payload")
     @classmethod
-    def _validate_metadata_payload(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+    def _validate_metadata_payload(cls, value: JsonObject | None) -> JsonObject | None:
         from app.proposal_payload import validate_metadata_payload
 
         validate_metadata_payload(value)

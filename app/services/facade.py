@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import get_settings
 from app.models.base import ExternalProvider, ItemKind
 from app.providers.registry import ProviderRegistry
@@ -19,19 +21,15 @@ from app.services.metadata.metadata_search_service import MetadataSearchService
 from app.services.provider_search_state import ProviderSearchState
 
 
-class MetadataFacade:
-    def __init__(self, db) -> None:
-        self.db = db
+class MetadataFacade(MetadataReadService):
+    def __init__(self, db: AsyncSession) -> None:
+        self.db: AsyncSession = db
         self.settings = get_settings()
         self.logger = logging.getLogger(__name__)
         self.search_client = SearchClient()
         self.providers = ProviderRegistry()
         self.provider_search_state = ProviderSearchState(self.settings)
-        self.reads = MetadataReadService(self)
         self.search_service = MetadataSearchService(self)
-
-    def __getattr__(self, name: str):
-        return getattr(self.reads, name)
 
     async def search(
         self,

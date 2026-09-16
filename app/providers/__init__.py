@@ -11,8 +11,6 @@ from app.providers.base import (
     NormalizedTrack,
     NormalizedVariantCover,
     ProviderCapabilities,
-    ProviderItem,
-    ProviderSearchResult,
 )
 from app.providers.envelope import (
     NormalizedProviderEnvelopeV1,
@@ -20,7 +18,6 @@ from app.providers.envelope import (
     ProviderImageRef,
     ProviderProvenance,
 )
-from app.providers.registry import ProviderRegistry, ProviderRegistryStatus
 
 __all__ = [
     "NormalizedBundleMember",
@@ -33,12 +30,8 @@ __all__ = [
     "NormalizedTrack",
     "NormalizedVariantCover",
     "ProviderCapabilities",
-    "ProviderItem",
-    "ProviderSearchResult",
     "NormalizedProviderEnvelopeV1",
     "ProviderAttribution",
     "ProviderImageRef",
     "ProviderProvenance",
-    "ProviderRegistry",
-    "ProviderRegistryStatus",
 ]

@@ -27,6 +27,7 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
+    CanonicalCatalogWriteResponse,
     ImageCachePurgeResponse,
     ImageCacheStatsResponse,
     MetadataProposalAdminResponse,
@@ -464,14 +465,14 @@ async def update_metadata_proposal(
 
 @router.post(
     "/metadata/proposals/{proposal_id}/approve",
-    response_model=ProviderIngestResponse,
+    response_model=CanonicalCatalogWriteResponse,
     dependencies=[Depends(admin_provider_rate_limit)],
 )
 async def approve_metadata_proposal(
     proposal_id: UUID,
     db: DbSession,
     user: CurrentAdmin,
-) -> ProviderIngestResponse:
+) -> CanonicalCatalogWriteResponse:
     return await AdminMetadataService(db, user).approve_proposal(proposal_id)
 
 

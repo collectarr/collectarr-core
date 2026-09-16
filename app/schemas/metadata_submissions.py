@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from app.types import JsonObject
 
 
 class MetadataSubmissionRequest(BaseModel):
@@ -15,10 +16,10 @@ class MetadataSubmissionRequest(BaseModel):
     provider: str = Field(..., description="Provider identifier (e.g. 'tmdb', 'openlibrary')")
     provider_item_id: str = Field(..., description="Provider's native item ID")
     kind: str = Field(..., description="Target media kind (e.g. 'movie', 'tv', 'comic')")
-    normalized: dict[str, Any] = Field(..., description="Normalized item metadata dictionary")
-    provenance: dict[str, Any] = Field(default_factory=dict, description="Provider provenance info")
-    images: list[dict[str, Any]] = Field(default_factory=list, description="Provider image references")
-    attribution: dict[str, Any] = Field(default_factory=dict, description="Attribution metadata")
+    normalized: JsonObject = Field(..., description="Normalized item metadata dictionary")
+    provenance: JsonObject = Field(default_factory=dict, description="Provider provenance info")
+    images: list[JsonObject] = Field(default_factory=list, description="Provider image references")
+    attribution: JsonObject = Field(default_factory=dict, description="Attribution metadata")
 
 
 class MetadataSubmissionResponse(BaseModel):
@@ -29,5 +30,5 @@ class MetadataSubmissionResponse(BaseModel):
     item_id: UUID | None = None
     kind: str
     created: bool = False
-    item: Any = None
+    item: object | None = None
     message: str | None = None

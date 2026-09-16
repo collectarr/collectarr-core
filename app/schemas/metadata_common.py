@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.catalog.grouping_models import GroupingModel
 from app.models.base import ExternalProvider, ItemKind
+from app.types import JsonObject
 
 
 class ProviderSearchResultResponse(BaseModel):
@@ -96,13 +96,13 @@ class MetadataProposalCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     summary: str | None = None
     image_url: str | None = Field(default=None, max_length=1024)
-    metadata_payload: dict[str, Any] | None = None
+    metadata_payload: JsonObject | None = None
 
     model_config = {"extra": "forbid"}
 
     @field_validator("metadata_payload")
     @classmethod
-    def _validate_metadata_payload(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+    def _validate_metadata_payload(cls, value: JsonObject | None) -> JsonObject | None:
         from app.proposal_payload import validate_metadata_payload
 
         validate_metadata_payload(value)
@@ -115,7 +115,7 @@ class MetadataProposalResponse(BaseModel):
     provider_item_id: str | None
     query: str
     title: str | None
-    metadata_payload: dict[str, Any] | None = None
+    metadata_payload: JsonObject | None = None
     status: str
 
     model_config = {"from_attributes": True}

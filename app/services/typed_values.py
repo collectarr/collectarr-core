@@ -6,8 +6,34 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import NotRequired, TypedDict, cast
 from uuid import UUID
+
+from app.types import JsonScalar
+
+
+class TypedValueRow(TypedDict):
+    path: str
+    value_type: str
+    string_value: NotRequired[str | None]
+    integer_value: NotRequired[int | None]
+    decimal_value: NotRequired[Decimal | None]
+    boolean_value: NotRequired[bool | None]
+    date_value: NotRequired[date | None]
+    datetime_value: NotRequired[datetime | None]
+    uuid_value: NotRequired[UUID | None]
+
+
+type MaterializedValue = (
+    JsonScalar
+    | Decimal
+    | date
+    | datetime
+    | UUID
+    | dict[str, MaterializedValue]
+    | list[MaterializedValue]
+)
+type MaterializedContainer = dict[str, MaterializedValue] | list[MaterializedValue]
 
 
 def _escape_pointer_token(value: str) -> str:
@@ -18,19 +44,19 @@ def _unescape_pointer_token(value: str) -> str:
     return value.replace("~1", "/").replace("~0", "~")
 
 
-def flatten_typed_values(value: Any, *, path: str = "") -> list[dict[str, Any]]:
+def flatten_typed_values(value: object, *, path: str = "") -> list[TypedValueRow]:
     """Flatten a JSON-like Python value into rows with concrete scalar slots."""
 
     if isinstance(value, Enum):
         return flatten_typed_values(value.value, path=path)
     if isinstance(value, Mapping):
-        rows: list[dict[str, Any]] = [{"path": path, "value_type": "object"}]
+        rows: list[TypedValueRow] = [{"path": path, "value_type": "object"}]
         for key, child in value.items():
             child_path = f"{path}/{_escape_pointer_token(str(key))}"
             rows.extend(flatten_typed_values(child, path=child_path))
         return rows
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        rows = [{"path": path, "value_type": "array"}]
+        rows: list[TypedValueRow] = [{"path": path, "value_type": "array"}]
         for index, child in enumerate(value):
             rows.extend(flatten_typed_values(child, path=f"{path}/{index}"))
         return rows
@@ -55,8 +81,8 @@ def flatten_typed_values(value: Any, *, path: str = "") -> list[dict[str, Any]]:
     return [{"path": path, "value_type": "string", "string_value": str(value)}]
 
 
-def typed_value_from_row(row: Any) -> Any:
-    def get(name: str, default: Any = None) -> Any:
+def typed_value_from_row(row: object) -> MaterializedValue | None:
+    def get(name: str, default: object = None) -> object:
         if isinstance(row, Mapping):
             return row.get(name, default)
         return getattr(row, name, default)
@@ -64,24 +90,37 @@ def typed_value_from_row(row: Any) -> Any:
     value_type = get("value_type")
     if value_type in {"object", "array", "null"}:
         return {} if value_type == "object" else [] if value_type == "array" else None
-    return {
-        "string": get("string_value"),
-        "integer": get("integer_value"),
-        "decimal": get("decimal_value"),
-        "boolean": get("boolean_value"),
-        "date": get("date_value"),
-        "datetime": get("datetime_value"),
-        "uuid": get("uuid_value"),
-    }.get(value_type)
+    if value_type == "string":
+        value = get("string_value")
+        return value if isinstance(value, str) else None
+    if value_type == "integer":
+        value = get("integer_value")
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+    if value_type == "decimal":
+        value = get("decimal_value")
+        return value if isinstance(value, Decimal) else None
+    if value_type == "boolean":
+        value = get("boolean_value")
+        return value if isinstance(value, bool) else None
+    if value_type == "date":
+        value = get("date_value")
+        return value if isinstance(value, date) and not isinstance(value, datetime) else None
+    if value_type == "datetime":
+        value = get("datetime_value")
+        return value if isinstance(value, datetime) else None
+    if value_type == "uuid":
+        value = get("uuid_value")
+        return value if isinstance(value, UUID) else None
+    return None
 
 
-def materialize_typed_values(rows: Sequence[Any]) -> Any:
+def materialize_typed_values(rows: Sequence[object]) -> MaterializedValue:
     """Rebuild a nested mapping/list from rows using JSON Pointer paths."""
 
     if not rows:
         return {}
 
-    def path_for(row: Any) -> str:
+    def path_for(row: object) -> str:
         if isinstance(row, Mapping):
             return str(row.get("path") or "")
         return row.path
@@ -93,7 +132,7 @@ def materialize_typed_values(rows: Sequence[Any]) -> Any:
         return [_unescape_pointer_token(token) for token in raw_tokens]
 
     ordered = sorted(rows, key=lambda row: (path_for(row).count("/"), path_for(row)))
-    root: Any = typed_value_from_row(ordered[0]) if path_for(ordered[0]) == "" else None
+    root: MaterializedValue = typed_value_from_row(ordered[0]) if path_for(ordered[0]) == "" else None
 
     for row in ordered:
         tokens = tokens_for(path_for(row))
@@ -102,7 +141,9 @@ def materialize_typed_values(rows: Sequence[Any]) -> Any:
             continue
         if root is None:
             root = [] if tokens[0].isdigit() else {}
-        current = root
+        if not isinstance(root, (dict, list)):
+            root = [] if tokens[0].isdigit() else {}
+        current: MaterializedContainer = root
         for index, token in enumerate(tokens):
             is_last = index == len(tokens) - 1
             next_is_list = not is_last and tokens[index + 1].isdigit()
@@ -114,11 +155,11 @@ def materialize_typed_values(rows: Sequence[Any]) -> Any:
                     current[position] = typed_value_from_row(row)
                 elif current[position] is None:
                     current[position] = [] if next_is_list else {}
-                current = current[position]
+                current = cast(MaterializedContainer, current[position])
             else:
                 if is_last:
                     current[token] = typed_value_from_row(row)
                 else:
                     current.setdefault(token, [] if next_is_list else {})
-                    current = current[token]
+                    current = cast(MaterializedContainer, current[token])
     return root

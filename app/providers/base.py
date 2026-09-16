@@ -1,35 +1,9 @@
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Generic, Protocol, TypeVar
 
 from app.models.base import ItemKind
-
-
-@dataclass(frozen=True)
-class ProviderCapabilities:
-    kind: ItemKind
-    display_name: str
-    kinds: tuple[ItemKind, ...] = ()
-    supports_search: bool = True
-    supports_ingest: bool = True
-    requires_user_key: bool = False
-    non_commercial_only: bool = False
-    allows_redistribution: bool = False
-    allows_image_mirroring: bool = False
-    requires_attribution: bool = False
-    license_name: str | None = None
-    terms_url: str | None = None
-    attribution_url: str | None = None
-    rate_limit: str | None = None
-    cache_policy: str | None = None
-
-    @property
-    def supported_kinds(self) -> tuple[ItemKind, ...]:
-        return self.kinds or (self.kind,)
-
-    def supports_kind(self, kind: ItemKind) -> bool:
-        return kind in self.supported_kinds
+from app.types import JsonObject
 
 
 @dataclass(frozen=True)
@@ -61,6 +35,32 @@ class ProviderItem(Generic[ProviderRawT]):
     provider: str
     provider_item_id: str
     raw: ProviderRawT
+
+
+@dataclass(frozen=True)
+class ProviderCapabilities:
+    kind: ItemKind
+    display_name: str
+    kinds: tuple[ItemKind, ...] = ()
+    supports_search: bool = True
+    supports_ingest: bool = True
+    requires_user_key: bool = False
+    non_commercial_only: bool = False
+    allows_redistribution: bool = False
+    allows_image_mirroring: bool = False
+    requires_attribution: bool = False
+    license_name: str | None = None
+    terms_url: str | None = None
+    attribution_url: str | None = None
+    rate_limit: str | None = None
+    cache_policy: str | None = None
+
+    @property
+    def supported_kinds(self) -> tuple[ItemKind, ...]:
+        return self.kinds or (self.kind,)
+
+    def supports_kind(self, kind: ItemKind) -> bool:
+        return kind in self.supported_kinds
 
 
 @dataclass(frozen=True)
@@ -145,7 +145,7 @@ class NormalizedBundleMember:
     disc_label: str | None = None
     quantity: int = 1
     is_primary: bool = False
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: JsonObject = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -195,8 +195,8 @@ class NormalizedItem:
     characters: list[NormalizedCredit] = field(default_factory=list)
     story_arcs: list[NormalizedCredit] = field(default_factory=list)
     external_ids: dict[str, str] = field(default_factory=dict)
-    trailer_urls: list[dict[str, Any]] = field(default_factory=list)
-    external_links: list[dict[str, Any]] = field(default_factory=list)
+    trailer_urls: list[JsonObject] = field(default_factory=list)
+    external_links: list[JsonObject] = field(default_factory=list)
     provider_ids: dict[str, str] = field(default_factory=dict)
     volume_provider_ids: dict[str, str] = field(default_factory=dict)
     variant_covers: list[NormalizedVariantCover] = field(default_factory=list)
@@ -247,6 +247,8 @@ class NormalizedItem:
 
 
 class MetadataProvider(Protocol):
+    """Provider adapter protocol retained only for the transitional API surface."""
+
     name: str
     capabilities: ProviderCapabilities
 
@@ -262,6 +264,6 @@ class MetadataProvider(Protocol):
         kind: ItemKind | None = None,
     ) -> list[ProviderSearchResult]: ...
 
-    async def get_item(self, provider_item_id: str) -> ProviderItem: ...
+    async def get_item(self, provider_item_id: str) -> ProviderItem[JsonObject]: ...
 
-    async def normalize(self, data: Mapping[str, Any]) -> NormalizedItem: ...
+    async def normalize(self, data: JsonObject) -> NormalizedItem: ...

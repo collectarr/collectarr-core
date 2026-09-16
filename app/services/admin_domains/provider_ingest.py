@@ -11,9 +11,20 @@ from fastapi import status
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 
-from app.catalog.physical_formats import (
-    PhysicalFormatConfig,
+from app.catalog.normalization import (
+    book_identifier_type,
+    comic_identifier_type,
+    cover_metadata,
+    normalize_arc_title,
+    normalize_person_name,
+    normalized_identifier,
+    normalized_language,
+    normalized_region,
+    normalized_release_status,
+    physical_format_for_normalized,
+    variant_cover_name,
 )
+from app.catalog.physical_formats import PhysicalFormatConfig
 from app.catalog.provider_field_states import provider_preview_field_states
 from app.core.errors import ApiHTTPException
 from app.models import (
@@ -59,7 +70,6 @@ from app.models import (
     MangaSeriesRelation,
     MangaWork,
     MetadataProposal,
-    MetadataProposalValue,
     MovieRelease,
     MovieReleaseMedia,
     MovieWork,
@@ -102,17 +112,8 @@ from app.providers.base import (
     NormalizedTrack,
     NormalizedVariantCover,
 )
-from app.providers.envelope import (
-    NormalizedProviderEnvelopeV1,
-    ProviderAttribution,
-    ProviderProvenance,
-)
-from app.providers.normalize import normalize_arc_title, normalize_person_name
 from app.providers.registry import ProviderRegistry
 from app.schemas.admin import (
-    MetadataProposalAdminResponse,
-    MetadataProposalAdminUpdateRequest,
-    MetadataProposalSummaryResponse,
     ProviderBatchHydrateRequest,
     ProviderBatchHydrateResponse,
     ProviderBatchHydrateResultItem,
@@ -140,17 +141,6 @@ from app.search.documents import (
     movie_work_search_document,
     tv_release_search_document,
 )
-from app.services.admin_domains.provider_ingest_helpers import (
-    book_identifier_type,
-    comic_identifier_type,
-    cover_metadata,
-    normalized_identifier,
-    normalized_language,
-    normalized_region,
-    normalized_release_status,
-    physical_format_for_normalized,
-    variant_cover_name,
-)
 from app.services.admin_domains.shared import (
     character_appearance_role,
     comicvine_credit_provider_id,
@@ -162,7 +152,7 @@ from app.services.admin_domains.shared import (
 )
 from app.services.facade import MetadataFacade as MetadataService
 from app.services.provider_preview_state import HydratedProviderPreview
-from app.services.typed_values import flatten_typed_values, materialize_typed_values
+from app.services.typed_values import flatten_typed_values
 from app.storage.image_cache import ImageCache
 from app.storage.images import ImageMirror
 
@@ -221,228 +211,6 @@ class AdminProviderIngestService:
         )
         return [result.model_dump(mode="json") for result in results]
 
-    async def purge_expired_provider_snapshots(self, *, limit: int = 5000) -> int:
-        now = datetime.now(UTC)
-        snapshot_ids = list(
-            (
-                await self.db.execute(
-                    select(ProviderPayloadSnapshot.id)
-                    .where(
-                        ProviderPayloadSnapshot.purged_at.is_(None),
-                        ProviderPayloadSnapshot.expires_at.is_not(None),
-                        ProviderPayloadSnapshot.expires_at <= now,
-                    )
-                    .order_by(ProviderPayloadSnapshot.expires_at.asc())
-                    .limit(limit)
-                )
-            ).scalars()
-        )
-        if not snapshot_ids:
-            return 0
-        await self.db.execute(
-            delete(ProviderPayloadSnapshotValue).where(
-                ProviderPayloadSnapshotValue.snapshot_id.in_(snapshot_ids)
-            )
-        )
-        await self.db.execute(
-            update(ProviderPayloadSnapshot)
-            .where(ProviderPayloadSnapshot.id.in_(snapshot_ids))
-            .values(
-                purged_at=now,
-            )
-        )
-        await self.db.flush()
-        return len(snapshot_ids)
-
-    async def proposal_summary(self) -> MetadataProposalSummaryResponse:
-        result = await self.db.execute(
-            select(MetadataProposal.status, func.count(MetadataProposal.id)).group_by(
-                MetadataProposal.status
-            )
-        )
-        counts = dict(result.all())
-        pending = counts.get("pending", 0)
-        approved = counts.get("approved", 0)
-        rejected = counts.get("rejected", 0)
-        return MetadataProposalSummaryResponse(
-            pending=pending,
-            approved=approved,
-            rejected=rejected,
-            total=pending + approved + rejected,
-        )
-
-    async def list_proposals(
-        self,
-        status_filter: str = "pending",
-        provider_filter: ExternalProvider | None = None,
-    ) -> list[MetadataProposalAdminResponse]:
-        stmt = select(MetadataProposal).options(selectinload(MetadataProposal.values)).where(
-            MetadataProposal.status == status_filter
-        )
-        if provider_filter:
-            stmt = stmt.where(MetadataProposal.provider == provider_filter)
-        result = await self.db.execute(stmt.order_by(MetadataProposal.created_at.asc()))
-        responses: list[MetadataProposalAdminResponse] = []
-        for proposal in result.scalars():
-            response = MetadataProposalAdminResponse.model_validate(proposal)
-            response = response.model_copy(
-                update={"metadata_payload": materialize_typed_values(proposal.values)}
-            )
-            responses.append(response)
-        return responses
-
-    async def update_proposal(
-        self,
-        proposal_id: UUID,
-        payload: MetadataProposalAdminUpdateRequest,
-    ) -> MetadataProposalAdminResponse:
-        proposal = await self.db.get(MetadataProposal, proposal_id)
-        if proposal is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="metadata_proposal_not_found",
-                detail="Proposal not found",
-            )
-        if proposal.status != "pending":
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="metadata_proposal_not_pending",
-                detail="Only pending proposals can be edited",
-            )
-
-        changed_fields: list[str] = []
-
-        def _trimmed(value: str | None) -> str | None:
-            if value is None:
-                return None
-            normalized = value.strip()
-            return normalized if normalized else None
-
-        query = _trimmed(payload.query)
-        if query is not None and query != proposal.query:
-            proposal.query = query
-            changed_fields.append("query")
-
-        provider_item_id = _trimmed(payload.provider_item_id)
-        if payload.provider_item_id is not None and provider_item_id != proposal.provider_item_id:
-            proposal.provider_item_id = provider_item_id
-            changed_fields.append("provider_item_id")
-
-        title = _trimmed(payload.title)
-        if payload.title is not None and title != proposal.title:
-            proposal.title = title
-            changed_fields.append("title")
-
-        summary = _trimmed(payload.summary)
-        if payload.summary is not None and summary != proposal.summary:
-            proposal.summary = summary
-            changed_fields.append("summary")
-
-        image_url = _trimmed(payload.image_url)
-        if payload.image_url is not None and image_url != proposal.image_url:
-            proposal.image_url = image_url
-            changed_fields.append("image_url")
-
-        if payload.metadata_payload is not None:
-            from app.proposal_payload import validate_metadata_payload
-
-            validate_metadata_payload(payload.metadata_payload)
-            await self.db.execute(
-                delete(MetadataProposalValue).where(MetadataProposalValue.proposal_id == proposal.id)
-            )
-            self.db.add_all(
-                MetadataProposalValue(proposal_id=proposal.id, **row)
-                for row in flatten_typed_values(payload.metadata_payload)
-            )
-            changed_fields.append("metadata_payload")
-
-        if changed_fields:
-            self._audit_recorder(
-                action="metadata_proposal.update",
-                entity_type="metadata_proposal",
-                entity_id=proposal.id,
-                details={
-                    "provider": proposal.provider,
-                    "provider_item_id": proposal.provider_item_id,
-                    "changed_fields": changed_fields,
-                },
-            )
-            await self.db.commit()
-            await self.db.refresh(proposal)
-        await self.db.refresh(proposal, attribute_names=["values"])
-        response = MetadataProposalAdminResponse.model_validate(proposal)
-        return response.model_copy(update={"metadata_payload": materialize_typed_values(proposal.values)})
-
-    async def approve_proposal(self, proposal_id: UUID) -> ProviderIngestResponse:
-        proposal = await self.db.get(MetadataProposal, proposal_id)
-        if proposal is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="metadata_proposal_not_found",
-                detail="Proposal not found",
-            )
-        await self.db.refresh(proposal, attribute_names=["values"])
-        payload_data = materialize_typed_values(proposal.values)
-        if proposal.provider_item_id is None and not payload_data:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="metadata_proposal_missing_provider_item",
-                detail="Proposal does not have a provider item id or metadata payload",
-            )
-
-        # Convert proposal approval: normalized submission -> canonical writer
-        # Does not do provider lookup -> normalize -> writer
-        if payload_data and isinstance(payload_data, dict):
-            if payload_data.get("schema_version") == "v1" and "normalized" in payload_data:
-                envelope = NormalizedProviderEnvelopeV1.from_dict(payload_data)
-            else:
-                kind = payload_data.get("kind", "comic")
-                envelope = NormalizedProviderEnvelopeV1(
-                    schema_version="v1",
-                    provider=proposal.provider.value if hasattr(proposal.provider, "value") else str(proposal.provider),
-                    provider_item_id=proposal.provider_item_id or str(proposal.id),
-                    kind=kind,
-                    normalized=payload_data,
-                    provenance=ProviderProvenance(fetched_at=datetime.now(UTC).isoformat()),
-                    images=[],
-                    attribution=ProviderAttribution(required=False),
-                )
-            from app.services.canonical_catalog_writer import CanonicalCatalogWriter
-
-            writer = CanonicalCatalogWriter(
-                self.db,
-                search_client=self.search_client,
-                image_cache=self.image_cache,
-            )
-            write_result = await writer.write_envelope(envelope)
-            response = ProviderIngestResponse(
-                item_id=write_result.item_id,
-                created=write_result.created,
-                item=write_result.item,
-            )
-        else:
-            response = await self.ingest(
-                ProviderIngestRequest(
-                    provider=proposal.provider,
-                    provider_item_id=proposal.provider_item_id or "",
-                )
-            )
-
-        proposal.status = "approved"
-        self._audit_recorder(
-            action="metadata_proposal.approve",
-            entity_type="metadata_proposal",
-            entity_id=proposal.id,
-            details={
-                "provider": proposal.provider,
-                "provider_item_id": proposal.provider_item_id,
-                "item_id": response.item_id,
-                "created": response.created,
-            },
-        )
-        await self.db.commit()
-        return response
-
     async def approve_proposal_with_provider_item(
         self,
         proposal_id: UUID,
@@ -472,31 +240,6 @@ class AdminProviderIngestService:
         )
         await self.db.commit()
         return response
-
-    async def reject_proposal(self, proposal_id: UUID) -> MetadataProposalAdminResponse:
-        proposal = await self.db.get(MetadataProposal, proposal_id)
-        if proposal is None:
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="metadata_proposal_not_found",
-                detail="Proposal not found",
-            )
-        proposal.status = "rejected"
-        self._audit_recorder(
-            action="metadata_proposal.reject",
-            entity_type="metadata_proposal",
-            entity_id=proposal.id,
-            details={
-                "provider": proposal.provider,
-                "provider_item_id": proposal.provider_item_id,
-                "query": proposal.query,
-            },
-        )
-        await self.db.commit()
-        await self.db.refresh(proposal)
-        await self.db.refresh(proposal, attribute_names=["values"])
-        response = MetadataProposalAdminResponse.model_validate(proposal)
-        return response.model_copy(update={"metadata_payload": materialize_typed_values(proposal.values)})
 
     async def create_ingest_job(
         self,

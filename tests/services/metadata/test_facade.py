@@ -26,7 +26,7 @@ async def test_metadata_facade_routes_search_to_composed_service() -> None:
 
 
 @pytest.mark.asyncio
-async def test_metadata_facade_exposes_typed_reads_via_composed_service() -> None:
+async def test_metadata_facade_exposes_typed_reads_directly() -> None:
     facade = MetadataFacade(db=SimpleNamespace())
     response = BookWorkV1Response(id=uuid4(), title="The Hobbit")
 
@@ -34,7 +34,7 @@ async def test_metadata_facade_exposes_typed_reads_via_composed_service() -> Non
         assert work_id.int > 0
         return response
 
-    facade.reads.get_book_work = fake_get_book_work
+    facade.get_book_work = fake_get_book_work
 
     result = await facade.get_book_work(uuid4())
     assert result is response

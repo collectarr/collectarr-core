@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import cast
 
 from app.models.base import ItemKind
 from app.providers.base import NormalizedItem, ProviderCapabilities
+from app.types import JsonObject, JsonValue
 
 
 @dataclass(frozen=True)
@@ -24,7 +26,7 @@ class ProviderImageRef:
     attribution: str | None = None
     expires_at: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         return {
             "provider": self.provider,
             "url": self.url,
@@ -39,18 +41,18 @@ class ProviderImageRef:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ProviderImageRef:
+    def from_dict(cls, data: Mapping[str, object]) -> ProviderImageRef:
         return cls(
-            provider=data["provider"],
-            url=data["url"],
-            kind=data.get("kind", "cover"),
-            thumbnail_url=data.get("thumbnail_url"),
-            image_id=data.get("image_id"),
-            headers=dict(data.get("headers") or {}),
-            cache_policy=data.get("cache_policy"),
-            mirror_policy=data.get("mirror_policy"),
-            attribution=data.get("attribution"),
-            expires_at=data.get("expires_at"),
+            provider=str(data["provider"]),
+            url=str(data["url"]),
+            kind=str(data.get("kind", "cover")),
+            thumbnail_url=_optional_string(data.get("thumbnail_url")),
+            image_id=_optional_string(data.get("image_id")),
+            headers=_string_mapping(data.get("headers")),
+            cache_policy=_optional_string(data.get("cache_policy")),
+            mirror_policy=_optional_string(data.get("mirror_policy")),
+            attribution=_optional_string(data.get("attribution")),
+            expires_at=_optional_string(data.get("expires_at")),
         )
 
 
@@ -61,7 +63,7 @@ class ProviderProvenance:
     raw_payload_hash: str | None = None
     provider_version: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         return {
             "fetched_at": self.fetched_at,
             "source_url": self.source_url,
@@ -70,12 +72,12 @@ class ProviderProvenance:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ProviderProvenance:
+    def from_dict(cls, data: Mapping[str, object]) -> ProviderProvenance:
         return cls(
-            fetched_at=data["fetched_at"],
-            source_url=data.get("source_url"),
-            raw_payload_hash=data.get("raw_payload_hash"),
-            provider_version=data.get("provider_version"),
+            fetched_at=str(data["fetched_at"]),
+            source_url=_optional_string(data.get("source_url")),
+            raw_payload_hash=_optional_string(data.get("raw_payload_hash")),
+            provider_version=_optional_string(data.get("provider_version")),
         )
 
 
@@ -86,7 +88,7 @@ class ProviderAttribution:
     url: str | None = None
     license_name: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         return {
             "required": self.required,
             "text": self.text,
@@ -95,31 +97,43 @@ class ProviderAttribution:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ProviderAttribution:
+    def from_dict(cls, data: Mapping[str, object]) -> ProviderAttribution:
         return cls(
             required=bool(data.get("required", False)),
-            text=data.get("text"),
-            url=data.get("url"),
-            license_name=data.get("license_name"),
+            text=_optional_string(data.get("text")),
+            url=_optional_string(data.get("url")),
+            license_name=_optional_string(data.get("license_name")),
         )
 
 
-def _serialize_value(val: Any) -> Any:
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _string_mapping(value: object) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {str(key): item for key, item in value.items() if isinstance(item, str)}
+
+
+def _serialize_value(val: object) -> JsonValue:
     if isinstance(val, (datetime, date)):
         return val.isoformat()
     if isinstance(val, ItemKind):
         return val.value
     if dataclasses.is_dataclass(val) and not isinstance(val, type):
-        return _serialize_dict(asdict(val))
-    if isinstance(val, dict):
+        return _serialize_dict(cast(Mapping[str, object], asdict(val)))
+    if isinstance(val, Mapping):
         return _serialize_dict(val)
     if isinstance(val, (list, tuple, set, frozenset)):
         return [_serialize_value(v) for v in val]
-    return val
+    if val is None or isinstance(val, bool | int | float | str):
+        return val
+    return str(val)
 
 
-def _serialize_dict(d: dict[str, Any]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
+def _serialize_dict(d: Mapping[str, object]) -> JsonObject:
+    result: JsonObject = {}
     for k, v in d.items():
         if v is not None:
             result[k] = _serialize_value(v)
@@ -132,7 +146,7 @@ class NormalizedProviderEnvelopeV1:
     provider: str
     provider_item_id: str
     kind: str
-    normalized: dict[str, Any]
+    normalized: JsonObject
     provenance: ProviderProvenance
     images: list[ProviderImageRef]
     attribution: ProviderAttribution
@@ -144,7 +158,7 @@ class NormalizedProviderEnvelopeV1:
         provider: str,
         provider_item_id: str,
         kind: str | ItemKind,
-        normalized: NormalizedItem | dict[str, Any],
+        normalized: NormalizedItem | JsonObject,
         capabilities: ProviderCapabilities | None = None,
         source_url: str | None = None,
         raw_payload_hash: str | None = None,
@@ -156,7 +170,7 @@ class NormalizedProviderEnvelopeV1:
         norm_dict = (
             _serialize_dict(asdict(normalized))
             if dataclasses.is_dataclass(normalized) and not isinstance(normalized, type)
-            else _serialize_dict(dict(normalized))  # type: ignore[arg-type]
+            else _serialize_dict(normalized)
         )
 
         # Build images from NormalizedItem if available
@@ -175,13 +189,16 @@ class NormalizedProviderEnvelopeV1:
 
         variant_covers = norm_dict.get("variant_covers") or []
         for vc in variant_covers:
-            if isinstance(vc, dict) and vc.get("cover_image_url"):
+            if isinstance(vc, Mapping) and vc.get("cover_image_url"):
+                cover_image_url = vc["cover_image_url"]
+                if not isinstance(cover_image_url, str):
+                    continue
                 images.append(
                     ProviderImageRef(
                         provider=provider,
-                        url=vc["cover_image_url"],
+                        url=cover_image_url,
                         kind="variant_cover",
-                        thumbnail_url=vc.get("thumbnail_image_url"),
+                        thumbnail_url=_optional_string(vc.get("thumbnail_image_url")),
                         cache_policy=capabilities.cache_policy if capabilities else None,
                         attribution=capabilities.display_name if capabilities and capabilities.requires_attribution else None,
                     )
@@ -215,7 +232,7 @@ class NormalizedProviderEnvelopeV1:
             attribution=attribution,
         )
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> JsonObject:
         return {
             "schema_version": self.schema_version,
             "provider": self.provider,
@@ -228,14 +245,27 @@ class NormalizedProviderEnvelopeV1:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> NormalizedProviderEnvelopeV1:
+    def from_dict(cls, data: Mapping[str, object]) -> NormalizedProviderEnvelopeV1:
+        provenance = data.get("provenance")
+        images = data.get("images")
+        image_rows = images if isinstance(images, list) else []
+        attribution = data.get("attribution")
+        normalized = data.get("normalized")
         return cls(
-            schema_version=data.get("schema_version", "v1"),
-            provider=data["provider"],
+            schema_version=str(data.get("schema_version", "v1")),
+            provider=str(data["provider"]),
             provider_item_id=str(data["provider_item_id"]),
-            kind=data["kind"],
-            normalized=dict(data.get("normalized") or {}),
-            provenance=ProviderProvenance.from_dict(data.get("provenance") or {"fetched_at": ""}),
-            images=[ProviderImageRef.from_dict(img) for img in (data.get("images") or [])],
-            attribution=ProviderAttribution.from_dict(data.get("attribution") or {}),
+            kind=str(data["kind"]),
+            normalized=(cast(JsonObject, normalized) if isinstance(normalized, Mapping) else {}),
+            provenance=ProviderProvenance.from_dict(
+                provenance if isinstance(provenance, Mapping) else {"fetched_at": ""}
+            ),
+            images=[
+                ProviderImageRef.from_dict(image)
+                for image in image_rows
+                if isinstance(image, Mapping)
+            ],
+            attribution=ProviderAttribution.from_dict(
+                attribution if isinstance(attribution, Mapping) else {}
+            ),
         )

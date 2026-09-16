@@ -22,13 +22,14 @@ from app.providers.base import (
     NormalizedVariantCover,
     ProviderItem,
 )
+from app.types import JsonObject
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class HydratedProviderPreview:
-    provider_item: ProviderItem
+    provider_item: ProviderItem[JsonObject]
     normalized: NormalizedItem
 
 
@@ -289,11 +290,14 @@ class ProviderPreviewState:
         normalized_payload = payload["normalized"]
         if not isinstance(provider_item_payload, dict) or not isinstance(normalized_payload, dict):
             raise ValueError("Invalid hydrated preview payload")
+        raw = provider_item_payload.get("raw")
+        if not isinstance(raw, dict):
+            raw = {}
         return HydratedProviderPreview(
             provider_item=ProviderItem(
                 provider=str(provider_item_payload["provider"]),
                 provider_item_id=str(provider_item_payload["provider_item_id"]),
-                raw=provider_item_payload.get("raw"),
+                raw=raw,
             ),
             normalized=self._normalized_item_from_payload(normalized_payload),
         )

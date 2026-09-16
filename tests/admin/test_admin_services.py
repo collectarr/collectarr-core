@@ -14,6 +14,7 @@ from app.services.admin_domains.overview import (
     _meili_document_count,
 )
 from app.services.admin_domains.support import AdminSupportService
+from app.services.typed_values import typed_value_from_row
 
 
 @pytest.mark.asyncio
@@ -107,9 +108,10 @@ def test_support_service_record_admin_audit_normalizes_json_like_values():
     )
 
     assert len(added) == 1
-    assert added[0].details_json["entity_id"] == str(entity_id)
-    assert added[0].details_json["happened_at"] == happened_at.isoformat()
-    assert sorted(added[0].details_json["tags"]) == ["featured", "new"]
+    details = {row.path: typed_value_from_row(row) for row in added[0].details}
+    assert details["/entity_id"] == entity_id
+    assert details["/happened_at"] == happened_at
+    assert sorted(details["/tags"]) == ["featured", "new"]
 
 
 def test_support_service_retry_helpers_cover_retryable_and_non_retryable_errors():

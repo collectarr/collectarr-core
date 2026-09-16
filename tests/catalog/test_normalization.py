@@ -1,6 +1,6 @@
-"""Tests for shared provider normalization utilities."""
+"""Tests for canonical normalization utilities."""
 
-from app.providers.normalize import (
+from app.catalog.normalization import (
     canonical_credit_role,
     issue_sort_key,
     normalize_arc_title,

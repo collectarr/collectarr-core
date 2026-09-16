@@ -5,8 +5,9 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import MetadataProposal
+from app.models import MetadataProposal, MetadataProposalValue
 from app.models.base import ExternalProvider
+from app.services.typed_values import flatten_typed_values
 
 
 async def admin_token(client, monkeypatch) -> str:
@@ -29,13 +30,6 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
             provider_item_id="4000-12345",
             query="spider",
             title="The Amazing Spider-Man #1",
-            metadata_payload={
-                "kind": "comic",
-                "genres": None,
-                "platforms": None,
-                "cover_image_url": "https://example.test/spider.jpg",
-                "nested": {"a": None, "b": "ok"},
-            },
         )
         tmdb_proposal = MetadataProposal(
             provider=ExternalProvider.tmdb,
@@ -51,6 +45,19 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
             status="approved",
         )
         db.add(proposal)
+        await db.flush()
+        db.add_all(
+            MetadataProposalValue(proposal_id=proposal.id, **row)
+            for row in flatten_typed_values(
+                {
+                    "kind": "comic",
+                    "genres": None,
+                    "platforms": None,
+                    "cover_image_url": "https://example.test/spider.jpg",
+                    "nested": {"a": None, "b": "ok"},
+                }
+            )
+        )
         db.add(tmdb_proposal)
         db.add(approved_proposal)
         await db.commit()

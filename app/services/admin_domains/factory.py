@@ -12,9 +12,11 @@ from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.duplicates import AdminDuplicateService
 from app.services.admin_domains.image_cache import AdminImageCacheService
 from app.services.admin_domains.overview import AdminOverviewService
+from app.services.admin_domains.proposals import AdminProposalService
 from app.services.admin_domains.provider_ingest import AdminProviderIngestService
 from app.services.admin_domains.rules import AdminRulesService
 from app.services.admin_domains.shared import character_role_rank, sort_key
+from app.services.admin_domains.snapshots import AdminSnapshotService
 from app.services.admin_domains.support import AdminSupportService
 from app.services.admin_domains.users import AdminUserService
 from app.services.provider_preview_state import ProviderPreviewState
@@ -24,6 +26,8 @@ from app.services.provider_search_state import ProviderSearchState
 @dataclass(slots=True)
 class AdminDomainServices:
     provider_ingest_admin: AdminProviderIngestService
+    proposals_admin: AdminProposalService
+    snapshots_admin: AdminSnapshotService
     rules_admin: AdminRulesService
     catalog_admin: AdminCatalogService
     duplicates_admin: AdminDuplicateService
@@ -68,6 +72,11 @@ def build_admin_domain_services(
         actor_user_id=actor_user_id,
         comicvine_character_details=comicvine_character_details,
     )
+    proposals_admin = AdminProposalService(
+        db=db,
+        audit_recorder=support_admin.record_admin_audit,
+    )
+    snapshots_admin = AdminSnapshotService(db)
     rules_admin = AdminRulesService(
         db=db,
         ingest_history_reader=support_admin.ingest_history,
@@ -78,7 +87,7 @@ def build_admin_domain_services(
         audit_recorder=support_admin.record_admin_audit,
         reindex_items=support_admin.reindex_items,
         sort_key_builder=sort_key,
-        get_or_create_tag=provider_ingest_admin._get_or_create_tag,
+        get_or_create_tag=support_admin.get_or_create_tag,
     )
     duplicates_admin = AdminDuplicateService(
         db,
@@ -103,6 +112,8 @@ def build_admin_domain_services(
 
     return AdminDomainServices(
         provider_ingest_admin=provider_ingest_admin,
+        proposals_admin=proposals_admin,
+        snapshots_admin=snapshots_admin,
         rules_admin=rules_admin,
         catalog_admin=catalog_admin,
         duplicates_admin=duplicates_admin,

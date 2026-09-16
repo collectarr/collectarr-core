@@ -24,17 +24,13 @@ def flatten_typed_values(value: Any, *, path: str = "") -> list[dict[str, Any]]:
     if isinstance(value, Enum):
         return flatten_typed_values(value.value, path=path)
     if isinstance(value, Mapping):
-        if not value:
-            return [{"path": path, "value_type": "object"}]
-        rows: list[dict[str, Any]] = []
+        rows: list[dict[str, Any]] = [{"path": path, "value_type": "object"}]
         for key, child in value.items():
             child_path = f"{path}/{_escape_pointer_token(str(key))}"
             rows.extend(flatten_typed_values(child, path=child_path))
         return rows
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        if not value:
-            return [{"path": path, "value_type": "array"}]
-        rows = []
+        rows = [{"path": path, "value_type": "array"}]
         for index, child in enumerate(value):
             rows.extend(flatten_typed_values(child, path=f"{path}/{index}"))
         return rows

@@ -1,0 +1,69 @@
+name: Canonical Model / Schema
+description: Propose or change a canonical domain model, schema, or structural contract.
+title: ""
+labels:
+  - architecture
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for canonical entities, relationships, release layers, schemas, and compatibility contracts.
+        Set priority, size, and status with labels after filing the issue.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What existing model, data, or compatibility constraint matters here?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is ambiguous, lossy, inconsistent, or difficult to evolve today?
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What canonical outcome should this work establish?
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: What is explicitly out of scope?
+    validations:
+      required: true
+  - type: textarea
+    id: target_architecture
+    attributes:
+      label: Target architecture
+      description: Describe entities, relationships, invariants, ownership, serialization, and migration shape.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List consumers, related issues, migrations, providers, or compatibility decisions.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: List observable model, schema, and compatibility conditions that define completion.
+      placeholder: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: tests_docs
+    attributes:
+      label: Tests / docs
+      description: Identify fixtures, serialization tests, migration tests, examples, or documentation to add or update.
+    validations:
+      required: true

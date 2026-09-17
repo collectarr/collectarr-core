@@ -1,0 +1,64 @@
+name: Architecture
+description: Propose structural design work or refactoring in the core library.
+title: ""
+labels:
+  - architecture
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What existing architecture or constraint matters here?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is difficult, unsafe, ambiguous, or inconsistent today?
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome should this work achieve?
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: What is explicitly out of scope?
+    validations:
+      required: true
+  - type: textarea
+    id: target_architecture
+    attributes:
+      label: Target architecture
+      description: Describe contracts, boundaries, dependencies, and migration shape.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List related issues, consumers, repositories, or decisions.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: List observable conditions that define completion.
+      placeholder: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: tests_docs
+    attributes:
+      label: Tests / docs
+      description: Identify tests, examples, or documentation to add or update.
+    validations:
+      required: true

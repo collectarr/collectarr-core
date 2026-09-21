@@ -40,6 +40,29 @@ class ComicStoryArcResponse(BaseModel):
     ordinal: int | None = None
 
 
+class ComicVariantV1Response(BaseModel):
+    id: UUID
+    issue_id: UUID
+    variant_name: str | None = None
+    variant_type: str | None = None
+    cover_label: str | None = None
+    printing_number: int | None = None
+    publisher: str | None = None
+    imprint: str | None = None
+    publication_date: date | None = None
+    release_date: date | None = None
+    language: str | None = None
+    region: str | None = None
+    physical_format: str | None = None
+    catalog_number: str | None = None
+    barcode: str | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    description: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class ComicIssueV1Response(BaseModel):
     id: UUID
     work_id: UUID
@@ -64,6 +87,7 @@ class ComicIssueV1Response(BaseModel):
     identifiers: list[ComicIdentifierResponse] = Field(default_factory=list)
     characters: list[ComicCharacterResponse] = Field(default_factory=list)
     story_arcs: list[ComicStoryArcResponse] = Field(default_factory=list)
+    variants: list[ComicVariantV1Response] = Field(default_factory=list)
 
 
 class ComicWorkV1Response(BaseModel):

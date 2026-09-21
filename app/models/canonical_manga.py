@@ -54,6 +54,7 @@ class MangaWork(UuidMixin, TimestampMixin, Base):
     __tablename__ = "manga_works"
 
     title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    volume_number: Mapped[float | None] = mapped_column(Float, index=True)
     sort_title: Mapped[str | None] = mapped_column(String(255), index=True)
     subtitle: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
@@ -64,6 +65,9 @@ class MangaWork(UuidMixin, TimestampMixin, Base):
 
     chapters: Mapped[list["MangaChapter"]] = relationship(
         back_populates="work", cascade="all, delete-orphan", lazy="selectin"
+    )
+    editions: Mapped[list["MangaEdition"]] = relationship(
+        back_populates="work", cascade="all, delete-orphan"
     )
     contributions: Mapped[list["MangaContribution"]] = relationship(
         back_populates="work", cascade="all, delete-orphan", lazy="selectin"

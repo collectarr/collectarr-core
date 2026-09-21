@@ -4,16 +4,21 @@ from uuid import UUID
 
 from app.schemas import (
     AnimeEpisodeV1Response,
+    AnimeReleaseEpisodeMapV1Response,
+    AnimeReleaseMediaResponse,
+    AnimeReleaseV1Response,
     AnimeSeriesV1Response,
     BoardGameEditionV1Response,
     BoardGameWorkV1Response,
     BookEditionV1Response,
     BookWorkV1Response,
     ComicIssueV1Response,
+    ComicVariantV1Response,
     ComicWorkV1Response,
     GameReleaseV1Response,
     GameWorkV1Response,
     MangaChapterV1Response,
+    MangaEditionV1Response,
     MangaWorkV1Response,
     MovieReleaseV1Response,
     MovieWorkV1Response,
@@ -36,6 +41,18 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_anime_series_episodes as _get_anime_series_episodes,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_series_releases as _get_anime_series_releases,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_release as _get_anime_release,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_release_episode_map as _get_anime_release_episode_map,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_release_media as _get_anime_release_media,
 )
 from app.services.metadata.metadata_reads import (
     get_boardgame_edition as _get_boardgame_edition,
@@ -65,6 +82,12 @@ from app.services.metadata.metadata_reads import (
     get_comic_work_issues as _get_comic_work_issues,
 )
 from app.services.metadata.metadata_reads import (
+    get_comic_issue_variants as _get_comic_issue_variants,
+)
+from app.services.metadata.metadata_reads import (
+    get_comic_variant as _get_comic_variant,
+)
+from app.services.metadata.metadata_reads import (
     get_game_release as _get_game_release,
 )
 from app.services.metadata.metadata_reads import (
@@ -81,6 +104,12 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_manga_work_chapters as _get_manga_work_chapters,
+)
+from app.services.metadata.metadata_reads import (
+    get_manga_work_editions as _get_manga_work_editions,
+)
+from app.services.metadata.metadata_reads import (
+    get_manga_edition as _get_manga_edition,
 )
 from app.services.metadata.metadata_reads import (
     get_movie_release as _get_movie_release,
@@ -179,11 +208,23 @@ class MetadataTypedReadService:
     async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
         return await _get_comic_issue(self, issue_id)
 
+    async def get_comic_issue_variants(self, issue_id: UUID) -> list[ComicVariantV1Response]:
+        return await _get_comic_issue_variants(self, issue_id)
+
+    async def get_comic_variant(self, variant_id: UUID) -> ComicVariantV1Response:
+        return await _get_comic_variant(self, variant_id)
+
     async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
         return await _get_manga_work(self, work_id)
 
     async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
         return await _get_manga_work_chapters(self, work_id)
+
+    async def get_manga_work_editions(self, work_id: UUID) -> list[MangaEditionV1Response]:
+        return await _get_manga_work_editions(self, work_id)
+
+    async def get_manga_edition(self, edition_id: UUID) -> MangaEditionV1Response:
+        return await _get_manga_edition(self, edition_id)
 
     async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
         return await _get_manga_chapter(self, chapter_id)
@@ -193,6 +234,21 @@ class MetadataTypedReadService:
 
     async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
         return await _get_anime_series_episodes(self, series_id)
+
+    async def get_anime_series_releases(self, series_id: UUID) -> list[AnimeReleaseV1Response]:
+        return await _get_anime_series_releases(self, series_id)
+
+    async def get_anime_release(self, release_id: UUID) -> AnimeReleaseV1Response:
+        return await _get_anime_release(self, release_id)
+
+    async def get_anime_release_media(self, release_id: UUID) -> list[AnimeReleaseMediaResponse]:
+        return await _get_anime_release_media(self, release_id)
+
+    async def get_anime_release_episode_map(
+        self,
+        release_id: UUID,
+    ) -> list[AnimeReleaseEpisodeMapV1Response]:
+        return await _get_anime_release_episode_map(self, release_id)
 
     async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
         return await _get_anime_episode(self, episode_id)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from app.models import (
+        MangaEdition,
         MangaChapter,
         MangaCharacterAppearance,
         MangaContribution,
@@ -14,6 +15,7 @@ from app.schemas import (
         MangaChapterV1Response,
         MangaCharacterResponse,
         MangaContributorResponse,
+        MangaEditionV1Response,
         MangaIdentifierResponse,
         MangaSeriesResponse,
         MangaWorkV1Response,
@@ -70,6 +72,28 @@ class MangaMetadataResponseBuilders:
                 role=char.role,
             )
 
+        def _manga_edition_response(self, edition: MangaEdition) -> MangaEditionV1Response:
+            return MangaEditionV1Response(
+                id=edition.id,
+                work_id=edition.work_id,
+                display_title=edition.display_title,
+                edition_statement=edition.edition_statement,
+                format=edition.format,
+                binding=edition.binding,
+                publication_date=edition.publication_date,
+                publisher=edition.publisher,
+                imprint=edition.imprint,
+                language=edition.language,
+                country=edition.country,
+                isbn10=edition.isbn10,
+                isbn13=edition.isbn13,
+                barcode=edition.barcode,
+                page_count=edition.page_count,
+                cover_image_url=edition.cover_image_url,
+                cover_image_key=edition.cover_image_key,
+                description=edition.description,
+            )
+
         def _manga_work_response(self, work: MangaWork) -> MangaWorkV1Response:
             chapters = sorted(
                 work.chapters or [],
@@ -84,6 +108,7 @@ class MangaMetadataResponseBuilders:
             return MangaWorkV1Response(
                 id=work.id,
                 title=work.title,
+                volume_number=work.volume_number,
                 sort_title=work.sort_title,
                 subtitle=work.subtitle,
                 description=work.description,
@@ -133,6 +158,18 @@ class MangaMetadataResponseBuilders:
                         key=lambda c: (
                             c.role.casefold(),
                             str(c.character_id),
+                        ),
+                    )
+                ],
+                editions=[
+                    self._manga_edition_response(row)
+                    for row in sorted(
+                        work.editions or [],
+                        key=lambda row: (
+                            row.publication_date is None,
+                            row.publication_date or date.max,
+                            row.display_title or "",
+                            str(row.id),
                         ),
                     )
                 ],

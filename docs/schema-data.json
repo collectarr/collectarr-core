@@ -100,6 +100,11 @@
       "tables": [
         "admin_audit_log_details",
         "admin_release_media_mapping_rules",
+        "anime_release_contributions",
+        "anime_release_episode_map",
+        "anime_release_identifiers",
+        "anime_release_media",
+        "anime_releases",
         "boardgame_categories",
         "boardgame_contributions",
         "boardgame_edition_identifiers",
@@ -115,6 +120,9 @@
         "comic_characters",
         "comic_series",
         "comic_series_relations",
+        "comic_variant_contributions",
+        "comic_variant_identifiers",
+        "comic_variants",
         "comic_work_missing_issue_numbers",
         "duplicate_review_details",
         "duplicate_review_entities",
@@ -127,6 +135,9 @@
         "game_release_identifiers",
         "game_release_platforms",
         "game_series_memberships",
+        "manga_edition_contributions",
+        "manga_edition_identifiers",
+        "manga_editions",
         "manga_series",
         "manga_series_memberships",
         "manga_series_relations",
@@ -141,7 +152,7 @@
         "tv_episode_identifiers",
         "tv_releases"
       ],
-      "diagram": "erDiagram\n  ADMIN_AUDIT_LOG_DETAILS {\n    UUID audit_log_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CATEGORIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EXPANSIONS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_FAMILIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_MECHANICS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLAYER_COUNT_VOTES {\n    UUID edition_id FK\n    INTEGER players_min\n    INTEGER players_max\n    INTEGER vote_count\n    INTEGER recommended_count\n    INTEGER not_recommended_count\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_RANKINGS_SNAPSHOT {\n    UUID work_id FK\n    VARCHAR_255 ranking_name\n    INTEGER rank_position\n    INTEGER users_rated\n    FLOAT bayes_average\n    DATE snapshot_date\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTER_EXTERNAL_IDENTIFIERS {\n    UUID character_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    VARCHAR_1024 image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_WORK_MISSING_ISSUE_NUMBERS {\n    UUID work_id FK\n    INTEGER issue_number\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEW_DETAILS {\n    UUID review_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  DUPLICATE_REVIEW_ENTITIES {\n    UUID review_id FK\n    VARCHAR_32 role\n    UUID entity_id\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_AGE_RATINGS {\n    UUID work_id FK\n    VARCHAR_64 rating_system\n    VARCHAR_64 rating\n    VARCHAR_32 region_code\n    VARCHAR_255 descriptor\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_COMPANY_ROLES {\n    UUID work_id FK\n    UUID organization_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 platform_name\n    VARCHAR_255 normalized_name\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_PLATFORMS {\n    UUID release_id FK\n    UUID platform_id FK\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    VARCHAR_255 series_name\n    VARCHAR_255 normalized_series_name\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  METADATA_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  MUSIC_MEDIUM_MISSING_TRACK_POSITIONS {\n    UUID medium_id FK\n    VARCHAR_16 position\n    INTEGER position_order\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_RELEASE_GROUP_GENRES {\n    UUID release_group_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSON_EXTERNAL_IDENTIFIERS {\n    UUID person_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOT_VALUES {\n    UUID snapshot_id FK\n    VARCHAR_16 payload_kind\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_CONTRIBUTIONS {\n    UUID episode_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    VARCHAR_255 character_name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_IDENTIFIERS {\n    UUID episode_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASES {\n    UUID series_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_2 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_64 case_type\n    INTEGER episode_count\n    INTEGER season_count\n    INTEGER runtime_minutes\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_64 content_rating\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTERS ||--o{ COMIC_CHARACTER_EXTERNAL_IDENTIFIERS : character_id\n  COMIC_SERIES ||--o{ COMIC_SERIES_RELATIONS : \"source_series_id, target_series_id\"\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_DETAILS : review_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_ENTITIES : review_id\n  GAME_PLATFORMS ||--o{ GAME_RELEASE_PLATFORMS : platform_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_MEMBERSHIPS : series_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_RELATIONS : \"source_series_id, target_series_id\"",
+      "diagram": "erDiagram\n  ADMIN_AUDIT_LOG_DETAILS {\n    UUID audit_log_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_CONTRIBUTIONS {\n    UUID release_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_EPISODE_MAP {\n    UUID release_id FK\n    UUID media_id FK\n    UUID episode_id FK\n    INTEGER disc_number\n    INTEGER sequence_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_MEDIA {\n    UUID release_id FK\n    INTEGER media_number\n    VARCHAR_64 media_type\n    VARCHAR_255 title\n    INTEGER episode_count\n    INTEGER runtime_minutes\n    VARCHAR_32 region_code\n    VARCHAR_64 encoding\n    VARCHAR_16 aspect_ratio\n    VARCHAR_500 audio_tracks\n    VARCHAR_500 subtitles\n    VARCHAR_16 resolution\n    VARCHAR_64 hdr_format\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASES {\n    UUID work_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_32 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_255 distributor\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    VARCHAR_64 packaging\n    VARCHAR_64 release_status\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CATEGORIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EXPANSIONS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_FAMILIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_MECHANICS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLAYER_COUNT_VOTES {\n    UUID edition_id FK\n    INTEGER players_min\n    INTEGER players_max\n    INTEGER vote_count\n    INTEGER recommended_count\n    INTEGER not_recommended_count\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_RANKINGS_SNAPSHOT {\n    UUID work_id FK\n    VARCHAR_255 ranking_name\n    INTEGER rank_position\n    INTEGER users_rated\n    FLOAT bayes_average\n    DATE snapshot_date\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTER_EXTERNAL_IDENTIFIERS {\n    UUID character_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    VARCHAR_1024 image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANT_CONTRIBUTIONS {\n    UUID variant_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANT_IDENTIFIERS {\n    UUID variant_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANTS {\n    UUID issue_id FK\n    VARCHAR_255 variant_name\n    VARCHAR_64 variant_type\n    VARCHAR_255 cover_label\n    INTEGER printing_number\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    DATE publication_date\n    DATE release_date\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_64 physical_format\n    VARCHAR_100 catalog_number\n    VARCHAR_100 barcode\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_WORK_MISSING_ISSUE_NUMBERS {\n    UUID work_id FK\n    INTEGER issue_number\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEW_DETAILS {\n    UUID review_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  DUPLICATE_REVIEW_ENTITIES {\n    UUID review_id FK\n    VARCHAR_32 role\n    UUID entity_id\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_AGE_RATINGS {\n    UUID work_id FK\n    VARCHAR_64 rating_system\n    VARCHAR_64 rating\n    VARCHAR_32 region_code\n    VARCHAR_255 descriptor\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_COMPANY_ROLES {\n    UUID work_id FK\n    UUID organization_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 platform_name\n    VARCHAR_255 normalized_name\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_PLATFORMS {\n    UUID release_id FK\n    UUID platform_id FK\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    VARCHAR_255 series_name\n    VARCHAR_255 normalized_series_name\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITION_CONTRIBUTIONS {\n    UUID edition_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITIONS {\n    UUID work_id FK\n    VARCHAR_255 display_title\n    VARCHAR_255 edition_statement\n    VARCHAR_100 format\n    VARCHAR_100 binding\n    DATE publication_date\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    VARCHAR_16 language\n    VARCHAR_32 country\n    VARCHAR_32 isbn10\n    VARCHAR_32 isbn13\n    VARCHAR_100 barcode\n    INTEGER page_count\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  METADATA_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  MUSIC_MEDIUM_MISSING_TRACK_POSITIONS {\n    UUID medium_id FK\n    VARCHAR_16 position\n    INTEGER position_order\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_RELEASE_GROUP_GENRES {\n    UUID release_group_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSON_EXTERNAL_IDENTIFIERS {\n    UUID person_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOT_VALUES {\n    UUID snapshot_id FK\n    VARCHAR_16 payload_kind\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_CONTRIBUTIONS {\n    UUID episode_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    VARCHAR_255 character_name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_IDENTIFIERS {\n    UUID episode_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASES {\n    UUID series_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_2 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_64 case_type\n    INTEGER episode_count\n    INTEGER season_count\n    INTEGER runtime_minutes\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_64 content_rating\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_CONTRIBUTIONS : release_id\n  ANIME_RELEASE_MEDIA ||--o{ ANIME_RELEASE_EPISODE_MAP : media_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_EPISODE_MAP : release_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_IDENTIFIERS : release_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_MEDIA : release_id\n  COMIC_CHARACTERS ||--o{ COMIC_CHARACTER_EXTERNAL_IDENTIFIERS : character_id\n  COMIC_SERIES ||--o{ COMIC_SERIES_RELATIONS : \"source_series_id, target_series_id\"\n  COMIC_VARIANTS ||--o{ COMIC_VARIANT_CONTRIBUTIONS : variant_id\n  COMIC_VARIANTS ||--o{ COMIC_VARIANT_IDENTIFIERS : variant_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_DETAILS : review_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_ENTITIES : review_id\n  GAME_PLATFORMS ||--o{ GAME_RELEASE_PLATFORMS : platform_id\n  MANGA_EDITIONS ||--o{ MANGA_EDITION_CONTRIBUTIONS : edition_id\n  MANGA_EDITIONS ||--o{ MANGA_EDITION_IDENTIFIERS : edition_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_MEMBERSHIPS : series_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_RELATIONS : \"source_series_id, target_series_id\"",
       "external_references": [
         {
           "from_table": "admin_audit_log_details",
@@ -151,6 +162,42 @@
           "to_table": "admin_audit_logs",
           "targets": [
             "admin_audit_logs.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "anime_release_contributions",
+          "from_columns": [
+            "person_id"
+          ],
+          "to_table": "persons",
+          "targets": [
+            "persons.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "anime_release_episode_map",
+          "from_columns": [
+            "episode_id"
+          ],
+          "to_table": "anime_episodes",
+          "targets": [
+            "anime_episodes.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "anime_releases",
+          "from_columns": [
+            "work_id"
+          ],
+          "to_table": "anime_series",
+          "targets": [
+            "anime_series.id"
           ],
           "ondelete": "CASCADE",
           "onupdate": null
@@ -300,6 +347,30 @@
           "onupdate": null
         },
         {
+          "from_table": "comic_variant_contributions",
+          "from_columns": [
+            "person_id"
+          ],
+          "to_table": "persons",
+          "targets": [
+            "persons.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "comic_variants",
+          "from_columns": [
+            "issue_id"
+          ],
+          "to_table": "comic_issues",
+          "targets": [
+            "comic_issues.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
           "from_table": "comic_work_missing_issue_numbers",
           "from_columns": [
             "work_id"
@@ -427,6 +498,30 @@
           "to_table": "game_works",
           "targets": [
             "game_works.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "manga_edition_contributions",
+          "from_columns": [
+            "person_id"
+          ],
+          "to_table": "persons",
+          "targets": [
+            "persons.id"
+          ],
+          "ondelete": "CASCADE",
+          "onupdate": null
+        },
+        {
+          "from_table": "manga_editions",
+          "from_columns": [
+            "work_id"
+          ],
+          "to_table": "manga_works",
+          "targets": [
+            "manga_works.id"
           ],
           "ondelete": "CASCADE",
           "onupdate": null
@@ -624,7 +719,7 @@
         "story_arcs",
         "story_arc_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 source_url\n    VARCHAR_128 raw_payload_hash\n    VARCHAR_128 provider_version\n    TIMESTAMP_WITH_TIME_ZONE fetched_at\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_WORKS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_255 subtitle\n    TEXT description\n    VARCHAR_16 original_language\n    DATE original_publication_date\n    DATE first_publication_date\n    VARCHAR_64 status\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_CHAPTERS {\n    UUID work_id FK\n    FLOAT chapter_number\n    VARCHAR_255 chapter_title\n    DATE publication_date\n    INTEGER page_count\n    TEXT description\n    VARCHAR_2048 cover_image_url\n    VARCHAR_255 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID chapter_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_CHARACTER_APPEARANCES {\n    UUID work_id FK\n    UUID character_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    VARCHAR_64 first_appearance_entity_type\n    UUID first_appearance_entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    DATE end_date\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  MANGA_WORKS ||--o{ MANGA_CHAPTERS : work_id\n  MANGA_CHAPTERS o|--o{ MANGA_CONTRIBUTIONS : chapter_id\n  PERSONS ||--o{ MANGA_CONTRIBUTIONS : person_id\n  MANGA_WORKS o|--o{ MANGA_CONTRIBUTIONS : work_id\n  MANGA_WORKS ||--o{ MANGA_IDENTIFIERS : work_id\n  CHARACTERS ||--o{ MANGA_CHARACTER_APPEARANCES : character_id\n  MANGA_WORKS ||--o{ MANGA_CHARACTER_APPEARANCES : work_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOTS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 source_url\n    VARCHAR_128 raw_payload_hash\n    VARCHAR_128 provider_version\n    TIMESTAMP_WITH_TIME_ZONE fetched_at\n    TIMESTAMP_WITH_TIME_ZONE expires_at\n    TIMESTAMP_WITH_TIME_ZONE purged_at\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_WORKS {\n    VARCHAR_255 title\n    FLOAT volume_number\n    VARCHAR_255 sort_title\n    VARCHAR_255 subtitle\n    TEXT description\n    VARCHAR_16 original_language\n    DATE original_publication_date\n    DATE first_publication_date\n    VARCHAR_64 status\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_CHAPTERS {\n    UUID work_id FK\n    FLOAT chapter_number\n    VARCHAR_255 chapter_title\n    DATE publication_date\n    INTEGER page_count\n    TEXT description\n    VARCHAR_2048 cover_image_url\n    VARCHAR_255 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID chapter_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_CHARACTER_APPEARANCES {\n    UUID work_id FK\n    UUID character_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    VARCHAR_64 first_appearance_entity_type\n    UUID first_appearance_entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    DATE end_date\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  MANGA_WORKS ||--o{ MANGA_CHAPTERS : work_id\n  MANGA_CHAPTERS o|--o{ MANGA_CONTRIBUTIONS : chapter_id\n  PERSONS ||--o{ MANGA_CONTRIBUTIONS : person_id\n  MANGA_WORKS o|--o{ MANGA_CONTRIBUTIONS : work_id\n  MANGA_WORKS ||--o{ MANGA_IDENTIFIERS : work_id\n  CHARACTERS ||--o{ MANGA_CHARACTER_APPEARANCES : character_id\n  MANGA_WORKS ||--o{ MANGA_CHARACTER_APPEARANCES : work_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
       "external_references": []
     },
     {
@@ -5065,6 +5160,23 @@
           "enum": null
         },
         {
+          "name": "volume_number",
+          "type": "FLOAT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_works_volume_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
           "name": "sort_title",
           "type": "VARCHAR(255)",
           "nullable": true,
@@ -5248,6 +5360,13 @@
             "name": "ix_manga_works_title",
             "columns": [
               "title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_works_volume_number",
+            "columns": [
+              "volume_number"
             ],
             "unique": false
           }
@@ -9188,6 +9307,480 @@
             "columns": [
               "identifier_type",
               "normalized_value"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "anime_releases",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "work_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_work_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "work_id",
+              "target_table": "anime_series",
+              "target_column": "id",
+              "target": "anime_series.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_sort_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "media_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region_code",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_region_code"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_release_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_publisher"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "distributor",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_distributor"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "catalog_number",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_catalog_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "packaging",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_status",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_releases_release_status"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language_audio",
+          "type": "VARCHAR[]",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language_subtitles",
+          "type": "VARCHAR[]",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_url",
+          "type": "VARCHAR(2048)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "work_id"
+            ],
+            "targets": [
+              "anime_series.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_anime_releases_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_catalog_number",
+            "columns": [
+              "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_distributor",
+            "columns": [
+              "distributor"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_format",
+            "columns": [
+              "format"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_publisher",
+            "columns": [
+              "publisher"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_region_code",
+            "columns": [
+              "region_code"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_release_date",
+            "columns": [
+              "release_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_release_status",
+            "columns": [
+              "release_status"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_sort_title",
+            "columns": [
+              "sort_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_work_barcode",
+            "columns": [
+              "work_id",
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_work_id",
+            "columns": [
+              "work_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_releases_work_release_date",
+            "columns": [
+              "work_id",
+              "release_date"
             ],
             "unique": false
           }
@@ -16191,6 +16784,473 @@
       "legacy_bridge_note": null
     },
     {
+      "name": "manga_editions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "work_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_work_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "work_id",
+              "target_table": "manga_works",
+              "target_column": "id",
+              "target": "manga_works.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "display_title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "edition_statement",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "format",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "binding",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_binding"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publication_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_publication_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_publisher"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "imprint",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_imprint"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "country",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_country"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "isbn10",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_isbn10"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "isbn13",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_isbn13"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_editions_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "page_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "work_id"
+            ],
+            "targets": [
+              "manga_works.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_manga_editions_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_binding",
+            "columns": [
+              "binding"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_country",
+            "columns": [
+              "country"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_format",
+            "columns": [
+              "format"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_imprint",
+            "columns": [
+              "imprint"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_isbn10",
+            "columns": [
+              "isbn10"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_isbn13",
+            "columns": [
+              "isbn13"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_language",
+            "columns": [
+              "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_publication_date",
+            "columns": [
+              "publication_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_publisher",
+            "columns": [
+              "publisher"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_work_barcode",
+            "columns": [
+              "work_id",
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_work_id",
+            "columns": [
+              "work_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_work_isbn13",
+            "columns": [
+              "work_id",
+              "isbn13"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_editions_work_publication",
+            "columns": [
+              "work_id",
+              "publication_date"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
       "name": "manga_identifiers",
       "domain": "misc",
       "columns": [
@@ -20454,6 +21514,760 @@
       "legacy_bridge_note": null
     },
     {
+      "name": "anime_release_contributions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_contributions_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "anime_releases",
+              "target_column": "id",
+              "target": "anime_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "person_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_contributions_person_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "person_id",
+              "target_table": "persons",
+              "target_column": "id",
+              "target": "persons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_contributions_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "role_id",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_contributions_role_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "person_id"
+            ],
+            "targets": [
+              "persons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "anime_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_anime_release_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_contributions_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_contributions_release_role",
+            "columns": [
+              "release_id",
+              "role",
+              "sequence"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_contributions_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_contributions_role_id",
+            "columns": [
+              "role_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "anime_release_identifiers",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_identifiers_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "anime_releases",
+              "target_column": "id",
+              "target": "anime_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "identifier_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_identifiers_identifier_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "normalized_value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_provider",
+          "type": "external_provider",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_identifiers_source_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "anime_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_anime_release_identifiers_identifier_type",
+            "columns": [
+              "identifier_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_identifiers_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_identifiers_release_type_value",
+            "columns": [
+              "release_id",
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_identifiers_source_provider",
+            "columns": [
+              "source_provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_identifiers_type_value",
+            "columns": [
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "anime_release_media",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_media_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "anime_releases",
+              "target_column": "id",
+              "target": "anime_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "media_number",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "media_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "episode_count",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "runtime_minutes",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region_code",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "encoding",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "aspect_ratio",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "audio_tracks",
+          "type": "VARCHAR(500)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "subtitles",
+          "type": "VARCHAR(500)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "resolution",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "hdr_format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "anime_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_anime_release_media_release_number",
+            "columns": [
+              "release_id",
+              "media_number"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_anime_release_media_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
       "name": "boardgame_edition_identifiers",
       "domain": "misc",
       "columns": [
@@ -23564,6 +25378,459 @@
       "legacy_bridge_note": null
     },
     {
+      "name": "manga_edition_contributions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "edition_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_contributions_edition_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "edition_id",
+              "target_table": "manga_editions",
+              "target_column": "id",
+              "target": "manga_editions.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "person_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_contributions_person_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "person_id",
+              "target_table": "persons",
+              "target_column": "id",
+              "target": "persons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_contributions_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "role_id",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_contributions_role_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "edition_id"
+            ],
+            "targets": [
+              "manga_editions.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "person_id"
+            ],
+            "targets": [
+              "persons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_manga_edition_contributions_edition_id",
+            "columns": [
+              "edition_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_contributions_edition_role",
+            "columns": [
+              "edition_id",
+              "role",
+              "sequence"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_contributions_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_contributions_role_id",
+            "columns": [
+              "role_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "manga_edition_identifiers",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "edition_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_identifiers_edition_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "edition_id",
+              "target_table": "manga_editions",
+              "target_column": "id",
+              "target": "manga_editions.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "identifier_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_identifiers_identifier_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "normalized_value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_provider",
+          "type": "external_provider",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_manga_edition_identifiers_source_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "edition_id"
+            ],
+            "targets": [
+              "manga_editions.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_manga_edition_identifiers_edition_id",
+            "columns": [
+              "edition_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_identifiers_edition_type_value",
+            "columns": [
+              "edition_id",
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_identifiers_identifier_type",
+            "columns": [
+              "identifier_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_identifiers_source_provider",
+            "columns": [
+              "source_provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_edition_identifiers_type_value",
+            "columns": [
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
       "name": "movie_release_media",
       "domain": "misc",
       "columns": [
@@ -25591,6 +27858,248 @@
       "legacy_bridge_note": null
     },
     {
+      "name": "anime_release_episode_map",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "release_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_episode_map_release_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "release_id",
+              "target_table": "anime_releases",
+              "target_column": "id",
+              "target": "anime_releases.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "media_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_episode_map_media_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "media_id",
+              "target_table": "anime_release_media",
+              "target_column": "id",
+              "target": "anime_release_media.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "episode_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_anime_release_episode_map_episode_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "episode_id",
+              "target_table": "anime_episodes",
+              "target_column": "id",
+              "target": "anime_episodes.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "disc_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "episode_id"
+            ],
+            "targets": [
+              "anime_episodes.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "media_id"
+            ],
+            "targets": [
+              "anime_release_media.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "release_id"
+            ],
+            "targets": [
+              "anime_releases.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_anime_release_episode_map",
+            "columns": [
+              "release_id",
+              "media_id",
+              "episode_id"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_anime_release_episode_map_episode_id",
+            "columns": [
+              "episode_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_episode_map_media_id",
+            "columns": [
+              "media_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_release_episode_map_release_id",
+            "columns": [
+              "release_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
       "name": "comic_character_appearances",
       "domain": "misc",
       "columns": [
@@ -26481,6 +28990,474 @@
             "name": "ix_comic_story_arc_memberships_story_arc_id",
             "columns": [
               "story_arc_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "comic_variants",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "issue_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_issue_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "issue_id",
+              "target_table": "comic_issues",
+              "target_column": "id",
+              "target": "comic_issues.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "variant_name",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_variant_name"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "variant_type",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_variant_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_label",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "printing_number",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publisher",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_publisher"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "imprint",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_imprint"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "publication_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_publication_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "release_date",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_release_date"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "language",
+          "type": "VARCHAR(16)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_language"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "region",
+          "type": "VARCHAR(32)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_region"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "physical_format",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_physical_format"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "catalog_number",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_catalog_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variants_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_url",
+          "type": "VARCHAR(1024)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "cover_image_key",
+          "type": "VARCHAR(512)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "description",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "issue_id"
+            ],
+            "targets": [
+              "comic_issues.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_comic_variants_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_catalog_number",
+            "columns": [
+              "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_imprint",
+            "columns": [
+              "imprint"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_issue_barcode",
+            "columns": [
+              "issue_id",
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_issue_id",
+            "columns": [
+              "issue_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_issue_release_date",
+            "columns": [
+              "issue_id",
+              "release_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_language",
+            "columns": [
+              "language"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_physical_format",
+            "columns": [
+              "physical_format"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_publication_date",
+            "columns": [
+              "publication_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_publisher",
+            "columns": [
+              "publisher"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_region",
+            "columns": [
+              "region"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_release_date",
+            "columns": [
+              "release_date"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_variant_name",
+            "columns": [
+              "variant_name"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variants_variant_type",
+            "columns": [
+              "variant_type"
             ],
             "unique": false
           }
@@ -27452,6 +30429,459 @@
       "legacy_bridge_note": null
     },
     {
+      "name": "comic_variant_contributions",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "variant_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_contributions_variant_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "variant_id",
+              "target_table": "comic_variants",
+              "target_column": "id",
+              "target": "comic_variants.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "person_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_contributions_person_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "person_id",
+              "target_table": "persons",
+              "target_column": "id",
+              "target": "persons.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "role",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_contributions_role"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "role_id",
+          "type": "VARCHAR(64)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_contributions_role_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sequence",
+          "type": "INTEGER",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "person_id"
+            ],
+            "targets": [
+              "persons.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          },
+          {
+            "name": null,
+            "columns": [
+              "variant_id"
+            ],
+            "targets": [
+              "comic_variants.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_comic_variant_contributions_person_id",
+            "columns": [
+              "person_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_contributions_role",
+            "columns": [
+              "role"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_contributions_role_id",
+            "columns": [
+              "role_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_contributions_variant_id",
+            "columns": [
+              "variant_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_contributions_variant_role",
+            "columns": [
+              "variant_id",
+              "role",
+              "sequence"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
+      "name": "comic_variant_identifiers",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "variant_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_identifiers_variant_id"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "variant_id",
+              "target_table": "comic_variants",
+              "target_column": "id",
+              "target": "comic_variants.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "identifier_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_identifiers_identifier_type"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "normalized_value",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "is_primary",
+          "type": "BOOLEAN",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "False",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "source_provider",
+          "type": "external_provider",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_comic_variant_identifiers_source_provider"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "external_provider"
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "variant_id"
+            ],
+            "targets": [
+              "comic_variants.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_comic_variant_identifiers_identifier_type",
+            "columns": [
+              "identifier_type"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_identifiers_source_provider",
+            "columns": [
+              "source_provider"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_identifiers_type_value",
+            "columns": [
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_identifiers_variant_id",
+            "columns": [
+              "variant_id"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_variant_identifiers_variant_type_value",
+            "columns": [
+              "variant_id",
+              "identifier_type",
+              "normalized_value"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null,
+      "legacy_projection_note": null,
+      "legacy_bridge_note": null
+    },
+    {
       "name": "tv_episode_contributions",
       "domain": "misc",
       "columns": [
@@ -28311,6 +31741,18 @@
       "onupdate": null
     },
     {
+      "from_table": "anime_releases",
+      "from_columns": [
+        "work_id"
+      ],
+      "to_targets": [
+        "anime_series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "boardgame_categories",
       "from_columns": [
         "work_id"
@@ -28731,6 +32173,18 @@
       "onupdate": null
     },
     {
+      "from_table": "manga_editions",
+      "from_columns": [
+        "work_id"
+      ],
+      "to_targets": [
+        "manga_works.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "manga_identifiers",
       "from_columns": [
         "work_id"
@@ -28983,6 +32437,54 @@
       "onupdate": null
     },
     {
+      "from_table": "anime_release_contributions",
+      "from_columns": [
+        "person_id"
+      ],
+      "to_targets": [
+        "persons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "anime_release_contributions",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "anime_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "anime_release_identifiers",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "anime_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "anime_release_media",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "anime_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "boardgame_edition_identifiers",
       "from_columns": [
         "edition_id"
@@ -29211,6 +32713,42 @@
       "onupdate": null
     },
     {
+      "from_table": "manga_edition_contributions",
+      "from_columns": [
+        "edition_id"
+      ],
+      "to_targets": [
+        "manga_editions.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "manga_edition_contributions",
+      "from_columns": [
+        "person_id"
+      ],
+      "to_targets": [
+        "persons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "manga_edition_identifiers",
+      "from_columns": [
+        "edition_id"
+      ],
+      "to_targets": [
+        "manga_editions.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "movie_release_media",
       "from_columns": [
         "release_id"
@@ -29319,6 +32857,42 @@
       "onupdate": null
     },
     {
+      "from_table": "anime_release_episode_map",
+      "from_columns": [
+        "episode_id"
+      ],
+      "to_targets": [
+        "anime_episodes.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "anime_release_episode_map",
+      "from_columns": [
+        "media_id"
+      ],
+      "to_targets": [
+        "anime_release_media.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "anime_release_episode_map",
+      "from_columns": [
+        "release_id"
+      ],
+      "to_targets": [
+        "anime_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "comic_character_appearances",
       "from_columns": [
         "character_id"
@@ -29415,6 +32989,18 @@
       "onupdate": null
     },
     {
+      "from_table": "comic_variants",
+      "from_columns": [
+        "issue_id"
+      ],
+      "to_targets": [
+        "comic_issues.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
       "from_table": "music_medium_missing_track_positions",
       "from_columns": [
         "medium_id"
@@ -29481,6 +33067,42 @@
       ],
       "to_targets": [
         "tv_series.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "comic_variant_contributions",
+      "from_columns": [
+        "person_id"
+      ],
+      "to_targets": [
+        "persons.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "comic_variant_contributions",
+      "from_columns": [
+        "variant_id"
+      ],
+      "to_targets": [
+        "comic_variants.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "comic_variant_identifiers",
+      "from_columns": [
+        "variant_id"
+      ],
+      "to_targets": [
+        "comic_variants.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -29560,11 +33182,11 @@
     }
   ],
   "summary": {
-    "tables": 112,
-    "columns": 1183,
-    "foreign_keys": 109,
-    "indexes": 463,
-    "unique_constraints": 72,
+    "tables": 123,
+    "columns": 1320,
+    "foreign_keys": 125,
+    "indexes": 539,
+    "unique_constraints": 74,
     "check_constraints": 6
   }
 }

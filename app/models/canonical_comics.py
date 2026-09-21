@@ -183,6 +183,10 @@ class ComicIssue(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
 
     work: Mapped[ComicWork] = relationship(back_populates="issues")
+    variants: Mapped[list["ComicVariant"]] = relationship(
+        back_populates="issue",
+        cascade="all, delete-orphan",
+    )
     contributions: Mapped[list["ComicContribution"]] = relationship(
         back_populates="issue",
         cascade="all, delete-orphan",

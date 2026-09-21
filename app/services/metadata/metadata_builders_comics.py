@@ -6,6 +6,7 @@ from app.models import (
         ComicContribution,
         ComicIdentifier,
         ComicIssue,
+        ComicVariant,
         ComicWork,
 )
 from app.schemas import (
@@ -14,6 +15,7 @@ from app.schemas import (
         ComicIdentifierResponse,
         ComicIssueV1Response,
         ComicStoryArcResponse,
+        ComicVariantV1Response,
         ComicWorkV1Response,
 )
 
@@ -44,6 +46,28 @@ class ComicMetadataResponseBuilders:
                 normalized_value=identifier.normalized_value,
                 is_primary=identifier.is_primary,
                 source_provider=identifier.source_provider,
+            )
+
+        def _comic_variant_response(self, variant: ComicVariant) -> ComicVariantV1Response:
+            return ComicVariantV1Response(
+                id=variant.id,
+                issue_id=variant.issue_id,
+                variant_name=variant.variant_name,
+                variant_type=variant.variant_type,
+                cover_label=variant.cover_label,
+                printing_number=variant.printing_number,
+                publisher=variant.publisher,
+                imprint=variant.imprint,
+                publication_date=variant.publication_date,
+                release_date=variant.release_date,
+                language=variant.language,
+                region=variant.region,
+                physical_format=variant.physical_format,
+                catalog_number=variant.catalog_number,
+                barcode=variant.barcode,
+                cover_image_url=variant.cover_image_url,
+                cover_image_key=variant.cover_image_key,
+                description=variant.description,
             )
 
         def _comic_issue_response(self, issue: ComicIssue) -> ComicIssueV1Response:
@@ -126,6 +150,18 @@ class ComicMetadataResponseBuilders:
                             a.ordinal is None,
                             a.ordinal or 0,
                             str(a.story_arc_id),
+                        ),
+                    )
+                ],
+                variants=[
+                    self._comic_variant_response(row)
+                    for row in sorted(
+                        issue.variants or [],
+                        key=lambda row: (
+                            row.release_date is None,
+                            row.release_date or date.max,
+                            row.variant_name or "",
+                            str(row.id),
                         ),
                     )
                 ],

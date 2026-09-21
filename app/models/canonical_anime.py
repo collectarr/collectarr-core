@@ -64,6 +64,9 @@ class AnimeSeries(UuidMixin, TimestampMixin, Base):
     episodes: Mapped[list["AnimeEpisode"]] = relationship(
         back_populates="series", cascade="all, delete-orphan", lazy="selectin"
     )
+    releases: Mapped[list["AnimeRelease"]] = relationship(
+        back_populates="work", cascade="all, delete-orphan"
+    )
     contributions: Mapped[list["AnimeContribution"]] = relationship(
         back_populates="series", cascade="all, delete-orphan", lazy="selectin"
     )
@@ -90,6 +93,9 @@ class AnimeEpisode(UuidMixin, TimestampMixin, Base):
     runtime_minutes: Mapped[int | None]
 
     series: Mapped[AnimeSeries] = relationship(back_populates="episodes")
+    release_mappings: Mapped[list["AnimeReleaseEpisodeMap"]] = relationship(
+        back_populates="episode", cascade="all, delete-orphan"
+    )
 
 
 class AnimeContribution(UuidMixin, TimestampMixin, Base):

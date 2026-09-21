@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.deps import DbSession
-from app.schemas import ComicIssueV1Response, ComicWorkV1Response
+from app.schemas import ComicIssueV1Response, ComicVariantV1Response, ComicWorkV1Response
 from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
@@ -27,3 +27,19 @@ async def get_comic_work_issues(
 @router.get("/metadata/comics/issues/{issue_id}", response_model=ComicIssueV1Response)
 async def get_comic_issue(issue_id: UUID, db: DbSession) -> ComicIssueV1Response:
     return await MetadataService(db).get_comic_issue(issue_id)
+
+
+@router.get(
+    "/metadata/comics/issues/{issue_id}/variants",
+    response_model=list[ComicVariantV1Response],
+)
+async def get_comic_issue_variants(
+    issue_id: UUID,
+    db: DbSession,
+) -> list[ComicVariantV1Response]:
+    return await MetadataService(db).get_comic_issue_variants(issue_id)
+
+
+@router.get("/metadata/comics/variants/{variant_id}", response_model=ComicVariantV1Response)
+async def get_comic_variant(variant_id: UUID, db: DbSession) -> ComicVariantV1Response:
+    return await MetadataService(db).get_comic_variant(variant_id)

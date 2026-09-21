@@ -21,9 +21,9 @@ there is no generic metadata document column in the catalog schema.
 | Books | `book_works`, `book_editions`, `book_printings` |
 | Games | `game_works`, `game_releases` |
 | Board games | `boardgame_works`, `boardgame_editions` |
-| Comics | `comic_volumes`, `comic_works`, `comic_issues` |
-| Manga | `manga_works`, `manga_chapters` |
-| Anime | `anime_series`, `anime_episodes` |
+| Comics | `comic_volumes`, `comic_works`, `comic_issues`, `comic_variants` |
+| Manga | `manga_works`, `manga_editions`, `manga_chapters` |
+| Anime | `anime_series` (Work), `anime_episodes`, `anime_releases`, `anime_release_media`, `anime_release_episode_map` |
 | Movies | `movie_works`, `movie_releases`, `movie_release_media` |
 | TV | `tv_series`, `tv_seasons`, `tv_episodes`, `tv_releases`, `tv_release_media` |
 

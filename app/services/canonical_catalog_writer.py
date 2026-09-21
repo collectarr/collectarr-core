@@ -28,6 +28,8 @@ from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeCharacterAppearance,
     AnimeContribution,
+    AnimeRelease,
+    AnimeReleaseMedia,
     AnimeSeries,
     BoardGameEdition,
     BoardGameGenre,
@@ -46,6 +48,8 @@ from app.models import (
     ComicSeries,
     ComicSeriesMembership,
     ComicStoryArcMembership,
+    ComicVariant,
+    ComicVariantIdentifier,
     ComicWork,
     EntityLink,
     ExternalProviderId,
@@ -55,6 +59,8 @@ from app.models import (
     GameWork,
     MangaCharacterAppearance,
     MangaContribution,
+    MangaEdition,
+    MangaEditionIdentifier,
     MangaSeries,
     MangaSeriesMembership,
     MangaWork,
@@ -133,6 +139,64 @@ def _parse_datetime(value: str | None) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+
+
+def _has_comic_variant_identity(normalized: NormalizedItem) -> bool:
+    return any(
+        value not in (None, "")
+        for value in (
+            normalized.variant_name,
+            normalized.variant_type,
+            normalized.physical_format,
+            normalized.catalog_number,
+            normalized.barcode,
+        )
+    )
+
+
+def _has_manga_edition_identity(normalized: NormalizedItem) -> bool:
+    return any(
+        value not in (None, "")
+        for value in (
+            normalized.edition_title,
+            normalized.edition_format,
+            normalized.physical_format,
+            normalized.publisher,
+            normalized.imprint,
+            normalized.isbn,
+            normalized.barcode,
+        )
+    )
+
+
+def _has_anime_release_identity(normalized: NormalizedItem) -> bool:
+    return any(
+        value not in (None, "")
+        for value in (
+            normalized.edition_title,
+            normalized.edition_format,
+            normalized.physical_format,
+            normalized.publisher,
+            normalized.distributor,
+            normalized.barcode,
+            normalized.catalog_number,
+            normalized.packaging,
+        )
+    ) or normalized.nr_discs is not None
+
+
+def _isbn_length(value: str | None) -> int | None:
+    if not value:
+        return None
+    compact = "".join(character for character in value if character.isalnum())
+    return len(compact)
+
+
+def _split_normalized_values(value: str | None) -> list[str] | None:
+    if not value:
+        return None
+    values = [part.strip() for part in value.replace(";", ",").split(",") if part.strip()]
+    return values or None
 
 
 def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> NormalizedItem:
@@ -664,6 +728,34 @@ class CanonicalCatalogWriter:
             self.db.add(issue)
             await self.db.flush()
 
+        variant = None
+        if _has_comic_variant_identity(normalized):
+            variant = await self._get_or_create_comic_variant(issue.id, normalized)
+            if variant is None:
+                variant = ComicVariant(
+                    issue_id=issue.id,
+                    variant_name=normalized.variant_name,
+                    variant_type=normalized.variant_type,
+                    publisher=normalized.publisher,
+                    imprint=normalized.imprint,
+                    publication_date=normalized.release_date,
+                    release_date=normalized.release_date,
+                    language=normalized_language(normalized.language),
+                    region=normalized_region(normalized.country),
+                    physical_format=normalized.physical_format,
+                    catalog_number=normalized.catalog_number,
+                    barcode=normalized.barcode,
+                    cover_image_url=normalized.cover_image_url,
+                    description=normalized.synopsis,
+                )
+                self.db.add(variant)
+                await self.db.flush()
+            await self._add_comic_variant_identifiers(
+                variant,
+                normalized,
+                provider_name=provider_name,
+            )
+
         if series:
             membership = await self.db.scalar(
                 select(ComicSeriesMembership).where(
@@ -741,6 +833,7 @@ class CanonicalCatalogWriter:
 
         work = MangaWork(
             title=normalized.title,
+            volume_number=normalized.volume_number,
             sort_title=sort_key(ItemKind.manga, normalized.title, None),
             subtitle=normalized.subtitle,
             description=normalized.synopsis,
@@ -749,6 +842,31 @@ class CanonicalCatalogWriter:
         )
         self.db.add(work)
         await self.db.flush()
+
+        if _has_manga_edition_identity(normalized):
+            edition = MangaEdition(
+                work_id=work.id,
+                display_title=normalized.edition_title,
+                format=normalized.edition_format or normalized.physical_format,
+                publication_date=normalized.release_date,
+                publisher=normalized.publisher,
+                imprint=normalized.imprint,
+                language=normalized_language(normalized.language),
+                country=normalized_region(normalized.country),
+                isbn10=(normalized.isbn if _isbn_length(normalized.isbn) == 10 else None),
+                isbn13=(normalized.isbn if _isbn_length(normalized.isbn) == 13 else None),
+                barcode=normalized.barcode,
+                page_count=normalized.page_count,
+                cover_image_url=normalized.cover_image_url,
+                description=normalized.synopsis,
+            )
+            self.db.add(edition)
+            await self.db.flush()
+            await self._add_manga_edition_identifiers(
+                edition,
+                normalized,
+                provider_name=provider_name,
+            )
 
         membership = MangaSeriesMembership(
             series_id=series.id,
@@ -808,6 +926,45 @@ class CanonicalCatalogWriter:
         )
         self.db.add(series)
         await self.db.flush()
+
+        if _has_anime_release_identity(normalized):
+            release = AnimeRelease(
+                work_id=series.id,
+                title=normalized.edition_title or normalized.title,
+                sort_title=sort_key(ItemKind.anime, normalized.edition_title or normalized.title, None),
+                description=normalized.synopsis,
+                media_count=normalized.nr_discs,
+                format=normalized.edition_format or normalized.physical_format,
+                region_code=normalized_region(normalized.country),
+                release_date=normalized.release_date,
+                publisher=normalized.publisher,
+                distributor=normalized.distributor,
+                barcode=normalized.barcode,
+                catalog_number=normalized.catalog_number,
+                packaging=normalized.packaging,
+                release_status=normalized_release_status(normalized.release_status),
+                language_audio=_split_normalized_values(normalized.audio_tracks),
+                language_subtitles=_split_normalized_values(normalized.subtitles),
+                cover_image_url=normalized.cover_image_url,
+            )
+            self.db.add(release)
+            await self.db.flush()
+            if normalized.nr_discs and normalized.nr_discs > 0:
+                for media_number in range(1, normalized.nr_discs + 1):
+                    self.db.add(
+                        AnimeReleaseMedia(
+                            release_id=release.id,
+                            media_number=media_number,
+                            media_type=normalized.edition_format
+                            or normalized.physical_format
+                            or "disc",
+                            episode_count=None,
+                            runtime_minutes=normalized.runtime_minutes,
+                            region_code=normalized_region(normalized.country),
+                            audio_tracks=normalized.audio_tracks,
+                            subtitles=normalized.subtitles,
+                        )
+                    )
 
         await self._replace_catalog_provider_links(
             entity_type="anime_series",
@@ -1426,6 +1583,66 @@ class CanonicalCatalogWriter:
             await self.db.flush()
         return series
 
+    async def _get_or_create_comic_variant(
+        self,
+        issue_id: UUID,
+        normalized: NormalizedItem,
+    ) -> ComicVariant | None:
+        if normalized.barcode:
+            variant = await self.db.scalar(
+                select(ComicVariant).where(
+                    ComicVariant.issue_id == issue_id,
+                    ComicVariant.barcode == normalized.barcode,
+                )
+            )
+            if variant is not None:
+                return variant
+        if normalized.variant_name or normalized.variant_type:
+            return await self.db.scalar(
+                select(ComicVariant).where(
+                    ComicVariant.issue_id == issue_id,
+                    ComicVariant.variant_name == normalized.variant_name,
+                    ComicVariant.variant_type == normalized.variant_type,
+                )
+            )
+        return None
+
+    async def _add_comic_variant_identifiers(
+        self,
+        variant: ComicVariant,
+        normalized: NormalizedItem,
+        *,
+        provider_name: ExternalProvider | str,
+    ) -> None:
+        provider = (
+            provider_name
+            if isinstance(provider_name, ExternalProvider)
+            else ExternalProvider(provider_name)
+            if provider_name in ExternalProvider._value2member_map_
+            else None
+        )
+        if not normalized.barcode:
+            return
+        normalized_value = normalized.barcode.strip().casefold()
+        existing = await self.db.scalar(
+            select(ComicVariantIdentifier).where(
+                ComicVariantIdentifier.variant_id == variant.id,
+                ComicVariantIdentifier.identifier_type == "barcode",
+                ComicVariantIdentifier.normalized_value == normalized_value,
+            )
+        )
+        if existing is None:
+            self.db.add(
+                ComicVariantIdentifier(
+                    variant_id=variant.id,
+                    identifier_type="barcode",
+                    value=normalized.barcode,
+                    normalized_value=normalized_value,
+                    is_primary=True,
+                    source_provider=provider,
+                )
+            )
+
     async def _get_or_create_manga_series(self, title: str) -> MangaSeries:
         clean = title.strip()
         series = await self.db.scalar(select(MangaSeries).where(MangaSeries.title == clean))
@@ -1434,6 +1651,47 @@ class CanonicalCatalogWriter:
             self.db.add(series)
             await self.db.flush()
         return series
+
+    async def _add_manga_edition_identifiers(
+        self,
+        edition: MangaEdition,
+        normalized: NormalizedItem,
+        *,
+        provider_name: ExternalProvider | str,
+    ) -> None:
+        provider = (
+            provider_name
+            if isinstance(provider_name, ExternalProvider)
+            else ExternalProvider(provider_name)
+            if provider_name in ExternalProvider._value2member_map_
+            else None
+        )
+        for identifier_type, raw_value in (
+            ("isbn", normalized.isbn),
+            ("barcode", normalized.barcode),
+        ):
+            if not raw_value:
+                continue
+            value = raw_value.strip()
+            normalized_value = "".join(character for character in value if character.isalnum()).casefold()
+            existing = await self.db.scalar(
+                select(MangaEditionIdentifier).where(
+                    MangaEditionIdentifier.edition_id == edition.id,
+                    MangaEditionIdentifier.identifier_type == identifier_type,
+                    MangaEditionIdentifier.normalized_value == normalized_value,
+                )
+            )
+            if existing is None:
+                self.db.add(
+                    MangaEditionIdentifier(
+                        edition_id=edition.id,
+                        identifier_type=identifier_type,
+                        value=value,
+                        normalized_value=normalized_value,
+                        is_primary=identifier_type == "isbn",
+                        source_provider=provider,
+                    )
+                )
 
     async def _upsert_book_series(self, title: str) -> BookSeries:
         clean = title.strip()

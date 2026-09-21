@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import date
 
 from app.models import (
+        AnimeRelease,
+        AnimeReleaseEpisodeMap,
+        AnimeReleaseMedia,
         AnimeCharacterAppearance,
         AnimeContribution,
         AnimeEpisode,
@@ -14,6 +17,9 @@ from app.schemas import (
         AnimeContributorResponse,
         AnimeEpisodeV1Response,
         AnimeIdentifierResponse,
+        AnimeReleaseEpisodeMapV1Response,
+        AnimeReleaseMediaResponse,
+        AnimeReleaseV1Response,
         AnimeSeriesV1Response,
 )
 
@@ -74,6 +80,90 @@ class AnimeMetadataResponseBuilders:
                             str(c.character_id),
                         ),
                     )
+                ],
+                releases=[
+                    self._anime_release_response(row)
+                    for row in sorted(
+                        series.releases or [],
+                        key=lambda row: (
+                            row.release_date is None,
+                            row.release_date or date.max,
+                            row.title.casefold(),
+                            str(row.id),
+                        ),
+                    )
+                ],
+            )
+
+        def _anime_release_media_response(self, media: AnimeReleaseMedia) -> AnimeReleaseMediaResponse:
+            return AnimeReleaseMediaResponse(
+                id=media.id,
+                release_id=media.release_id,
+                media_number=media.media_number,
+                media_type=media.media_type,
+                title=media.title,
+                episode_count=media.episode_count,
+                runtime_minutes=media.runtime_minutes,
+                region_code=media.region_code,
+                encoding=media.encoding,
+                aspect_ratio=media.aspect_ratio,
+                audio_tracks=media.audio_tracks,
+                subtitles=media.subtitles,
+                resolution=media.resolution,
+                hdr_format=media.hdr_format,
+            )
+
+        def _anime_release_episode_map_response(
+            self,
+            mapping: AnimeReleaseEpisodeMap,
+        ) -> AnimeReleaseEpisodeMapV1Response:
+            return AnimeReleaseEpisodeMapV1Response(
+                id=mapping.id,
+                release_id=mapping.release_id,
+                media_id=mapping.media_id,
+                episode_id=mapping.episode_id,
+                disc_number=mapping.disc_number,
+                sequence_number=mapping.sequence_number,
+            )
+
+        def _anime_release_response(self, release: AnimeRelease) -> AnimeReleaseV1Response:
+            media = sorted(
+                release.media or [],
+                key=lambda row: (row.media_number, str(row.id)),
+            )
+            mappings = sorted(
+                release.episode_mappings or [],
+                key=lambda row: (
+                    row.disc_number is None,
+                    row.disc_number or 0,
+                    row.sequence_number is None,
+                    row.sequence_number or 0,
+                    str(row.id),
+                ),
+            )
+            return AnimeReleaseV1Response(
+                id=release.id,
+                work_id=release.work_id,
+                title=release.title,
+                sort_title=release.sort_title,
+                description=release.description,
+                media_count=release.media_count,
+                format=release.format,
+                region_code=release.region_code,
+                release_date=release.release_date,
+                publisher=release.publisher,
+                distributor=release.distributor,
+                barcode=release.barcode,
+                catalog_number=release.catalog_number,
+                packaging=release.packaging,
+                release_status=release.release_status,
+                language_audio=release.language_audio,
+                language_subtitles=release.language_subtitles,
+                cover_image_url=release.cover_image_url,
+                cover_image_key=release.cover_image_key,
+                media=[self._anime_release_media_response(row) for row in media],
+                episode_mappings=[
+                    self._anime_release_episode_map_response(row) for row in mappings
                 ],
             )
 

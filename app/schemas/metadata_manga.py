@@ -44,6 +44,29 @@ class MangaChapterV1Response(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MangaEditionV1Response(BaseModel):
+    id: UUID
+    work_id: UUID
+    display_title: str | None = None
+    edition_statement: str | None = None
+    format: str | None = None
+    binding: str | None = None
+    publication_date: date | None = None
+    publisher: str | None = None
+    imprint: str | None = None
+    language: str | None = None
+    country: str | None = None
+    isbn10: str | None = None
+    isbn13: str | None = None
+    barcode: str | None = None
+    page_count: int | None = None
+    cover_image_url: str | None = None
+    cover_image_key: str | None = None
+    description: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class MangaSeriesResponse(BaseModel):
     id: UUID
     title: str
@@ -55,6 +78,7 @@ class MangaSeriesResponse(BaseModel):
 class MangaWorkV1Response(BaseModel):
     id: UUID
     title: str
+    volume_number: float | None = None
     sort_title: str | None = None
     subtitle: str | None = None
     description: str | None = None
@@ -68,5 +92,6 @@ class MangaWorkV1Response(BaseModel):
     contributions: list[MangaContributorResponse] = Field(default_factory=list)
     identifiers: list[MangaIdentifierResponse] = Field(default_factory=list)
     character_appearances: list[MangaCharacterResponse] = Field(default_factory=list)
+    editions: list[MangaEditionV1Response] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

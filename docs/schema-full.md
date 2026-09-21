@@ -930,6 +930,158 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign keys: none
 
+### anime_release_contributions
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| release_id | UUID | no | no | no | yes | - | - | anime_releases.id |
+| person_id | UUID | no | no | no | yes | - | - | persons.id |
+| role | VARCHAR(64) | no | no | no | yes | - | - | - |
+| role_id | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| sequence | INTEGER | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_anime_release_contributions_person_id` (non-unique): `person_id`
+- Index `ix_anime_release_contributions_release_id` (non-unique): `release_id`
+- Index `ix_anime_release_contributions_release_role` (non-unique): `release_id, role, sequence`
+- Index `ix_anime_release_contributions_role` (non-unique): `role`
+- Index `ix_anime_release_contributions_role_id` (non-unique): `role_id`
+- Check constraints: none
+- Foreign key `(anonymous)`: `person_id` -> `persons.id`
+- Foreign key `(anonymous)`: `release_id` -> `anime_releases.id`
+
+### anime_release_episode_map
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| release_id | UUID | no | no | no | yes | - | - | anime_releases.id |
+| media_id | UUID | no | no | no | yes | - | - | anime_release_media.id |
+| episode_id | UUID | no | no | no | yes | - | - | anime_episodes.id |
+| disc_number | INTEGER | yes | no | no | no | - | - | - |
+| sequence_number | INTEGER | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_anime_release_episode_map`: `release_id, media_id, episode_id`
+- Index `ix_anime_release_episode_map_episode_id` (non-unique): `episode_id`
+- Index `ix_anime_release_episode_map_media_id` (non-unique): `media_id`
+- Index `ix_anime_release_episode_map_release_id` (non-unique): `release_id`
+- Check constraints: none
+- Foreign key `(anonymous)`: `episode_id` -> `anime_episodes.id`
+- Foreign key `(anonymous)`: `media_id` -> `anime_release_media.id`
+- Foreign key `(anonymous)`: `release_id` -> `anime_releases.id`
+
+### anime_release_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| release_id | UUID | no | no | no | yes | - | - | anime_releases.id |
+| identifier_type | VARCHAR(64) | no | no | no | yes | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| source_provider | external_provider | yes | no | no | yes | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_anime_release_identifiers_identifier_type` (non-unique): `identifier_type`
+- Index `ix_anime_release_identifiers_release_id` (non-unique): `release_id`
+- Index `ix_anime_release_identifiers_release_type_value` (non-unique): `release_id, identifier_type, normalized_value`
+- Index `ix_anime_release_identifiers_source_provider` (non-unique): `source_provider`
+- Index `ix_anime_release_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `release_id` -> `anime_releases.id`
+
+### anime_release_media
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| release_id | UUID | no | no | no | yes | - | - | anime_releases.id |
+| media_number | INTEGER | no | no | no | no | - | - | - |
+| media_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| episode_count | INTEGER | yes | no | no | no | - | - | - |
+| runtime_minutes | INTEGER | yes | no | no | no | - | - | - |
+| region_code | VARCHAR(32) | yes | no | no | no | - | - | - |
+| encoding | VARCHAR(64) | yes | no | no | no | - | - | - |
+| aspect_ratio | VARCHAR(16) | yes | no | no | no | - | - | - |
+| audio_tracks | VARCHAR(500) | yes | no | no | no | - | - | - |
+| subtitles | VARCHAR(500) | yes | no | no | no | - | - | - |
+| resolution | VARCHAR(16) | yes | no | no | no | - | - | - |
+| hdr_format | VARCHAR(64) | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_anime_release_media_release_number`: `release_id, media_number`
+- Index `ix_anime_release_media_release_id` (non-unique): `release_id`
+- Check constraints: none
+- Foreign key `(anonymous)`: `release_id` -> `anime_releases.id`
+
+### anime_releases
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| work_id | UUID | no | no | no | yes | - | - | anime_series.id |
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_title | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| description | TEXT | yes | no | no | no | - | - | - |
+| media_count | INTEGER | yes | no | no | no | - | - | - |
+| format | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| region_code | VARCHAR(32) | yes | no | no | yes | - | - | - |
+| release_date | DATE | yes | no | no | yes | - | - | - |
+| publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| distributor | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| packaging | VARCHAR(64) | yes | no | no | no | - | - | - |
+| release_status | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| language_audio | VARCHAR[] | yes | no | no | no | - | - | - |
+| language_subtitles | VARCHAR[] | yes | no | no | no | - | - | - |
+| cover_image_url | VARCHAR(2048) | yes | no | no | no | - | - | - |
+| cover_image_key | VARCHAR(512) | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_anime_releases_barcode` (non-unique): `barcode`
+- Index `ix_anime_releases_catalog_number` (non-unique): `catalog_number`
+- Index `ix_anime_releases_distributor` (non-unique): `distributor`
+- Index `ix_anime_releases_format` (non-unique): `format`
+- Index `ix_anime_releases_publisher` (non-unique): `publisher`
+- Index `ix_anime_releases_region_code` (non-unique): `region_code`
+- Index `ix_anime_releases_release_date` (non-unique): `release_date`
+- Index `ix_anime_releases_release_status` (non-unique): `release_status`
+- Index `ix_anime_releases_sort_title` (non-unique): `sort_title`
+- Index `ix_anime_releases_title` (non-unique): `title`
+- Index `ix_anime_releases_work_barcode` (non-unique): `work_id, barcode`
+- Index `ix_anime_releases_work_id` (non-unique): `work_id`
+- Index `ix_anime_releases_work_release_date` (non-unique): `work_id, release_date`
+- Check constraints: none
+- Foreign key `(anonymous)`: `work_id` -> `anime_series.id`
+
 ### boardgame_categories
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -1277,6 +1429,104 @@ Tables not yet mapped to a primary domain bucket.
 - Foreign key `(anonymous)`: `source_series_id` -> `comic_series.id`
 - Foreign key `(anonymous)`: `target_series_id` -> `comic_series.id`
 
+### comic_variant_contributions
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| variant_id | UUID | no | no | no | yes | - | - | comic_variants.id |
+| person_id | UUID | no | no | no | yes | - | - | persons.id |
+| role | VARCHAR(64) | no | no | no | yes | - | - | - |
+| role_id | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| sequence | INTEGER | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_comic_variant_contributions_person_id` (non-unique): `person_id`
+- Index `ix_comic_variant_contributions_role` (non-unique): `role`
+- Index `ix_comic_variant_contributions_role_id` (non-unique): `role_id`
+- Index `ix_comic_variant_contributions_variant_id` (non-unique): `variant_id`
+- Index `ix_comic_variant_contributions_variant_role` (non-unique): `variant_id, role, sequence`
+- Check constraints: none
+- Foreign key `(anonymous)`: `person_id` -> `persons.id`
+- Foreign key `(anonymous)`: `variant_id` -> `comic_variants.id`
+
+### comic_variant_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| variant_id | UUID | no | no | no | yes | - | - | comic_variants.id |
+| identifier_type | VARCHAR(64) | no | no | no | yes | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| source_provider | external_provider | yes | no | no | yes | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_comic_variant_identifiers_identifier_type` (non-unique): `identifier_type`
+- Index `ix_comic_variant_identifiers_source_provider` (non-unique): `source_provider`
+- Index `ix_comic_variant_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Index `ix_comic_variant_identifiers_variant_id` (non-unique): `variant_id`
+- Index `ix_comic_variant_identifiers_variant_type_value` (non-unique): `variant_id, identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `variant_id` -> `comic_variants.id`
+
+### comic_variants
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| issue_id | UUID | no | no | no | yes | - | - | comic_issues.id |
+| variant_name | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| variant_type | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| cover_label | VARCHAR(255) | yes | no | no | no | - | - | - |
+| printing_number | INTEGER | yes | no | no | no | - | - | - |
+| publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| imprint | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| publication_date | DATE | yes | no | no | yes | - | - | - |
+| release_date | DATE | yes | no | no | yes | - | - | - |
+| language | VARCHAR(16) | yes | no | no | yes | - | - | - |
+| region | VARCHAR(32) | yes | no | no | yes | - | - | - |
+| physical_format | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| cover_image_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
+| cover_image_key | VARCHAR(512) | yes | no | no | no | - | - | - |
+| description | TEXT | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_comic_variants_barcode` (non-unique): `barcode`
+- Index `ix_comic_variants_catalog_number` (non-unique): `catalog_number`
+- Index `ix_comic_variants_imprint` (non-unique): `imprint`
+- Index `ix_comic_variants_issue_barcode` (non-unique): `issue_id, barcode`
+- Index `ix_comic_variants_issue_id` (non-unique): `issue_id`
+- Index `ix_comic_variants_issue_release_date` (non-unique): `issue_id, release_date`
+- Index `ix_comic_variants_language` (non-unique): `language`
+- Index `ix_comic_variants_physical_format` (non-unique): `physical_format`
+- Index `ix_comic_variants_publication_date` (non-unique): `publication_date`
+- Index `ix_comic_variants_publisher` (non-unique): `publisher`
+- Index `ix_comic_variants_region` (non-unique): `region`
+- Index `ix_comic_variants_release_date` (non-unique): `release_date`
+- Index `ix_comic_variants_variant_name` (non-unique): `variant_name`
+- Index `ix_comic_variants_variant_type` (non-unique): `variant_type`
+- Check constraints: none
+- Foreign key `(anonymous)`: `issue_id` -> `comic_issues.id`
+
 ### comic_work_missing_issue_numbers
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -1564,6 +1814,104 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_game_series_memberships_work_sequence` (non-unique): `work_id, sequence`
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `game_works.id`
+
+### manga_edition_contributions
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| edition_id | UUID | no | no | no | yes | - | - | manga_editions.id |
+| person_id | UUID | no | no | no | yes | - | - | persons.id |
+| role | VARCHAR(64) | no | no | no | yes | - | - | - |
+| role_id | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| sequence | INTEGER | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_manga_edition_contributions_edition_id` (non-unique): `edition_id`
+- Index `ix_manga_edition_contributions_edition_role` (non-unique): `edition_id, role, sequence`
+- Index `ix_manga_edition_contributions_person_id` (non-unique): `person_id`
+- Index `ix_manga_edition_contributions_role` (non-unique): `role`
+- Index `ix_manga_edition_contributions_role_id` (non-unique): `role_id`
+- Check constraints: none
+- Foreign key `(anonymous)`: `edition_id` -> `manga_editions.id`
+- Foreign key `(anonymous)`: `person_id` -> `persons.id`
+
+### manga_edition_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| edition_id | UUID | no | no | no | yes | - | - | manga_editions.id |
+| identifier_type | VARCHAR(64) | no | no | no | yes | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| source_provider | external_provider | yes | no | no | yes | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_manga_edition_identifiers_edition_id` (non-unique): `edition_id`
+- Index `ix_manga_edition_identifiers_edition_type_value` (non-unique): `edition_id, identifier_type, normalized_value`
+- Index `ix_manga_edition_identifiers_identifier_type` (non-unique): `identifier_type`
+- Index `ix_manga_edition_identifiers_source_provider` (non-unique): `source_provider`
+- Index `ix_manga_edition_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `edition_id` -> `manga_editions.id`
+
+### manga_editions
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| work_id | UUID | no | no | no | yes | - | - | manga_works.id |
+| display_title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| edition_statement | VARCHAR(255) | yes | no | no | no | - | - | - |
+| format | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| binding | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| publication_date | DATE | yes | no | no | yes | - | - | - |
+| publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| imprint | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| language | VARCHAR(16) | yes | no | no | yes | - | - | - |
+| country | VARCHAR(32) | yes | no | no | yes | - | - | - |
+| isbn10 | VARCHAR(32) | yes | no | no | yes | - | - | - |
+| isbn13 | VARCHAR(32) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| page_count | INTEGER | yes | no | no | no | - | - | - |
+| cover_image_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
+| cover_image_key | VARCHAR(512) | yes | no | no | no | - | - | - |
+| description | TEXT | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_manga_editions_barcode` (non-unique): `barcode`
+- Index `ix_manga_editions_binding` (non-unique): `binding`
+- Index `ix_manga_editions_country` (non-unique): `country`
+- Index `ix_manga_editions_format` (non-unique): `format`
+- Index `ix_manga_editions_imprint` (non-unique): `imprint`
+- Index `ix_manga_editions_isbn10` (non-unique): `isbn10`
+- Index `ix_manga_editions_isbn13` (non-unique): `isbn13`
+- Index `ix_manga_editions_language` (non-unique): `language`
+- Index `ix_manga_editions_publication_date` (non-unique): `publication_date`
+- Index `ix_manga_editions_publisher` (non-unique): `publisher`
+- Index `ix_manga_editions_work_barcode` (non-unique): `work_id, barcode`
+- Index `ix_manga_editions_work_id` (non-unique): `work_id`
+- Index `ix_manga_editions_work_isbn13` (non-unique): `work_id, isbn13`
+- Index `ix_manga_editions_work_publication` (non-unique): `work_id, publication_date`
+- Check constraints: none
+- Foreign key `(anonymous)`: `work_id` -> `manga_works.id`
 
 ### manga_series
 

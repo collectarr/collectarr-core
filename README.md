@@ -71,13 +71,11 @@ references.
 - [Open generated markdown snapshot](docs/schema-full.md)
 - Refresh locally with `python -m scripts.export_schema_site` or keep it live with `python -m scripts.export_schema_site --watch`.
 
-### Schema bootstrap (v1)
+### Schema bootstrap
 
-Core ships one squashed Alembic baseline for the current schema. The server
-database is recreated when the schema changes; no historical upgrade or
-untracked-database adoption path is maintained. Run
-`python -m app.scripts.bootstrap_alembic` against a clean database to create
-the version-1 schema.
+The server database is created directly from the typed SQLAlchemy models. When
+the schema changes, recreate the development database and run
+`python -m app.scripts.bootstrap_schema`.
 
 ---
 
@@ -88,7 +86,7 @@ the version-1 schema.
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build -d
-docker compose exec api python -m app.scripts.bootstrap_alembic
+docker compose exec api python -m app.scripts.bootstrap_schema
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
@@ -105,7 +103,7 @@ python -m pytest
 ```powershell
 .\tools\dev.ps1 start            # Start Docker stack
 .\tools\dev.ps1 start -WithSync  # Start Core + collectarr-sync dev stack
-.\tools\dev.ps1 migrate          # Run Alembic migrations
+.\tools\dev.ps1 schema           # Create the schema from SQLAlchemy models
 .\tools\dev.ps1 seed             # Seed sample comics data
 .\tools\dev.ps1 test             # Run test suite
 .\tools\dev.ps1 check            # Lint + type check
@@ -184,14 +182,14 @@ schedule or manual dispatch.
 To switch from placeholder badges to live counts, configure:
 
 - `COLLECTARR_BADGES_BASE_URL` for the public Core base URL (e.g., `COLLECTARR_BADGES_BASE_URL=http://localhost:8010`)
-- `COLLECTARR_BADGES_TOKEN` for bearer-token access to `/admin/catalog/summary`
+- `COLLECTARR_BADGES_TOKEN` for bearer-token access to `/api/v1/admin/catalog/summary`
 
 Or, instead of a static token:
 
 - `COLLECTARR_BADGES_EMAIL`
 - `COLLECTARR_BADGES_PASSWORD`
 
-The workflow logs in through `/auth/login` when a bearer token is not provided.
+The workflow logs in through `/api/v1/auth/login` when a bearer token is not provided.
 
 ---
 

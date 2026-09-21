@@ -4,11 +4,10 @@
 
 Canonical metadata is shared across clients. Personal library data references canonical records locally but is not stored by the central metadata server.
 
-Canonical hierarchy:
+Canonical graph:
 
 ```text
-Item -> Edition -> Variant
-                                      -> Release
+Kind-specific Work -> Release -> Medium / Track
 ```
 
 Local client hierarchy:
@@ -44,7 +43,7 @@ Collectarr is split into three product repositories:
 
 - `collectarr-core`: metadata API, canonical catalog, normalized submission
   handling, search indexing, image cache, admin identity, audit logs,
-  migrations, and the Core Admin Console.
+  schema bootstrap and the Core Admin Console.
 - `collectarr-sync`: optional personal sync service, sync protocol, device
   pairing, conflict handling, tombstones, and sync storage.
 - `collectarr-app`: Flutter client, local Drift database, local catalog
@@ -63,11 +62,10 @@ Movies and TV shows are canonical video works. DVD, Blu-ray, 4K UHD, VHS,
 LaserDisc, and digital purchases are physical/digital formats represented by
 edition and variant records under those works; normalized submissions target
 the canonical movie/TV records plus exact physical release variants.
-Admin corrections can set the normalized physical format before a dedicated
-release schema exists; Core stores that as edition/variant metadata and returns
+Admin corrections target exact kind-specific work or release entities and return
 the normalized ID plus display label to Flutter.
 
-Core exposes the media catalog through `GET /metadata/media-types`. Flutter
+Core exposes the media catalog through `GET /api/v1/metadata/media-types`. Flutter
 uses that response as the runtime source for media labels, route aliases, and
 physical format options, while keeping local fallback data for
 offline/development sessions when Core is unavailable.

@@ -96,7 +96,7 @@ async def _reset_public_schema_objects(connection: asyncpg.Connection) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def migrated_database() -> None:
+def schema_database() -> None:
     database_url = os.environ["DATABASE_URL"]
     url = make_url(database_url)
     host = url.host or "localhost"

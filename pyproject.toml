@@ -4,7 +4,6 @@ version = "0.2.0-beta.1"
 description = "Collectarr metadata and library backend"
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.13.3",
     "asyncpg>=0.30.0",
     "boto3>=1.35.34",
     "bcrypt>=4.0,<6",

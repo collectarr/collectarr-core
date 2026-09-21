@@ -181,7 +181,7 @@ noise for every query.
 
 Suggested API shape:
 
-- Keep `/metadata/search` item-first.
+- Keep `/api/v1/metadata/search` kind-first.
 - Include `bundle_count` on item detail or preview payloads when bundle matches
   exist.
 - Expose bundle lookup on a dedicated typed bundle resource.
@@ -402,7 +402,7 @@ entry. The primary identity remains the canonical `itemId`.
 
 ## Implementation Sequence
 
-1. Add `bundle_releases` and `bundle_release_components` to Core models and Alembic.
+1. Add `bundle_releases` and `bundle_release_components` to the Core models.
 2. Extend generic entity tables and provider mappings to accept `bundle_release`.
 3. Add item-scoped bundle lookup endpoints.
 4. Teach app-side provider normalization and the Core submission writer to emit

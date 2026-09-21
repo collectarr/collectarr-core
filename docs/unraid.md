@@ -52,13 +52,13 @@ From this repository root:
 ```bash
 cp .env.unraid.example .env.unraid
 docker compose --env-file .env.unraid -f docker-compose.unraid.yml up -d
-docker compose --env-file .env.unraid -f docker-compose.unraid.yml exec api python -m app.scripts.bootstrap_alembic
+docker compose --env-file .env.unraid -f docker-compose.unraid.yml exec api python -m app.scripts.bootstrap_schema
 ```
 
 Then verify:
 
 ```bash
-curl http://LAN_IP:8010/health
+curl http://LAN_IP:8010/api/v1/health
 ```
 
 `collectarr-sync` is intentionally not bundled in this Core stack. If you need

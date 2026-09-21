@@ -15,25 +15,19 @@
 ## Architecture
 
 ### Database Hierarchy
+
+```text
+Kind-specific Work -> Release -> Medium / Track
 ```
-Item → Edition → Variant (+ Release)
-```
-- Keep the canonical catalog on the item/release spine; prefer per-kind work/release structures where they exist.
-- Do not force shared legacy grouping layers onto kinds with native v1 models (music, boardgame, game).
-- Models in `app/models/canonical.py` (SQLAlchemy 2.x async, `mapped_column`)
-- Migrations: Alembic (`alembic/`). **Pre-2.0 policy: a single squashed baseline**
-  (`alembic/versions/20260624_1000_clean_schema_baseline.py`, which runs
-  `Base.metadata.create_all`). The server DB starts empty, so while the schema is
-  still evolving we regenerate the baseline and recreate the DB instead of adding
-  incremental migrations. `python -m app.scripts.bootstrap_alembic` builds a fresh
-  DB from the baseline. Do NOT stack new migration files until the schema
-  stabilizes — change the models and the baseline picks them up via `create_all`.
-- Schema integrity lives in the models: non-negative CHECKs, a one-primary-per-edition
-  partial unique index (`uq_variants_primary_per_edition`), and reverse foreign-key
-  indexes on the polymorphic `entity_*` link tables. (A matching
-  bundle membership is now modeled via `bundle_release_components`; update paths
-  should delete removed members before inserting the new primary, otherwise the
-  in-transaction primary swap trips the ordering invariant.)
+
+- Keep canonical metadata in the kind-specific work/release tables described in
+  `AGENTS.md`; shared tables model typed relationships only.
+- Models live in `app/models/` and use SQLAlchemy 2.x async `mapped_column`.
+- The server schema is created with `python -m app.scripts.bootstrap_schema` from
+  `Base.metadata.create_all`; schema changes are applied by recreating the
+  development database.
+- Schema integrity lives in the models: non-negative CHECKs, typed unique
+  indexes, and reverse foreign-key indexes on polymorphic `entity_*` link tables.
 
 ### Provider contract (`app/providers/`)
 
@@ -43,25 +37,26 @@ canonical write contract. Keep provider-specific HTTP clients and credentials
 out of Core.
 
 ### Services (`app/services/`)
-- metadata services — typed catalog reads, search, and canonical writes
-- admin services — corrections, duplicate review, image mirroring, and audit
+
+- metadata services - typed catalog reads, search, and canonical writes
+- admin services - corrections, duplicate review, image mirroring, and audit
 
 ### Image Pipeline (`app/storage/`)
-```
-Metadata image source → ImageMirror (download, validate, resize 1280px, WebP q82)
-  → MinIO S3 (covers/{source}/{id}/{hash}.webp)
-  → ImageCache (DB tracking, LRU eviction at 100GB)
-  → Public URL
+
+```text
+Metadata image source -> ImageMirror -> MinIO S3
+  -> ImageCache (DB tracking) -> Public URL
 ```
 
 ### API Routes (`app/api/routes/`)
-- `auth.py` — JWT register/login
-- `metadata.py` — typed catalog reads and normalized metadata submissions
-- `admin.py` — metadata corrections, image cache, and audit
+
+- `auth.py` - JWT register/login
+- `metadata.py` - typed catalog reads and normalized metadata submissions
+- `admin.py` - metadata corrections, image cache, and audit
 
 ## Git and Releases
 
-- Use conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `refactor:`).
+- Use semantic-release conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `refactor:`).
 - Branch: `feat/file-reorg-and-hardcover`.
 
 ## Code Style

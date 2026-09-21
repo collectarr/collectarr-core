@@ -46,25 +46,25 @@ async def _assert_rows_reference_existing_entities(
 
 
 @pytest.mark.asyncio
-async def test_entity_aliases_reference_existing_entities(migrated_database):
+async def test_entity_aliases_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_aliases")
 
 
 @pytest.mark.asyncio
-async def test_entity_links_reference_existing_entities(migrated_database):
+async def test_entity_links_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_links")
 
 
 @pytest.mark.asyncio
-async def test_bundle_release_components_reference_existing_entities(migrated_database):
+async def test_bundle_release_components_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="bundle_release_components")
 
 
 @pytest.mark.asyncio
-async def test_bundle_release_components_support_multiple_entity_types(migrated_database):
+async def test_bundle_release_components_support_multiple_entity_types(schema_database):
     async with AsyncSessionLocal() as db:
         movie_work = MovieWork(title="Movie Work")
         tv_release = TVRelease(title="TV Release", format="DVD")
@@ -166,18 +166,18 @@ async def test_bundle_release_components_support_multiple_entity_types(migrated_
 
 
 @pytest.mark.asyncio
-async def test_entity_organizations_reference_existing_entities(migrated_database):
+async def test_entity_organizations_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_organizations")
 
 
 @pytest.mark.asyncio
-async def test_entity_persons_reference_existing_entities(migrated_database):
+async def test_entity_persons_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_persons")
 
 
 @pytest.mark.asyncio
-async def test_entity_tags_reference_existing_entities(migrated_database):
+async def test_entity_tags_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_tags")

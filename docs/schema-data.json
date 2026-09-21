@@ -16,16 +16,15 @@
   ],
   "notes": [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.",
+    "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
-    "The clean server schema is created by the version-1 Alembic baseline; constraints outside model declarations are defined there.",
-    "Legacy generic tables (`items`, `editions`, `variants`) are no longer part of the canonical schema or interactive view."
+    "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command."
   ],
   "domains": [
     {
       "id": "catalog",
       "title": "Catalog Spine",
-      "description": "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific, and bundle composition is polymorphic.",
+      "description": "Canonical kind-specific tables and polymorphic bundle composition.",
       "tables": [
         "bundle_releases",
         "bundle_release_components"
@@ -63,7 +62,7 @@
         "users",
         "external_provider_ids"
       ],
-      "diagram": "erDiagram\n  USERS {\n    VARCHAR_320 email UK\n    VARCHAR_120 display_name\n    VARCHAR_255 password_hash\n    BOOLEAN is_active\n    BOOLEAN is_admin\n    user_role role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }",
+      "diagram": "erDiagram\n  USERS {\n    VARCHAR_320 email UK\n    VARCHAR_120 display_name\n    VARCHAR_255 password_hash\n    BOOLEAN is_active\n    user_role role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  EXTERNAL_PROVIDER_IDS {\n    external_provider provider\n    VARCHAR_255 provider_item_id\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_1024 site_url\n    VARCHAR_1024 api_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }",
       "external_references": []
     },
     {
@@ -116,6 +115,8 @@
         "boardgame_platforms",
         "boardgame_player_count_votes",
         "boardgame_rankings_snapshot",
+        "canonical_correction_proposal_values",
+        "canonical_correction_proposals",
         "comic_character_external_identifiers",
         "comic_characters",
         "comic_series",
@@ -152,7 +153,7 @@
         "tv_episode_identifiers",
         "tv_releases"
       ],
-      "diagram": "erDiagram\n  ADMIN_AUDIT_LOG_DETAILS {\n    UUID audit_log_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_CONTRIBUTIONS {\n    UUID release_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_EPISODE_MAP {\n    UUID release_id FK\n    UUID media_id FK\n    UUID episode_id FK\n    INTEGER disc_number\n    INTEGER sequence_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_MEDIA {\n    UUID release_id FK\n    INTEGER media_number\n    VARCHAR_64 media_type\n    VARCHAR_255 title\n    INTEGER episode_count\n    INTEGER runtime_minutes\n    VARCHAR_32 region_code\n    VARCHAR_64 encoding\n    VARCHAR_16 aspect_ratio\n    VARCHAR_500 audio_tracks\n    VARCHAR_500 subtitles\n    VARCHAR_16 resolution\n    VARCHAR_64 hdr_format\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASES {\n    UUID work_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_32 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_255 distributor\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    VARCHAR_64 packaging\n    VARCHAR_64 release_status\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CATEGORIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EXPANSIONS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_FAMILIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_MECHANICS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLAYER_COUNT_VOTES {\n    UUID edition_id FK\n    INTEGER players_min\n    INTEGER players_max\n    INTEGER vote_count\n    INTEGER recommended_count\n    INTEGER not_recommended_count\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_RANKINGS_SNAPSHOT {\n    UUID work_id FK\n    VARCHAR_255 ranking_name\n    INTEGER rank_position\n    INTEGER users_rated\n    FLOAT bayes_average\n    DATE snapshot_date\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTER_EXTERNAL_IDENTIFIERS {\n    UUID character_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    VARCHAR_1024 image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANT_CONTRIBUTIONS {\n    UUID variant_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANT_IDENTIFIERS {\n    UUID variant_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANTS {\n    UUID issue_id FK\n    VARCHAR_255 variant_name\n    VARCHAR_64 variant_type\n    VARCHAR_255 cover_label\n    INTEGER printing_number\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    DATE publication_date\n    DATE release_date\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_64 physical_format\n    VARCHAR_100 catalog_number\n    VARCHAR_100 barcode\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_WORK_MISSING_ISSUE_NUMBERS {\n    UUID work_id FK\n    INTEGER issue_number\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEW_DETAILS {\n    UUID review_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  DUPLICATE_REVIEW_ENTITIES {\n    UUID review_id FK\n    VARCHAR_32 role\n    UUID entity_id\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_AGE_RATINGS {\n    UUID work_id FK\n    VARCHAR_64 rating_system\n    VARCHAR_64 rating\n    VARCHAR_32 region_code\n    VARCHAR_255 descriptor\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_COMPANY_ROLES {\n    UUID work_id FK\n    UUID organization_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 platform_name\n    VARCHAR_255 normalized_name\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_PLATFORMS {\n    UUID release_id FK\n    UUID platform_id FK\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    VARCHAR_255 series_name\n    VARCHAR_255 normalized_series_name\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITION_CONTRIBUTIONS {\n    UUID edition_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITIONS {\n    UUID work_id FK\n    VARCHAR_255 display_title\n    VARCHAR_255 edition_statement\n    VARCHAR_100 format\n    VARCHAR_100 binding\n    DATE publication_date\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    VARCHAR_16 language\n    VARCHAR_32 country\n    VARCHAR_32 isbn10\n    VARCHAR_32 isbn13\n    VARCHAR_100 barcode\n    INTEGER page_count\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  METADATA_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  MUSIC_MEDIUM_MISSING_TRACK_POSITIONS {\n    UUID medium_id FK\n    VARCHAR_16 position\n    INTEGER position_order\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_RELEASE_GROUP_GENRES {\n    UUID release_group_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSON_EXTERNAL_IDENTIFIERS {\n    UUID person_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOT_VALUES {\n    UUID snapshot_id FK\n    VARCHAR_16 payload_kind\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_CONTRIBUTIONS {\n    UUID episode_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    VARCHAR_255 character_name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_IDENTIFIERS {\n    UUID episode_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASES {\n    UUID series_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_2 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_64 case_type\n    INTEGER episode_count\n    INTEGER season_count\n    INTEGER runtime_minutes\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_64 content_rating\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_CONTRIBUTIONS : release_id\n  ANIME_RELEASE_MEDIA ||--o{ ANIME_RELEASE_EPISODE_MAP : media_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_EPISODE_MAP : release_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_IDENTIFIERS : release_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_MEDIA : release_id\n  COMIC_CHARACTERS ||--o{ COMIC_CHARACTER_EXTERNAL_IDENTIFIERS : character_id\n  COMIC_SERIES ||--o{ COMIC_SERIES_RELATIONS : \"source_series_id, target_series_id\"\n  COMIC_VARIANTS ||--o{ COMIC_VARIANT_CONTRIBUTIONS : variant_id\n  COMIC_VARIANTS ||--o{ COMIC_VARIANT_IDENTIFIERS : variant_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_DETAILS : review_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_ENTITIES : review_id\n  GAME_PLATFORMS ||--o{ GAME_RELEASE_PLATFORMS : platform_id\n  MANGA_EDITIONS ||--o{ MANGA_EDITION_CONTRIBUTIONS : edition_id\n  MANGA_EDITIONS ||--o{ MANGA_EDITION_IDENTIFIERS : edition_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_MEMBERSHIPS : series_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_RELATIONS : \"source_series_id, target_series_id\"",
+      "diagram": "erDiagram\n  ADMIN_AUDIT_LOG_DETAILS {\n    UUID audit_log_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  ADMIN_RELEASE_MEDIA_MAPPING_RULES {\n    external_provider provider\n    VARCHAR_64 release_type\n    item_kind target_kind\n    INTEGER priority\n    BOOLEAN is_active\n    TEXT notes\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_CONTRIBUTIONS {\n    UUID release_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_EPISODE_MAP {\n    UUID release_id FK\n    UUID media_id FK\n    UUID episode_id FK\n    INTEGER disc_number\n    INTEGER sequence_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASE_MEDIA {\n    UUID release_id FK\n    INTEGER media_number\n    VARCHAR_64 media_type\n    VARCHAR_255 title\n    INTEGER episode_count\n    INTEGER runtime_minutes\n    VARCHAR_32 region_code\n    VARCHAR_64 encoding\n    VARCHAR_16 aspect_ratio\n    VARCHAR_500 audio_tracks\n    VARCHAR_500 subtitles\n    VARCHAR_16 resolution\n    VARCHAR_64 hdr_format\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASES {\n    UUID work_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_32 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_255 distributor\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    VARCHAR_64 packaging\n    VARCHAR_64 release_status\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CATEGORIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_CONTRIBUTIONS {\n    UUID work_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_EXPANSIONS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_FAMILIES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_MECHANICS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_PLAYER_COUNT_VOTES {\n    UUID edition_id FK\n    INTEGER players_min\n    INTEGER players_max\n    INTEGER vote_count\n    INTEGER recommended_count\n    INTEGER not_recommended_count\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_RANKINGS_SNAPSHOT {\n    UUID work_id FK\n    VARCHAR_255 ranking_name\n    INTEGER rank_position\n    INTEGER users_rated\n    FLOAT bayes_average\n    DATE snapshot_date\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CANONICAL_CORRECTION_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  CANONICAL_CORRECTION_PROPOSALS {\n    item_kind kind\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_64 scope\n    VARCHAR_128 base_revision\n    VARCHAR_128 base_hash\n    VARCHAR_32 status\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTER_EXTERNAL_IDENTIFIERS {\n    UUID character_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    VARCHAR_1024 image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANT_CONTRIBUTIONS {\n    UUID variant_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANT_IDENTIFIERS {\n    UUID variant_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_VARIANTS {\n    UUID issue_id FK\n    VARCHAR_255 variant_name\n    VARCHAR_64 variant_type\n    VARCHAR_255 cover_label\n    INTEGER printing_number\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    DATE publication_date\n    DATE release_date\n    VARCHAR_16 language\n    VARCHAR_32 region\n    VARCHAR_64 physical_format\n    VARCHAR_100 catalog_number\n    VARCHAR_100 barcode\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_WORK_MISSING_ISSUE_NUMBERS {\n    UUID work_id FK\n    INTEGER issue_number\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEW_DETAILS {\n    UUID review_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  DUPLICATE_REVIEW_ENTITIES {\n    UUID review_id FK\n    VARCHAR_32 role\n    UUID entity_id\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_AGE_RATINGS {\n    UUID work_id FK\n    VARCHAR_64 rating_system\n    VARCHAR_64 rating\n    VARCHAR_32 region_code\n    VARCHAR_255 descriptor\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_COMPANY_ROLES {\n    UUID work_id FK\n    UUID organization_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_GENRES {\n    UUID work_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_IDENTIFIERS {\n    UUID work_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_PLATFORMS {\n    UUID work_id FK\n    VARCHAR_255 platform_name\n    VARCHAR_255 normalized_name\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_IDENTIFIERS {\n    UUID release_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    VARCHAR_64 source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_RELEASE_PLATFORMS {\n    UUID release_id FK\n    UUID platform_id FK\n    INTEGER sequence\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    VARCHAR_255 series_name\n    VARCHAR_255 normalized_series_name\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITION_CONTRIBUTIONS {\n    UUID edition_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITION_IDENTIFIERS {\n    UUID edition_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_EDITIONS {\n    UUID work_id FK\n    VARCHAR_255 display_title\n    VARCHAR_255 edition_statement\n    VARCHAR_100 format\n    VARCHAR_100 binding\n    DATE publication_date\n    VARCHAR_255 publisher\n    VARCHAR_255 imprint\n    VARCHAR_16 language\n    VARCHAR_32 country\n    VARCHAR_32 isbn10\n    VARCHAR_32 isbn13\n    VARCHAR_100 barcode\n    INTEGER page_count\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 cover_image_key\n    TEXT description\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    DATE end_date\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_MEMBERSHIPS {\n    UUID work_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_SERIES_RELATIONS {\n    UUID source_series_id FK\n    UUID target_series_id FK\n    series_relation_type relation_type\n    INTEGER ordinal\n    VARCHAR_1024 image_url\n    INTEGER start_year\n    VARCHAR_64 provider\n    VARCHAR_255 provider_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  METADATA_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  MUSIC_MEDIUM_MISSING_TRACK_POSITIONS {\n    UUID medium_id FK\n    VARCHAR_16 position\n    INTEGER position_order\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_RELEASE_GROUP_GENRES {\n    UUID release_group_id FK\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSON_EXTERNAL_IDENTIFIERS {\n    UUID person_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PROVIDER_PAYLOAD_SNAPSHOT_VALUES {\n    UUID snapshot_id FK\n    VARCHAR_16 payload_kind\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_CONTRIBUTIONS {\n    UUID episode_id FK\n    UUID person_id FK\n    VARCHAR_64 role\n    INTEGER sequence\n    VARCHAR_255 character_name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_EPISODE_IDENTIFIERS {\n    UUID episode_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    external_provider source_provider\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_RELEASES {\n    UUID series_id FK\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    TEXT description\n    INTEGER media_count\n    VARCHAR_64 format\n    VARCHAR_2 region_code\n    DATE release_date\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_64 case_type\n    INTEGER episode_count\n    INTEGER season_count\n    INTEGER runtime_minutes\n    VARCHAR language_audio\n    VARCHAR language_subtitles\n    VARCHAR_64 content_rating\n    VARCHAR_2048 cover_image_url\n    VARCHAR_512 cover_image_key\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_CONTRIBUTIONS : release_id\n  ANIME_RELEASE_MEDIA ||--o{ ANIME_RELEASE_EPISODE_MAP : media_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_EPISODE_MAP : release_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_IDENTIFIERS : release_id\n  ANIME_RELEASES ||--o{ ANIME_RELEASE_MEDIA : release_id\n  CANONICAL_CORRECTION_PROPOSALS ||--o{ CANONICAL_CORRECTION_PROPOSAL_VALUES : proposal_id\n  COMIC_CHARACTERS ||--o{ COMIC_CHARACTER_EXTERNAL_IDENTIFIERS : character_id\n  COMIC_SERIES ||--o{ COMIC_SERIES_RELATIONS : \"source_series_id, target_series_id\"\n  COMIC_VARIANTS ||--o{ COMIC_VARIANT_CONTRIBUTIONS : variant_id\n  COMIC_VARIANTS ||--o{ COMIC_VARIANT_IDENTIFIERS : variant_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_DETAILS : review_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_ENTITIES : review_id\n  GAME_PLATFORMS ||--o{ GAME_RELEASE_PLATFORMS : platform_id\n  MANGA_EDITIONS ||--o{ MANGA_EDITION_CONTRIBUTIONS : edition_id\n  MANGA_EDITIONS ||--o{ MANGA_EDITION_IDENTIFIERS : edition_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_MEMBERSHIPS : series_id\n  MANGA_SERIES ||--o{ MANGA_SERIES_RELATIONS : \"source_series_id, target_series_id\"",
       "external_references": [
         {
           "from_table": "admin_audit_log_details",
@@ -1187,9 +1188,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_series",
@@ -1425,9 +1424,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_works",
@@ -1669,9 +1666,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_series",
@@ -1916,9 +1911,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_works",
@@ -2229,9 +2222,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "bundle_releases",
@@ -2633,9 +2624,217 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
+    },
+    {
+      "name": "canonical_correction_proposals",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "kind",
+          "type": "item_kind",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_canonical_correction_proposals_kind"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": "item_kind"
+        },
+        {
+          "name": "entity_type",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "entity_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "scope",
+          "type": "VARCHAR(64)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "base_revision",
+          "type": "VARCHAR(128)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "base_hash",
+          "type": "VARCHAR(128)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_canonical_correction_proposals_status"
+          ],
+          "default": "pending",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [
+          {
+            "name": "ck_canonical_correction_proposals_base_present",
+            "sqltext": "base_revision IS NOT NULL OR base_hash IS NOT NULL"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "ix_canonical_correction_proposals_kind",
+            "columns": [
+              "kind"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_canonical_correction_proposals_status",
+            "columns": [
+              "status"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_canonical_correction_proposals_status_created",
+            "columns": [
+              "status",
+              "created_at"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_canonical_correction_proposals_target",
+            "columns": [
+              "kind",
+              "entity_type",
+              "entity_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
     },
     {
       "name": "characters",
@@ -2856,9 +3055,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_characters",
@@ -2986,9 +3183,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_series",
@@ -3233,9 +3428,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_volumes",
@@ -3495,9 +3688,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "entity_aliases",
@@ -3664,9 +3855,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "entity_links",
@@ -3890,9 +4079,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "external_provider_ids",
@@ -4063,9 +4250,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "game_works",
@@ -4307,9 +4492,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "image_assets",
@@ -4589,9 +4772,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "image_cache_entries",
@@ -4887,9 +5068,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_series",
@@ -5134,9 +5313,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_works",
@@ -5372,9 +5549,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "metadata_proposals",
@@ -5579,9 +5754,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "metadata_taxonomies",
@@ -5714,9 +5887,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "movie_works",
@@ -6078,9 +6249,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_release_groups",
@@ -6345,9 +6514,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "organizations",
@@ -6508,9 +6675,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "persons",
@@ -6698,9 +6863,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "physical_format_refs",
@@ -6858,9 +7021,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "provider_ingest_jobs",
@@ -7130,9 +7291,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "provider_payload_snapshots",
@@ -7417,9 +7576,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "release_statuses",
@@ -7578,9 +7735,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "story_arcs",
@@ -7776,9 +7931,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tags",
@@ -7899,9 +8052,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_series",
@@ -8274,9 +8425,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "users",
@@ -8339,21 +8488,6 @@
           "index": false,
           "indexes": [],
           "default": "True",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_admin",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
           "server_default": null,
           "autoincrement": true,
           "foreign_keys": [],
@@ -8447,9 +8581,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "admin_audit_logs",
@@ -8672,9 +8804,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_character_appearances",
@@ -8871,9 +9001,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_episodes",
@@ -9089,9 +9217,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_identifiers",
@@ -9312,9 +9438,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_releases",
@@ -9786,9 +9910,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_categories",
@@ -9960,9 +10082,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_contributions",
@@ -10175,9 +10295,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_editions",
@@ -10638,9 +10756,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_expansions",
@@ -10812,9 +10928,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_families",
@@ -10986,9 +11100,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_genres",
@@ -11169,9 +11281,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_identifiers",
@@ -11392,9 +11502,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_mechanics",
@@ -11566,9 +11674,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_platforms",
@@ -11749,9 +11855,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_rankings_snapshot",
@@ -11963,9 +12067,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_editions",
@@ -12480,9 +12582,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_series_memberships",
@@ -12684,9 +12784,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "bundle_release_components",
@@ -12982,9 +13080,261 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
+    },
+    {
+      "name": "canonical_correction_proposal_values",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "proposal_id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_canonical_correction_proposal_values_proposal"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [
+            {
+              "column": "proposal_id",
+              "target_table": "canonical_correction_proposals",
+              "target_column": "id",
+              "target": "canonical_correction_proposals.id",
+              "ondelete": "CASCADE",
+              "onupdate": null,
+              "name": null
+            }
+          ],
+          "enum": null
+        },
+        {
+          "name": "path",
+          "type": "VARCHAR(1024)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "value_type",
+          "type": "VARCHAR(16)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "string_value",
+          "type": "TEXT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "integer_value",
+          "type": "BIGINT",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "decimal_value",
+          "type": "NUMERIC(20, 8)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "boolean_value",
+          "type": "BOOLEAN",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "date_value",
+          "type": "DATE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "datetime_value",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "uuid_value",
+          "type": "UUID",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [
+          {
+            "name": null,
+            "columns": [
+              "proposal_id"
+            ],
+            "targets": [
+              "canonical_correction_proposals.id"
+            ],
+            "ondelete": "CASCADE",
+            "onupdate": null
+          }
+        ],
+        "unique_constraints": [
+          {
+            "name": "uq_canonical_correction_proposal_values_path",
+            "columns": [
+              "proposal_id",
+              "path"
+            ]
+          }
+        ],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_canonical_correction_proposal_values_proposal",
+            "columns": [
+              "proposal_id"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
     },
     {
       "name": "character_appearances",
@@ -13184,9 +13534,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_character_external_identifiers",
@@ -13350,9 +13698,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_series_relations",
@@ -13634,9 +13980,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_works",
@@ -13903,9 +14247,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "duplicate_reviews",
@@ -14214,9 +14556,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "entity_organizations",
@@ -14399,9 +14739,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "entity_persons",
@@ -14584,9 +14922,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "entity_tags",
@@ -14744,9 +15080,7 @@
           }
         ]
       },
-      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.",
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
       "name": "game_age_ratings",
@@ -14962,9 +15296,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_company_roles",
@@ -15177,9 +15509,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_genres",
@@ -15360,9 +15690,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_identifiers",
@@ -15583,9 +15911,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_platforms",
@@ -15782,9 +16108,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_releases",
@@ -16164,9 +16488,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_series_memberships",
@@ -16362,9 +16684,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_chapters",
@@ -16580,9 +16900,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_character_appearances",
@@ -16779,9 +17097,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_editions",
@@ -17246,9 +17562,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_identifiers",
@@ -17469,9 +17783,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_series_memberships",
@@ -17673,9 +17985,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_series_relations",
@@ -17957,9 +18267,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "metadata_proposal_values",
@@ -18213,9 +18521,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "movie_releases",
@@ -18618,9 +18924,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "movie_work_contributions",
@@ -18879,9 +19183,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "movie_work_identifiers",
@@ -19110,9 +19412,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_release_group_genres",
@@ -19284,9 +19584,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_releases",
@@ -19683,9 +19981,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "person_external_identifiers",
@@ -19849,9 +20145,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "provider_payload_snapshot_values",
@@ -20120,9 +20414,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "story_arc_items",
@@ -20313,9 +20605,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_releases",
@@ -20739,9 +21029,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_seasons",
@@ -20982,9 +21270,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "admin_audit_log_details",
@@ -21238,9 +21524,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_contributions",
@@ -21509,9 +21793,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_release_contributions",
@@ -21739,9 +22021,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_release_identifiers",
@@ -21962,9 +22242,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_release_media",
@@ -22263,9 +22541,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_edition_identifiers",
@@ -22486,9 +22762,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "boardgame_player_count_votes",
@@ -22691,9 +22965,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_contributions",
@@ -22980,9 +23252,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_identifiers",
@@ -23203,9 +23473,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "book_printings",
@@ -23370,9 +23638,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_issues",
@@ -23898,9 +24164,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_series_memberships",
@@ -24102,9 +24366,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_work_missing_issue_numbers",
@@ -24252,9 +24514,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "duplicate_review_details",
@@ -24508,9 +24768,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "duplicate_review_entities",
@@ -24674,9 +24932,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_release_identifiers",
@@ -24897,9 +25153,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "game_release_platforms",
@@ -25102,9 +25356,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_contributions",
@@ -25373,9 +25625,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_edition_contributions",
@@ -25603,9 +25853,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "manga_edition_identifiers",
@@ -25826,9 +26074,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "movie_release_media",
@@ -26120,9 +26366,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_mediums",
@@ -26507,9 +26751,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_release_contributions",
@@ -26753,9 +26995,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_release_identifiers",
@@ -26984,9 +27224,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_release_contributions",
@@ -27253,9 +27491,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_release_identifiers",
@@ -27484,9 +27720,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_release_media",
@@ -27853,9 +28087,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "anime_release_episode_map",
@@ -28095,9 +28327,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_character_appearances",
@@ -28294,9 +28524,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_contributions",
@@ -28583,9 +28811,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_identifiers",
@@ -28806,9 +29032,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_story_arc_memberships",
@@ -28995,9 +29219,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_variants",
@@ -29463,9 +29685,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_medium_missing_track_positions",
@@ -29613,9 +29833,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "music_tracks",
@@ -29946,9 +30164,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_episodes",
@@ -30424,9 +30640,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_variant_contributions",
@@ -30654,9 +30868,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "comic_variant_identifiers",
@@ -30877,9 +31089,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_episode_contributions",
@@ -31122,9 +31332,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_episode_identifiers",
@@ -31353,9 +31561,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     },
     {
       "name": "tv_release_episode_map",
@@ -31619,9 +31825,7 @@
           }
         ]
       },
-      "polymorphic_note": null,
-      "legacy_projection_note": null,
-      "legacy_bridge_note": null
+      "polymorphic_note": null
     }
   ],
   "enums": {
@@ -31927,6 +32131,18 @@
       ],
       "to_targets": [
         "bundle_releases.id"
+      ],
+      "name": null,
+      "ondelete": "CASCADE",
+      "onupdate": null
+    },
+    {
+      "from_table": "canonical_correction_proposal_values",
+      "from_columns": [
+        "proposal_id"
+      ],
+      "to_targets": [
+        "canonical_correction_proposals.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -33182,11 +33398,11 @@
     }
   ],
   "summary": {
-    "tables": 123,
-    "columns": 1320,
-    "foreign_keys": 125,
-    "indexes": 539,
-    "unique_constraints": 74,
-    "check_constraints": 6
+    "tables": 125,
+    "columns": 1342,
+    "foreign_keys": 126,
+    "indexes": 544,
+    "unique_constraints": 75,
+    "check_constraints": 7
   }
 }

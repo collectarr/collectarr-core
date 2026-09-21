@@ -12,7 +12,8 @@ These guard the two failure modes that previously produced an empty / unparseabl
 
 import re
 
-from scripts.export_schema_site import build_schema_data
+from app.models.base import Base
+from scripts.export_schema_site import HIDDEN_TABLE_NAMES, build_schema_data
 
 _ATTR_LINE = re.compile(r"^\s{4}\S+\s+\w+(?P<keys>(?:\s+(?:PK|FK|UK)\b,?)*)\s*$")
 
@@ -100,16 +101,10 @@ def test_kind_views_surface_v1_work_tables():
     assert "tv_releases" not in misc_tables
 
 
-def test_generic_tables_are_omitted_from_the_interactive_view():
+def test_schema_view_contains_only_declared_tables():
     data = build_schema_data()
     table_names = {table["name"] for table in data["tables"]}
-    deprecated_table = "item" + "_kind_metadata"
-    deprecated_taxonomy_table = "item" + "_kind_metadata_taxonomies"
-    assert "items" not in table_names
-    assert "editions" not in table_names
-    assert "variants" not in table_names
-    assert deprecated_table not in table_names
-    assert deprecated_taxonomy_table not in table_names
+    assert table_names == set(Base.metadata.tables) - HIDDEN_TABLE_NAMES
 
 
 def test_catalog_spine_marks_bundle_composition_tables():
@@ -117,8 +112,7 @@ def test_catalog_spine_marks_bundle_composition_tables():
     catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
 
     assert catalog["title"] == "Catalog Spine"
-    assert "historical generic projection tables were removed" in catalog["description"].lower()
-    assert "all canonical metadata is kind-specific" in catalog["description"].lower()
+    assert "canonical kind-specific tables" in catalog["description"].lower()
     assert "bundle composition" in catalog["description"].lower()
     assert "bundle_releases" in catalog["tables"]
     assert "bundle_release_components" in catalog["tables"]

@@ -29,8 +29,6 @@ POSTGRES_DIALECT = postgresql.dialect()
 DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
-LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
-LEGACY_BRIDGE_TABLE_NAMES: set[str] = set()
 HIDDEN_TABLE_NAMES = {
     "item" + "_kind_metadata",
     "item" + "_kind_metadata_taxonomies",
@@ -54,7 +52,7 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
         "title": "Catalog Spine",
-        "description": "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific, and bundle composition is polymorphic.",
+        "description": "Canonical kind-specific tables and polymorphic bundle composition.",
         "tables": [
             "bundle_releases",
             "bundle_release_components",
@@ -229,9 +227,9 @@ POLYMORPHIC_LINK_TABLES = {
 
 STATIC_NOTES = [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.",
+    "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
-    "The clean server schema is created by the version-1 Alembic baseline; constraints outside model declarations are defined there.",
+    "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",
 ]
 
 
@@ -619,10 +617,6 @@ def render_markdown(data: dict[str, Any]) -> str:
                 lines.append("- Foreign keys: none")
             if table["polymorphic_note"]:
                 lines.append(f"- Note: {table['polymorphic_note']}")
-            if table["legacy_projection_note"]:
-                lines.append(f"- Note: {table['legacy_projection_note']}")
-            if table["legacy_bridge_note"]:
-                lines.append(f"- Note: {table['legacy_bridge_note']}")
             lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -662,16 +656,6 @@ def build_schema_data() -> dict[str, Any]:
             "polymorphic_note": (
                 "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
                 if table.name in POLYMORPHIC_LINK_TABLES
-                else None
-            ),
-            "legacy_projection_note": (
-                "Legacy compatibility / projection table for migrated kinds; canonical writes should target kind-specific tables."
-                if table.name in LEGACY_TABLE_NAMES
-                else None
-            ),
-            "legacy_bridge_note": (
-                "Bundle composition is polymorphic through entity_type + entity_id."
-                if table.name in LEGACY_BRIDGE_TABLE_NAMES
                 else None
             ),
         }
@@ -758,7 +742,6 @@ def build_schema_data() -> dict[str, Any]:
         "source_modules": SOURCE_MODULES,
         "notes": [
             *STATIC_NOTES,
-            "Legacy generic tables (`items`, `editions`, `variants`) are no longer part of the canonical schema or interactive view.",
         ],
         "domains": domains,
         "kinds": kinds,
@@ -778,7 +761,7 @@ def build_schema_data() -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export the interactive schema site.")
-    parser.add_argument("--watch", action="store_true", help="Rebuild when model or schema baseline files change.")
+    parser.add_argument("--watch", action="store_true", help="Rebuild when model files change.")
     parser.add_argument("--interval", type=float, default=1.0, help="Polling interval for --watch mode.")
     args = parser.parse_args()
 
@@ -793,7 +776,7 @@ def main() -> None:
         write_outputs()
         return
 
-    watched_roots = [REPO_ROOT / "app" / "models", REPO_ROOT / "alembic" / "versions"]
+    watched_roots = [REPO_ROOT / "app" / "models"]
     watched_files = {REPO_ROOT / "scripts" / "export_schema_site.py", REPO_ROOT / "scripts" / "export_openapi.py"}
 
     def snapshot() -> dict[Path, float]:

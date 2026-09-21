@@ -6,7 +6,7 @@ from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
 @pytest.mark.asyncio
-async def test_external_provider_ids_reference_existing_entities(migrated_database):
+async def test_external_provider_ids_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         rows = (
             await db.execute(

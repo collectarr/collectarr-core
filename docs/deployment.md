@@ -7,7 +7,7 @@ Use Docker Compose for a self-hosted deployment on consumer hardware:
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build -d
-docker compose exec api python -m app.scripts.bootstrap_alembic
+docker compose exec api python -m app.scripts.bootstrap_schema
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
@@ -36,7 +36,7 @@ PostgreSQL restore into a stopped or fresh stack:
 
 ```powershell
 Get-Content .\collectarr-core.sql | docker compose exec -T postgres psql -U collectarr collectarr
-docker compose exec api python -m app.scripts.bootstrap_alembic
+docker compose exec api python -m app.scripts.bootstrap_schema
 ```
 
 MinIO backup for the default local bucket:
@@ -55,7 +55,8 @@ Personal sync backup and restore recipes live in [sync.md](sync.md). Back up
 the sync SQLite file, any `-wal`/`-shm` sidecars, and the `SYNC_API_KEY` used by
 the user's devices.
 
-Before upgrades, take backups, run migrations explicitly, then check `/health`.
+Before schema changes, take backups, recreate the database from the typed
+models, then check `/api/v1/health`.
 If a restore causes stale-client conflicts, Flutter Settings can keep the
 service version or queue the local version for the next sync.
 Set `CORS_ORIGINS` to the frontend origins you want to allow in each
@@ -114,7 +115,7 @@ The API and worker are stateless containers. Scale them separately from storage:
 - S3-compatible storage for images
 - optional CDN in front of image URLs.
 
-Run migrations explicitly during deployment. Do not let app startup mutate schema.
+Create the schema explicitly during deployment. Do not let app startup mutate schema.
 
 ## Local Schema Reset
 
@@ -171,4 +172,4 @@ empty, Core falls back to in-process state so local development can continue.
 
 ## Readiness
 
-The Compose stack uses health checks for PostgreSQL, Redis, Meilisearch, and MinIO. The API exposes `/health`, which checks all backing services and returns `degraded` when one is unavailable.
+The Compose stack uses health checks for PostgreSQL, Redis, Meilisearch, and MinIO. The API exposes `/api/v1/health`, which checks all backing services and returns `degraded` when one is unavailable.

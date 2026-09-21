@@ -7,8 +7,7 @@ persists typed kind-specific metadata.
 ## Completed
 
 - Split Core from the original monorepo.
-- Replaced the historical migration chain with the current schema v1 baseline.
-- Removed generic legacy metadata tables from canonical writes.
+- Replaced generic catalog storage with typed kind-specific tables.
 - Added typed kind-specific catalog routes and contract exports.
 - Added normalized provider envelopes with provenance, attribution, and image
   references.
@@ -23,8 +22,7 @@ persists typed kind-specific metadata.
 - Expand typed field coverage for every active kind.
 - Keep normalized submissions and OpenAPI contracts aligned.
 - Add focused validation for provider provenance and relation writes.
-- Keep new HTTP contracts under the `/api/v1` composition root; pre-v1 paths
-  are explicit aliases only.
+- Keep new HTTP contracts under the `/api/v1` composition root.
 - Accept provider-independent canonical correction proposals against an exact
   `(kind, entity_type, entity_id, scope)` target with a base revision/hash.
   Core validates field scope and canonical write target, but does not resolve

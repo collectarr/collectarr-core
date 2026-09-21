@@ -4,15 +4,13 @@ from sqlalchemy import text
 from app.db.session import AsyncSessionLocal
 
 
-def test_schema_bootstrap_fixture_runs(migrated_database):
-    assert migrated_database is None
+def test_schema_fixture_runs(schema_database):
+    assert schema_database is None
 
 
 @pytest.mark.asyncio
-async def test_generalized_catalog_schema_exists(migrated_database):
+async def test_canonical_catalog_schema_exists(schema_database):
     async with AsyncSessionLocal() as db:
-        deprecated_table = "item" + "_kind_metadata"
-        deprecated_taxonomy_table = "item" + "_kind_metadata_taxonomies"
         tables = {
             row[0]
             for row in (
@@ -101,23 +99,8 @@ async def test_generalized_catalog_schema_exists(migrated_database):
             "music_medium_missing_track_positions",
             "comic_work_missing_issue_numbers",
         }.issubset(tables)
-        assert "bundle_release_items" not in tables
         assert "provider_ingest_jobs" in tables
-        assert f"{deprecated_table}_anime" not in tables
-        assert f"{deprecated_table}_boardgame" not in tables
-        assert f"{deprecated_table}_book" not in tables
-        assert f"{deprecated_table}_collection" not in tables
-        assert f"{deprecated_table}_comic" not in tables
-        assert f"{deprecated_table}_game" not in tables
-        assert f"{deprecated_table}_manga" not in tables
-        assert f"{deprecated_table}_movie" not in tables
-        assert f"{deprecated_table}_music" not in tables
-        assert f"{deprecated_table}_tv" not in tables
-        assert f"{deprecated_table}_music_tracks" not in tables
         assert "metadata_taxonomies" in tables
-        assert deprecated_taxonomy_table not in tables
-        assert "tracking_entries" not in tables
-        assert "releases" not in tables
         provider_ingest_columns = {
             row[0]
             for row in (

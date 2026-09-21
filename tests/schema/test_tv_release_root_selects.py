@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-def test_no_legacy_tv_release_root_selects():
+def test_tv_release_root_selects_are_typed():
     root = Path(__file__).resolve().parents[2] / "app"
     files = [
         root / "repositories" / "metadata.py",
@@ -17,4 +17,4 @@ def test_no_legacy_tv_release_root_selects():
     )
     for path in files:
         content = path.read_text(encoding="utf-8")
-        assert not any(token in content for token in banned), f"legacy TV root select still in {path}"
+        assert not any(token in content for token in banned), f"untyped TV root select in {path}"

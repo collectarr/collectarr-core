@@ -53,7 +53,7 @@ def main() -> None:
         f"Schema version: **{NORMALIZED_SCHEMA_VERSION}**",
         "",
         "This is the single source of truth that the admin edit panel and the "
-        "Flutter app edit dialog render from, exposed at `GET /metadata/field-schema`.",
+        "Flutter app edit dialog render from, exposed at `GET /api/v1/metadata/field-schema`.",
         "",
         "## Fields",
         "",

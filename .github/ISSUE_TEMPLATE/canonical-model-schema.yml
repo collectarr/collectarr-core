@@ -41,14 +41,14 @@ body:
     id: target_architecture
     attributes:
       label: Target architecture
-      description: Describe entities, relationships, invariants, ownership, serialization, and migration shape.
+      description: Describe entities, relationships, invariants, ownership, serialization, and schema shape.
     validations:
       required: true
   - type: textarea
     id: dependencies
     attributes:
       label: Dependencies
-      description: List consumers, related issues, migrations, providers, or compatibility decisions.
+      description: List consumers, related issues, providers, or compatibility decisions.
     validations:
       required: true
   - type: textarea
@@ -64,6 +64,6 @@ body:
     id: tests_docs
     attributes:
       label: Tests / docs
-      description: Identify fixtures, serialization tests, migration tests, examples, or documentation to add or update.
+      description: Identify fixtures, serialization tests, examples, or documentation to add or update.
     validations:
       required: true

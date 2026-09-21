@@ -14,7 +14,7 @@ traceability.
 
 `collectarr-core` owns shared metadata and operations:
 
-- canonical catalog schema and migrations
+- canonical catalog schema and schema bootstrap
 - normalized metadata submission contracts and canonical writes
 - search, indexing, and worker processes
 - image references, optional MinIO/S3 image cache, generated fallback covers,
@@ -26,7 +26,7 @@ traceability.
 `collectarr-sync` owns optional personal sync:
 
 - sync push/pull/change APIs
-- sync storage and migrations
+- sync storage and schema bootstrap
 - device identity/pairing protocol
 - tombstones, conflicts, and sync backup/restore docs
 
@@ -45,7 +45,7 @@ traceability.
 Core publishes:
 
 - OpenAPI schema for metadata/admin/auth endpoints
-- media catalog contract for `/metadata/media-types`
+- media catalog contract for `/api/v1/metadata/media-types`
 - provider status/capability schema
 - canonical catalog snapshot schema used by the app
 - versioned compatibility notes for API changes

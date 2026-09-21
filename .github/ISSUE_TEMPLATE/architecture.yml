@@ -36,7 +36,7 @@ body:
     id: target_architecture
     attributes:
       label: Target architecture
-      description: Describe contracts, boundaries, dependencies, and migration shape.
+      description: Describe contracts, boundaries, dependencies, and schema shape.
     validations:
       required: true
   - type: textarea

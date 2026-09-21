@@ -176,32 +176,51 @@ _TRACK_SCOPE_KEYS = {"tracks"}
 
 _PROPOSAL_KEYS = {"physical_format", "trailer_urls", "external_links"}
 
-_KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
+# Canonical release metadata is deliberately routed through one structural
+# scope for every kind.  Kind-specific labels such as Edition, Issue, or
+# Variant belong to presentation; they must not leak into the Core field
+# contract or correction target.
+_CANONICAL_RELEASE_KEYS = {
+    "physical_format",
+    "edition_title",
+    "release_date",
+    "publisher",
+    "imprint",
+    "subtitle",
+    "series_group",
+    "barcode",
+    "variant_name",
+    "page_count",
+    "catalog_number",
+    "release_status",
+    "country",
+    "language",
+    "age_rating",
+}
+
+# Canonical Work/Release/content source matrix.  This is the authoritative
+# source for sourceEntityType and sourceTable in the exported field schema.
+# The app-facing Work vocabulary intentionally treats a comic Issue as the
+# work node and a Comic Variant as its release node.
+CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "work": ("book_work", "book_works"),
-        "edition": ("book_edition", "book_editions"),
-        "media": ("book_edition", "book_editions"),
-        "track": ("book_edition", "book_editions"),
+        "release": ("book_edition", "book_editions"),
     },
     ItemKind.comic: {
-        "work": ("comic_work", "comic_works"),
-        "edition": ("comic_issue", "comic_issues"),
-        "media": ("comic_issue", "comic_issues"),
-        "track": ("comic_issue", "comic_issues"),
+        "work": ("comic_issue", "comic_issues"),
+        "release": ("comic_variant", "comic_variants"),
     },
     ItemKind.manga: {
         "work": ("manga_work", "manga_works"),
-        "edition": ("manga_chapter", "manga_chapters"),
-        "media": ("manga_chapter", "manga_chapters"),
-        "track": ("manga_chapter", "manga_chapters"),
+        "release": ("manga_edition", "manga_editions"),
     },
     ItemKind.anime: {
         "work": ("anime_series", "anime_series"),
-        "edition": ("anime_series", "anime_series"),
+        "release": ("anime_release", "anime_releases"),
         "episode": ("anime_episode", "anime_episodes"),
-        "release": ("anime_series", "anime_series"),
-        "media": ("anime_episode", "anime_episodes"),
-        "track": ("anime_episode", "anime_episodes"),
+        "media": ("anime_release_media", "anime_release_media"),
+        "track": ("anime_release_media", "anime_release_media"),
     },
     ItemKind.movie: {
         "work": ("movie_work", "movie_works"),
@@ -210,7 +229,7 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "track": ("movie_release_media", "movie_release_media"),
     },
     ItemKind.tv: {
-        "work": ("tv_release", "tv_releases"),
+        "work": ("tv_series", "tv_series"),
         "release": ("tv_release", "tv_releases"),
         "episode": ("tv_episode", "tv_episodes"),
         "media": ("tv_release_media", "tv_release_media"),
@@ -229,7 +248,7 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
     },
     ItemKind.boardgame: {
         "work": ("boardgame_work", "boardgame_works"),
-        "edition": ("boardgame_edition", "boardgame_editions"),
+        "release": ("boardgame_edition", "boardgame_editions"),
         "identifier": ("boardgame_work", "boardgame_identifiers"),
         "contributor": ("boardgame_work", "boardgame_contributions"),
         "mechanic": ("boardgame_work", "boardgame_mechanics"),
@@ -250,10 +269,12 @@ _KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
     },
 }
 
+_KIND_SCOPE_ENTITY_TYPES = CANONICAL_ENTITY_MATRIX
+
 
 def _default_entity_ref(kind: ItemKind) -> tuple[str, str]:
     scope_map = _KIND_SCOPE_ENTITY_TYPES[kind]
-    for scope in ("work", "release", "edition", "episode", "media", "track"):
+    for scope in ("work", "release", "episode", "media", "track"):
         if scope in scope_map:
             return scope_map[scope]
     return next(iter(scope_map.values()))
@@ -264,40 +285,14 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
         return "legacy_projection"
     if key in LEGACY_PROJECTION_KEYS:
         return "legacy_projection"
-    if key == "physical_format":
-        if kind in {ItemKind.book, ItemKind.boardgame}:
-            return "edition"
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return "issue"
-        if kind == ItemKind.music:
-            return "release"
+    if key in _MEDIA_SCOPE_KEYS:
+        return "track" if key == "tracks" else "media"
+    if key == "age_rating" and kind == ItemKind.game:
+        return "age_rating"
+    if key in _CANONICAL_RELEASE_KEYS:
         return "release"
     if key in _PROPOSAL_KEYS:
         return "legacy_projection"
-    if key in _MEDIA_SCOPE_KEYS:
-        return "track" if key == "tracks" else "media"
-    if key == "edition_title":
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return "issue"
-        if kind in {ItemKind.book, ItemKind.boardgame}:
-            return "edition"
-        if kind == ItemKind.music:
-            return "release"
-        if kind == ItemKind.anime:
-            return "episode"
-        return "release"
-    if key in {"release_date", "publisher", "barcode", "catalog_number", "release_status", "country", "language", "age_rating", "variant_name", "page_count", "imprint", "subtitle", "series_group"}:
-        if kind == ItemKind.game and key == "age_rating":
-            return "age_rating"
-        if kind in {ItemKind.book, ItemKind.boardgame}:
-            return "edition"
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return "issue"
-        if kind == ItemKind.anime:
-            return "episode"
-        if kind == ItemKind.music:
-            return "release"
-        return "release"
     if key == "platforms" and kind == ItemKind.game:
         return "platform"
     if key == "identifiers":

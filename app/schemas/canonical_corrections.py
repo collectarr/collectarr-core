@@ -40,3 +40,33 @@ class CanonicalCorrectionProposalResponse(BaseModel):
     base_hash: str | None
     proposed_fields: JsonObject
     status: str
+    current_fields: JsonObject = Field(default_factory=dict)
+    diff: JsonObject = Field(default_factory=dict)
+    current_revision: str | None = None
+    current_hash: str | None = None
+
+
+class CanonicalCorrectionFieldResponse(BaseModel):
+    key: str
+    label: str
+    value_type: str
+    scope: str
+    entity_type: str
+    writable: bool = True
+
+
+class CanonicalCorrectionTargetResponse(BaseModel):
+    """Authoritative snapshot for one exact canonical correction target."""
+
+    kind: ItemKind
+    entity_type: str
+    entity_id: UUID
+    scope: str
+    revision: str
+    hash: str
+    fields: JsonObject
+    field_schema: list[CanonicalCorrectionFieldResponse]
+
+
+class CanonicalCorrectionApprovalResponse(CanonicalCorrectionProposalResponse):
+    approved_by: UUID | None = None

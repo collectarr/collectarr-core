@@ -12,13 +12,13 @@ def test_tv_routes_contract_paths_exist():
         if isinstance(route, APIRoute)
     }
     required = {
-        "/metadata/tv/seasons/{season_id}",
-        "/metadata/tv/seasons/{season_id}/episodes",
-        "/metadata/tv/series/{series_id}/releases",
-        "/metadata/tv/releases/{release_id}",
-        "/metadata/tv/releases/{release_id}/media",
-        "/metadata/tv/releases/{release_id}/episode-map",
-        "/metadata/tv/media/{media_id}",
+        "/api/v1/metadata/tv/seasons/{season_id}",
+        "/api/v1/metadata/tv/seasons/{season_id}/episodes",
+        "/api/v1/metadata/tv/series/{series_id}/releases",
+        "/api/v1/metadata/tv/releases/{release_id}",
+        "/api/v1/metadata/tv/releases/{release_id}/media",
+        "/api/v1/metadata/tv/releases/{release_id}/episode-map",
+        "/api/v1/metadata/tv/media/{media_id}",
     }
 
     assert required <= paths

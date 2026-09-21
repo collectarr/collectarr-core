@@ -32,7 +32,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     item_id, _, _ = await seed_comic()
 
     response = await client.patch(
-        f"/admin/catalog/items/comic/{item_id}",
+        f"/api/v1/admin/catalog/items/comic/{item_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={"title": "The Amazing Spider-Man Deluxe"},
     )
@@ -40,7 +40,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     assert response.status_code == 200
 
     logs = await client.get(
-        "/admin/audit/logs",
+        "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
         params={"action": "metadata.correction"},
     )
@@ -55,7 +55,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
 
     item_logs = await client.get(
-        "/admin/audit/logs",
+        "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
         params={"entity_type": "comic_work", "entity_id": item_id},
     )
@@ -76,7 +76,7 @@ async def test_admin_audit_logs_duplicate_merge(client, monkeypatch):
         source_id = str(source.id)
 
     merge = await client.post(
-        "/admin/duplicates/merge",
+        "/api/v1/admin/duplicates/merge",
         headers={"Authorization": f"Bearer {token}"},
         json={"target_item_id": target_id, "source_item_ids": [source_id]},
     )
@@ -96,7 +96,7 @@ async def test_admin_audit_logs_duplicate_merge(client, monkeypatch):
     assert review_row.source_entity_ids == [source_id]
 
     logs = await client.get(
-        "/admin/audit/logs",
+        "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
         params={"limit": 5},
     )
@@ -122,7 +122,7 @@ async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(clie
         item_ids = [str(first.id), str(second.id)]
 
     review = await client.post(
-        "/admin/duplicates/review",
+        "/api/v1/admin/duplicates/review",
         headers={"Authorization": f"Bearer {token}"},
         json={"decision": "ignore", "item_ids": item_ids, "note": "Known variant split"},
     )
@@ -140,7 +140,7 @@ async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(clie
     assert review_row.entity_ids == item_ids
 
     logs = await client.get(
-        "/admin/audit/logs",
+        "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
         params={"action": "duplicates.ignore"},
     )

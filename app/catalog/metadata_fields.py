@@ -10,7 +10,8 @@ ingest/correction (see the ``NormalizedItem.color`` regression).
 This module declares each editable field once as a :class:`MetadataFieldSpec`
 and derives every lookup from the registry. It is the schema that the admin edit
 panel and the Flutter app edit dialog render from (exposed at
-``GET /metadata/field-schema``), so the two surfaces can no longer drift apart.
+``GET /api/v1/metadata/field-schema``), so the two surfaces can no longer drift
+apart.
 
 Two concerns are modelled by a single spec:
 
@@ -169,6 +170,12 @@ _WORK_SCOPE_KEYS = {
     "expansions",
     "rankings",
     "audience_rating",
+    "cover_image_url",
+    "thumbnail_image_url",
+    "synopsis",
+    "crossover",
+    "plot_summary",
+    "plot_description",
 }
 
 _MEDIA_SCOPE_KEYS = {
@@ -299,17 +306,6 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     },
 }
 
-_KIND_SCOPE_ENTITY_TYPES = CANONICAL_ENTITY_MATRIX
-
-
-def _default_entity_ref(kind: ItemKind) -> tuple[str, str]:
-    scope_map = _KIND_SCOPE_ENTITY_TYPES[kind]
-    for scope in ("work", "release", "episode", "media", "track"):
-        if scope in scope_map:
-            return scope_map[scope]
-    return next(iter(scope_map.values()))
-
-
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
@@ -346,19 +342,46 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
         return "ranking"
     if key in _WORK_SCOPE_KEYS:
         return "work"
-    return "work"
+    raise KeyError(f"No canonical field ownership is declared for {kind.value}/{key}.")
+
+
+@dataclass(frozen=True)
+class CanonicalFieldOwnership:
+    """Authoritative source and write boundary for one kind field."""
+
+    scope: str
+    entity_type: str
+    source_table: str
+    write_target: str
+
+
+def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
+    scope = _scope_for_kind(kind, key)
+    # Internal fields are derived from the work projection and are never
+    # writable.  Their source is still explicit; they do not get an arbitrary
+    # first-entity fallback.
+    source_scope = "work" if scope == "internal" else scope
+    try:
+        entity_type, source_table = CANONICAL_ENTITY_MATRIX[kind][source_scope]
+    except KeyError as exc:
+        raise KeyError(
+            f"Canonical field ownership points to an undeclared source "
+            f"entity: {kind.value}/{key} -> {scope}."
+        ) from exc
+    return CanonicalFieldOwnership(
+        scope=scope,
+        entity_type=entity_type,
+        source_table=source_table,
+        write_target=_field_write_target(key, kind),
+    )
 
 
 def _field_source_entity_type(key: str, kind: ItemKind) -> str:
-    scope = _scope_for_kind(kind, key)
-    entity_type, _ = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, _default_entity_ref(kind))
-    return entity_type
+    return _field_ownership(kind, key).entity_type
 
 
 def _field_source_table(key: str, kind: ItemKind) -> str:
-    scope = _scope_for_kind(kind, key)
-    _, table_name = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, _default_entity_ref(kind))
-    return table_name
+    return _field_ownership(kind, key).source_table
 
 
 def _field_write_target(key: str, kind: ItemKind) -> str:
@@ -611,6 +634,30 @@ def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[Meta
     ]
 
 
+# Materialize the ownership matrix once so every consumer reads the same
+# answer.  There is intentionally no default Work/Release rebinding here: an
+# applicable field without an explicit source entry is a registration error.
+FIELD_OWNERSHIP_MATRIX: dict[ItemKind, dict[str, CanonicalFieldOwnership]] = {
+    kind: {
+        spec.key: _field_ownership(kind, spec.key)
+        for spec in fields_for_kind(kind)
+    }
+    for kind in ItemKind
+    if kind != ItemKind.collection
+}
+
+
+def canonical_field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
+    """Return the exact ownership declaration for ``kind``/``key``."""
+
+    try:
+        return FIELD_OWNERSHIP_MATRIX[kind][key]
+    except KeyError as exc:
+        raise KeyError(
+            f"No canonical field ownership is declared for {kind.value}/{key}."
+        ) from exc
+
+
 def editable_fields() -> list[MetadataFieldSpec]:
     """All user-editable specs, in registry order."""
     return [spec for spec in METADATA_FIELDS if spec.editable]
@@ -659,5 +706,5 @@ def canonical_correction_target(
 def canonical_entity_type_for_scope(kind: ItemKind, scope: str) -> str | None:
     """Return the canonical entity type for a structural correction scope."""
 
-    target = _KIND_SCOPE_ENTITY_TYPES.get(kind, {}).get(scope)
+    target = CANONICAL_ENTITY_MATRIX.get(kind, {}).get(scope)
     return target[0] if target is not None else None

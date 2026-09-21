@@ -64,11 +64,11 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
         proposal_id = str(proposal.id)
         tmdb_proposal_id = str(tmdb_proposal.id)
 
-    public = await client.get("/admin/metadata/proposals")
+    public = await client.get("/api/v1/admin/metadata/proposals")
     assert public.status_code == 200
 
     response = await client.get(
-        "/admin/metadata/proposals",
+        "/api/v1/admin/metadata/proposals",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
@@ -82,21 +82,21 @@ async def test_admin_can_list_and_reject_metadata_proposals(client, monkeypatch)
     }
 
     comicvine_response = await client.get(
-        "/admin/metadata/proposals?provider=comicvine",
+        "/api/v1/admin/metadata/proposals?provider=comicvine",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert comicvine_response.status_code == 200
     assert [item["id"] for item in comicvine_response.json()] == [proposal_id]
 
     summary = await client.get(
-        "/admin/metadata/proposals/summary",
+        "/api/v1/admin/metadata/proposals/summary",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert summary.status_code == 200
     assert summary.json() == {"pending": 2, "approved": 1, "rejected": 0, "total": 3}
 
     reject = await client.post(
-        f"/admin/metadata/proposals/{proposal_id}/reject",
+        f"/api/v1/admin/metadata/proposals/{proposal_id}/reject",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert reject.status_code == 200

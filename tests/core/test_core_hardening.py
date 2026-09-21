@@ -77,7 +77,7 @@ def test_production_requires_explicit_secret(monkeypatch):
 @pytest.mark.asyncio
 async def test_metadata_errors_return_specific_codes(client):
     unknown_barcode = await client.get("/barcode/0000000000000", params={"kind": "comic"})
-    unknown_type = await client.get(f"/metadata/not-real/{uuid4()}")
+    unknown_type = await client.get(f"/api/v1/metadata/not-real/{uuid4()}")
 
     assert unknown_barcode.status_code == 404
     assert unknown_barcode.json()["code"] == "barcode_not_found"

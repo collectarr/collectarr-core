@@ -78,6 +78,8 @@ class MetadataFieldSpecResponse(BaseModel):
     section: str
     input: str
     kinds: list[ItemKind] = Field(default_factory=list)
+    source_entity_type: str | None = None
+    source_table: str | None = None
 
 
 class MetadataFieldSchemaResponse(BaseModel):

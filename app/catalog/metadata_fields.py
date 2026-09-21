@@ -104,33 +104,6 @@ class MetadataFieldSpec:
     def source_table_for_kind(self, kind: ItemKind) -> str:
         return _field_source_table(self.key, kind)
 
-    @property
-    def scope(self) -> str:
-        if self.section == SECTION_INTERNAL:
-            return "internal"
-        if self.common:
-            return "common"
-        return "kind"
-
-    @property
-    def write_target(self) -> str:
-        if self.common or self.typed:
-            return "kind_specific_table"
-        return "canonical_kind_table"
-
-    @property
-    def source_entity_type(self) -> str:
-        if self.common or self.typed:
-            return "kind"
-        return "item"
-
-    @property
-    def source_table(self) -> str:
-        if self.common or self.typed:
-            return "kind_specific_table"
-        return "canonical_kind_table"
-
-
 _INTERNAL_DERIVED_KEYS = {
     "format_templateimage",
     "format_scaledimage",

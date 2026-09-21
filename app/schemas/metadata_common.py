@@ -63,6 +63,15 @@ class MetadataNormalizedManifestResponse(BaseModel):
     value_types: dict[str, str]
 
 
+class MetadataFieldOwnershipResponse(BaseModel):
+    """The authoritative source boundary for one kind-specific field view."""
+
+    scope: str
+    source_entity_type: str
+    source_table: str
+    write_target: str
+
+
 class MetadataFieldSpecResponse(BaseModel):
     """A single editable canonical metadata field, rendered from the registry."""
 
@@ -73,13 +82,12 @@ class MetadataFieldSpecResponse(BaseModel):
     typed: bool
     normalized: bool
     editable: bool
-    scope: str
-    write_target: str
     section: str
     input: str
     kinds: list[ItemKind] = Field(default_factory=list)
-    source_entity_type: str | None = None
-    source_table: str | None = None
+    ownership_by_kind: dict[ItemKind, MetadataFieldOwnershipResponse] = Field(
+        default_factory=dict
+    )
 
 
 class MetadataFieldSchemaResponse(BaseModel):

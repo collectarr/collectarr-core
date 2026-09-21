@@ -4,7 +4,9 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.catalog.metadata_fields import canonical_correction_target
 from app.core.errors import ApiHTTPException
@@ -63,7 +65,18 @@ class CanonicalCorrectionService:
         return self._proposal_response(proposal, current.fields, diff, current.revision, current.hash)
 
     async def approve(self, proposal_id: UUID, *, actor: User) -> CanonicalCorrectionApprovalResponse:
-        proposal = await self.db.get(CanonicalCorrectionProposal, proposal_id)
+        # Approval is an optimistic-concurrency transition. Lock the proposal
+        # before reading its values so two admins cannot approve the same
+        # pending proposal concurrently, and avoid an async lazy-load of the
+        # typed value rows.
+        proposal = (
+            await self.db.execute(
+                select(CanonicalCorrectionProposal)
+                .options(selectinload(CanonicalCorrectionProposal.values))
+                .where(CanonicalCorrectionProposal.id == proposal_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
         if proposal is None:
             raise ApiHTTPException(status_code=404, code="canonical_correction_not_found", detail=f"Correction proposal {proposal_id} was not found.")
         if proposal.status != "pending":

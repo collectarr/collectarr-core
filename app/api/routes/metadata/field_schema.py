@@ -11,6 +11,7 @@ from app.schemas import (
     MediaCatalogResponse,
     MediaTypeResponse,
     MetadataFieldSchemaResponse,
+    MetadataFieldOwnershipResponse,
     MetadataFieldSpecResponse,
     MetadataNormalizedManifestResponse,
     PhysicalFormatResponse,
@@ -21,6 +22,9 @@ router = APIRouter(tags=["metadata"])
 
 
 def _field_spec_response(spec: MetadataFieldSpec) -> MetadataFieldSpecResponse:
+    applicable_kinds = tuple(
+        kind for kind in ItemKind if kind != ItemKind.collection and spec.applies_to(kind)
+    )
     return MetadataFieldSpecResponse(
         key=spec.key,
         value_type=spec.value_type,
@@ -29,21 +33,18 @@ def _field_spec_response(spec: MetadataFieldSpec) -> MetadataFieldSpecResponse:
         typed=spec.typed,
         normalized=spec.normalized,
         editable=spec.editable,
-        scope=spec.scope,
-        write_target=spec.write_target,
         section=spec.section,
         input=spec.input,
-        kinds=sorted((kind for kind in spec.kinds), key=lambda k: k.value),
-        source_entity_type=(
-            spec.source_entity_type_for_kind(next(iter(spec.kinds)))
-            if spec.kinds and not spec.common
-            else None
-        ),
-        source_table=(
-            spec.source_table_for_kind(next(iter(spec.kinds)))
-            if spec.kinds and not spec.common
-            else None
-        ),
+        kinds=sorted(applicable_kinds, key=lambda k: k.value),
+        ownership_by_kind={
+            kind: MetadataFieldOwnershipResponse(
+                scope=spec.scope_for_kind(kind),
+                source_entity_type=spec.source_entity_type_for_kind(kind),
+                source_table=spec.source_table_for_kind(kind),
+                write_target=spec.write_target_for_kind(kind),
+            )
+            for kind in applicable_kinds
+        },
     )
 
 

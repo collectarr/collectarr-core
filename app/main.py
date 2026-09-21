@@ -3,17 +3,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.deps import DbSession
-from app.api.routes import admin, auth, images, metadata
+from app.api import legacy
+from app.api.v1 import router as api_v1_router
 from app.core.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
-from app.services.health import HealthService
 
 settings = get_settings()
 configure_logging(settings.environment)
 
-API_VERSION = "0.1.0"
+API_VERSION = "1.0.0"
 
 
 @asynccontextmanager
@@ -43,12 +42,5 @@ app.add_middleware(
 )
 register_exception_handlers(app)
 
-app.include_router(admin.router)
-app.include_router(auth.router)
-app.include_router(images.router)
-app.include_router(metadata.router)
-
-
-@app.get("/health", tags=["system"])
-async def health(db: DbSession):
-    return await HealthService(db).check()
+app.include_router(api_v1_router)
+app.include_router(legacy.router)

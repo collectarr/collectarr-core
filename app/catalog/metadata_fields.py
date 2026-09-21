@@ -157,6 +157,7 @@ _WORK_SCOPE_KEYS = {
     "families",
     "expansions",
     "rankings",
+    "audience_rating",
 }
 
 _MEDIA_SCOPE_KEYS = {
@@ -599,3 +600,38 @@ def editable_fields() -> list[MetadataFieldSpec]:
 def editable_field_keys() -> set[str]:
     """Editable canonical field keys accepted by proposal/correction payloads."""
     return {spec.key for spec in editable_fields()}
+
+
+def canonical_correction_field_spec(kind: ItemKind, key: str) -> MetadataFieldSpec | None:
+    """Return *key* when it is valid for a canonical correction target."""
+
+    spec = field_spec(key)
+    if spec is None or not spec.editable or not spec.applies_to(kind):
+        return None
+    if spec.write_target_for_kind(kind) != "core_canonical":
+        return None
+    if spec.scope_for_kind(kind) in {"legacy_projection", "internal"}:
+        return None
+    return spec
+
+
+def canonical_correction_target(
+    kind: ItemKind,
+    keys: Iterable[str],
+) -> tuple[str, str] | None:
+    """Resolve one canonical scope/entity type for a proposal field set."""
+
+    target: tuple[str, str] | None = None
+    for key in keys:
+        spec = canonical_correction_field_spec(kind, key)
+        if spec is None:
+            return None
+        current = (
+            spec.scope_for_kind(kind),
+            spec.source_entity_type_for_kind(kind),
+        )
+        if target is None:
+            target = current
+        elif target != current:
+            return None
+    return target

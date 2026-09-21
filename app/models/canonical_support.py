@@ -559,6 +559,71 @@ class MetadataProposalValue(UuidMixin, TimestampMixin, TypedScalarValueMixin, Ba
     proposal: Mapped[MetadataProposal] = relationship(back_populates="values")
 
 
+class CanonicalCorrectionProposal(UuidMixin, TimestampMixin, Base):
+    """Provider-independent correction proposal for one canonical entity."""
+
+    __tablename__ = "canonical_correction_proposals"
+    __table_args__ = (
+        CheckConstraint(
+            "base_revision IS NOT NULL OR base_hash IS NOT NULL",
+            name="ck_canonical_correction_proposals_base_present",
+        ),
+        Index(
+            "ix_canonical_correction_proposals_target",
+            "kind",
+            "entity_type",
+            "entity_id",
+        ),
+        Index(
+            "ix_canonical_correction_proposals_status_created",
+            "status",
+            "created_at",
+        ),
+    )
+
+    kind: Mapped[ItemKind] = mapped_column(
+        Enum(ItemKind, name="item_kind", create_type=False), nullable=False, index=True
+    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    scope: Mapped[str] = mapped_column(String(64), nullable=False)
+    base_revision: Mapped[str | None] = mapped_column(String(128))
+    base_hash: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+
+    values: Mapped[list["CanonicalCorrectionProposalValue"]] = relationship(
+        back_populates="proposal",
+        cascade="all, delete-orphan",
+        order_by="CanonicalCorrectionProposalValue.path",
+    )
+
+
+class CanonicalCorrectionProposalValue(
+    UuidMixin, TimestampMixin, TypedScalarValueMixin, Base
+):
+    __tablename__ = "canonical_correction_proposal_values"
+    __table_args__ = (
+        UniqueConstraint(
+            "proposal_id",
+            "path",
+            name="uq_canonical_correction_proposal_values_path",
+        ),
+        Index(
+            "ix_canonical_correction_proposal_values_proposal",
+            "proposal_id",
+        ),
+    )
+
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("canonical_correction_proposals.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    path: Mapped[str] = mapped_column(String(1024), nullable=False)
+
+    proposal: Mapped[CanonicalCorrectionProposal] = relationship(back_populates="values")
+
+
 class AdminReleaseMediaMappingRule(UuidMixin, TimestampMixin, Base):
     __tablename__ = "admin_release_media_mapping_rules"
     __table_args__ = (

@@ -23,6 +23,12 @@ persists typed kind-specific metadata.
 - Expand typed field coverage for every active kind.
 - Keep normalized submissions and OpenAPI contracts aligned.
 - Add focused validation for provider provenance and relation writes.
+- Keep new HTTP contracts under the `/api/v1` composition root; pre-v1 paths
+  are explicit aliases only.
+- Accept provider-independent canonical correction proposals against an exact
+  `(kind, entity_type, entity_id, scope)` target with a base revision/hash.
+  Core validates field scope and canonical write target, but does not resolve
+  the entity or accept personal/Owned fields.
 
 ### Admin operations
 

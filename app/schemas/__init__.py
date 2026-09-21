@@ -1,5 +1,6 @@
 from app.schemas.admin import *  # noqa: F401,F403
 from app.schemas.auth import *  # noqa: F401,F403
+from app.schemas.canonical_corrections import *  # noqa: F401,F403
 from app.schemas.metadata_anime import *  # noqa: F401,F403
 from app.schemas.metadata_board_games import *  # noqa: F401,F403
 from app.schemas.metadata_books import *  # noqa: F401,F403

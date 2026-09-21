@@ -8,6 +8,7 @@ from . import (
     books,
     browse,
     comics,
+    corrections,
     field_schema,
     games,
     manga,
@@ -20,17 +21,25 @@ from . import (
 )
 
 router = APIRouter(tags=["metadata"])
+legacy_router = APIRouter(tags=["metadata"])
 router.include_router(field_schema.router)
-router.include_router(search.router)
-router.include_router(proposals.router)
-router.include_router(submissions.router)
-router.include_router(browse.router)
-router.include_router(books.router)
-router.include_router(comics.router)
-router.include_router(manga.router)
-router.include_router(anime.router)
-router.include_router(movies.router)
-router.include_router(tv.router)
-router.include_router(games.router)
-router.include_router(boardgames.router)
-router.include_router(music.router)
+router.include_router(corrections.router)
+for child_router in (
+    field_schema.router,
+    search.router,
+    proposals.router,
+    submissions.router,
+    browse.router,
+    books.router,
+    comics.router,
+    manga.router,
+    anime.router,
+    movies.router,
+    tv.router,
+    games.router,
+    boardgames.router,
+    music.router,
+):
+    legacy_router.include_router(child_router)
+    if child_router is not field_schema.router:
+        router.include_router(child_router)

@@ -22,7 +22,6 @@ async def _register_and_login_admin(client, email: str = "admin@example.com") ->
     async with AsyncSessionLocal() as db:
         user = await UserRepository(db).get_by_email(email)
         assert user is not None
-        user.is_admin = True
         user.role = UserRole.admin
         await db.commit()
 

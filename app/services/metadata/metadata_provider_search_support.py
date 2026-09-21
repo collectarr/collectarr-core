@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class MetadataProviderSearchSupport:
-    """Provider search support (runtime migrated to app)."""
+    """Provider search support shared by metadata services."""
 
     def _provider_search_cache_key(
         self,

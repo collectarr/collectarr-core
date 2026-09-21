@@ -11,5 +11,4 @@ review:
     - best_practices
   ignore:
     - "*.lock"
-    - "alembic/versions/*"
     - "CHANGELOG.md"

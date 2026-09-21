@@ -166,7 +166,7 @@ async def test_support_service_reindex_items_indexes_native_entities_only(monkey
         def unique(self):
             return self._values
 
-    legacy_item = SimpleNamespace(id=uuid4())
+    unknown_entity = SimpleNamespace(id=uuid4())
     native_work = BookWork(id=uuid4(), title="Dune")
 
     class FakeDb:
@@ -184,7 +184,7 @@ async def test_support_service_reindex_items_indexes_native_entities_only(monkey
 
     service = AdminSupportService(db=FakeDb(), actor_user_id=None, actor_email=None)
 
-    await service.reindex_items({legacy_item.id, native_work.id})
+    await service.reindex_items({unknown_entity.id, native_work.id})
 
     assert captured == [{"id": str(native_work.id), "entity": "BookWork"}]
 

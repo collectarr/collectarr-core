@@ -11,7 +11,6 @@ class User(UuidMixin, TimestampMixin, Base):
     display_name: Mapped[str | None] = mapped_column(String(120))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role"),
         nullable=False,

@@ -49,7 +49,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
 async def get_current_admin(user: CurrentUser) -> User:
-    if user.role != UserRole.admin and not user.is_admin:
+    if user.role != UserRole.admin:
         raise ApiHTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             code="admin_required",
@@ -94,7 +94,7 @@ async def get_admin_reader(
             code="user_not_found",
             detail="User not found",
         )
-    if user.role not in {UserRole.editor, UserRole.admin} and not user.is_admin:
+    if user.role not in {UserRole.editor, UserRole.admin}:
         raise ApiHTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             code="admin_read_access_required",

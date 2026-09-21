@@ -18,7 +18,6 @@ from app.catalog.metadata_fields import (
     typed_field_keys,
     value_types,
 )
-from app.catalog.metadata_legacy_projection import LEGACY_PROJECTION_KEYS
 from app.models.base import Base, ItemKind
 from scripts.export_contract_bundle import CONTRACT_VERSION, write_contract_bundle
 
@@ -26,34 +25,19 @@ VIDEO = ("anime", "movie", "tv")
 PRINT = ("book", "comic", "manga")
 ALL = tuple(sorted(k.value for k in ItemKind))
 
-ALLOWED_LEGACY_PROJECTION_KEYS = set(LEGACY_PROJECTION_KEYS) | {
-    "associated_image_id",
-    "audience_rating",
-    "cover_delivery_url",
-    "cover_image_url",
-    "cover_policy",
-    "cover_source_url",
-    "cover_status",
-    "cover_storage",
-    "crossover",
-    "external_links",
-    "physical_format_label",
-    "physical_format_media_family",
-    "physical_format_variant_type",
-    "plot_description",
-    "plot_summary",
-    "series_tags",
-    "synopsis",
-    "thumbnail_image_url",
-    "trailer_urls",
-}
-
 # key -> (value_type, normalized, editable, section, sorted kinds) snapshot.
 EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     # Internal normalized bookkeeping (not editable).
     "physical_format_label": ("string", True, False, "internal", ()),
     "physical_format_media_family": ("string", True, False, "internal", ()),
     "physical_format_variant_type": ("string", True, False, "internal", ()),
+    "format_templateimage": ("string", True, False, "internal", ()),
+    "format_scaledimage": ("string", True, False, "internal", ()),
+    "country_scaledimage": ("string", True, False, "internal", ()),
+    "language_scaledimage": ("string", True, False, "internal", ()),
+    "audiencerating_templateimage": ("string", True, False, "internal", ()),
+    "region_scaledimage": ("string", True, False, "internal", ()),
+    "audio_templateimage": ("string", True, False, "internal", ()),
     "associated_image_id": ("string", True, False, "internal", ()),
     "cover_delivery_url": ("string", True, False, "internal", ()),
     "cover_policy": ("string", True, False, "internal", ()),
@@ -66,6 +50,14 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     # Editable normalized kind-scoped.
     "genres": ("string_list", True, True, "relations", ALL),
     "platforms": ("string_list", True, True, "relations", ("boardgame", "game")),
+    "identifiers": ("string_list", False, True, "relations", ("boardgame", "game")),
+    "company_roles": ("string_list", False, True, "relations", ("game",)),
+    "contributors": ("string_list", False, True, "relations", ("boardgame",)),
+    "mechanics": ("string_list", False, True, "relations", ("boardgame",)),
+    "categories": ("string_list", False, True, "relations", ("boardgame",)),
+    "families": ("string_list", False, True, "relations", ("boardgame",)),
+    "expansions": ("string_list", False, True, "relations", ("boardgame",)),
+    "rankings": ("string_list", False, True, "relations", ("boardgame",)),
     "color": ("string", True, True, "technical", VIDEO),
     "nr_discs": ("integer", False, True, "technical", VIDEO),
     "screen_ratio": ("string", False, True, "technical", VIDEO),
@@ -127,9 +119,11 @@ def test_metadata_field_registry_matches_golden_contract():
 def test_normalized_derivations_are_byte_for_byte_stable():
     """The normalization lookups must not change when editorial fields are added."""
     assert common_field_keys() == {
-        "associated_image_id", "audience_rating", "cover_delivery_url", "cover_policy",
-        "cover_source_url", "cover_status", "cover_storage", "physical_format_label", "physical_format_media_family",
-        "physical_format_variant_type",
+        "associated_image_id", "audience_rating", "audiencerating_templateimage", "audio_templateimage",
+        "country_scaledimage", "cover_delivery_url", "cover_policy", "cover_source_url", "cover_status",
+        "cover_storage", "format_scaledimage", "format_templateimage", "language_scaledimage",
+        "physical_format_label", "physical_format_media_family", "physical_format_variant_type",
+        "region_scaledimage",
     }
     assert typed_field_keys() == {
         "audience_rating", "genres", "platforms", "color",
@@ -201,10 +195,6 @@ def test_contract_bundle_metadata_field_schema_contract(tmp_path):
         assert row["writeTarget"]
         assert row["sourceEntityType"]
         assert row["sourceTable"]
-        if row["scope"] == "legacy_projection":
-            assert row["key"] in ALLOWED_LEGACY_PROJECTION_KEYS
-        else:
-            assert row["key"] not in ALLOWED_LEGACY_PROJECTION_KEYS
 
 
 def test_exported_field_schema_tables_exist_in_metadata(tmp_path):

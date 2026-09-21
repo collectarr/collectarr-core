@@ -3,10 +3,10 @@ from __future__ import annotations
 from datetime import date
 
 from app.models import (
-        MangaEdition,
         MangaChapter,
         MangaCharacterAppearance,
         MangaContribution,
+        MangaEdition,
         MangaIdentifier,
         MangaSeriesMembership,
         MangaWork,

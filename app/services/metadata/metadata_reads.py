@@ -59,8 +59,8 @@ from app.models import (
 from app.schemas import (
     AnimeEpisodeV1Response,
     AnimeReleaseEpisodeMapV1Response,
-    AnimeReleaseV1Response,
     AnimeReleaseMediaResponse,
+    AnimeReleaseV1Response,
     AnimeSeriesV1Response,
     BoardGameEditionV1Response,
     BoardGameWorkV1Response,

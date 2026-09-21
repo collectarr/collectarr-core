@@ -37,15 +37,6 @@ from app.services.metadata.metadata_reads import (
     get_anime_episode as _get_anime_episode,
 )
 from app.services.metadata.metadata_reads import (
-    get_anime_series as _get_anime_series,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_series_episodes as _get_anime_series_episodes,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_series_releases as _get_anime_series_releases,
-)
-from app.services.metadata.metadata_reads import (
     get_anime_release as _get_anime_release,
 )
 from app.services.metadata.metadata_reads import (
@@ -53,6 +44,15 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_anime_release_media as _get_anime_release_media,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_series as _get_anime_series,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_series_episodes as _get_anime_series_episodes,
+)
+from app.services.metadata.metadata_reads import (
+    get_anime_series_releases as _get_anime_series_releases,
 )
 from app.services.metadata.metadata_reads import (
     get_boardgame_edition as _get_boardgame_edition,
@@ -76,16 +76,16 @@ from app.services.metadata.metadata_reads import (
     get_comic_issue as _get_comic_issue,
 )
 from app.services.metadata.metadata_reads import (
-    get_comic_work as _get_comic_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_comic_work_issues as _get_comic_work_issues,
-)
-from app.services.metadata.metadata_reads import (
     get_comic_issue_variants as _get_comic_issue_variants,
 )
 from app.services.metadata.metadata_reads import (
     get_comic_variant as _get_comic_variant,
+)
+from app.services.metadata.metadata_reads import (
+    get_comic_work as _get_comic_work,
+)
+from app.services.metadata.metadata_reads import (
+    get_comic_work_issues as _get_comic_work_issues,
 )
 from app.services.metadata.metadata_reads import (
     get_game_release as _get_game_release,
@@ -100,6 +100,9 @@ from app.services.metadata.metadata_reads import (
     get_manga_chapter as _get_manga_chapter,
 )
 from app.services.metadata.metadata_reads import (
+    get_manga_edition as _get_manga_edition,
+)
+from app.services.metadata.metadata_reads import (
     get_manga_work as _get_manga_work,
 )
 from app.services.metadata.metadata_reads import (
@@ -107,9 +110,6 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_manga_work_editions as _get_manga_work_editions,
-)
-from app.services.metadata.metadata_reads import (
-    get_manga_edition as _get_manga_edition,
 )
 from app.services.metadata.metadata_reads import (
     get_movie_release as _get_movie_release,

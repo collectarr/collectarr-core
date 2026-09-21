@@ -30,7 +30,6 @@ class AuthService:
             email=email,
             password_hash=hash_password(payload.password),
             display_name=payload.display_name,
-            is_admin=is_bootstrap_admin,
             role=UserRole.admin if is_bootstrap_admin else UserRole.viewer,
         )
         await self.db.commit()
@@ -51,7 +50,4 @@ class AuthService:
                 code="user_inactive",
                 detail="User is inactive",
             )
-        if await self.users.reconcile_role_flags(user):
-            await self.db.commit()
-            await self.db.refresh(user)
         return TokenResponse(access_token=create_access_token(user.id), user=user)

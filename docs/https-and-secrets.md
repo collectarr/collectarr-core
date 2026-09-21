@@ -115,5 +115,5 @@ service, and re-pair devices from the Flutter app settings.
 - **Use Docker secrets or a vault** in orchestrated deployments (Swarm,
   Kubernetes). Mount secrets as files and reference them via `_FILE` suffix
   environment variables where supported.
-- **Audit admin activity** via the built-in audit log (`/admin/audit-log`)
+- **Audit admin activity** via the built-in audit log (`/api/v1/admin/audit/logs`)
   after any credential rotation.

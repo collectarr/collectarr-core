@@ -20,7 +20,6 @@ class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     display_name: str | None
-    is_admin: bool = False
     role: UserRole = UserRole.viewer
 
     model_config = {"from_attributes": True}

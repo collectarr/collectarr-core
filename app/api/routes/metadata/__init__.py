@@ -21,7 +21,6 @@ from . import (
 )
 
 router = APIRouter(tags=["metadata"])
-legacy_router = APIRouter(tags=["metadata"])
 router.include_router(field_schema.router)
 router.include_router(corrections.router)
 for child_router in (
@@ -40,6 +39,5 @@ for child_router in (
     boardgames.router,
     music.router,
 ):
-    legacy_router.include_router(child_router)
     if child_router is not field_schema.router:
         router.include_router(child_router)

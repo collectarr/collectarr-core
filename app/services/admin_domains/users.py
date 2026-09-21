@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiHTTPException
-from app.models.base import UserRole
 from app.models.user import User
 from app.schemas.admin import UserResponse
 
@@ -45,7 +44,6 @@ class AdminUserService:
             )
         if payload.role is not None:
             user.role = payload.role
-            user.is_admin = payload.role == UserRole.admin
         if payload.is_active is not None:
             user.is_active = payload.is_active
         if payload.display_name is not None:

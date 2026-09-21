@@ -29,11 +29,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from app.catalog.grouping_models import PRINT_GROUPING_KINDS
-from app.catalog.metadata_legacy_projection import (
-    INTERNAL_BOOKKEEPING_KEYS,
-    LEGACY_PROJECTION_KEYS,
-    warn_if_legacy_projection_used,
-)
 from app.models.base import ItemKind
 
 # Value types understood by normalization/validation + the edit surfaces.
@@ -132,11 +127,27 @@ class MetadataFieldSpec:
     def source_table(self) -> str:
         if self.common or self.typed:
             return "kind_specific_table"
-        return "items"
+        return "canonical_kind_table"
 
-    @property
-    def is_legacy_projection(self) -> bool:
-        return not self.common and not self.typed and self.section != SECTION_INTERNAL
+
+_INTERNAL_DERIVED_KEYS = {
+    "format_templateimage",
+    "format_scaledimage",
+    "country_scaledimage",
+    "language_scaledimage",
+    "audiencerating_templateimage",
+    "region_scaledimage",
+    "audio_templateimage",
+    "physical_format_label",
+    "physical_format_media_family",
+    "physical_format_variant_type",
+    "associated_image_id",
+    "cover_delivery_url",
+    "cover_policy",
+    "cover_source_url",
+    "cover_status",
+    "cover_storage",
+}
 
 
 _WORK_SCOPE_KEYS = {
@@ -174,7 +185,8 @@ _MEDIA_SCOPE_KEYS = {
 
 _TRACK_SCOPE_KEYS = {"tracks"}
 
-_PROPOSAL_KEYS = {"physical_format", "trailer_urls", "external_links"}
+_RELATION_KEYS = {"trailer_urls", "external_links"}
+_TAG_KEYS = {"series_tags"}
 
 # Canonical release metadata is deliberately routed through one structural
 # scope for every kind.  Kind-specific labels such as Edition, Issue, or
@@ -206,14 +218,20 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "work": ("book_work", "book_works"),
         "release": ("book_edition", "book_editions"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.comic: {
         "work": ("comic_issue", "comic_issues"),
         "release": ("comic_variant", "comic_variants"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.manga: {
         "work": ("manga_work", "manga_works"),
         "release": ("manga_edition", "manga_editions"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.anime: {
         "work": ("anime_series", "anime_series"),
@@ -221,12 +239,16 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "episode": ("anime_episode", "anime_episodes"),
         "media": ("anime_release_media", "anime_release_media"),
         "track": ("anime_release_media", "anime_release_media"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.movie: {
         "work": ("movie_work", "movie_works"),
         "release": ("movie_release", "movie_releases"),
         "media": ("movie_release_media", "movie_release_media"),
         "track": ("movie_release_media", "movie_release_media"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.tv: {
         "work": ("tv_series", "tv_series"),
@@ -234,6 +256,8 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "episode": ("tv_episode", "tv_episodes"),
         "media": ("tv_release_media", "tv_release_media"),
         "track": ("tv_release_media", "tv_release_media"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.game: {
         "work": ("game_work", "game_works"),
@@ -245,6 +269,8 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "media": ("game_release", "game_releases"),
         "track": ("game_release", "game_releases"),
         "series_membership": ("game_work", "game_series_memberships"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.boardgame: {
         "work": ("boardgame_work", "boardgame_works"),
@@ -259,6 +285,8 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "player_count_vote": ("boardgame_edition", "boardgame_player_count_votes"),
         "media": ("boardgame_edition", "boardgame_editions"),
         "track": ("boardgame_edition", "boardgame_editions"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.music: {
         "work": ("music_release_group", "music_release_groups"),
@@ -266,6 +294,8 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "release": ("music_release", "music_releases"),
         "medium": ("music_medium", "music_mediums"),
         "track": ("music_track", "music_tracks"),
+        "relations": ("entity_link", "entity_links"),
+        "tags": ("entity_tag", "entity_tags"),
     },
 }
 
@@ -281,18 +311,18 @@ def _default_entity_ref(kind: ItemKind) -> tuple[str, str]:
 
 
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
-    if key in INTERNAL_BOOKKEEPING_KEYS:
-        return "legacy_projection"
-    if key in LEGACY_PROJECTION_KEYS:
-        return "legacy_projection"
+    if key in _INTERNAL_DERIVED_KEYS:
+        return "internal"
+    if key in _RELATION_KEYS:
+        return "relations"
+    if key in _TAG_KEYS:
+        return "tags"
     if key in _MEDIA_SCOPE_KEYS:
         return "track" if key == "tracks" else "media"
     if key == "age_rating" and kind == ItemKind.game:
         return "age_rating"
     if key in _CANONICAL_RELEASE_KEYS:
         return "release"
-    if key in _PROPOSAL_KEYS:
-        return "legacy_projection"
     if key == "platforms" and kind == ItemKind.game:
         return "platform"
     if key == "identifiers":
@@ -316,7 +346,7 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
         return "ranking"
     if key in _WORK_SCOPE_KEYS:
         return "work"
-    return "legacy_projection"
+    return "work"
 
 
 def _field_source_entity_type(key: str, kind: ItemKind) -> str:
@@ -332,12 +362,10 @@ def _field_source_table(key: str, kind: ItemKind) -> str:
 
 
 def _field_write_target(key: str, kind: ItemKind) -> str:
-    if key in INTERNAL_BOOKKEEPING_KEYS:
+    if key in _INTERNAL_DERIVED_KEYS:
         return "readonly_computed"
-    if key in LEGACY_PROJECTION_KEYS:
-        return "legacy_projection"
-    if key in _PROPOSAL_KEYS:
-        return "core_admin_proposal"
+    if key in _RELATION_KEYS or key in _TAG_KEYS:
+        return "core_canonical_relation"
     return "core_canonical"
 
 
@@ -369,10 +397,6 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
                     "sourceTable": spec.source_table_for_kind(kind),
                 }
             )
-    warn_if_legacy_projection_used(
-        "metadata field schema",
-        (row["key"] for row in rows if row["scope"] == "legacy_projection"),
-    )
     return rows
 
 
@@ -553,7 +577,7 @@ def field_spec(key: str) -> MetadataFieldSpec | None:
 
 
 def common_field_keys() -> set[str]:
-    """Normalized common keys (mirrors the legacy ``_COMMON_ALLOWED_KEYS``)."""
+    """Return normalized fields shared by every canonical kind."""
     return {spec.key for spec in METADATA_FIELDS if spec.normalized and spec.common}
 
 
@@ -605,7 +629,7 @@ def canonical_correction_field_spec(kind: ItemKind, key: str) -> MetadataFieldSp
         return None
     if spec.write_target_for_kind(kind) != "core_canonical":
         return None
-    if spec.scope_for_kind(kind) in {"legacy_projection", "internal"}:
+    if spec.scope_for_kind(kind) == "internal":
         return None
     return spec
 
@@ -630,3 +654,10 @@ def canonical_correction_target(
         elif target != current:
             return None
     return target
+
+
+def canonical_entity_type_for_scope(kind: ItemKind, scope: str) -> str | None:
+    """Return the canonical entity type for a structural correction scope."""
+
+    target = _KIND_SCOPE_ENTITY_TYPES.get(kind, {}).get(scope)
+    return target[0] if target is not None else None

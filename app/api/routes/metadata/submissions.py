@@ -118,7 +118,7 @@ async def submit_normalized_metadata(
     # 5. Permission / Policy routing:
     is_editor_or_admin = (
         user is not None
-        and (user.role in {UserRole.editor, UserRole.admin} or user.is_admin)
+        and user.role in {UserRole.editor, UserRole.admin}
     )
 
     if is_editor_or_admin:

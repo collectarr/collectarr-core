@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -48,6 +49,9 @@ from app.models.canonical_support import (  # noqa: F401
     StoryArcItem,
     Tag,
 )
+
+if TYPE_CHECKING:
+    from app.models.canonical_comic_releases import ComicVariant
 
 
 class ComicSeries(UuidMixin, TimestampMixin, Base):

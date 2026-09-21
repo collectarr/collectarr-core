@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import date
 
 from app.models import (
-        AnimeRelease,
-        AnimeReleaseEpisodeMap,
-        AnimeReleaseMedia,
         AnimeCharacterAppearance,
         AnimeContribution,
         AnimeEpisode,
         AnimeIdentifier,
+        AnimeRelease,
+        AnimeReleaseEpisodeMap,
+        AnimeReleaseMedia,
         AnimeSeries,
 )
 from app.schemas import (

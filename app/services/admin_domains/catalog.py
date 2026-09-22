@@ -72,6 +72,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue, partial_date_storage
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
@@ -366,6 +367,14 @@ class AdminCatalogService:
             if hasattr(obj, field):
                 setattr(obj, field, value)
 
+        def _set_partial_date(obj: Any, field: str, value: Any) -> None:
+            """Persist one lossless partial date plus its concrete projection."""
+            parsed = None if value is None else PartialDateValue.model_validate(value)
+            if hasattr(obj, f"{field}_parts"):
+                setattr(obj, f"{field}_parts", partial_date_storage(parsed))
+            if hasattr(obj, field):
+                setattr(obj, field, parsed.as_date if parsed is not None else None)
+
         async def _clear_existing(collection: list[Any]) -> None:
             for row in list(collection):
                 await self.db.delete(row)
@@ -594,7 +603,7 @@ class AdminCatalogService:
                 if "publisher" in update_data:
                     issue.publisher = payload.publisher
                 if "release_date" in update_data:
-                    issue.release_date = payload.release_date
+                    _set_partial_date(issue, "release_date", payload.release_date)
                 if "imprint" in update_data:
                     issue.imprint = payload.imprint
                 if "series_group" in update_data:
@@ -677,7 +686,7 @@ class AdminCatalogService:
                 group.cover_image_url = payload.cover_image_url
                 group.cover_image_key = None
             if "release_date" in update_data:
-                group.original_release_date = payload.release_date
+                _set_partial_date(group, "original_release_date", payload.release_date)
             if release is not None:
                 if "subtitle" in update_data:
                     release.subtitle = self._normalize_optional_text(payload.subtitle)
@@ -759,7 +768,7 @@ class AdminCatalogService:
                 if "publisher" in update_data:
                     release.publisher = payload.publisher
                 if "release_date" in update_data:
-                    release.release_date = payload.release_date
+                    _set_partial_date(release, "release_date", payload.release_date)
                 if "country" in update_data:
                     release.region_code = self._normalize_region(payload.country)
                 if "language" in update_data:
@@ -828,7 +837,7 @@ class AdminCatalogService:
                 if "publisher" in update_data:
                     release.publisher = payload.publisher
                 if "release_date" in update_data:
-                    release.release_date = payload.release_date
+                    _set_partial_date(release, "release_date", payload.release_date)
                 if "country" in update_data and hasattr(release, "region_code"):
                     release.region_code = self._normalize_region(payload.country)
                 if "language" in update_data and hasattr(release, "language_audio"):
@@ -917,7 +926,7 @@ class AdminCatalogService:
                 if "publisher" in update_data:
                     edition.publisher = payload.publisher
                 if "release_date" in update_data:
-                    edition.publication_date = payload.release_date
+                    _set_partial_date(edition, "publication_date", payload.release_date)
                 if "imprint" in update_data:
                     edition.imprint = payload.imprint
                 if "subtitle" in update_data:
@@ -978,7 +987,7 @@ class AdminCatalogService:
             if "publisher" in update_data:
                 edition.publisher = payload.publisher
             if "release_date" in update_data:
-                edition.release_date = payload.release_date
+                _set_partial_date(edition, "release_date", payload.release_date)
             if "catalog_number" in update_data:
                 edition.catalog_number = payload.catalog_number
             if "barcode" in update_data:

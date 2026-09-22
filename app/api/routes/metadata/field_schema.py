@@ -10,8 +10,8 @@ from app.models.base import ItemKind
 from app.schemas import (
     MediaCatalogResponse,
     MediaTypeResponse,
-    MetadataFieldSchemaResponse,
     MetadataFieldOwnershipResponse,
+    MetadataFieldSchemaResponse,
     MetadataFieldSpecResponse,
     MetadataNormalizedManifestResponse,
     PhysicalFormatResponse,

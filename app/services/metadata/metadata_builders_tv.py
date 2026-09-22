@@ -10,6 +10,7 @@ from app.models import (
     TVSeason,
     TVSeries,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
     TVContributorResponse,
     TVEpisodeV1Response,
@@ -30,6 +31,7 @@ class TVMetadataResponseBuilders:
             episode_number=float(episode.episode_number),
             episode_title=episode.title,
             air_date=episode.original_air_date,
+            air_date_parts=partial_date_from_storage(episode.original_air_date_parts),
             description=episode.overview,
             cover_image_url=episode.still_url,
             cover_image_key=episode.still_key,
@@ -83,6 +85,7 @@ class TVMetadataResponseBuilders:
             series_id=season.series_id,
             season_number=season.season_number,
             air_date=season.air_date,
+            air_date_parts=partial_date_from_storage(season.air_date_parts),
             episode_count=len(ordered_episodes),
             description=season.overview,
             cover_image_url=season.poster_url,
@@ -119,6 +122,7 @@ class TVMetadataResponseBuilders:
             format=release.format,
             region_code=release.region_code,
             release_date=release.release_date,
+            release_date_parts=partial_date_from_storage(release.release_date_parts),
             publisher=release.publisher,
             sku=release.sku,
             case_type=release.case_type,
@@ -173,7 +177,9 @@ class TVMetadataResponseBuilders:
             description=series.overview,
             original_language=series.original_language,
             original_air_date=series.first_air_date,
+            original_air_date_parts=partial_date_from_storage(series.first_air_date_parts),
             end_date=series.last_air_date,
+            end_date_parts=partial_date_from_storage(series.last_air_date_parts),
             status=series.status,
             season_count=series.season_count or len(seasons),
             episode_count=series.episode_count or sum(len(season.episodes) for season in seasons),

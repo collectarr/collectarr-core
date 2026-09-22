@@ -39,7 +39,7 @@ def provider_preview_field_states(
         "edition_format": normalized.edition_format,
         "physical_format": physical_format_id,
         "physical_format_label": physical_format_label,
-        "release_date": normalized.release_date,
+        "release_date": normalized.release_date_parts or normalized.release_date,
         "barcode": normalized.barcode,
         "isbn": normalized.isbn,
         "variant_name": normalized.variant_name,

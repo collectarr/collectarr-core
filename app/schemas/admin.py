@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.base import ExternalProvider, ItemKind, UserRole
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_anime import AnimeSeriesV1Response
 from app.schemas.metadata_board_games import BoardGameWorkV1Response
 from app.schemas.metadata_books import BookWorkV1Response
@@ -150,7 +151,8 @@ class ProviderPreviewResponse(BaseModel):
     edition_format: str | None = None
     physical_format: str | None = None
     physical_format_label: str | None = None
-    release_date: date | None = None
+    release_date: PartialDateValue | date | None = None
+    release_date_parts: PartialDateValue | None = None
     barcode: str | None = None
     isbn: str | None = None
     variant_name: str | None = None
@@ -338,7 +340,7 @@ class AdminMetadataCorrectionRequest(BaseModel):
     page_count: int | None = Field(default=None, ge=0)
     runtime_minutes: int | None = Field(default=None, ge=0)
     publisher: str | None = Field(default=None, max_length=255)
-    release_date: date | None = None
+    release_date: PartialDateValue | date | None = None
     imprint: str | None = Field(default=None, max_length=255)
     subtitle: str | None = Field(default=None, max_length=255)
     series_group: str | None = Field(default=None, max_length=255)
@@ -402,7 +404,8 @@ class AdminBundleReleaseCorrectionRequest(BaseModel):
     publisher: str | None = Field(default=None, max_length=255)
     sku: str | None = Field(default=None, max_length=100)
     barcode: str | None = Field(default=None, max_length=32)
-    release_date: date | None = None
+    release_date: PartialDateValue | date | None = None
+    release_date_parts: PartialDateValue | None = None
     cover_image_url: str | None = Field(default=None, max_length=1024)
     thumbnail_image_url: str | None = Field(default=None, max_length=1024)
     members: list[AdminBundleReleaseMemberUpdateRequest] | None = None

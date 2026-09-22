@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.catalog.grouping_models import GroupingModel
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import PartialDateValue
 from app.types import JsonObject
 
 
@@ -137,6 +138,7 @@ class EpisodeResponse(BaseModel):
     provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     runtime_minutes: int | None = None
     page_count: int | None = None
 
@@ -147,6 +149,7 @@ class SeasonResponse(BaseModel):
     provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     episode_count: int | None = None
     poster_url: str | None = None
     episodes: list[EpisodeResponse] = Field(default_factory=list)
@@ -158,7 +161,9 @@ class StoryArcResponse(BaseModel):
     description: str | None = None
     publisher: str | None = None
     start_date: date | None = None
+    start_date_parts: PartialDateValue | None = None
     end_date: date | None = None
+    end_date_parts: PartialDateValue | None = None
     item_count: int = 0
 
 
@@ -168,7 +173,9 @@ class StoryArcFacetResponse(BaseModel):
     description: str | None = None
     publisher: str | None = None
     start_date: date | None = None
+    start_date_parts: PartialDateValue | None = None
     end_date: date | None = None
+    end_date_parts: PartialDateValue | None = None
     item_count: int = 0
     entity_ids: list[UUID] = Field(default_factory=list)
 

@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import PartialDateValue
 
 
 def public_item_kind(kind: Any) -> ItemKind | None:
@@ -62,6 +63,7 @@ class BundleReleaseSummaryResponse(BaseModel):
     sku: str | None = None
     barcode: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
     primary_entity_type: str | None = None
@@ -135,6 +137,7 @@ class EditionResponse(BaseModel):
     catalog_number: str | None = None
     release_status: str | None = None
     release_date: date | None
+    release_date_parts: PartialDateValue | None = None
     physical_format: str | None = None
     physical_format_label: str | None = None
     variants: list[VariantResponse] = []
@@ -160,7 +163,8 @@ class CreateEditionRequest(BaseModel):
     upc: str | None = None
     language: str | None = None
     region: str | None = None
-    release_date: date | None = None
+    release_date: PartialDateValue | date | None = None
+    release_date_parts: PartialDateValue | None = None
 
 
 class SearchResult(BaseModel):
@@ -178,6 +182,7 @@ class SearchResult(BaseModel):
     artist: str | None = None
     publisher: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     release_year: int | None = None
     barcode: str | None = None
     variant: str | None = None

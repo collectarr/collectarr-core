@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 
 
 class BoardGameEditionV1Response(BaseModel):
@@ -15,6 +16,7 @@ class BoardGameEditionV1Response(BaseModel):
     edition_title: str | None = None
     format: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     catalog_number: str | None = None
     barcode: str | None = None
@@ -41,6 +43,7 @@ class BoardGameWorkV1Response(BaseModel):
     subtitle: str | None = None
     description: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     original_language: str | None = None
     publisher: str | None = None
     age_rating: str | None = None

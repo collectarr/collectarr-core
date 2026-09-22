@@ -13,6 +13,7 @@ from app.models import (
     GameRelease,
     GameWork,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
     BoardGameEditionV1Response,
     BoardGameWorkV1Response,
@@ -74,6 +75,7 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             format=edition.format,
             binding=edition.binding,
             publication_date=edition.publication_date,
+            publication_date_parts=partial_date_from_storage(edition.publication_date_parts),
             publisher=edition.publisher,
             imprint=edition.imprint,
             language=edition.language,
@@ -125,6 +127,10 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             slug=series.slug,
             sequence=membership.sequence,
             display_number=membership.display_number,
+            start_date=series.start_date,
+            start_date_parts=partial_date_from_storage(series.start_date_parts),
+            end_date=series.end_date,
+            end_date_parts=partial_date_from_storage(series.end_date_parts),
         )
 
     def _book_work_response(self, work: BookWork) -> BookWorkV1Response:
@@ -144,10 +150,13 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             description=work.description,
             original_language=work.original_language,
             original_publication_date=work.original_publication_date,
+            original_publication_date_parts=partial_date_from_storage(work.original_publication_date_parts),
             first_publication_date=work.first_publication_date,
+            first_publication_date_parts=partial_date_from_storage(work.first_publication_date_parts),
             original_details=BookOriginalDetailsResponse(
                 original_language=work.original_language,
                 original_publication_date=work.original_publication_date,
+                original_publication_date_parts=partial_date_from_storage(work.original_publication_date_parts),
                 original_publisher=work.original_publisher,
                 dewey=work.dewey,
                 lccn=work.lccn,
@@ -186,6 +195,7 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             release_title=release.release_title,
             platform=release.platform,
             release_date=release.release_date,
+            release_date_parts=partial_date_from_storage(release.release_date_parts),
             region_code=release.region_code,
             format=release.format,
             publisher=release.publisher,
@@ -214,6 +224,7 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             subtitle=work.subtitle,
             description=work.description,
             release_date=work.release_date,
+            release_date_parts=partial_date_from_storage(work.release_date_parts),
             original_language=work.original_language,
             publisher=primary_release.publisher if primary_release is not None else None,
             age_rating=work.age_rating,
@@ -236,6 +247,7 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             edition_title=edition.edition_title,
             format=edition.format,
             release_date=edition.release_date,
+            release_date_parts=partial_date_from_storage(edition.release_date_parts),
             publisher=edition.publisher,
             catalog_number=edition.catalog_number,
             barcode=edition.barcode,
@@ -270,6 +282,7 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             subtitle=work.subtitle,
             description=work.description,
             release_date=work.release_date,
+            release_date_parts=partial_date_from_storage(work.release_date_parts),
             original_language=work.original_language,
             publisher=primary_edition.publisher if primary_edition is not None else None,
             age_rating=work.age_rating,

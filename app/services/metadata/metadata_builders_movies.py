@@ -9,6 +9,7 @@ from app.models import (
         MovieWorkContribution,
         MovieWorkIdentifier,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
         MovieContributorResponse,
         MovieIdentifierResponse,
@@ -37,6 +38,7 @@ class MovieMetadataResponseBuilders:
                 description=work.description,
                 original_language=work.original_language,
                 release_date=work.original_release_date,
+                release_date_parts=partial_date_from_storage(work.original_release_date_parts),
                 runtime_minutes=work.runtime_minutes,
                 age_rating=work.age_rating,
                 audience_rating=work.audience_rating,
@@ -99,6 +101,7 @@ class MovieMetadataResponseBuilders:
                 id=release.id,
                 work_id=release.work_id,
                 release_date=release.release_date,
+                release_date_parts=partial_date_from_storage(release.release_date_parts),
                 region=release.region_code,
                 format=release.format,
                 distributor=release.distributor,

@@ -9,6 +9,7 @@ from app.models import (
         ComicVariant,
         ComicWork,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
         ComicCharacterResponse,
         ComicContributorResponse,
@@ -59,7 +60,9 @@ class ComicMetadataResponseBuilders:
                 publisher=variant.publisher,
                 imprint=variant.imprint,
                 publication_date=variant.publication_date,
+                publication_date_parts=partial_date_from_storage(variant.publication_date_parts),
                 release_date=variant.release_date,
+                release_date_parts=partial_date_from_storage(variant.release_date_parts),
                 language=variant.language,
                 region=variant.region,
                 physical_format=variant.physical_format,
@@ -77,7 +80,9 @@ class ComicMetadataResponseBuilders:
                 issue_number=issue.issue_number,
                 display_title=issue.display_title,
                 publication_date=issue.publication_date,
+                publication_date_parts=partial_date_from_storage(issue.publication_date_parts),
                 release_date=issue.release_date,
+                release_date_parts=partial_date_from_storage(issue.release_date_parts),
                 publisher=issue.publisher,
                 imprint=issue.imprint,
                 language=issue.language,
@@ -186,6 +191,7 @@ class ComicMetadataResponseBuilders:
                 description=work.description,
                 original_language=work.original_language,
                 first_publication_date=work.first_publication_date,
+                first_publication_date_parts=partial_date_from_storage(work.first_publication_date_parts),
                 expected_issue_count=work.expected_issue_count,
                 missing_issue_count=work.missing_issue_count,
                 missing_issue_numbers=[

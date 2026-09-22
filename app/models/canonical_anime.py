@@ -60,7 +60,9 @@ class AnimeSeries(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     original_language: Mapped[str | None] = mapped_column(String(16))
     original_air_date: Mapped[date | None] = mapped_column(Date)
+    original_air_date_parts: Mapped[str | None] = mapped_column(String(64))
     end_date: Mapped[date | None] = mapped_column(Date)
+    end_date_parts: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     anime_type: Mapped[str | None] = mapped_column(String(64), index=True)
     episode_count: Mapped[int | None]
@@ -91,6 +93,7 @@ class AnimeEpisode(UuidMixin, TimestampMixin, Base):
     episode_number: Mapped[int | None]
     episode_title: Mapped[str | None] = mapped_column(String(255))
     air_date: Mapped[date | None] = mapped_column(Date)
+    air_date_parts: Mapped[str | None] = mapped_column(String(64))
     description: Mapped[str | None] = mapped_column(Text)
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
     cover_image_key: Mapped[str | None] = mapped_column(String(255))

@@ -12,6 +12,7 @@ from app.models import (
         AnimeReleaseMedia,
         AnimeSeries,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
         AnimeCharacterResponse,
         AnimeContributorResponse,
@@ -43,7 +44,9 @@ class AnimeMetadataResponseBuilders:
                 description=series.description,
                 original_language=series.original_language,
                 original_air_date=series.original_air_date,
+                original_air_date_parts=partial_date_from_storage(series.original_air_date_parts),
                 end_date=series.end_date,
+                end_date_parts=partial_date_from_storage(series.end_date_parts),
                 status=series.status,
                 anime_type=series.anime_type,
                 episode_count=series.episode_count,
@@ -151,6 +154,7 @@ class AnimeMetadataResponseBuilders:
                 format=release.format,
                 region_code=release.region_code,
                 release_date=release.release_date,
+                release_date_parts=partial_date_from_storage(release.release_date_parts),
                 publisher=release.publisher,
                 distributor=release.distributor,
                 barcode=release.barcode,
@@ -174,6 +178,7 @@ class AnimeMetadataResponseBuilders:
                 episode_number=episode.episode_number,
                 episode_title=episode.episode_title,
                 air_date=episode.air_date,
+                air_date_parts=partial_date_from_storage(episode.air_date_parts),
                 description=episode.description,
                 cover_image_url=episode.cover_image_url,
                 cover_image_key=episode.cover_image_key,

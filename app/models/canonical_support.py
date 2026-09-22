@@ -224,7 +224,9 @@ class StoryArc(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     start_date: Mapped[date | None] = mapped_column(Date)
+    start_date_parts: Mapped[str | None] = mapped_column(String(64))
     end_date: Mapped[date | None] = mapped_column(Date)
+    end_date_parts: Mapped[str | None] = mapped_column(String(64))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
     site_detail_url: Mapped[str | None] = mapped_column(String(1024))
 
@@ -412,6 +414,7 @@ class TypedScalarValueMixin:
     decimal_value: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
     boolean_value: Mapped[bool | None] = mapped_column(Boolean)
     date_value: Mapped[date | None] = mapped_column(Date)
+    date_value_parts: Mapped[str | None] = mapped_column(String(64))
     datetime_value: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     uuid_value: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 

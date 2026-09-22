@@ -8,6 +8,7 @@ from app.catalog.metadata_fields import (
     value_types,
 )
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 
 NORMALIZED_SCHEMA_VERSION = 1
 
@@ -42,6 +43,12 @@ def _is_valid_normalized_value(key: str, value: Any) -> bool:
         return isinstance(value, list) and all(isinstance(entry, str) for entry in value)
     if value_type == "integer":
         return isinstance(value, int) and value >= 0
+    if value_type == "partial_date":
+        try:
+            PartialDateValue.model_validate(value)
+        except (TypeError, ValueError):
+            return False
+        return True
     return True
 
 

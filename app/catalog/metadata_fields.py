@@ -36,7 +36,7 @@ from app.models.base import ItemKind
 VALUE_TYPE_STRING = "string"
 VALUE_TYPE_STRING_LIST = "string_list"
 VALUE_TYPE_INTEGER = "integer"
-VALUE_TYPE_DATE = "date"
+VALUE_TYPE_PARTIAL_DATE = "partial_date"
 VALUE_TYPE_LINK_LIST = "link_list"
 
 # Edit-panel sections (mirror the app's SharedMetadataEditTab grouping).
@@ -489,7 +489,7 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
                       section=SECTION_ITEM, kinds=ALL_KINDS),
     MetadataFieldSpec("edition_title", VALUE_TYPE_STRING, "Edition title",
                       section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("release_date", VALUE_TYPE_DATE, "Release date",
+    MetadataFieldSpec("release_date", VALUE_TYPE_PARTIAL_DATE, "Release date",
                       section=SECTION_ITEM, input=INPUT_DATE, kinds=ALL_KINDS),
     # Publishing.
     MetadataFieldSpec("publisher", VALUE_TYPE_STRING, "Publisher",

@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import (
     ContributorResponse,
 )
@@ -55,6 +56,7 @@ class MovieReleaseV1Response(BaseModel):
     work_id: UUID
     release_title: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     region: str | None = None
     format: str | None = None
     distributor: str | None = None
@@ -77,6 +79,7 @@ class MovieWorkV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     runtime_minutes: int | None = None
     age_rating: str | None = None
     audience_rating: str | None = None
@@ -149,6 +152,7 @@ class TVEpisodeV1Response(BaseModel):
     episode_number: float | None = None
     episode_title: str | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     description: str | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
@@ -164,6 +168,7 @@ class TVSeasonV1Response(BaseModel):
     series_id: UUID
     season_number: int | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     episode_count: int | None = None
     description: str | None = None
     cover_image_url: str | None = None
@@ -183,6 +188,7 @@ class TVReleaseV1Response(BaseModel):
     format: str
     region_code: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     sku: str | None = None
     case_type: str | None = None
@@ -208,7 +214,9 @@ class TVSeriesV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     original_air_date: date | None = None
+    original_air_date_parts: PartialDateValue | None = None
     end_date: date | None = None
+    end_date_parts: PartialDateValue | None = None
     status: str | None = None
     season_count: int | None = None
     episode_count: int | None = None

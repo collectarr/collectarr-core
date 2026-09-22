@@ -7,11 +7,34 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import ContributorResponse
 
 
 class MusicContributorResponse(ContributorResponse):
     role_id: str | None = None
+
+
+class MusicArtistCreditResponse(BaseModel):
+    id: UUID
+    artist_id: UUID | None = None
+    credited_name: str
+    join_phrase: str | None = None
+    sequence: int | None = None
+    source: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class MusicReleaseLabelResponse(BaseModel):
+    id: UUID
+    label_id: UUID | None = None
+    label_name: str
+    catalog_number: str | None = None
+    sequence: int | None = None
+    source: str | None = None
+
+    model_config = {"from_attributes": True}
 
 
 class MusicIdentifierResponse(BaseModel):
@@ -72,6 +95,7 @@ class MusicReleaseSummaryV1Response(BaseModel):
     release_group_id: UUID
     title: str
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     release_type: str | None = None
     release_status: str | None = None
     publisher: str | None = None
@@ -90,10 +114,13 @@ class MusicReleaseGroupV1Response(BaseModel):
     synopsis: str | None = None
     artist: str | None = None
     original_release_date: date | None = None
+    original_release_date_parts: PartialDateValue | None = None
     recording_date: date | None = None
+    recording_date_parts: PartialDateValue | None = None
     studio: str | None = None
     is_live: bool | None = None
     genres: list[str] = Field(default_factory=list)
+    artist_credits: list[MusicArtistCreditResponse] = Field(default_factory=list)
     cover_image_url: str | None = None
     cover_image_key: str | None = None
     external_links: list[dict[str, Any]] = Field(default_factory=list)
@@ -111,6 +138,7 @@ class MusicReleaseV1Response(BaseModel):
     release_type: str | None = None
     release_status: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     upc: str | None = None
     catalog_number: str | None = None
@@ -123,6 +151,8 @@ class MusicReleaseV1Response(BaseModel):
     kind: ItemKind = ItemKind.music
     mediums: list[MusicMediumV1Response] = Field(default_factory=list)
     contributions: list[MusicContributorResponse] = Field(default_factory=list)
+    artist_credits: list[MusicArtistCreditResponse] = Field(default_factory=list)
+    labels: list[MusicReleaseLabelResponse] = Field(default_factory=list)
     identifiers: list[MusicIdentifierResponse] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

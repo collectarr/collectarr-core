@@ -102,6 +102,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ExternalProvider, ItemKind, SeriesRelationType
+from app.models.partial_date import partial_date_storage
 from app.providers.base import (
     MetadataProvider,
     NormalizedCredit,
@@ -508,7 +509,9 @@ class AdminProviderIngestService:
             # Update issue fields from provider data
             issue.display_title = normalized.edition_title or normalized.title
             issue.publication_date = normalized.release_date
+            issue.publication_date_parts = partial_date_storage(normalized.release_date_parts)
             issue.release_date = normalized.release_date
+            issue.release_date_parts = partial_date_storage(normalized.release_date_parts)
             issue.publisher = normalized.publisher
             issue.imprint = normalized.imprint
             issue.page_count = normalized.page_count
@@ -583,6 +586,7 @@ class AdminProviderIngestService:
             physical_format=physical_format.id if physical_format else None,
             physical_format_label=physical_format.label if physical_format else None,
             release_date=normalized.release_date,
+            release_date_parts=normalized.release_date_parts,
             barcode=normalized.barcode,
             isbn=normalized.isbn,
             variant_name=normalized.variant_name or (
@@ -1545,6 +1549,7 @@ class AdminProviderIngestService:
             subtitle=normalized.subtitle,
             description=normalized.synopsis,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             original_language=self._normalized_language(normalized.language),
             age_rating=normalized.age_rating,
             audience_rating=normalized.audience_rating,
@@ -1583,6 +1588,7 @@ class AdminProviderIngestService:
             release_title=normalized.edition_title or normalized.title,
             platform=normalized.platforms[0] if normalized.platforms else normalized.edition_format,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             region_code=self._normalized_region(normalized.country),
             format=normalized.edition_format,
             publisher=normalized.publisher,
@@ -1668,6 +1674,7 @@ class AdminProviderIngestService:
             subtitle=normalized.subtitle,
             description=normalized.synopsis,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             age_rating=normalized.age_rating,
             audience_rating=normalized.audience_rating,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
@@ -1708,6 +1715,7 @@ class AdminProviderIngestService:
             barcode=normalized.barcode,
             release_status=self._normalized_release_status(normalized.release_status),
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             language=self._normalized_language(normalized.language),
             country=self._normalized_region(normalized.country),
             age_rating=normalized.age_rating,
@@ -1811,6 +1819,7 @@ class AdminProviderIngestService:
                 description=normalized.synopsis,
                 original_language=self._normalized_language(normalized.language),
                 first_publication_date=normalized.release_date,
+                first_publication_date_parts=partial_date_storage(normalized.release_date_parts),
             )
             self.db.add(work)
             await self.db.flush()
@@ -1847,7 +1856,9 @@ class AdminProviderIngestService:
                 issue_number=normalized.item_number,
                 display_title=normalized.edition_title or normalized.title,
                 publication_date=normalized.release_date,
+                publication_date_parts=partial_date_storage(normalized.release_date_parts),
                 release_date=normalized.release_date,
+                release_date_parts=partial_date_storage(normalized.release_date_parts),
                 publisher=normalized.publisher,
                 imprint=normalized.imprint,
                 language=self._normalized_language(normalized.language),
@@ -2080,6 +2091,7 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
+            first_publication_date_parts=partial_date_storage(normalized.release_date_parts),
         )
         self.db.add(work)
         await self.db.flush()
@@ -2114,6 +2126,7 @@ class AdminProviderIngestService:
             format=normalized.edition_format,
             binding=normalized.variant_type,
             publication_date=normalized.release_date,
+            publication_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             imprint=normalized.imprint,
             language=self._normalized_language(normalized.language),
@@ -2237,13 +2250,33 @@ class AdminProviderIngestService:
         release_date = normalized.release_date
         if release_date is None:
             release_date = next((season.air_date for season in normalized_seasons if season.air_date), None)
+        first_air_date_parts = normalized.release_date_parts
+        if first_air_date_parts is None:
+            first_air_date_parts = next(
+                (season.air_date_parts for season in normalized_seasons if season.air_date_parts),
+                None,
+            )
+        latest_season = max(
+            normalized_seasons,
+            key=lambda season: (
+                season.air_date or datetime.min.date(),
+                (season.air_date_parts.year if season.air_date_parts else -1),
+                (season.air_date_parts.month if season.air_date_parts else -1),
+                (season.air_date_parts.day if season.air_date_parts else -1),
+            ),
+            default=None,
+        )
+        last_air_date = latest_season.air_date if latest_season else None
+        last_air_date_parts = latest_season.air_date_parts if latest_season else None
 
         series = TVSeries(
             title=normalized.series_title or normalized.title,
             sort_title=sort_key(ItemKind.tv, normalized.series_title or normalized.title, normalized.item_number),
             overview=normalized.synopsis,
             first_air_date=release_date,
-            last_air_date=max((season.air_date for season in normalized_seasons if season.air_date), default=None),
+            first_air_date_parts=partial_date_storage(first_air_date_parts),
+            last_air_date=last_air_date,
+            last_air_date_parts=partial_date_storage(last_air_date_parts),
             status=normalized.release_status,
             type="tv",
             network=normalized.publisher,
@@ -2266,6 +2299,7 @@ class AdminProviderIngestService:
             format=normalized.edition_format or "dvd",
             region_code=self._normalized_region(normalized.country),
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             sku=normalized.barcode,
             runtime_minutes=normalized.runtime_minutes,
@@ -2301,6 +2335,7 @@ class AdminProviderIngestService:
                             title=normalized.title,
                             overview=normalized.synopsis,
                             air_date=normalized.release_date,
+                            air_date_parts=normalized.release_date_parts,
                             runtime_minutes=normalized.runtime_minutes,
                             still_url=normalized.cover_image_url,
                             image_url=normalized.cover_image_url,
@@ -2317,6 +2352,7 @@ class AdminProviderIngestService:
                 title=season_data.title,
                 overview=season_data.overview,
                 air_date=season_data.air_date,
+                air_date_parts=partial_date_storage(season_data.air_date_parts),
                 episode_count=season_data.episode_count or len(season_data.episodes),
                 poster_url=season_data.poster_url,
                 provider_item_id=season_data.provider_item_id,
@@ -2336,6 +2372,7 @@ class AdminProviderIngestService:
                     overview=episode_data.overview,
                     duration_seconds=episode_data.runtime_minutes * 60 if episode_data.runtime_minutes else None,
                     original_air_date=episode_data.air_date,
+                    original_air_date_parts=partial_date_storage(episode_data.air_date_parts),
                     still_url=episode_data.still_url,
                     image_url=episode_data.image_url,
                     large_image_url=episode_data.large_image_url,
@@ -2478,6 +2515,7 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
+            first_publication_date_parts=partial_date_storage(normalized.release_date_parts),
         )
         self.db.add(work)
         await self.db.flush()
@@ -2515,6 +2553,7 @@ class AdminProviderIngestService:
             chapter_number=float(normalized.item_number) if normalized.item_number else None,
             chapter_title=normalized.edition_title or normalized.title,
             publication_date=normalized.release_date,
+            publication_date_parts=partial_date_storage(normalized.release_date_parts),
             page_count=normalized.page_count,
             description=normalized.synopsis,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
@@ -2679,6 +2718,7 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             original_air_date=normalized.release_date,
+            original_air_date_parts=partial_date_storage(normalized.release_date_parts),
             status=normalized.release_status or "unknown",
         )
         self.db.add(series)
@@ -2690,6 +2730,7 @@ class AdminProviderIngestService:
             episode_number=int(normalized.item_number) if normalized.item_number and normalized.item_number.isdigit() else None,
             episode_title=normalized.edition_title or normalized.title,
             air_date=normalized.release_date,
+            air_date_parts=partial_date_storage(normalized.release_date_parts),
             description=normalized.synopsis,
             cover_image_url=mirrored_cover.url if mirrored_cover else normalized.cover_image_url,
             cover_image_key=mirrored_cover.key if mirrored_cover else None,
@@ -2812,6 +2853,7 @@ class AdminProviderIngestService:
             description=normalized.synopsis,
             original_language=self._normalized_language(normalized.language),
             original_release_date=normalized.release_date,
+            original_release_date_parts=partial_date_storage(normalized.release_date_parts),
             runtime_minutes=normalized.runtime_minutes,
             age_rating=normalized.age_rating,
             audience_rating=normalized.audience_rating,
@@ -2825,6 +2867,7 @@ class AdminProviderIngestService:
             format=normalized.physical_format or normalized.edition_format or "digital",
             region_code=self._normalized_region(normalized.country),
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             release_type=normalized.edition_format,
             color=normalized.color,
             distributor=normalized.distributor,
@@ -2991,7 +3034,9 @@ class AdminProviderIngestService:
             synopsis=normalized.synopsis,
             artist=", ".join(credit.name for credit in normalized.creators) or None,
             original_release_date=normalized.release_date,
+            original_release_date_parts=partial_date_storage(normalized.release_date_parts),
             recording_date=normalized.recording_date,
+            recording_date_parts=partial_date_storage(normalized.recording_date_parts),
             studio=normalized.studio,
             cover_image_url=cover_url,
             cover_image_key=cover_key,
@@ -3019,6 +3064,7 @@ class AdminProviderIngestService:
             release_type=normalized.release_type,
             release_status=normalized.release_status,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             barcode=normalized.barcode,
             catalog_number=normalized.catalog_number,

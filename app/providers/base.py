@@ -3,6 +3,7 @@ from datetime import date
 from typing import Generic, Protocol, TypeVar
 
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 from app.types import JsonObject
 
 
@@ -117,6 +118,7 @@ class NormalizedEpisode:
     provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     runtime_minutes: int | None = None
     page_count: int | None = None
     still_url: str | None = None
@@ -131,6 +133,7 @@ class NormalizedSeason:
     provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     episode_count: int | None = None
     poster_url: str | None = None
     episodes: list[NormalizedEpisode] = field(default_factory=list)
@@ -161,6 +164,7 @@ class NormalizedBundleRelease:
     sku: str | None = None
     barcode: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     cover_image_url: str | None = None
     provider_ids: dict[str, str] = field(default_factory=dict)
     members: list[NormalizedBundleMember] = field(default_factory=list)
@@ -184,6 +188,7 @@ class NormalizedItem:
     publisher: str | None = None
     imprint: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     isbn: str | None = None
     barcode: str | None = None
     cover_price_cents: int | None = None
@@ -226,6 +231,7 @@ class NormalizedItem:
     distributor: str | None = None
     studio: str | None = None
     recording_date: date | None = None
+    recording_date_parts: PartialDateValue | None = None
     extras: str | None = None
     packaging: str | None = None
     media_condition: str | None = None
@@ -234,6 +240,7 @@ class NormalizedItem:
     vinyl_weight: str | None = None
     rpm: int | None = None
     spars: str | None = None
+    seasons: list[NormalizedSeason] = field(default_factory=list)
     bundle_release: NormalizedBundleRelease | None = None
 
     def __post_init__(self) -> None:

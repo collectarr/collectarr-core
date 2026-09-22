@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import (
     ContributorResponse,
 )
@@ -21,6 +22,7 @@ class BookContributorResponse(ContributorResponse):
 class BookOriginalDetailsResponse(BaseModel):
     original_language: str | None = None
     original_publication_date: date | None = None
+    original_publication_date_parts: PartialDateValue | None = None
     original_publisher: str | None = None
     dewey: str | None = None
     lccn: str | None = None
@@ -52,6 +54,7 @@ class BookEditionV1Response(BaseModel):
     format: str | None = None
     binding: str | None = None
     publication_date: date | None = None
+    publication_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     imprint: str | None = None
     language: str | None = None
@@ -74,6 +77,10 @@ class BookSeriesResponse(BaseModel):
     slug: str | None = None
     sequence: float | None = None
     display_number: str | None = None
+    start_date: date | None = None
+    start_date_parts: PartialDateValue | None = None
+    end_date: date | None = None
+    end_date_parts: PartialDateValue | None = None
 
 
 class BookWorkV1Response(BaseModel):
@@ -84,7 +91,9 @@ class BookWorkV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     original_publication_date: date | None = None
+    original_publication_date_parts: PartialDateValue | None = None
     first_publication_date: date | None = None
+    first_publication_date_parts: PartialDateValue | None = None
     original_details: BookOriginalDetailsResponse | None = None
     kind: ItemKind = ItemKind.book
     contributors: list[BookContributorResponse] = Field(default_factory=list)

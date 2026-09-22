@@ -43,6 +43,7 @@ class AnimeRelease(UuidMixin, TimestampMixin, Base):
     format: Mapped[str | None] = mapped_column(String(64), index=True)
     region_code: Mapped[str | None] = mapped_column(String(32), index=True)
     release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    release_date_parts: Mapped[str | None] = mapped_column(String(64))
     publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     distributor: Mapped[str | None] = mapped_column(String(255), index=True)
     barcode: Mapped[str | None] = mapped_column(String(100), index=True)

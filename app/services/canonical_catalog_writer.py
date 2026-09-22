@@ -86,6 +86,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import PartialDateValue, partial_date_storage
 from app.providers.base import (
     NormalizedCredit,
     NormalizedEpisode,
@@ -123,12 +124,25 @@ def _parse_date(val: object) -> date | None:
         return val.date()
     if isinstance(val, date):
         return val
+    if isinstance(val, (dict, PartialDateValue)):
+        try:
+            return PartialDateValue.model_validate(val).as_date
+        except ValueError:
+            return None
     if isinstance(val, str) and val.strip():
         try:
-            return date.fromisoformat(val.strip()[:10])
+            return PartialDateValue.model_validate(val).as_date
         except ValueError:
             return None
     return None
+
+
+def _partial_date(val: object) -> PartialDateValue | None:
+    try:
+        parsed = PartialDateValue.model_validate(val)
+    except ValueError:
+        return None
+    return None if parsed.is_empty else parsed
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
@@ -315,7 +329,8 @@ def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> Nor
                     title=e.get("title", ""),
                     provider_item_id=e.get("provider_item_id"),
                     overview=e.get("overview"),
-                    air_date=_parse_date(e.get("air_date")),
+                    air_date=_parse_date(e.get("air_date") or e.get("air_date_parts")),
+                    air_date_parts=_partial_date(e.get("air_date_parts") or e.get("air_date")),
                     runtime_minutes=e.get("runtime_minutes"),
                     page_count=e.get("page_count"),
                     still_url=e.get("still_url"),
@@ -331,7 +346,8 @@ def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> Nor
                     title=s.get("title", ""),
                     provider_item_id=s.get("provider_item_id"),
                     overview=s.get("overview"),
-                    air_date=_parse_date(s.get("air_date")),
+                    air_date=_parse_date(s.get("air_date") or s.get("air_date_parts")),
+                    air_date_parts=_partial_date(s.get("air_date_parts") or s.get("air_date")),
                     episode_count=s.get("episode_count"),
                     poster_url=s.get("poster_url"),
                     episodes=episodes,
@@ -354,7 +370,8 @@ def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> Nor
         physical_format=d.get("physical_format"),
         publisher=d.get("publisher"),
         imprint=d.get("imprint"),
-        release_date=_parse_date(d.get("release_date")),
+        release_date=_parse_date(d.get("release_date") or d.get("release_date_parts")),
+        release_date_parts=_partial_date(d.get("release_date_parts") or d.get("release_date")),
         isbn=d.get("isbn"),
         barcode=d.get("barcode"),
         cover_price_cents=d.get("cover_price_cents"),
@@ -396,7 +413,8 @@ def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> Nor
         series_group=d.get("series_group"),
         distributor=d.get("distributor"),
         studio=d.get("studio"),
-        recording_date=_parse_date(d.get("recording_date")),
+        recording_date=_parse_date(d.get("recording_date") or d.get("recording_date_parts")),
+        recording_date_parts=_partial_date(d.get("recording_date_parts") or d.get("recording_date")),
         extras=d.get("extras"),
         packaging=d.get("packaging"),
         media_condition=d.get("media_condition"),
@@ -405,6 +423,7 @@ def normalized_item_from_envelope(envelope: NormalizedProviderEnvelopeV1) -> Nor
         vinyl_weight=d.get("vinyl_weight"),
         rpm=d.get("rpm"),
         spars=d.get("spars"),
+        seasons=seasons,
     )
 
 
@@ -677,6 +696,7 @@ class CanonicalCatalogWriter:
                 description=normalized.synopsis,
                 original_language=normalized_language(normalized.language),
                 first_publication_date=normalized.release_date,
+                first_publication_date_parts=partial_date_storage(normalized.release_date_parts),
             )
             self.db.add(work)
             await self.db.flush()
@@ -711,7 +731,9 @@ class CanonicalCatalogWriter:
                 issue_number=normalized.item_number,
                 display_title=normalized.edition_title or normalized.title,
                 publication_date=normalized.release_date,
+                publication_date_parts=partial_date_storage(normalized.release_date_parts),
                 release_date=normalized.release_date,
+                release_date_parts=partial_date_storage(normalized.release_date_parts),
                 publisher=normalized.publisher,
                 imprint=normalized.imprint,
                 language=normalized_language(normalized.language),
@@ -739,7 +761,9 @@ class CanonicalCatalogWriter:
                     publisher=normalized.publisher,
                     imprint=normalized.imprint,
                     publication_date=normalized.release_date,
+                    publication_date_parts=partial_date_storage(normalized.release_date_parts),
                     release_date=normalized.release_date,
+                    release_date_parts=partial_date_storage(normalized.release_date_parts),
                     language=normalized_language(normalized.language),
                     region=normalized_region(normalized.country),
                     physical_format=normalized.physical_format,
@@ -839,6 +863,7 @@ class CanonicalCatalogWriter:
             description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
+            first_publication_date_parts=partial_date_storage(normalized.release_date_parts),
         )
         self.db.add(work)
         await self.db.flush()
@@ -849,6 +874,7 @@ class CanonicalCatalogWriter:
                 display_title=normalized.edition_title,
                 format=normalized.edition_format or normalized.physical_format,
                 publication_date=normalized.release_date,
+                publication_date_parts=partial_date_storage(normalized.release_date_parts),
                 publisher=normalized.publisher,
                 imprint=normalized.imprint,
                 language=normalized_language(normalized.language),
@@ -923,6 +949,7 @@ class CanonicalCatalogWriter:
             description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             original_air_date=normalized.release_date,
+            original_air_date_parts=partial_date_storage(normalized.release_date_parts),
         )
         self.db.add(series)
         await self.db.flush()
@@ -937,6 +964,7 @@ class CanonicalCatalogWriter:
                 format=normalized.edition_format or normalized.physical_format,
                 region_code=normalized_region(normalized.country),
                 release_date=normalized.release_date,
+                release_date_parts=partial_date_storage(normalized.release_date_parts),
                 publisher=normalized.publisher,
                 distributor=normalized.distributor,
                 barcode=normalized.barcode,
@@ -1013,6 +1041,7 @@ class CanonicalCatalogWriter:
             description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             original_release_date=normalized.release_date,
+            original_release_date_parts=partial_date_storage(normalized.release_date_parts),
             runtime_minutes=normalized.runtime_minutes,
             poster_image_url=normalized.cover_image_url,
         )
@@ -1023,6 +1052,7 @@ class CanonicalCatalogWriter:
             work_id=work.id,
             format=normalized.edition_format or normalized.physical_format or "digital",
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             region_code=normalized_region(normalized.country),
             cover_image_url=normalized.cover_image_url,
@@ -1064,12 +1094,25 @@ class CanonicalCatalogWriter:
         normalized: NormalizedItem,
     ) -> TVSeries:
         p_enum = ExternalProvider(provider_name) if provider_name in ExternalProvider._value2member_map_ else provider_name
+        latest_season = max(
+            normalized.seasons,
+            key=lambda season: (
+                season.air_date or date.min,
+                (season.air_date_parts.year if season.air_date_parts else -1),
+                (season.air_date_parts.month if season.air_date_parts else -1),
+                (season.air_date_parts.day if season.air_date_parts else -1),
+            ),
+            default=None,
+        )
         series = TVSeries(
             title=normalized.title,
             sort_title=sort_key(ItemKind.tv, normalized.title, None),
             overview=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             first_air_date=normalized.release_date,
+            first_air_date_parts=partial_date_storage(normalized.release_date_parts),
+            last_air_date=latest_season.air_date if latest_season else None,
+            last_air_date_parts=partial_date_storage(latest_season.air_date_parts if latest_season else None),
             poster_url=normalized.cover_image_url,
             season_count=len(normalized.seasons) or None,
             episode_count=sum(len(season.episodes) for season in normalized.seasons) or None,
@@ -1084,6 +1127,7 @@ class CanonicalCatalogWriter:
             format=normalized.edition_format or normalized.physical_format or "digital",
             region_code=normalized_region(normalized.country),
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             episode_count=sum(len(season.episodes) for season in normalized.seasons) or None,
             season_count=len(normalized.seasons) or None,
@@ -1101,6 +1145,7 @@ class CanonicalCatalogWriter:
                 title=season_data.title or None,
                 overview=season_data.overview,
                 air_date=season_data.air_date,
+                air_date_parts=partial_date_storage(season_data.air_date_parts),
                 episode_count=season_data.episode_count or len(season_data.episodes) or None,
                 poster_url=season_data.poster_url,
             )
@@ -1118,6 +1163,7 @@ class CanonicalCatalogWriter:
                         overview=episode_data.overview,
                         duration_seconds=(episode_data.runtime_minutes * 60 if episode_data.runtime_minutes else None),
                         original_air_date=episode_data.air_date,
+                        original_air_date_parts=partial_date_storage(episode_data.air_date_parts),
                         still_url=episode_data.still_url,
                         image_url=episode_data.image_url,
                         large_image_url=episode_data.large_image_url,
@@ -1166,6 +1212,7 @@ class CanonicalCatalogWriter:
             description=normalized.synopsis,
             original_language=normalized_language(normalized.language),
             first_publication_date=normalized.release_date,
+            first_publication_date_parts=partial_date_storage(normalized.release_date_parts),
         )
         self.db.add(work)
         await self.db.flush()
@@ -1175,6 +1222,7 @@ class CanonicalCatalogWriter:
             display_title=normalized.edition_title or normalized.title,
             format=normalized.edition_format,
             publication_date=normalized.release_date,
+            publication_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             imprint=normalized.imprint,
             language=normalized_language(normalized.language),
@@ -1245,7 +1293,9 @@ class CanonicalCatalogWriter:
             synopsis=normalized.synopsis,
             artist=", ".join(credit.name for credit in normalized.creators) or None,
             original_release_date=normalized.release_date,
+            original_release_date_parts=partial_date_storage(normalized.release_date_parts),
             recording_date=normalized.recording_date,
+            recording_date_parts=partial_date_storage(normalized.recording_date_parts),
             studio=normalized.studio,
             cover_image_url=normalized.cover_image_url,
         )
@@ -1269,6 +1319,7 @@ class CanonicalCatalogWriter:
             release_type=normalized.release_type,
             release_status=normalized.release_status,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             country_code=normalized_region(normalized.country),
             language=normalized.language,
@@ -1344,6 +1395,7 @@ class CanonicalCatalogWriter:
             sort_title=sort_key(ItemKind.game, normalized.title, None),
             description=normalized.synopsis,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             original_language=normalized_language(normalized.language),
             age_rating=normalized.age_rating,
             audience_rating=normalized.audience_rating,
@@ -1381,6 +1433,7 @@ class CanonicalCatalogWriter:
             release_title=normalized.edition_title or normalized.title,
             platform=normalized.platforms[0] if normalized.platforms else normalized.edition_format,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             region_code=normalized_region(normalized.country),
             format=normalized.edition_format or normalized.physical_format,
             publisher=normalized.publisher,
@@ -1423,6 +1476,7 @@ class CanonicalCatalogWriter:
             sort_title=sort_key(ItemKind.boardgame, normalized.title, None),
             description=normalized.synopsis,
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             original_language=normalized_language(normalized.language),
             age_rating=normalized.age_rating,
             audience_rating=normalized.audience_rating,
@@ -1462,6 +1516,7 @@ class CanonicalCatalogWriter:
             barcode=normalized.barcode,
             release_status=normalized_release_status(normalized.release_status),
             release_date=normalized.release_date,
+            release_date_parts=partial_date_storage(normalized.release_date_parts),
             publisher=normalized.publisher,
             language=normalized_language(normalized.language),
             country=normalized_region(normalized.country),

@@ -16,6 +16,7 @@ from app.models import (
     StoryArcItem,
 )
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import partial_date_from_storage
 from app.providers.base import ProviderSearchResult
 from app.schemas import (
     CharacterAppearanceResponse,
@@ -293,6 +294,7 @@ async def get_provider_seasons(service, provider_name: ExternalProvider, provide
             provider_item_id=s.provider_item_id,
             overview=s.overview,
             air_date=s.air_date,
+            air_date_parts=s.air_date_parts,
             episode_count=s.episode_count,
             poster_url=s.poster_url,
             episodes=[
@@ -302,6 +304,7 @@ async def get_provider_seasons(service, provider_name: ExternalProvider, provide
                     provider_item_id=ep.provider_item_id,
                     overview=ep.overview,
                     air_date=ep.air_date,
+                    air_date_parts=ep.air_date_parts,
                     runtime_minutes=ep.runtime_minutes,
                     page_count=ep.page_count,
                 )
@@ -328,6 +331,7 @@ async def get_provider_volumes(service, provider_name: ExternalProvider, provide
             provider_item_id=v.provider_item_id,
             overview=v.overview,
             air_date=v.air_date,
+            air_date_parts=v.air_date_parts,
             episode_count=v.episode_count,
             poster_url=v.poster_url,
             episodes=[
@@ -337,6 +341,7 @@ async def get_provider_volumes(service, provider_name: ExternalProvider, provide
                     provider_item_id=ep.provider_item_id,
                     overview=ep.overview,
                     air_date=ep.air_date,
+                    air_date_parts=ep.air_date_parts,
                     runtime_minutes=ep.runtime_minutes,
                     page_count=ep.page_count,
                 )
@@ -367,7 +372,9 @@ async def search_story_arcs(service, *, q: str | None = None, limit: int = 25) -
             description=arc.description,
             publisher=arc.publisher,
             start_date=arc.start_date,
+            start_date_parts=partial_date_from_storage(arc.start_date_parts),
             end_date=arc.end_date,
+            end_date_parts=partial_date_from_storage(arc.end_date_parts),
             item_count=int(item_count or 0),
         )
         for arc, item_count in rows
@@ -509,7 +516,9 @@ async def get_story_arc_facets(service, entity_ids: list[UUID]) -> list[StoryArc
                 description=arc.description,
                 publisher=arc.publisher,
                 start_date=arc.start_date,
+                start_date_parts=partial_date_from_storage(arc.start_date_parts),
                 end_date=arc.end_date,
+                end_date_parts=partial_date_from_storage(arc.end_date_parts),
                 item_count=len(facet_entity_ids),
                 entity_ids=facet_entity_ids,
             )

@@ -75,6 +75,7 @@ class BoardGameWork(UuidMixin, TimestampMixin, Base):
     subtitle: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    release_date_parts: Mapped[str | None] = mapped_column(String(64))
     original_language: Mapped[str | None] = mapped_column(String(16))
     age_rating: Mapped[str | None] = mapped_column(String(64))
     audience_rating: Mapped[str | None] = mapped_column(String(64))
@@ -364,6 +365,7 @@ class BoardGameRankingSnapshot(UuidMixin, TimestampMixin, Base):
     users_rated: Mapped[int | None] = mapped_column(Integer)
     bayes_average: Mapped[float | None] = mapped_column(Float)
     snapshot_date: Mapped[date | None] = mapped_column(Date, index=True)
+    snapshot_date_parts: Mapped[str | None] = mapped_column(String(64))
 
     work: Mapped[BoardGameWork] = relationship(back_populates="ranking_snapshots")
 
@@ -408,6 +410,7 @@ class BoardGameEdition(UuidMixin, TimestampMixin, Base):
     barcode: Mapped[str | None] = mapped_column(String(100), index=True)
     release_status: Mapped[str | None] = mapped_column(String(64), index=True)
     release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    release_date_parts: Mapped[str | None] = mapped_column(String(64))
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     country: Mapped[str | None] = mapped_column(String(32), index=True)
     age_rating: Mapped[str | None] = mapped_column(String(64), index=True)

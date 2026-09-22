@@ -8,11 +8,14 @@ from app.models import (
     MusicReleaseIdentifier,
     MusicTrack,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
+    MusicArtistCreditResponse,
     MusicContributorResponse,
     MusicIdentifierResponse,
     MusicMediumV1Response,
     MusicReleaseGroupV1Response,
+    MusicReleaseLabelResponse,
     MusicReleaseSummaryV1Response,
     MusicReleaseV1Response,
     MusicTrackV1Response,
@@ -41,10 +44,19 @@ class MusicMetadataResponseBuilders:
             synopsis=group.synopsis,
             artist=group.artist,
             original_release_date=group.original_release_date,
+            original_release_date_parts=partial_date_from_storage(group.original_release_date_parts),
             recording_date=group.recording_date,
+            recording_date_parts=partial_date_from_storage(group.recording_date_parts),
             studio=group.studio,
             is_live=group.is_live,
             genres=[entry.value for entry in sorted(group.genre_entries, key=lambda row: row.position)],
+            artist_credits=[
+                MusicArtistCreditResponse.model_validate(row)
+                for row in sorted(
+                    group.artist_credits or [],
+                    key=lambda row: (row.sequence is None, row.sequence or 0, str(row.id)),
+                )
+            ],
             cover_image_url=group.cover_image_url,
             cover_image_key=group.cover_image_key,
             external_links=entity_link_values(group.entity_links, "external"),
@@ -59,6 +71,7 @@ class MusicMetadataResponseBuilders:
             release_group_id=release.release_group_id,
             title=release.title,
             release_date=release.release_date,
+            release_date_parts=partial_date_from_storage(release.release_date_parts),
             release_type=release.release_type,
             release_status=release.release_status,
             publisher=release.publisher,
@@ -76,6 +89,7 @@ class MusicMetadataResponseBuilders:
             subtitle=release.subtitle,
             release_status=release.release_status,
             release_date=release.release_date,
+            release_date_parts=partial_date_from_storage(release.release_date_parts),
             release_type=release.release_type,
             publisher=release.publisher,
             upc=release.upc,
@@ -102,6 +116,20 @@ class MusicMetadataResponseBuilders:
                         row.role.casefold(),
                         str(row.person_id),
                     ),
+                )
+            ],
+            artist_credits=[
+                MusicArtistCreditResponse.model_validate(row)
+                for row in sorted(
+                    release.artist_credits or [],
+                    key=lambda row: (row.sequence is None, row.sequence or 0, str(row.id)),
+                )
+            ],
+            labels=[
+                MusicReleaseLabelResponse.model_validate(row)
+                for row in sorted(
+                    release.labels or [],
+                    key=lambda row: (row.sequence is None, row.sequence or 0, str(row.id)),
                 )
             ],
             identifiers=[

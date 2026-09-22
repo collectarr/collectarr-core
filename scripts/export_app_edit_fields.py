@@ -34,6 +34,7 @@ _VALUE_TYPE = {
     "string_list": "stringList",
     "integer": "integer",
     "date": "date",
+    "partial_date": "partialDate",
     "link_list": "text",
     "track_list": "stringList",
 }

@@ -30,6 +30,7 @@ class MangaEdition(UuidMixin, TimestampMixin, Base):
     format: Mapped[str | None] = mapped_column(String(100), index=True)
     binding: Mapped[str | None] = mapped_column(String(100), index=True)
     publication_date: Mapped[date | None] = mapped_column(Date, index=True)
+    publication_date_parts: Mapped[str | None] = mapped_column(String(64))
     publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     imprint: Mapped[str | None] = mapped_column(String(255), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)

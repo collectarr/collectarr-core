@@ -9,6 +9,11 @@ from enum import Enum
 from typing import NotRequired, TypedDict, cast
 from uuid import UUID
 
+from app.models.partial_date import (
+    PartialDateValue,
+    partial_date_from_storage,
+    partial_date_storage,
+)
 from app.types import JsonScalar
 
 
@@ -20,6 +25,7 @@ class TypedValueRow(TypedDict):
     decimal_value: NotRequired[Decimal | None]
     boolean_value: NotRequired[bool | None]
     date_value: NotRequired[date | None]
+    date_value_parts: NotRequired[str | None]
     datetime_value: NotRequired[datetime | None]
     uuid_value: NotRequired[UUID | None]
 
@@ -28,6 +34,7 @@ type MaterializedValue = (
     JsonScalar
     | Decimal
     | date
+    | PartialDateValue
     | datetime
     | UUID
     | dict[str, MaterializedValue]
@@ -68,6 +75,15 @@ def flatten_typed_values(value: object, *, path: str = "") -> list[TypedValueRow
         return [{"path": path, "value_type": "uuid", "uuid_value": value}]
     if isinstance(value, datetime):
         return [{"path": path, "value_type": "datetime", "datetime_value": value}]
+    if isinstance(value, PartialDateValue):
+        return [
+            {
+                "path": path,
+                "value_type": "partial_date",
+                "date_value": value.as_date,
+                "date_value_parts": partial_date_storage(value),
+            }
+        ]
     if isinstance(value, date):
         return [{"path": path, "value_type": "date", "date_value": value}]
     if isinstance(value, int):
@@ -105,6 +121,8 @@ def typed_value_from_row(row: object) -> MaterializedValue | None:
     if value_type == "date":
         value = get("date_value")
         return value if isinstance(value, date) and not isinstance(value, datetime) else None
+    if value_type == "partial_date":
+        return partial_date_from_storage(get("date_value_parts"))
     if value_type == "datetime":
         value = get("datetime_value")
         return value if isinstance(value, datetime) else None

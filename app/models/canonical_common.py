@@ -103,6 +103,7 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     sku: Mapped[str | None] = mapped_column(String(100), index=True)
     barcode: Mapped[str | None] = mapped_column(String(32), index=True)
     release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    release_date_parts: Mapped[str | None] = mapped_column(String(64))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))

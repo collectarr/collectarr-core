@@ -12,6 +12,7 @@ from typing import Final
 from app.core.config import get_settings
 from app.core.redis import redis_client
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 from app.providers.base import (
     NormalizedBundleMember,
     NormalizedBundleRelease,
@@ -320,6 +321,7 @@ class ProviderPreviewState:
             "publisher": value.publisher,
             "imprint": value.imprint,
             "release_date": self._date_payload(value.release_date),
+            "release_date_parts": self._partial_date_payload(value.release_date_parts),
             "isbn": value.isbn,
             "barcode": value.barcode,
             "cover_price_cents": value.cover_price_cents,
@@ -367,6 +369,9 @@ class ProviderPreviewState:
             publisher=self._optional_text(payload.get("publisher")),
             imprint=self._optional_text(payload.get("imprint")),
             release_date=self._optional_date(payload.get("release_date")),
+            release_date_parts=self._optional_partial_date(
+                payload.get("release_date_parts") or payload.get("release_date")
+            ),
             isbn=self._optional_text(payload.get("isbn")),
             barcode=self._optional_text(payload.get("barcode")),
             cover_price_cents=self._optional_int(payload.get("cover_price_cents")),
@@ -519,6 +524,7 @@ class ProviderPreviewState:
             "sku": value.sku,
             "barcode": value.barcode,
             "release_date": self._date_payload(value.release_date),
+            "release_date_parts": self._partial_date_payload(value.release_date_parts),
             "cover_image_url": value.cover_image_url,
             "provider_ids": dict(value.provider_ids),
             "members": [self._bundle_member_payload(item) for item in value.members],
@@ -539,6 +545,9 @@ class ProviderPreviewState:
             sku=self._optional_text(payload.get("sku")),
             barcode=self._optional_text(payload.get("barcode")),
             release_date=self._optional_date(payload.get("release_date")),
+            release_date_parts=self._optional_partial_date(
+                payload.get("release_date_parts") or payload.get("release_date")
+            ),
             cover_image_url=self._optional_text(payload.get("cover_image_url")),
             provider_ids=self._text_dict(payload.get("provider_ids")),
             members=self._bundle_member_list_from_payload(payload.get("members")),
@@ -580,11 +589,18 @@ class ProviderPreviewState:
     def _date_payload(self, value: date | None) -> str | None:
         return value.isoformat() if value is not None else None
 
+    def _partial_date_payload(self, value: PartialDateValue | None) -> dict[str, int] | None:
+        return value.model_dump(exclude_none=True) if value is not None else None
+
     def _optional_date(self, value: object) -> date | None:
-        text = self._optional_text(value)
-        if text is None:
+        if value is None or value == "":
             return None
-        return date.fromisoformat(text)
+        return PartialDateValue.model_validate(value).as_date
+
+    def _optional_partial_date(self, value: object) -> PartialDateValue | None:
+        if value is None or value == "":
+            return None
+        return PartialDateValue.model_validate(value)
 
     def _optional_text(self, value: object) -> str | None:
         if value is None:

@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import (
     ContributorResponse,
 )
@@ -36,6 +37,7 @@ class MangaChapterV1Response(BaseModel):
     chapter_number: float | None = None
     chapter_title: str | None = None
     publication_date: date | None = None
+    publication_date_parts: PartialDateValue | None = None
     page_count: int | None = None
     description: str | None = None
     cover_image_url: str | None = None
@@ -52,6 +54,7 @@ class MangaEditionV1Response(BaseModel):
     format: str | None = None
     binding: str | None = None
     publication_date: date | None = None
+    publication_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     imprint: str | None = None
     language: str | None = None
@@ -73,6 +76,10 @@ class MangaSeriesResponse(BaseModel):
     slug: str | None = None
     sequence: float | None = None
     display_number: str | None = None
+    start_date: date | None = None
+    start_date_parts: PartialDateValue | None = None
+    end_date: date | None = None
+    end_date_parts: PartialDateValue | None = None
 
 
 class MangaWorkV1Response(BaseModel):
@@ -84,7 +91,9 @@ class MangaWorkV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     original_publication_date: date | None = None
+    original_publication_date_parts: PartialDateValue | None = None
     first_publication_date: date | None = None
+    first_publication_date_parts: PartialDateValue | None = None
     status: str | None = None
     kind: ItemKind = ItemKind.manga
     series: list[MangaSeriesResponse] = Field(default_factory=list)

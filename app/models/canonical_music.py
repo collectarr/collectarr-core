@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import Base, ExternalProvider, TimestampMixin, UuidMixin
-from app.models.canonical_support import EntityLink, Person
+from app.models.canonical_support import EntityLink, Organization, Person
 
 
 class MusicReleaseGroup(UuidMixin, TimestampMixin, Base):
@@ -37,7 +37,9 @@ class MusicReleaseGroup(UuidMixin, TimestampMixin, Base):
     synopsis: Mapped[str | None] = mapped_column(Text)
     artist: Mapped[str | None] = mapped_column(String(500))
     original_release_date: Mapped[date | None] = mapped_column(Date)
+    original_release_date_parts: Mapped[str | None] = mapped_column(String(64))
     recording_date: Mapped[date | None] = mapped_column(Date)
+    recording_date_parts: Mapped[str | None] = mapped_column(String(64))
     studio: Mapped[str | None] = mapped_column(String(255))
     is_live: Mapped[bool | None] = mapped_column(Boolean)
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
@@ -51,6 +53,12 @@ class MusicReleaseGroup(UuidMixin, TimestampMixin, Base):
         back_populates="release_group",
         cascade="all, delete-orphan",
         order_by="MusicReleaseGroupGenre.position",
+    )
+    artist_credits: Mapped[list["MusicArtistCredit"]] = relationship(
+        primaryjoin=lambda: MusicReleaseGroup.id == foreign(MusicArtistCredit.release_group_id),
+        cascade="all, delete-orphan",
+        overlaps="release,group",
+        order_by="MusicArtistCredit.sequence",
     )
     entity_links: Mapped[list["EntityLink"]] = relationship(
         primaryjoin=lambda: and_(
@@ -105,6 +113,7 @@ class MusicRelease(UuidMixin, TimestampMixin, Base):
     release_type: Mapped[str | None] = mapped_column(String(64))
     release_status: Mapped[str | None] = mapped_column(String(50))
     release_date: Mapped[date | None] = mapped_column(Date)
+    release_date_parts: Mapped[str | None] = mapped_column(String(64))
     publisher: Mapped[str | None] = mapped_column(String(255))
     country_code: Mapped[str | None] = mapped_column(String(2))
     language: Mapped[str | None] = mapped_column(String(2))
@@ -123,6 +132,17 @@ class MusicRelease(UuidMixin, TimestampMixin, Base):
     contributions: Mapped[list["MusicReleaseContribution"]] = relationship(
         back_populates="release",
         cascade="all, delete-orphan",
+    )
+    artist_credits: Mapped[list["MusicArtistCredit"]] = relationship(
+        primaryjoin=lambda: MusicRelease.id == foreign(MusicArtistCredit.release_id),
+        cascade="all, delete-orphan",
+        overlaps="release_group,group",
+        order_by="MusicArtistCredit.sequence",
+    )
+    labels: Mapped[list["MusicReleaseLabel"]] = relationship(
+        back_populates="release",
+        cascade="all, delete-orphan",
+        order_by="MusicReleaseLabel.sequence",
     )
     identifiers: Mapped[list["MusicReleaseIdentifier"]] = relationship(
         back_populates="release",
@@ -240,6 +260,55 @@ class MusicReleaseContribution(UuidMixin, TimestampMixin, Base):
 
     release: Mapped[MusicRelease] = relationship(back_populates="contributions")
     person: Mapped["Person"] = relationship()
+
+
+class MusicArtistCredit(UuidMixin, TimestampMixin, Base):
+    """Lossless credited-artist display for a group or concrete release."""
+
+    __tablename__ = "music_artist_credits"
+    __table_args__ = (
+        Index("idx_music_artist_credits_group", "release_group_id", "sequence"),
+        Index("idx_music_artist_credits_release", "release_id", "sequence"),
+    )
+
+    release_group_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_release_groups.id", ondelete="CASCADE"), index=True
+    )
+    release_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_releases.id", ondelete="CASCADE"), index=True
+    )
+    artist_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="SET NULL"), index=True
+    )
+    credited_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    join_phrase: Mapped[str | None] = mapped_column(String(100))
+    sequence: Mapped[int | None] = mapped_column(Integer)
+    source: Mapped[str | None] = mapped_column(String(64))
+
+    person: Mapped["Person | None"] = relationship()
+
+
+class MusicReleaseLabel(UuidMixin, TimestampMixin, Base):
+    """A release label and its catalog number as an inseparable pair."""
+
+    __tablename__ = "music_release_labels"
+    __table_args__ = (
+        Index("idx_music_release_labels_release", "release_id", "sequence"),
+    )
+
+    release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("music_releases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    label_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="SET NULL"), index=True
+    )
+    label_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    catalog_number: Mapped[str | None] = mapped_column(String(100))
+    sequence: Mapped[int | None] = mapped_column(Integer)
+    source: Mapped[str | None] = mapped_column(String(64))
+
+    release: Mapped[MusicRelease] = relationship(back_populates="labels")
+    label: Mapped["Organization | None"] = relationship()
 
 
 class MusicReleaseIdentifier(UuidMixin, TimestampMixin, Base):

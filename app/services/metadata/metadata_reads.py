@@ -878,6 +878,7 @@ async def get_music_release_group(service, group_id: UUID) -> MusicReleaseGroupV
         .where(MusicReleaseGroup.id == group_id)
         .options(
             selectinload(MusicReleaseGroup.releases),
+            selectinload(MusicReleaseGroup.artist_credits),
             selectinload(MusicReleaseGroup.genre_entries),
             selectinload(MusicReleaseGroup.entity_links),
         )
@@ -899,6 +900,8 @@ async def get_music_release(service, release_id: UUID) -> MusicReleaseV1Response
             selectinload(MusicRelease.mediums).selectinload(MusicMedium.tracks),
             selectinload(MusicRelease.mediums).selectinload(MusicMedium.missing_track_entries),
             selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
+            selectinload(MusicRelease.artist_credits),
+            selectinload(MusicRelease.labels),
             selectinload(MusicRelease.identifiers),
         )
     )

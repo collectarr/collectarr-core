@@ -64,7 +64,9 @@ class MangaWork(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     original_language: Mapped[str | None] = mapped_column(String(16))
     original_publication_date: Mapped[date | None] = mapped_column(Date)
+    original_publication_date_parts: Mapped[str | None] = mapped_column(String(64))
     first_publication_date: Mapped[date | None] = mapped_column(Date)
+    first_publication_date_parts: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str | None] = mapped_column(String(64), index=True)
 
     chapters: Mapped[list["MangaChapter"]] = relationship(
@@ -96,6 +98,7 @@ class MangaChapter(UuidMixin, TimestampMixin, Base):
     chapter_number: Mapped[float | None] = mapped_column(Float)
     chapter_title: Mapped[str | None] = mapped_column(String(255))
     publication_date: Mapped[date | None] = mapped_column(Date)
+    publication_date_parts: Mapped[str | None] = mapped_column(String(64))
     page_count: Mapped[int | None]
     description: Mapped[str | None] = mapped_column(Text)
     cover_image_url: Mapped[str | None] = mapped_column(String(2048))
@@ -189,7 +192,9 @@ class MangaSeries(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     original_title: Mapped[str | None] = mapped_column(String(255))
     start_date: Mapped[date | None] = mapped_column(Date)
+    start_date_parts: Mapped[str | None] = mapped_column(String(64))
     end_date: Mapped[date | None] = mapped_column(Date)
+    end_date_parts: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[str | None] = mapped_column(String(64), index=True)
     language: Mapped[str | None] = mapped_column(String(16), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)

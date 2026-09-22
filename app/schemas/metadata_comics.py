@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ExternalProvider, ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import (
     ContributorResponse,
 )
@@ -50,7 +51,9 @@ class ComicVariantV1Response(BaseModel):
     publisher: str | None = None
     imprint: str | None = None
     publication_date: date | None = None
+    publication_date_parts: PartialDateValue | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     language: str | None = None
     region: str | None = None
     physical_format: str | None = None
@@ -69,7 +72,9 @@ class ComicIssueV1Response(BaseModel):
     issue_number: str | None = None
     display_title: str | None = None
     publication_date: date | None = None
+    publication_date_parts: PartialDateValue | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     imprint: str | None = None
     language: str | None = None
@@ -98,6 +103,7 @@ class ComicWorkV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     first_publication_date: date | None = None
+    first_publication_date_parts: PartialDateValue | None = None
     expected_issue_count: int | None = None
     missing_issue_count: int | None = None
     missing_issue_numbers: list[int] = Field(default_factory=list)

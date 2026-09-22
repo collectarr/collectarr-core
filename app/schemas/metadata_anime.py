@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import (
     ContributorResponse,
 )
@@ -36,6 +37,7 @@ class AnimeEpisodeV1Response(BaseModel):
     episode_number: float | None = None
     episode_title: str | None = None
     air_date: date | None = None
+    air_date_parts: PartialDateValue | None = None
     description: str | None = None
     cover_image_url: str | None = None
     cover_image_key: str | None = None
@@ -84,6 +86,7 @@ class AnimeReleaseV1Response(BaseModel):
     format: str | None = None
     region_code: str | None = None
     release_date: date | None = None
+    release_date_parts: PartialDateValue | None = None
     publisher: str | None = None
     distributor: str | None = None
     barcode: str | None = None
@@ -107,7 +110,9 @@ class AnimeSeriesV1Response(BaseModel):
     description: str | None = None
     original_language: str | None = None
     original_air_date: date | None = None
+    original_air_date_parts: PartialDateValue | None = None
     end_date: date | None = None
+    end_date_parts: PartialDateValue | None = None
     status: str | None = None
     anime_type: str | None = None
     episode_count: int | None = None

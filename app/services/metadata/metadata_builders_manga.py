@@ -11,6 +11,7 @@ from app.models import (
         MangaSeriesMembership,
         MangaWork,
 )
+from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
         MangaChapterV1Response,
         MangaCharacterResponse,
@@ -31,6 +32,10 @@ class MangaMetadataResponseBuilders:
                 slug=series.slug,
                 sequence=membership.sequence,
                 display_number=membership.display_number,
+                start_date=series.start_date,
+                start_date_parts=partial_date_from_storage(series.start_date_parts),
+                end_date=series.end_date,
+                end_date_parts=partial_date_from_storage(series.end_date_parts),
             )
 
         def _manga_chapter_response(self, chapter: MangaChapter) -> MangaChapterV1Response:
@@ -40,6 +45,7 @@ class MangaMetadataResponseBuilders:
                 chapter_number=chapter.chapter_number,
                 chapter_title=chapter.chapter_title,
                 publication_date=chapter.publication_date,
+                publication_date_parts=partial_date_from_storage(chapter.publication_date_parts),
                 page_count=chapter.page_count,
                 description=chapter.description,
                 cover_image_url=chapter.cover_image_url,
@@ -81,6 +87,7 @@ class MangaMetadataResponseBuilders:
                 format=edition.format,
                 binding=edition.binding,
                 publication_date=edition.publication_date,
+                publication_date_parts=partial_date_from_storage(edition.publication_date_parts),
                 publisher=edition.publisher,
                 imprint=edition.imprint,
                 language=edition.language,
@@ -114,7 +121,9 @@ class MangaMetadataResponseBuilders:
                 description=work.description,
                 original_language=work.original_language,
                 original_publication_date=work.original_publication_date,
+                original_publication_date_parts=partial_date_from_storage(work.original_publication_date_parts),
                 first_publication_date=work.first_publication_date,
+                first_publication_date_parts=partial_date_from_storage(work.first_publication_date_parts),
                 status=work.status,
                 series=[
                     self._manga_series_response(row)

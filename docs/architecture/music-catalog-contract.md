@@ -22,3 +22,5 @@ The migration adds the nullable `music_tracks.recording_id` column. `create_all`
 ## Export
 
 From the Core repository, run `python -m scripts.export_contract_bundle`. The exporter builds the Music graph schema from the same Pydantic response classes used by the API and includes its hash in `contract-manifest.json`.
+
+CI runs `python -m scripts.export_contract_bundle --check` to compare the committed bundle with the current API schemas and verify the hashes in the manifest. The check ignores only the export timestamp and Core commit metadata, which change on each export.

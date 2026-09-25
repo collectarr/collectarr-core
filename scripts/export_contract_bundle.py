@@ -6,6 +6,7 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import subprocess
@@ -45,6 +46,15 @@ def _sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _stable_payload(payload: Any) -> Any:
+    """Remove export metadata that is expected to change on every run."""
+    if isinstance(payload, dict):
+        return {
+            key: value for key, value in payload.items() if key not in {"generatedAt", "coreCommit"}
+        }
+    return payload
+
+
 def _git_commit() -> str:
     try:
         result = subprocess.run(
@@ -54,7 +64,7 @@ def _git_commit() -> str:
             text=True,
             cwd=ROOT,
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return "unknown"
     return result.stdout.strip() or "unknown"
 
@@ -110,7 +120,11 @@ def _rewrite_component_refs(value: Any) -> Any:
     if isinstance(value, dict):
         result: dict[str, Any] = {}
         for key, child in value.items():
-            if key == "$ref" and isinstance(child, str) and child.startswith("#/components/schemas/"):
+            if (
+                key == "$ref"
+                and isinstance(child, str)
+                and child.startswith("#/components/schemas/")
+            ):
                 result[key] = child.replace("#/components/schemas/", "#/$defs/", 1)
             else:
                 result[key] = _rewrite_component_refs(child)
@@ -177,11 +191,8 @@ def build_contract_bundle() -> dict[str, Any]:
     }
 
 
-def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
+def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
     bundle = build_contract_bundle()
-    out_dir = out_dir or (ROOT / "contracts")
-    out_dir.mkdir(parents=True, exist_ok=True)
-
     outputs = {
         "openapi.json": bundle["openapi"],
         "music-catalog-v1.json": bundle["music_catalog"],
@@ -194,9 +205,7 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
     hashes: dict[str, str] = {}
     for filename, payload in outputs.items():
         text = _json_text(payload)
-        data = text.encode("utf-8")
-        (out_dir / filename).write_bytes(data)
-        hashes[filename] = hashlib.sha256(data).hexdigest()
+        hashes[filename] = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     manifest = {
         "contractVersion": CONTRACT_VERSION,
@@ -210,14 +219,86 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
         "providerEnvelopeSchemaHash": hashes["provider-envelope-schema-v1.json"],
         "goldenProviderEnvelopesHash": hashes["golden-provider-envelopes.json"],
     }
-    manifest_text = _json_text(manifest)
-    manifest_data = manifest_text.encode("utf-8")
-    (out_dir / "contract-manifest.json").write_bytes(manifest_data)
+    outputs["contract-manifest.json"] = manifest
+    return outputs, hashes
+
+
+def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
+    out_dir = out_dir or (ROOT / "contracts")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    outputs, hashes = build_contract_outputs()
+    for filename, payload in outputs.items():
+        (out_dir / filename).write_text(_json_text(payload), encoding="utf-8")
+    manifest_data = (out_dir / "contract-manifest.json").read_bytes()
     hashes["contract-manifest.json"] = hashlib.sha256(manifest_data).hexdigest()
     return hashes
 
 
+def check_contract_bundle(contracts_dir: Path | None = None) -> None:
+    contracts_dir = contracts_dir or (ROOT / "contracts")
+    generated, _ = build_contract_outputs()
+    manifest_path = contracts_dir / "contract-manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise SystemExit(f"Cannot read contract manifest: {error}") from error
+
+    hash_key_by_file = {
+        "openapi.json": "openApiHash",
+        "music-catalog-v1.json": "musicCatalogHash",
+        "metadata-field-schema.json": "fieldSchemaHash",
+        "active-kinds.json": "activeKindsHash",
+        "provider-support.json": "providerSupportHash",
+        "provider-envelope-schema-v1.json": "providerEnvelopeSchemaHash",
+        "golden-provider-envelopes.json": "goldenProviderEnvelopesHash",
+    }
+    errors: list[str] = []
+    for filename, generated_payload in generated.items():
+        path = contracts_dir / filename
+        try:
+            checked_in = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"{filename}: cannot read checked-in artifact ({error})")
+            continue
+        if filename == "contract-manifest.json":
+            checked_stable = {
+                key: value
+                for key, value in _stable_payload(checked_in).items()
+                if not key.endswith("Hash")
+            }
+            generated_stable = {
+                key: value
+                for key, value in _stable_payload(generated_payload).items()
+                if not key.endswith("Hash")
+            }
+        else:
+            checked_stable = _stable_payload(checked_in)
+            generated_stable = _stable_payload(generated_payload)
+        if checked_stable != generated_stable:
+            errors.append(f"{filename}: differs from the generated contract")
+        hash_key = hash_key_by_file.get(filename)
+        if hash_key is not None:
+            actual_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+            if manifest.get(hash_key) != actual_hash:
+                errors.append(f"{filename}: hash does not match contract-manifest.json")
+
+    if errors:
+        raise SystemExit("Contract bundle is stale:\n- " + "\n- ".join(errors))
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if the checked-in contract bundle differs from current schemas",
+    )
+    args = parser.parse_args()
+    if args.check:
+        check_contract_bundle()
+        print("Checked-in contract bundle matches the current Core schemas.")
+        return
+
     hashes = write_contract_bundle()
     out_dir = ROOT / "contracts"
     print(f"Wrote contract bundle -> {out_dir}")

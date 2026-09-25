@@ -20,6 +20,7 @@ items, editions, and variants are legacy compatibility/search/projection tables 
 ## API and contracts
 Core exports the client contract bundle from contracts/:
 - openapi.json
+- music-catalog-v1.json
 - metadata-field-schema.json
 - active-kinds.json
 - provider-support.json

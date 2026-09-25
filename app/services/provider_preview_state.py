@@ -308,7 +308,7 @@ class ProviderPreviewState:
             "kind": value.kind.value,
             "title": value.title,
             "item_number": value.item_number,
-            "synopsis": value.synopsis,
+            "synopsis": value.synopsis if value.kind != ItemKind.music else None,
             "series_title": value.series_title,
             "volume_name": value.volume_name,
             "volume_number": value.volume_number,
@@ -356,7 +356,11 @@ class ProviderPreviewState:
             kind=ItemKind(str(payload["kind"])),
             title=str(payload["title"]),
             item_number=self._optional_text(payload.get("item_number")),
-            synopsis=self._optional_text(payload.get("synopsis")),
+            synopsis=(
+                self._optional_text(payload.get("synopsis"))
+                if ItemKind(str(payload["kind"])) != ItemKind.music
+                else None
+            ),
             series_title=self._optional_text(payload.get("series_title")),
             volume_name=self._optional_text(payload.get("volume_name")),
             volume_number=self._optional_float(payload.get("volume_number")),
@@ -483,6 +487,7 @@ class ProviderPreviewState:
             "title": value.title,
             "duration_seconds": value.duration_seconds,
             "artist": value.artist,
+            "recording_id": value.recording_id,
             "disc_number": value.disc_number,
             "is_header": value.is_header,
             "indent_level": value.indent_level,
@@ -495,6 +500,7 @@ class ProviderPreviewState:
             title=str(payload["title"]),
             duration_seconds=self._optional_int(payload.get("duration_seconds")),
             artist=self._optional_text(payload.get("artist")),
+            recording_id=self._optional_text(payload.get("recording_id")),
             disc_number=self._optional_int(payload.get("disc_number")),
             is_header=bool(payload.get("is_header", False)),
             indent_level=max(0, self._optional_int(payload.get("indent_level")) or 0),

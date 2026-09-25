@@ -163,7 +163,7 @@ _MEDIA_SCOPE_KEYS = {
     "tracks",
 }
 
-_TRACK_SCOPE_KEYS = {"tracks"}
+_TRACK_SCOPE_KEYS = {"tracks", "recording_id"}
 
 _RELATION_KEYS = {"trailer_urls", "external_links"}
 _TAG_KEYS = {"series_tags"}
@@ -288,6 +288,8 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
         return "tags"
     if key in _MEDIA_SCOPE_KEYS:
         return "track" if key == "tracks" else "media"
+    if key in _TRACK_SCOPE_KEYS:
+        return "track"
     if key == "age_rating" and kind == ItemKind.game:
         return "age_rating"
     if key in _CANONICAL_RELEASE_KEYS:
@@ -443,6 +445,15 @@ _EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
 
 # --- Normalized kind-scoped, typed fields ------------------------------------
 _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
+    MetadataFieldSpec(
+        "recording_id",
+        VALUE_TYPE_STRING,
+        "Recording ID",
+        typed=True,
+        normalized=True,
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.music}),
+    ),
     MetadataFieldSpec("genres", VALUE_TYPE_STRING_LIST, "Genres", typed=True, normalized=True,
                       section=SECTION_RELATIONS, input=INPUT_LIST, kinds=ALL_KINDS),
     MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
@@ -540,7 +551,8 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("thumbnail_image_url", VALUE_TYPE_STRING, "Thumbnail URL",
                       section=SECTION_ARTWORK, kinds=ALL_KINDS),
     MetadataFieldSpec("synopsis", VALUE_TYPE_STRING, "Synopsis",
-                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS),
+                      section=SECTION_ARTWORK, input=INPUT_MULTILINE,
+                      kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("crossover", VALUE_TYPE_STRING, "Crossover",
                       section=SECTION_ARTWORK,
                       kinds=frozenset({ItemKind.comic, ItemKind.manga})),

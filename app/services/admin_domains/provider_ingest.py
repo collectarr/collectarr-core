@@ -574,7 +574,11 @@ class AdminProviderIngestService:
             kind=normalized.kind,
             title=normalized.title,
             item_number=normalized.item_number,
-            synopsis=normalized.synopsis,
+            synopsis=(
+                normalized.synopsis
+                if normalized.kind != ItemKind.music
+                else None
+            ),
             series_title=normalized.series_title,
             volume_name=normalized.volume_name,
             volume_number=normalized.volume_number,
@@ -617,6 +621,7 @@ class AdminProviderIngestService:
                     title=t.title,
                     duration_seconds=t.duration_seconds,
                     artist=t.artist,
+                    recording_id=t.recording_id,
                     disc_number=t.disc_number,
                 )
                 for t in normalized.tracks
@@ -3031,7 +3036,6 @@ class AdminProviderIngestService:
         group = MusicReleaseGroup(
             title=normalized.title,
             sort_title=sort_key(ItemKind.music, normalized.title, None),
-            synopsis=normalized.synopsis,
             artist=", ".join(credit.name for credit in normalized.creators) or None,
             original_release_date=normalized.release_date,
             original_release_date_parts=partial_date_storage(normalized.release_date_parts),
@@ -3090,7 +3094,6 @@ class AdminProviderIngestService:
                 medium_number=medium_number,
                 medium_type=normalized.physical_format or normalized.edition_format or "digital",
                 track_count=sum(1 for track in disc_tracks if not track.is_header) or None,
-                media_condition=normalized.media_condition,
                 sound_type=normalized.sound_type,
                 vinyl_color=normalized.vinyl_color,
                 vinyl_weight=normalized.vinyl_weight,
@@ -3107,6 +3110,7 @@ class AdminProviderIngestService:
                         position=str(track.position or track_index),
                         title=track.title,
                         artist=track.artist,
+                        recording_id=track.recording_id,
                         is_header=track.is_header,
                         indent_level=track.indent_level,
                         parent_header_id=track.parent_header_id,

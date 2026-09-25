@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from app.models.base import ItemKind
 from app.providers.base import NormalizedItem
 from app.schemas.admin import ProviderFieldStateResponse
 
@@ -64,7 +65,7 @@ def provider_preview_field_states(
         "release_status": normalized.release_status,
         "tracks": normalized.tracks,
     }
-    return [
+    states = [
         _state("title", values["title"]),
         _state("item_number", values["item_number"]),
         _state("synopsis", values["synopsis"]),
@@ -107,3 +108,6 @@ def provider_preview_field_states(
         _state("release_status", values["release_status"]),
         _state("tracks", values["tracks"]),
     ]
+    if normalized.kind == ItemKind.music:
+        return [state for state in states if state.key != "synopsis"]
+    return states

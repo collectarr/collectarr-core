@@ -41,7 +41,6 @@ class MusicMetadataResponseBuilders:
             title=group.title,
             sort_title=group.sort_title,
             original_title=group.original_title,
-            synopsis=group.synopsis,
             artist=group.artist,
             original_release_date=group.original_release_date,
             original_release_date_parts=partial_date_from_storage(group.original_release_date_parts),
@@ -74,6 +73,14 @@ class MusicMetadataResponseBuilders:
             release_date_parts=partial_date_from_storage(release.release_date_parts),
             release_type=release.release_type,
             release_status=release.release_status,
+            medium_types=[
+                medium.medium_type
+                for medium in sorted(
+                    release.mediums or [],
+                    key=lambda row: (row.medium_number, str(row.id)),
+                )
+                if medium.medium_type
+            ],
             publisher=release.publisher,
             barcode=release.barcode or release.upc,
             catalog_number=release.catalog_number,
@@ -166,7 +173,6 @@ class MusicMetadataResponseBuilders:
             cddb_id=medium.cddb_id,
             leadout_offset=medium.leadout_offset,
             bp_disc_id=medium.bp_disc_id,
-            media_condition=medium.media_condition,
             sound_type=medium.sound_type,
             vinyl_color=medium.vinyl_color,
             vinyl_weight=medium.vinyl_weight,
@@ -193,6 +199,7 @@ class MusicMetadataResponseBuilders:
             bitrate_kbps=track.bitrate_kbps,
             file_size_bytes=track.file_size_bytes,
             track_hash=track.track_hash,
+            recording_id=track.recording_id,
             instrument=track.instrument,
             composition=track.composition,
         )

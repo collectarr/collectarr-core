@@ -116,6 +116,7 @@ class ProviderPreviewTrack(BaseModel):
     title: str
     duration_seconds: int | None = None
     artist: str | None = None
+    recording_id: str | None = None
     disc_number: int | None = None
 
 

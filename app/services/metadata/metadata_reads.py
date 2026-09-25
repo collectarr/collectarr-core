@@ -877,7 +877,7 @@ async def get_music_release_group(service, group_id: UUID) -> MusicReleaseGroupV
         select(MusicReleaseGroup)
         .where(MusicReleaseGroup.id == group_id)
         .options(
-            selectinload(MusicReleaseGroup.releases),
+            selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums),
             selectinload(MusicReleaseGroup.artist_credits),
             selectinload(MusicReleaseGroup.genre_entries),
             selectinload(MusicReleaseGroup.entity_links),

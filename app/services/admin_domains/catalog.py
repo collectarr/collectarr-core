@@ -672,8 +672,6 @@ class AdminCatalogService:
                     release.title = payload.title
             if "original_title" in update_data:
                 group.original_title = payload.original_title
-            if "synopsis" in update_data:
-                group.synopsis = payload.synopsis
             if "genres" in update_data:
                 await _replace_string_rows(
                     MusicReleaseGroupGenre,
@@ -722,6 +720,7 @@ class AdminCatalogService:
                                 position=str(track.get("position") or index),
                                 title=track["title"],
                                 artist=track.get("artist"),
+                                recording_id=track.get("recording_id"),
                                 is_header=bool(track.get("is_header", False)),
                                 indent_level=max(0, int(track.get("indent_level", 0) or 0)),
                                 parent_header_id=track.get("parent_header_id"),
@@ -1359,6 +1358,9 @@ class AdminCatalogService:
             artist = " ".join(str(raw.get("artist") or "").split()).strip()
             if artist:
                 track["artist"] = artist
+            recording_id = " ".join(str(raw.get("recording_id") or "").split()).strip()
+            if recording_id:
+                track["recording_id"] = recording_id
             if raw.get("is_header") is True:
                 track["is_header"] = True
             indent_level = raw.get("indent_level")

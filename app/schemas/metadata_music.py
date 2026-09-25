@@ -60,6 +60,7 @@ class MusicTrackV1Response(BaseModel):
     bitrate_kbps: int | None = None
     file_size_bytes: int | None = None
     track_hash: str | None = None
+    recording_id: str | None = None
     instrument: str | None = None
     composition: str | None = None
 
@@ -79,7 +80,6 @@ class MusicMediumV1Response(BaseModel):
     cddb_id: str | None = None
     leadout_offset: int | None = None
     bp_disc_id: str | None = None
-    media_condition: str | None = None
     sound_type: str | None = None
     vinyl_color: str | None = None
     vinyl_weight: str | None = None
@@ -98,6 +98,7 @@ class MusicReleaseSummaryV1Response(BaseModel):
     release_date_parts: PartialDateValue | None = None
     release_type: str | None = None
     release_status: str | None = None
+    medium_types: list[str] = Field(default_factory=list)
     publisher: str | None = None
     barcode: str | None = None
     catalog_number: str | None = None
@@ -111,7 +112,6 @@ class MusicReleaseGroupV1Response(BaseModel):
     title: str
     sort_title: str | None = None
     original_title: str | None = None
-    synopsis: str | None = None
     artist: str | None = None
     original_release_date: date | None = None
     original_release_date_parts: PartialDateValue | None = None

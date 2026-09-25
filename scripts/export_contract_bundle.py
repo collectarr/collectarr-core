@@ -26,7 +26,15 @@ from scripts.export_provider_golden_fixtures import (  # noqa: E402
     generate_golden_envelopes,
 )
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "2.0.0"
+
+MUSIC_CATALOG_SCHEMAS = {
+    "releaseGroup": "MusicReleaseGroupV1Response",
+    "releaseSummary": "MusicReleaseSummaryV1Response",
+    "release": "MusicReleaseV1Response",
+    "medium": "MusicMediumV1Response",
+    "track": "MusicTrackV1Response",
+}
 
 
 def _json_text(payload: Any) -> str:
@@ -51,9 +59,71 @@ def _git_commit() -> str:
     return result.stdout.strip() or "unknown"
 
 
+def _music_catalog_contract(openapi: dict[str, Any], generated_at: str) -> dict[str, Any]:
+    component_schemas = openapi.get("components", {}).get("schemas", {})
+    included: set[str] = set()
+    pending = list(MUSIC_CATALOG_SCHEMAS.values())
+
+    while pending:
+        name = pending.pop()
+        if name in included:
+            continue
+        schema = component_schemas.get(name)
+        if schema is None:
+            raise KeyError(f"OpenAPI is missing Music response schema {name}")
+        included.add(name)
+        _collect_component_refs(schema, pending)
+
+    definitions: dict[str, Any] = {}
+    for name in sorted(included):
+        definitions[name] = _rewrite_component_refs(component_schemas[name])
+
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.collectarr.app/music-catalog/v1",
+        "title": "Collectarr Music Catalog API Graph",
+        "schemaVersion": 1,
+        "contractVersion": CONTRACT_VERSION,
+        "generatedAt": generated_at,
+        "coreCommit": _git_commit(),
+        "roots": {
+            name: {"$ref": f"#/$defs/{schema_name}"}
+            for name, schema_name in MUSIC_CATALOG_SCHEMAS.items()
+        },
+        "$defs": definitions,
+    }
+
+
+def _collect_component_refs(value: Any, pending: list[str]) -> None:
+    if isinstance(value, dict):
+        ref = value.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+            pending.append(ref.rsplit("/", 1)[-1])
+        for child in value.values():
+            _collect_component_refs(child, pending)
+    elif isinstance(value, list):
+        for child in value:
+            _collect_component_refs(child, pending)
+
+
+def _rewrite_component_refs(value: Any) -> Any:
+    if isinstance(value, dict):
+        result: dict[str, Any] = {}
+        for key, child in value.items():
+            if key == "$ref" and isinstance(child, str) and child.startswith("#/components/schemas/"):
+                result[key] = child.replace("#/components/schemas/", "#/$defs/", 1)
+            else:
+                result[key] = _rewrite_component_refs(child)
+        return result
+    if isinstance(value, list):
+        return [_rewrite_component_refs(child) for child in value]
+    return value
+
+
 def build_contract_bundle() -> dict[str, Any]:
     generated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     openapi = app.openapi()
+    music_catalog = _music_catalog_contract(openapi, generated_at)
     field_schema = {
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
@@ -98,6 +168,7 @@ def build_contract_bundle() -> dict[str, Any]:
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
         "openapi": openapi,
+        "music_catalog": music_catalog,
         "field_schema": field_schema,
         "active_kinds": active_kinds,
         "provider_support": provider_support,
@@ -113,6 +184,7 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
 
     outputs = {
         "openapi.json": bundle["openapi"],
+        "music-catalog-v1.json": bundle["music_catalog"],
         "metadata-field-schema.json": bundle["field_schema"],
         "active-kinds.json": bundle["active_kinds"],
         "provider-support.json": bundle["provider_support"],
@@ -131,6 +203,7 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
         "generatedAt": bundle["generatedAt"],
         "coreCommit": bundle["coreCommit"],
         "openApiHash": hashes["openapi.json"],
+        "musicCatalogHash": hashes["music-catalog-v1.json"],
         "fieldSchemaHash": hashes["metadata-field-schema.json"],
         "activeKindsHash": hashes["active-kinds.json"],
         "providerSupportHash": hashes["provider-support.json"],

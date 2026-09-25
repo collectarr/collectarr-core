@@ -47,6 +47,7 @@ class MusicService:
                     "duration_ms": track.duration_ms,
                     "instrument": track.instrument,
                     "composition": track.composition,
+                    "recording_id": track.recording_id,
                 }
                 for track in sorted(
                     primary.tracks or [],
@@ -61,7 +62,6 @@ class MusicService:
             id=group.id,
             kind=ItemKind.music,
             title=group.title,
-            synopsis=group.synopsis,
             cover_image_url=group.cover_image_url or (selected.cover_image_url if selected else None),
             release_date=date_value,
             release_year=date_value.year if date_value else None,
@@ -88,6 +88,7 @@ class MusicService:
             selectinload(MusicReleaseGroup.releases)
             .selectinload(MusicRelease.mediums)
             .selectinload(MusicMedium.tracks),
+            selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums),
             selectinload(MusicReleaseGroup.releases)
             .selectinload(MusicRelease.contributions)
             .selectinload(MusicReleaseContribution.person),
@@ -144,7 +145,6 @@ class MusicService:
                 or_(
                     MusicReleaseGroup.title.ilike(pattern),
                     MusicReleaseGroup.artist.ilike(pattern),
-                    MusicReleaseGroup.synopsis.ilike(pattern),
                     MusicRelease.title.ilike(pattern),
                     MusicRelease.subtitle.ilike(pattern),
                     MusicRelease.publisher.ilike(pattern),

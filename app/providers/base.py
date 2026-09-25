@@ -103,6 +103,7 @@ class NormalizedTrack:
     title: str
     duration_seconds: int | None = None
     artist: str | None = None
+    recording_id: str | None = None
     disc_number: int | None = None
     instrument: str | None = None
     composition: str | None = None
@@ -234,7 +235,6 @@ class NormalizedItem:
     recording_date_parts: PartialDateValue | None = None
     extras: str | None = None
     packaging: str | None = None
-    media_condition: str | None = None
     sound_type: str | None = None
     vinyl_color: str | None = None
     vinyl_weight: str | None = None

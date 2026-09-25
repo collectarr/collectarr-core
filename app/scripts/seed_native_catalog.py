@@ -203,7 +203,6 @@ def _apply_seed_metadata(
         "vinyl_color": "black" if kind == ItemKind.music else None,
         "vinyl_weight": "180g" if kind == ItemKind.music else None,
         "rpm": 33 if kind == ItemKind.music else None,
-        "media_condition": "excellent" if kind == ItemKind.music else None,
         "instrument": "ensemble" if kind == ItemKind.music else None,
         "composition": entry.title if kind == ItemKind.music else None,
     }
@@ -446,7 +445,6 @@ async def _seed_music(
             medium_number=1,
             medium_type="CD",
             title="1",
-            media_condition="excellent",
             sound_type="stereo",
         )
         db.add(medium)

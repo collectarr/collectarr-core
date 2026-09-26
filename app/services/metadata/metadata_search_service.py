@@ -13,11 +13,12 @@ from app.models import (
     GameWork,
     MangaWork,
     MovieWork,
-    MusicReleaseGroup,
+    MusicAlbum,
     TVRelease,
 )
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult, public_item_kind
+from app.services.music_service import MusicService
 
 
 class MetadataSearchService:
@@ -166,17 +167,8 @@ class MetadataSearchService:
             if anime_results:
                 return anime_results
         if kind == ItemKind.music:
-            music_results = await self.service._search_music_releases(
-                query=query,
-                publisher=publisher,
-                subtitle=subtitle,
-                language=language,
-                country=country,
-                release_status=release_status,
-                year=year,
-                barcode=barcode,
-                catalog_number=catalog_number,
-                limit=limit,
+            music_results = await MusicService(self.service.db).search_albums(
+                query=query, barcode=barcode, catalog_number=catalog_number, limit=limit
             )
             if music_results:
                 return music_results
@@ -290,17 +282,8 @@ class MetadataSearchService:
                     barcode=barcode,
                     limit=limit,
                 ),
-                await self.service._search_music_releases(
-                    query=query,
-                    publisher=publisher,
-                    subtitle=subtitle,
-                    language=language,
-                    country=country,
-                    release_status=release_status,
-                    year=year,
-                    barcode=barcode,
-                    catalog_number=catalog_number,
-                    limit=limit,
+                await MusicService(self.service.db).search_albums(
+                    query=query, barcode=barcode, catalog_number=catalog_number, limit=limit
                 ),
                 await self.service._search_boardgame_works(
                     query=query,
@@ -372,9 +355,9 @@ class MetadataSearchService:
             if series is not None:
                 return self.service._anime_search_result(series)
         if kind == ItemKind.music:
-            release = await self.service._music_release_by_barcode(barcode)
-            if release is not None:
-                return self.service._music_search_result(release)
+            results = await MusicService(self.service.db).search_albums(barcode=barcode, limit=1)
+            if results:
+                return results[0]
         if kind == ItemKind.boardgame:
             work = await self.service._boardgame_work_by_barcode(barcode)
             if work is not None:
@@ -388,13 +371,17 @@ class MetadataSearchService:
             if work is not None:
                 return self.service._manga_search_result(work)
         if kind is None:
+            music_results = await MusicService(self.service.db).search_albums(
+                barcode=barcode, limit=1
+            )
+            if music_results:
+                return music_results[0]
             for lookup in (
                 self.service._comic_work_by_barcode,
                 self.service._book_work_by_barcode,
                 self.service._movie_work_by_barcode,
                 self.service._tv_release_by_barcode,
                 self.service._anime_series_by_barcode,
-                self.service._music_release_by_barcode,
                 self.service._boardgame_work_by_barcode,
                 self.service._game_work_by_barcode,
                 self.service._manga_work_by_barcode,
@@ -413,8 +400,6 @@ class MetadataSearchService:
                     return self.service._tv_search_result(match)
                 if isinstance(match, AnimeSeries):
                     return self.service._anime_search_result(match)
-                if isinstance(match, MusicReleaseGroup):
-                    return self.service._music_search_result(match)
                 if isinstance(match, BoardGameWork):
                     return self.service._boardgame_search_result(match)
                 if isinstance(match, GameWork):

@@ -16,9 +16,8 @@ from app.models import (
     ComicIdentifier,
     ComicIssue,
     ComicWork,
-    ExternalProviderId,
 )
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 from app.search.client import SearchClient
 from app.search.documents import comic_work_search_document
@@ -39,10 +38,6 @@ class SeedComicIssue:
     def sort_key(self) -> str:
         number = _issue_sort_segment(self.issue_number)
         return f"{self.slug}-{number}"
-
-    @property
-    def provider_id(self) -> str:
-        return f"seed-{self.slug}-{self.issue_number.lower().replace(' ', '-')}"
 
 
 SEED_COMICS = [
@@ -272,24 +267,14 @@ async def _upsert_issue(db: AsyncSession, comic: SeedComicIssue, work: ComicWork
         issue.cover_image_url = cover_url
         issue.description = comic.synopsis
 
-    await _ensure_identifier(
-        db,
-        issue,
-        identifier_type="provider_item_id",
-        value=comic.provider_id,
-        source_provider=ExternalProvider.comicvine,
-        is_primary=True,
-    )
     if comic.upc:
         await _ensure_identifier(
             db,
             issue,
             identifier_type="upc",
             value=comic.upc,
-            source_provider=ExternalProvider.comicvine,
             is_primary=False,
         )
-    await _ensure_provider_id(db, issue, comic.provider_id)
     return issue
 
 
@@ -299,7 +284,6 @@ async def _ensure_identifier(
     *,
     identifier_type: str,
     value: str,
-    source_provider: ExternalProvider | None,
     is_primary: bool,
 ) -> None:
     normalized_value = re.sub(r"\D+", "", value) or value.strip()
@@ -319,7 +303,6 @@ async def _ensure_identifier(
                 value=value,
                 normalized_value=normalized_value,
                 is_primary=is_primary,
-                source_provider=source_provider,
             )
         )
         return
@@ -327,28 +310,6 @@ async def _ensure_identifier(
     identifier.value = value
     identifier.normalized_value = normalized_value
     identifier.is_primary = is_primary
-    identifier.source_provider = source_provider
-
-
-async def _ensure_provider_id(db: AsyncSession, issue: ComicIssue, provider_item_id: str) -> None:
-    result = await db.execute(
-        select(ExternalProviderId).where(
-            ExternalProviderId.provider == ExternalProvider.comicvine,
-            ExternalProviderId.provider_item_id == provider_item_id,
-            ExternalProviderId.entity_type == "comic_issue",
-        )
-    )
-    if result.scalar_one_or_none() is not None:
-        return
-
-    db.add(
-        ExternalProviderId(
-            provider=ExternalProvider.comicvine,
-            provider_item_id=provider_item_id,
-            entity_type="comic_issue",
-            entity_id=issue.id,
-        )
-    )
 
 
 def main(argv: list[str] | None = None) -> None:

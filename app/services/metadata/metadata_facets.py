@@ -43,8 +43,6 @@ async def enrich_item_metadata_facets(
             MetadataCredit(
                 name=person.name,
                 role=link.role,
-                api_detail_url=model_text(person, "api_detail_url"),
-                site_detail_url=model_text(person, "site_detail_url"),
                 image_url=model_text(person, "image_url"),
             )
             for link, person in creator_rows

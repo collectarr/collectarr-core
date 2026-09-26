@@ -1,103 +1,15 @@
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
-from app.models.base import ExternalProvider, ItemKind, UserRole
+from app.models.base import ItemKind, UserRole
 from app.models.partial_date import PartialDateValue
-from app.schemas.metadata_anime import AnimeSeriesV1Response
-from app.schemas.metadata_board_games import BoardGameWorkV1Response
-from app.schemas.metadata_books import BookWorkV1Response
-from app.schemas.metadata_comics import ComicWorkV1Response
-from app.schemas.metadata_games import GameWorkV1Response
-from app.schemas.metadata_manga import MangaWorkV1Response
-from app.schemas.metadata_music import MusicReleaseGroupV1Response, MusicReleaseV1Response
-from app.schemas.metadata_video import MovieWorkV1Response, TVSeriesV1Response
-from app.types import JsonObject
-
-
-class ProviderStatusResponse(BaseModel):
-    name: str
-    display_name: str
-    kind: str
-    supported_kinds: list[str] = Field(default_factory=list)
-    status: str
-    is_configured: bool
-    supports_search: bool = True
-    supports_ingest: bool = True
-    requires_user_key: bool = False
-    non_commercial_only: bool = False
-    allows_redistribution: bool = False
-    allows_image_mirroring: bool = False
-    image_policy: str = "remote_image_only"
-    requires_attribution: bool = False
-    license_name: str | None = None
-    terms_url: str | None = None
-    attribution_url: str | None = None
-    rate_limit: str | None = None
-    cache_policy: str | None = None
-    message: str
-
-
-class ProviderCacheStatsResponse(BaseModel):
-    hits: int = 0
-    misses: int = 0
-    writes: int = 0
-    entries: int = 0
-    backoffs: int = 0
-    local_entries: int = 0
-    redis_entries: int = 0
-    local_backoffs: int = 0
-    redis_backoffs: int = 0
-
-
-class ProviderCacheSummaryResponse(BaseModel):
-    search: ProviderCacheStatsResponse
-    preview: ProviderCacheStatsResponse
-
-
-class ProviderStatusListResponse(BaseModel):
-    providers: list[ProviderStatusResponse]
-    cache_stats: ProviderCacheSummaryResponse
-
-
-class ProviderIngestRequest(BaseModel):
-    provider: ExternalProvider
-    provider_item_id: str = Field(min_length=1, max_length=255)
-    kind: ItemKind | None = None
-
-    model_config = {"extra": "forbid"}
-
-
-class ProviderSearchRequest(BaseModel):
-    provider: ExternalProvider
-    query: str = Field(min_length=1, max_length=255)
-    kind: ItemKind | None = None
-
-    model_config = {"extra": "forbid"}
-
-
-class ProviderIngestResponse(BaseModel):
-    item_id: UUID
-    created: bool
-    item: (
-        dict[str, Any]
-        | BookWorkV1Response
-        | ComicWorkV1Response
-        | GameWorkV1Response
-        | BoardGameWorkV1Response
-        | MangaWorkV1Response
-        | AnimeSeriesV1Response
-        | MovieWorkV1Response
-        | MusicReleaseGroupV1Response
-        | MusicReleaseV1Response
-        | TVSeriesV1Response
-    )
 
 
 class CanonicalCatalogWriteResponse(BaseModel):
-    """Result of writing a normalized envelope into the canonical catalog."""
+    """Result of a source-neutral write into the canonical catalog."""
 
     item_id: UUID
     kind: str
@@ -105,219 +17,8 @@ class CanonicalCatalogWriteResponse(BaseModel):
     item: object | None = None
 
 
-class ProviderPreviewCredit(BaseModel):
-    name: str
-    role: str | None = None
-    image_url: str | None = None
-
-
-class ProviderPreviewTrack(BaseModel):
-    position: int | None = None
-    title: str
-    duration_seconds: int | None = None
-    artist: str | None = None
-    recording_id: str | None = None
-    disc_number: int | None = None
-
-
-class ProviderFieldStateResponse(BaseModel):
-    key: str
-    state: Literal[
-        "present",
-        "missing_from_provider",
-        "not_supported_by_provider",
-        "unsupported_by_collectarr",
-        "user_only",
-        "import_only",
-    ]
-    value: Any | None = None
-
-
-class ProviderPreviewResponse(BaseModel):
-    """Normalized provider data returned WITHOUT creating anything in the DB."""
-
-    provider: str
-    provider_item_id: str
-    kind: ItemKind
-    title: str
-    item_number: str | None = None
-    synopsis: str | None = None
-    series_title: str | None = None
-    volume_name: str | None = None
-    volume_number: float | None = None
-    volume_start_year: int | None = None
-    publisher: str | None = None
-    imprint: str | None = None
-    edition_title: str | None = None
-    edition_format: str | None = None
-    physical_format: str | None = None
-    physical_format_label: str | None = None
-    release_date: PartialDateValue | date | None = None
-    release_date_parts: PartialDateValue | None = None
-    barcode: str | None = None
-    isbn: str | None = None
-    variant_name: str | None = None
-    cover_image_url: str | None = None
-    cover_price_cents: int | None = None
-    currency: str | None = None
-    country: str | None = None
-    language: str | None = None
-    age_rating: str | None = None
-    audience_rating: str | None = None
-    subtitle: str | None = None
-    series_group: str | None = None
-    page_count: int | None = None
-    runtime_minutes: int | None = None
-    track_count: int | None = None
-    catalog_number: str | None = None
-    creators: list[ProviderPreviewCredit] = Field(default_factory=list)
-    characters: list[str] = Field(default_factory=list)
-    story_arcs: list[str] = Field(default_factory=list)
-    platforms: list[str] = Field(default_factory=list)
-    genres: list[str] = Field(default_factory=list)
-    release_status: str | None = None
-    tracks: list[ProviderPreviewTrack] = Field(default_factory=list)
-    field_states: list[ProviderFieldStateResponse] = Field(default_factory=list)
-
-
-class ProviderIngestHistoryEntry(BaseModel):
-    id: int
-    timestamp: datetime
-    provider: ExternalProvider
-    provider_item_id: str
-    status: str
-    attempts: int
-    resolved_entity_type: str | None = None
-    resolved_entity_id: UUID | None = None
-    error: str | None = None
-
-
-class AdminReleaseMediaMappingRuleCreateRequest(BaseModel):
-    provider: ExternalProvider | None = None
-    release_type: str = Field(min_length=1, max_length=64)
-    target_kind: ItemKind
-    priority: int = Field(default=100, ge=0, le=10000)
-    is_active: bool = True
-    notes: str | None = Field(default=None, max_length=500)
-
-
-class AdminReleaseMediaMappingRuleUpdateRequest(BaseModel):
-    provider: ExternalProvider | None = None
-    release_type: str | None = Field(default=None, min_length=1, max_length=64)
-    target_kind: ItemKind | None = None
-    priority: int | None = Field(default=None, ge=0, le=10000)
-    is_active: bool | None = None
-    notes: str | None = Field(default=None, max_length=500)
-
-
-class AdminReleaseMediaMappingRuleResponse(BaseModel):
-    id: UUID
-    provider: ExternalProvider | None = None
-    release_type: str
-    target_kind: ItemKind
-    priority: int
-    is_active: bool
-    notes: str | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class AdminProviderPrefillResolveRequest(BaseModel):
-    source: str = Field(pattern="^(proposal|ingest_history|manual)$")
-    provider: ExternalProvider | None = None
-    kind: ItemKind | None = None
-    query: str | None = Field(default=None, max_length=255)
-    provider_item_id: str | None = Field(default=None, max_length=255)
-    release_type: str | None = Field(default=None, max_length=64)
-    proposal_id: UUID | None = None
-    ingest_history_id: int | None = Field(default=None, ge=1)
-
-
-class AdminProviderPrefillResolveResponse(BaseModel):
-    source: str
-    provider: ExternalProvider | None = None
-    kind: ItemKind | None = None
-    query: str | None = None
-    provider_item_id: str | None = None
-    release_type: str | None = None
-    matched_rule: AdminReleaseMediaMappingRuleResponse | None = None
-    notes: list[str] = Field(default_factory=list)
-
-
 class AdminDeleteResponse(BaseModel):
     deleted: bool
-
-
-class ProviderBatchHydrateItem(BaseModel):
-    provider_item_id: str = Field(min_length=1, max_length=255)
-
-
-class ProviderBatchHydrateRequest(BaseModel):
-    provider: ExternalProvider
-    items: list[ProviderBatchHydrateItem] = Field(min_length=1, max_length=500)
-
-
-class ProviderBatchHydrateResultItem(BaseModel):
-    provider_item_id: str
-    success: bool
-    preview: ProviderPreviewResponse | None = None
-    error: str | None = None
-
-
-class ProviderBatchHydrateResponse(BaseModel):
-    results: list[ProviderBatchHydrateResultItem]
-    total: int
-    succeeded: int
-    failed: int
-
-
-class ProviderIngestRetryRequest(BaseModel):
-    history_id: int
-
-
-class ProviderIngestJobCreateRequest(BaseModel):
-    provider: ExternalProvider
-    provider_item_id: str = Field(min_length=1, max_length=255)
-    max_attempts: int = Field(default=3, ge=1, le=10)
-
-    model_config = {"extra": "forbid"}
-
-
-class ProviderIngestJobResponse(BaseModel):
-    id: UUID
-    provider: ExternalProvider
-    provider_item_id: str
-    status: str
-    attempts: int
-    max_attempts: int
-    next_run_at: datetime | None = None
-    resolved_entity_type: str | None = None
-    resolved_entity_id: UUID | None = None
-    last_error: str | None = None
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class ProviderIngestJobRunResponse(BaseModel):
-    processed: int
-    jobs: list[ProviderIngestJobResponse]
-    recovered: int = 0
-
-
-class ProviderIngestJobSummaryResponse(BaseModel):
-    queued: int = 0
-    running: int = 0
-    failed: int = 0
-    done: int = 0
-    due_queued: int = 0
-    stale_running: int = 0
-    oldest_queued_at: datetime | None = None
-    next_run_at: datetime | None = None
-    latest_failure_at: datetime | None = None
 
 
 class AdminMetadataCreditInput(BaseModel):
@@ -419,15 +120,10 @@ class AdminCatalogSummaryResponse(BaseModel):
     volumes: int
     editions: int
     variants: int
-    provider_links: int
     image_assets: int
     image_cache_entries: int
-    pending_proposals: int
     missing_cover_items: int
-    missing_provider_link_items: int
     duplicate_candidate_groups: int
-    provider_ingest_successes: int = 0
-    provider_ingest_failures: int = 0
 
 
 class AdminNormalizedMetadataDriftSample(BaseModel):
@@ -497,7 +193,6 @@ class AdminDuplicateCandidateResponse(BaseModel):
     count: int
     item_ids: list[UUID]
     reason: str = "same title and item number"
-    has_provider_conflicts: bool = False
     has_cover_conflicts: bool = False
     duplicate_score: int = 0
     recommended_target_item_id: UUID | None = None
@@ -555,46 +250,6 @@ class AdminDuplicateActionResponse(BaseModel):
     item: dict[str, Any] | None = None
 
 
-class MetadataProposalSummaryResponse(BaseModel):
-    pending: int
-    approved: int
-    rejected: int
-    total: int
-
-
-class MetadataProposalAdminResponse(BaseModel):
-    id: UUID
-    provider: ExternalProvider
-    provider_item_id: str | None
-    query: str
-    title: str | None
-    summary: str | None
-    image_url: str | None
-    metadata_payload: JsonObject | None = None
-    status: str
-
-    model_config = {"from_attributes": True}
-
-
-class MetadataProposalAdminUpdateRequest(BaseModel):
-    query: str | None = None
-    provider_item_id: str | None = None
-    title: str | None = None
-    summary: str | None = None
-    image_url: str | None = None
-    metadata_payload: JsonObject | None = None
-
-    model_config = {"extra": "forbid"}
-
-    @field_validator("metadata_payload")
-    @classmethod
-    def _validate_metadata_payload(cls, value: JsonObject | None) -> JsonObject | None:
-        from app.proposal_payload import validate_metadata_payload
-
-        validate_metadata_payload(value)
-        return value
-
-
 class UserResponse(BaseModel):
     id: UUID
     email: str
@@ -618,14 +273,9 @@ class ImageCacheStatsResponse(BaseModel):
     total_size_bytes: int
     max_size_bytes: int
     usage_percent: float
-    mirroring_enabled: bool
-    providers: dict[str, int] = Field(default_factory=dict, description="Entry count per provider")
+    cache_enabled: bool
 
 
 class ImageCachePurgeResponse(BaseModel):
     deleted_entries: int
     freed_bytes: int
-
-
-class ProviderPayloadSnapshotPurgeResponse(BaseModel):
-    purged: int

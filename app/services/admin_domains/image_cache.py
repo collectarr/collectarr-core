@@ -32,27 +32,18 @@ class AdminImageCacheService:
         max_bytes = settings.image_cache_max_bytes
         usage_pct = (total_size / max_bytes * 100) if max_bytes > 0 else 0.0
 
-        rows = await self.db.execute(
-            select(ImageCacheEntry.provider, func.count()).group_by(ImageCacheEntry.provider)
-        )
-        providers = {row[0]: row[1] for row in rows}
-
         return ImageCacheStatsResponse(
             total_entries=int(total_entries),
             total_size_bytes=int(total_size),
             max_size_bytes=max_bytes,
             usage_percent=round(usage_pct, 1),
-            mirroring_enabled=settings.mirror_provider_images,
-            providers=providers,
+            cache_enabled=max_bytes > 0,
         )
 
     async def purge_image_cache(
         self,
-        provider: str | None = None,
     ) -> ImageCachePurgeResponse:
         query = select(ImageCacheEntry)
-        if provider:
-            query = query.where(ImageCacheEntry.provider == provider)
         entries = list((await self.db.scalars(query)).all())
         if not entries:
             return ImageCachePurgeResponse(deleted_entries=0, freed_bytes=0)
@@ -68,15 +59,12 @@ class AdminImageCacheService:
                 exc_info=True,
             )
 
-        delete_statement = delete(ImageCacheEntry)
-        if provider:
-            delete_statement = delete_statement.where(ImageCacheEntry.provider == provider)
-        await self.db.execute(delete_statement)
+        await self.db.execute(delete(ImageCacheEntry))
 
         self._audit_recorder(
             "purge_image_cache",
             "image_cache",
-            details={"provider": provider, "deleted": len(entries), "freed_bytes": freed},
+            details={"deleted": len(entries), "freed_bytes": freed},
         )
         await self.db.commit()
         return ImageCachePurgeResponse(deleted_entries=len(entries), freed_bytes=freed)

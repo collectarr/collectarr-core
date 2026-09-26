@@ -1,5 +1,10 @@
 # Bundle Release Design
 
+> Historical design note. This document describes the pre-v1 catalog and
+> provider-ingest architecture. It is retained as project history and is not
+> the current schema or API contract. The current source-neutral catalog
+> contract is documented in `architecture/music-catalog-contract.md`.
+
 This document defines the canonical Core schema for multi-item packages,
 the App add-flow changes needed to expose them, and the exact rule for how
 personal ownership and consumption tracking stay split between App and Sync.

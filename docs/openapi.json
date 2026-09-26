@@ -1208,96 +1208,6 @@
         }
       }
     },
-    "/api/v1/metadata/proposals": {
-      "post": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Create Metadata Proposal",
-        "operationId": "create_metadata_proposal_api_v1_metadata_proposals_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MetadataProposalCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetadataProposalResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/submissions": {
-      "post": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Submit Normalized Metadata",
-        "description": "Submit a normalized provider envelope for ingestion or proposal review.",
-        "operationId": "submit_normalized_metadata_api_v1_metadata_submissions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MetadataSubmissionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetadataSubmissionResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/v1/story-arcs/facets": {
       "post": {
         "tags": [
@@ -3565,321 +3475,73 @@
         }
       }
     },
-    "/api/v1/metadata/music/release-groups/{group_id}": {
+    "/api/v1/metadata/music/albums": {
       "get": {
         "tags": [
           "metadata",
           "metadata"
         ],
-        "summary": "Get Music Release Group",
-        "operationId": "get_music_release_group_api_v1_metadata_music_release_groups__group_id__get",
+        "summary": "Search Music Albums",
+        "operationId": "search_music_albums_api_v1_metadata_music_albums_get",
         "parameters": [
           {
-            "name": "group_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Group Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicReleaseGroupV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/releases/{release_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Release",
-        "operationId": "get_music_release_api_v1_metadata_music_releases__release_id__get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicReleaseV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/releases/{release_id}/mediums": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Release Mediums",
-        "operationId": "get_music_release_mediums_api_v1_metadata_music_releases__release_id__mediums_get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MusicMediumV1Response"
-                  },
-                  "title": "Response Get Music Release Mediums Api V1 Metadata Music Releases  Release Id  Mediums Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/mediums/{medium_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Medium",
-        "operationId": "get_music_medium_api_v1_metadata_music_mediums__medium_id__get",
-        "parameters": [
-          {
-            "name": "medium_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Medium Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicMediumV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/mediums/{medium_id}/tracks": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Medium Tracks",
-        "operationId": "get_music_medium_tracks_api_v1_metadata_music_mediums__medium_id__tracks_get",
-        "parameters": [
-          {
-            "name": "medium_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Medium Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MusicTrackV1Response"
-                  },
-                  "title": "Response Get Music Medium Tracks Api V1 Metadata Music Mediums  Medium Id  Tracks Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/tracks/{track_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Track",
-        "operationId": "get_music_track_api_v1_metadata_music_tracks__track_id__get",
-        "parameters": [
-          {
-            "name": "track_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Track Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicTrackV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/metadata/mapping-rules": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Metadata Mapping Rules",
-        "operationId": "metadata_mapping_rules_api_v1_admin_metadata_mapping_rules_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider",
+            "name": "q",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/ExternalProvider"
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Provider"
+              "title": "Q"
             }
           },
           {
-            "name": "active",
+            "name": "barcode",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "boolean"
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Active"
+              "title": "Barcode"
+            }
+          },
+          {
+            "name": "catalog_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Catalog Number"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
             }
           }
         ],
@@ -3891,9 +3553,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/AdminReleaseMediaMappingRuleResponse"
+                    "$ref": "#/components/schemas/SearchResult"
                   },
-                  "title": "Response Metadata Mapping Rules Api V1 Admin Metadata Mapping Rules Get"
+                  "title": "Response Search Music Albums Api V1 Metadata Music Albums Get"
                 }
               }
             }
@@ -3912,10 +3574,11 @@
       },
       "post": {
         "tags": [
-          "admin"
+          "metadata",
+          "metadata"
         ],
-        "summary": "Metadata Mapping Rule Create",
-        "operationId": "metadata_mapping_rule_create_api_v1_admin_metadata_mapping_rules_post",
+        "summary": "Create Music Album",
+        "operationId": "create_music_album_api_v1_metadata_music_albums_post",
         "security": [
           {
             "HTTPBearer": []
@@ -3926,18 +3589,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AdminReleaseMediaMappingRuleCreateRequest"
+                "$ref": "#/components/schemas/MusicAlbumWriteV1"
               }
             }
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminReleaseMediaMappingRuleResponse"
+                  "$ref": "#/components/schemas/MusicAlbumV1Response"
                 }
               }
             }
@@ -3955,47 +3618,33 @@
         }
       }
     },
-    "/api/v1/admin/metadata/mapping-rules/{rule_id}": {
-      "patch": {
+    "/api/v1/metadata/music/albums/{album_id}": {
+      "get": {
         "tags": [
-          "admin"
+          "metadata",
+          "metadata"
         ],
-        "summary": "Metadata Mapping Rule Update",
-        "operationId": "metadata_mapping_rule_update_api_v1_admin_metadata_mapping_rules__rule_id__patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
+        "summary": "Get Music Album",
+        "operationId": "get_music_album_api_v1_metadata_music_albums__album_id__get",
         "parameters": [
           {
-            "name": "rule_id",
+            "name": "album_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Rule Id"
+              "title": "Album Id"
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminReleaseMediaMappingRuleUpdateRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminReleaseMediaMappingRuleResponse"
+                  "$ref": "#/components/schemas/MusicAlbumV1Response"
                 }
               }
             }
@@ -4012,12 +3661,13 @@
           }
         }
       },
-      "delete": {
+      "put": {
         "tags": [
-          "admin"
+          "metadata",
+          "metadata"
         ],
-        "summary": "Metadata Mapping Rule Delete",
-        "operationId": "metadata_mapping_rule_delete_api_v1_admin_metadata_mapping_rules__rule_id__delete",
+        "summary": "Update Music Album",
+        "operationId": "update_music_album_api_v1_metadata_music_albums__album_id__put",
         "security": [
           {
             "HTTPBearer": []
@@ -4025,23 +3675,33 @@
         ],
         "parameters": [
           {
-            "name": "rule_id",
+            "name": "album_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
               "format": "uuid",
-              "title": "Rule Id"
+              "title": "Album Id"
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MusicAlbumWriteV1"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminDeleteResponse"
+                  "$ref": "#/components/schemas/MusicAlbumV1Response"
                 }
               }
             }
@@ -4057,78 +3717,6 @@
             }
           }
         }
-      }
-    },
-    "/api/v1/admin/providers/prefill/resolve": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Prefill Resolve",
-        "operationId": "provider_prefill_resolve_api_v1_admin_providers_prefill_resolve_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminProviderPrefillResolveRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminProviderPrefillResolveResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Providers",
-        "operationId": "providers_api_v1_admin_providers_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderStatusListResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
       }
     },
     "/api/v1/admin/catalog/summary": {
@@ -5005,892 +4593,6 @@
         ]
       }
     },
-    "/api/v1/admin/providers/search": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Search",
-        "operationId": "provider_search_api_v1_admin_providers_search_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderSearchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers/preview": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Preview",
-        "operationId": "provider_preview_api_v1_admin_providers_preview_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderIngestRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderPreviewResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers/batch-hydrate": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Batch Hydrate",
-        "operationId": "provider_batch_hydrate_api_v1_admin_providers_batch_hydrate_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderBatchHydrateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderBatchHydrateResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers/ingest": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest",
-        "operationId": "provider_ingest_api_v1_admin_providers_ingest_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderIngestRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers/ingest/jobs": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Jobs",
-        "operationId": "provider_ingest_jobs_api_v1_admin_providers_ingest_jobs_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "pattern": "^(queued|running|done|failed)$"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Status"
-            }
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/ExternalProvider"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Provider"
-            }
-          },
-          {
-            "name": "q",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 255
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Q"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 25,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ProviderIngestJobResponse"
-                  },
-                  "title": "Response Provider Ingest Jobs Api V1 Admin Providers Ingest Jobs Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Job Create",
-        "operationId": "provider_ingest_job_create_api_v1_admin_providers_ingest_jobs_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderIngestJobCreateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestJobResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/providers/ingest/jobs/summary": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Jobs Summary",
-        "operationId": "provider_ingest_jobs_summary_api_v1_admin_providers_ingest_jobs_summary_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestJobSummaryResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers/ingest/jobs/run-pending": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Jobs Run Pending",
-        "operationId": "provider_ingest_jobs_run_pending_api_v1_admin_providers_ingest_jobs_run_pending_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 25,
-              "minimum": 1,
-              "default": 5,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestJobRunResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/providers/ingest/jobs/{job_id}/run": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Job Run",
-        "operationId": "provider_ingest_job_run_api_v1_admin_providers_ingest_jobs__job_id__run_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestJobResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/providers/ingest/jobs/{job_id}/retry": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Job Retry",
-        "operationId": "provider_ingest_job_retry_api_v1_admin_providers_ingest_jobs__job_id__retry_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestJobResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/providers/ingest/history": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest History",
-        "operationId": "provider_ingest_history_api_v1_admin_providers_ingest_history_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ProviderIngestHistoryEntry"
-                  },
-                  "type": "array",
-                  "title": "Response Provider Ingest History Api V1 Admin Providers Ingest History Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/providers/ingest/retry": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Provider Ingest Retry",
-        "operationId": "provider_ingest_retry_api_v1_admin_providers_ingest_retry_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderIngestRetryRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/metadata/proposals": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Metadata Proposals",
-        "operationId": "metadata_proposals_api_v1_admin_metadata_proposals_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "pattern": "^(pending|approved|rejected)$",
-              "default": "pending",
-              "title": "Status"
-            }
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/ExternalProvider"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Provider"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MetadataProposalAdminResponse"
-                  },
-                  "title": "Response Metadata Proposals Api V1 Admin Metadata Proposals Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/metadata/proposals/summary": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Metadata Proposals Summary",
-        "operationId": "metadata_proposals_summary_api_v1_admin_metadata_proposals_summary_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetadataProposalSummaryResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/metadata/proposals/{proposal_id}": {
-      "patch": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Update Metadata Proposal",
-        "operationId": "update_metadata_proposal_api_v1_admin_metadata_proposals__proposal_id__patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "proposal_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Proposal Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MetadataProposalAdminUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetadataProposalAdminResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/metadata/proposals/{proposal_id}/approve": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Approve Metadata Proposal",
-        "operationId": "approve_metadata_proposal_api_v1_admin_metadata_proposals__proposal_id__approve_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "proposal_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Proposal Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CanonicalCatalogWriteResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/metadata/proposals/{proposal_id}/approve-provider": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Approve Metadata Proposal With Provider Item",
-        "operationId": "approve_metadata_proposal_with_provider_item_api_v1_admin_metadata_proposals__proposal_id__approve_provider_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "proposal_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Proposal Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProviderIngestRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderIngestResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/admin/metadata/proposals/{proposal_id}/reject": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Reject Metadata Proposal",
-        "operationId": "reject_metadata_proposal_api_v1_admin_metadata_proposals__proposal_id__reject_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "proposal_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Proposal Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetadataProposalAdminResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/users": {
       "get": {
         "tags": [
@@ -6056,33 +4758,8 @@
         "tags": [
           "admin"
         ],
-        "summary": "Purge Image Cache",
-        "operationId": "purge_image_cache_api_v1_admin_image_cache_purge_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Purge only entries for this provider",
-              "title": "Provider"
-            },
-            "description": "Purge only entries for this provider"
-          }
-        ],
+        "summary": "Image Cache Purge",
+        "operationId": "image_cache_purge_api_v1_admin_image_cache_purge_post",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6093,68 +4770,13 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
-        }
-      }
-    },
-    "/api/v1/admin/providers/snapshots/purge-expired": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Purge Expired Provider Snapshots",
-        "operationId": "purge_expired_provider_snapshots_api_v1_admin_providers_snapshots_purge_expired_post",
+        },
         "security": [
           {
             "HTTPBearer": []
           }
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 50000,
-              "minimum": 1,
-              "default": 5000,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderPayloadSnapshotPurgeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
+        ]
       }
     }
   },
@@ -6260,10 +4882,6 @@
             "type": "integer",
             "title": "Variants"
           },
-          "provider_links": {
-            "type": "integer",
-            "title": "Provider Links"
-          },
           "image_assets": {
             "type": "integer",
             "title": "Image Assets"
@@ -6272,31 +4890,13 @@
             "type": "integer",
             "title": "Image Cache Entries"
           },
-          "pending_proposals": {
-            "type": "integer",
-            "title": "Pending Proposals"
-          },
           "missing_cover_items": {
             "type": "integer",
             "title": "Missing Cover Items"
           },
-          "missing_provider_link_items": {
-            "type": "integer",
-            "title": "Missing Provider Link Items"
-          },
           "duplicate_candidate_groups": {
             "type": "integer",
             "title": "Duplicate Candidate Groups"
-          },
-          "provider_ingest_successes": {
-            "type": "integer",
-            "title": "Provider Ingest Successes",
-            "default": 0
-          },
-          "provider_ingest_failures": {
-            "type": "integer",
-            "title": "Provider Ingest Failures",
-            "default": 0
           }
         },
         "type": "object",
@@ -6306,28 +4906,12 @@
           "volumes",
           "editions",
           "variants",
-          "provider_links",
           "image_assets",
           "image_cache_entries",
-          "pending_proposals",
           "missing_cover_items",
-          "missing_provider_link_items",
           "duplicate_candidate_groups"
         ],
         "title": "AdminCatalogSummaryResponse"
-      },
-      "AdminDeleteResponse": {
-        "properties": {
-          "deleted": {
-            "type": "boolean",
-            "title": "Deleted"
-          }
-        },
-        "type": "object",
-        "required": [
-          "deleted"
-        ],
-        "title": "AdminDeleteResponse"
       },
       "AdminDuplicateActionResponse": {
         "properties": {
@@ -6396,11 +4980,6 @@
             "type": "string",
             "title": "Reason",
             "default": "same title and item number"
-          },
-          "has_provider_conflicts": {
-            "type": "boolean",
-            "title": "Has Provider Conflicts",
-            "default": false
           },
           "has_cover_conflicts": {
             "type": "boolean",
@@ -6909,6 +5488,9 @@
           },
           "release_date": {
             "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
               {
                 "type": "string",
                 "format": "date"
@@ -7552,377 +6134,6 @@
         ],
         "title": "AdminNormalizedMetadataDriftSample"
       },
-      "AdminProviderPrefillResolveRequest": {
-        "properties": {
-          "source": {
-            "type": "string",
-            "pattern": "^(proposal|ingest_history|manual)$",
-            "title": "Source"
-          },
-          "provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ItemKind"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "query": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Query"
-          },
-          "provider_item_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Item Id"
-          },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "proposal_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Proposal Id"
-          },
-          "ingest_history_id": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ingest History Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "source"
-        ],
-        "title": "AdminProviderPrefillResolveRequest"
-      },
-      "AdminProviderPrefillResolveResponse": {
-        "properties": {
-          "source": {
-            "type": "string",
-            "title": "Source"
-          },
-          "provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ItemKind"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Query"
-          },
-          "provider_item_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Item Id"
-          },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "matched_rule": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/AdminReleaseMediaMappingRuleResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "notes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Notes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "source"
-        ],
-        "title": "AdminProviderPrefillResolveResponse"
-      },
-      "AdminReleaseMediaMappingRuleCreateRequest": {
-        "properties": {
-          "provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "release_type": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Release Type"
-          },
-          "target_kind": {
-            "$ref": "#/components/schemas/ItemKind"
-          },
-          "priority": {
-            "type": "integer",
-            "maximum": 10000.0,
-            "minimum": 0.0,
-            "title": "Priority",
-            "default": 100
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active",
-            "default": true
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "release_type",
-          "target_kind"
-        ],
-        "title": "AdminReleaseMediaMappingRuleCreateRequest"
-      },
-      "AdminReleaseMediaMappingRuleResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "release_type": {
-            "type": "string",
-            "title": "Release Type"
-          },
-          "target_kind": {
-            "$ref": "#/components/schemas/ItemKind"
-          },
-          "priority": {
-            "type": "integer",
-            "title": "Priority"
-          },
-          "is_active": {
-            "type": "boolean",
-            "title": "Is Active"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "release_type",
-          "target_kind",
-          "priority",
-          "is_active",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "AdminReleaseMediaMappingRuleResponse"
-      },
-      "AdminReleaseMediaMappingRuleUpdateRequest": {
-        "properties": {
-          "provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "target_kind": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ItemKind"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "priority": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 10000.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Priority"
-          },
-          "is_active": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Active"
-          },
-          "notes": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Notes"
-          }
-        },
-        "type": "object",
-        "title": "AdminReleaseMediaMappingRuleUpdateRequest"
-      },
       "AdminSearchHistoryEntry": {
         "properties": {
           "timestamp": {
@@ -8175,6 +6386,16 @@
               }
             ],
             "title": "Air Date"
+          },
+          "air_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "description": {
             "anyOf": [
@@ -8534,6 +6755,16 @@
             ],
             "title": "Release Date"
           },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "publisher": {
             "anyOf": [
               {
@@ -8729,6 +6960,16 @@
             ],
             "title": "Original Air Date"
           },
+          "original_air_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "end_date": {
             "anyOf": [
               {
@@ -8740,6 +6981,16 @@
               }
             ],
             "title": "End Date"
+          },
+          "end_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "anyOf": [
@@ -8866,6 +7117,16 @@
               }
             ],
             "title": "Release Date"
+          },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "publisher": {
             "anyOf": [
@@ -9096,6 +7357,16 @@
             ],
             "title": "Release Date"
           },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "original_language": {
             "anyOf": [
               {
@@ -9267,28 +7538,6 @@
               }
             ],
             "title": "Source Url"
-          },
-          "provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider"
-          },
-          "attribution": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Attribution"
           },
           "is_primary": {
             "type": "boolean",
@@ -9468,6 +7717,16 @@
             ],
             "title": "Publication Date"
           },
+          "publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "publisher": {
             "anyOf": [
               {
@@ -9643,16 +7902,6 @@
           "is_primary": {
             "type": "boolean",
             "title": "Is Primary"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -9689,6 +7938,16 @@
               }
             ],
             "title": "Original Publication Date"
+          },
+          "original_publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "original_publisher": {
             "anyOf": [
@@ -9842,6 +8101,50 @@
               }
             ],
             "title": "Display Number"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "start_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "end_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -9918,6 +8221,16 @@
             ],
             "title": "Original Publication Date"
           },
+          "original_publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "first_publication_date": {
             "anyOf": [
               {
@@ -9929,6 +8242,16 @@
               }
             ],
             "title": "First Publication Date"
+          },
+          "first_publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "original_details": {
             "anyOf": [
@@ -9972,40 +8295,6 @@
           "title"
         ],
         "title": "BookWorkV1Response"
-      },
-      "CanonicalCatalogWriteResponse": {
-        "properties": {
-          "item_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Item Id"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind"
-          },
-          "created": {
-            "type": "boolean",
-            "title": "Created"
-          },
-          "item": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Item"
-          }
-        },
-        "type": "object",
-        "required": [
-          "item_id",
-          "kind",
-          "created"
-        ],
-        "title": "CanonicalCatalogWriteResponse",
-        "description": "Result of writing a normalized envelope into the canonical catalog."
       },
       "CanonicalCorrectionApprovalResponse": {
         "properties": {
@@ -10201,7 +8490,7 @@
             "title": "Base Hash"
           },
           "proposed_fields": {
-            "$ref": "#/components/schemas/app__types__json__JsonObject__1"
+            "$ref": "#/components/schemas/JsonObject-Input"
           }
         },
         "additionalProperties": false,
@@ -10614,20 +8903,6 @@
               }
             ],
             "title": "Sort Name"
-          },
-          "external_ids": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "External Ids"
           }
         },
         "type": "object",
@@ -10722,16 +8997,6 @@
           "is_primary": {
             "type": "boolean",
             "title": "Is Primary"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -10790,6 +9055,16 @@
             ],
             "title": "Publication Date"
           },
+          "publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "release_date": {
             "anyOf": [
               {
@@ -10801,6 +9076,16 @@
               }
             ],
             "title": "Release Date"
+          },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "publisher": {
             "anyOf": [
@@ -11102,6 +9387,16 @@
             ],
             "title": "Publication Date"
           },
+          "publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "release_date": {
             "anyOf": [
               {
@@ -11113,6 +9408,16 @@
               }
             ],
             "title": "Release Date"
+          },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "language": {
             "anyOf": [
@@ -11276,6 +9581,16 @@
               }
             ],
             "title": "First Publication Date"
+          },
+          "first_publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expected_issue_count": {
             "anyOf": [
@@ -11504,28 +9819,6 @@
             ],
             "title": "Image Url"
           },
-          "api_detail_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Api Detail Url"
-          },
-          "site_detail_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Site Detail Url"
-          },
           "item_count": {
             "type": "integer",
             "title": "Item Count",
@@ -11538,22 +9831,6 @@
           "name"
         ],
         "title": "CreatorResponse"
-      },
-      "ExternalProvider": {
-        "type": "string",
-        "enum": [
-          "anilist",
-          "bgg",
-          "comicvine",
-          "gcd",
-          "hardcover",
-          "igdb",
-          "mangadex",
-          "musicbrainz",
-          "openlibrary",
-          "tmdb"
-        ],
-        "title": "ExternalProvider"
       },
       "FacetEntityIdsRequest": {
         "properties": {
@@ -11614,6 +9891,16 @@
               }
             ],
             "title": "Release Date"
+          },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "region_code": {
             "anyOf": [
@@ -11777,6 +10064,16 @@
               }
             ],
             "title": "Release Date"
+          },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "original_language": {
             "anyOf": [
@@ -11960,17 +10257,9 @@
             "type": "number",
             "title": "Usage Percent"
           },
-          "mirroring_enabled": {
+          "cache_enabled": {
             "type": "boolean",
-            "title": "Mirroring Enabled"
-          },
-          "providers": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Providers",
-            "description": "Entry count per provider"
+            "title": "Cache Enabled"
           }
         },
         "type": "object",
@@ -11979,7 +10268,7 @@
           "total_size_bytes",
           "max_size_bytes",
           "usage_percent",
-          "mirroring_enabled"
+          "cache_enabled"
         ],
         "title": "ImageCacheStatsResponse"
       },
@@ -11998,6 +10287,13 @@
           "tv"
         ],
         "title": "ItemKind"
+      },
+      "JsonObject-Input": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue-Input"
+        },
+        "type": "object",
+        "minProperties": 1
       },
       "JsonObject-Output": {
         "additionalProperties": {
@@ -12126,6 +10422,16 @@
               }
             ],
             "title": "Publication Date"
+          },
+          "publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "page_count": {
             "anyOf": [
@@ -12329,6 +10635,16 @@
             ],
             "title": "Publication Date"
           },
+          "publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "publisher": {
             "anyOf": [
               {
@@ -12530,6 +10846,50 @@
               }
             ],
             "title": "Display Number"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "start_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "end_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -12617,6 +10977,16 @@
             ],
             "title": "Original Publication Date"
           },
+          "original_publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "first_publication_date": {
             "anyOf": [
               {
@@ -12628,6 +10998,16 @@
               }
             ],
             "title": "First Publication Date"
+          },
+          "first_publication_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "anyOf": [
@@ -12734,27 +11114,6 @@
             "type": "array",
             "title": "Route Segments"
           },
-          "default_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "providers": {
-            "items": {
-              "$ref": "#/components/schemas/ExternalProvider"
-            },
-            "type": "array",
-            "title": "Providers"
-          },
-          "provider_search_policy": {
-            "type": "string",
-            "title": "Provider Search Policy"
-          },
           "is_top_level": {
             "type": "boolean",
             "title": "Is Top Level",
@@ -12777,10 +11136,38 @@
           "singular_label",
           "plural_label",
           "route_segments",
-          "provider_search_policy",
           "grouping_model"
         ],
         "title": "MediaTypeResponse"
+      },
+      "MetadataFieldOwnershipResponse": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "source_entity_type": {
+            "type": "string",
+            "title": "Source Entity Type"
+          },
+          "source_table": {
+            "type": "string",
+            "title": "Source Table"
+          },
+          "write_target": {
+            "type": "string",
+            "title": "Write Target"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scope",
+          "source_entity_type",
+          "source_table",
+          "write_target"
+        ],
+        "title": "MetadataFieldOwnershipResponse",
+        "description": "The authoritative source boundary for one kind-specific field view."
       },
       "MetadataFieldSchemaResponse": {
         "properties": {
@@ -12855,14 +11242,6 @@
             "type": "boolean",
             "title": "Editable"
           },
-          "scope": {
-            "type": "string",
-            "title": "Scope"
-          },
-          "write_target": {
-            "type": "string",
-            "title": "Write Target"
-          },
           "section": {
             "type": "string",
             "title": "Section"
@@ -12878,27 +11257,15 @@
             "type": "array",
             "title": "Kinds"
           },
-          "source_entity_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Entity Type"
-          },
-          "source_table": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Table"
+          "ownership_by_kind": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MetadataFieldOwnershipResponse"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/ItemKind"
+            },
+            "type": "object",
+            "title": "Ownership By Kind"
           }
         },
         "type": "object",
@@ -12910,8 +11277,6 @@
           "typed",
           "normalized",
           "editable",
-          "scope",
-          "write_target",
           "section",
           "input"
         ],
@@ -12960,454 +11325,6 @@
           "value_types"
         ],
         "title": "MetadataNormalizedManifestResponse"
-      },
-      "MetadataProposalAdminResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Item Id"
-          },
-          "query": {
-            "type": "string",
-            "title": "Query"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          },
-          "metadata_payload": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/JsonObject-Output"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "provider",
-          "provider_item_id",
-          "query",
-          "title",
-          "summary",
-          "image_url",
-          "status"
-        ],
-        "title": "MetadataProposalAdminResponse"
-      },
-      "MetadataProposalAdminUpdateRequest": {
-        "properties": {
-          "query": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Query"
-          },
-          "provider_item_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Item Id"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          },
-          "metadata_payload": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/app__types__json__JsonObject-Input__2"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "MetadataProposalAdminUpdateRequest"
-      },
-      "MetadataProposalCreate": {
-        "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Item Id"
-          },
-          "query": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Query"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 255
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 1024
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          },
-          "metadata_payload": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/app__types__json__JsonObject-Input__2"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "provider",
-          "query"
-        ],
-        "title": "MetadataProposalCreate"
-      },
-      "MetadataProposalResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Item Id"
-          },
-          "query": {
-            "type": "string",
-            "title": "Query"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "metadata_payload": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/JsonObject-Output"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "provider",
-          "provider_item_id",
-          "query",
-          "title",
-          "status"
-        ],
-        "title": "MetadataProposalResponse"
-      },
-      "MetadataProposalSummaryResponse": {
-        "properties": {
-          "pending": {
-            "type": "integer",
-            "title": "Pending"
-          },
-          "approved": {
-            "type": "integer",
-            "title": "Approved"
-          },
-          "rejected": {
-            "type": "integer",
-            "title": "Rejected"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          }
-        },
-        "type": "object",
-        "required": [
-          "pending",
-          "approved",
-          "rejected",
-          "total"
-        ],
-        "title": "MetadataProposalSummaryResponse"
-      },
-      "MetadataSubmissionRequest": {
-        "properties": {
-          "schema_version": {
-            "type": "string",
-            "title": "Schema Version",
-            "description": "Envelope schema version (e.g. 'v1')"
-          },
-          "provider": {
-            "type": "string",
-            "title": "Provider",
-            "description": "Provider identifier (e.g. 'tmdb', 'openlibrary')"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "title": "Provider Item Id",
-            "description": "Provider's native item ID"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "description": "Target media kind (e.g. 'movie', 'tv', 'comic')"
-          },
-          "normalized": {
-            "$ref": "#/components/schemas/app__types__json__JsonObject-Input__2",
-            "description": "Normalized item metadata dictionary"
-          },
-          "provenance": {
-            "$ref": "#/components/schemas/app__types__json__JsonObject-Input__2",
-            "description": "Provider provenance info"
-          },
-          "images": {
-            "items": {
-              "$ref": "#/components/schemas/app__types__json__JsonObject-Input__2"
-            },
-            "type": "array",
-            "title": "Images",
-            "description": "Provider image references"
-          },
-          "attribution": {
-            "$ref": "#/components/schemas/app__types__json__JsonObject-Input__2",
-            "description": "Attribution metadata"
-          }
-        },
-        "type": "object",
-        "required": [
-          "schema_version",
-          "provider",
-          "provider_item_id",
-          "kind",
-          "normalized"
-        ],
-        "title": "MetadataSubmissionRequest",
-        "description": "Normalized metadata envelope submission payload."
-      },
-      "MetadataSubmissionResponse": {
-        "properties": {
-          "submission_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submission Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "description": "'canonical_write' | 'proposal_created'"
-          },
-          "item_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Item Id"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind"
-          },
-          "created": {
-            "type": "boolean",
-            "title": "Created",
-            "default": false
-          },
-          "item": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Item"
-          },
-          "message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status",
-          "kind"
-        ],
-        "title": "MetadataSubmissionResponse",
-        "description": "Result of processing a normalized metadata submission."
       },
       "MovieCharacterResponse": {
         "properties": {
@@ -13707,6 +11624,16 @@
             ],
             "title": "Release Date"
           },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "region": {
             "anyOf": [
               {
@@ -13882,6 +11809,16 @@
             ],
             "title": "Release Date"
           },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "runtime_minutes": {
             "anyOf": [
               {
@@ -13971,359 +11908,207 @@
         ],
         "title": "MovieWorkV1Response"
       },
-      "MusicContributorResponse": {
+      "MusicAlbumArtistV1": {
         "properties": {
-          "person_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Person Id"
-          },
           "name": {
             "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
             "title": "Name"
           },
+          "sort_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "MusicAlbumArtistV1"
+      },
+      "MusicAlbumCreditV1": {
+        "properties": {
           "role": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Role"
           },
           "sequence": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
+            "minimum": 0.0,
             "title": "Sequence"
           },
-          "image_url": {
+          "credited_name": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Credited Name"
+          },
+          "join_phrase": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Image Url"
+            "title": "Join Phrase"
           },
-          "role_id": {
+          "instrument": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Role Id"
+            "title": "Instrument"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "person_id",
-          "name",
-          "role"
+          "role",
+          "sequence",
+          "credited_name"
         ],
-        "title": "MusicContributorResponse"
+        "title": "MusicAlbumCreditV1"
       },
-      "MusicIdentifierResponse": {
+      "MusicAlbumDiscTitleV1": {
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "identifier_type": {
-            "type": "string",
-            "title": "Identifier Type"
-          },
-          "value": {
-            "type": "string",
-            "title": "Value"
-          },
-          "normalized_value": {
-            "type": "string",
-            "title": "Normalized Value"
-          },
-          "is_primary": {
-            "type": "boolean",
-            "title": "Is Primary"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "identifier_type",
-          "value",
-          "normalized_value",
-          "is_primary"
-        ],
-        "title": "MusicIdentifierResponse"
-      },
-      "MusicMediumV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "release_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Release Id"
-          },
-          "medium_number": {
+          "disc_number": {
             "type": "integer",
-            "title": "Medium Number"
-          },
-          "medium_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Medium Type"
+            "minimum": 1.0,
+            "title": "Disc Number"
           },
           "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
             "title": "Title"
-          },
-          "track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Count"
-          },
-          "expected_track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Track Count"
-          },
-          "missing_track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Missing Track Count"
-          },
-          "missing_track_positions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Track Positions"
-          },
-          "toc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Toc"
-          },
-          "cddb_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cddb Id"
-          },
-          "leadout_offset": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Leadout Offset"
-          },
-          "bp_disc_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bp Disc Id"
-          },
-          "media_condition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Media Condition"
-          },
-          "sound_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sound Type"
-          },
-          "vinyl_color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vinyl Color"
-          },
-          "vinyl_weight": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vinyl Weight"
-          },
-          "rpm": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rpm"
-          },
-          "spars": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spars"
-          },
-          "tracks": {
-            "items": {
-              "$ref": "#/components/schemas/MusicTrackV1Response"
-            },
-            "type": "array",
-            "title": "Tracks"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "id",
-          "release_id",
-          "medium_number"
+          "disc_number",
+          "title"
         ],
-        "title": "MusicMediumV1Response"
+        "title": "MusicAlbumDiscTitleV1"
       },
-      "MusicReleaseGroupV1Response": {
+      "MusicAlbumLabelV1": {
         "properties": {
-          "id": {
+          "name": {
             "type": "string",
-            "format": "uuid",
-            "title": "Id"
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "catalog_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Number"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "MusicAlbumLabelV1"
+      },
+      "MusicAlbumLinkV1": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Position"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "position",
+          "url"
+        ],
+        "title": "MusicAlbumLinkV1"
+      },
+      "MusicAlbumTrackInputV1": {
+        "properties": {
+          "disc_number": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Disc Number"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Position"
           },
           "title": {
             "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
             "title": "Title"
-          },
-          "sort_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Title"
-          },
-          "original_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Original Title"
-          },
-          "synopsis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Synopsis"
           },
           "artist": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -14331,40 +12116,235 @@
             ],
             "title": "Artist"
           },
-          "original_release_date": {
+          "duration_ms": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date"
+                "type": "integer",
+                "minimum": 0.0
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Original Release Date"
+            "title": "Duration Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "disc_number",
+          "position",
+          "title"
+        ],
+        "title": "MusicAlbumTrackInputV1"
+      },
+      "MusicAlbumTrackV1": {
+        "properties": {
+          "album_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Album Id"
+          },
+          "disc_number": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Disc Number"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Position"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "album_id",
+          "disc_number",
+          "position",
+          "title"
+        ],
+        "title": "MusicAlbumTrackV1"
+      },
+      "MusicAlbumV1Response": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
+          },
+          "artists": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumArtistV1"
+            },
+            "type": "array",
+            "title": "Artists"
+          },
+          "release_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "original_release_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "recording_date": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date"
+                "$ref": "#/components/schemas/PartialDateValue"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Recording Date"
+            ]
           },
-          "studio": {
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumLabelV1"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
+          "format": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
+            "title": "Format"
+          },
+          "barcode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Barcode"
+          },
+          "catalog_number": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Number"
+          },
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genres"
+          },
+          "packaging": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packaging"
+          },
+          "studio": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
             "title": "Studio"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
           },
           "is_live": {
             "anyOf": [
@@ -14377,181 +12357,199 @@
             ],
             "title": "Is Live"
           },
-          "genres": {
+          "sound_types": {
             "items": {
               "type": "string"
             },
             "type": "array",
-            "title": "Genres"
+            "title": "Sound Types"
           },
-          "cover_image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Url"
-          },
-          "cover_image_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Key"
-          },
-          "external_links": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "External Links"
-          },
-          "releases": {
-            "items": {
-              "$ref": "#/components/schemas/MusicReleaseSummaryV1Response"
-            },
-            "type": "array",
-            "title": "Releases"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "title"
-        ],
-        "title": "MusicReleaseGroupV1Response"
-      },
-      "MusicReleaseSummaryV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "release_group_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Release Group Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "release_date": {
+          "vinyl_color": {
             "anyOf": [
               {
                 "type": "string",
-                "format": "date"
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Date"
+            "title": "Vinyl Color"
           },
-          "release_type": {
+          "vinyl_weight": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,9}0*$)\\d{0,6}\\.\\d{0,2}0*$)"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Type"
+            "title": "Vinyl Weight"
           },
-          "release_status": {
+          "rpm": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer",
+                "minimum": 0.0
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Status"
+            "title": "Rpm"
           },
-          "publisher": {
+          "extras": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extras"
+          },
+          "spars_code": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Publisher"
+            "title": "Spars Code"
           },
-          "barcode": {
+          "box_set": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Barcode"
+            "title": "Box Set"
           },
-          "catalog_number": {
+          "matrix_number_side_a": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Catalog Number"
+            "title": "Matrix Number Side A"
+          },
+          "matrix_number_side_b": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matrix Number Side B"
           },
           "cover_image_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Cover Image Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "release_group_id",
-          "title"
-        ],
-        "title": "MusicReleaseSummaryV1Response"
-      },
-      "MusicReleaseV1Response": {
-        "properties": {
+          },
+          "back_cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Cover Image Url"
+          },
+          "disc_titles": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumDiscTitleV1"
+            },
+            "type": "array",
+            "title": "Disc Titles"
+          },
+          "tracks": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumTrackV1"
+            },
+            "type": "array",
+            "title": "Tracks"
+          },
+          "credits": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumCreditV1"
+            },
+            "type": "array",
+            "title": "Credits"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumLinkV1"
+            },
+            "type": "array",
+            "title": "Links"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
             "title": "Id"
           },
-          "release_group_id": {
+          "created_at": {
             "type": "string",
-            "format": "uuid",
-            "title": "Release Group Id"
+            "format": "date-time",
+            "title": "Created At"
           },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MusicAlbumV1Response"
+      },
+      "MusicAlbumWriteV1": {
+        "properties": {
           "title": {
             "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
             "title": "Title"
           },
           "sort_title": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 255
               },
               {
                 "type": "null"
@@ -14562,7 +12560,8 @@
           "subtitle": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 500
               },
               {
                 "type": "null"
@@ -14570,77 +12569,67 @@
             ],
             "title": "Subtitle"
           },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "release_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Status"
+          "artists": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumArtistV1"
+            },
+            "type": "array",
+            "title": "Artists"
           },
           "release_date": {
             "anyOf": [
               {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "original_release_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recording_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumLabelV1"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
+          "format": {
+            "anyOf": [
+              {
                 "type": "string",
-                "format": "date"
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Release Date"
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher"
-          },
-          "upc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Upc"
-          },
-          "catalog_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Catalog Number"
+            "title": "Format"
           },
           "barcode": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -14648,32 +12637,30 @@
             ],
             "title": "Barcode"
           },
-          "country_code": {
+          "catalog_number": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Country Code"
+            "title": "Catalog Number"
           },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
+          "genres": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Genres"
           },
           "packaging": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100
               },
               {
                 "type": "null"
@@ -14681,10 +12668,145 @@
             ],
             "title": "Packaging"
           },
+          "studio": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Studio"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "is_live": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Live"
+          },
+          "sound_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sound Types"
+          },
+          "vinyl_color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vinyl Color"
+          },
+          "vinyl_weight": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,6}|(?=[\\d.]{1,9}0*$)\\d{0,6}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vinyl Weight"
+          },
+          "rpm": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpm"
+          },
+          "extras": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extras"
+          },
+          "spars_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spars Code"
+          },
+          "box_set": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Set"
+          },
+          "matrix_number_side_a": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matrix Number Side A"
+          },
+          "matrix_number_side_b": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matrix Number Side B"
+          },
           "cover_image_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
               },
               {
                 "type": "null"
@@ -14692,189 +12814,103 @@
             ],
             "title": "Cover Image Url"
           },
-          "cover_image_key": {
+          "back_cover_image_url": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Cover Image Key"
+            "title": "Back Cover Image Url"
           },
-          "kind": {
-            "$ref": "#/components/schemas/ItemKind",
-            "default": "music"
-          },
-          "mediums": {
+          "disc_titles": {
             "items": {
-              "$ref": "#/components/schemas/MusicMediumV1Response"
+              "$ref": "#/components/schemas/MusicAlbumDiscTitleV1"
             },
             "type": "array",
-            "title": "Mediums"
+            "title": "Disc Titles"
           },
-          "contributions": {
+          "tracks": {
             "items": {
-              "$ref": "#/components/schemas/MusicContributorResponse"
+              "$ref": "#/components/schemas/MusicAlbumTrackInputV1"
             },
             "type": "array",
-            "title": "Contributions"
+            "title": "Tracks"
           },
-          "identifiers": {
+          "credits": {
             "items": {
-              "$ref": "#/components/schemas/MusicIdentifierResponse"
+              "$ref": "#/components/schemas/MusicAlbumCreditV1"
             },
             "type": "array",
-            "title": "Identifiers"
+            "title": "Credits"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/MusicAlbumLinkV1"
+            },
+            "type": "array",
+            "title": "Links"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "id",
-          "release_group_id",
           "title"
         ],
-        "title": "MusicReleaseV1Response"
+        "title": "MusicAlbumWriteV1",
+        "description": "Source-neutral canonical Music album data accepted by create/update."
       },
-      "MusicTrackV1Response": {
+      "PartialDateValue": {
         "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "medium_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Medium Id"
-          },
-          "position": {
-            "type": "string",
-            "title": "Position"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "artist": {
+          "year": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer",
+                "maximum": 9999.0,
+                "minimum": 1.0
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Artist"
+            "title": "Year"
           },
-          "is_header": {
-            "type": "boolean",
-            "title": "Is Header",
-            "default": false
-          },
-          "indent_level": {
-            "type": "integer",
-            "title": "Indent Level",
-            "default": 0
-          },
-          "parent_header_id": {
+          "month": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 1.0
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Parent Header Id"
+            "title": "Month"
           },
-          "duration_ms": {
+          "day": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "integer",
+                "maximum": 31.0,
+                "minimum": 1.0
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Duration Ms"
-          },
-          "offset_ms": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Offset Ms"
-          },
-          "bitrate_kbps": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bitrate Kbps"
-          },
-          "file_size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size Bytes"
-          },
-          "track_hash": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Hash"
-          },
-          "instrument": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instrument"
-          },
-          "composition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Composition"
+            "title": "Day"
           }
         },
+        "additionalProperties": false,
         "type": "object",
-        "required": [
-          "id",
-          "medium_id",
-          "position",
-          "title"
-        ],
-        "title": "MusicTrackV1Response"
+        "title": "PartialDateValue",
+        "description": "A catalog date with independently optional components."
       },
       "PhysicalFormatResponse": {
         "properties": {
@@ -14910,1313 +12946,6 @@
           "variant_type"
         ],
         "title": "PhysicalFormatResponse"
-      },
-      "ProviderBatchHydrateItem": {
-        "properties": {
-          "provider_item_id": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Provider Item Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider_item_id"
-        ],
-        "title": "ProviderBatchHydrateItem"
-      },
-      "ProviderBatchHydrateRequest": {
-        "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderBatchHydrateItem"
-            },
-            "type": "array",
-            "maxItems": 500,
-            "minItems": 1,
-            "title": "Items"
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider",
-          "items"
-        ],
-        "title": "ProviderBatchHydrateRequest"
-      },
-      "ProviderBatchHydrateResponse": {
-        "properties": {
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderBatchHydrateResultItem"
-            },
-            "type": "array",
-            "title": "Results"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "succeeded": {
-            "type": "integer",
-            "title": "Succeeded"
-          },
-          "failed": {
-            "type": "integer",
-            "title": "Failed"
-          }
-        },
-        "type": "object",
-        "required": [
-          "results",
-          "total",
-          "succeeded",
-          "failed"
-        ],
-        "title": "ProviderBatchHydrateResponse"
-      },
-      "ProviderBatchHydrateResultItem": {
-        "properties": {
-          "provider_item_id": {
-            "type": "string",
-            "title": "Provider Item Id"
-          },
-          "success": {
-            "type": "boolean",
-            "title": "Success"
-          },
-          "preview": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ProviderPreviewResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider_item_id",
-          "success"
-        ],
-        "title": "ProviderBatchHydrateResultItem"
-      },
-      "ProviderCacheStatsResponse": {
-        "properties": {
-          "hits": {
-            "type": "integer",
-            "title": "Hits",
-            "default": 0
-          },
-          "misses": {
-            "type": "integer",
-            "title": "Misses",
-            "default": 0
-          },
-          "writes": {
-            "type": "integer",
-            "title": "Writes",
-            "default": 0
-          },
-          "entries": {
-            "type": "integer",
-            "title": "Entries",
-            "default": 0
-          },
-          "backoffs": {
-            "type": "integer",
-            "title": "Backoffs",
-            "default": 0
-          },
-          "local_entries": {
-            "type": "integer",
-            "title": "Local Entries",
-            "default": 0
-          },
-          "redis_entries": {
-            "type": "integer",
-            "title": "Redis Entries",
-            "default": 0
-          },
-          "local_backoffs": {
-            "type": "integer",
-            "title": "Local Backoffs",
-            "default": 0
-          },
-          "redis_backoffs": {
-            "type": "integer",
-            "title": "Redis Backoffs",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "title": "ProviderCacheStatsResponse"
-      },
-      "ProviderCacheSummaryResponse": {
-        "properties": {
-          "search": {
-            "$ref": "#/components/schemas/ProviderCacheStatsResponse"
-          },
-          "preview": {
-            "$ref": "#/components/schemas/ProviderCacheStatsResponse"
-          }
-        },
-        "type": "object",
-        "required": [
-          "search",
-          "preview"
-        ],
-        "title": "ProviderCacheSummaryResponse"
-      },
-      "ProviderFieldStateResponse": {
-        "properties": {
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "present",
-              "missing_from_provider",
-              "not_supported_by_provider",
-              "unsupported_by_collectarr",
-              "user_only",
-              "import_only"
-            ],
-            "title": "State"
-          },
-          "value": {
-            "anyOf": [
-              {},
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
-          }
-        },
-        "type": "object",
-        "required": [
-          "key",
-          "state"
-        ],
-        "title": "ProviderFieldStateResponse"
-      },
-      "ProviderIngestHistoryEntry": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Timestamp"
-          },
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "title": "Provider Item Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "attempts": {
-            "type": "integer",
-            "title": "Attempts"
-          },
-          "resolved_entity_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolved Entity Type"
-          },
-          "resolved_entity_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolved Entity Id"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "timestamp",
-          "provider",
-          "provider_item_id",
-          "status",
-          "attempts"
-        ],
-        "title": "ProviderIngestHistoryEntry"
-      },
-      "ProviderIngestJobCreateRequest": {
-        "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Provider Item Id"
-          },
-          "max_attempts": {
-            "type": "integer",
-            "maximum": 10.0,
-            "minimum": 1.0,
-            "title": "Max Attempts",
-            "default": 3
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "provider",
-          "provider_item_id"
-        ],
-        "title": "ProviderIngestJobCreateRequest"
-      },
-      "ProviderIngestJobResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "title": "Provider Item Id"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "attempts": {
-            "type": "integer",
-            "title": "Attempts"
-          },
-          "max_attempts": {
-            "type": "integer",
-            "title": "Max Attempts"
-          },
-          "next_run_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Run At"
-          },
-          "resolved_entity_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolved Entity Type"
-          },
-          "resolved_entity_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resolved Entity Id"
-          },
-          "last_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Error"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "provider",
-          "provider_item_id",
-          "status",
-          "attempts",
-          "max_attempts",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "ProviderIngestJobResponse"
-      },
-      "ProviderIngestJobRunResponse": {
-        "properties": {
-          "processed": {
-            "type": "integer",
-            "title": "Processed"
-          },
-          "jobs": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderIngestJobResponse"
-            },
-            "type": "array",
-            "title": "Jobs"
-          },
-          "recovered": {
-            "type": "integer",
-            "title": "Recovered",
-            "default": 0
-          }
-        },
-        "type": "object",
-        "required": [
-          "processed",
-          "jobs"
-        ],
-        "title": "ProviderIngestJobRunResponse"
-      },
-      "ProviderIngestJobSummaryResponse": {
-        "properties": {
-          "queued": {
-            "type": "integer",
-            "title": "Queued",
-            "default": 0
-          },
-          "running": {
-            "type": "integer",
-            "title": "Running",
-            "default": 0
-          },
-          "failed": {
-            "type": "integer",
-            "title": "Failed",
-            "default": 0
-          },
-          "done": {
-            "type": "integer",
-            "title": "Done",
-            "default": 0
-          },
-          "due_queued": {
-            "type": "integer",
-            "title": "Due Queued",
-            "default": 0
-          },
-          "stale_running": {
-            "type": "integer",
-            "title": "Stale Running",
-            "default": 0
-          },
-          "oldest_queued_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Oldest Queued At"
-          },
-          "next_run_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Next Run At"
-          },
-          "latest_failure_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Latest Failure At"
-          }
-        },
-        "type": "object",
-        "title": "ProviderIngestJobSummaryResponse"
-      },
-      "ProviderIngestRequest": {
-        "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Provider Item Id"
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ItemKind"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "provider",
-          "provider_item_id"
-        ],
-        "title": "ProviderIngestRequest"
-      },
-      "ProviderIngestResponse": {
-        "properties": {
-          "item_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Item Id"
-          },
-          "created": {
-            "type": "boolean",
-            "title": "Created"
-          },
-          "item": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "$ref": "#/components/schemas/BookWorkV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/ComicWorkV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/GameWorkV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/BoardGameWorkV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/MangaWorkV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/AnimeSeriesV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/MovieWorkV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/MusicReleaseGroupV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/MusicReleaseV1Response"
-              },
-              {
-                "$ref": "#/components/schemas/TVSeriesV1Response"
-              }
-            ],
-            "title": "Item"
-          }
-        },
-        "type": "object",
-        "required": [
-          "item_id",
-          "created",
-          "item"
-        ],
-        "title": "ProviderIngestResponse"
-      },
-      "ProviderIngestRetryRequest": {
-        "properties": {
-          "history_id": {
-            "type": "integer",
-            "title": "History Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "history_id"
-        ],
-        "title": "ProviderIngestRetryRequest"
-      },
-      "ProviderPayloadSnapshotPurgeResponse": {
-        "properties": {
-          "purged": {
-            "type": "integer",
-            "title": "Purged"
-          }
-        },
-        "type": "object",
-        "required": [
-          "purged"
-        ],
-        "title": "ProviderPayloadSnapshotPurgeResponse"
-      },
-      "ProviderPreviewCredit": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "ProviderPreviewCredit"
-      },
-      "ProviderPreviewResponse": {
-        "properties": {
-          "provider": {
-            "type": "string",
-            "title": "Provider"
-          },
-          "provider_item_id": {
-            "type": "string",
-            "title": "Provider Item Id"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ItemKind"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "item_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Item Number"
-          },
-          "synopsis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Synopsis"
-          },
-          "series_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Series Title"
-          },
-          "volume_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Name"
-          },
-          "volume_number": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Number"
-          },
-          "volume_start_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Volume Start Year"
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher"
-          },
-          "imprint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Imprint"
-          },
-          "edition_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Edition Title"
-          },
-          "edition_format": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Edition Format"
-          },
-          "physical_format": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Physical Format"
-          },
-          "physical_format_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Physical Format Label"
-          },
-          "release_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Date"
-          },
-          "barcode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Barcode"
-          },
-          "isbn": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Isbn"
-          },
-          "variant_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Variant Name"
-          },
-          "cover_image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Url"
-          },
-          "cover_price_cents": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Price Cents"
-          },
-          "currency": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Currency"
-          },
-          "country": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Country"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "age_rating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Age Rating"
-          },
-          "audience_rating": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audience Rating"
-          },
-          "subtitle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtitle"
-          },
-          "series_group": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Series Group"
-          },
-          "page_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Page Count"
-          },
-          "runtime_minutes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Runtime Minutes"
-          },
-          "track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Count"
-          },
-          "catalog_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Catalog Number"
-          },
-          "creators": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderPreviewCredit"
-            },
-            "type": "array",
-            "title": "Creators"
-          },
-          "characters": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Characters"
-          },
-          "story_arcs": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Story Arcs"
-          },
-          "platforms": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Platforms"
-          },
-          "genres": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Genres"
-          },
-          "release_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Status"
-          },
-          "tracks": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderPreviewTrack"
-            },
-            "type": "array",
-            "title": "Tracks"
-          },
-          "field_states": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderFieldStateResponse"
-            },
-            "type": "array",
-            "title": "Field States"
-          }
-        },
-        "type": "object",
-        "required": [
-          "provider",
-          "provider_item_id",
-          "kind",
-          "title"
-        ],
-        "title": "ProviderPreviewResponse",
-        "description": "Normalized provider data returned WITHOUT creating anything in the DB."
-      },
-      "ProviderPreviewTrack": {
-        "properties": {
-          "position": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Position"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "duration_seconds": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Seconds"
-          },
-          "artist": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Artist"
-          },
-          "disc_number": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Disc Number"
-          }
-        },
-        "type": "object",
-        "required": [
-          "title"
-        ],
-        "title": "ProviderPreviewTrack"
-      },
-      "ProviderSearchRequest": {
-        "properties": {
-          "provider": {
-            "$ref": "#/components/schemas/ExternalProvider"
-          },
-          "query": {
-            "type": "string",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Query"
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ItemKind"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "provider",
-          "query"
-        ],
-        "title": "ProviderSearchRequest"
-      },
-      "ProviderStatusListResponse": {
-        "properties": {
-          "providers": {
-            "items": {
-              "$ref": "#/components/schemas/ProviderStatusResponse"
-            },
-            "type": "array",
-            "title": "Providers"
-          },
-          "cache_stats": {
-            "$ref": "#/components/schemas/ProviderCacheSummaryResponse"
-          }
-        },
-        "type": "object",
-        "required": [
-          "providers",
-          "cache_stats"
-        ],
-        "title": "ProviderStatusListResponse"
-      },
-      "ProviderStatusResponse": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "display_name": {
-            "type": "string",
-            "title": "Display Name"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind"
-          },
-          "supported_kinds": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Supported Kinds"
-          },
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "is_configured": {
-            "type": "boolean",
-            "title": "Is Configured"
-          },
-          "supports_search": {
-            "type": "boolean",
-            "title": "Supports Search",
-            "default": true
-          },
-          "supports_ingest": {
-            "type": "boolean",
-            "title": "Supports Ingest",
-            "default": true
-          },
-          "requires_user_key": {
-            "type": "boolean",
-            "title": "Requires User Key",
-            "default": false
-          },
-          "non_commercial_only": {
-            "type": "boolean",
-            "title": "Non Commercial Only",
-            "default": false
-          },
-          "allows_redistribution": {
-            "type": "boolean",
-            "title": "Allows Redistribution",
-            "default": false
-          },
-          "allows_image_mirroring": {
-            "type": "boolean",
-            "title": "Allows Image Mirroring",
-            "default": false
-          },
-          "image_policy": {
-            "type": "string",
-            "title": "Image Policy",
-            "default": "remote_image_only"
-          },
-          "requires_attribution": {
-            "type": "boolean",
-            "title": "Requires Attribution",
-            "default": false
-          },
-          "license_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "License Name"
-          },
-          "terms_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Terms Url"
-          },
-          "attribution_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Attribution Url"
-          },
-          "rate_limit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rate Limit"
-          },
-          "cache_policy": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cache Policy"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "display_name",
-          "kind",
-          "status",
-          "is_configured",
-          "message"
-        ],
-        "title": "ProviderStatusResponse"
       },
       "RegisterRequest": {
         "properties": {
@@ -16386,6 +13115,16 @@
               }
             ],
             "title": "Release Date"
+          },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "release_year": {
             "anyOf": [
@@ -16790,6 +13529,16 @@
             ],
             "title": "Start Date"
           },
+          "start_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "end_date": {
             "anyOf": [
               {
@@ -16801,6 +13550,16 @@
               }
             ],
             "title": "End Date"
+          },
+          "end_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "item_count": {
             "type": "integer",
@@ -16957,6 +13716,16 @@
             ],
             "title": "Start Date"
           },
+          "start_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "end_date": {
             "anyOf": [
               {
@@ -16968,6 +13737,16 @@
               }
             ],
             "title": "End Date"
+          },
+          "end_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "item_count": {
             "type": "integer",
@@ -17109,6 +13888,16 @@
               }
             ],
             "title": "Air Date"
+          },
+          "air_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "description": {
             "anyOf": [
@@ -17539,6 +14328,16 @@
             ],
             "title": "Release Date"
           },
+          "release_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "publisher": {
             "anyOf": [
               {
@@ -17729,6 +14528,16 @@
             ],
             "title": "Air Date"
           },
+          "air_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "episode_count": {
             "anyOf": [
               {
@@ -17844,6 +14653,16 @@
             ],
             "title": "Original Air Date"
           },
+          "original_air_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "end_date": {
             "anyOf": [
               {
@@ -17855,6 +14674,16 @@
               }
             ],
             "title": "End Date"
+          },
+          "end_date_parts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "anyOf": [
@@ -18143,19 +14972,6 @@
           "display_name"
         ],
         "title": "UserResponse"
-      },
-      "app__types__json__JsonObject-Input__2": {
-        "additionalProperties": {
-          "$ref": "#/components/schemas/JsonValue-Input"
-        },
-        "type": "object"
-      },
-      "app__types__json__JsonObject__1": {
-        "additionalProperties": {
-          "$ref": "#/components/schemas/JsonValue-Input"
-        },
-        "type": "object",
-        "minProperties": 1
       }
     },
     "securitySchemes": {
@@ -18180,7 +14996,7 @@
     },
     {
       "name": "admin",
-      "description": "Administration and provider management"
+      "description": "Catalog and account administration"
     }
   ]
 }

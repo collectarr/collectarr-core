@@ -21,20 +21,23 @@ sys.path.insert(0, str(ROOT))
 from app.catalog.media_types import top_level_media_types  # noqa: E402
 from app.catalog.metadata_fields import contract_rows  # noqa: E402
 from app.main import app  # noqa: E402
-from app.providers.registry import ProviderRegistry  # noqa: E402
-from scripts.export_provider_golden_fixtures import (  # noqa: E402
-    generate_envelope_schema,
-    generate_golden_envelopes,
-)
 
-CONTRACT_VERSION = "2.0.0"
+CONTRACT_VERSION = "1.0.0"
 
 MUSIC_CATALOG_SCHEMAS = {
-    "releaseGroup": "MusicReleaseGroupV1Response",
-    "releaseSummary": "MusicReleaseSummaryV1Response",
-    "release": "MusicReleaseV1Response",
-    "medium": "MusicMediumV1Response",
-    "track": "MusicTrackV1Response",
+    "album": "MusicAlbumV1Response",
+    "albumWrite": "MusicAlbumWriteV1",
+    "track": "MusicAlbumTrackV1",
+    "trackInput": "MusicAlbumTrackInputV1",
+    "discTitle": "MusicAlbumDiscTitleV1",
+    "credit": "MusicAlbumCreditV1",
+    "link": "MusicAlbumLinkV1",
+}
+
+CATALOG_ITEM_SCHEMAS = {
+    "item": "CatalogItemV1",
+    "itemWrite": "CatalogItemWriteV1",
+    "itemSummary": "CatalogItemSummaryV1",
 }
 
 
@@ -104,6 +107,40 @@ def _music_catalog_contract(openapi: dict[str, Any], generated_at: str) -> dict[
     }
 
 
+def _catalog_item_contract(openapi: dict[str, Any], generated_at: str) -> dict[str, Any]:
+    component_schemas = openapi.get("components", {}).get("schemas", {})
+    included: set[str] = set()
+    pending = list(CATALOG_ITEM_SCHEMAS.values())
+
+    while pending:
+        name = pending.pop()
+        if name in included:
+            continue
+        schema = component_schemas.get(name)
+        if schema is None:
+            raise KeyError(f"OpenAPI is missing Catalog Item schema {name}")
+        included.add(name)
+        _collect_component_refs(schema, pending)
+
+    definitions = {
+        name: _rewrite_component_refs(component_schemas[name]) for name in sorted(included)
+    }
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://schemas.collectarr.app/catalog-item/v1",
+        "title": "Collectarr Catalog Item API",
+        "schemaVersion": 1,
+        "contractVersion": CONTRACT_VERSION,
+        "generatedAt": generated_at,
+        "coreCommit": _git_commit(),
+        "roots": {
+            name: {"$ref": f"#/$defs/{schema_name}"}
+            for name, schema_name in CATALOG_ITEM_SCHEMAS.items()
+        },
+        "$defs": definitions,
+    }
+
+
 def _collect_component_refs(value: Any, pending: list[str]) -> None:
     if isinstance(value, dict):
         ref = value.get("$ref")
@@ -138,6 +175,7 @@ def build_contract_bundle() -> dict[str, Any]:
     generated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     openapi = app.openapi()
     music_catalog = _music_catalog_contract(openapi, generated_at)
+    catalog_item = _catalog_item_contract(openapi, generated_at)
     field_schema = {
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
@@ -148,46 +186,14 @@ def build_contract_bundle() -> dict[str, Any]:
         "generatedAt": generated_at,
         "kinds": [media_type.kind.value for media_type in top_level_media_types],
     }
-    registry = ProviderRegistry()
-    provider_support = {
-        "contractVersion": CONTRACT_VERSION,
-        "generatedAt": generated_at,
-        "providers": [
-            {
-                "name": row.name,
-                "displayName": row.display_name,
-                "kind": row.kind.value,
-                "supportedKinds": [kind.value for kind in row.supported_kinds],
-                "isConfigured": row.is_configured,
-                "statusMessage": row.status_message,
-                "supportsSearch": row.supports_search,
-                "supportsIngest": row.supports_ingest,
-                "requiresUserKey": row.requires_user_key,
-                "nonCommercialOnly": row.non_commercial_only,
-                "allowsRedistribution": row.allows_redistribution,
-                "allowsImageMirroring": row.allows_image_mirroring,
-                "requiresAttribution": row.requires_attribution,
-                "licenseName": row.license_name,
-                "termsUrl": row.terms_url,
-                "attributionUrl": row.attribution_url,
-                "rateLimit": row.rate_limit,
-                "cachePolicy": row.cache_policy,
-            }
-            for row in registry.status_entries()
-        ],
-    }
-    provider_envelope_schema = generate_envelope_schema()
-    golden_provider_envelopes = generate_golden_envelopes()
     return {
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
         "openapi": openapi,
+        "catalog_item": catalog_item,
         "music_catalog": music_catalog,
         "field_schema": field_schema,
         "active_kinds": active_kinds,
-        "provider_support": provider_support,
-        "provider_envelope_schema": provider_envelope_schema,
-        "golden_provider_envelopes": golden_provider_envelopes,
     }
 
 
@@ -195,12 +201,10 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
     bundle = build_contract_bundle()
     outputs = {
         "openapi.json": bundle["openapi"],
+        "catalog-item-v1.json": bundle["catalog_item"],
         "music-catalog-v1.json": bundle["music_catalog"],
         "metadata-field-schema.json": bundle["field_schema"],
         "active-kinds.json": bundle["active_kinds"],
-        "provider-support.json": bundle["provider_support"],
-        "provider-envelope-schema-v1.json": bundle["provider_envelope_schema"],
-        "golden-provider-envelopes.json": bundle["golden_provider_envelopes"],
     }
     hashes: dict[str, str] = {}
     for filename, payload in outputs.items():
@@ -212,12 +216,10 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
         "generatedAt": bundle["generatedAt"],
         "coreCommit": bundle["coreCommit"],
         "openApiHash": hashes["openapi.json"],
+        "catalogItemHash": hashes["catalog-item-v1.json"],
         "musicCatalogHash": hashes["music-catalog-v1.json"],
         "fieldSchemaHash": hashes["metadata-field-schema.json"],
         "activeKindsHash": hashes["active-kinds.json"],
-        "providerSupportHash": hashes["provider-support.json"],
-        "providerEnvelopeSchemaHash": hashes["provider-envelope-schema-v1.json"],
-        "goldenProviderEnvelopesHash": hashes["golden-provider-envelopes.json"],
     }
     outputs["contract-manifest.json"] = manifest
     return outputs, hashes
@@ -228,7 +230,11 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
     out_dir.mkdir(parents=True, exist_ok=True)
     outputs, hashes = build_contract_outputs()
     for filename, payload in outputs.items():
-        (out_dir / filename).write_text(_json_text(payload), encoding="utf-8")
+        # Hashes are defined over LF encoded UTF-8 bytes. Avoid Windows
+        # newline translation so the manifest verifies byte-for-byte on every
+        # platform.
+        with (out_dir / filename).open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write(_json_text(payload))
     manifest_data = (out_dir / "contract-manifest.json").read_bytes()
     hashes["contract-manifest.json"] = hashlib.sha256(manifest_data).hexdigest()
     return hashes
@@ -245,12 +251,10 @@ def check_contract_bundle(contracts_dir: Path | None = None) -> None:
 
     hash_key_by_file = {
         "openapi.json": "openApiHash",
+        "catalog-item-v1.json": "catalogItemHash",
         "music-catalog-v1.json": "musicCatalogHash",
         "metadata-field-schema.json": "fieldSchemaHash",
         "active-kinds.json": "activeKindsHash",
-        "provider-support.json": "providerSupportHash",
-        "provider-envelope-schema-v1.json": "providerEnvelopeSchemaHash",
-        "golden-provider-envelopes.json": "goldenProviderEnvelopesHash",
     }
     errors: list[str] = []
     for filename, generated_payload in generated.items():

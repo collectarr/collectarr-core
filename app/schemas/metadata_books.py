@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import (
     ContributorResponse,
@@ -43,7 +43,6 @@ class BookIdentifierResponse(BaseModel):
     value: str
     normalized_value: str
     is_primary: bool
-    source_provider: ExternalProvider | None = None
 
 
 class BookEditionV1Response(BaseModel):

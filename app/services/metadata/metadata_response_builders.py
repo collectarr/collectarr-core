@@ -31,12 +31,11 @@ from app.services.metadata.metadata_builders_anime import AnimeMetadataResponseB
 from app.services.metadata.metadata_builders_comics import ComicMetadataResponseBuilders
 from app.services.metadata.metadata_builders_manga import MangaMetadataResponseBuilders
 from app.services.metadata.metadata_builders_movies import MovieMetadataResponseBuilders
-from app.services.metadata.metadata_builders_music import MusicMetadataResponseBuilders
 from app.services.metadata.metadata_builders_tv import TVMetadataResponseBuilders
 from app.services.metadata.metadata_helpers import entity_link_values
 
 
-class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataResponseBuilders, AnimeMetadataResponseBuilders, MovieMetadataResponseBuilders, MusicMetadataResponseBuilders, TVMetadataResponseBuilders):
+class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataResponseBuilders, AnimeMetadataResponseBuilders, MovieMetadataResponseBuilders, TVMetadataResponseBuilders):
     def _book_contributor_response(
         self,
         contribution: BookContribution,
@@ -63,7 +62,6 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             value=identifier.value,
             normalized_value=identifier.normalized_value,
             is_primary=identifier.is_primary,
-            source_provider=identifier.source_provider,
         )
 
     def _book_edition_response(self, edition: BookEdition) -> BookEditionV1Response:

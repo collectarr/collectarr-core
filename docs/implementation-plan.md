@@ -1,44 +1,44 @@
-# Collectarr Core — Implementation Plan
+# Collectarr Core Implementation Plan
 
-Core is the canonical metadata server. Provider adapters and importers run in
-`collectarr-app`; Core accepts the versioned normalized submission contract and
-persists typed kind-specific metadata.
+> **Superseded target:** any per-kind Work/Release roadmap in this document is
+> replaced by the all-kind Catalog Item v1 target in
+> [catalog-item-v1-cutover.md](catalog-item-v1-cutover.md). Core's current
+> graph-backed models are transitional; this plan is not evidence that the new
+> contract or storage is complete.
 
-## Completed
+## Ownership
 
-- Split Core from the original monorepo.
-- Replaced generic catalog storage with typed kind-specific tables.
-- Added typed kind-specific catalog routes and contract exports.
-- Added normalized provider envelopes with provenance, attribution, and image
-  references.
-- Added admin metadata corrections, duplicate review, audit logs, and image
-  cache operations.
-- Added PostgreSQL-backed search with optional Meilisearch indexing.
+Core owns the canonical catalog, source-neutral write API, typed metadata
+contracts, search indexing, image storage, and catalog administration. App owns
+provider adapters, credentials, mapping, source identifiers, imports, owned
+copies, and personal activity. Core accepts an already prepared canonical
+object and does not perform provider search or ingest.
 
-## Active Roadmap
+## Catalog v1 Cutover
 
-### Metadata contract and canonical writes
+The coordinated v1 release replaces Music's release-group/release/medium graph
+with one `MusicAlbumV1` object containing ordered tracks, disc titles, credits,
+links, and catalog fields. It removes provider ingest, provider IDs,
+provider-source snapshots, and provider-specific proposals from Core for every
+kind.
 
-- Expand typed field coverage for every active kind.
-- Keep normalized submissions and OpenAPI contracts aligned.
-- Add focused validation for provider provenance and relation writes.
-- Keep new HTTP contracts under the `/api/v1` composition root.
-- Accept provider-independent canonical correction proposals against an exact
-  `(kind, entity_type, entity_id, scope)` target with a base revision/hash.
-  Core validates field scope and canonical write target, but does not resolve
-  the entity or accept personal/Owned fields.
+Core and App use fresh databases for this baseline. Existing Core PostgreSQL
+data and App Drift databases or backups from the old formats are incompatible.
+The new Core bootstrap uses `create_all()` and will not reshape existing
+tables. See [deployment.md](deployment.md) before deploying.
 
-### Admin operations
+## Contract Workflow
 
-- Expand duplicate review from confidence signals into an operator queue.
-- Continue deployment hardening for internet-facing installations.
+1. Define canonical request and response fields in typed Pydantic schemas.
+2. Store each value in its canonical kind-specific table or relation.
+3. Add catalog fields to search documents only when they affect search.
+4. Run `python -m scripts.export_contract_bundle` to regenerate the checked-in
+   OpenAPI, Music Album, metadata field, and active-kind artifacts.
+5. Update App's pinned artifacts explicitly when Core changes.
 
-### Schema explorer
+## Ongoing Work
 
-- Keep the interactive explorer separated into shared and kind-specific domains.
-- Add progressive disclosure for dense relation-heavy sections.
-
-### Scan-to-identify boundary
-
-- Keep comics cover recognition and scan-to-identify local-first in the app.
-- Core provides image storage and search primitives only.
+- Expand typed catalog coverage while keeping canonical ownership explicit.
+- Improve duplicate review and catalog correction operations.
+- Harden deployments and the generated schema explorer.
+- Keep cover recognition and provider matching local-first in App.

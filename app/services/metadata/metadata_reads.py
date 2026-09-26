@@ -42,11 +42,6 @@ from app.models import (
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicReleaseGroup,
-    MusicTrack,
     TVEpisode,
     TVEpisodeContribution,
     TVRelease,
@@ -76,10 +71,6 @@ from app.schemas import (
     MangaWorkV1Response,
     MovieReleaseV1Response,
     MovieWorkV1Response,
-    MusicMediumV1Response,
-    MusicReleaseGroupV1Response,
-    MusicReleaseV1Response,
-    MusicTrackV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
@@ -282,7 +273,7 @@ async def get_comic_work(service, work_id: UUID) -> ComicWorkV1Response:
             selectinload(ComicWork.issues).selectinload(ComicIssue.variants),
             selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
                 ComicCharacterAppearance.character
-            ).selectinload(Character.external_identifiers),
+            ),
             selectinload(ComicWork.missing_issue_entries),
             selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
                 ComicStoryArcMembership.story_arc
@@ -316,8 +307,7 @@ async def get_comic_work_issues(service, work_id: UUID) -> list[ComicIssueV1Resp
                     selectinload(ComicIssue.identifiers),
                     selectinload(ComicIssue.variants),
                     selectinload(ComicIssue.character_appearances)
-                    .selectinload(ComicCharacterAppearance.character)
-                    .selectinload(Character.external_identifiers),
+                    .selectinload(ComicCharacterAppearance.character),
                     selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
                 )
                 .order_by(
@@ -340,8 +330,7 @@ async def get_comic_issue(service, issue_id: UUID) -> ComicIssueV1Response:
             selectinload(ComicIssue.identifiers),
             selectinload(ComicIssue.variants),
             selectinload(ComicIssue.character_appearances)
-            .selectinload(ComicCharacterAppearance.character)
-            .selectinload(Character.external_identifiers),
+            .selectinload(ComicCharacterAppearance.character),
             selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
         )
     )
@@ -870,118 +859,3 @@ async def get_movie_release(service, release_id: UUID) -> MovieReleaseV1Response
             detail="Movie release not found",
         )
     return service._movie_release_response(release)
-
-
-async def get_music_release_group(service, group_id: UUID) -> MusicReleaseGroupV1Response:
-    group = await service.db.scalar(
-        select(MusicReleaseGroup)
-        .where(MusicReleaseGroup.id == group_id)
-        .options(
-            selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums),
-            selectinload(MusicReleaseGroup.artist_credits),
-            selectinload(MusicReleaseGroup.genre_entries),
-            selectinload(MusicReleaseGroup.entity_links),
-        )
-    )
-    if group is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="music_release_group_not_found",
-            detail="Music release group not found",
-        )
-    return service._music_release_group_response(group)
-
-
-async def get_music_release(service, release_id: UUID) -> MusicReleaseV1Response:
-    release = await service.db.scalar(
-        select(MusicRelease)
-        .where(MusicRelease.id == release_id)
-        .options(
-            selectinload(MusicRelease.mediums).selectinload(MusicMedium.tracks),
-            selectinload(MusicRelease.mediums).selectinload(MusicMedium.missing_track_entries),
-            selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
-            selectinload(MusicRelease.artist_credits),
-            selectinload(MusicRelease.labels),
-            selectinload(MusicRelease.identifiers),
-        )
-    )
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="music_release_not_found",
-            detail="Music release not found",
-        )
-    return service._music_release_response(release)
-
-
-async def get_music_release_mediums(service, release_id: UUID) -> list[MusicMediumV1Response]:
-    release = await service.db.scalar(select(MusicRelease.id).where(MusicRelease.id == release_id))
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="music_release_not_found",
-            detail="Music release not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(MusicMedium)
-                .where(MusicMedium.release_id == release_id)
-                .options(
-                    selectinload(MusicMedium.tracks),
-                    selectinload(MusicMedium.missing_track_entries),
-                )
-                .order_by(MusicMedium.medium_number.asc(), MusicMedium.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._music_medium_response(row) for row in rows]
-
-
-async def get_music_medium(service, medium_id: UUID) -> MusicMediumV1Response:
-    medium = await service.db.scalar(
-        select(MusicMedium)
-        .where(MusicMedium.id == medium_id)
-        .options(
-            selectinload(MusicMedium.tracks),
-            selectinload(MusicMedium.missing_track_entries),
-        )
-    )
-    if medium is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="music_medium_not_found",
-            detail="Music medium not found",
-        )
-    return service._music_medium_response(medium)
-
-
-async def get_music_medium_tracks(service, medium_id: UUID) -> list[MusicTrackV1Response]:
-    medium = await service.db.scalar(select(MusicMedium.id).where(MusicMedium.id == medium_id))
-    if medium is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="music_medium_not_found",
-            detail="Music medium not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(MusicTrack)
-                .where(MusicTrack.medium_id == medium_id)
-                .order_by(MusicTrack.position.asc(), MusicTrack.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._music_track_response(track) for track in rows]
-
-
-async def get_music_track(service, track_id: UUID) -> MusicTrackV1Response:
-    track = await service.db.scalar(select(MusicTrack).where(MusicTrack.id == track_id))
-    if track is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="music_track_not_found",
-            detail="Music track not found",
-        )
-    return service._music_track_response(track)

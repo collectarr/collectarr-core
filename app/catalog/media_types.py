@@ -2,9 +2,7 @@ from dataclasses import dataclass
 
 from app.catalog.grouping_models import GroupingModel, grouping_model_for_kind
 from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_formats
-from app.models.base import ExternalProvider, ItemKind
-
-DEFAULT_PROVIDER_SEARCH_POLICY = "core_miss_then_configured_providers"
+from app.models.base import ItemKind
 
 
 @dataclass(frozen=True)
@@ -13,12 +11,9 @@ class MediaTypeConfig:
     singular_label: str
     plural_label: str
     route_segments: tuple[str, ...]
-    default_provider: ExternalProvider | None = None
-    providers: tuple[ExternalProvider, ...] = ()
     item_number_sort_padding: int | None = None
     is_top_level: bool = True
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
-    provider_search_policy: str = DEFAULT_PROVIDER_SEARCH_POLICY
     grouping_model: GroupingModel = GroupingModel.work_release
 
     @property
@@ -32,11 +27,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Comic",
         plural_label="Comics",
         route_segments=("comics", "comic"),
-        default_provider=ExternalProvider.gcd,
-        providers=(
-            ExternalProvider.gcd,
-            ExternalProvider.comicvine,
-        ),
         item_number_sort_padding=6,
         grouping_model=grouping_model_for_kind(ItemKind.comic),
     ),
@@ -45,13 +35,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Manga",
         plural_label="Manga",
         route_segments=("manga",),
-        default_provider=ExternalProvider.hardcover,
-        providers=(
-            ExternalProvider.hardcover,
-            ExternalProvider.comicvine,
-            ExternalProvider.anilist,
-            ExternalProvider.mangadex,
-        ),
         grouping_model=grouping_model_for_kind(ItemKind.manga),
     ),
     MediaTypeConfig(
@@ -59,8 +42,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Anime",
         plural_label="Anime",
         route_segments=("anime",),
-        default_provider=ExternalProvider.anilist,
-        providers=(ExternalProvider.anilist, ExternalProvider.tmdb),
         physical_formats=video_physical_formats,
         grouping_model=grouping_model_for_kind(ItemKind.anime),
     ),
@@ -69,8 +50,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Movie",
         plural_label="Movies",
         route_segments=("movies", "movie"),
-        default_provider=ExternalProvider.tmdb,
-        providers=(ExternalProvider.tmdb,),
         physical_formats=video_physical_formats,
         grouping_model=grouping_model_for_kind(ItemKind.movie),
     ),
@@ -79,8 +58,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="TV Show",
         plural_label="TV Shows",
         route_segments=("tv", "shows", "series"),
-        default_provider=ExternalProvider.tmdb,
-        providers=(ExternalProvider.tmdb,),
         physical_formats=video_physical_formats,
         grouping_model=grouping_model_for_kind(ItemKind.tv),
     ),
@@ -89,8 +66,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Game",
         plural_label="Games",
         route_segments=("games", "game"),
-        default_provider=ExternalProvider.igdb,
-        providers=(ExternalProvider.igdb,),
         grouping_model=grouping_model_for_kind(ItemKind.game),
     ),
     MediaTypeConfig(
@@ -98,8 +73,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Board Game",
         plural_label="Board Games",
         route_segments=("board-games", "boardgames", "boardgame"),
-        default_provider=ExternalProvider.bgg,
-        providers=(ExternalProvider.bgg,),
         grouping_model=grouping_model_for_kind(ItemKind.boardgame),
     ),
     MediaTypeConfig(
@@ -107,17 +80,13 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Book",
         plural_label="Books",
         route_segments=("books", "book"),
-        default_provider=ExternalProvider.openlibrary,
-        providers=(ExternalProvider.openlibrary, ExternalProvider.hardcover),
         grouping_model=grouping_model_for_kind(ItemKind.book),
     ),
     MediaTypeConfig(
         kind=ItemKind.music,
-        singular_label="Music Release",
-        plural_label="Music Releases",
-        route_segments=("music",),
-        default_provider=ExternalProvider.musicbrainz,
-        providers=(ExternalProvider.musicbrainz,),
+        singular_label="Music Album",
+        plural_label="Music Albums",
+        route_segments=("music", "music-albums"),
         grouping_model=grouping_model_for_kind(ItemKind.music),
     ),
     MediaTypeConfig(
@@ -125,8 +94,6 @@ media_types: tuple[MediaTypeConfig, ...] = (
         singular_label="Collection",
         plural_label="Collections",
         route_segments=("collections", "collection"),
-        default_provider=ExternalProvider.tmdb,
-        providers=(ExternalProvider.tmdb,),
         is_top_level=False,
     ),
 )

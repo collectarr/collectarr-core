@@ -26,7 +26,6 @@ from app.models.base import (
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
@@ -35,15 +34,11 @@ from app.models.canonical_support import (  # noqa: F401
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
     MangaSeriesRelation,
-    MetadataProposal,
     Organization,
     Person,
-    ProviderIngestJob,
-    ProviderPayloadSnapshot,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -125,13 +120,6 @@ class BoardGameWork(UuidMixin, TimestampMixin, Base):
         primaryjoin=lambda: and_(
             foreign(EntityOrganization.entity_id) == BoardGameWork.id,
             EntityOrganization.entity_type == "boardgame_work",
-        ),
-        viewonly=True,
-    )
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == BoardGameWork.id,
-            ExternalProviderId.entity_type == "boardgame_work",
         ),
         viewonly=True,
     )
@@ -252,7 +240,6 @@ class BoardGameIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
 
     work: Mapped[BoardGameWork] = relationship(back_populates="identifier_entries")
 
@@ -457,6 +444,5 @@ class BoardGameEditionIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
 
     edition: Mapped[BoardGameEdition] = relationship(back_populates="identifier_entries")

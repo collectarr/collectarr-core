@@ -1,158 +1,115 @@
 from __future__ import annotations
 
-from datetime import date
-from typing import Any
+from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from app.models.base import ExternalProvider, ItemKind
 from app.models.partial_date import PartialDateValue
-from app.schemas.metadata_shared import ContributorResponse
 
 
-class MusicContributorResponse(ContributorResponse):
-    role_id: str | None = None
+class MusicAlbumArtistV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=500)
+    sort_name: str | None = Field(default=None, max_length=500)
 
 
-class MusicArtistCreditResponse(BaseModel):
-    id: UUID
-    artist_id: UUID | None = None
-    credited_name: str
-    join_phrase: str | None = None
-    sequence: int | None = None
-    source: str | None = None
+class MusicAlbumLabelV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    model_config = {"from_attributes": True}
+    name: str = Field(min_length=1, max_length=255)
+    catalog_number: str | None = Field(default=None, max_length=100)
 
 
-class MusicReleaseLabelResponse(BaseModel):
-    id: UUID
-    label_id: UUID | None = None
-    label_name: str
-    catalog_number: str | None = None
-    sequence: int | None = None
-    source: str | None = None
+class MusicAlbumDiscTitleV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    model_config = {"from_attributes": True}
+    disc_number: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=255)
 
 
-class MusicIdentifierResponse(BaseModel):
-    id: UUID
-    identifier_type: str
-    value: str
-    normalized_value: str
-    is_primary: bool
-    source_provider: ExternalProvider | None = None
+class MusicAlbumTrackV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    album_id: UUID
+    disc_number: int = Field(ge=1)
+    position: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=255)
+    artist: str | None = Field(default=None, max_length=500)
+    duration_ms: int | None = Field(default=None, ge=0)
 
 
-class MusicTrackV1Response(BaseModel):
-    id: UUID
-    medium_id: UUID
-    position: str
-    title: str
-    artist: str | None = None
-    is_header: bool = False
-    indent_level: int = 0
-    parent_header_id: str | None = None
-    duration_ms: int | None = None
-    offset_ms: int | None = None
-    bitrate_kbps: int | None = None
-    file_size_bytes: int | None = None
-    track_hash: str | None = None
-    recording_id: str | None = None
-    instrument: str | None = None
-    composition: str | None = None
+class MusicAlbumTrackInputV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    model_config = {"from_attributes": True}
-
-class MusicMediumV1Response(BaseModel):
-    id: UUID
-    release_id: UUID
-    medium_number: int
-    medium_type: str | None = None
-    title: str | None = None
-    track_count: int | None = None
-    expected_track_count: int | None = None
-    missing_track_count: int | None = None
-    missing_track_positions: list[str] = Field(default_factory=list)
-    toc: str | None = None
-    cddb_id: str | None = None
-    leadout_offset: int | None = None
-    bp_disc_id: str | None = None
-    sound_type: str | None = None
-    vinyl_color: str | None = None
-    vinyl_weight: str | None = None
-    rpm: int | None = None
-    spars: str | None = None
-    tracks: list[MusicTrackV1Response] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
+    disc_number: int = Field(ge=1)
+    position: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=255)
+    artist: str | None = Field(default=None, max_length=500)
+    duration_ms: int | None = Field(default=None, ge=0)
 
 
-class MusicReleaseSummaryV1Response(BaseModel):
-    id: UUID
-    release_group_id: UUID
-    title: str
-    release_date: date | None = None
-    release_date_parts: PartialDateValue | None = None
-    release_type: str | None = None
-    release_status: str | None = None
-    medium_types: list[str] = Field(default_factory=list)
-    publisher: str | None = None
-    barcode: str | None = None
-    catalog_number: str | None = None
-    cover_image_url: str | None = None
+class MusicAlbumCreditV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    model_config = {"from_attributes": True}
+    role: str = Field(min_length=1, max_length=64)
+    sequence: int = Field(ge=0)
+    credited_name: str = Field(min_length=1, max_length=500)
+    join_phrase: str | None = Field(default=None, max_length=100)
+    instrument: str | None = Field(default=None, max_length=100)
 
 
-class MusicReleaseGroupV1Response(BaseModel):
-    id: UUID
-    title: str
-    sort_title: str | None = None
-    original_title: str | None = None
-    artist: str | None = None
-    original_release_date: date | None = None
-    original_release_date_parts: PartialDateValue | None = None
-    recording_date: date | None = None
-    recording_date_parts: PartialDateValue | None = None
-    studio: str | None = None
-    is_live: bool | None = None
+class MusicAlbumLinkV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    position: int = Field(ge=0)
+    url: HttpUrl
+    title: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class MusicAlbumWriteV1(BaseModel):
+    """Source-neutral canonical Music album data accepted by create/update."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=255)
+    sort_title: str | None = Field(default=None, max_length=255)
+    subtitle: str | None = Field(default=None, max_length=500)
+    artists: list[MusicAlbumArtistV1] = Field(default_factory=list)
+    release_date: PartialDateValue | None = None
+    original_release_date: PartialDateValue | None = None
+    recording_date: PartialDateValue | None = None
+    labels: list[MusicAlbumLabelV1] = Field(default_factory=list)
+    format: str | None = Field(default=None, max_length=100)
+    barcode: str | None = Field(default=None, max_length=100)
+    catalog_number: str | None = Field(default=None, max_length=100)
     genres: list[str] = Field(default_factory=list)
-    artist_credits: list[MusicArtistCreditResponse] = Field(default_factory=list)
-    cover_image_url: str | None = None
-    cover_image_key: str | None = None
-    external_links: list[dict[str, Any]] = Field(default_factory=list)
-    releases: list[MusicReleaseSummaryV1Response] = Field(default_factory=list)
+    packaging: str | None = Field(default=None, max_length=100)
+    studio: list[str] = Field(default_factory=list)
+    country: str | None = Field(default=None, max_length=64)
+    is_live: bool | None = None
+    sound_types: list[str] = Field(default_factory=list)
+    vinyl_color: str | None = Field(default=None, max_length=100)
+    vinyl_weight: Decimal | None = Field(default=None, ge=0, max_digits=8, decimal_places=2)
+    rpm: int | None = Field(default=None, ge=0)
+    extras: list[str] = Field(default_factory=list)
+    spars_code: str | None = Field(default=None, max_length=50)
+    box_set: str | None = Field(default=None, max_length=255)
+    matrix_number_side_a: str | None = Field(default=None, max_length=255)
+    matrix_number_side_b: str | None = Field(default=None, max_length=255)
+    cover_image_url: HttpUrl | None = None
+    back_cover_image_url: HttpUrl | None = None
+    disc_titles: list[MusicAlbumDiscTitleV1] = Field(default_factory=list)
+    tracks: list[MusicAlbumTrackInputV1] = Field(default_factory=list)
+    credits: list[MusicAlbumCreditV1] = Field(default_factory=list)
+    links: list[MusicAlbumLinkV1] = Field(default_factory=list)
 
-    model_config = {"from_attributes": True}
 
-
-class MusicReleaseV1Response(BaseModel):
+class MusicAlbumV1Response(MusicAlbumWriteV1):
     id: UUID
-    release_group_id: UUID
-    title: str
-    sort_title: str | None = None
-    subtitle: str | None = None
-    release_type: str | None = None
-    release_status: str | None = None
-    release_date: date | None = None
-    release_date_parts: PartialDateValue | None = None
-    publisher: str | None = None
-    upc: str | None = None
-    catalog_number: str | None = None
-    barcode: str | None = None
-    country_code: str | None = None
-    language: str | None = None
-    packaging: str | None = None
-    cover_image_url: str | None = None
-    cover_image_key: str | None = None
-    kind: ItemKind = ItemKind.music
-    mediums: list[MusicMediumV1Response] = Field(default_factory=list)
-    contributions: list[MusicContributorResponse] = Field(default_factory=list)
-    artist_credits: list[MusicArtistCreditResponse] = Field(default_factory=list)
-    labels: list[MusicReleaseLabelResponse] = Field(default_factory=list)
-    identifiers: list[MusicIdentifierResponse] = Field(default_factory=list)
-
-    model_config = {"from_attributes": True}
+    tracks: list[MusicAlbumTrackV1] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime

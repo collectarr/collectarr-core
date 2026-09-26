@@ -1,11 +1,10 @@
 """Single source of truth for canonical metadata fields.
 
 Historically the catalog metadata fields were declared in many uncoordinated
-places: the core normalization lookups (``_KIND_ALLOWED_KEYS``,
-``_NORMALIZED_VALUE_TYPES``, ``TYPED_KIND_METADATA_KEYS``), the admin correction
-request schema, and the Flutter app's ``kAdminMetadataScalarFields`` contract.
-Adding a field meant editing every copy and forgetting one silently broke
-ingest/correction (see the ``NormalizedItem.color`` regression).
+places: normalization lookups, correction request schemas, and the Flutter
+app's metadata-field contract. This registry now defines the canonical
+editable-field metadata used by Core and exported to the app. It does not
+define provider ingestion; source integrations belong to the app.
 
 This module declares each editable field once as a :class:`MetadataFieldSpec`
 and derives every lookup from the registry. It is the schema that the admin edit
@@ -15,10 +14,8 @@ apart.
 
 Two concerns are modelled by a single spec:
 
-* **Normalization** — the subset of fields flagged ``normalized=True`` feed the
-  ``app.metadata_normalized`` allow-lists / value-type / typed-column lookups.
-  These derivations are intentionally scoped so editorial fields can be added
-  without changing normalization behaviour.
+* **Normalization** — the subset of fields flagged ``normalized=True`` feed
+  Core's normalized metadata allow-lists and typed-column lookups.
 * **Editing UI** — every ``editable=True`` field is rendered in the edit panel,
   grouped by :attr:`MetadataFieldSpec.section` and rendered with the widget hint
   in :attr:`MetadataFieldSpec.input`.
@@ -163,7 +160,7 @@ _MEDIA_SCOPE_KEYS = {
     "tracks",
 }
 
-_TRACK_SCOPE_KEYS = {"tracks", "recording_id"}
+_TRACK_SCOPE_KEYS = {"tracks"}
 
 _RELATION_KEYS = {"trailer_urls", "external_links"}
 _TAG_KEYS = {"series_tags"}
@@ -269,19 +266,21 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.music: {
-        "work": ("music_release_group", "music_release_groups"),
-        "release_group": ("music_release_group", "music_release_groups"),
-        "release": ("music_release", "music_releases"),
-        "medium": ("music_medium", "music_mediums"),
-        "track": ("music_track", "music_tracks"),
+        "album": ("music_album", "music_albums"),
+        "track": ("music_album", "music_album_tracks"),
         "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
     },
 }
 
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
+    if kind == ItemKind.music:
+        if key in _RELATION_KEYS:
+            return "relations"
+        if key in _TRACK_SCOPE_KEYS or key in _MEDIA_SCOPE_KEYS:
+            return "track"
+        return "album"
     if key in _RELATION_KEYS:
         return "relations"
     if key in _TAG_KEYS:
@@ -335,7 +334,7 @@ def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     # Internal fields are derived from the work projection and are never
     # writable.  Their source is still explicit; they do not get an arbitrary
     # first-entity fallback.
-    source_scope = "work" if scope == "internal" else scope
+    source_scope = ("album" if kind == ItemKind.music else "work") if scope == "internal" else scope
     try:
         entity_type, source_table = CANONICAL_ENTITY_MATRIX[kind][source_scope]
     except KeyError as exc:
@@ -445,15 +444,6 @@ _EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
 
 # --- Normalized kind-scoped, typed fields ------------------------------------
 _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    MetadataFieldSpec(
-        "recording_id",
-        VALUE_TYPE_STRING,
-        "Recording ID",
-        typed=True,
-        normalized=True,
-        section=SECTION_TECHNICAL,
-        kinds=frozenset({ItemKind.music}),
-    ),
     MetadataFieldSpec("genres", VALUE_TYPE_STRING_LIST, "Genres", typed=True, normalized=True,
                       section=SECTION_RELATIONS, input=INPUT_LIST, kinds=ALL_KINDS),
     MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,

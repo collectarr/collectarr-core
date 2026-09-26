@@ -31,7 +31,6 @@ from app.models import (
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
-    ExternalProviderId,
     GameRelease,
     GameWork,
     ImageAsset,
@@ -42,17 +41,11 @@ from app.models import (
     MangaSeries,
     MangaSeriesMembership,
     MangaWork,
-    MetadataProposal,
     MovieRelease,
     MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicReleaseGroup,
-    MusicTrack,
-    ProviderIngestJob,
+    MusicAlbum,
     TVRelease,
     TVReleaseContribution,
     TVSeason,
@@ -65,10 +58,6 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
-    ProviderCacheStatsResponse,
-    ProviderCacheSummaryResponse,
-    ProviderIngestHistoryEntry,
-    ProviderStatusResponse,
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
@@ -105,55 +94,12 @@ class AdminOverviewService:
         self,
         *,
         db: AsyncSession,
-        settings: Any,
-        providers: Any,
         search_client_cls: type[SearchClient] | None = None,
-        provider_search_state: Any,
-        provider_preview_state: Any,
         duplicate_group_count: Callable[[], Awaitable[int]],
-        ingest_history_reader: Callable[[], list[ProviderIngestHistoryEntry]],
     ) -> None:
         self.db = db
-        self.settings = settings
-        self.providers = providers
         self.search_client_cls = search_client_cls or SearchClient
-        self.provider_search_state = provider_search_state
-        self.provider_preview_state = provider_preview_state
         self._duplicate_group_count = duplicate_group_count
-        self._ingest_history_reader = ingest_history_reader
-
-    async def provider_statuses(self) -> list[ProviderStatusResponse]:
-        return [
-            ProviderStatusResponse(
-                name=status.name,
-                display_name=status.display_name,
-                kind=status.kind.value,
-                supported_kinds=[kind.value for kind in status.supported_kinds],
-                status="live" if status.is_configured else "stub",
-                is_configured=status.is_configured,
-                supports_search=status.supports_search,
-                supports_ingest=status.supports_ingest,
-                requires_user_key=status.requires_user_key,
-                non_commercial_only=status.non_commercial_only,
-                allows_redistribution=status.allows_redistribution,
-                allows_image_mirroring=status.allows_image_mirroring,
-                image_policy=status.image_policy,
-                requires_attribution=status.requires_attribution,
-                license_name=status.license_name,
-                terms_url=status.terms_url,
-                attribution_url=status.attribution_url,
-                rate_limit=status.rate_limit,
-                cache_policy=status.cache_policy,
-                message=status.status_message,
-            )
-            for status in self.providers.status_entries_for_settings(self.settings)
-        ]
-
-    async def provider_cache_stats(self) -> ProviderCacheSummaryResponse:
-        return ProviderCacheSummaryResponse(
-            search=ProviderCacheStatsResponse(**(await self.provider_search_state.stats())),
-            preview=ProviderCacheStatsResponse(**(await self.provider_preview_state.stats())),
-        )
 
     async def catalog_summary(self) -> AdminCatalogSummaryResponse:
         duplicate_groups = await self._duplicate_group_count()
@@ -177,22 +123,15 @@ class AdminOverviewService:
                 + await self._count(TVSeries)
                 + await self._count(GameRelease)
                 + await self._count(BoardGameEdition)
-                + await self._count(MusicRelease)
             ),
             variants=(
                 await self._count(BookPrinting)
                 + await self._count(MovieReleaseMedia)
-                + await self._count(MusicTrack)
             ),
-            provider_links=await self._provider_link_count(),
             image_assets=await self._count_image_assets(),
             image_cache_entries=await self._count(ImageCacheEntry),
-            pending_proposals=await self._count_pending_proposals(),
             missing_cover_items=await self._count_missing_cover_items(),
-            missing_provider_link_items=await self._count_missing_provider_link_items(),
             duplicate_candidate_groups=duplicate_groups,
-            provider_ingest_successes=await self._provider_ingest_success_count(),
-            provider_ingest_failures=await self._provider_ingest_failure_count(),
         )
 
     async def search_status(self) -> AdminSearchStatusResponse:
@@ -281,7 +220,7 @@ class AdminOverviewService:
             ItemKind.anime: AnimeSeries,
             ItemKind.movie: MovieWork,
             ItemKind.tv: TVSeries,
-            ItemKind.music: MusicReleaseGroup,
+            ItemKind.music: MusicAlbum,
             ItemKind.game: GameWork,
             ItemKind.boardgame: BoardGameWork,
         }
@@ -291,16 +230,6 @@ class AdminOverviewService:
 
     async def _count_image_assets(self) -> int:
         return await self._count(ImageAsset)
-
-    async def _count_pending_proposals(self) -> int:
-        return int(
-            await self.db.scalar(
-                select(func.count())
-                .select_from(MetadataProposal)
-                .where(MetadataProposal.status == "pending")
-            )
-            or 0
-        )
 
     async def _count_missing_cover_items(self) -> int:
         total = 0
@@ -331,31 +260,10 @@ class AdminOverviewService:
             root_cover_fields=("cover_image_url", "cover_image_key"),
         )
         total += await self._count_missing_cover_items_for_root(
-            MusicReleaseGroup,
+            MusicAlbum,
             cover_fields=("cover_image_url", "cover_image_key"),
         )
         return total
-
-    async def _count_missing_provider_link_items(self) -> int:
-        total = await self._count_missing_provider_links_for_entity("book_work", BookWork)
-        total += await self._count_missing_provider_links_for_entity("comic_work", ComicWork)
-        total += await self._count_missing_provider_links_for_entity("manga_work", MangaWork)
-        total += await self._count_missing_provider_links_for_entity("anime_series", AnimeSeries)
-        total += await self._count_missing_provider_links_for_entity("movie_work", MovieWork)
-        total += await self._count_missing_provider_links_for_entity("tv_series", TVSeries)
-        total += await self._count_missing_provider_links_for_entity("game_work", GameWork)
-        total += await self._count_missing_provider_links_for_entity("boardgame_work", BoardGameWork)
-        return total
-
-    async def _provider_link_count(self) -> int:
-        return await self._count(ExternalProviderId)
-
-    async def _count_missing_provider_links_for_entity(self, entity_type: str, model: type) -> int:
-        has_provider_link = exists().where(
-            ExternalProviderId.entity_type == entity_type,
-            ExternalProviderId.entity_id == model.id,
-        )
-        return int(await self.db.scalar(select(func.count()).select_from(model).where(~has_provider_link)) or 0)
 
     async def _count_missing_cover_items_for_root(
         self,
@@ -482,17 +390,13 @@ class AdminOverviewService:
         documents.extend(catalog_search_document(work) for work in boardgame_result.scalars().unique())
 
         music_result = await self.db.execute(
-            select(MusicReleaseGroup).options(
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
-                    MusicMedium.tracks
-                ),
-                selectinload(MusicReleaseGroup.releases)
-                .selectinload(MusicRelease.contributions)
-                .selectinload(MusicReleaseContribution.person),
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
+            select(MusicAlbum).options(
+                selectinload(MusicAlbum.tracks),
+                selectinload(MusicAlbum.disc_titles),
+                selectinload(MusicAlbum.credits),
             )
         )
-        documents.extend(catalog_search_document(group) for group in music_result.scalars().unique())
+        documents.extend(catalog_search_document(album) for album in music_result.scalars().unique())
 
         return documents
 
@@ -505,26 +409,4 @@ class AdminOverviewService:
                 indexed_documents=response.indexed_documents,
                 error=response.error,
             )
-        )
-
-    async def _provider_ingest_success_count(self) -> int:
-        job_count = await self._count_ingest_jobs("done")
-        memory_count = sum(
-            1 for entry in self._ingest_history_reader() if entry.status in {"created", "existing"}
-        )
-        return job_count + memory_count
-
-    async def _provider_ingest_failure_count(self) -> int:
-        job_count = await self._count_ingest_jobs("failed")
-        memory_count = sum(1 for entry in self._ingest_history_reader() if entry.status == "failed")
-        return job_count + memory_count
-
-    async def _count_ingest_jobs(self, status_filter: str) -> int:
-        return int(
-            await self.db.scalar(
-                select(func.count())
-                .select_from(ProviderIngestJob)
-                .where(ProviderIngestJob.status == status_filter)
-            )
-            or 0
         )

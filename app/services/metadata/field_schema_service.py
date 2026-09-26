@@ -86,8 +86,6 @@ class FieldSchemaService:
                 name=person.name,
                 description=model_text(person, "description"),
                 image_url=model_text(person, "image_url"),
-                api_detail_url=model_text(person, "api_detail_url"),
-                site_detail_url=model_text(person, "site_detail_url"),
                 item_count=int(item_count or 0),
             )
             for person, item_count in rows

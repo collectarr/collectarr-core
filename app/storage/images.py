@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import logging
-import re
 from dataclasses import dataclass
 from io import BytesIO
 from urllib.parse import urlparse
@@ -13,7 +12,6 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from app.core.config import get_settings
 from app.storage.client import ObjectStorage
 
-_SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 _SUPPORTED_IMAGE_TYPES = {
     "image/jpeg",
     "image/png",
@@ -30,8 +28,6 @@ class MirroredImage:
     url: str
     content_type: str
     source_url: str
-    provider: str
-    provider_item_id: str
     size_bytes: int
     width: int
     height: int
@@ -62,27 +58,21 @@ class ImageMirror:
         self.settings = get_settings()
         self.storage = storage or ObjectStorage()
 
-    async def mirror_cover_best_effort(
-        self, source_url: str | None, provider: str, provider_item_id: str
-    ) -> MirroredImage | None:
+    async def mirror_cover_best_effort(self, source_url: str | None) -> MirroredImage | None:
         if not source_url:
             return None
         try:
             image_bytes = await self._download_image(source_url)
         except Exception:
             logger.warning(
-                "Failed to mirror provider cover %s for %s:%s",
+                "Failed to mirror image %s",
                 source_url,
-                provider,
-                provider_item_id,
                 exc_info=True,
             )
             return None
         return await self.mirror_cover_bytes_best_effort(
             image_bytes,
             source_url=source_url,
-            provider=provider,
-            provider_item_id=provider_item_id,
         )
 
     async def mirror_cover_bytes_best_effort(
@@ -90,8 +80,6 @@ class ImageMirror:
         image_bytes: bytes | None,
         *,
         source_url: str | None,
-        provider: str,
-        provider_item_id: str,
         existing_content_hash: str | None = None,
     ) -> MirroredImage | None:
         if not image_bytes or not source_url:
@@ -101,16 +89,14 @@ class ImageMirror:
             # Content-hash dedup: skip upload if identical bytes already stored.
             if existing_content_hash and cover.content_hash == existing_content_hash:
                 return None
-            key = self._cover_key(provider, provider_item_id, source_url)
+            key = self._cover_key(source_url)
             public_url = await asyncio.to_thread(
                 self.storage.put_object, key, cover.body, _NORMALIZED_COVER_CONTENT_TYPE
             )
         except Exception:
             logger.warning(
-                "Failed to mirror provider cover bytes %s for %s:%s",
+                "Failed to process image bytes for %s",
                 source_url,
-                provider,
-                provider_item_id,
                 exc_info=True,
             )
             return None
@@ -119,8 +105,6 @@ class ImageMirror:
             url=public_url,
             content_type=_NORMALIZED_COVER_CONTENT_TYPE,
             source_url=source_url,
-            provider=provider,
-            provider_item_id=provider_item_id,
             size_bytes=cover.size_bytes,
             width=cover.width,
             height=cover.height,
@@ -153,19 +137,17 @@ class ImageMirror:
         self._validate_image_bytes(downloaded)
         return downloaded
 
-    def _cover_key(self, provider: str, provider_item_id: str, source_url: str) -> str:
+    def _cover_key(self, source_url: str) -> str:
         cache_identity = "|".join(
             [
                 source_url,
                 _NORMALIZED_COVER_CONTENT_TYPE,
-                str(self.settings.provider_image_max_long_edge),
-                str(self.settings.provider_image_quality),
+                str(self.settings.image_max_long_edge),
+                str(self.settings.image_quality),
             ]
         )
         digest = hashlib.sha256(cache_identity.encode("utf-8")).hexdigest()[:16]
-        provider_segment = self._safe_segment(provider)
-        item_segment = self._safe_segment(provider_item_id)
-        return f"covers/{provider_segment}/{item_segment}/{digest}.webp"
+        return f"covers/{digest}.webp"
 
     def _normalized_cover_bytes(self, image_bytes: bytes) -> bytes:
         return self._normalized_cover(image_bytes).body
@@ -173,7 +155,7 @@ class ImageMirror:
     def _normalized_cover(self, image_bytes: bytes) -> NormalizedCover:
         with Image.open(BytesIO(image_bytes)) as image:
             image = ImageOps.exif_transpose(image)
-            max_edge = self.settings.provider_image_max_long_edge
+            max_edge = self.settings.image_max_long_edge
             image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
             image = self._rgb_image(image)
             width, height = image.size
@@ -187,7 +169,7 @@ class ImageMirror:
             image.save(
                 output,
                 format="WEBP",
-                quality=self.settings.provider_image_quality,
+                quality=self.settings.image_quality,
                 method=6,
             )
             return NormalizedCover(
@@ -221,7 +203,3 @@ class ImageMirror:
                 image.verify()
         except UnidentifiedImageError as exc:
             raise ValueError("Downloaded content is not a valid image") from exc
-
-    def _safe_segment(self, value: str) -> str:
-        cleaned = _SAFE_SEGMENT_RE.sub("-", value.strip()).strip("-._")
-        return cleaned or "unknown"

@@ -2,57 +2,52 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
-from app.api.deps import DbSession
-from app.schemas import (
-    MusicMediumV1Response,
-    MusicReleaseGroupV1Response,
-    MusicReleaseV1Response,
-    MusicTrackV1Response,
-)
-from app.services.facade import MetadataFacade as MetadataService
+from app.api.deps import CurrentAdmin, DbSession
+from app.models.user import User
+from app.schemas.metadata_music import MusicAlbumV1Response, MusicAlbumWriteV1
+from app.schemas.metadata_shared import SearchResult
+from app.services.music_service import MusicService
 
 router = APIRouter(tags=["metadata"])
 
 
-@router.get("/metadata/music/release-groups/{group_id}", response_model=MusicReleaseGroupV1Response)
-async def get_music_release_group(group_id: UUID, db: DbSession) -> MusicReleaseGroupV1Response:
-    return await MetadataService(db).get_music_release_group(group_id)
-
-
-@router.get("/metadata/music/releases/{release_id}", response_model=MusicReleaseV1Response)
-async def get_music_release(release_id: UUID, db: DbSession) -> MusicReleaseV1Response:
-    return await MetadataService(db).get_music_release(release_id)
-
-
-@router.get(
-    "/metadata/music/releases/{release_id}/mediums",
-    response_model=list[MusicMediumV1Response],
-)
-async def get_music_release_mediums(
-    release_id: UUID,
+@router.get("/metadata/music/albums", response_model=list[SearchResult])
+async def search_music_albums(
     db: DbSession,
-) -> list[MusicMediumV1Response]:
-    return await MetadataService(db).get_music_release_mediums(release_id)
+    q: str | None = None,
+    barcode: str | None = None,
+    catalog_number: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[SearchResult]:
+    return await MusicService(db).search_albums(
+        query=q,
+        barcode=barcode,
+        catalog_number=catalog_number,
+        limit=limit,
+    )
 
 
-@router.get("/metadata/music/mediums/{medium_id}", response_model=MusicMediumV1Response)
-async def get_music_medium(medium_id: UUID, db: DbSession) -> MusicMediumV1Response:
-    return await MetadataService(db).get_music_medium(medium_id)
+@router.get("/metadata/music/albums/{album_id}", response_model=MusicAlbumV1Response)
+async def get_music_album(album_id: UUID, db: DbSession) -> MusicAlbumV1Response:
+    return await MusicService(db).get_album(album_id)
 
 
-@router.get(
-    "/metadata/music/mediums/{medium_id}/tracks",
-    response_model=list[MusicTrackV1Response],
-)
-async def get_music_medium_tracks(
-    medium_id: UUID,
+@router.post("/metadata/music/albums", response_model=MusicAlbumV1Response, status_code=201)
+async def create_music_album(
+    payload: MusicAlbumWriteV1,
     db: DbSession,
-) -> list[MusicTrackV1Response]:
-    return await MetadataService(db).get_music_medium_tracks(medium_id)
+    _user: CurrentAdmin,
+) -> MusicAlbumV1Response:
+    return await MusicService(db).create_album(payload)
 
 
-@router.get("/metadata/music/tracks/{track_id}", response_model=MusicTrackV1Response)
-async def get_music_track(track_id: UUID, db: DbSession) -> MusicTrackV1Response:
-    return await MetadataService(db).get_music_track(track_id)
+@router.put("/metadata/music/albums/{album_id}", response_model=MusicAlbumV1Response)
+async def update_music_album(
+    album_id: UUID,
+    payload: MusicAlbumWriteV1,
+    db: DbSession,
+    _user: CurrentAdmin,
+) -> MusicAlbumV1Response:
+    return await MusicService(db).update_album(album_id, payload)

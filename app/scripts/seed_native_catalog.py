@@ -28,7 +28,6 @@ from app.models import (
     ComicWork,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     GameRelease,
     GameWork,
     MangaChapter,
@@ -42,10 +41,8 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseGroup,
-    MusicTrack,
+    MusicAlbum,
+    MusicAlbumTrack,
     Person,
     StoryArc,
     StoryArcItem,
@@ -58,7 +55,7 @@ from app.models import (
     TVSeason,
     TVSeries,
 )
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 SEED_MARKER = "seed-native"
@@ -123,7 +120,7 @@ _ENTITY_TYPE: dict[ItemKind, str] = {
     ItemKind.anime: "anime_series",
     ItemKind.movie: "movie_work",
     ItemKind.tv: "tv_release",
-    ItemKind.music: "music_release_group",
+    ItemKind.music: "music_album",
     ItemKind.game: "game_work",
     ItemKind.boardgame: "boardgame_work",
 }
@@ -222,49 +219,41 @@ async def seed_catalog(db: AsyncSession, *, entries_per_kind: int) -> list[Any]:
 
 
 async def wipe_seed_data(db: AsyncSession) -> int:
+    marker = await db.scalar(
+        select(Tag).where(Tag.kind == "system", Tag.name == SEED_MARKER)
+    )
+    if marker is None:
+        return 0
+    marker_rows = list(
+        (await db.scalars(select(EntityTag).where(EntityTag.tag_id == marker.id))).all()
+    )
     ids_by_type: dict[str, list[Any]] = {}
-    for entity_type in _ENTITY_TYPE.values():
-        result = await db.execute(
-            select(ExternalProviderId.entity_id).where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.provider_item_id.startswith(SEED_MARKER),
-            )
-        )
-        ids_by_type[entity_type] = [row[0] for row in result.all()]
+    for row in marker_rows:
+        ids_by_type.setdefault(row.entity_type, []).append(row.entity_id)
     total = sum(len(ids) for ids in ids_by_type.values())
 
     for entity_type, ids in ids_by_type.items():
         if not ids:
             continue
-        await _delete_kind_rows(db, entity_type, ids)
-
-    # A seed entry can create provider IDs for child entities (editions,
-    # issues, chapters, episodes, etc.) that are not represented in
-    # `_ENTITY_TYPE`.  Those rows are not removed by the kind graph deletes
-    # because provider IDs intentionally have no database-level cascade.
-    # Delete every marked seed provider ID after the graphs are gone so a
-    # failed/repeated seed is always idempotent.
-    await db.execute(
-        delete(ExternalProviderId).where(
-            ExternalProviderId.provider_item_id.startswith(SEED_MARKER),
+        await db.execute(
+            delete(EntityPerson).where(
+                EntityPerson.entity_type == entity_type,
+                EntityPerson.entity_id.in_(ids),
+            )
         )
-    )
+        await db.execute(
+            delete(EntityTag).where(
+                EntityTag.entity_type == entity_type,
+                EntityTag.entity_id.in_(ids),
+            )
+        )
+        await _delete_kind_rows(db, entity_type, ids)
+    await db.delete(marker)
     await db.commit()
     return total
 
 
 async def _seed_entry(db: AsyncSession, kind: ItemKind, entry: _Entry, index: int) -> list[Any]:
-    provider = {
-        ItemKind.book: ExternalProvider.openlibrary,
-        ItemKind.comic: ExternalProvider.comicvine,
-        ItemKind.manga: ExternalProvider.hardcover,
-        ItemKind.anime: ExternalProvider.anilist,
-        ItemKind.movie: ExternalProvider.tmdb,
-        ItemKind.tv: ExternalProvider.tmdb,
-        ItemKind.music: ExternalProvider.musicbrainz,
-        ItemKind.game: ExternalProvider.igdb,
-        ItemKind.boardgame: ExternalProvider.bgg,
-    }[kind]
     cover_url, thumbnail_url = await resolve_seed_cover_urls(
         kind=kind,
         slug=_slug(entry.series_title),
@@ -274,27 +263,45 @@ async def _seed_entry(db: AsyncSession, kind: ItemKind, entry: _Entry, index: in
     )
     created: list[Any] = []
     if kind == ItemKind.book:
-        created.extend(await _seed_book(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_book(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.comic:
-        created.extend(await _seed_comic(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_comic(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.manga:
-        created.extend(await _seed_manga(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_manga(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.anime:
-        created.extend(await _seed_anime(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_anime(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.movie:
-        created.extend(await _seed_movie(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_movie(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.tv:
-        created.extend(await _seed_tv(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_tv(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.music:
-        created.extend(await _seed_music(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_music(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.game:
-        created.extend(await _seed_game(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_game(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.boardgame:
-        created.extend(await _seed_boardgame(db, entry, provider, cover_url, thumbnail_url, index))
+        created.extend(await _seed_boardgame(db, entry, cover_url, thumbnail_url, index))
+    marker = await db.scalar(
+        select(Tag).where(Tag.kind == "system", Tag.name == SEED_MARKER)
+    )
+    if marker is None:
+        marker = Tag(kind="system", name=SEED_MARKER)
+        db.add(marker)
+        await db.flush()
+    entity_type = _ENTITY_TYPE[kind]
+    for item in created:
+        existing = await db.scalar(
+            select(EntityTag.id).where(
+                EntityTag.entity_type == entity_type,
+                EntityTag.entity_id == item.id,
+                EntityTag.tag_id == marker.id,
+            )
+        )
+        if existing is None:
+            db.add(EntityTag(entity_type=entity_type, entity_id=item.id, tag_id=marker.id))
     return created
 
 
-async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_book(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, BookSeries, entry.series_title, entry.publisher, entry.release_date)
     work = await _get_or_create_work(db, BookWork, entry.title, entry.release_date, cover_url)
     if series is not None:
@@ -302,7 +309,6 @@ async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider
     _apply_seed_metadata(work, entry, ItemKind.book, index, cover_url, thumbnail_url)
     if work not in []:
         work.original_publication_date = entry.release_date
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.book], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "book_work", entry.creator, "creator")
     await _ensure_tag_link(db, work.id, "book_work", entry.tag)
     await _ensure_story_arc_link(db, work.id, "book_work", entry.story_arc)
@@ -310,17 +316,15 @@ async def _seed_book(db: AsyncSession, entry: _Entry, provider: ExternalProvider
         await _ensure_book_membership(db, work.id, series.id, index)
     edition = await _get_or_create_book_edition(db, work.id, entry, cover_url)
     _apply_seed_metadata(edition, entry, ItemKind.book, index, cover_url, thumbnail_url)
-    await _ensure_book_links(db, edition.id, provider, index, entry)
     return [work]
 
 
-async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_comic(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, ComicSeries, entry.series_title, entry.publisher, entry.release_date)
     work = await _get_or_create_work(db, ComicWork, entry.title, entry.release_date, cover_url)
     if series is not None:
         _apply_seed_metadata(series, entry, ItemKind.comic, index, cover_url, thumbnail_url)
     _apply_seed_metadata(work, entry, ItemKind.comic, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.comic], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "comic_work", entry.creator, "creator")
     await _ensure_tag_link(db, work.id, "comic_work", entry.tag)
     await _ensure_story_arc_link(db, work.id, "comic_work", entry.story_arc)
@@ -330,17 +334,15 @@ async def _seed_comic(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     _apply_seed_metadata(issue, entry, ItemKind.comic, index, cover_url, thumbnail_url)
     await _ensure_character_appearance(db, issue.id, entry.character, entity_type="comic_issue")
     await _ensure_story_arc_membership(db, issue.id, entry.story_arc)
-    await _ensure_comic_links(db, issue.id, provider, index, entry)
     return [work]
 
 
-async def _seed_manga(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_manga(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, MangaSeries, entry.series_title, entry.publisher, entry.release_date)
     work = await _get_or_create_work(db, MangaWork, entry.title, entry.release_date, cover_url)
     if series is not None:
         _apply_seed_metadata(series, entry, ItemKind.manga, index, cover_url, thumbnail_url)
     _apply_seed_metadata(work, entry, ItemKind.manga, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.manga], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "manga_work", entry.creator, "creator")
     await _ensure_tag_link(db, work.id, "manga_work", entry.tag)
     if series is not None:
@@ -349,17 +351,17 @@ async def _seed_manga(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     db.add(chapter)
     await db.flush()
     _apply_seed_metadata(chapter, entry, ItemKind.manga, index, cover_url, thumbnail_url)
-    await _ensure_manga_links(db, chapter.id, provider, index, entry)
+    if entry.character:
+        await _ensure_character_appearance(db, chapter.id, entry.character, entity_type="manga_chapter")
     return [work]
 
 
-async def _seed_anime(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_anime(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     series = await _get_or_create_series(db, AnimeSeries, entry.series_title, entry.publisher, entry.release_date)
     if series is not None:
         series.original_air_date = entry.release_date
         series.status = "completed"
         _apply_seed_metadata(series, entry, ItemKind.anime, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.anime], series.id, provider, index, entry)
     await _ensure_person_link(db, series.id, "anime_series", entry.creator, "creator")
     await _ensure_tag_link(db, series.id, "anime_series", entry.tag)
     episode = AnimeEpisode(series=series, episode_number=index, episode_title=entry.title, air_date=entry.release_date, description=entry.series_title, cover_image_url=cover_url, runtime_minutes=24)
@@ -367,15 +369,13 @@ async def _seed_anime(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     await db.flush()
     _apply_seed_metadata(episode, entry, ItemKind.anime, index, cover_url, thumbnail_url)
     await _ensure_character_appearance(db, series.id, entry.character, entity_type="anime_series")
-    await _ensure_anime_links(db, episode.id, provider, index, entry)
     return [series]
 
 
-async def _seed_movie(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_movie(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     work = await _get_or_create_work(db, MovieWork, entry.title, entry.release_date, cover_url)
     work.original_release_date = entry.release_date
     _apply_seed_metadata(work, entry, ItemKind.movie, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.movie], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "movie_work", entry.creator, "director")
     release = MovieRelease(work=work, format="Blu-ray", region_code="US", release_date=entry.release_date, release_type="home_video", publisher=entry.publisher, barcode=f"MOV-{index:03d}", cover_image_url=cover_url)
     db.add(release)
@@ -388,12 +388,11 @@ async def _seed_movie(db: AsyncSession, entry: _Entry, provider: ExternalProvide
     return [work]
 
 
-async def _seed_tv(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_tv(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     release = await _get_or_create_tv_release(db, entry)
     if release.series is not None:
         _apply_seed_metadata(release.series, entry, ItemKind.tv, index, cover_url, thumbnail_url)
     _apply_seed_metadata(release, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.tv], release.id, provider, index, entry)
     await _ensure_person_link(db, release.id, "tv_release", entry.creator, "creator")
     media = TVReleaseMedia(release=release, media_number=1, media_type="season", title=entry.title, episode_count=1, runtime_minutes=42, region_code="US", encoding="digital")
     db.add(media)
@@ -414,69 +413,48 @@ async def _seed_tv(db: AsyncSession, entry: _Entry, provider: ExternalProvider, 
     db.add(episode)
     await db.flush()
     _apply_seed_metadata(episode, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    await _ensure_tv_links(db, release.id, provider, index, entry)
     return [release]
 
 
 async def _seed_music(
     db: AsyncSession,
     entry: _Entry,
-    provider: ExternalProvider,
     cover_url: str | None,
     thumbnail_url: str | None,
     index: int,
 ) -> list[Any]:
-    group, release = await _get_or_create_music_release_group_and_release(db, entry, cover_url)
-    _apply_seed_metadata(group, entry, ItemKind.music, index, cover_url, thumbnail_url)
-    _apply_seed_metadata(release, entry, ItemKind.music, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.music], group.id, provider, index, entry)
-    await _ensure_person_link(db, release.id, "music_release", entry.creator, "artist")
-    medium = (
-        await db.execute(
-            select(MusicMedium).where(
-                MusicMedium.release_id == release.id,
-                MusicMedium.medium_number == 1,
-            )
-        )
+    album = (
+        await db.execute(select(MusicAlbum).where(MusicAlbum.title == entry.title))
     ).scalar_one_or_none()
-    if medium is None:
-        medium = MusicMedium(
-            release=release,
-            medium_number=1,
-            medium_type="CD",
-            title="1",
-            sound_type="stereo",
-        )
-        db.add(medium)
-        await db.flush()
-
-    track = (
-        await db.execute(
-            select(MusicTrack).where(
-                MusicTrack.medium_id == medium.id,
-                MusicTrack.position == "1",
-            )
-        )
-    ).scalar_one_or_none()
-    if track is None:
-        db.add(
-            MusicTrack(
-                medium=medium,
-                position="1",
+    if album is None:
+        album = MusicAlbum(
+            title=entry.title,
+            sort_title=_slug(entry.title),
+            artists=[{"name": entry.creator[0], "sort_name": None}],
+            release_date=entry.release_date,
+            labels=[{"name": entry.publisher, "catalog_number": None}],
+            format="CD",
+            barcode=f"MUS-{_slug(entry.title)}",
+            genres=[entry.tag] if entry.tag else [],
+            sound_types=["stereo"],
+            cover_image_url=cover_url,
+            tracks=[MusicAlbumTrack(
+                disc_number=1,
+                position=1,
                 title=f"{entry.title} Track 1",
+                artist=entry.creator[0],
                 duration_ms=180000,
-            )
+            )],
         )
-    medium.track_count = 1
-    await db.flush()
-    return [group]
+        db.add(album)
+        await db.flush()
+    return [album]
 
 
-async def _seed_game(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_game(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     work = await _get_or_create_work(db, GameWork, entry.title, entry.release_date, cover_url)
     work.original_language = "en"
     _apply_seed_metadata(work, entry, ItemKind.game, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.game], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "game_work", entry.creator, "designer")
     release = GameRelease(work=work, release_title=entry.title, platform="PC", release_date=entry.release_date, region_code="US", format="digital", publisher=entry.publisher, barcode=f"GAME-{index:03d}", cover_image_url=cover_url)
     db.add(release)
@@ -485,10 +463,9 @@ async def _seed_game(db: AsyncSession, entry: _Entry, provider: ExternalProvider
     return [work]
 
 
-async def _seed_boardgame(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
+async def _seed_boardgame(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     work = await _get_or_create_work(db, BoardGameWork, entry.title, entry.release_date, cover_url)
     _apply_seed_metadata(work, entry, ItemKind.boardgame, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.boardgame], work.id, provider, index, entry)
     await _ensure_person_link(db, work.id, "boardgame_work", entry.creator, "designer")
     edition = BoardGameEdition(work=work, edition_title=entry.title, format="standard", publisher=entry.publisher, release_date=entry.release_date, country="US", cover_image_url=cover_url)
     db.add(edition)
@@ -633,67 +610,6 @@ async def _get_or_create_tv_season(db: AsyncSession, series: TVSeries, entry: _E
     return row
 
 
-async def _get_or_create_music_release_group_and_release(
-    db: AsyncSession,
-    entry: _Entry,
-    cover_url: str | None,
-) -> tuple[MusicReleaseGroup, MusicRelease]:
-    group = (
-        await db.execute(select(MusicReleaseGroup).where(MusicReleaseGroup.title == entry.title))
-    ).scalar_one_or_none()
-    if group is None:
-        group = MusicReleaseGroup(
-            title=entry.title,
-            sort_title=_slug(entry.title),
-            artist=entry.creator[0],
-            original_release_date=entry.release_date,
-            cover_image_url=cover_url,
-        )
-        db.add(group)
-        await db.flush()
-    release = (
-        await db.execute(
-            select(MusicRelease).where(
-                MusicRelease.release_group_id == group.id,
-                MusicRelease.title == entry.title,
-            )
-        )
-    ).scalar_one_or_none()
-    if release is None:
-        release = MusicRelease(
-            release_group=group,
-            title=entry.title,
-            sort_title=_slug(entry.title),
-            release_date=entry.release_date,
-            release_type="Album",
-            release_status="Official",
-            cover_image_url=cover_url,
-            publisher=entry.publisher,
-            language="en",
-            barcode=f"MUS-{_slug(entry.title)}",
-        )
-        db.add(release)
-        await db.flush()
-    return group, release
-
-
-async def _ensure_provider(db: AsyncSession, entity_type: str, entity_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    pid = f"{SEED_MARKER}-{entity_type}-{index}-{_slug(entry.title)}"
-    result = await db.execute(
-        select(ExternalProviderId).where(
-            ExternalProviderId.entity_type == entity_type,
-            ExternalProviderId.entity_id == entity_id,
-            ExternalProviderId.provider == provider,
-        )
-    )
-    if result.scalar_one_or_none() is None:
-        db.add(ExternalProviderId(provider=provider, provider_item_id=pid, entity_type=entity_type, entity_id=entity_id, site_url=f"https://example.com/{entity_type}/{pid}", api_url=f"https://api.example.com/{entity_type}/{pid}"))
-
-
-async def _upsert_provider(db: AsyncSession, entity_type: str, entity_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    await _ensure_provider(db, entity_type, entity_id, provider, index, entry)
-
-
 async def _ensure_person_link(db: AsyncSession, entity_id: Any, entity_type: str, creator: tuple[str, str], role: str) -> None:
     name, creator_role = creator
     result = await db.execute(select(Person).where(Person.name == name))
@@ -825,30 +741,6 @@ async def _ensure_story_arc_membership(db: AsyncSession, issue_id: Any, arc_name
         db.add(ComicStoryArcMembership(issue_id=issue_id, story_arc_id=arc.id, ordinal=1))
 
 
-async def _ensure_comic_links(db: AsyncSession, issue_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    await _ensure_provider(db, "comic_issue", issue_id, provider, index, entry)
-    if entry.character:
-        await _ensure_character_appearance(db, issue_id, entry.character, entity_type="comic_issue")
-
-
-async def _ensure_manga_links(db: AsyncSession, chapter_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    await _ensure_provider(db, "manga_chapter", chapter_id, provider, index, entry)
-    if entry.character:
-        await _ensure_character_appearance(db, chapter_id, entry.character, entity_type="manga_chapter")
-
-
-async def _ensure_anime_links(db: AsyncSession, episode_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    await _ensure_provider(db, "anime_episode", episode_id, provider, index, entry)
-
-
-async def _ensure_tv_links(db: AsyncSession, release_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    await _ensure_provider(db, "tv_release", release_id, provider, index, entry)
-
-
-async def _ensure_book_links(db: AsyncSession, edition_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
-    await _ensure_provider(db, "book_edition", edition_id, provider, index, entry)
-
-
 async def _delete_kind_rows(db: AsyncSession, entity_type: str, ids: list[Any]) -> None:
     if entity_type == "book_work":
         await db.execute(delete(BookSeriesMembership).where(BookSeriesMembership.work_id.in_(ids)))
@@ -885,8 +777,8 @@ async def _delete_kind_rows(db: AsyncSession, entity_type: str, ids: list[Any]) 
         await db.execute(delete(TVReleaseContribution).where(TVReleaseContribution.release_id.in_(ids)))
         await db.execute(delete(TVReleaseIdentifier).where(TVReleaseIdentifier.release_id.in_(ids)))
         await db.execute(delete(TVRelease).where(TVRelease.id.in_(ids)))
-    elif entity_type == "music_release_group":
-        await db.execute(delete(MusicReleaseGroup).where(MusicReleaseGroup.id.in_(ids)))
+    elif entity_type == "music_album":
+        await db.execute(delete(MusicAlbum).where(MusicAlbum.id.in_(ids)))
     elif entity_type == "game_work":
         await db.execute(delete(GameRelease).where(GameRelease.work_id.in_(ids)))
         await db.execute(delete(GameWork).where(GameWork.id.in_(ids)))

@@ -1,5 +1,18 @@
 # Deployment
 
+## Coordinated Catalog v1 Reset
+
+The coordinated all-kind Catalog Item v1 cutover is in progress. Core has a
+source-neutral Music Album API slice and no longer runs provider ingest, but
+the other catalog kinds and App's local persistence have not completed the
+new baseline. Do not deploy this working state or reset existing databases.
+The finished cutover replaces all old Work/Release roots together, starts Core
+and App from empty databases, and rebuilds Meilisearch. Existing databases and
+backups from the previous schemas will not be supported. Stop both services
+together, preserve old backups for archival recovery, then create the empty
+databases and bootstrap the final schemas. Never run Core's `create_all()`
+against an existing database expecting it to drop or reshape old tables.
+
 ## Single Machine
 
 Use Docker Compose for a self-hosted deployment on consumer hardware:

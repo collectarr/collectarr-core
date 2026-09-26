@@ -23,8 +23,6 @@ class ImageCache:
     async def record_mirrored_cover(self, image: MirroredImage) -> ImageCacheEntry:
         now = datetime.now(UTC)
         values = {
-            "provider": image.provider,
-            "provider_item_id": image.provider_item_id,
             "source_url": image.source_url,
             "object_key": image.key,
             "public_url": image.url,
@@ -42,8 +40,6 @@ class ImageCache:
         upsert_stmt = insert_stmt.on_conflict_do_update(
             constraint="uq_image_cache_object_key",
             set_={
-                "provider": image.provider,
-                "provider_item_id": image.provider_item_id,
                 "source_url": image.source_url,
                 "public_url": image.url,
                 "mime_type": image.content_type,
@@ -67,16 +63,14 @@ class ImageCache:
         await self.evict_if_needed(protected_keys={image.key})
         return entry
 
-    async def cached_provider_cover(
+    async def cached_image(
         self,
         *,
-        provider: str,
         source_url: str,
     ) -> ImageCacheEntry | None:
         entry = await self.db.scalar(
             select(ImageCacheEntry)
             .where(
-                ImageCacheEntry.provider == provider,
                 ImageCacheEntry.source_url == source_url,
             )
             .order_by(ImageCacheEntry.updated_at.desc())

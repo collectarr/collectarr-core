@@ -31,8 +31,7 @@ from app.models import (
     MangaWork,
     MovieRelease,
     MovieWork,
-    MusicRelease,
-    MusicReleaseGroup,
+    MusicAlbum,
     TVRelease,
     TVSeries,
 )
@@ -57,8 +56,7 @@ _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "manga_work": MangaWork,
     "movie_release": MovieRelease,
     "movie_work": MovieWork,
-    "music_release": MusicRelease,
-    "music_release_group": MusicReleaseGroup,
+    "music_album": MusicAlbum,
     "tv_release": TVRelease,
     "tv_series": TVSeries,
 }

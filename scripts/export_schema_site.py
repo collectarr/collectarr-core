@@ -80,23 +80,22 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     },
     {
         "id": "identity",
-        "title": "Identity and Source Mapping",
-        "description": "Users and external provider identifiers that map upstream ids back to catalog entities.",
+        "title": "Users",
+        "description": "User accounts and roles.",
         "tables": [
             "users",
-            "external_provider_ids",
         ],
     },
     {
         "id": "operations",
         "title": "Images and Operations",
-        "description": "Image storage, cache tracking, ingest jobs, admin audit trails, and proposal workflow tables.",
+        "description": "Image storage, cache tracking, admin audit trails, and canonical correction proposals.",
         "tables": [
             "image_assets",
             "image_cache_entries",
-            "provider_ingest_jobs",
-            "metadata_proposals",
             "admin_audit_logs",
+            "canonical_correction_proposals",
+            "canonical_correction_proposal_values",
         ],
     },
 ]
@@ -116,7 +115,7 @@ KIND_SPECS: list[dict[str, str]] = [
     {"id": "game", "title": "Games", "description": "Video game schema slice."},
     {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
     {"id": "book", "title": "Books", "description": "Books v1 work/edition schema slice."},
-    {"id": "music", "title": "Music", "description": "Music schema slice."},
+    {"id": "music", "title": "Music", "description": "Music album catalog schema slice."},
     {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
 ]
 
@@ -129,8 +128,6 @@ KIND_SHARED_TABLES = [
     "entity_persons",
     "tags",
     "entity_tags",
-    "external_provider_ids",
-    "provider_payload_snapshots",
 ]
 
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
@@ -213,6 +210,12 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "collection": [
         "bundle_releases",
     ],
+    "music": [
+        "music_albums",
+        "music_album_disc_titles",
+        "music_album_tracks",
+        "music_album_credits",
+    ],
 }
 
 POLYMORPHIC_LINK_TABLES = {
@@ -221,12 +224,11 @@ POLYMORPHIC_LINK_TABLES = {
     "entity_organizations",
     "entity_persons",
     "entity_tags",
-    "external_provider_ids",
     "image_assets",
 }
 
 STATIC_NOTES = [
-    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
     "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",

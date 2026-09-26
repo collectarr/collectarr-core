@@ -19,14 +19,24 @@
 ![TV](docs/badges/catalog-tv.svg)
 ![Music](docs/badges/catalog-music.svg)
 
-> Shared metadata engine for Collectarr: canonical catalog, typed metadata submissions, image delivery, admin tooling, and search infrastructure.
+> Shared metadata engine for Collectarr: canonical catalog, typed catalog APIs, image delivery, admin tooling, and search infrastructure.
 
-Collectarr Core owns the shared catalog and the normalized metadata contract.
-Provider adapters and importers run in `collectarr-app`; Core receives typed
-submissions, applies canonical writes, indexes metadata, and exposes it to
+Collectarr Core owns the shared catalog and source-neutral metadata contracts.
+Provider adapters and importers run in `collectarr-app`; Core receives complete
+canonical objects, validates and persists them, indexes metadata, and exposes it to
 clients. Personal library state such as owned items, grades, notes, wishlists,
 and local tags stays in `collectarr-app` and can optionally sync through
 `collectarr-sync`.
+
+> **Coordinated all-kind Catalog Item v1 cutover in progress:** Music has a
+> source-neutral Core Album API slice and Core provider ingest has moved to App.
+> Core's other catalog kinds and App persistence still use the prior graph.
+> Do not deploy this cross-repository working state or reset databases yet. The
+> completed release will require stopping App and Core together, preserving old
+> backups only for archival recovery, creating empty Core and App databases,
+> running `python -m app.scripts.bootstrap_schema`, and rebuilding the search
+> index. The old database and backup formats will not be supported by the final
+> v1 baseline; `create_all()` will not reshape them.
 
 ---
 
@@ -35,14 +45,14 @@ and local tags stays in `collectarr-app` and can optionally sync through
 ### 📚 Canonical Catalog
 
 - Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
-- Canonical entities for kind-specific works, editions, releases, media, tracks, people, organizations, story arcs, characters, and shared series tags
+- Target: one Catalog Item per specific collectible edition/version/release, with typed contained data
 - Typed kind-aware item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
 - Shared editorial metadata that complements local-first personal data in the app
 
 ### 🔌 Metadata Contract And Search Infrastructure
 
-- Versioned normalized provider envelopes with provenance, attribution, and image references
-- Kind-specific canonical writes for submissions from app-side providers and importers
+- Versioned source-neutral catalog contracts generated from the API schemas
+- Canonical catalog writes for complete objects prepared by the app
 - Optional Meilisearch indexing for fast catalog queries and richer search previews
 
 ### 🖼️ Image And Storage Infrastructure
@@ -114,19 +124,17 @@ python -m pytest
 
 ## 🧩 Extending Metadata For New Libraries
 
-Core is the canonical source of cross-library metadata. When an app-side
-provider exposes a new field, wire it through the normalized metadata contract
-first and only then project it into the client.
+Core is the canonical source of cross-library metadata. The app owns external
+search, provider credentials, mapping, import history, and source identifiers.
+It sends Core a complete catalog object that is ready to validate and persist.
 
-1. Add the typed field to the normalized submission contract.
+1. Add the typed field to the source-neutral canonical request and response schema.
 2. Persist it in the appropriate kind-specific table or relation.
-3. Add it to Meilisearch documents and display attributes when it should affect search or preview UX.
-4. Keep field names stable so `collectarr-app` can cache and render the same canonical shape offline.
+3. Add it to Meilisearch documents when it should affect search.
+4. Export the contract bundle and update the pinned app artifact deliberately.
 
-Provider-native payloads stay on the app side. Core receives the normalized
-fields plus explicit provenance and provider identifiers, so new providers can
-share the same catalog/search/admin contract without adding provider-specific
-server models.
+Provider-native payloads and provenance stay in `collectarr-app`. Core does not
+accept provider identifiers, envelopes, snapshots, or import jobs.
 
 ---
 

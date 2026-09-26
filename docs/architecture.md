@@ -1,109 +1,76 @@
 # Architecture
 
+> **Coordinated all-kind Catalog Item v1 cutover in progress.** The current
+> typed Work/Release graphs are transitional. The target and reset gate are
+> documented in [Catalog Item v1 cutover](catalog-item-v1-cutover.md).
+
 ## Domain Boundary
 
-Canonical metadata is shared across clients. Personal library data references canonical records locally but is not stored by the central metadata server.
+Core stores shared catalog metadata. The app owns provider search, credentials,
+rate limits, response mapping, source identifiers, import history, provenance,
+owned copies, tracking, and other personal data. Core receives complete,
+source-neutral catalog objects and validates, deduplicates, persists, and indexes
+them.
 
-Canonical graph:
+The target is one Catalog Item per concrete collectible edition/version/release
+for every kind, with zero or more App-owned copies. Music already has a Core
+Album API slice with contained disc titles and ordered tracks; the other kinds
+and App persistence have not completed the all-kind cutover.
 
 ```text
-Kind-specific Work -> Release -> Medium / Track
+Shared catalog: CatalogItem(kind, id) -> typed contained data
+Local library:  CatalogItemRef -> OwnedCopyRef 0..N
 ```
-
-Local client hierarchy:
-
-```text
-LocalDatabase -> OwnedItem
-              -> WishlistItem
-OwnedItem -> personal notes
-OwnedItem -> condition / grading / purchase data
-```
-
-External provider IDs are stored separately and can point at any canonical entity by `(entity_type, entity_id)`.
 
 ## Backend Layers
 
-API routers validate HTTP payloads, call services, and return DTOs.
+API routers validate HTTP payloads, call services, and return typed DTOs.
+Services own canonical catalog rules and search-index decisions. Repositories
+own database query details.
 
-Services own business rules, including:
-
-- registration/login
-- normalized metadata submission and canonical writes
-- search indexing decisions
-
-Repositories own database query details.
-
-Provider adapters and importers live in `collectarr-app`. Core accepts the
-versioned `NormalizedProviderEnvelopeV1` contract and owns validation,
-provenance, canonical writes, and indexing.
+Core has no provider adapter, provider registry, provider search or ingest route,
+provider ID table, raw provider snapshot, or provider import job. Provider-native
+data is mapped in `collectarr-app` before it reaches a Core catalog write.
 
 ## Repository Boundaries
 
-Collectarr is split into three product repositories:
+- `collectarr-core`: canonical catalog API and database, source-neutral writes,
+  typed metadata contracts, search indexing, image storage, catalog
+  administration, and audit logs.
+- `collectarr-sync`: optional personal sync API, device pairing, conflict
+  handling, tombstones, and sync storage.
+- `collectarr-app`: Flutter client, local Drift database, providers, import and
+  export workflows, barcode UX, owned copies, and personal library state.
 
-- `collectarr-core`: metadata API, canonical catalog, normalized submission
-  handling, search indexing, image cache, admin identity, audit logs,
-  schema bootstrap and the Core Admin Console.
-- `collectarr-sync`: optional personal sync service, sync protocol, device
-  pairing, conflict handling, tombstones, and sync storage.
-- `collectarr-app`: Flutter client, local Drift database, local catalog
-  snapshots, import/export, barcode UX, sync client, and user-facing library UI.
-
-Core owns the operational admin frontend. The Core Admin Console should become
-a Grafana-like control plane for server health, worker status, catalog coverage,
-missing covers/provider IDs, audit history, admin accounts, and destructive
-metadata operations. The Flutter app can show whether the connected account has
-admin permissions, but the server-operator console belongs with Core.
-
-See [repository-split.md](repository-split.md) for the current split status and
-ownership map.
-
-Movies and TV shows are canonical video works. DVD, Blu-ray, 4K UHD, VHS,
-LaserDisc, and digital purchases are physical/digital formats represented by
-edition and variant records under those works; normalized submissions target
-the canonical movie/TV records plus exact physical release variants.
-Admin corrections target exact kind-specific work or release entities and return
-the normalized ID plus display label to Flutter.
-
-Core exposes the media catalog through `GET /api/v1/metadata/media-types`. Flutter
-uses that response as the runtime source for media labels, route aliases, and
-physical format options, while keeping local fallback data for
-offline/development sessions when Core is unavailable.
+The coordinated all-kind v1 cutover requires empty Core PostgreSQL and App
+Drift databases. Existing databases and backups from the previous graph are
+incompatible with the final v1 baseline. Core's `create_all()` creates missing
+tables; it does not reshape or remove old tables. See [deployment.md](deployment.md).
 
 ## Local Personal Data
 
-The Flutter client stores personal collection state in Drift. Owned items, wishlist entries, purchase dates, prices, grades, condition, notes, and personal tags stay on the user's device. Shared series-level catalog tags live in Core.
+Owned copies, wishlist entries, purchase dates, prices, grades, conditions,
+notes, listening history, and personal tags stay in the App. The central
+metadata backend does not expose `/collection` or `/sync` endpoints.
 
-The central backend intentionally does not expose `/collection` or `/sync` endpoints. This keeps the shared metadata server stateless with respect to personal libraries and avoids turning public web access into a private-data hosting requirement.
-
-Multi-device sync belongs in the separate user-hosted `collectarr-sync` service.
-
-Initial strategy for `collectarr-sync`:
-
-- UUIDs generated client-side
-- `device_id` per installation
-- `client_changed_at` timestamps on local mutations
-- last-write-wins to start
-- tombstones for deletes
-- Settings conflict actions for Keep service and Keep local retry
+Multi-device sync belongs in the separate `collectarr-sync` service. Its
+protocol owns client-generated UUIDs, device identity, conflict policy, and
+tombstones.
 
 ## Search
 
-PostgreSQL is the source of truth. Meilisearch is a derived index.
-
-Normalized submissions are written to PostgreSQL and indexed into Meilisearch on
-a best-effort basis. Workers rebuild derived search documents periodically, and
-API search can fall back to PostgreSQL if Meilisearch is unavailable or empty.
-Admin metadata corrections, duplicate actions, and proposal decisions are
-recorded in persistent audit logs with actor identity and typed details.
+PostgreSQL is the source of truth. Meilisearch is a derived index. Catalog writes
+update PostgreSQL and enqueue or request best-effort indexing. Workers rebuild
+derived search documents periodically, and API search can fall back to
+PostgreSQL if Meilisearch is unavailable or empty. Catalog corrections,
+duplicate actions, and proposal decisions are recorded in persistent audit logs.
 
 ## Storage
 
-Images are stored as references, not backend filesystem files. MinIO/S3 is used
-for manual uploads, generated assets, and optional mirrored assets. Mirrored
-images are normalized to WebP, indexed in `image_cache_entries`, and bounded by
-a least-recently-used cache budget. Local MinIO can be configured with a public
-read bucket policy through `S3_MANAGE_PUBLIC_READ_POLICY`.
+Images are represented by source-neutral URLs or stored asset references.
+MinIO/S3 stores manual uploads and generated assets; the optional cache stores
+processed image bytes without provider identity. Local MinIO can be configured
+with a public read bucket policy through `S3_MANAGE_PUBLIC_READ_POLICY`.
 
 ## Scaling
 

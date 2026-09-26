@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
 
 
@@ -97,15 +97,12 @@ class BundleReleaseMemberResponse(BaseModel):
 
 class BundleReleaseDetailResponse(BundleReleaseSummaryResponse):
     franchise_id: UUID | None = None
-    provider_links: list["ExternalProviderIdResponse"] = Field(default_factory=list)
     members: list[BundleReleaseMemberResponse] = Field(default_factory=list)
 
 
 class MetadataCredit(BaseModel):
     name: str
     role: str | None = None
-    api_detail_url: str | None = None
-    site_detail_url: str | None = None
     image_url: str | None = None
 
     model_config = {"extra": "allow"}
@@ -141,16 +138,6 @@ class EditionResponse(BaseModel):
     physical_format: str | None = None
     physical_format_label: str | None = None
     variants: list[VariantResponse] = []
-
-    model_config = {"from_attributes": True}
-
-
-class ExternalProviderIdResponse(BaseModel):
-    provider: ExternalProvider
-    entity_type: str
-    provider_item_id: str
-    site_url: str | None = None
-    api_url: str | None = None
 
     model_config = {"from_attributes": True}
 

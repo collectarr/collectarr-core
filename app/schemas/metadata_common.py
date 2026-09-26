@@ -3,32 +3,11 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from app.catalog.grouping_models import GroupingModel
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
-from app.types import JsonObject
-
-
-class ProviderSearchResultResponse(BaseModel):
-    provider: ExternalProvider
-    provider_item_id: str
-    title: str
-    kind: ItemKind
-    summary: str | None = None
-    image_url: str | None = None
-    candidate_type: str | None = None
-    artist: str | None = None
-    series_title: str | None = None
-    issue_number: str | None = None
-    volume_start_year: int | None = None
-    variant_name: str | None = None
-    is_variant: bool | None = None
-    issue_count: int | None = None
-    publisher: str | None = None
-    character_preview: list[str] = Field(default_factory=list)
-    story_arc_preview: list[str] = Field(default_factory=list)
 
 
 class PhysicalFormatResponse(BaseModel):
@@ -44,9 +23,6 @@ class MediaTypeResponse(BaseModel):
     singular_label: str
     plural_label: str
     route_segments: list[str]
-    default_provider: ExternalProvider | None = None
-    providers: list[ExternalProvider] = Field(default_factory=list)
-    provider_search_policy: str
     is_top_level: bool = True
     grouping_model: GroupingModel
     physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)
@@ -100,42 +76,9 @@ class MetadataFieldSchemaResponse(BaseModel):
     sections: list[str] = Field(default_factory=list)
 
 
-class MetadataProposalCreate(BaseModel):
-    provider: ExternalProvider
-    provider_item_id: str | None = Field(default=None, max_length=255)
-    query: str = Field(min_length=1, max_length=255)
-    title: str | None = Field(default=None, max_length=255)
-    summary: str | None = None
-    image_url: str | None = Field(default=None, max_length=1024)
-    metadata_payload: JsonObject | None = None
-
-    model_config = {"extra": "forbid"}
-
-    @field_validator("metadata_payload")
-    @classmethod
-    def _validate_metadata_payload(cls, value: JsonObject | None) -> JsonObject | None:
-        from app.proposal_payload import validate_metadata_payload
-
-        validate_metadata_payload(value)
-        return value
-
-
-class MetadataProposalResponse(BaseModel):
-    id: UUID
-    provider: ExternalProvider
-    provider_item_id: str | None
-    query: str
-    title: str | None
-    metadata_payload: JsonObject | None = None
-    status: str
-
-    model_config = {"from_attributes": True}
-
-
 class EpisodeResponse(BaseModel):
     episode_number: int
     title: str
-    provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
     air_date_parts: PartialDateValue | None = None
@@ -146,7 +89,6 @@ class EpisodeResponse(BaseModel):
 class SeasonResponse(BaseModel):
     season_number: int
     title: str
-    provider_item_id: str | None = None
     overview: str | None = None
     air_date: date | None = None
     air_date_parts: PartialDateValue | None = None
@@ -198,8 +140,6 @@ class CreatorResponse(BaseModel):
     name: str
     description: str | None = None
     image_url: str | None = None
-    api_detail_url: str | None = None
-    site_detail_url: str | None = None
     item_count: int = 0
 
 

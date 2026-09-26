@@ -21,13 +21,11 @@ from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
     Base,
-    ExternalProvider,
     TimestampMixin,
     UuidMixin,
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
@@ -35,15 +33,11 @@ from app.models.canonical_support import (  # noqa: F401
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
     MangaSeriesRelation,
-    MetadataProposal,
     Organization,
     Person,
-    ProviderIngestJob,
-    ProviderPayloadSnapshot,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -127,7 +121,6 @@ class TVSeries(UuidMixin, TimestampMixin, Base):
     season_count: Mapped[int | None] = mapped_column(Integer)
     episode_count: Mapped[int | None] = mapped_column(Integer)
     poster_url: Mapped[str | None] = mapped_column(String(2048))
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
     backdrop_url: Mapped[str | None] = mapped_column(String(2048))
 
     seasons: Mapped[list["TVSeason"]] = relationship(
@@ -161,7 +154,6 @@ class TVSeason(UuidMixin, TimestampMixin, Base):
     air_date_parts: Mapped[str | None] = mapped_column(String(64))
     episode_count: Mapped[int | None] = mapped_column(Integer)
     poster_url: Mapped[str | None] = mapped_column(String(2048))
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
 
     series: Mapped["TVSeries"] = relationship(back_populates="seasons")
     episodes: Mapped[list["TVEpisode"]] = relationship(
@@ -242,7 +234,6 @@ class TVEpisode(UuidMixin, TimestampMixin, Base):
     large_image_url: Mapped[str | None] = mapped_column(String(2048))
     still_key: Mapped[str | None] = mapped_column(String(512))
     production_code: Mapped[str | None] = mapped_column(String(128))
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
 
     series: Mapped["TVSeries"] = relationship(back_populates="episodes")
     season: Mapped["TVSeason"] = relationship(back_populates="episodes")
@@ -303,10 +294,6 @@ class TVEpisodeIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str | None] = mapped_column(String(255))
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        index=True,
-    )
 
     episode: Mapped[TVEpisode] = relationship(back_populates="identifiers")
 
@@ -373,10 +360,6 @@ class TVReleaseIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str | None] = mapped_column(String(255))
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        index=True,
-    )
 
     release: Mapped[TVRelease] = relationship(back_populates="identifiers")
 
@@ -542,9 +525,5 @@ class MovieWorkIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str | None] = mapped_column(String(255))
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        index=True,
-    )
 
     work: Mapped[MovieWork] = relationship(back_populates="identifiers")

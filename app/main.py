@@ -28,7 +28,7 @@ app = FastAPI(
         {"name": "system", "description": "Health and diagnostics"},
         {"name": "auth", "description": "Authentication and registration"},
         {"name": "metadata", "description": "Catalog metadata and library operations"},
-        {"name": "admin", "description": "Administration and provider management"},
+        {"name": "admin", "description": "Catalog and account administration"},
     ],
 )
 app.add_middleware(

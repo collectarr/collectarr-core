@@ -23,28 +23,22 @@ from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
     Base,
-    ExternalProvider,
     TimestampMixin,
     UuidMixin,
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
     ImageCacheEntry,
     MangaSeriesRelation,
-    MetadataProposal,
     Organization,
     Person,
-    ProviderIngestJob,
-    ProviderPayloadSnapshot,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -73,14 +67,6 @@ class ComicSeries(UuidMixin, TimestampMixin, Base):
         back_populates="series",
         cascade="all, delete-orphan",
     )
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == ComicSeries.id,
-            ExternalProviderId.entity_type == "comic_series",
-        ),
-        viewonly=True,
-    )
-
 
 class ComicWork(UuidMixin, TimestampMixin, Base):
     __tablename__ = "comic_works"
@@ -151,14 +137,6 @@ class ComicVolume(UuidMixin, TimestampMixin, Base):
     country: Mapped[str | None] = mapped_column(String(64), index=True)
 
     works: Mapped[list["ComicWork"]] = relationship(back_populates="volume")
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == ComicVolume.id,
-            ExternalProviderId.entity_type == "comic_volume",
-        ),
-        viewonly=True,
-    )
-
 
 class ComicIssue(UuidMixin, TimestampMixin, Base):
     __tablename__ = "comic_issues"
@@ -264,10 +242,6 @@ class ComicIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        index=True,
-    )
 
     issue: Mapped[ComicIssue] = relationship(back_populates="identifiers")
 
@@ -345,32 +319,3 @@ class ComicCharacter(UuidMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     sort_name: Mapped[str | None] = mapped_column(String(255))
     image_url: Mapped[str | None] = mapped_column(String(1024))
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == ComicCharacter.id,
-            ExternalProviderId.entity_type == "comic_character",
-        ),
-        viewonly=True,
-    )
-    external_identifiers: Mapped[list["ComicCharacterExternalIdentifier"]] = relationship(
-        back_populates="character",
-        cascade="all, delete-orphan",
-        order_by="ComicCharacterExternalIdentifier.identifier_type",
-    )
-
-
-class ComicCharacterExternalIdentifier(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "comic_character_external_identifiers"
-    __table_args__ = (
-        UniqueConstraint("character_id", "identifier_type", "normalized_value", name="uq_comic_character_external_identifier"),
-        Index("ix_comic_character_external_identifiers_type_value", "identifier_type", "normalized_value"),
-    )
-
-    character_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("comic_characters.id", ondelete="CASCADE"), nullable=False
-    )
-    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
-    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    character: Mapped[ComicCharacter] = relationship(back_populates="external_identifiers")

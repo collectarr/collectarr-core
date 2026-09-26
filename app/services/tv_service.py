@@ -6,7 +6,6 @@ from fastapi import status
 from sqlalchemy import extract, or_, select
 from sqlalchemy.orm import selectinload
 
-from app.core.errors import ApiHTTPException
 from app.models import (
     TVRelease,
     TVReleaseContribution,
@@ -15,8 +14,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
-from app.providers.base import NormalizedSeason
-from app.schemas import EpisodeResponse as ProviderEpisodeResponse
+from app.schemas import EpisodeResponse
 from app.schemas import SeasonResponse
 from app.schemas.metadata_shared import SearchResult
 
@@ -132,24 +130,6 @@ class TVService:
         )
         return await self.db.scalar(stmt)
 
-    async def get_provider_seasons(self, provider_name, provider_item_id: str) -> list[SeasonResponse]:
-        provider = self.providers.maybe_get(provider_name)
-        if provider is None:
-            raise ApiHTTPException(status_code=status.HTTP_400_BAD_REQUEST, code="provider_not_configured", detail=f"Provider '{provider_name.value}' is not configured")
-        if not hasattr(provider, "get_seasons"):
-            raise ApiHTTPException(status_code=status.HTTP_400_BAD_REQUEST, code="provider_seasons_unsupported", detail=f"Provider '{provider_name.value}' does not support seasons")
-        seasons: list[NormalizedSeason] = await provider.get_seasons(provider_item_id)
-        return [SeasonResponse(season_number=s.season_number, title=s.title, provider_item_id=s.provider_item_id, overview=s.overview, air_date=s.air_date, episode_count=s.episode_count, poster_url=s.poster_url, episodes=[ProviderEpisodeResponse(episode_number=ep.episode_number, title=ep.title, provider_item_id=ep.provider_item_id, overview=ep.overview, air_date=ep.air_date, runtime_minutes=ep.runtime_minutes, page_count=ep.page_count) for ep in s.episodes]) for s in seasons]
-
-    async def get_provider_volumes(self, provider_name, provider_item_id: str) -> list[SeasonResponse]:
-        provider = self.providers.maybe_get(provider_name)
-        if provider is None:
-            raise ApiHTTPException(status_code=status.HTTP_400_BAD_REQUEST, code="provider_not_configured", detail=f"Provider '{provider_name.value}' is not configured")
-        if not hasattr(provider, "get_volumes"):
-            raise ApiHTTPException(status_code=status.HTTP_400_BAD_REQUEST, code="provider_volumes_unsupported", detail=f"Provider '{provider_name.value}' does not support volumes")
-        volumes: list[NormalizedSeason] = await provider.get_volumes(provider_item_id)
-        return [SeasonResponse(season_number=v.season_number, title=v.title, provider_item_id=v.provider_item_id, overview=v.overview, air_date=v.air_date, episode_count=v.episode_count, poster_url=v.poster_url, episodes=[ProviderEpisodeResponse(episode_number=ep.episode_number, title=ep.title, provider_item_id=ep.provider_item_id, overview=ep.overview, air_date=ep.air_date, runtime_minutes=ep.runtime_minutes, page_count=ep.page_count) for ep in v.episodes]) for v in volumes]
-
     async def _tv_release_seasons(self, series: TVSeries) -> list[SeasonResponse]:
         seasons: list[SeasonResponse] = []
         for season in sorted(series.seasons or [], key=lambda row: (row.season_number, str(row.id))):
@@ -161,16 +141,14 @@ class TVService:
                 SeasonResponse(
                     season_number=season.season_number,
                     title=season.title or f"Season {season.season_number}",
-                    provider_item_id=season.provider_item_id,
                     overview=season.overview or series.overview,
                     air_date=season.air_date or next((episode.original_air_date for episode in ordered_episodes if episode.original_air_date), None),
                     episode_count=len(ordered_episodes),
                     poster_url=season.poster_url or series.poster_url,
                     episodes=[
-                        ProviderEpisodeResponse(
+                        EpisodeResponse(
                             episode_number=episode.episode_number,
                             title=episode.title,
-                            provider_item_id=episode.provider_item_id,
                             overview=episode.overview,
                             air_date=episode.original_air_date,
                             runtime_minutes=episode.duration_seconds // 60 if episode.duration_seconds is not None else None,

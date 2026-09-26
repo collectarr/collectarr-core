@@ -30,7 +30,6 @@ from app.models import (
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     GameRelease,
     GameWork,
     ImageAsset,
@@ -44,11 +43,10 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicReleaseGroup,
-    MusicReleaseIdentifier,
+    MusicAlbum,
+    MusicAlbumCredit,
+    MusicAlbumDiscTitle,
+    MusicAlbumTrack,
     TVEpisode,
     TVRelease,
     TVSeason,
@@ -75,7 +73,7 @@ _ENTITY_TYPE: dict[type, str] = {
     TVSeries: "tv_series",
     GameWork: "game_work",
     BoardGameWork: "boardgame_work",
-    MusicReleaseGroup: "music_release_group",
+    MusicAlbum: "music_album",
 }
 
 # Maps each native root model class to a human-readable kind label.
@@ -88,7 +86,7 @@ _KIND_LABEL: dict[type, str] = {
     TVSeries: "tv",
     GameWork: "game",
     BoardGameWork: "boardgame",
-    MusicReleaseGroup: "music",
+    MusicAlbum: "music",
 }
 
 # All native root model classes in scan order.
@@ -135,17 +133,14 @@ class AdminDuplicateService:
             kind_label = _KIND_LABEL[model_cls]
             if await self._duplicate_group_is_ignored(entity_ids, model_cls):
                 continue
-            conflicts = await self._duplicate_conflict_flags(entity_ids, entity_type)
+            conflicts = await self._duplicate_conflict_flags(entity_ids)
             entities = await self._entities_by_ids(entity_ids, model_cls)
-            provider_counts = await self._provider_link_counts(entity_ids, entity_type)
             duplicate_score, recommended_target_id = self._score_duplicate_candidate(
                 entities,
-                provider_counts,
                 conflicts=conflicts,
             )
             confidence_factors = self._duplicate_confidence_factors(
                 entities,
-                provider_counts,
                 conflicts=conflicts,
             )
             merge_warnings = self._duplicate_merge_warnings(conflicts)
@@ -157,7 +152,6 @@ class AdminDuplicateService:
                     count=count,
                     item_ids=entity_ids,
                     reason="same title",
-                    has_provider_conflicts=conflicts["provider"],
                     has_cover_conflicts=conflicts["cover"],
                     duplicate_score=duplicate_score,
                     recommended_target_item_id=recommended_target_id,
@@ -238,12 +232,11 @@ class AdminDuplicateService:
         entity_type = _ENTITY_TYPE[type(entities[0])]
         ids = [e.id for e in entities]
         token = self._duplicate_ignore_token(ids)
-        conflicts = await self._duplicate_conflict_flags(ids, entity_type)
-        provider_counts = await self._provider_link_counts(ids, entity_type)
-        confidence_factors = self._duplicate_confidence_factors(entities, provider_counts, conflicts=conflicts)
+        conflicts = await self._duplicate_conflict_flags(ids)
+        confidence_factors = self._duplicate_confidence_factors(entities, conflicts=conflicts)
         merge_warnings = self._duplicate_merge_warnings(conflicts)
         duplicate_score, recommended_target_id = self._score_duplicate_candidate(
-            entities, provider_counts, conflicts=conflicts
+            entities, conflicts=conflicts
         )
         review = DuplicateReview(
                 action="ignore",
@@ -311,14 +304,13 @@ class AdminDuplicateService:
         self._ensure_same_duplicate_group([target, *sources])
         entity_type = _ENTITY_TYPE[type(target)]
         all_ids = [e.id for e in [target, *sources]]
-        conflicts = await self._duplicate_conflict_flags(all_ids, entity_type)
-        provider_counts = await self._provider_link_counts(all_ids, entity_type)
+        conflicts = await self._duplicate_conflict_flags(all_ids)
         confidence_factors = self._duplicate_confidence_factors(
-            [target, *sources], provider_counts, conflicts=conflicts
+            [target, *sources], conflicts=conflicts
         )
         merge_warnings = self._duplicate_merge_warnings(conflicts)
         duplicate_score, recommended_target_id = self._score_duplicate_candidate(
-            [target, *sources], provider_counts, conflicts=conflicts
+            [target, *sources], conflicts=conflicts
         )
 
         for source in sources:
@@ -474,22 +466,7 @@ class AdminDuplicateService:
     # Private helpers â€” conflict detection & scoring                       #
     # ------------------------------------------------------------------ #
 
-    async def _duplicate_conflict_flags(
-        self, entity_ids: list[UUID], entity_type: str
-    ) -> dict[str, bool]:
-        provider_result = await self.db.execute(
-            select(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
-            .where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.entity_id.in_(entity_ids),
-            )
-            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
-        )
-        provider_ids_by_provider: dict[str, set[str]] = {}
-        for provider, pid in provider_result.all():
-            provider_ids_by_provider.setdefault(str(provider), set()).add(pid)
-        has_provider_conflicts = any(len(v) > 1 for v in provider_ids_by_provider.values())
-
+    async def _duplicate_conflict_flags(self, entity_ids: list[UUID]) -> dict[str, bool]:
         # Cover conflict: check model-level cover fields (not all models have them)
         entities = await self._entities_by_ids(entity_ids)
         cover_sigs: set[tuple[str | None, str | None]] = set()
@@ -500,56 +477,41 @@ class AdminDuplicateService:
                 cover_sigs.add((url, key))
 
         return {
-            "provider": has_provider_conflicts,
             "cover": len(cover_sigs) > 1,
         }
 
     def _score_duplicate_candidate(
         self,
         entities: list[Any],
-        provider_counts: dict[UUID, int],
         *,
         conflicts: dict[str, bool],
     ) -> tuple[int, UUID | None]:
         if len(entities) < 2:
             return 0, None
         score = 55
-        if not conflicts["provider"]:
-            score += 12
         if not conflicts["cover"]:
             score += 8
-        if provider_counts:
-            score += 6
-        if len(provider_counts) == len(entities):
-            score += 4
         if self._entities_share_publisher(entities):
             score += 6
         if self._entities_share_release_marker(entities):
             score += 5
         recommended_target_id = max(
             entities,
-            key=lambda e: self._merge_target_score(e, provider_counts.get(e.id, 0)),
+            key=self._merge_target_score,
         ).id
         return min(score, 99), recommended_target_id
 
     def _duplicate_confidence_factors(
         self,
         entities: list[Any],
-        provider_counts: dict[UUID, int],
         *,
         conflicts: dict[str, bool],
     ) -> list[str]:
         if len(entities) < 2:
             return []
         factors: list[str] = []
-        if not conflicts["provider"]:
-            factors.append("provider_ids_consistent")
         if not conflicts["cover"]:
             factors.append("cover_images_consistent")
-        if provider_counts:
-            factors.append("provider_links_present")
-        if len(provider_counts) == len(entities):
-            factors.append("provider_links_present_for_all_items")
         if self._entities_share_publisher(entities):
             factors.append("publisher_aligned")
         if self._entities_share_release_marker(entities):
@@ -558,33 +520,17 @@ class AdminDuplicateService:
 
     def _duplicate_merge_warnings(self, conflicts: dict[str, bool]) -> list[str]:
         warnings: list[str] = []
-        if conflicts["provider"]:
-            warnings.append("provider_id_conflict")
         if conflicts["cover"]:
             warnings.append("cover_asset_conflict")
         return warnings
-
-    async def _provider_link_counts(
-        self, entity_ids: list[UUID], entity_type: str
-    ) -> dict[UUID, int]:
-        result = await self.db.execute(
-            select(ExternalProviderId.entity_id, func.count(ExternalProviderId.id))
-            .where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.entity_id.in_(entity_ids),
-            )
-            .group_by(ExternalProviderId.entity_id)
-        )
-        return dict(result.all())
-
-    def _merge_target_score(self, entity: Any, provider_link_count: int) -> tuple[int, int, int]:
+    def _merge_target_score(self, entity: Any) -> tuple[int, int, int]:
         # Count immediate child collections as a proxy for "richness"
         child_count = 0
         for attr in ("editions", "releases", "issues", "chapters", "episodes", "media"):
             children = getattr(entity, attr, None)
             if isinstance(children, list):
                 child_count += len(children)
-        score = provider_link_count * 25
+        score = 0
         if self._entity_has_cover(entity):
             score += 14
         if self._entity_release_marker(entity) is not None:
@@ -592,7 +538,7 @@ class AdminDuplicateService:
         if self._entity_primary_publisher(entity) is not None:
             score += 6
         score += child_count * 3
-        return score, provider_link_count, child_count
+        return score, int(self._entity_has_cover(entity)), child_count
 
     def _entities_share_publisher(self, entities: list[Any]) -> bool:
         publishers = [self._entity_primary_publisher(e) for e in entities]
@@ -639,7 +585,6 @@ class AdminDuplicateService:
         entity_type = _ENTITY_TYPE[type(source)]
 
         await self._move_native_children(source, target)
-        await self._move_provider_links(entity_type, source.id, target.id)
         await self._move_organization_links(entity_type, source.id, target.id)
         await self._move_person_links(entity_type, source.id, target.id)
         await self._move_tag_links(entity_type, source.id, target.id)
@@ -736,46 +681,33 @@ class AdminDuplicateService:
         elif isinstance(source, BoardGameWork):
             await self.db.execute(update(BoardGameEdition).where(BoardGameEdition.work_id == sid).values(work_id=tid))
 
-        elif isinstance(source, MusicReleaseGroup):
-            await self.db.execute(
-                update(MusicRelease)
-                .where(MusicRelease.release_group_id == sid)
-                .values(release_group_id=tid)
+        elif isinstance(source, MusicAlbum):
+            await self._move_album_children(MusicAlbumDiscTitle, sid, tid, ("disc_number",))
+            await self._move_album_children(
+                MusicAlbumTrack, sid, tid, ("disc_number", "position")
             )
-        elif isinstance(source, MusicRelease):
-            await self.db.execute(update(MusicMedium).where(MusicMedium.release_id == sid).values(release_id=tid))
-            await self.db.execute(
-                update(MusicReleaseContribution)
-                .where(MusicReleaseContribution.release_id == sid)
-                .values(release_id=tid)
-            )
-            await self.db.execute(
-                update(MusicReleaseIdentifier)
-                .where(MusicReleaseIdentifier.release_id == sid)
-                .values(release_id=tid)
-            )
+            await self._move_album_children(MusicAlbumCredit, sid, tid, ("role", "sequence"))
 
-    async def _move_provider_links(
-        self, entity_type: str, source_id: UUID, target_id: UUID
+    async def _move_album_children(
+        self,
+        model: type[Any],
+        source_id: UUID,
+        target_id: UUID,
+        identity_fields: tuple[str, ...],
     ) -> None:
-        links = await self.db.scalars(
-            select(ExternalProviderId).where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.entity_id == source_id,
-            )
-        )
-        for link in links:
-            exists = await self.db.scalar(
-                select(ExternalProviderId.id).where(
-                    ExternalProviderId.entity_type == entity_type,
-                    ExternalProviderId.entity_id == target_id,
-                    ExternalProviderId.provider == link.provider,
+        children = await self.db.scalars(select(model).where(model.album_id == source_id))
+        for child in children:
+            identity = {field: getattr(child, field) for field in identity_fields}
+            existing = await self.db.scalar(
+                select(model.album_id).where(
+                    model.album_id == target_id,
+                    *(getattr(model, field) == value for field, value in identity.items()),
                 )
             )
-            if exists:
-                await self.db.delete(link)
+            if existing is not None:
+                await self.db.delete(child)
             else:
-                link.entity_id = target_id
+                child.album_id = target_id
 
     async def _move_organization_links(
         self, entity_type: str, source_id: UUID, target_id: UUID

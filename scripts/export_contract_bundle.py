@@ -18,9 +18,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.catalog.media_types import top_level_media_types  # noqa: E402
-from app.catalog.metadata_fields import contract_rows  # noqa: E402
 from app.main import app  # noqa: E402
+from app.schemas.catalog_item_v1 import CATALOG_ITEM_DETAILS_BY_KIND  # noqa: E402
 
 CONTRACT_VERSION = "1.0.0"
 
@@ -130,22 +129,16 @@ def build_contract_bundle() -> dict[str, Any]:
     generated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     openapi = app.openapi()
     catalog_item = _catalog_item_contract(openapi, generated_at)
-    field_schema = {
-        "contractVersion": CONTRACT_VERSION,
-        "generatedAt": generated_at,
-        "fields": contract_rows(),
-    }
     active_kinds = {
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
-        "kinds": [media_type.kind.value for media_type in top_level_media_types],
+        "kinds": sorted(CATALOG_ITEM_DETAILS_BY_KIND),
     }
     return {
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
         "openapi": openapi,
         "catalog_item": catalog_item,
-        "field_schema": field_schema,
         "active_kinds": active_kinds,
     }
 
@@ -155,7 +148,6 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
     outputs = {
         "openapi.json": bundle["openapi"],
         "catalog-item-v1.json": bundle["catalog_item"],
-        "metadata-field-schema.json": bundle["field_schema"],
         "active-kinds.json": bundle["active_kinds"],
     }
     hashes: dict[str, str] = {}
@@ -169,7 +161,6 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
         "coreCommit": bundle["coreCommit"],
         "openApiHash": hashes["openapi.json"],
         "catalogItemHash": hashes["catalog-item-v1.json"],
-        "fieldSchemaHash": hashes["metadata-field-schema.json"],
         "activeKindsHash": hashes["active-kinds.json"],
     }
     outputs["contract-manifest.json"] = manifest
@@ -203,7 +194,6 @@ def check_contract_bundle(contracts_dir: Path | None = None) -> None:
     hash_key_by_file = {
         "openapi.json": "openApiHash",
         "catalog-item-v1.json": "catalogItemHash",
-        "metadata-field-schema.json": "fieldSchemaHash",
         "active-kinds.json": "activeKindsHash",
     }
     errors: list[str] = []

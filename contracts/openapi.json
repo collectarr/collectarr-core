@@ -924,7 +924,7 @@
         "title": "BoardGameCatalogDetailsV1",
         "type": "object"
       },
-      "Body_add_entity_image_api_v1_images_entity__entity_type___entity_id__post": {
+      "Body_add_catalog_item_image_api_v1_images_catalog_items__catalog_item_id__post": {
         "properties": {
           "image_data_base64": {
             "minLength": 1,
@@ -956,7 +956,7 @@
         "required": [
           "image_data_base64"
         ],
-        "title": "Body_add_entity_image_api_v1_images_entity__entity_type___entity_id__post",
+        "title": "Body_add_catalog_item_image_api_v1_images_catalog_items__catalog_item_id__post",
         "type": "object"
       },
       "Body_search_by_cover_upload_api_v1_images_search_by_cover_upload_post": {
@@ -4851,6 +4851,112 @@
         ]
       }
     },
+    "/api/v1/images/catalog-items/{catalog_item_id}": {
+      "get": {
+        "operationId": "list_catalog_item_images_api_v1_images_catalog_items__catalog_item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "catalog_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Catalog Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Catalog Item Images Api V1 Images Catalog Items  Catalog Item Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Catalog Item Images",
+        "tags": [
+          "images"
+        ]
+      },
+      "post": {
+        "operationId": "add_catalog_item_image_api_v1_images_catalog_items__catalog_item_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "catalog_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Catalog Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_catalog_item_image_api_v1_images_catalog_items__catalog_item_id__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Add Catalog Item Image Api V1 Images Catalog Items  Catalog Item Id  Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Catalog Item Image",
+        "tags": [
+          "images"
+        ]
+      }
+    },
     "/api/v1/images/download": {
       "get": {
         "operationId": "download_image_api_v1_images_download_get",
@@ -4892,134 +4998,6 @@
           }
         },
         "summary": "Download Image",
-        "tags": [
-          "images"
-        ]
-      }
-    },
-    "/api/v1/images/entity/{entity_type}/{entity_id}": {
-      "get": {
-        "operationId": "list_entity_images_api_v1_images_entity__entity_type___entity_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_type",
-            "required": true,
-            "schema": {
-              "maxLength": 64,
-              "minLength": 1,
-              "title": "Entity Type",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "entity_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Entity Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "title": "Response List Entity Images Api V1 Images Entity  Entity Type   Entity Id  Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "List Entity Images",
-        "tags": [
-          "images"
-        ]
-      },
-      "post": {
-        "operationId": "add_entity_image_api_v1_images_entity__entity_type___entity_id__post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "entity_type",
-            "required": true,
-            "schema": {
-              "maxLength": 64,
-              "minLength": 1,
-              "title": "Entity Type",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "entity_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Entity Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_add_entity_image_api_v1_images_entity__entity_type___entity_id__post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Add Entity Image Api V1 Images Entity  Entity Type   Entity Id  Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Add Entity Image",
         "tags": [
           "images"
         ]

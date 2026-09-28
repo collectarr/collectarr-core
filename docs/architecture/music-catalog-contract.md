@@ -26,6 +26,6 @@ deploying the completed cutover.
 ## Contract export
 
 Run `python -m scripts.export_contract_bundle` from the Core repository after
-changing source schemas. CI checks the checked-in OpenAPI, Catalog Item,
-metadata-field, and active-kind artifacts against their source schemas and
-manifest hashes. The exported Catalog Item contract is version 1.
+changing source schemas. CI checks the checked-in OpenAPI, Catalog Item, and
+active-kind artifacts against their source schemas and manifest hashes. The
+exported Catalog Item contract is version 1.

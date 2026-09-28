@@ -21,8 +21,8 @@ no independent identity. Catalog Items do not require a Work/Release graph.
 
 App-owned state is stored outside Core. The generated
 [schema-full.md](schema-full.md) and [schema viewer](schema.html) describe the
-current SQLAlchemy schema. These snapshots will be regenerated after the
-coordinated Core model reset is complete.
+current SQLAlchemy schema. Refresh them with
+`python scripts/export_schema_site.py` after model changes.
 
 ## App Local Data
 
@@ -40,8 +40,9 @@ separate from the canonical catalog API.
 
 ## Fresh v1 Reset
 
-The coordinated cutover removes the old Core Work/Release graphs and resets
-Core PostgreSQL and App Drift to their final v1 schemas.
+The coordinated release starts Core PostgreSQL and App Drift from their final
+v1 schemas. Core's active model registry no longer defines the old Work/Release
+graphs, but `create_all()` leaves old tables in an existing database.
 Existing databases and backups from the old formats are incompatible. Create
 empty databases and rebuild the search index from the new catalog. Core's
 `create_all()` creates missing tables but does not reshape old ones; see

@@ -1,50 +1,44 @@
-# Library Parity Contract
+# Catalog Item Contract
 
-> **Superseded target:** this document's previous entity levels do not define
-> the new ownership model. The target is one Catalog Item plus zero or more
-> App-owned copies, as described in
-> [catalog-item-v1-cutover.md](catalog-item-v1-cutover.md). Public CLZ feature
-> pages are not complete Edit-form field specifications; use the App's
-> provisional per-kind ledgers until saved captures confirm exact parity.
+This document describes the shared catalog contract consumed by
+`collectarr-app`. It does not claim exact parity with every CLZ Edit form.
+Saved captures are needed to confirm the remaining provisional App field
+ledgers for kinds without a dedicated CLZ product.
 
-This contract defines the shared kind and metadata surface consumed by
-`collectarr-app` and `collectarr-sync`.
+## Active Kinds
 
-## Active Library Kinds
+The active kinds are `anime`, `boardgame`, `book`, `comic`, `game`, `manga`,
+`movie`, `music`, and `tv`. Each is a top-level Catalog Item kind.
 
-The active top-level kinds are `comic`, `manga`, `anime`, `book`, `game`,
-`boardgame`, `movie`, `tv`, and `music`. `collection` remains an internal,
-non-top-level kind.
+## Field Definitions
 
-## Field Ownership
+`app/schemas/catalog_item_v1.py` defines the typed request and response fields
+for every kind. The `details` object is discriminated by `kind`; common fields
+and each kind's contained data are validated before persistence. Catalog Item
+details are stored together in `catalog_items.details`, while normalized
+identifiers are indexed in `catalog_item_identities`.
 
-Catalog Item v1 request and response fields are defined by the typed schemas in
-`app/schemas/catalog_item_v1.py` and exported in `catalog-item-v1.json`. The
-legacy `app/catalog/metadata_fields.py` registry remains for normalization and
-correction workflows that have not yet moved to Catalog Item v1. It is exported
-as an internal migration artifact and is not a public editing endpoint or the
-source of Catalog Item field definitions.
+App-owned fields do not appear in the Core contract. Owned Copies, purchase
+details, conditions, local locations, personal images, notes, wishlists,
+tracking, and listening history remain App or Sync data.
 
-## Guarantees
+## Contract Artifacts
 
-1. Every active kind is top-level routable in the media catalog.
-2. Every active kind has an explicit field schema and typed read contract.
-3. Every exported field has an explicit canonical owner and write target.
-4. Music is the `music` branch of `CatalogItemV1`, with contained disc titles
-   and ordered tracks; Catalog Item responses expose no release-group or
-   medium identity.
-5. Neither repository retains provider IDs, source envelopes, provider search,
-   provider integrations, or provider-import APIs.
+Core exports `openapi.json`, `catalog-item-v1.json`, and `active-kinds.json`.
+Their hashes are recorded in `contract-manifest.json`. The old metadata field
+registry and its `metadata-field-schema.json` artifact are retired; the typed
+Catalog Item API schema is the source of truth for canonical fields.
 
-## Sources of Truth
+Music is the `music` branch of `CatalogItemV1`, with ordered tracks, disc
+titles, credits, and links as contained data. No release-group or medium
+identity is exposed.
 
-- Kind labels and routing: `app/catalog/media_types.py`
-- Field applicability and ownership: `app/catalog/metadata_fields.py`
-- API request and response schemas: `app/schemas/`
-- Generated client artifacts: `contracts/`
+## Source-Neutral Writes
 
-Core publishes `openapi.json`, `catalog-item-v1.json`,
-`metadata-field-schema.json`, and `active-kinds.json`; their hashes are recorded
-in `contract-manifest.json`. Music is a typed kind in the Catalog Item
-contract, not a separate API graph. Update the source schema and regenerate the
-bundle when a contract changes.
+The App resolves provider data and prepares a complete Catalog Item before
+submitting it. Core validates and deduplicates the canonical object without
+knowing its source. Core does not accept provider IDs, envelopes, snapshots,
+provenance, or import jobs.
+
+When a field changes, update the typed schema, regenerate the contract bundle,
+and update the pinned App contract deliberately.

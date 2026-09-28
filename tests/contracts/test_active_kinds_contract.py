@@ -1,22 +1,9 @@
-from app.catalog.media_types import top_level_media_types
 from app.models.base import ItemKind
-
-ACTIVE_PARITY_KINDS = {
-    ItemKind.comic,
-    ItemKind.manga,
-    ItemKind.anime,
-    ItemKind.book,
-    ItemKind.game,
-    ItemKind.boardgame,
-    ItemKind.movie,
-    ItemKind.tv,
-    ItemKind.music,
-}
+from app.schemas.catalog_item_v1 import CATALOG_ITEM_DETAILS_BY_KIND
 
 
-def test_active_top_level_kinds_match_parity_contract():
-    top_level_kinds = {media_type.kind for media_type in top_level_media_types}
+def test_active_catalog_kinds_match_typed_item_schemas():
+    active_kinds = {kind.value for kind in ItemKind}
 
-    assert top_level_kinds == ACTIVE_PARITY_KINDS
-    # Internal kinds must not become active top-level routes.
-    assert ItemKind.collection not in top_level_kinds
+    assert active_kinds == set(CATALOG_ITEM_DETAILS_BY_KIND)
+    assert len(active_kinds) == 9

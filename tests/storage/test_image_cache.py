@@ -18,14 +18,12 @@ class FakeStorage:
         self.deleted.extend(keys)
 
 
-def mirrored_image(key: str = "covers/comicvine/4000-12345/cover.webp") -> MirroredImage:
+def mirrored_image(key: str = "covers/cover-hash.webp") -> MirroredImage:
     return MirroredImage(
         key=key,
         url=f"http://storage.test/{key}",
         content_type="image/webp",
-        source_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
-        provider="comicvine",
-        provider_item_id="4000-12345",
+        source_url="https://images.example/cover.jpg",
         size_bytes=12345,
         width=823,
         height=1280,
@@ -37,7 +35,6 @@ def mirrored_image_for_source(
     *,
     key: str,
     source_url: str,
-    provider_item_id: str,
     content_hash: str = "abc123",
 ) -> MirroredImage:
     return MirroredImage(
@@ -45,8 +42,6 @@ def mirrored_image_for_source(
         url=f"http://storage.test/{key}",
         content_type="image/webp",
         source_url=source_url,
-        provider="comicvine",
-        provider_item_id=provider_item_id,
         size_bytes=12345,
         width=823,
         height=1280,
@@ -56,8 +51,6 @@ def mirrored_image_for_source(
 
 def cache_entry(key: str, size_bytes: int, last_accessed_at: datetime) -> ImageCacheEntry:
     return ImageCacheEntry(
-        provider="comicvine",
-        provider_item_id="4000-12345",
         source_url=f"https://example.test/{key}.jpg",
         object_key=key,
         public_url=f"http://storage.test/{key}",
@@ -78,14 +71,12 @@ async def test_image_cache_records_and_touches_mirrored_cover():
         cache = ImageCache(db, storage=storage)
         first = await cache.record_mirrored_cover(mirrored_image())
         second = await cache.record_mirrored_cover(
-            mirrored_image(key="covers/comicvine/4000-12345/cover.webp")
+            mirrored_image(key="covers/cover-hash.webp")
         )
         await db.commit()
 
         assert second.id == first.id
-        assert second.object_key == "covers/comicvine/4000-12345/cover.webp"
-        assert second.provider == "comicvine"
-        assert second.provider_item_id == "4000-12345"
+        assert second.object_key == "covers/cover-hash.webp"
         assert second.mime_type == "image/webp"
         assert second.size_bytes == 12345
         assert second.width == 823
@@ -96,15 +87,14 @@ async def test_image_cache_records_and_touches_mirrored_cover():
 
 
 @pytest.mark.asyncio
-async def test_image_cache_touches_cached_provider_cover():
+async def test_image_cache_touches_cached_source_url():
     now = datetime.now(UTC)
     async with AsyncSessionLocal() as db:
         db.add(cache_entry("cached", 30, now - timedelta(days=1)))
         await db.commit()
 
         cache = ImageCache(db)
-        entry = await cache.cached_provider_cover(
-            provider="comicvine",
+        entry = await cache.cached_image(
             source_url="https://example.test/cached.jpg",
         )
         await db.commit()
@@ -116,21 +106,19 @@ async def test_image_cache_touches_cached_provider_cover():
 
 
 @pytest.mark.asyncio
-async def test_image_cache_keeps_distinct_provider_sources_with_same_content_hash():
+async def test_image_cache_keeps_distinct_source_urls_with_same_content_hash():
     async with AsyncSessionLocal() as db:
         cache = ImageCache(db)
         first = await cache.record_mirrored_cover(
             mirrored_image_for_source(
-                key="covers/comicvine/4000-12345/first.webp",
+                key="covers/first.webp",
                 source_url="https://example.test/first.jpg",
-                provider_item_id="4000-12345",
             )
         )
         second = await cache.record_mirrored_cover(
             mirrored_image_for_source(
-                key="covers/comicvine/4000-67890/second.webp",
+                key="covers/second.webp",
                 source_url="https://example.test/second.jpg",
-                provider_item_id="4000-67890",
             )
         )
         await db.commit()
@@ -143,8 +131,8 @@ async def test_image_cache_keeps_distinct_provider_sources_with_same_content_has
 
         assert first.id != second.id
         assert [row.object_key for row in rows] == [
-            "covers/comicvine/4000-12345/first.webp",
-            "covers/comicvine/4000-67890/second.webp",
+            "covers/first.webp",
+            "covers/second.webp",
         ]
         assert [row.source_url for row in rows] == [
             "https://example.test/first.jpg",

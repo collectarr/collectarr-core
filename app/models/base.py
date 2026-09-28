@@ -33,26 +33,12 @@ class ItemKind(str, enum.Enum):
     anime = "anime"
     boardgame = "boardgame"
     book = "book"
-    collection = "collection"
     comic = "comic"
     game = "game"
     manga = "manga"
     movie = "movie"
     music = "music"
     tv = "tv"
-
-
-class SeriesRelationType(str, enum.Enum):
-    sequel = "sequel"
-    prequel = "prequel"
-    side_story = "side_story"
-    spin_off = "spin_off"
-    parent = "parent"
-    adaptation = "adaptation"
-    alternative = "alternative"
-    summary = "summary"
-    compilation = "compilation"
-    other = "other"
 
 
 class UserRole(str, enum.Enum):

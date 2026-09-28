@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     admin_read_requires_auth_in_public: bool = True
     image_upload_rate_limit_requests: int = Field(default=30, ge=0)
     image_upload_rate_limit_window_seconds: int = Field(default=60, ge=0)
-    image_max_per_entity: int = Field(default=20, ge=1)
+    image_max_per_catalog_item: int = Field(default=20, ge=1)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

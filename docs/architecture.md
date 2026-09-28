@@ -1,21 +1,16 @@
 # Architecture
 
-> **Coordinated all-kind Catalog Item v1 cutover in progress.** The current
-> typed Work/Release graphs are transitional. The target and reset gate are
-> documented in [Catalog Item v1 cutover](catalog-item-v1-cutover.md).
-
 ## Domain Boundary
 
-Core stores shared catalog metadata. The target product has no provider search,
-credentials, rate limits, response mapping, source identifiers, import history,
-or provider provenance. App owns copies, tracking, and other personal data.
-Core receives complete, source-neutral catalog objects and validates,
-deduplicates, persists, and indexes them.
+Core owns canonical Catalog Items and their typed contained data. One Catalog
+Item represents a concrete collectible edition, version, or issue variant. It
+is the only shared catalog root for all nine kinds. Tracks, episodes, credits,
+components, included editions, and similar repeated values remain contained
+children rather than separate Work or Release records.
 
-The target is one Catalog Item per concrete collectible edition/version/release
-for every kind, with zero or more App-owned copies. Music already has a Core
-Album API slice with contained disc titles and ordered tracks; the other kinds
-and App persistence have not completed the all-kind cutover.
+Core accepts source-neutral writes prepared by the App. It does not search
+providers, store provider credentials or IDs, retain provider snapshots, or run
+provider import jobs. App owns Owned Copies, tracking, and personal fields.
 
 ```text
 Shared catalog: CatalogItem(kind, id) -> typed contained data
@@ -24,57 +19,52 @@ Local library:  CatalogItemRef -> OwnedCopyRef 0..N
 
 ## Backend Layers
 
-API routers validate HTTP payloads, call services, and return typed DTOs.
-Services own canonical catalog rules and search-index decisions. Repositories
-own database query details.
+API routers validate requests, call focused services, and return typed DTOs.
+Services own canonical validation, identifier deduplication, persistence, and
+search-index decisions. Repositories own database query details.
 
-Core has no provider adapter, provider registry, provider search or ingest route,
-provider ID table, raw provider snapshot, or provider import job. Catalog data is
-created and edited through the source-neutral App forms before it reaches Core.
+The active SQLAlchemy model registry contains Catalog Items, normalized
+identifiers, users, catalog images, audit records, and duplicate-review
+records. Per-kind Work/Release ORM models and routes have been removed. A fresh
+schema bootstrap therefore creates only these active tables. `create_all()`
+does not remove obsolete tables from an existing database.
 
 ## Repository Boundaries
 
-- `collectarr-core`: canonical catalog API and database, source-neutral writes,
-  typed metadata contracts, search indexing, image storage, catalog
-  administration, and audit logs.
-- `collectarr-sync`: optional personal sync API, device pairing, conflict
-  handling, tombstones, and sync storage.
-- `collectarr-app`: Flutter client, local Drift database, Catalog Item forms,
-  barcode UX, owned copies, and personal library state.
+- `collectarr-core`: canonical Catalog Item API and database, source-neutral
+  writes, typed contracts, search indexing, catalog images, and administration.
+- `collectarr-sync`: optional sync for user-owned data and conflict handling.
+- `collectarr-app`: Flutter client, local catalog cache, Owned Copies, and
+  personal library state.
 
-The coordinated all-kind v1 cutover requires empty Core PostgreSQL and App
-Drift databases. Existing databases and backups from the previous graph are
-incompatible with the final v1 baseline. Core's `create_all()` creates missing
-tables; it does not reshape or remove old tables. See [deployment.md](deployment.md).
+The coordinated v1 release uses fresh Core and App databases and rebuilds the
+search index. Existing databases and backups from the previous graph need
+archival handling; see [deployment.md](deployment.md).
 
-## Local Personal Data
+## Personal Data
 
-Owned copies, wishlist entries, purchase dates, prices, grades, conditions,
-notes, listening history, and personal tags stay in the App. The central
-metadata backend does not expose `/collection` or `/sync` endpoints.
-
-Multi-device sync belongs in the separate `collectarr-sync` service. Its
-protocol owns client-generated UUIDs, device identity, conflict policy, and
-tombstones.
+Owned Copies, wishlist entries, purchase details, condition, notes, personal
+images, listening history, and personal tags stay in the App. Core does not
+expose personal collection or sync endpoints. Multi-device sync belongs in
+`collectarr-sync`.
 
 ## Search
 
-PostgreSQL is the source of truth. Meilisearch is a derived index. Catalog writes
-update PostgreSQL and enqueue or request best-effort indexing. Workers rebuild
-derived search documents periodically, and API search can fall back to
-PostgreSQL if Meilisearch is unavailable or empty. Catalog corrections,
-duplicate actions, and proposal decisions are recorded in persistent audit logs.
+PostgreSQL is the source of truth and Meilisearch is a derived index. Catalog
+writes update PostgreSQL and the worker rebuilds source-neutral v1 search
+documents. Search currently uses SQL text matching and needs indexed exact
+identifier lookup and pagination for large catalogs. Catalog edits and
+duplicate-review decisions are recorded in persistent audit logs.
 
-## Storage
+## Images
 
-Images are represented by source-neutral URLs or stored asset references.
-MinIO/S3 stores manual uploads and generated assets; the optional cache stores
-processed image bytes without provider identity. Local MinIO can be configured
-with a public read bucket policy through `S3_MANAGE_PUBLIC_READ_POLICY`.
+Catalog Item images use the `catalog_item` entity type. Core stores external
+URLs or uploaded image assets; it does not store Owned Copy images. MinIO/S3
+holds manual uploads and generated assets, while the optional cache stores
+processed image bytes.
 
 ## Scaling
 
-The API is stateless. Durable state lives in PostgreSQL, Meilisearch, and MinIO.
-Redis carries shared ephemeral state such as rate-limit windows. If Redis is
-unavailable in local development, Core falls back to process-local state. API
-and worker containers can scale independently.
+The API is stateless. Durable state lives in PostgreSQL, Meilisearch, and
+MinIO/S3. Redis carries shared ephemeral rate-limit state. API and worker
+containers can scale independently.

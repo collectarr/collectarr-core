@@ -1,21 +1,9 @@
-"""Regression tests for the schema-site Mermaid ER diagram generator.
-
-These guard the two failure modes that previously produced an empty / unparseable
-"catalog spine" diagram:
-
-* multiple key constraints on one attribute must be comma-separated
-  (``FK, UK`` / ``PK, FK``), not space-separated (``FK UK``), or Mermaid raises
-  ``Expecting 'ATTRIBUTE_WORD' ... got 'ATTRIBUTE_KEY'``;
-* multiple foreign keys between the same entity pair must be merged into a single
-  relationship line (parallel edges break Mermaid's dagre ER layout).
-"""
+"""Regression checks for the Catalog Item v1 schema documentation exporter."""
 
 import re
 
 from app.models.base import Base
 from scripts.export_schema_site import HIDDEN_TABLE_NAMES, build_schema_data
-
-_ATTR_LINE = re.compile(r"^\s{4}\S+\s+\w+(?P<keys>(?:\s+(?:PK|FK|UK)\b,?)*)\s*$")
 
 
 def _diagrams() -> dict[str, str]:
@@ -26,94 +14,29 @@ def _diagrams() -> dict[str, str]:
 def test_multiple_attribute_keys_are_comma_separated():
     for domain_id, diagram in _diagrams().items():
         for line in diagram.splitlines():
-            # Only inspect attribute lines that carry >=2 key constraints.
             tokens = line.strip().split()
-            keys = [tok.rstrip(",") for tok in tokens if tok.rstrip(",") in {"PK", "FK", "UK"}]
-            if len(keys) < 2:
+            key_tokens = [token for token in tokens if token.rstrip(",") in {"PK", "FK", "UK"}]
+            if len(key_tokens) < 2:
                 continue
-            # Every key except the last must be comma-terminated.
-            key_tokens = [tok for tok in tokens if tok.rstrip(",") in {"PK", "FK", "UK"}]
-            for tok in key_tokens[:-1]:
-                assert tok.endswith(","), (
-                    f"{domain_id}: multiple keys must be comma-separated, got {line!r}"
-                )
+            for token in key_tokens[:-1]:
+                assert token.endswith(","), f"{domain_id}: invalid key formatting in {line!r}"
 
 
-def test_catalog_spine_diagram_hides_deprecated_kind_metadata():
-    diagrams = _diagrams()
-    catalog = diagrams["catalog"]
-    assert "ITEM_KIND_METADATA {" not in catalog
-    assert "ITEM_KIND_METADATA_TAXONOMIES {" not in catalog
-    assert "items {" not in catalog
-    assert "editions {" not in catalog
-    assert "variants {" not in catalog
-
-
-def test_kind_views_do_not_surface_kind_metadata_subtypes():
-    data = build_schema_data()
-    kinds = {kind["id"]: kind for kind in data["kinds"]}
-
-    assert "ITEM_KIND_METADATA_ANIME" not in kinds["anime"]["diagram"]
-    assert "ITEM_KIND_METADATA_COMIC" not in kinds["comic"]["diagram"]
-    assert "ITEM_KIND_METADATA_MUSIC" not in kinds["music"]["diagram"]
-
-
-def test_no_parallel_edges_between_same_entity_pair():
+def test_repeated_foreign_key_pairs_do_not_create_parallel_edges():
     for domain_id, diagram in _diagrams().items():
         pair_counts: dict[tuple[str, str], int] = {}
         for line in diagram.splitlines():
             match = re.match(r"\s*(\w+)\s+[|o}{<>.-]+\s+(\w+)\s*:", line)
-            if not match:
-                continue
-            pair = (match.group(1), match.group(2))
-            pair_counts[pair] = pair_counts.get(pair, 0) + 1
-        duplicates = {pair: count for pair, count in pair_counts.items() if count > 1}
-        assert not duplicates, f"{domain_id}: parallel edges must be merged: {duplicates}"
+            if match:
+                pair = (match.group(1), match.group(2))
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+        assert not {pair: count for pair, count in pair_counts.items() if count > 1}, domain_id
 
 
-def test_kind_views_surface_v1_work_tables():
-    data = build_schema_data()
-    kinds = {kind["id"]: kind for kind in data["kinds"]}
-    misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
-
-    assert "comic_works" in kinds["comic"]["tables"]
-    assert "comic_volumes" in kinds["comic"]["tables"]
-    assert "book_works" in kinds["book"]["tables"]
-    assert "book_series" in kinds["book"]["tables"]
-    assert "game_works" in kinds["game"]["tables"]
-    assert "game_releases" in kinds["game"]["tables"]
-    assert "boardgame_works" in kinds["boardgame"]["tables"]
-    assert "boardgame_editions" in kinds["boardgame"]["tables"]
-    assert "music_release_groups" in kinds["music"]["tables"]
-    assert "music_releases" in kinds["music"]["tables"]
-    assert "music_mediums" in kinds["music"]["tables"]
-    assert "music_tracks" in kinds["music"]["tables"]
-    assert "tv_releases" in kinds["tv"]["tables"]
-
-    assert "comic_works" not in misc_tables
-    assert "book_works" not in misc_tables
-    assert "game_works" not in misc_tables
-    assert "boardgame_works" not in misc_tables
-    assert "music_release_groups" not in misc_tables
-    assert "music_releases" not in misc_tables
-    assert "music_mediums" not in misc_tables
-    assert "music_tracks" not in misc_tables
-    assert "tv_releases" not in misc_tables
-
-
-def test_schema_view_contains_only_declared_tables():
-    data = build_schema_data()
-    table_names = {table["name"] for table in data["tables"]}
-    assert table_names == set(Base.metadata.tables) - HIDDEN_TABLE_NAMES
-
-
-def test_catalog_spine_marks_bundle_composition_tables():
+def test_every_kind_uses_the_shared_catalog_item_tables():
     data = build_schema_data()
     catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
 
-    assert catalog["title"] == "Catalog Spine"
-    assert "canonical kind-specific tables" in catalog["description"].lower()
-    assert "bundle composition" in catalog["description"].lower()
-    assert "bundle_releases" in catalog["tables"]
-    assert "bundle_release_components" in catalog["tables"]
-    assert "bundle_release_items" not in catalog["tables"]
+    assert data["kinds"] == []
+    assert catalog["tables"] == ["catalog_items", "catalog_item_identities"]
+    assert {table["name"] for table in data["tables"]} == set(Base.metadata.tables) - HIDDEN_TABLE_NAMES

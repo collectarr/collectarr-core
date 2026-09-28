@@ -1,33 +1,34 @@
-# Image Pipeline
+# Catalog Item Image Pipeline
 
-Core stores image references and optional mirrored assets. App users choose or
-upload catalog images; Core handles the shared storage and delivery path.
+Core stores external image URLs in the typed Catalog Item details and uploaded
+image assets in `image_assets`. Every uploaded asset references one
+`catalog_item_id`; Core does not accept Work, Release, edition, variant, or
+Owned Copy image identities.
 
-## Delivery Modes
+## URL and Upload Paths
 
-- `external_url`: Core stores the source URL and clients render it directly.
-- `mirrored`: when image mirroring is enabled, Core downloads the source,
-  normalizes it to WebP, stores it in MinIO/S3, and records it in
-  `image_cache_entries`.
-- `missing`: Core stores no image URL. The client renders a deterministic
-  generated cover.
+- `external_url`: the Catalog Item keeps the external URL and clients render it
+  directly.
+- `uploaded_asset`: the App uploads image bytes to the typed
+  `/api/v1/images/catalog-items/{catalog_item_id}` endpoint. Core validates the
+  image, normalizes it to WebP, and stores the asset in MinIO/S3.
+- `missing`: the item has no image and the client may show its generated cover.
 
-User-uploaded images use the same mirroring path. Their effective source URL is
-derived from the uploaded bytes, which gives object-key generation a stable
-origin and prevents collisions between uploads.
+The image cache records processed external sources by URL. Cache keys and
+uploads do not carry provider IDs or provenance.
 
-Image mutation endpoints are admin-only. Viewers and editors can consume image
-URLs, but only admins can add, delete, or promote canonical image assets.
+Image mutation endpoints are admin-only. Catalog Items retain their own cover
+URLs; uploaded assets are managed through the catalog-item image endpoints.
 
 ## Client Fallback
 
-Flutter accepts only valid `http` and `https` image URLs. Empty, malformed,
-blocked, or failed image loads fall back to `LibraryGeneratedCover`.
+Flutter accepts valid `http` and `https` image URLs. Empty, malformed, blocked,
+or failed loads can fall back to `LibraryGeneratedCover`.
 
 ## Local Check
 
-1. Submit metadata with an image reference.
-2. Confirm the URL renders in list and detail views.
-3. Enable `MIRROR_PROVIDER_IMAGES=true` and submit another image.
-4. Confirm the response points to the MinIO/S3 object and that the cache entry
-   is visible in the admin tools.
+1. Create a Catalog Item and upload an image through its Catalog Item image
+   endpoint.
+2. Confirm the response includes the same `catalog_item_id` and the object URL.
+3. Confirm the asset appears in the Core admin image tools and can be removed or
+   promoted.

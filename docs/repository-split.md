@@ -50,9 +50,8 @@ persist provider provenance.
 Core publishes:
 
 - OpenAPI schema for metadata/admin/auth endpoints
-- media catalog contract for `/api/v1/metadata/media-types`
 - all-kind Catalog Item v1 contract (Music is the `music` details branch)
-- editable metadata field schema and active-kind list
+- active-kind list and contract hash manifest
 - versioned compatibility notes for API changes
 
 Sync publishes:
@@ -65,8 +64,8 @@ Sync publishes:
 App consumes:
 
 - Core metadata/admin/auth APIs
+- pinned Catalog Item v1 schema and active-kind list
 - Sync protocol schema
-- media catalog fallback data for offline/dev mode
 
 ## Future Devstack Decision
 

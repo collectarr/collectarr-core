@@ -27,11 +27,10 @@ search and edit canonical Catalog Items through Core. Personal library state
 such as owned copies, grades, notes, wishlists, and local tags stays in
 `collectarr-app` and can optionally sync through `collectarr-sync`.
 
-> **Coordinated all-kind Catalog Item v1 cutover in progress:** Core exports a
-> source-neutral typed Catalog Item API for all nine kinds. The App's active
-> library pages now use Catalog Item and Owned Copy v1 flows, while legacy
-> graph tables, routes, provider screens, and App persistence are still being
-> removed from both repositories.
+> **Coordinated all-kind Catalog Item v1 cutover in progress:** Core's active
+> API, ORM models, and contracts now use Catalog Item v1 for all nine kinds.
+> The App's active library pages use Catalog Item and Owned Copy v1 flows, but
+> legacy App persistence and provider-dependent code are still being removed.
 > Do not deploy this cross-repository working state or reset databases yet. The
 > completed release will require stopping App and Core together, preserving old
 > backups only for archival recovery, creating empty Core and App databases,
@@ -46,7 +45,7 @@ such as owned copies, grades, notes, wishlists, and local tags stays in
 ### 📚 Canonical Catalog
 
 - Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
-- Target: one Catalog Item per specific collectible edition/version/release, with typed contained data
+- One Catalog Item per specific collectible edition/version/release, with typed contained data
 - Typed kind-aware Catalog Item/search/admin responses generated from the versioned v1 contract
 - Shared editorial metadata that complements local-first personal data in the app
 
@@ -129,7 +128,7 @@ history, or source identifiers. It sends Core a complete Catalog Item that is
 ready to validate and persist.
 
 1. Add the typed field to the source-neutral canonical request and response schema.
-2. Persist it in the appropriate kind-specific table or relation.
+2. Keep it in the corresponding typed kind details schema and Catalog Item JSON document.
 3. Add it to Meilisearch documents when it should affect search.
 4. Export the contract bundle and update the pinned app artifact deliberately.
 

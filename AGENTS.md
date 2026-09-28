@@ -14,39 +14,23 @@ The active target is the coordinated all-kind Catalog Item v1 cutover documented
 
 Every kind has one canonical Catalog Item per concrete collectible edition/version/issue variant/release. It may contain typed child data such as tracks, episodes, credits, components, and included editions, but these children do not form another editable Work/Release chain. Core stores only shared canonical catalog data; App-owned copies, provider provenance, tracking, and personal fields remain outside Core.
 
-Do not add new Work/Release graph semantics or compatibility aliases. Existing per-kind graph tables are transitional source structures and will be removed or replaced at the coordinated v1 reset. Do not deploy/reset a database until the all-kind contract and App switch are complete.
+Do not add Work/Release graph semantics or compatibility aliases. The active ORM registry contains only the Catalog Item v1 schema. Do not deploy/reset a database until the App and Sync cutovers are complete together.
 
 ## API and contracts
-Core's target client contract bundle is exported from `contracts/`. The working
-bundle now contains the typed all-kind Catalog Item v1 contract; legacy
-per-kind graph contracts remain only while the coordinated App cutover is in
-progress:
+Core's client contract bundle is exported from `contracts/` and contains the
+typed all-kind Catalog Item v1 contract and its active kind list:
 - openapi.json
 - catalog-item-v1.json
-- metadata-field-schema.json
 - active-kinds.json
 - contract-manifest.json
 
-When API schemas, metadata fields, or active kinds change:
+When API schemas or active kinds change:
 1. update the source registry/schema
 2. regenerate contracts
 3. update tests
 4. keep app compatibility in mind
 
 Do not use docs/*.md as the machine contract source. The contracts/ JSON files are the machine-readable source for clients.
-
-## Metadata field schema
-Every exported metadata field should include:
-- key
-- kind or applicableKinds
-- valueType
-- scope
-- writeTarget
-- sourceEntityType
-- sourceTable
-- editable/searchable/filterable flags where applicable
-
-Fields must distinguish canonical metadata from legacy projection fields.
 
 ## Typed routes
 Prefer typed routes over generic metadata fallback routes.

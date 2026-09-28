@@ -29,209 +29,62 @@ POSTGRES_DIALECT = postgresql.dialect()
 DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
-HIDDEN_TABLE_NAMES = {
-    "item" + "_kind_metadata",
-    "item" + "_kind_metadata_taxonomies",
-}
+HIDDEN_TABLE_NAMES: set[str] = set()
 SOURCE_MODULES = [
     "app/models/base.py",
-    "app/models/canonical_anime.py",
-    "app/models/canonical_board_games.py",
-    "app/models/canonical_books.py",
-    "app/models/canonical_comics.py",
-    "app/models/canonical_common.py",
-    "app/models/canonical_games.py",
-    "app/models/canonical_manga.py",
-    "app/models/canonical_music.py",
+    "app/models/canonical_catalog_items.py",
+    "app/models/canonical_catalog_item_identities.py",
     "app/models/canonical_support.py",
-    "app/models/canonical_video.py",
+    "app/models/partial_date.py",
     "app/models/user.py",
 ]
-
 DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
-        "title": "Catalog Spine",
-        "description": "Canonical kind-specific tables and polymorphic bundle composition.",
-        "tables": [
-            "bundle_releases",
-            "bundle_release_components",
-        ],
+        "title": "Catalog Item v1",
+        "description": "Source-neutral catalog items and their normalized identifiers.",
+        "tables": ["catalog_items", "catalog_item_identities"],
     },
     {
-        "id": "editorial",
-        "title": "Editorial and Taxonomy",
-        "description": "People, organizations, characters, story arcs, and shared tagging tables.",
-        "tables": [
-            "organizations",
-            "persons",
-            "entity_organizations",
-            "entity_persons",
-            "entity_aliases",
-            "entity_links",
-            "story_arcs",
-            "story_arc_items",
-            "characters",
-            "character_appearances",
-            "tags",
-            "entity_tags",
-            "metadata_taxonomies",
-        ],
+        "id": "accounts",
+        "title": "Accounts",
+        "description": "Core editor and administrator accounts.",
+        "tables": ["users"],
     },
     {
-        "id": "identity",
-        "title": "Users",
-        "description": "User accounts and roles.",
-        "tables": [
-            "users",
-        ],
+        "id": "images",
+        "title": "Catalog Images",
+        "description": "Catalog Item images and the shared image cache.",
+        "tables": ["image_assets", "image_cache_entries"],
     },
     {
-        "id": "operations",
-        "title": "Images and Operations",
-        "description": "Image storage, cache tracking, admin audit trails, and duplicate review.",
+        "id": "administration",
+        "title": "Administration",
+        "description": "Audit history and Catalog Item duplicate review records.",
         "tables": [
-            "image_assets",
-            "image_cache_entries",
             "admin_audit_logs",
+            "admin_audit_log_details",
+            "duplicate_reviews",
+            "duplicate_review_entities",
+            "duplicate_review_details",
         ],
     },
 ]
-
 TABLE_TO_DOMAIN = {
     table_name: domain["id"]
     for domain in DOMAIN_SPECS
     for table_name in domain["tables"]
 }
-
-KIND_SPECS: list[dict[str, str]] = [
-    {"id": "comic", "title": "Comics", "description": "Comic-specific schema slice."},
-    {"id": "manga", "title": "Manga", "description": "Manga-specific schema slice."},
-    {"id": "anime", "title": "Anime", "description": "Anime-specific schema slice."},
-    {"id": "movie", "title": "Movies", "description": "Movie-specific schema slice."},
-    {"id": "tv", "title": "TV", "description": "TV-specific schema slice."},
-    {"id": "game", "title": "Games", "description": "Video game schema slice."},
-    {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
-    {"id": "book", "title": "Books", "description": "Books v1 work/edition schema slice."},
-    {"id": "music", "title": "Music", "description": "Music album catalog schema slice."},
-    {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
-]
-
-KIND_SHARED_TABLES = [
-    "entity_aliases",
-    "entity_links",
-    "organizations",
-    "persons",
-    "entity_organizations",
-    "entity_persons",
-    "tags",
-    "entity_tags",
-]
-
-KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
-    "comic": [
-        "comic_volumes",
-        "comic_works",
-        "comic_issues",
-        "comic_contributions",
-        "comic_identifiers",
-        "comic_series_memberships",
-        "comic_story_arc_memberships",
-        "comic_character_appearances",
-        "characters",
-        "character_appearances",
-        "story_arcs",
-        "story_arc_items",
-    ],
-    "manga": [
-        "manga_works",
-        "manga_chapters",
-        "manga_contributions",
-        "manga_identifiers",
-        "manga_character_appearances",
-        "characters",
-        "character_appearances",
-        "story_arcs",
-        "story_arc_items",
-    ],
-    "anime": [
-        "anime_series",
-        "anime_episodes",
-        "anime_contributions",
-        "anime_identifiers",
-        "anime_character_appearances",
-    ],
-    "movie": [
-        "movie_works",
-        "movie_releases",
-        "movie_release_media",
-        "movie_work_contributions",
-        "movie_work_identifiers",
-        "bundle_releases",
-    ],
-    "tv": [
-        "tv_series",
-        "tv_seasons",
-        "tv_episodes",
-        "tv_release_media",
-        "tv_release_episode_map",
-        "tv_release_contributions",
-        "tv_release_identifiers",
-        "bundle_releases",
-    ],
-    "game": [
-        "game_works",
-        "game_releases",
-    ],
-    "boardgame": [
-        "boardgame_works",
-        "boardgame_editions",
-    ],
-    "book": [
-        "book_series",
-        "book_works",
-        "book_editions",
-        "book_printings",
-        "book_contributions",
-        "book_identifiers",
-        "book_series_memberships",
-    ],
-    "music": [
-        "music_release_groups",
-        "music_releases",
-        "music_mediums",
-        "music_tracks",
-        "music_release_contributions",
-        "music_release_identifiers",
-        "bundle_releases",
-    ],
-    "collection": [
-        "bundle_releases",
-    ],
-    "music": [
-        "music_albums",
-        "music_album_disc_titles",
-        "music_album_tracks",
-        "music_album_credits",
-    ],
-}
-
-POLYMORPHIC_LINK_TABLES = {
-    "entity_aliases",
-    "entity_links",
-    "entity_organizations",
-    "entity_persons",
-    "entity_tags",
-    "image_assets",
-}
-
+KIND_SPECS: list[dict[str, str]] = []
+KIND_SHARED_TABLES: list[str] = []
+KIND_SPECIFIC_TABLES: dict[str, list[str]] = {}
+POLYMORPHIC_LINK_TABLES = {"image_assets"}
 STATIC_NOTES = [
-    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
-    "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
-    "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",
+    "All kinds share the Catalog Item v1 storage table; kind-specific field definitions are in the versioned catalog-item-v1 contract.",
+    "Core stores canonical catalog data and catalog images. Owned copies and other personal collection data belong to the App.",
+    "The schema viewer is generated from the SQLAlchemy metadata, keeping columns, enums, indexes, foreign keys, constraints, and defaults aligned with the model layer.",
+    "The server schema is created directly from SQLAlchemy metadata by the schema bootstrap command.",
 ]
-
 
 def compile_type(column: Column[Any]) -> str:
     try:

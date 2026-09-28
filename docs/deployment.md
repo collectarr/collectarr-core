@@ -22,8 +22,10 @@ Use Docker Compose for a self-hosted deployment on consumer hardware:
 Copy-Item .env.example .env
 docker compose up --build -d
 docker compose exec api python -m app.scripts.bootstrap_schema
-docker compose exec api python -m app.scripts.seed_comics
 ```
+
+Core no longer creates a Work/Release sample catalog. Use the Catalog Item v1
+API to add canonical catalog data; owned copies are stored and backed up by App.
 
 For a personal unRAID deployment without a reverse proxy or public domain, see
 `docs/unraid.md`.
@@ -149,8 +151,7 @@ The default Compose stack is tuned for local development:
 - Checkpoint log lines are disabled.
 - API and sync access logs are disabled to avoid writing one Docker log line for every health/status request.
 - Docker JSON logs are rotated at `10m` with three retained files per service.
-- The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when catalog tables changed.
-- Normalized metadata submissions are persisted by the API and indexed by the worker when the search index is enabled.
+- The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when Catalog Items changed.
 - External image URLs are stored by default, without copying covers into MinIO.
 - Object storage bucket setup is cached per process, so repeated image uploads do not rewrite MinIO bucket policy each time.
 

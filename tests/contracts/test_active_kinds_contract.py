@@ -20,9 +20,3 @@ def test_active_top_level_kinds_match_parity_contract():
     assert top_level_kinds == ACTIVE_PARITY_KINDS
     # Internal kinds must not become active top-level routes.
     assert ItemKind.collection not in top_level_kinds
-
-
-def test_every_active_kind_has_default_provider_in_its_provider_list():
-    for media_type in top_level_media_types:
-        assert media_type.default_provider is not None
-        assert media_type.default_provider in media_type.providers

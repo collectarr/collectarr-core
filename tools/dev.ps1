@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("start", "stop", "schema", "seed", "test", "check", "reset-stack", "clean-state")]
+    [ValidateSet("start", "stop", "schema", "test", "check", "reset-stack", "clean-state")]
     [string]$Command,
     [switch]$UseWslDocker,
     [switch]$WithSync
@@ -35,9 +35,6 @@ switch ($Command) {
     }
     "schema" {
         Invoke-CollectarrSchemaSetup -WithSync:$WithSync
-    }
-    "seed" {
-        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_full", "--wipe")
     }
     "test" {
         python -m pytest

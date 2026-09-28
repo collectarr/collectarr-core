@@ -659,7 +659,7 @@ User accounts and roles.
 
 ## Images and Operations
 
-Image storage, cache tracking, admin audit trails, and canonical correction proposals.
+Image storage, cache tracking, admin audit trails, and duplicate review.
 
 ### image_assets
 
@@ -744,59 +744,6 @@ Image storage, cache tracking, admin audit trails, and canonical correction prop
 - Index `ix_admin_audit_logs_entity_type` (non-unique): `entity_type`
 - Check constraints: none
 - Foreign key `(anonymous)`: `actor_user_id` -> `users.id`
-
-### canonical_correction_proposals
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| kind | item_kind | no | no | no | yes | - | - | - |
-| entity_type | VARCHAR(64) | no | no | no | no | - | - | - |
-| entity_id | UUID | no | no | no | no | - | - | - |
-| scope | VARCHAR(64) | no | no | no | no | - | - | - |
-| base_revision | VARCHAR(128) | yes | no | no | no | - | - | - |
-| base_hash | VARCHAR(128) | yes | no | no | no | - | - | - |
-| status | VARCHAR(32) | no | no | no | yes | pending | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_canonical_correction_proposals_kind` (non-unique): `kind`
-- Index `ix_canonical_correction_proposals_status` (non-unique): `status`
-- Index `ix_canonical_correction_proposals_status_created` (non-unique): `status, created_at`
-- Index `ix_canonical_correction_proposals_target` (non-unique): `kind, entity_type, entity_id`
-- Check `ck_canonical_correction_proposals_base_present`: `base_revision IS NOT NULL OR base_hash IS NOT NULL`
-- Foreign keys: none
-
-### canonical_correction_proposal_values
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| proposal_id | UUID | no | no | no | yes | - | - | canonical_correction_proposals.id |
-| path | VARCHAR(1024) | no | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| value_type | VARCHAR(16) | no | no | no | no | - | - | - |
-| string_value | TEXT | yes | no | no | no | - | - | - |
-| integer_value | BIGINT | yes | no | no | no | - | - | - |
-| decimal_value | NUMERIC(20, 8) | yes | no | no | no | - | - | - |
-| boolean_value | BOOLEAN | yes | no | no | no | - | - | - |
-| date_value | DATE | yes | no | no | no | - | - | - |
-| date_value_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
-| datetime_value | TIMESTAMP WITH TIME ZONE | yes | no | no | no | - | - | - |
-| uuid_value | UUID | yes | no | no | no | - | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_canonical_correction_proposal_values_path`: `proposal_id, path`
-- Index `ix_canonical_correction_proposal_values_proposal` (non-unique): `proposal_id`
-- Check constraints: none
-- Foreign key `(anonymous)`: `proposal_id` -> `canonical_correction_proposals.id`
 
 ## Miscellaneous
 
@@ -1225,6 +1172,46 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_boardgame_rankings_snapshot_work_id` (non-unique): `work_id`
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `boardgame_works.id`
+
+### catalog_item_identities
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| kind | VARCHAR(32) | no | yes | no | no | - | - | - |
+| identifier_type | VARCHAR(32) | no | yes | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | yes | no | no | - | - | - |
+| catalog_item_id | UUID | no | no | no | yes | - | - | catalog_items.id |
+
+#### Constraints
+
+- Primary key: `kind, identifier_type, normalized_value`
+- Unique constraints: none
+- Index `idx_catalog_item_identity_item` (non-unique): `catalog_item_id`
+- Check constraints: none
+- Foreign key `(anonymous)`: `catalog_item_id` -> `catalog_items.id`
+
+### catalog_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| kind | VARCHAR(32) | no | no | no | no | - | - | - |
+| title | VARCHAR(500) | no | no | no | no | - | - | - |
+| sort_title | VARCHAR(500) | yes | no | no | no | - | - | - |
+| identifier_search | TEXT | no | no | no | yes | - | - | - |
+| details | JSON | no | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `idx_catalog_items_identifier_search` (non-unique): `identifier_search`
+- Index `idx_catalog_items_kind_title` (non-unique): `kind, title`
+- Index `idx_catalog_items_sort_title` (non-unique): `kind, sort_title`
+- Check constraints: none
+- Foreign keys: none
 
 ### comic_characters
 

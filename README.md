@@ -47,7 +47,7 @@ such as owned copies, grades, notes, wishlists, and local tags stays in
 
 - Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
 - Target: one Catalog Item per specific collectible edition/version/release, with typed contained data
-- Typed kind-aware item/search/admin responses so clients consume one normalized metadata contract instead of provider-specific payloads
+- Typed kind-aware Catalog Item/search/admin responses generated from the versioned v1 contract
 - Shared editorial metadata that complements local-first personal data in the app
 
 ### 🔌 Metadata Contract And Search Infrastructure
@@ -98,7 +98,6 @@ the schema changes, recreate the development database and run
 Copy-Item .env.example .env
 docker compose up --build -d
 docker compose exec api python -m app.scripts.bootstrap_schema
-docker compose exec api python -m app.scripts.seed_comics
 ```
 
 ### Run local development tooling
@@ -115,7 +114,6 @@ python -m pytest
 .\tools\dev.ps1 start            # Start Docker stack
 .\tools\dev.ps1 start -WithSync  # Start Core + collectarr-sync dev stack
 .\tools\dev.ps1 schema           # Create the schema from SQLAlchemy models
-.\tools\dev.ps1 seed             # Seed sample comics data
 .\tools\dev.ps1 test             # Run test suite
 .\tools\dev.ps1 check            # Lint + type check
 .\tools\dev.ps1 reset-stack      # Clean reset of containers and volumes
@@ -213,7 +211,7 @@ The workflow logs in through `/api/v1/auth/login` when a bearer token is not pro
 ## 🧭 Library Parity Contract
 
 See [docs/library-parity-contract.md](docs/library-parity-contract.md) for the
-cross-repo active-kind/provider guarantees and enforcement points.
+cross-repository Catalog Item and Owned Copy boundaries.
 
 ## 🗺️ Roadmap
 
@@ -222,8 +220,8 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the full road
 Current active tracks:
 
 - stabilize typed-per-kind metadata storage as the canonical contract
-- deepen per-kind canonical field coverage where normalized submissions still have gaps
-- expand duplicate/merge review into a full operator queue
+- deepen typed field coverage while keeping catalog and owned-copy fields separate
+- improve duplicate review using Catalog Item references
 - continue public-deployment hardening for internet-facing setups
 - keep the interactive schema explorer clearer by separating general tables from kind-specific tables
 - keep comic cover-photo recognition / scan-to-identify local-first in the app; Core only provides image search/storage primitives

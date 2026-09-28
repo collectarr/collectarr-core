@@ -14,17 +14,15 @@ source-neutral Catalog Items.
 
 ## Core Catalog
 
-The schema is kind-first. Music has one `music_albums` row per catalog edition
-and contained `music_album_disc_titles`, `music_album_tracks`, and
-`music_album_credits` rows. Tracks are ordered by album, disc number, and
-position. Discs have no independent identity. Other kinds keep their typed
-work, release, edition, or episode structures.
+The v1 schema uses one `catalog_items` row for each concrete collectible
+edition, version, or release. Typed details and repeated contents are contained
+in that item. Music tracks retain album, disc number, and position; discs have
+no independent identity. Catalog Items do not require a Work/Release graph.
 
-Repeated values use typed relation tables where their semantics need ordering
-or identity. Common neutral relations include people, organizations, aliases,
-links, and editorial tags. The generated
+App-owned state is stored outside Core. The generated
 [schema-full.md](schema-full.md) and [schema viewer](schema.html) describe the
-current SQLAlchemy schema.
+current SQLAlchemy schema. These snapshots will be regenerated after the
+coordinated Core model reset is complete.
 
 ## App Local Data
 
@@ -42,8 +40,8 @@ separate from the canonical catalog API.
 
 ## Fresh v1 Reset
 
-The coordinated Music cutover replaces the old Core release-group/release/medium
-graph and resets Core PostgreSQL and App Drift to their final v1 schemas.
+The coordinated cutover removes the old Core Work/Release graphs and resets
+Core PostgreSQL and App Drift to their final v1 schemas.
 Existing databases and backups from the old formats are incompatible. Create
 empty databases and rebuild the search index from the new catalog. Core's
 `create_all()` creates missing tables but does not reshape old ones; see

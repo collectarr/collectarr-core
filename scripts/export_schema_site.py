@@ -89,13 +89,11 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "operations",
         "title": "Images and Operations",
-        "description": "Image storage, cache tracking, admin audit trails, and canonical correction proposals.",
+        "description": "Image storage, cache tracking, admin audit trails, and duplicate review.",
         "tables": [
             "image_assets",
             "image_cache_entries",
             "admin_audit_logs",
-            "canonical_correction_proposals",
-            "canonical_correction_proposal_values",
         ],
     },
 ]

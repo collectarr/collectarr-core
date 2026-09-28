@@ -24,9 +24,9 @@ traceability.
 - Core deployment and operations docs
 
 Provider search, credentials, mapping, source IDs, import history, snapshots,
-and provider-specific ingest orchestration belong in `collectarr-app`. Core
-receives canonical objects prepared by App and does not expose provider routes
-or persist provider provenance.
+and provider-specific ingest orchestration are excluded from both repositories.
+Core receives canonical Catalog Items and does not expose provider routes or
+persist provider provenance.
 
 `collectarr-sync` owns optional personal sync:
 
@@ -41,7 +41,7 @@ or persist provider provenance.
 - local Drift database
 - local catalog snapshots used for offline-first browsing
 - owned/wishlist/personal fields
-- provider adapters, CSV/CLZ import-export, and importer workflows
+- App catalog search, Catalog Item editing, and Owned Copy management
 - barcode scanning/manual fallback UX
 - sync client, pairing UX, conflict review/actions, and local retry queue
 

@@ -9,10 +9,10 @@
 ## Ownership
 
 Core owns the canonical catalog, source-neutral write API, typed metadata
-contracts, search indexing, image storage, and catalog administration. App owns
-provider adapters, credentials, mapping, source identifiers, imports, owned
-copies, and personal activity. Core accepts an already prepared canonical
-object and does not perform provider search or ingest.
+contracts, search indexing, image storage, and catalog administration. The
+target App owns copies and personal activity but has no provider adapters,
+credentials, source identifiers, or provider imports. Core accepts an already
+prepared canonical object and does not perform provider search or ingest.
 
 ## Catalog v1 Cutover
 
@@ -41,4 +41,4 @@ tables. See [deployment.md](deployment.md) before deploying.
 - Expand typed catalog coverage while keeping canonical ownership explicit.
 - Improve duplicate review and catalog correction operations.
 - Harden deployments and the generated schema explorer.
-- Keep cover recognition and provider matching local-first in App.
+- Keep barcode entry local-first in App and use the identifier for Core catalog search.

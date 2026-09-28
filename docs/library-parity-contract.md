@@ -31,8 +31,8 @@ kind-specific object schemas.
 3. Every exported field has an explicit canonical owner and write target.
 4. Music uses one `MusicAlbumV1` catalog record with contained disc titles and
    ordered tracks; Music responses expose no release-group or medium identity.
-5. Core contracts contain no provider IDs, source envelopes, provider search,
-   or provider-import APIs. Provider integrations and provenance belong to App.
+5. Neither repository retains provider IDs, source envelopes, provider search,
+   provider integrations, or provider-import APIs.
 
 ## Sources of Truth
 

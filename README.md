@@ -22,15 +22,16 @@
 > Shared metadata engine for Collectarr: canonical catalog, typed catalog APIs, image delivery, admin tooling, and search infrastructure.
 
 Collectarr Core owns the shared catalog and source-neutral metadata contracts.
-Provider adapters and importers run in `collectarr-app`; Core receives complete
-canonical objects, validates and persists them, indexes metadata, and exposes it to
-clients. Personal library state such as owned items, grades, notes, wishlists,
-and local tags stays in `collectarr-app` and can optionally sync through
-`collectarr-sync`.
+The target product has no provider adapters or provider importers. App users
+search and edit canonical Catalog Items through Core. Personal library state
+such as owned copies, grades, notes, wishlists, and local tags stays in
+`collectarr-app` and can optionally sync through `collectarr-sync`.
 
-> **Coordinated all-kind Catalog Item v1 cutover in progress:** Music has a
-> source-neutral Core Album API slice and Core provider ingest has moved to App.
-> Core's other catalog kinds and App persistence still use the prior graph.
+> **Coordinated all-kind Catalog Item v1 cutover in progress:** Core exports a
+> source-neutral typed Catalog Item API for all nine kinds. The App's active
+> library pages now use Catalog Item and Owned Copy v1 flows, while legacy
+> graph tables, routes, provider screens, and App persistence are still being
+> removed from both repositories.
 > Do not deploy this cross-repository working state or reset databases yet. The
 > completed release will require stopping App and Core together, preserving old
 > backups only for archival recovery, creating empty Core and App databases,
@@ -124,17 +125,18 @@ python -m pytest
 
 ## 🧩 Extending Metadata For New Libraries
 
-Core is the canonical source of cross-library metadata. The app owns external
-search, provider credentials, mapping, import history, and source identifiers.
-It sends Core a complete catalog object that is ready to validate and persist.
+Core is the canonical source of cross-library metadata. The target app has no
+external metadata-provider search, credentials, provider mapping, import
+history, or source identifiers. It sends Core a complete Catalog Item that is
+ready to validate and persist.
 
 1. Add the typed field to the source-neutral canonical request and response schema.
 2. Persist it in the appropriate kind-specific table or relation.
 3. Add it to Meilisearch documents when it should affect search.
 4. Export the contract bundle and update the pinned app artifact deliberately.
 
-Provider-native payloads and provenance stay in `collectarr-app`. Core does not
-accept provider identifiers, envelopes, snapshots, or import jobs.
+Core and App do not retain provider-native payloads, provenance, provider IDs,
+snapshots, or provider import jobs.
 
 ---
 

@@ -61,6 +61,19 @@ async def get_current_admin(user: CurrentUser) -> User:
 CurrentAdmin = Annotated[User, Depends(get_current_admin)]
 
 
+async def get_catalog_editor(user: CurrentUser) -> User:
+    if user.role not in {UserRole.editor, UserRole.admin}:
+        raise ApiHTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="catalog_editor_required",
+            detail="Catalog editor access required",
+        )
+    return user
+
+
+CurrentCatalogEditor = Annotated[User, Depends(get_catalog_editor)]
+
+
 async def get_admin_reader(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: DbSession,

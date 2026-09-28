@@ -3,7 +3,9 @@
 ## Product boundary
 collectarr-core owns canonical catalog metadata, source-neutral catalog writes, typed metadata contracts, catalog administration, image/cache services, and contract exports for clients.
 
-Provider search, API keys, rate limits, provider response mapping, provider IDs, raw snapshots, import jobs, and import history belong to `collectarr-app`. Core accepts already normalized, source-neutral catalog objects and must not expose provider search or provider-ingest routes.
+Provider search, API keys, rate limits, provider response mapping, provider IDs, raw snapshots, import jobs, and import history are outside both Core's and the target App's architecture. Core accepts source-neutral catalog objects and must not expose provider search or provider-ingest routes. The App cutover removes its legacy provider subsystem rather than relocating it into Core.
+
+Catalog Item create and update operations require an authenticated `editor` or `admin` account. `viewer` accounts retain catalog read/search access; personal collection writes belong in the App and do not grant shared catalog write access.
 
 collectarr-core must not model app-owned personal user data such as owned copies, wishlist state, tracking progress, reading queue, loans, personal notes, local location/storage, purchase/sale data, or custom user field values.
 
@@ -15,9 +17,10 @@ Every kind has one canonical Catalog Item per concrete collectible edition/versi
 Do not add new Work/Release graph semantics or compatibility aliases. Existing per-kind graph tables are transitional source structures and will be removed or replaced at the coordinated v1 reset. Do not deploy/reset a database until the all-kind contract and App switch are complete.
 
 ## API and contracts
-Core's target client contract bundle is exported from contracts/ (the current
-working bundle still contains the Music-only v1 slice until the all-kind
-switch is complete):
+Core's target client contract bundle is exported from `contracts/`. The working
+bundle now contains the typed all-kind Catalog Item v1 contract; legacy
+per-kind graph contracts remain only while the coordinated App cutover is in
+progress:
 - openapi.json
 - catalog-item-v1.json
 - metadata-field-schema.json

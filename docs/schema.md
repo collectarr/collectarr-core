@@ -8,8 +8,9 @@ Collectarr splits data across three stores:
 
 Core must not store owned copies, wishlist state, tracking progress, prices,
 condition, grades, notes, personal tags, personal images, or local locations.
-Provider search, credentials, source IDs, import history, and provenance also
-belong to App. Core receives complete, source-neutral catalog objects.
+Provider search, credentials, source IDs, import history, and provenance are
+excluded from both Core and the target App. Core receives complete,
+source-neutral Catalog Items.
 
 ## Core Catalog
 

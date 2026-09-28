@@ -48,7 +48,6 @@ class CatalogRelatedItemV1(CatalogItemChildV1):
 
 
 class CatalogEpisodeV1(CatalogItemChildV1):
-    season_number: int | None = Field(default=None, ge=0)
     episode_number: str | None = Field(default=None, max_length=32)
     title: str = Field(min_length=1, max_length=500)
     air_date: PartialDateValue | None = None
@@ -106,7 +105,10 @@ class BoardGameCatalogDetailsV1(CatalogCommonDetailsV1):
     designers: list[str] = Field(default_factory=list)
     mechanics: list[str] = Field(default_factory=list)
     categories: list[str] = Field(default_factory=list)
-    player_counts: list[str] = Field(default_factory=list)
+    min_players: int | None = Field(default=None, ge=1)
+    max_players: int | None = Field(default=None, ge=1)
+    recommended_players: list[int] = Field(default_factory=list, max_length=32)
+    best_players: list[int] = Field(default_factory=list, max_length=32)
     play_time_minutes: int | None = Field(default=None, ge=0)
     components: list[CatalogComponentV1] = Field(default_factory=list)
     related_items: list[CatalogRelatedItemV1] = Field(default_factory=list)
@@ -190,7 +192,6 @@ class TVCatalogDetailsV1(CatalogCommonDetailsV1):
     region: str | None = Field(default=None, max_length=64)
     edition_title: str | None = Field(default=None, max_length=500)
     seasons: list[CatalogSeasonV1] = Field(default_factory=list)
-    episodes: list[CatalogEpisodeV1] = Field(default_factory=list)
 
 
 type CatalogItemDetailsV1 = Annotated[
@@ -235,6 +236,11 @@ class CatalogItemSummaryV1(BaseModel):
     sort_title: str | None = None
     release_date: PartialDateValue | None = None
     cover_image_url: str | None = None
+    artist: str | None = None
+    format: str | None = None
+    country: str | None = None
+    label: str | None = None
+    barcode: str | None = None
 
 
 class CatalogItemV1(BaseModel):

@@ -4,7 +4,9 @@
 
 Core owns shared, canonical Catalog Items and their typed contained data. A Catalog Item is one concrete collectible edition/version/issue variant/release. It is the only canonical workspace root for all nine kinds. Tracks, episodes, credits, components, included editions, and similar repeated information remain typed child data and do not create another editable Work or Release.
 
-App owns providers, mapping, provider IDs, import provenance, owned copies, personal fields, tracking, reading/listening activity, and local images. Core receives source-neutral canonical Catalog Item writes and must not accept provider envelopes.
+The target App has no provider subsystem, mapping, provider IDs, or import provenance. App owns copies, personal fields, tracking, reading/listening activity, and local images. Core receives source-neutral canonical Catalog Item writes and must not accept provider envelopes.
+
+Catalog Item creation and editing are shared-catalog operations. They require an authenticated `editor` or `admin` account. Authenticated `viewer` accounts may search and read Catalog Items, and may add App-local Owned Copies of existing items; they cannot create or alter shared catalog records. This keeps ordinary collection actions available without granting catalog-wide write access.
 
 ## Contract and reset
 
@@ -14,4 +16,4 @@ The coordinated release starts Core and App on empty v1 databases and rebuilds s
 
 ## Status
 
-Core now exports the typed all-kind Catalog Item v1 contract and has initial source-neutral `catalog_items` storage plus read, search, create, and update endpoints. The table is not yet populated by the existing App Add/Edit flows. Core still has per-kind work/release/edition models and routes for most kinds, and App still uses old scope refs and Drift schema v5. This document describes the target, not a claim that the cutover has completed.
+Core now exports the typed all-kind Catalog Item v1 contract and has source-neutral `catalog_items` storage plus read, search, create, and update endpoints. Create and update require an authenticated catalog editor or administrator. The App's active kind pages now search and edit Catalog Items and save Owned Copies locally. Core still has per-kind work/release/edition models and routes for most kinds, and App still has old scope refs and legacy tables alongside the Owned Copy v1 table in intermediate Drift schema v6. This document describes the target, not a claim that the cutover has completed.

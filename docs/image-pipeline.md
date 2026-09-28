@@ -1,13 +1,12 @@
 # Image Pipeline
 
-Core stores image references and optional mirrored assets. Provider adapters and
-importers choose the source image in the app; Core handles the shared storage
-and delivery path.
+Core stores image references and optional mirrored assets. App users choose or
+upload catalog images; Core handles the shared storage and delivery path.
 
 ## Delivery Modes
 
 - `external_url`: Core stores the source URL and clients render it directly.
-- `mirrored`: when `MIRROR_PROVIDER_IMAGES=true`, Core downloads the source,
+- `mirrored`: when image mirroring is enabled, Core downloads the source,
   normalizes it to WebP, stores it in MinIO/S3, and records it in
   `image_cache_entries`.
 - `missing`: Core stores no image URL. The client renders a deterministic

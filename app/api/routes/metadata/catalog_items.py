@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import CurrentAdmin, DbSession
+from app.api.deps import CurrentCatalogEditor, DbSession
 from app.schemas.catalog_item_v1 import CatalogItemSummaryV1, CatalogItemV1, CatalogItemWriteV1
 from app.services.catalog_item_service import CatalogItemService
 
@@ -45,7 +45,7 @@ async def get_catalog_item(item_id: UUID, db: DbSession) -> CatalogItemV1:
 async def create_catalog_item(
     payload: CatalogItemWriteV1,
     db: DbSession,
-    _user: CurrentAdmin,
+    _user: CurrentCatalogEditor,
 ) -> CatalogItemV1:
     return await CatalogItemService(db).create_item(payload)
 
@@ -55,6 +55,6 @@ async def update_catalog_item(
     item_id: UUID,
     payload: CatalogItemWriteV1,
     db: DbSession,
-    _user: CurrentAdmin,
+    _user: CurrentCatalogEditor,
 ) -> CatalogItemV1:
     return await CatalogItemService(db).update_item(item_id, payload)

@@ -6,11 +6,11 @@
 
 ## Domain Boundary
 
-Core stores shared catalog metadata. The app owns provider search, credentials,
-rate limits, response mapping, source identifiers, import history, provenance,
-owned copies, tracking, and other personal data. Core receives complete,
-source-neutral catalog objects and validates, deduplicates, persists, and indexes
-them.
+Core stores shared catalog metadata. The target product has no provider search,
+credentials, rate limits, response mapping, source identifiers, import history,
+or provider provenance. App owns copies, tracking, and other personal data.
+Core receives complete, source-neutral catalog objects and validates,
+deduplicates, persists, and indexes them.
 
 The target is one Catalog Item per concrete collectible edition/version/release
 for every kind, with zero or more App-owned copies. Music already has a Core
@@ -29,8 +29,8 @@ Services own canonical catalog rules and search-index decisions. Repositories
 own database query details.
 
 Core has no provider adapter, provider registry, provider search or ingest route,
-provider ID table, raw provider snapshot, or provider import job. Provider-native
-data is mapped in `collectarr-app` before it reaches a Core catalog write.
+provider ID table, raw provider snapshot, or provider import job. Catalog data is
+created and edited through the source-neutral App forms before it reaches Core.
 
 ## Repository Boundaries
 
@@ -39,8 +39,8 @@ data is mapped in `collectarr-app` before it reaches a Core catalog write.
   administration, and audit logs.
 - `collectarr-sync`: optional personal sync API, device pairing, conflict
   handling, tombstones, and sync storage.
-- `collectarr-app`: Flutter client, local Drift database, providers, import and
-  export workflows, barcode UX, owned copies, and personal library state.
+- `collectarr-app`: Flutter client, local Drift database, Catalog Item forms,
+  barcode UX, owned copies, and personal library state.
 
 The coordinated all-kind v1 cutover requires empty Core PostgreSQL and App
 Drift databases. Existing databases and backups from the previous graph are

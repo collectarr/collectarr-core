@@ -148,6 +148,11 @@ class CatalogItemService:
             sort_title=item.sort_title,
             release_date=getattr(details, "release_date", None),
             cover_image_url=cover_url,
+            artist=_first_name(item.details.get("artists")),
+            format=_nonempty_string(item.details.get("format")),
+            country=_nonempty_string(item.details.get("country")),
+            label=_first_name(item.details.get("labels")),
+            barcode=_summary_barcode(item.details),
         )
 
 
@@ -174,6 +179,41 @@ def _cover_image_url(details: dict[str, Any]) -> str | None:
                 url = image.get("url")
                 if isinstance(url, str) and url.strip():
                     return url
+    return None
+
+
+def _first_name(value: Any) -> str | None:
+    if not isinstance(value, list):
+        return None
+    for entry in value:
+        if isinstance(entry, dict):
+            name = _nonempty_string(entry.get("name"))
+            if name is not None:
+                return name
+    return None
+
+
+def _nonempty_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _summary_barcode(details: dict[str, Any]) -> str | None:
+    direct = _nonempty_string(details.get("barcode"))
+    if direct is not None:
+        return direct
+    identifiers = details.get("identifiers")
+    if not isinstance(identifiers, list):
+        return None
+    for identifier in identifiers:
+        if not isinstance(identifier, dict):
+            continue
+        identifier_type = _nonempty_string(identifier.get("identifier_type"))
+        value = _nonempty_string(identifier.get("value"))
+        if identifier_type is not None and identifier_type.casefold() == "barcode":
+            return value
     return None
 
 

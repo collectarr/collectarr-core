@@ -1,8 +1,9 @@
-"""Export the unified metadata field schema to docs/field-schema.md.
+"""Export the legacy normalization field registry to docs/field-schema.md.
 
-The registry in ``app.catalog.metadata_fields`` is the single source of truth the
-admin edit panel and the Flutter app edit dialog render from. Re-run this script
-after changing the registry so the docs stay in sync:
+The registry in ``app.catalog.metadata_fields`` remains in use by normalization
+and migration-era correction workflows. Catalog Item v1 forms use the typed
+schemas in ``app.schemas.catalog_item_v1``. Re-run this script after changing
+the legacy registry so its documentation stays in sync:
 
 Usage:
     python -m scripts.export_field_schema
@@ -52,8 +53,9 @@ def main() -> None:
         "",
         f"Schema version: **{NORMALIZED_SCHEMA_VERSION}**",
         "",
-        "This is the single source of truth that the admin edit panel and the "
-        "Flutter app edit dialog render from, exposed at `GET /api/v1/metadata/field-schema`.",
+        "This registry is retained for normalization and correction workflows "
+        "that have not yet moved to Catalog Item v1. It is not a public API "
+        "endpoint or the source of Catalog Item editing fields.",
         "",
         "## Fields",
         "",

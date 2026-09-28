@@ -16,13 +16,14 @@ The active top-level kinds are `comic`, `manga`, `anime`, `book`, `game`,
 `boardgame`, `movie`, `tv`, and `music`. `collection` remains an internal,
 non-top-level kind.
 
-## Metadata Field Schema
+## Field Ownership
 
-Editable canonical fields are declared in `app/catalog/metadata_fields.py` and
-exported at `GET /api/v1/metadata/field-schema`. The schema identifies each
-field's kind, type, UI role, canonical scope, source table, and write target.
-The field schema describes the shared editing contract; it does not replace
-kind-specific object schemas.
+Catalog Item v1 request and response fields are defined by the typed schemas in
+`app/schemas/catalog_item_v1.py` and exported in `catalog-item-v1.json`. The
+legacy `app/catalog/metadata_fields.py` registry remains for normalization and
+correction workflows that have not yet moved to Catalog Item v1. It is exported
+as an internal migration artifact and is not a public editing endpoint or the
+source of Catalog Item field definitions.
 
 ## Guarantees
 

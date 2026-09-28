@@ -33,42 +33,6 @@ class MediaCatalogResponse(BaseModel):
     media_types: list[MediaTypeResponse]
 
 
-class MetadataFieldOwnershipResponse(BaseModel):
-    """The authoritative source boundary for one kind-specific field view."""
-
-    scope: str
-    source_entity_type: str
-    source_table: str
-    write_target: str
-
-
-class MetadataFieldSpecResponse(BaseModel):
-    """A single editable canonical metadata field, rendered from the registry."""
-
-    key: str
-    value_type: str
-    label: str
-    common: bool
-    typed: bool
-    normalized: bool
-    editable: bool
-    section: str
-    input: str
-    kinds: list[ItemKind] = Field(default_factory=list)
-    ownership_by_kind: dict[ItemKind, MetadataFieldOwnershipResponse] = Field(
-        default_factory=dict
-    )
-
-
-class MetadataFieldSchemaResponse(BaseModel):
-    """The unified field schema consumed by the admin + app edit surfaces."""
-
-    schema_version: int
-    fields: list[MetadataFieldSpecResponse]
-    kind_fields: dict[ItemKind, list[str]]
-    sections: list[str] = Field(default_factory=list)
-
-
 class EpisodeResponse(BaseModel):
     episode_number: int
     title: str

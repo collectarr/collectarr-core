@@ -6,11 +6,10 @@ app's metadata-field contract. This registry now defines the canonical
 editable-field metadata used by Core and exported to the app. It does not
 define provider ingestion; source integrations belong to the app.
 
-This module declares each editable field once as a :class:`MetadataFieldSpec`
-and derives every lookup from the registry. It is the schema that the admin edit
-panel and the Flutter app edit dialog render from (exposed at
-``GET /api/v1/metadata/field-schema``), so the two surfaces can no longer drift
-apart.
+This module declares each legacy metadata field once as a
+:class:`MetadataFieldSpec` and derives normalization and migration-era
+correction lookups from the registry. Catalog Item v1 editing fields are defined
+by the typed schemas in ``app.schemas.catalog_item_v1``.
 
 Two concerns are modelled by a single spec:
 

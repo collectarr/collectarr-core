@@ -32,6 +32,7 @@ _ENTITY_TYPES = {
     "edition",
     "variant",
     "bundle_release",
+    "catalog_item",
 }
 
 

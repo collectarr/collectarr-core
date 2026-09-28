@@ -52,25 +52,6 @@ def _is_valid_normalized_value(key: str, value: Any) -> bool:
     return True
 
 
-def normalized_metadata_manifest() -> dict[str, Any]:
-    common_fields = sorted(_COMMON_ALLOWED_KEYS)
-    kind_fields = {
-        kind.value: sorted(keys)
-        for kind, keys in _KIND_ALLOWED_KEYS.items()
-    }
-    value_types = {
-        key: _NORMALIZED_VALUE_TYPES[key]
-        for key in sorted(ALLOWED_NORMALIZED_METADATA_KEYS)
-        if key in _NORMALIZED_VALUE_TYPES
-    }
-    return {
-        "schema_version": NORMALIZED_SCHEMA_VERSION,
-        "common_fields": common_fields,
-        "kind_fields": kind_fields,
-        "value_types": value_types,
-    }
-
-
 def typed_metadata_payload(
     values: Mapping[str, Any] | None,
     *,

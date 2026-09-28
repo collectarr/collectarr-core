@@ -33,13 +33,6 @@ class MediaCatalogResponse(BaseModel):
     media_types: list[MediaTypeResponse]
 
 
-class MetadataNormalizedManifestResponse(BaseModel):
-    schema_version: int
-    common_fields: list[str]
-    kind_fields: dict[ItemKind, list[str]]
-    value_types: dict[str, str]
-
-
 class MetadataFieldOwnershipResponse(BaseModel):
     """The authoritative source boundary for one kind-specific field view."""
 

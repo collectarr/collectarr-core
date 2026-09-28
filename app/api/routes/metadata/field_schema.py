@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query
 from app.catalog.media_types import top_level_media_types
 from app.catalog.metadata_fields import METADATA_FIELDS, MetadataFieldSpec, fields_for_kind
 from app.catalog.physical_formats import PhysicalFormatConfig
-from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION, normalized_metadata_manifest
+from app.metadata_normalized import NORMALIZED_SCHEMA_VERSION
 from app.models.base import ItemKind
 from app.schemas import (
     MediaCatalogResponse,
@@ -13,7 +13,6 @@ from app.schemas import (
     MetadataFieldOwnershipResponse,
     MetadataFieldSchemaResponse,
     MetadataFieldSpecResponse,
-    MetadataNormalizedManifestResponse,
     PhysicalFormatResponse,
     public_item_kind,
 )
@@ -53,18 +52,6 @@ async def media_type_catalog() -> MediaCatalogResponse:
     return MediaCatalogResponse(
         default_kind=ItemKind.comic,
         media_types=[_media_type_response(config) for config in top_level_media_types],
-    )
-
-
-@router.get("/metadata/normalized-manifest", response_model=MetadataNormalizedManifestResponse)
-async def metadata_normalized_manifest() -> MetadataNormalizedManifestResponse:
-    payload = normalized_metadata_manifest()
-    kind_fields = {ItemKind(kind): fields for kind, fields in payload["kind_fields"].items()}
-    return MetadataNormalizedManifestResponse(
-        schema_version=payload["schema_version"],
-        common_fields=payload["common_fields"],
-        kind_fields=kind_fields,
-        value_types=payload["value_types"],
     )
 
 

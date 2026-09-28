@@ -24,17 +24,9 @@ class SearchClient:
         self,
         query: str,
         kind: ItemKind | None = None,
-        series: str | None = None,
-        issue_number: str | None = None,
         publisher: str | None = None,
-        imprint: str | None = None,
-        subtitle: str | None = None,
-        series_group: str | None = None,
-        language: str | None = None,
         country: str | None = None,
-        age_rating: str | None = None,
         catalog_number: str | None = None,
-        release_status: str | None = None,
         year: int | None = None,
         barcode: str | None = None,
         limit: int = 25,
@@ -45,22 +37,10 @@ class SearchClient:
                 filter_parts.append(f"kind = {_meili_string(kind.value)}")
             if publisher:
                 filter_parts.append(f"publisher = {_meili_string(publisher)}")
-            if imprint:
-                filter_parts.append(f"imprint = {_meili_string(imprint)}")
-            if subtitle:
-                filter_parts.append(f"subtitle = {_meili_string(subtitle)}")
-            if series_group:
-                filter_parts.append(f"series_group = {_meili_string(series_group)}")
-            if language:
-                filter_parts.append(f"language = {_meili_string(language)}")
             if country:
-                filter_parts.append(f"region = {_meili_string(country)}")
-            if age_rating:
-                filter_parts.append(f"age_rating = {_meili_string(age_rating)}")
+                filter_parts.append(f"country = {_meili_string(country)}")
             if catalog_number:
                 filter_parts.append(f"catalog_number = {_meili_string(catalog_number)}")
-            if release_status:
-                filter_parts.append(f"release_status = {_meili_string(release_status)}")
             if year is not None:
                 filter_parts.append(f"release_year = {year}")
             if barcode:
@@ -70,11 +50,8 @@ class SearchClient:
             filters = " AND ".join(filter_parts) if filter_parts else None
             if filters:
                 options["filter"] = filters
-            search_query = " ".join(
-                part for part in (query, series, issue_number) if part and part.strip()
-            )
             result = await self._run(
-                lambda: self.client.index(self.index_name).search(search_query, options)
+                lambda: self.client.index(self.index_name).search(query.strip(), options)
             )
         except Exception:
             logger.warning("meilisearch_search_failed", exc_info=True)
@@ -115,40 +92,25 @@ class SearchClient:
                 [
                     "kind",
                     "publisher",
-                    "region",
+                    "country",
                     "release_year",
                     "barcodes",
-                    "series_title",
-                    "release_status",
-                    "language",
-                    "imprint",
-                    "series_group",
-                    "age_rating",
+                    "catalog_number",
                 ]
             )
             index.update_searchable_attributes(
                 [
                     "title",
-                    "item_number",
-                    "bundle_titles",
-                    "series_title",
-                    "volume_name",
-                    "publisher",
-                    "variant",
-                    "variant_names",
+                    "sort_title",
+                    "search_text",
+                    "identifier_search",
+                    "barcode",
                     "barcodes",
-                    "bundle_release_ids",
                     "catalog_number",
-                    "platforms",
+                    "publisher",
                     "creators",
-                    "characters",
-                    "story_arcs",
-                    "release_status",
-                    "language",
-                    "imprint",
-                    "subtitle",
-                    "series_group",
-                    "age_rating",
+                    "format",
+                    "country",
                 ]
             )
             index.update_displayed_attributes(
@@ -156,37 +118,23 @@ class SearchClient:
                     "id",
                     "kind",
                     "title",
-                    "item_number",
-                    "runtime_minutes",
+                    "sort_title",
+                    "search_text",
+                    "identifier_search",
                     "cover_image_url",
-                    "thumbnail_image_url",
                     "publisher",
                     "release_date",
-                    "region",
                     "release_year",
                     "barcode",
                     "barcodes",
                     "catalog_number",
-                    "variant",
-                    "variant_names",
-                    "bundle_titles",
-                    "bundle_release_ids",
-                    "series_title",
-                    "volume_name",
-                    "platforms",
                     "creators",
-                    "characters",
-                    "story_arcs",
-                    "release_status",
-                    "language",
-                    "imprint",
-                    "subtitle",
-                    "series_group",
-                    "age_rating",
+                    "format",
+                    "country",
                 ]
             )
             index.update_sortable_attributes(
-                ["title", "item_number", "release_year", "publisher"]
+                ["title", "sort_title", "release_year", "publisher"]
             )
 
         await self._run(configure)

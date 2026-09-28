@@ -24,6 +24,7 @@ from app.schemas.admin import (
     AdminSearchStatusResponse,
 )
 from app.search.client import SearchClient
+from app.search.catalog_item_documents import catalog_item_search_document
 from app.services.typed_values import materialize_typed_values
 
 _SEARCH_HISTORY: deque[AdminSearchHistoryEntry] = deque(maxlen=20)
@@ -195,7 +196,7 @@ class AdminOverviewService:
                 CanonicalCatalogItem.id.asc(),
             )
         )
-        return [_catalog_item_search_document(item) for item in rows]
+        return [catalog_item_search_document(item) for item in rows]
 
     def _record_search_history(self, response: AdminSearchReindexResponse) -> None:
         _SEARCH_HISTORY.appendleft(
@@ -207,154 +208,3 @@ class AdminOverviewService:
                 error=response.error,
             )
         )
-
-
-def _catalog_item_search_document(item: CanonicalCatalogItem) -> dict[str, Any]:
-    details = item.details if isinstance(item.details, dict) else {}
-    identifiers = details.get("identifiers")
-    identifiers = identifiers if isinstance(identifiers, list) else []
-    barcodes = [
-        value
-        for entry in identifiers
-        if isinstance(entry, dict)
-        and str(entry.get("identifier_type", "")).casefold() in {"barcode", "ean", "gtin", "upc"}
-        and (value := _nonempty(entry.get("value"))) is not None
-    ]
-    direct_barcode = _nonempty(details.get("barcode"))
-    if direct_barcode and direct_barcode not in barcodes:
-        barcodes.insert(0, direct_barcode)
-
-    release_date = details.get("release_date") or details.get("publication_date")
-    release_year = _partial_year(release_date)
-    item_number = next(
-        (
-            value
-            for key in ("issue_number", "volume_number", "season_number")
-            if (value := _nonempty(details.get(key))) is not None
-        ),
-        None,
-    )
-    publisher = _nonempty(details.get("publisher")) or _first_string(
-        details.get("publishers")
-    ) or _first_dict_string(details.get("labels"), "name")
-    creators = _strings(details.get("artists")) + _credit_names(
-        details.get("credits") or details.get("contributors") or details.get("creators")
-    )
-    catalog_number = _nonempty(details.get("catalog_number")) or _first_dict_string(
-        details.get("labels"), "catalog_number"
-    )
-
-    return {
-        "id": str(item.id),
-        "kind": item.kind,
-        "title": item.title,
-        "sort_title": item.sort_title,
-        "item_number": item_number,
-        "publisher": publisher,
-        "release_date": _partial_date_string(release_date),
-        "release_year": release_year,
-        "barcode": direct_barcode or (barcodes[0] if barcodes else None),
-        "barcodes": barcodes,
-        "catalog_number": catalog_number,
-        "cover_image_url": _cover_image_url(details),
-        "thumbnail_image_url": _first_dict_string(details.get("images"), "thumbnail_url"),
-        "region": _nonempty(details.get("region")) or _nonempty(details.get("country")),
-        "platforms": _strings(details.get("platforms")),
-        "creators": list(dict.fromkeys(creators)),
-        "characters": _strings(details.get("characters")),
-        "story_arcs": _strings(details.get("story_arcs")),
-        "language": _nonempty(details.get("language")),
-        "imprint": _nonempty(details.get("imprint")),
-        "subtitle": _nonempty(details.get("subtitle")),
-        "series_group": _nonempty(details.get("series_title")),
-        "age_rating": _nonempty(details.get("age_rating")),
-        "release_status": _nonempty(details.get("release_status")),
-        "bundle_titles": _contained_titles(details),
-        "runtime_minutes": details.get("runtime_minutes"),
-    }
-
-
-def _nonempty(value: Any) -> str | None:
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    if isinstance(value, int):
-        return str(value)
-    return None
-
-
-def _strings(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [text for entry in value if (text := _nonempty(entry)) is not None]
-
-
-def _first_string(value: Any) -> str | None:
-    values = _strings(value)
-    return values[0] if values else None
-
-
-def _credit_names(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [
-        text
-        for entry in value
-        if isinstance(entry, dict)
-        and (text := _nonempty(entry.get("name") or entry.get("credited_name"))) is not None
-    ]
-
-
-def _first_dict_string(value: Any, key: str) -> str | None:
-    if not isinstance(value, list):
-        return None
-    for entry in value:
-        if isinstance(entry, dict) and (text := _nonempty(entry.get(key))) is not None:
-            return text
-    return None
-
-
-def _partial_date_string(value: Any) -> str | None:
-    if isinstance(value, dict):
-        year, month, day = (value.get(key) for key in ("year", "month", "day"))
-        if not isinstance(year, int):
-            return None
-        result = f"{year:04d}"
-        if isinstance(month, int):
-            result += f"-{month:02d}"
-            if isinstance(day, int):
-                result += f"-{day:02d}"
-        return result
-    if isinstance(value, str):
-        return value
-    return None
-
-
-def _partial_year(value: Any) -> int | None:
-    if isinstance(value, dict):
-        year = value.get("year")
-        return year if isinstance(year, int) else None
-    if isinstance(value, str) and len(value) >= 4 and value[:4].isdigit():
-        return int(value[:4])
-    return None
-
-
-def _cover_image_url(details: dict[str, Any]) -> str | None:
-    direct = _nonempty(details.get("cover_image_url"))
-    if direct:
-        return direct
-    return _first_dict_string(details.get("images"), "url")
-
-
-def _contained_titles(details: dict[str, Any]) -> list[str]:
-    titles: list[str] = []
-    for key in ("tracks", "episodes", "seasons", "media_tracks", "components"):
-        entries = details.get(key)
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            title = _nonempty(entry.get("title") or entry.get("name"))
-            if title:
-                titles.append(title)
-    return titles

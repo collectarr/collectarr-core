@@ -626,28 +626,6 @@
         }
       }
     },
-    "/api/v1/metadata/normalized-manifest": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Metadata Normalized Manifest",
-        "operationId": "metadata_normalized_manifest_api_v1_metadata_normalized_manifest_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MetadataNormalizedManifestResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/metadata/field-schema": {
       "get": {
         "tags": [
@@ -4682,49 +4660,6 @@
         ],
         "title": "MetadataFieldSpecResponse",
         "description": "A single editable canonical metadata field, rendered from the registry."
-      },
-      "MetadataNormalizedManifestResponse": {
-        "properties": {
-          "schema_version": {
-            "type": "integer",
-            "title": "Schema Version"
-          },
-          "common_fields": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Common Fields"
-          },
-          "kind_fields": {
-            "additionalProperties": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "propertyNames": {
-              "$ref": "#/components/schemas/ItemKind"
-            },
-            "type": "object",
-            "title": "Kind Fields"
-          },
-          "value_types": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Value Types"
-          }
-        },
-        "type": "object",
-        "required": [
-          "schema_version",
-          "common_fields",
-          "kind_fields",
-          "value_types"
-        ],
-        "title": "MetadataNormalizedManifestResponse"
       },
       "MovieCatalogDetailsV1-Input": {
         "properties": {

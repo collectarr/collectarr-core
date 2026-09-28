@@ -1,11 +1,10 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from app.models.base import UserRole
-from app.models.partial_date import PartialDateValue
 
 
 class CanonicalCatalogWriteResponse(BaseModel):
@@ -19,69 +18,6 @@ class CanonicalCatalogWriteResponse(BaseModel):
 
 class AdminDeleteResponse(BaseModel):
     deleted: bool
-
-
-class AdminMetadataCreditInput(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
-    role: str | None = Field(default=None, max_length=64)
-
-
-class AdminMetadataCorrectionRequest(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=255)
-    title_extension: str | None = Field(default=None, max_length=255)
-    sort_key: str | None = Field(default=None, max_length=255)
-    original_title: str | None = Field(default=None, max_length=255)
-    localized_title: str | None = Field(default=None, max_length=255)
-    search_aliases: list[str] | None = None
-    item_number: str | None = Field(default=None, max_length=64)
-    synopsis: str | None = None
-    crossover: str | None = Field(default=None, max_length=255)
-    plot_summary: str | None = None
-    plot_description: str | None = None
-    edition_title: str | None = Field(default=None, max_length=255)
-    page_count: int | None = Field(default=None, ge=0)
-    runtime_minutes: int | None = Field(default=None, ge=0)
-    publisher: str | None = Field(default=None, max_length=255)
-    release_date: PartialDateValue | date | None = None
-    imprint: str | None = Field(default=None, max_length=255)
-    subtitle: str | None = Field(default=None, max_length=255)
-    series_group: str | None = Field(default=None, max_length=255)
-    country: str | None = Field(default=None, max_length=64)
-    language: str | None = Field(default=None, max_length=32)
-    age_rating: str | None = Field(default=None, max_length=64)
-    audience_rating: str | None = Field(default=None, max_length=32)
-    genres: list[str] | None = None
-    platforms: list[str] | None = None
-    identifiers: list[str] | None = None
-    company_roles: list[str] | None = None
-    age_ratings: list[str] | None = None
-    contributors: list[str] | None = None
-    mechanics: list[str] | None = None
-    categories: list[str] | None = None
-    families: list[str] | None = None
-    expansions: list[str] | None = None
-    rankings: list[str] | None = None
-    tracks: list[dict[str, Any]] | None = None
-    creators: list[AdminMetadataCreditInput] | None = None
-    characters: list[str] | None = None
-    story_arcs: list[str] | None = None
-    color: str | None = Field(default=None, max_length=64)
-    nr_discs: int | None = Field(default=None, ge=0)
-    screen_ratio: str | None = Field(default=None, max_length=64)
-    audio_tracks: str | None = Field(default=None, max_length=255)
-    subtitles: str | None = Field(default=None, max_length=255)
-    layers: str | None = Field(default=None, max_length=64)
-    trailer_urls: list[dict[str, Any]] | None = None
-    external_links: list[dict[str, Any]] | None = None
-    catalog_number: str | None = Field(default=None, max_length=100)
-    release_status: str | None = Field(default=None, max_length=64)
-    physical_format: str | None = Field(default=None, max_length=64)
-    variant_name: str | None = Field(default=None, max_length=255)
-    barcode: str | None = Field(default=None, max_length=32)
-    cover_image_url: str | None = Field(default=None, max_length=1024)
-    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
-
-    model_config = {"extra": "forbid"}
 
 
 class AdminCatalogSummaryResponse(BaseModel):

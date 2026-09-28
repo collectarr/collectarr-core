@@ -5,40 +5,14 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
     AdminAuditLog,
-    AnimeCharacterAppearance,
-    AnimeContribution,
-    AnimeSeries,
-    BoardGameContribution,
-    BoardGameWork,
-    BookContribution,
-    BookEdition,
-    BookSeriesMembership,
-    BookWork,
-    ComicCharacterAppearance,
-    ComicContribution,
-    ComicIssue,
-    ComicStoryArcMembership,
-    ComicWork,
-    GameWork,
     ImageAsset,
     ImageCacheEntry,
-    MangaCharacterAppearance,
-    MangaContribution,
-    MangaSeriesMembership,
-    MangaWork,
-    MovieWork,
-    MovieWorkContribution,
-    MusicAlbum,
-    TVRelease,
-    TVReleaseContribution,
-    TVSeason,
-    TVSeries,
 )
 from app.models.base import ItemKind
 from app.models.canonical_catalog_items import CanonicalCatalogItem
@@ -50,7 +24,6 @@ from app.schemas.admin import (
     AdminSearchStatusResponse,
 )
 from app.search.client import SearchClient
-from app.search.documents import catalog_search_document
 from app.services.typed_values import materialize_typed_values
 
 _SEARCH_HISTORY: deque[AdminSearchHistoryEntry] = deque(maxlen=20)
@@ -213,163 +186,16 @@ class AdminOverviewService:
             missing += 1
         return missing
 
-    async def _count_missing_cover_items_for_root(
-        self,
-        model: type,
-        *,
-        cover_fields: tuple[str, str] = ("cover_image_url", "cover_image_key"),
-    ) -> int:
-        has_cover = or_(*[getattr(model, field).is_not(None) for field in cover_fields])
-        return int(
-            await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0
-        )
-
-    async def _count_missing_cover_items_for_child(
-        self,
-        parent_model: type,
-        child_model: type,
-        parent_fk: str,
-        *,
-        root_cover_fields: tuple[str, str] = (),
-        child_cover_fields: tuple[str, str] = ("cover_image_url", "cover_image_key"),
-    ) -> int:
-        root_has_cover = (
-            or_(*[getattr(parent_model, field).is_not(None) for field in root_cover_fields])
-            if root_cover_fields
-            else None
-        )
-        child_has_cover = exists().where(
-            getattr(child_model, parent_fk) == parent_model.id,
-            or_(*[getattr(child_model, field).is_not(None) for field in child_cover_fields]),
-        )
-        predicate = (
-            child_has_cover if root_has_cover is None else or_(root_has_cover, child_has_cover)
-        )
-        return int(
-            await self.db.scalar(select(func.count()).select_from(parent_model).where(~predicate))
-            or 0
-        )
-
     async def _search_documents(self) -> list[dict[str, Any]]:
-        documents: list[dict[str, Any]] = []
-
-        book_result = await self.db.execute(
-            select(BookWork).options(
-                selectinload(BookWork.editions)
-                .selectinload(BookEdition.contributions)
-                .selectinload(BookContribution.person),
-                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
+        rows = await self.db.scalars(
+            select(CanonicalCatalogItem).order_by(
+                CanonicalCatalogItem.kind.asc(),
+                CanonicalCatalogItem.sort_title.asc().nullslast(),
+                CanonicalCatalogItem.title.asc(),
+                CanonicalCatalogItem.id.asc(),
             )
         )
-        documents.extend(catalog_search_document(work) for work in book_result.scalars().unique())
-
-        comic_result = await self.db.execute(
-            select(ComicWork).options(
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.contributions)
-                .selectinload(ComicContribution.person),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.character_appearances)
-                .selectinload(ComicCharacterAppearance.character),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.story_arc_memberships)
-                .selectinload(ComicStoryArcMembership.story_arc),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in comic_result.scalars().unique())
-
-        manga_result = await self.db.execute(
-            select(MangaWork).options(
-                selectinload(MangaWork.chapters),
-                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.character_appearances).selectinload(
-                    MangaCharacterAppearance.character
-                ),
-                selectinload(MangaWork.series_memberships).selectinload(
-                    MangaSeriesMembership.series
-                ),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in manga_result.scalars().unique())
-
-        anime_result = await self.db.execute(
-            select(AnimeSeries).options(
-                selectinload(AnimeSeries.episodes),
-                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
-                selectinload(AnimeSeries.character_appearances).selectinload(
-                    AnimeCharacterAppearance.character
-                ),
-            )
-        )
-        documents.extend(
-            catalog_search_document(series) for series in anime_result.scalars().unique()
-        )
-
-        movie_result = await self.db.execute(
-            select(MovieWork).options(
-                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-                selectinload(MovieWork.releases),
-                selectinload(MovieWork.identifiers),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in movie_result.scalars().unique())
-
-        tv_result = await self.db.execute(
-            select(TVSeries).options(
-                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.releases)
-                .selectinload(TVRelease.contributions)
-                .selectinload(TVReleaseContribution.person),
-                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
-            )
-        )
-        documents.extend(
-            catalog_search_document(release) for release in tv_result.scalars().unique()
-        )
-
-        game_result = await self.db.execute(
-            select(GameWork).options(
-                selectinload(GameWork.releases),
-                selectinload(GameWork.platform_entries),
-                selectinload(GameWork.identifier_entries),
-                selectinload(GameWork.company_role_entries),
-                selectinload(GameWork.age_rating_entries),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in game_result.scalars().unique())
-
-        boardgame_result = await self.db.execute(
-            select(BoardGameWork).options(
-                selectinload(BoardGameWork.editions),
-                selectinload(BoardGameWork.identifier_entries),
-                selectinload(BoardGameWork.contribution_entries).selectinload(
-                    BoardGameContribution.person
-                ),
-                selectinload(BoardGameWork.mechanic_entries),
-                selectinload(BoardGameWork.category_entries),
-                selectinload(BoardGameWork.family_entries),
-                selectinload(BoardGameWork.expansion_entries),
-                selectinload(BoardGameWork.ranking_snapshots),
-            )
-        )
-        documents.extend(
-            catalog_search_document(work) for work in boardgame_result.scalars().unique()
-        )
-
-        music_result = await self.db.execute(
-            select(MusicAlbum).options(
-                selectinload(MusicAlbum.tracks),
-                selectinload(MusicAlbum.disc_titles),
-                selectinload(MusicAlbum.credits),
-            )
-        )
-        documents.extend(
-            catalog_search_document(album) for album in music_result.scalars().unique()
-        )
-
-        return documents
+        return [_catalog_item_search_document(item) for item in rows]
 
     def _record_search_history(self, response: AdminSearchReindexResponse) -> None:
         _SEARCH_HISTORY.appendleft(
@@ -381,3 +207,154 @@ class AdminOverviewService:
                 error=response.error,
             )
         )
+
+
+def _catalog_item_search_document(item: CanonicalCatalogItem) -> dict[str, Any]:
+    details = item.details if isinstance(item.details, dict) else {}
+    identifiers = details.get("identifiers")
+    identifiers = identifiers if isinstance(identifiers, list) else []
+    barcodes = [
+        value
+        for entry in identifiers
+        if isinstance(entry, dict)
+        and str(entry.get("identifier_type", "")).casefold() in {"barcode", "ean", "gtin", "upc"}
+        and (value := _nonempty(entry.get("value"))) is not None
+    ]
+    direct_barcode = _nonempty(details.get("barcode"))
+    if direct_barcode and direct_barcode not in barcodes:
+        barcodes.insert(0, direct_barcode)
+
+    release_date = details.get("release_date") or details.get("publication_date")
+    release_year = _partial_year(release_date)
+    item_number = next(
+        (
+            value
+            for key in ("issue_number", "volume_number", "season_number")
+            if (value := _nonempty(details.get(key))) is not None
+        ),
+        None,
+    )
+    publisher = _nonempty(details.get("publisher")) or _first_string(
+        details.get("publishers")
+    ) or _first_dict_string(details.get("labels"), "name")
+    creators = _strings(details.get("artists")) + _credit_names(
+        details.get("credits") or details.get("contributors") or details.get("creators")
+    )
+    catalog_number = _nonempty(details.get("catalog_number")) or _first_dict_string(
+        details.get("labels"), "catalog_number"
+    )
+
+    return {
+        "id": str(item.id),
+        "kind": item.kind,
+        "title": item.title,
+        "sort_title": item.sort_title,
+        "item_number": item_number,
+        "publisher": publisher,
+        "release_date": _partial_date_string(release_date),
+        "release_year": release_year,
+        "barcode": direct_barcode or (barcodes[0] if barcodes else None),
+        "barcodes": barcodes,
+        "catalog_number": catalog_number,
+        "cover_image_url": _cover_image_url(details),
+        "thumbnail_image_url": _first_dict_string(details.get("images"), "thumbnail_url"),
+        "region": _nonempty(details.get("region")) or _nonempty(details.get("country")),
+        "platforms": _strings(details.get("platforms")),
+        "creators": list(dict.fromkeys(creators)),
+        "characters": _strings(details.get("characters")),
+        "story_arcs": _strings(details.get("story_arcs")),
+        "language": _nonempty(details.get("language")),
+        "imprint": _nonempty(details.get("imprint")),
+        "subtitle": _nonempty(details.get("subtitle")),
+        "series_group": _nonempty(details.get("series_title")),
+        "age_rating": _nonempty(details.get("age_rating")),
+        "release_status": _nonempty(details.get("release_status")),
+        "bundle_titles": _contained_titles(details),
+        "runtime_minutes": details.get("runtime_minutes"),
+    }
+
+
+def _nonempty(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if isinstance(value, int):
+        return str(value)
+    return None
+
+
+def _strings(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [text for entry in value if (text := _nonempty(entry)) is not None]
+
+
+def _first_string(value: Any) -> str | None:
+    values = _strings(value)
+    return values[0] if values else None
+
+
+def _credit_names(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [
+        text
+        for entry in value
+        if isinstance(entry, dict)
+        and (text := _nonempty(entry.get("name") or entry.get("credited_name"))) is not None
+    ]
+
+
+def _first_dict_string(value: Any, key: str) -> str | None:
+    if not isinstance(value, list):
+        return None
+    for entry in value:
+        if isinstance(entry, dict) and (text := _nonempty(entry.get(key))) is not None:
+            return text
+    return None
+
+
+def _partial_date_string(value: Any) -> str | None:
+    if isinstance(value, dict):
+        year, month, day = (value.get(key) for key in ("year", "month", "day"))
+        if not isinstance(year, int):
+            return None
+        result = f"{year:04d}"
+        if isinstance(month, int):
+            result += f"-{month:02d}"
+            if isinstance(day, int):
+                result += f"-{day:02d}"
+        return result
+    if isinstance(value, str):
+        return value
+    return None
+
+
+def _partial_year(value: Any) -> int | None:
+    if isinstance(value, dict):
+        year = value.get("year")
+        return year if isinstance(year, int) else None
+    if isinstance(value, str) and len(value) >= 4 and value[:4].isdigit():
+        return int(value[:4])
+    return None
+
+
+def _cover_image_url(details: dict[str, Any]) -> str | None:
+    direct = _nonempty(details.get("cover_image_url"))
+    if direct:
+        return direct
+    return _first_dict_string(details.get("images"), "url")
+
+
+def _contained_titles(details: dict[str, Any]) -> list[str]:
+    titles: list[str] = []
+    for key in ("tracks", "episodes", "seasons", "media_tracks", "components"):
+        entries = details.get(key)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            title = _nonempty(entry.get("title") or entry.get("name"))
+            if title:
+                titles.append(title)
+    return titles

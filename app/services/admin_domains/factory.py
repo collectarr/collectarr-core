@@ -5,18 +5,15 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.search.client import SearchClient
-from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.duplicates import AdminDuplicateService
 from app.services.admin_domains.image_cache import AdminImageCacheService
 from app.services.admin_domains.overview import AdminOverviewService
-from app.services.admin_domains.shared import sort_key
 from app.services.admin_domains.support import AdminSupportService
 from app.services.admin_domains.users import AdminUserService
 
 
 @dataclass(slots=True)
 class AdminDomainServices:
-    catalog_admin: AdminCatalogService
     duplicates_admin: AdminDuplicateService
     overview_admin: AdminOverviewService
     user_admin: AdminUserService
@@ -36,14 +33,6 @@ def build_admin_domain_services(
         actor_user_id=actor_user_id,
         actor_email=actor_email,
     )
-    catalog_admin = AdminCatalogService(
-        db=db,
-        item_response_loader=support.item_response,
-        audit_recorder=support.record_admin_audit,
-        reindex_items=support.reindex_items,
-        sort_key_builder=sort_key,
-        get_or_create_tag=support.get_or_create_tag,
-    )
     duplicates_admin = AdminDuplicateService(
         db,
         actor_user_id=actor_user_id,
@@ -55,7 +44,6 @@ def build_admin_domain_services(
         duplicate_group_count=duplicates_admin.duplicate_group_count,
     )
     return AdminDomainServices(
-        catalog_admin=catalog_admin,
         duplicates_admin=duplicates_admin,
         overview_admin=overview_admin,
         user_admin=AdminUserService(db, support.record_admin_audit),

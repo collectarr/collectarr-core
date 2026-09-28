@@ -38,7 +38,6 @@ class AdminMetadataService:
             logger=logger,
             search_client_cls=SearchClient,
         )
-        self.catalog_admin = services.catalog_admin
         self.duplicates_admin = services.duplicates_admin
         self.overview_admin = services.overview_admin
         self.user_admin = services.user_admin

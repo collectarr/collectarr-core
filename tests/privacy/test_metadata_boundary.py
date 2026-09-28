@@ -1,6 +1,12 @@
 from dataclasses import fields as dataclass_fields
 
 import pytest
+from app.providers.base import (
+    NormalizedBundleRelease,
+    NormalizedCredit,
+    NormalizedItem,
+    NormalizedTrack,
+)
 from pydantic import ValidationError
 
 from app import main as app_main
@@ -8,17 +14,11 @@ from app import models as app_models
 from app.catalog.metadata_fields import METADATA_FIELDS
 from app.models.base import Base, ExternalProvider
 from app.proposal_payload import compact_metadata_payload, validate_metadata_payload
-from app.providers.base import (
-    NormalizedBundleRelease,
-    NormalizedCredit,
-    NormalizedItem,
-    NormalizedTrack,
-)
 from app.schemas.admin import (
-    AdminMetadataCorrectionRequest,
     MetadataProposalAdminUpdateRequest,
     ProviderIngestRequest,
 )
+from app.schemas.catalog_item_v1 import CatalogItemWriteV1
 from app.schemas.metadata_common import MetadataProposalCreate
 
 PERSONAL_FIELD_KEYS = {
@@ -110,7 +110,9 @@ def test_request_models_forbid_unknown_and_personal_payload_fields() -> None:
         ProviderIngestRequest(provider=ExternalProvider.comicvine, provider_item_id="123", unexpected=True)
 
     with pytest.raises(ValidationError):
-        AdminMetadataCorrectionRequest(collection_status="owned")
+        CatalogItemWriteV1(
+            details={"kind": "book", "title": "Dune", "collection_status": "owned"}
+        )
 
     with pytest.raises(ValidationError):
         MetadataProposalAdminUpdateRequest(metadata_payload={"nested": {"personal": "nope"}})

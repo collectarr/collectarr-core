@@ -4,10 +4,12 @@ import re
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Text, cast, or_, select
+from sqlalchemy import Text, and_, cast, delete, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiHTTPException
+from app.models.canonical_catalog_item_identities import CanonicalCatalogItemIdentity
 from app.models.canonical_catalog_items import CanonicalCatalogItem
 from app.schemas.catalog_item_v1 import (
     CATALOG_ITEM_DETAILS_BY_KIND,
@@ -19,6 +21,10 @@ from app.schemas.catalog_item_v1 import (
 
 class CatalogItemService:
     """Source-neutral CRUD and search for concrete catalog items."""
+
+    _UNIQUE_IDENTIFIER_TYPES = frozenset(
+        {"barcode", "ean", "gtin", "isbn", "isbn10", "isbn13", "upc"}
+    )
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -73,6 +79,11 @@ class CatalogItemService:
     async def create_item(self, payload: CatalogItemWriteV1) -> CatalogItemV1:
         details = payload.details
         values = details.model_dump(mode="json")
+        identity_keys = _canonical_identity_keys(details.kind, values)
+        existing_ids = await self._identity_owners(details.kind, identity_keys)
+        if existing_ids:
+            raise self._identity_conflict(existing_ids)
+
         item = CanonicalCatalogItem(
             id=uuid4(),
             kind=details.kind,
@@ -83,7 +94,28 @@ class CatalogItemService:
         )
         self.db.add(item)
         await self.db.flush()
-        await self.db.commit()
+        self.db.add_all(
+            CanonicalCatalogItemIdentity(
+                kind=details.kind,
+                identifier_type=identifier_type,
+                normalized_value=normalized_value,
+                catalog_item_id=item.id,
+            )
+            for identifier_type, normalized_value in identity_keys
+        )
+        try:
+            await self.db.flush()
+            await self.db.commit()
+        except IntegrityError as error:
+            await self.db.rollback()
+            existing_ids = await self._identity_owners(details.kind, identity_keys)
+            if existing_ids:
+                raise self._identity_conflict(existing_ids) from error
+            raise ApiHTTPException(
+                status_code=409,
+                code="catalog_item_identifier_conflict",
+                detail="A canonical identifier is already assigned to another Catalog Item.",
+            ) from error
         loaded = await self.db.scalar(
             select(CanonicalCatalogItem).where(CanonicalCatalogItem.id == item.id)
         )
@@ -117,13 +149,89 @@ class CatalogItemService:
                 ),
             )
         values = details.model_dump(mode="json")
+        identity_keys = _canonical_identity_keys(details.kind, values)
+        existing_ids = await self._identity_owners(
+            details.kind,
+            identity_keys,
+            excluding=item_id,
+        )
+        if existing_ids:
+            raise ApiHTTPException(
+                status_code=409,
+                code="catalog_item_identifier_conflict",
+                detail="A canonical identifier is already assigned to another Catalog Item.",
+            )
+
         item.title = details.title.strip()
         item.sort_title = details.sort_title
         item.identifier_search = _identifier_search_text(values)
         item.details = values
-        await self.db.flush()
-        await self.db.commit()
+        await self.db.execute(
+            delete(CanonicalCatalogItemIdentity).where(
+                CanonicalCatalogItemIdentity.catalog_item_id == item_id
+            )
+        )
+        self.db.add_all(
+            CanonicalCatalogItemIdentity(
+                kind=details.kind,
+                identifier_type=identifier_type,
+                normalized_value=normalized_value,
+                catalog_item_id=item.id,
+            )
+            for identifier_type, normalized_value in identity_keys
+        )
+        try:
+            await self.db.flush()
+            await self.db.commit()
+        except IntegrityError as error:
+            await self.db.rollback()
+            raise ApiHTTPException(
+                status_code=409,
+                code="catalog_item_identifier_conflict",
+                detail="A canonical identifier is already assigned to another Catalog Item.",
+            ) from error
         return self._response(item)
+
+    async def _identity_owners(
+        self,
+        kind: str,
+        identity_keys: set[tuple[str, str]],
+        *,
+        excluding: UUID | None = None,
+    ) -> set[UUID]:
+        if not identity_keys:
+            return set()
+        matches = [
+            and_(
+                CanonicalCatalogItemIdentity.identifier_type == identifier_type,
+                CanonicalCatalogItemIdentity.normalized_value == normalized_value,
+            )
+            for identifier_type, normalized_value in identity_keys
+        ]
+        statement = select(CanonicalCatalogItemIdentity.catalog_item_id).where(
+            CanonicalCatalogItemIdentity.kind == kind,
+            or_(*matches),
+        )
+        if excluding is not None:
+            statement = statement.where(CanonicalCatalogItemIdentity.catalog_item_id != excluding)
+        return set((await self.db.scalars(statement)).all())
+
+    @staticmethod
+    def _identity_conflict(item_ids: set[UUID]) -> ApiHTTPException:
+        detail = (
+            "A Catalog Item with one of these canonical identifiers already exists. "
+            "Search for and select the existing item before adding copies."
+        )
+        if len(item_ids) > 1:
+            detail = (
+                "The submitted identifiers match multiple existing Catalog Items. "
+                "Resolve the matches before creating another item."
+            )
+        return ApiHTTPException(
+            status_code=409,
+            code="catalog_item_identifier_conflict",
+            detail=detail,
+        )
 
     @staticmethod
     def _response(item: CanonicalCatalogItem) -> CatalogItemV1:
@@ -235,6 +343,34 @@ def _identifier_search_text(details: dict[str, Any]) -> str:
     visit(details)
     unique_values = dict.fromkeys(values)
     return f"|{'|'.join(unique_values)}|" if unique_values else ""
+
+
+def _canonical_identity_keys(
+    kind: str,
+    details: dict[str, Any],
+) -> set[tuple[str, str]]:
+    """Return normalized edition identifiers that are globally identifying."""
+    keys: set[tuple[str, str]] = set()
+
+    def add(identifier_type: object, value: object) -> None:
+        if not isinstance(identifier_type, str) or not isinstance(value, str):
+            return
+        normalized_type = identifier_type.strip().casefold().replace("-", "").replace("_", "")
+        if normalized_type not in CatalogItemService._UNIQUE_IDENTIFIER_TYPES:
+            return
+        normalized_value = _normalize_identifier(value)
+        if normalized_value:
+            keys.add((normalized_type, normalized_value))
+
+    if kind == "music":
+        add("barcode", details.get("barcode"))
+
+    identifiers = details.get("identifiers")
+    if isinstance(identifiers, list):
+        for identifier in identifiers:
+            if isinstance(identifier, dict):
+                add(identifier.get("identifier_type"), identifier.get("value"))
+    return keys
 
 
 def _normalize_identifier(value: str) -> str:

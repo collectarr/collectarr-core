@@ -4,6 +4,8 @@
 
 Core owns shared, canonical Catalog Items and their typed contained data. A Catalog Item is one concrete collectible edition/version/issue variant/release. It is the only canonical workspace root for all nine kinds. Tracks, episodes, credits, components, included editions, and similar repeated information remain typed child data and do not create another editable Work or Release.
 
+Core deduplicates canonical writes by kind and normalized edition identifiers. ISBN, barcode, EAN, GTIN, and UPC values are unique within a kind. A duplicate create returns a conflict so the user can select the existing item without silently discarding manually entered catalog details.
+
 The target App has no provider subsystem, mapping, provider IDs, or import provenance. App owns copies, personal fields, tracking, reading/listening activity, and local images. Core receives source-neutral canonical Catalog Item writes and must not accept provider envelopes.
 
 Catalog Item creation and editing are shared-catalog operations. They require an authenticated `editor` or `admin` account. Authenticated `viewer` accounts may search and read Catalog Items, and may add App-local Owned Copies of existing items; they cannot create or alter shared catalog records. This keeps ordinary collection actions available without granting catalog-wide write access.

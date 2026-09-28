@@ -1,11 +1,9 @@
-from uuid import UUID
-
 import pytest
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import ComicWork, DuplicateReview
+from app.models import DuplicateReview
 
 
 async def admin_token(client, monkeypatch) -> str:
@@ -73,70 +71,53 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_admin_audit_logs_duplicate_merge(client, monkeypatch):
+async def test_admin_duplicate_candidates_use_catalog_items(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
-    async with AsyncSessionLocal() as db:
-        target = ComicWork(title="Duplicate Book", sort_title="duplicate book")
-        source = ComicWork(title="Duplicate Book", sort_title="duplicate book")
-        db.add_all([target, source])
-        await db.commit()
-        target_id = str(target.id)
-        source_id = str(source.id)
-
-    merge = await client.post(
-        "/api/v1/admin/duplicates/merge",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"target_item_id": target_id, "source_item_ids": [source_id]},
-    )
-
-    assert merge.status_code == 200
-    merge_body = merge.json()
-    assert merge_body["ok"] is True
-    assert merge_body["affected_items"] == 1
-
-    async with AsyncSessionLocal() as db:
-        review_row = await db.scalar(
-            select(DuplicateReview).where(DuplicateReview.action == "merge")
+    headers = {"Authorization": f"Bearer {token}"}
+    item_ids = []
+    for title in ("Duplicate Comic", "Duplicate Comic"):
+        created = await client.post(
+            "/api/v1/metadata/catalog/items",
+            headers=headers,
+            json={"details": {"kind": "comic", "title": title}},
         )
+        assert created.status_code == 201
+        item_ids.append(created.json()["id"])
 
-    assert review_row is not None
-    assert review_row.target_entity_id == UUID(target_id)
-    assert review_row.source_entity_ids == [source_id]
-
-    logs = await client.get(
-        "/api/v1/admin/audit/logs",
-        headers={"Authorization": f"Bearer {token}"},
-        params={"limit": 5},
+    response = await client.get(
+        "/api/v1/admin/duplicates",
+        headers=headers,
     )
 
-    assert logs.status_code == 200
-    rows = {row["action"]: row for row in logs.json()}
-    assert rows["duplicates.merge"]["entity_id"] == target_id
-    assert rows["duplicates.merge"]["details_json"]["source_item_ids"] == [source_id]
-    assert rows["duplicates.merge"]["details_json"]["decision"] == "merge"
-    assert rows["duplicates.merge"]["details_json"]["duplicate_score"] >= 55
-    assert "confidence_factors" in rows["duplicates.merge"]["details_json"]
-    assert "merge_warnings" in rows["duplicates.merge"]["details_json"]
+    assert response.status_code == 200
+    candidate = next(row for row in response.json() if set(row["item_ids"]) == set(item_ids))
+    assert candidate["kind"] == "comic"
+    assert candidate["title"] == "Duplicate Comic"
+    assert candidate["reason"] == "same kind and title"
 
 
 @pytest.mark.asyncio
-async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(client, monkeypatch):
+async def test_admin_duplicate_ignore_audits_catalog_items(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
-    async with AsyncSessionLocal() as db:
-        first = ComicWork(title="Review Me", sort_title="review me")
-        second = ComicWork(title="Review Me", sort_title="review me")
-        db.add_all([first, second])
-        await db.commit()
-        item_ids = [str(first.id), str(second.id)]
+    headers = {"Authorization": f"Bearer {token}"}
+    item_ids = []
+    for title in ("Review Me", "Review Me"):
+        created = await client.post(
+            "/api/v1/metadata/catalog/items",
+            headers=headers,
+            json={"details": {"kind": "comic", "title": title}},
+        )
+        assert created.status_code == 201
+        item_ids.append(created.json()["id"])
 
     review = await client.post(
-        "/api/v1/admin/duplicates/review",
+        "/api/v1/admin/duplicates/ignore",
         headers={"Authorization": f"Bearer {token}"},
-        json={"decision": "ignore", "item_ids": item_ids, "note": "Known variant split"},
+        json={"item_ids": item_ids},
     )
 
     assert review.status_code == 200
-    assert review.json() == {"ok": True, "affected_items": 2, "item": None}
+    assert review.json() == {"ok": True, "affected_items": 2}
 
     async with AsyncSessionLocal() as db:
         review_row = await db.scalar(
@@ -145,7 +126,7 @@ async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(clie
 
     assert review_row is not None
     assert review_row.ignore_token is not None
-    assert review_row.entity_ids == item_ids
+    assert review_row.entity_type == "catalog_item"
 
     logs = await client.get(
         "/api/v1/admin/audit/logs",
@@ -156,4 +137,4 @@ async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(clie
     row = logs.json()[0]
     assert row["details_json"]["decision"] == "ignore"
     assert row["details_json"]["item_ids"] == item_ids
-    assert row["details_json"]["duplicate_score"] >= 55
+    assert row["details_json"]["duplicate_score"] == 100

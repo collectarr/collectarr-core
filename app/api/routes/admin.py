@@ -9,10 +9,8 @@ from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
-    AdminDuplicateMergeRequest,
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
-    AdminDuplicateReviewRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
@@ -103,20 +101,6 @@ async def ignore_duplicate_candidate(
     payload: AdminDuplicateIgnoreRequest, db: DbSession, user: CurrentAdmin
 ) -> AdminDuplicateActionResponse:
     return await AdminMetadataService(db, user).ignore_duplicate_candidate(payload)
-
-
-@router.post("/duplicates/merge", response_model=AdminDuplicateActionResponse)
-async def merge_duplicate_candidate(
-    payload: AdminDuplicateMergeRequest, db: DbSession, user: CurrentAdmin
-) -> AdminDuplicateActionResponse:
-    return await AdminMetadataService(db, user).merge_duplicate_candidate(payload)
-
-
-@router.post("/duplicates/review", response_model=AdminDuplicateActionResponse)
-async def review_duplicate_candidate(
-    payload: AdminDuplicateReviewRequest, db: DbSession, user: CurrentAdmin
-) -> AdminDuplicateActionResponse:
-    return await AdminMetadataService(db, user).review_duplicate_candidate(payload)
 
 
 @router.get("/users", response_model=list[UserResponse])

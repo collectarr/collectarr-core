@@ -198,23 +198,9 @@ class AdminDuplicateIgnoreRequest(BaseModel):
     item_ids: list[UUID] = Field(min_length=2, max_length=50)
 
 
-class AdminDuplicateMergeRequest(BaseModel):
-    target_item_id: UUID
-    source_item_ids: list[UUID] = Field(min_length=1, max_length=49)
-
-
-class AdminDuplicateReviewRequest(BaseModel):
-    decision: str = Field(pattern="^(ignore|merge)$")
-    item_ids: list[UUID] = Field(default_factory=list, max_length=50)
-    target_item_id: UUID | None = None
-    source_item_ids: list[UUID] = Field(default_factory=list, max_length=49)
-    note: str | None = Field(default=None, max_length=1000)
-
-
 class AdminDuplicateActionResponse(BaseModel):
     ok: bool
     affected_items: int
-    item: dict[str, Any] | None = None
 
 
 class UserResponse(BaseModel):

@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from logging import Logger
-from typing import Awaitable, Callable
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +9,7 @@ from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.duplicates import AdminDuplicateService
 from app.services.admin_domains.image_cache import AdminImageCacheService
 from app.services.admin_domains.overview import AdminOverviewService
-from app.services.admin_domains.shared import character_role_rank, sort_key
+from app.services.admin_domains.shared import sort_key
 from app.services.admin_domains.support import AdminSupportService
 from app.services.admin_domains.users import AdminUserService
 
@@ -47,9 +46,6 @@ def build_admin_domain_services(
     )
     duplicates_admin = AdminDuplicateService(
         db,
-        support.item_response,
-        support.record_admin_audit,
-        character_role_rank,
         actor_user_id=actor_user_id,
         actor_email=actor_email,
     )

@@ -11,10 +11,8 @@ from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
-    AdminDuplicateMergeRequest,
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
-    AdminDuplicateReviewRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
@@ -89,16 +87,6 @@ class AdminMetadataService:
         self, payload: AdminDuplicateIgnoreRequest
     ) -> AdminDuplicateActionResponse:
         return await self.duplicates_admin.ignore_duplicate_candidate(payload)
-
-    async def merge_duplicate_candidate(
-        self, payload: AdminDuplicateMergeRequest
-    ) -> AdminDuplicateActionResponse:
-        return await self.duplicates_admin.merge_duplicate_candidate(payload)
-
-    async def review_duplicate_candidate(
-        self, payload: AdminDuplicateReviewRequest
-    ) -> AdminDuplicateActionResponse:
-        return await self.duplicates_admin.review_duplicate_candidate(payload)
 
     async def list_users(self) -> list:
         return await self.user_admin.list_users()

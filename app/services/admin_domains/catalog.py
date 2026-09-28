@@ -13,11 +13,6 @@ from app.catalog.physical_formats import (
     physical_format_for_id,
 )
 from app.core.errors import ApiHTTPException
-from app.metadata_normalized import (
-    NORMALIZED_SCHEMA_VERSION,
-    normalized_metadata_issues,
-    typed_metadata_payload,
-)
 from app.models import (
     AnimeSeries,
     BoardGameCategory,
@@ -72,8 +67,6 @@ from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,
-    AdminNormalizedMetadataDriftReportResponse,
-    AdminNormalizedMetadataDriftSample,
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
@@ -137,155 +130,6 @@ class AdminCatalogService:
                 continue
             responses.append(await self._item_response_loader(entity))
         return responses
-
-    async def normalized_metadata_drift_report(
-        self,
-        *,
-        sample_limit: int = 100,
-        scan_limit: int | None = None,
-    ) -> AdminNormalizedMetadataDriftReportResponse:
-        schema_issue_keys = {"schema_version_missing", "schema_version_mismatch"}
-        issue_counts: dict[str, int] = {}
-        samples: list[AdminNormalizedMetadataDriftSample] = []
-        scanned_entities = 0
-        entities_with_normalized = 0
-        drifted_entities = 0
-        typed_scanned_items = 0
-        typed_drifted_items = 0
-
-        def _typed_source(entity: Any, kind: ItemKind) -> dict[str, Any]:
-            metadata: dict[str, Any] = {}
-            if kind == ItemKind.music:
-                tracks: list[dict[str, Any]] = []
-                releases = getattr(entity, "releases", []) or []
-                for release in releases:
-                    for media in sorted(
-                        getattr(release, "mediums", []) or [],
-                        key=lambda row: (getattr(row, "medium_number", 0), str(getattr(row, "id", ""))),
-                    ):
-                        for track in sorted(
-                            getattr(media, "tracks", []) or [],
-                            key=lambda row: (str(getattr(row, "position", "")), str(getattr(row, "id", ""))),
-                        ):
-                            tracks.append(
-                                {
-                                    "position": int(track.position) if str(track.position).isdigit() else track.position,
-                                    "title": track.title,
-                                    "artist": track.artist,
-                                    "is_header": track.is_header,
-                                    "indent_level": track.indent_level,
-                                    "parent_header_id": track.parent_header_id,
-                                    "duration_seconds": (
-                                        track.duration_ms // 1000 if track.duration_ms is not None else None
-                                    ),
-                                }
-                            )
-                if tracks:
-                    metadata["tracks"] = tracks
-                    metadata["track_count"] = len(tracks)
-            primary_release = next(iter(getattr(entity, "releases", []) or []), None)
-            primary_media = (
-                next(iter(getattr(primary_release, "media", []) or []), None)
-                if primary_release is not None
-                else None
-            )
-            if kind in {ItemKind.movie, ItemKind.tv} and primary_media is not None:
-                for key in ("color", "audio_tracks", "subtitles", "layers", "screen_ratio"):
-                    value = getattr(primary_media, key, None)
-                    if value is not None:
-                        metadata[key] = value
-                if getattr(primary_media, "num_discs", None) is not None:
-                    metadata["nr_discs"] = primary_media.num_discs
-                if getattr(primary_media, "aspect_ratio", None) is not None:
-                    metadata.setdefault("screen_ratio", primary_media.aspect_ratio)
-            return metadata
-
-        def _record(entity_type: str, entity: Any, kind: ItemKind) -> None:
-            nonlocal scanned_entities, entities_with_normalized, drifted_entities
-            nonlocal typed_scanned_items, typed_drifted_items
-            scanned_entities += 1
-            typed_scanned_items += 1
-            stored_normalized: dict[str, Any] | None = None
-            if stored_normalized is None:
-                return
-            normalized = stored_normalized
-            entities_with_normalized += 1
-            issues = normalized_metadata_issues(normalized, kind=kind)
-            if issues:
-                drifted_entities += 1
-                for issue in issues:
-                    issue_counts[issue] = issue_counts.get(issue, 0) + 1
-                if len(samples) < sample_limit:
-                    samples.append(
-                        AdminNormalizedMetadataDriftSample(
-                            entity_type=entity_type,
-                            entity_id=entity.id,
-                            kind=kind,
-                            issues=issues,
-                            normalized_keys=sorted(str(key) for key in normalized),
-                        )
-                    )
-            expected_typed = typed_metadata_payload(normalized, kind=kind)
-            actual_typed = typed_metadata_payload(_typed_source(entity, kind), kind=kind)
-            issues = []
-            for key in sorted(set(expected_typed) | set(actual_typed)):
-                if key not in actual_typed:
-                    issues.append(f"typed_missing:{key}")
-                elif key not in expected_typed:
-                    issues.append(f"typed_extra:{key}")
-                elif expected_typed[key] != actual_typed[key]:
-                    issues.append(f"typed_mismatch:{key}")
-            if issues:
-                typed_drifted_items += 1
-                for issue in issues:
-                    issue_counts[issue] = issue_counts.get(issue, 0) + 1
-                if len(samples) < sample_limit:
-                    samples.append(
-                        AdminNormalizedMetadataDriftSample(
-                            entity_type="typed_metadata",
-                            entity_id=entity.id,
-                            kind=kind,
-                            issues=issues,
-                            normalized_keys=sorted(set(expected_typed) | set(actual_typed)),
-                        )
-                    )
-
-        async def _scan(model: Any, kind: ItemKind, entity_type: str) -> None:
-            stmt = select(model).options(*self._native_load_options(kind)).order_by(model.id.asc())
-            if scan_limit is not None:
-                stmt = stmt.limit(scan_limit)
-            rows = (await self.db.execute(stmt)).scalars()
-            for entity in rows:
-                _record(entity_type, entity, kind)
-
-        await _scan(BookWork, ItemKind.book, "book_work")
-        await _scan(ComicWork, ItemKind.comic, "comic_work")
-        await _scan(MusicAlbum, ItemKind.music, "music_album")
-        await _scan(GameWork, ItemKind.game, "game_work")
-        await _scan(MovieWork, ItemKind.movie, "movie_work")
-        await _scan(TVSeries, ItemKind.tv, "tv_series")
-        await _scan(BoardGameWork, ItemKind.boardgame, "boardgame_work")
-
-        schema_issue_count = sum(count for issue, count in issue_counts.items() if issue in schema_issue_keys)
-        blocking_issue_count = sum(
-            count for issue, count in issue_counts.items() if issue not in schema_issue_keys
-        )
-
-        return AdminNormalizedMetadataDriftReportResponse(
-            expected_schema_version=NORMALIZED_SCHEMA_VERSION,
-            scan_limit=scan_limit,
-            scan_limited=scan_limit is not None,
-            scanned_entities=scanned_entities,
-            entities_with_normalized=entities_with_normalized,
-            drifted_entities=drifted_entities,
-            typed_scanned_items=typed_scanned_items,
-            typed_drifted_items=typed_drifted_items,
-            schema_issue_count=schema_issue_count,
-            blocking_issue_count=blocking_issue_count,
-            release_gate_ok=(blocking_issue_count == 0),
-            issue_counts=dict(sorted(issue_counts.items())),
-            samples=samples,
-        )
 
     async def update_catalog_item(
         self,

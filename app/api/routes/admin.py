@@ -5,13 +5,13 @@ from fastapi import APIRouter, Query
 from app.api.deps import CurrentAdmin, CurrentAdminReader, DbSession
 from app.schemas.admin import (
     AdminAuditLogResponse,
+    AdminCatalogItemIntegrityResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
-    AdminNormalizedMetadataDriftReportResponse,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
@@ -32,16 +32,14 @@ async def catalog_summary(
     return await AdminMetadataService(db).catalog_summary()
 
 
-@router.get(
-    "/catalog/normalized-metadata-drift", response_model=AdminNormalizedMetadataDriftReportResponse
-)
-async def catalog_normalized_metadata_drift(
+@router.get("/catalog/item-integrity", response_model=AdminCatalogItemIntegrityResponse)
+async def catalog_item_integrity(
     db: DbSession,
     _reader: CurrentAdminReader,
     sample_limit: int = Query(default=100, ge=1, le=500),
     scan_limit: int | None = Query(default=None, ge=100, le=100000),
-) -> AdminNormalizedMetadataDriftReportResponse:
-    return await AdminMetadataService(db).normalized_metadata_drift_report(
+) -> AdminCatalogItemIntegrityResponse:
+    return await AdminMetadataService(db).catalog_item_integrity_report(
         sample_limit=sample_limit, scan_limit=scan_limit
     )
 

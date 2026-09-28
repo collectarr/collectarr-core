@@ -7,19 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.schemas.admin import (
     AdminAuditLogResponse,
+    AdminCatalogItemIntegrityResponse,
     AdminCatalogSummaryResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
-    AdminNormalizedMetadataDriftReportResponse,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
 )
 from app.search.client import SearchClient
 from app.services.admin_domains import overview as overview_admin_module
+from app.services.admin_domains.catalog_integrity import AdminCatalogItemIntegrityService
 from app.services.admin_domains.factory import build_admin_domain_services
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class AdminMetadataService:
     """Source-neutral catalog and application administration operations."""
 
     def __init__(self, db: AsyncSession, actor: User | None = None) -> None:
+        self.db = db
         services = build_admin_domain_services(
             db=db,
             actor_user_id=actor.id if actor else None,
@@ -45,10 +47,10 @@ class AdminMetadataService:
     async def catalog_summary(self) -> AdminCatalogSummaryResponse:
         return await self.overview_admin.catalog_summary()
 
-    async def normalized_metadata_drift_report(
+    async def catalog_item_integrity_report(
         self, *, sample_limit: int = 100, scan_limit: int | None = None
-    ) -> AdminNormalizedMetadataDriftReportResponse:
-        return await self.catalog_admin.normalized_metadata_drift_report(
+    ) -> AdminCatalogItemIntegrityResponse:
+        return await AdminCatalogItemIntegrityService(self.db).report(
             sample_limit=sample_limit, scan_limit=scan_limit
         )
 

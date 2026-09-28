@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.base import ItemKind, UserRole
+from app.models.base import UserRole
 from app.models.partial_date import PartialDateValue
 
 
@@ -93,28 +93,20 @@ class AdminCatalogSummaryResponse(BaseModel):
     duplicate_candidate_groups: int
 
 
-class AdminNormalizedMetadataDriftSample(BaseModel):
-    entity_type: str
-    entity_id: UUID
-    kind: ItemKind
+class AdminCatalogItemIntegritySample(BaseModel):
+    item_id: UUID
+    kind: str
     issues: list[str] = Field(default_factory=list)
-    normalized_keys: list[str] = Field(default_factory=list)
+    detail_keys: list[str] = Field(default_factory=list)
 
 
-class AdminNormalizedMetadataDriftReportResponse(BaseModel):
-    expected_schema_version: int
+class AdminCatalogItemIntegrityResponse(BaseModel):
     scan_limit: int | None = None
     scan_limited: bool = False
-    scanned_entities: int = 0
-    entities_with_normalized: int = 0
-    drifted_entities: int = 0
-    typed_scanned_items: int = 0
-    typed_drifted_items: int = 0
-    schema_issue_count: int = 0
-    blocking_issue_count: int = 0
-    release_gate_ok: bool = True
+    scanned_items: int = 0
+    invalid_items: int = 0
     issue_counts: dict[str, int] = Field(default_factory=dict)
-    samples: list[AdminNormalizedMetadataDriftSample] = Field(default_factory=list)
+    samples: list[AdminCatalogItemIntegritySample] = Field(default_factory=list)
 
 
 class AdminSearchStatusResponse(BaseModel):

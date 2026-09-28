@@ -6,8 +6,6 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import ComicWork, DuplicateReview
-from app.search.client import SearchClient
-from tests.helpers import seed_comic
 
 
 async def admin_token(client, monkeypatch) -> str:
@@ -24,17 +22,27 @@ async def admin_token(client, monkeypatch) -> str:
 @pytest.mark.asyncio
 async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
-
-    async def fake_index_documents(self, documents):
-        return True
-
-    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
-    item_id, _, _ = await seed_comic()
-
-    response = await client.patch(
-        f"/api/v1/admin/catalog/items/comic/{item_id}",
+    created = await client.post(
+        "/api/v1/metadata/catalog/items",
         headers={"Authorization": f"Bearer {token}"},
-        json={"title": "The Amazing Spider-Man Deluxe"},
+        json={
+            "details": {
+                "kind": "comic",
+                "title": "The Amazing Spider-Man",
+                "issue_number": "1",
+            }
+        },
+    )
+    assert created.status_code == 201
+    item = created.json()
+    item_id = item["id"]
+    details = item["details"]
+    details["title"] = "The Amazing Spider-Man Deluxe"
+
+    response = await client.put(
+        f"/api/v1/metadata/catalog/items/{item_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"details": details},
     )
 
     assert response.status_code == 200
@@ -49,7 +57,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     body = logs.json()
     assert len(body) == 1
     assert body[0]["actor_email"] == "admin@example.com"
-    assert body[0]["entity_type"] == "comic_work"
+    assert body[0]["entity_type"] == "catalog_item"
     assert body[0]["entity_id"] == item_id
     assert body[0]["details_json"]["fields"] == ["title"]
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
@@ -57,7 +65,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     item_logs = await client.get(
         "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
-        params={"entity_type": "comic_work", "entity_id": item_id},
+        params={"entity_type": "catalog_item", "entity_id": item_id},
     )
 
     assert item_logs.status_code == 200

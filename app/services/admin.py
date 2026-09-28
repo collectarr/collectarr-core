@@ -4,7 +4,6 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.base import ItemKind
 from app.models.user import User
 from app.schemas.admin import (
     AdminAuditLogResponse,
@@ -16,7 +15,6 @@ from app.schemas.admin import (
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
     AdminDuplicateReviewRequest,
-    AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
@@ -76,40 +74,15 @@ class AdminMetadataService:
     ) -> list[AdminAuditLogResponse]:
         return await self.overview_admin.audit_logs(action, entity_type, entity_id, limit)
 
-    async def catalog_items(
-        self,
-        query: str | None = None,
-        kind: ItemKind | None = None,
-        limit: int = 25,
-        publisher: str | None = None,
-        imprint: str | None = None,
-        subtitle: str | None = None,
-        series_group: str | None = None,
-        country: str | None = None,
-        language: str | None = None,
-        age_rating: str | None = None,
-        catalog_number: str | None = None,
-        release_status: str | None = None,
-    ) -> list[Any]:
-        return await self.catalog_admin.catalog_items(
-            query, kind, limit, publisher=publisher, imprint=imprint,
-            subtitle=subtitle, series_group=series_group, country=country,
-            language=language, age_rating=age_rating,
-            catalog_number=catalog_number, release_status=release_status,
-        )
-
-    async def update_catalog_item(
-        self, item_id: UUID, payload: AdminMetadataCorrectionRequest, kind: ItemKind | None = None
-    ) -> Any:
-        return await self.catalog_admin.update_catalog_item(item_id, payload, kind)
-
     async def duplicate_candidates(self, limit: int = 10) -> list[AdminDuplicateCandidateResponse]:
         return await self.duplicates_admin.duplicate_candidates(limit)
 
     async def duplicate_queue_summary(self) -> AdminDuplicateQueueSummaryResponse:
         return await self.duplicates_admin.duplicate_queue_summary()
 
-    async def duplicate_review_history(self, limit: int = 25) -> list[AdminDuplicateReviewEntryResponse]:
+    async def duplicate_review_history(
+        self, limit: int = 25
+    ) -> list[AdminDuplicateReviewEntryResponse]:
         return await self.duplicates_admin.duplicate_review_history(limit)
 
     async def ignore_duplicate_candidate(

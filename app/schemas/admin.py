@@ -84,42 +84,9 @@ class AdminMetadataCorrectionRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
 
-class AdminBundleReleaseMemberUpdateRequest(BaseModel):
-    id: UUID | None = None
-    item_id: UUID | None = None
-    role: str = Field(min_length=1, max_length=32)
-    sequence_number: int | None = Field(default=None, ge=1)
-    disc_number: int | None = Field(default=None, ge=1)
-    disc_label: str | None = Field(default=None, max_length=255)
-    quantity: int = Field(default=1, ge=1)
-    is_primary: bool = False
-
-
-class AdminBundleReleaseCorrectionRequest(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=255)
-    bundle_type: str | None = Field(default=None, max_length=64)
-    format: str | None = Field(default=None, max_length=64)
-    variant_type: str | None = Field(default=None, max_length=64)
-    packaging_type: str | None = Field(default=None, max_length=64)
-    region: str | None = Field(default=None, max_length=32)
-    language: str | None = Field(default=None, max_length=32)
-    publisher: str | None = Field(default=None, max_length=255)
-    sku: str | None = Field(default=None, max_length=100)
-    barcode: str | None = Field(default=None, max_length=32)
-    release_date: PartialDateValue | date | None = None
-    release_date_parts: PartialDateValue | None = None
-    cover_image_url: str | None = Field(default=None, max_length=1024)
-    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
-    members: list[AdminBundleReleaseMemberUpdateRequest] | None = None
-
-
 class AdminCatalogSummaryResponse(BaseModel):
     items: int
     items_by_kind: dict[str, int] = Field(default_factory=dict)
-    series: int
-    volumes: int
-    editions: int
-    variants: int
     image_assets: int
     image_cache_entries: int
     missing_cover_items: int

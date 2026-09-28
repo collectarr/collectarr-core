@@ -13,36 +13,25 @@ from app.models import (
     AdminAuditLog,
     AnimeCharacterAppearance,
     AnimeContribution,
-    AnimeEpisode,
     AnimeSeries,
     BoardGameContribution,
-    BoardGameEdition,
     BoardGameWork,
     BookContribution,
     BookEdition,
-    BookPrinting,
-    BookSeries,
     BookSeriesMembership,
     BookWork,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
-    ComicSeries,
     ComicStoryArcMembership,
-    ComicVolume,
     ComicWork,
-    GameRelease,
     GameWork,
     ImageAsset,
     ImageCacheEntry,
-    MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
-    MangaSeries,
     MangaSeriesMembership,
     MangaWork,
-    MovieRelease,
-    MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
     MusicAlbum,
@@ -52,6 +41,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.canonical_catalog_items import CanonicalCatalogItem
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -107,27 +97,6 @@ class AdminOverviewService:
         return AdminCatalogSummaryResponse(
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
-            series=(
-                await self._count(BookSeries)
-                + await self._count(ComicSeries)
-                + await self._count(MangaSeries)
-                + await self._count(AnimeSeries)
-            ),
-            volumes=await self._count(ComicVolume),
-            editions=(
-                await self._count(BookEdition)
-                + await self._count(ComicIssue)
-                + await self._count(MangaChapter)
-                + await self._count(AnimeEpisode)
-                + await self._count(MovieRelease)
-                + await self._count(TVSeries)
-                + await self._count(GameRelease)
-                + await self._count(BoardGameEdition)
-            ),
-            variants=(
-                await self._count(BookPrinting)
-                + await self._count(MovieReleaseMedia)
-            ),
             image_assets=await self._count_image_assets(),
             image_cache_entries=await self._count(ImageCacheEntry),
             missing_cover_items=await self._count_missing_cover_items(),
@@ -213,57 +182,36 @@ class AdminOverviewService:
 
     async def _item_counts_by_kind(self) -> dict[str, int]:
         counts = {kind.value: 0 for kind in ItemKind}
-        native_counts: dict[ItemKind, type] = {
-            ItemKind.book: BookWork,
-            ItemKind.comic: ComicWork,
-            ItemKind.manga: MangaWork,
-            ItemKind.anime: AnimeSeries,
-            ItemKind.movie: MovieWork,
-            ItemKind.tv: TVSeries,
-            ItemKind.music: MusicAlbum,
-            ItemKind.game: GameWork,
-            ItemKind.boardgame: BoardGameWork,
-        }
-        for kind, model in native_counts.items():
-            counts[kind.value] = await self._count(model)
+        result = await self.db.execute(
+            select(CanonicalCatalogItem.kind, func.count()).group_by(CanonicalCatalogItem.kind)
+        )
+        for kind, count in result.all():
+            if kind in counts:
+                counts[kind] = int(count)
         return counts
 
     async def _count_image_assets(self) -> int:
         return await self._count(ImageAsset)
 
     async def _count_missing_cover_items(self) -> int:
-        total = 0
-        total += await self._count_missing_cover_items_for_child(BookWork, BookEdition, "work_id")
-        total += await self._count_missing_cover_items_for_child(ComicWork, ComicIssue, "work_id")
-        total += await self._count_missing_cover_items_for_child(MangaWork, MangaChapter, "work_id")
-        total += await self._count_missing_cover_items_for_child(AnimeSeries, AnimeEpisode, "series_id")
-        total += await self._count_missing_cover_items_for_child(
-            MovieWork,
-            MovieRelease,
-            "work_id",
-            root_cover_fields=("poster_image_url", "poster_image_key"),
-        )
-        total += await self._count_missing_cover_items_for_root(
-            TVRelease,
-            cover_fields=("cover_image_url", "cover_image_key"),
-        )
-        total += await self._count_missing_cover_items_for_child(
-            GameWork,
-            GameRelease,
-            "work_id",
-            root_cover_fields=("cover_image_url", "cover_image_key"),
-        )
-        total += await self._count_missing_cover_items_for_child(
-            BoardGameWork,
-            BoardGameEdition,
-            "work_id",
-            root_cover_fields=("cover_image_url", "cover_image_key"),
-        )
-        total += await self._count_missing_cover_items_for_root(
-            MusicAlbum,
-            cover_fields=("cover_image_url", "cover_image_key"),
-        )
-        return total
+        details_rows = await self.db.scalars(select(CanonicalCatalogItem.details))
+        missing = 0
+        for details in details_rows:
+            direct_cover = details.get("cover_image_url")
+            if isinstance(direct_cover, str) and direct_cover.strip():
+                continue
+            images = details.get("images")
+            if isinstance(images, list) and any(
+                isinstance(image, dict)
+                and any(
+                    isinstance(image.get(field), str) and image[field].strip()
+                    for field in ("url", "image_key")
+                )
+                for image in images
+            ):
+                continue
+            missing += 1
+        return missing
 
     async def _count_missing_cover_items_for_root(
         self,
@@ -272,7 +220,9 @@ class AdminOverviewService:
         cover_fields: tuple[str, str] = ("cover_image_url", "cover_image_key"),
     ) -> int:
         has_cover = or_(*[getattr(model, field).is_not(None) for field in cover_fields])
-        return int(await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0)
+        return int(
+            await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0
+        )
 
     async def _count_missing_cover_items_for_child(
         self,
@@ -292,17 +242,22 @@ class AdminOverviewService:
             getattr(child_model, parent_fk) == parent_model.id,
             or_(*[getattr(child_model, field).is_not(None) for field in child_cover_fields]),
         )
-        predicate = child_has_cover if root_has_cover is None else or_(root_has_cover, child_has_cover)
-        return int(await self.db.scalar(select(func.count()).select_from(parent_model).where(~predicate)) or 0)
+        predicate = (
+            child_has_cover if root_has_cover is None else or_(root_has_cover, child_has_cover)
+        )
+        return int(
+            await self.db.scalar(select(func.count()).select_from(parent_model).where(~predicate))
+            or 0
+        )
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
 
         book_result = await self.db.execute(
             select(BookWork).options(
-                selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
-                    BookContribution.person
-                ),
+                selectinload(BookWork.editions)
+                .selectinload(BookEdition.contributions)
+                .selectinload(BookContribution.person),
                 selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
                 selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
             )
@@ -329,8 +284,12 @@ class AdminOverviewService:
             select(MangaWork).options(
                 selectinload(MangaWork.chapters),
                 selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
-                selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
+                selectinload(MangaWork.character_appearances).selectinload(
+                    MangaCharacterAppearance.character
+                ),
+                selectinload(MangaWork.series_memberships).selectinload(
+                    MangaSeriesMembership.series
+                ),
             )
         )
         documents.extend(catalog_search_document(work) for work in manga_result.scalars().unique())
@@ -339,10 +298,14 @@ class AdminOverviewService:
             select(AnimeSeries).options(
                 selectinload(AnimeSeries.episodes),
                 selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
-                selectinload(AnimeSeries.character_appearances).selectinload(AnimeCharacterAppearance.character),
+                selectinload(AnimeSeries.character_appearances).selectinload(
+                    AnimeCharacterAppearance.character
+                ),
             )
         )
-        documents.extend(catalog_search_document(series) for series in anime_result.scalars().unique())
+        documents.extend(
+            catalog_search_document(series) for series in anime_result.scalars().unique()
+        )
 
         movie_result = await self.db.execute(
             select(MovieWork).options(
@@ -356,13 +319,15 @@ class AdminOverviewService:
         tv_result = await self.db.execute(
             select(TVSeries).options(
                 selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
-                    TVReleaseContribution.person
-                ),
+                selectinload(TVSeries.releases)
+                .selectinload(TVRelease.contributions)
+                .selectinload(TVReleaseContribution.person),
                 selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
             )
         )
-        documents.extend(catalog_search_document(release) for release in tv_result.scalars().unique())
+        documents.extend(
+            catalog_search_document(release) for release in tv_result.scalars().unique()
+        )
 
         game_result = await self.db.execute(
             select(GameWork).options(
@@ -379,7 +344,9 @@ class AdminOverviewService:
             select(BoardGameWork).options(
                 selectinload(BoardGameWork.editions),
                 selectinload(BoardGameWork.identifier_entries),
-                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
+                selectinload(BoardGameWork.contribution_entries).selectinload(
+                    BoardGameContribution.person
+                ),
                 selectinload(BoardGameWork.mechanic_entries),
                 selectinload(BoardGameWork.category_entries),
                 selectinload(BoardGameWork.family_entries),
@@ -387,7 +354,9 @@ class AdminOverviewService:
                 selectinload(BoardGameWork.ranking_snapshots),
             )
         )
-        documents.extend(catalog_search_document(work) for work in boardgame_result.scalars().unique())
+        documents.extend(
+            catalog_search_document(work) for work in boardgame_result.scalars().unique()
+        )
 
         music_result = await self.db.execute(
             select(MusicAlbum).options(
@@ -396,7 +365,9 @@ class AdminOverviewService:
                 selectinload(MusicAlbum.credits),
             )
         )
-        documents.extend(catalog_search_document(album) for album in music_result.scalars().unique())
+        documents.extend(
+            catalog_search_document(album) for album in music_result.scalars().unique()
+        )
 
         return documents
 

@@ -9,14 +9,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiHTTPException
+from app.models import AdminAuditLog, AdminAuditLogDetail
 from app.models.canonical_catalog_item_identities import CanonicalCatalogItemIdentity
 from app.models.canonical_catalog_items import CanonicalCatalogItem
+from app.models.user import User
 from app.schemas.catalog_item_v1 import (
     CATALOG_ITEM_DETAILS_BY_KIND,
     CatalogItemSummaryV1,
     CatalogItemV1,
     CatalogItemWriteV1,
 )
+from app.services.typed_values import flatten_typed_values
 
 
 class CatalogItemService:
@@ -76,7 +79,12 @@ class CatalogItemService:
         rows = list((await self.db.execute(stmt.limit(max(1, min(limit, 200))))).scalars())
         return [self._summary(row) for row in rows]
 
-    async def create_item(self, payload: CatalogItemWriteV1) -> CatalogItemV1:
+    async def create_item(
+        self,
+        payload: CatalogItemWriteV1,
+        *,
+        actor: User | None = None,
+    ) -> CatalogItemV1:
         details = payload.details
         values = details.model_dump(mode="json")
         identity_keys = _canonical_identity_keys(details.kind, values)
@@ -103,6 +111,13 @@ class CatalogItemService:
             )
             for identifier_type, normalized_value in identity_keys
         )
+        if actor is not None:
+            self._record_audit(
+                actor=actor,
+                action="catalog_item.created",
+                item_id=item.id,
+                details={"fields": sorted(values)},
+            )
         try:
             await self.db.flush()
             await self.db.commit()
@@ -128,6 +143,7 @@ class CatalogItemService:
         payload: CatalogItemWriteV1,
         *,
         kind: str | None = None,
+        actor: User | None = None,
     ) -> CatalogItemV1:
         item = await self.db.scalar(
             select(CanonicalCatalogItem).where(CanonicalCatalogItem.id == item_id)
@@ -148,6 +164,7 @@ class CatalogItemService:
                     f"contains kind '{details.kind}'."
                 ),
             )
+        before = dict(item.details)
         values = details.model_dump(mode="json")
         identity_keys = _canonical_identity_keys(details.kind, values)
         existing_ids = await self._identity_owners(
@@ -180,6 +197,20 @@ class CatalogItemService:
             )
             for identifier_type, normalized_value in identity_keys
         )
+        changed_fields = sorted(
+            key for key in set(before) | set(values) if before.get(key) != values.get(key)
+        )
+        if actor is not None and changed_fields:
+            self._record_audit(
+                actor=actor,
+                action="metadata.correction",
+                item_id=item.id,
+                details={
+                    "fields": changed_fields,
+                    "before": {key: before.get(key) for key in changed_fields},
+                    "after": {key: values.get(key) for key in changed_fields},
+                },
+            )
         try:
             await self.db.flush()
             await self.db.commit()
@@ -191,6 +222,24 @@ class CatalogItemService:
                 detail="A canonical identifier is already assigned to another Catalog Item.",
             ) from error
         return self._response(item)
+
+    def _record_audit(
+        self,
+        *,
+        actor: User,
+        action: str,
+        item_id: UUID,
+        details: dict[str, Any],
+    ) -> None:
+        audit = AdminAuditLog(
+            action=action,
+            actor_user_id=actor.id,
+            actor_email=actor.email,
+            entity_type="catalog_item",
+            entity_id=item_id,
+        )
+        audit.details = [AdminAuditLogDetail(**row) for row in flatten_typed_values(details)]
+        self.db.add(audit)
 
     async def _identity_owners(
         self,

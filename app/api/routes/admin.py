@@ -1,14 +1,11 @@
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentAdmin, CurrentAdminReader, DbSession
-from app.models.base import ItemKind
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
-    AdminDeleteResponse,
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
@@ -16,7 +13,6 @@ from app.schemas.admin import (
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
     AdminDuplicateReviewRequest,
-    AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
@@ -32,11 +28,15 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/catalog/summary", response_model=AdminCatalogSummaryResponse)
-async def catalog_summary(db: DbSession, _reader: CurrentAdminReader) -> AdminCatalogSummaryResponse:
+async def catalog_summary(
+    db: DbSession, _reader: CurrentAdminReader
+) -> AdminCatalogSummaryResponse:
     return await AdminMetadataService(db).catalog_summary()
 
 
-@router.get("/catalog/normalized-metadata-drift", response_model=AdminNormalizedMetadataDriftReportResponse)
+@router.get(
+    "/catalog/normalized-metadata-drift", response_model=AdminNormalizedMetadataDriftReportResponse
+)
 async def catalog_normalized_metadata_drift(
     db: DbSession,
     _reader: CurrentAdminReader,
@@ -46,42 +46,6 @@ async def catalog_normalized_metadata_drift(
     return await AdminMetadataService(db).normalized_metadata_drift_report(
         sample_limit=sample_limit, scan_limit=scan_limit
     )
-
-
-@router.get("/catalog/items", response_model=list[dict[str, Any]])
-async def catalog_items(
-    db: DbSession,
-    _reader: CurrentAdminReader,
-    q: str | None = Query(default=None, min_length=1, max_length=255),
-    kind: ItemKind | None = None,
-    publisher: str | None = Query(default=None, min_length=1, max_length=255),
-    imprint: str | None = Query(default=None, min_length=1, max_length=255),
-    subtitle: str | None = Query(default=None, min_length=1, max_length=255),
-    series_group: str | None = Query(default=None, min_length=1, max_length=255),
-    country: str | None = Query(default=None, min_length=1, max_length=64),
-    language: str | None = Query(default=None, min_length=1, max_length=32),
-    age_rating: str | None = Query(default=None, min_length=1, max_length=64),
-    catalog_number: str | None = Query(default=None, min_length=1, max_length=100),
-    release_status: str | None = Query(default=None, min_length=1, max_length=64),
-    limit: int = Query(default=25, ge=1, le=100),
-) -> list[dict[str, Any]]:
-    return await AdminMetadataService(db).catalog_items(
-        q, kind, limit, publisher=publisher, imprint=imprint, subtitle=subtitle,
-        series_group=series_group, country=country, language=language,
-        age_rating=age_rating, catalog_number=catalog_number,
-        release_status=release_status,
-    )
-
-
-@router.patch("/catalog/items/{kind}/{item_id}", response_model=dict[str, Any])
-async def catalog_item_update(
-    kind: ItemKind,
-    item_id: UUID,
-    payload: AdminMetadataCorrectionRequest,
-    db: DbSession,
-    user: CurrentAdmin,
-) -> dict[str, Any]:
-    return await AdminMetadataService(db, user).update_catalog_item(item_id, payload, kind)
 
 
 @router.get("/search/status", response_model=AdminSearchStatusResponse)
@@ -95,7 +59,9 @@ async def search_reindex(db: DbSession, user: CurrentAdmin) -> AdminSearchReinde
 
 
 @router.get("/search/history", response_model=list[AdminSearchHistoryEntry])
-async def search_history(db: DbSession, _reader: CurrentAdminReader) -> list[AdminSearchHistoryEntry]:
+async def search_history(
+    db: DbSession, _reader: CurrentAdminReader
+) -> list[AdminSearchHistoryEntry]:
     return AdminMetadataService(db).search_history()
 
 
@@ -119,7 +85,9 @@ async def duplicate_candidates(
 
 
 @router.get("/duplicates/summary", response_model=AdminDuplicateQueueSummaryResponse)
-async def duplicate_queue_summary(db: DbSession, _reader: CurrentAdminReader) -> AdminDuplicateQueueSummaryResponse:
+async def duplicate_queue_summary(
+    db: DbSession, _reader: CurrentAdminReader
+) -> AdminDuplicateQueueSummaryResponse:
     return await AdminMetadataService(db).duplicate_queue_summary()
 
 

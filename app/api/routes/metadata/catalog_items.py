@@ -45,9 +45,9 @@ async def get_catalog_item(item_id: UUID, db: DbSession) -> CatalogItemV1:
 async def create_catalog_item(
     payload: CatalogItemWriteV1,
     db: DbSession,
-    _user: CurrentCatalogEditor,
+    user: CurrentCatalogEditor,
 ) -> CatalogItemV1:
-    return await CatalogItemService(db).create_item(payload)
+    return await CatalogItemService(db).create_item(payload, actor=user)
 
 
 @router.put("/metadata/catalog/items/{item_id}", response_model=CatalogItemV1)
@@ -55,6 +55,6 @@ async def update_catalog_item(
     item_id: UUID,
     payload: CatalogItemWriteV1,
     db: DbSession,
-    _user: CurrentCatalogEditor,
+    user: CurrentCatalogEditor,
 ) -> CatalogItemV1:
-    return await CatalogItemService(db).update_item(item_id, payload)
+    return await CatalogItemService(db).update_item(item_id, payload, actor=user)

@@ -1,43 +1,31 @@
-# Music Album Catalog Contract v1
+# Music Catalog Item Contract
 
-> This describes the earlier Music-only API slice. It is transitional under
-> the all-kind [Catalog Item v1 cutover](catalog-item-v1-cutover.md), which
-> will make Music one typed Catalog Item kind rather than a separate contract
-> root.
+Music is one typed kind in the source-neutral `CatalogItemV1` contract. A
+Music item represents one concrete album edition and contains its catalog
+fields, identifiers, images, links, credits, disc titles, and ordered tracks.
+Tracks and disc titles are child data and have no independent catalog identity.
 
-The Music catalog API is based on `MusicAlbumV1`, exported from the Pydantic
-schemas in `app/schemas/metadata_music.py` to
-`contracts/music-catalog-v1.json`. One album is one catalog edition. Two
-editions with the same title remain separate album records.
+Core exports the shared contract at `contracts/catalog-item-v1.json`. App pins
+that artifact and generates the typed Dart transport from it. There is no
+separate Music catalog contract or DTO generator. The `MusicCatalogDetailsV1`
+schema is the Music branch of the shared Catalog Item contract.
 
-An album contains its artist and label credits, CLZ-style catalog fields,
-external links, disc titles, and ordered tracks. A disc title is keyed by its
-one-based disc number inside the album; a disc has no independent identity. A
-track is keyed by `(album_id, disc_number, position)` and has a required
-position. Partial dates retain year, month, and day precision in the API.
-
-Core writes accept canonical album data only. Provider search, credentials,
-mapping, source IDs, import history, snapshots, and provenance belong to
-`collectarr-app`; none are part of the Core request or response. Owned copies,
-tracking, listening history, local images, and personal fields also stay in the
-App. `OwnedCopyV1` is an App-owned contract and is not included in Core's bundle.
-
-`metadata-field-schema.json` describes editable field ownership for the shared
-forms. It does not replace the nested album contract. App pins
-`music-catalog-v1.json` and generates its Dart transport DTO from that artifact.
+Provider search, credentials, source IDs, import history, snapshots, and
+provenance belong to App and are not accepted by Core's catalog API. Owned
+copies, tracking, listening history, local images, and personal fields also
+remain in App; they are not part of the Core Catalog Item contract.
 
 ## Fresh database baseline
 
-Core's final catalog schema is created on a fresh PostgreSQL database from the
-SQLAlchemy models. App's final local schema is Drift v1. Existing databases,
-backups, and search indexes from the previous Music graph are incompatible with
-this baseline. Stop both apps, keep old backups only for archival recovery,
-create empty databases, and rebuild the search index from the new catalog.
-`create_all()` creates missing tables; it does not reshape or remove old ones.
+The coordinated v1 cutover targets fresh Core and App databases. Existing
+databases and backups from the old Work/Release graph are incompatible with
+the final schema. Core's `create_all()` creates missing tables but does not
+reshape or remove existing tables. See [deployment.md](../deployment.md) before
+deploying the completed cutover.
 
 ## Contract export
 
 Run `python -m scripts.export_contract_bundle` from the Core repository after
-changing the schemas. CI checks the checked-in JSON against the generated
-OpenAPI, album, field-schema, and active-kind artifacts and their manifest
-hashes. The exported contract version is `1.0.0`.
+changing source schemas. CI checks the checked-in OpenAPI, Catalog Item,
+metadata-field, and active-kind artifacts against their source schemas and
+manifest hashes. The exported Catalog Item contract is version 1.

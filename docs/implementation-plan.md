@@ -17,10 +17,11 @@ prepared canonical object and does not perform provider search or ingest.
 ## Catalog v1 Cutover
 
 The coordinated v1 release replaces Music's release-group/release/medium graph
-with one `MusicAlbumV1` object containing ordered tracks, disc titles, credits,
-links, and catalog fields. It removes provider ingest, provider IDs,
-provider-source snapshots, and provider-specific proposals from Core for every
-kind.
+with the `music` branch of `CatalogItemV1`, containing ordered tracks, disc
+titles, credits, links, and catalog fields. The metadata API exposes one shared
+Catalog Item route for all kinds. The cutover removes provider ingest, provider
+IDs, provider-source snapshots, and provider-specific proposals from Core for
+every kind.
 
 Core and App use fresh databases for this baseline. Existing Core PostgreSQL
 data and App Drift databases or backups from the old formats are incompatible.
@@ -33,7 +34,7 @@ tables. See [deployment.md](deployment.md) before deploying.
 2. Store each value in its canonical kind-specific table or relation.
 3. Add catalog fields to search documents only when they affect search.
 4. Run `python -m scripts.export_contract_bundle` to regenerate the checked-in
-   OpenAPI, Music Album, metadata field, and active-kind artifacts.
+   OpenAPI, Catalog Item, metadata field, and active-kind artifacts.
 5. Update App's pinned artifacts explicitly when Core changes.
 
 ## Ongoing Work

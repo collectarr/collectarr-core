@@ -51,7 +51,7 @@ Core publishes:
 
 - OpenAPI schema for metadata/admin/auth endpoints
 - media catalog contract for `/api/v1/metadata/media-types`
-- Music Album v1 catalog contract
+- all-kind Catalog Item v1 contract (Music is the `music` details branch)
 - editable metadata field schema and active-kind list
 - versioned compatibility notes for API changes
 

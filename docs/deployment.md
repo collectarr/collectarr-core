@@ -2,11 +2,11 @@
 
 ## Coordinated Catalog v1 Reset
 
-The coordinated all-kind Catalog Item v1 cutover is in progress. Core has a
-source-neutral Music Album API slice, and provider integrations are being
-removed from both repositories. The other catalog kinds and App's local
-persistence have not completed the new baseline. Do not deploy this working
-state or reset existing databases.
+The coordinated all-kind Catalog Item v1 cutover is in progress. Core now
+exposes the source-neutral Catalog Item API for all nine kinds. App's local
+persistence, provider removal, and remaining legacy UI cleanup have not
+completed the new baseline. Do not deploy this working state or reset existing
+databases.
 The finished cutover replaces all old Work/Release roots together, starts Core
 and App from empty databases, and rebuilds Meilisearch. Existing databases and
 backups from the previous schemas will not be supported. Stop both services

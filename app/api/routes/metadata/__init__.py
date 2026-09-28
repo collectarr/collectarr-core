@@ -2,40 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import (
-    anime,
-    boardgames,
-    books,
-    browse,
-    catalog_items,
-    comics,
-    corrections,
-    field_schema,
-    games,
-    manga,
-    movies,
-    music,
-    search,
-    tv,
-)
+from . import catalog_items, corrections, field_schema
 
 router = APIRouter(tags=["metadata"])
 router.include_router(field_schema.router)
 router.include_router(corrections.router)
-for child_router in (
-    field_schema.router,
-    search.router,
-    browse.router,
-    catalog_items.router,
-    books.router,
-    comics.router,
-    manga.router,
-    anime.router,
-    movies.router,
-    tv.router,
-    games.router,
-    boardgames.router,
-    music.router,
-):
-    if child_router is not field_schema.router:
-        router.include_router(child_router)
+router.include_router(catalog_items.router)

@@ -29,8 +29,9 @@ kind-specific object schemas.
 1. Every active kind is top-level routable in the media catalog.
 2. Every active kind has an explicit field schema and typed read contract.
 3. Every exported field has an explicit canonical owner and write target.
-4. Music uses one `MusicAlbumV1` catalog record with contained disc titles and
-   ordered tracks; Music responses expose no release-group or medium identity.
+4. Music is the `music` branch of `CatalogItemV1`, with contained disc titles
+   and ordered tracks; Catalog Item responses expose no release-group or
+   medium identity.
 5. Neither repository retains provider IDs, source envelopes, provider search,
    provider integrations, or provider-import APIs.
 
@@ -41,7 +42,8 @@ kind-specific object schemas.
 - API request and response schemas: `app/schemas/`
 - Generated client artifacts: `contracts/`
 
-Core publishes `openapi.json`, `music-catalog-v1.json`,
+Core publishes `openapi.json`, `catalog-item-v1.json`,
 `metadata-field-schema.json`, and `active-kinds.json`; their hashes are recorded
-in `contract-manifest.json`. Update the source schema and regenerate the bundle
-when a contract changes.
+in `contract-manifest.json`. Music is a typed kind in the Catalog Item
+contract, not a separate API graph. Update the source schema and regenerate the
+bundle when a contract changes.

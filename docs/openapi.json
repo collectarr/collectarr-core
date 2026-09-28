@@ -1125,13 +1125,13 @@
         ]
       }
     },
-    "/api/v1/admin/catalog/normalized-metadata-drift": {
+    "/api/v1/admin/catalog/item-integrity": {
       "get": {
         "tags": [
           "admin"
         ],
-        "summary": "Catalog Normalized Metadata Drift",
-        "operationId": "catalog_normalized_metadata_drift_api_v1_admin_catalog_normalized_metadata_drift_get",
+        "summary": "Catalog Item Integrity",
+        "operationId": "catalog_item_integrity_api_v1_admin_catalog_item_integrity_get",
         "security": [
           {
             "HTTPBearer": []
@@ -1175,7 +1175,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminNormalizedMetadataDriftReportResponse"
+                  "$ref": "#/components/schemas/AdminCatalogItemIntegrityResponse"
                 }
               }
             }
@@ -1822,6 +1822,85 @@
         ],
         "title": "AdminAuditLogResponse"
       },
+      "AdminCatalogItemIntegrityResponse": {
+        "properties": {
+          "scan_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Limit"
+          },
+          "scan_limited": {
+            "type": "boolean",
+            "title": "Scan Limited",
+            "default": false
+          },
+          "scanned_items": {
+            "type": "integer",
+            "title": "Scanned Items",
+            "default": 0
+          },
+          "invalid_items": {
+            "type": "integer",
+            "title": "Invalid Items",
+            "default": 0
+          },
+          "issue_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Issue Counts"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCatalogItemIntegritySample"
+            },
+            "type": "array",
+            "title": "Samples"
+          }
+        },
+        "type": "object",
+        "title": "AdminCatalogItemIntegrityResponse"
+      },
+      "AdminCatalogItemIntegritySample": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Item Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "detail_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Detail Keys"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item_id",
+          "kind"
+        ],
+        "title": "AdminCatalogItemIntegritySample"
+      },
       "AdminCatalogSummaryResponse": {
         "properties": {
           "items": {
@@ -2159,126 +2238,6 @@
           "created_at"
         ],
         "title": "AdminDuplicateReviewEntryResponse"
-      },
-      "AdminNormalizedMetadataDriftReportResponse": {
-        "properties": {
-          "expected_schema_version": {
-            "type": "integer",
-            "title": "Expected Schema Version"
-          },
-          "scan_limit": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Scan Limit"
-          },
-          "scan_limited": {
-            "type": "boolean",
-            "title": "Scan Limited",
-            "default": false
-          },
-          "scanned_entities": {
-            "type": "integer",
-            "title": "Scanned Entities",
-            "default": 0
-          },
-          "entities_with_normalized": {
-            "type": "integer",
-            "title": "Entities With Normalized",
-            "default": 0
-          },
-          "drifted_entities": {
-            "type": "integer",
-            "title": "Drifted Entities",
-            "default": 0
-          },
-          "typed_scanned_items": {
-            "type": "integer",
-            "title": "Typed Scanned Items",
-            "default": 0
-          },
-          "typed_drifted_items": {
-            "type": "integer",
-            "title": "Typed Drifted Items",
-            "default": 0
-          },
-          "schema_issue_count": {
-            "type": "integer",
-            "title": "Schema Issue Count",
-            "default": 0
-          },
-          "blocking_issue_count": {
-            "type": "integer",
-            "title": "Blocking Issue Count",
-            "default": 0
-          },
-          "release_gate_ok": {
-            "type": "boolean",
-            "title": "Release Gate Ok",
-            "default": true
-          },
-          "issue_counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Issue Counts"
-          },
-          "samples": {
-            "items": {
-              "$ref": "#/components/schemas/AdminNormalizedMetadataDriftSample"
-            },
-            "type": "array",
-            "title": "Samples"
-          }
-        },
-        "type": "object",
-        "required": [
-          "expected_schema_version"
-        ],
-        "title": "AdminNormalizedMetadataDriftReportResponse"
-      },
-      "AdminNormalizedMetadataDriftSample": {
-        "properties": {
-          "entity_type": {
-            "type": "string",
-            "title": "Entity Type"
-          },
-          "entity_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Entity Id"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ItemKind"
-          },
-          "issues": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Issues"
-          },
-          "normalized_keys": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Normalized Keys"
-          }
-        },
-        "type": "object",
-        "required": [
-          "entity_type",
-          "entity_id",
-          "kind"
-        ],
-        "title": "AdminNormalizedMetadataDriftSample"
       },
       "AdminSearchHistoryEntry": {
         "properties": {

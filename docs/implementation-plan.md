@@ -30,7 +30,10 @@ persists typed kind-specific metadata.
 
 ### Admin operations
 
-- Expand duplicate review from confidence signals into an operator queue.
+- Duplicate merge endpoints are disabled. Core must not delete a catalog item
+  until every App-owned copy and personal-history reference can be remapped as
+  one coordinated operation. Duplicate inspection and ignore records remain
+  available while that safe remap is not implemented.
 - Continue deployment hardening for internet-facing installations.
 
 ### Schema explorer

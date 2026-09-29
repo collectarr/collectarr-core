@@ -65,7 +65,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_admin_audit_logs_duplicate_merge(client, monkeypatch):
+async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
         target = ComicWork(title="Duplicate Book", sort_title="duplicate book")
@@ -81,38 +81,21 @@ async def test_admin_audit_logs_duplicate_merge(client, monkeypatch):
         json={"target_item_id": target_id, "source_item_ids": [source_id]},
     )
 
-    assert merge.status_code == 200
-    merge_body = merge.json()
-    assert merge_body["ok"] is True
-    assert merge_body["affected_items"] == 1
+    assert merge.status_code == 404
 
     async with AsyncSessionLocal() as db:
-        review_row = await db.scalar(
-            select(DuplicateReview).where(DuplicateReview.action == "merge")
+        remaining = list(
+            await db.scalars(
+                select(ComicWork).where(
+                    ComicWork.id.in_([UUID(target_id), UUID(source_id)])
+                )
+            )
         )
-
-    assert review_row is not None
-    assert review_row.target_entity_id == UUID(target_id)
-    assert review_row.source_entity_ids == [source_id]
-
-    logs = await client.get(
-        "/api/v1/admin/audit/logs",
-        headers={"Authorization": f"Bearer {token}"},
-        params={"limit": 5},
-    )
-
-    assert logs.status_code == 200
-    rows = {row["action"]: row for row in logs.json()}
-    assert rows["duplicates.merge"]["entity_id"] == target_id
-    assert rows["duplicates.merge"]["details_json"]["source_item_ids"] == [source_id]
-    assert rows["duplicates.merge"]["details_json"]["decision"] == "merge"
-    assert rows["duplicates.merge"]["details_json"]["duplicate_score"] >= 55
-    assert "confidence_factors" in rows["duplicates.merge"]["details_json"]
-    assert "merge_warnings" in rows["duplicates.merge"]["details_json"]
+    assert {str(row.id) for row in remaining} == {target_id, source_id}
 
 
 @pytest.mark.asyncio
-async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(client, monkeypatch):
+async def test_admin_duplicate_ignore_endpoint_records_audit_context(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
         first = ComicWork(title="Review Me", sort_title="review me")
@@ -122,13 +105,13 @@ async def test_admin_duplicate_review_endpoint_records_ignore_audit_context(clie
         item_ids = [str(first.id), str(second.id)]
 
     review = await client.post(
-        "/api/v1/admin/duplicates/review",
+        "/api/v1/admin/duplicates/ignore",
         headers={"Authorization": f"Bearer {token}"},
-        json={"decision": "ignore", "item_ids": item_ids, "note": "Known variant split"},
+        json={"item_ids": item_ids},
     )
 
     assert review.status_code == 200
-    assert review.json() == {"ok": True, "affected_items": 2, "item": None}
+    assert review.json() == {"ok": True, "affected_items": 2}
 
     async with AsyncSessionLocal() as db:
         review_row = await db.scalar(

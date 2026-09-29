@@ -1,67 +1,34 @@
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import (
-    AnimeCharacterAppearance,
-    AnimeContribution,
-    AnimeEpisode,
-    AnimeIdentifier,
     AnimeSeries,
-    BoardGameEdition,
     BoardGameWork,
-    BookContribution,
-    BookEdition,
-    BookSeriesMembership,
     BookWork,
-    ComicContribution,
-    ComicIssue,
-    ComicSeriesMembership,
     ComicWork,
     DuplicateReview,
     DuplicateReviewDetail,
     DuplicateReviewEntity,
-    EntityOrganization,
-    EntityPerson,
-    EntityTag,
     ExternalProviderId,
-    GameRelease,
     GameWork,
-    ImageAsset,
-    MangaChapter,
-    MangaCharacterAppearance,
-    MangaContribution,
-    MangaIdentifier,
-    MangaSeriesMembership,
     MangaWork,
-    MovieRelease,
     MovieWork,
-    MovieWorkContribution,
-    MovieWorkIdentifier,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
     MusicReleaseGroup,
-    MusicReleaseIdentifier,
-    TVEpisode,
-    TVRelease,
-    TVSeason,
     TVSeries,
 )
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
     AdminDuplicateIgnoreRequest,
-    AdminDuplicateMergeRequest,
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
-    AdminDuplicateReviewRequest,
 )
 from app.services.typed_values import flatten_typed_values, materialize_typed_values
 
@@ -99,7 +66,6 @@ class AdminDuplicateService:
     def __init__(
         self,
         db: AsyncSession,
-        item_response_loader: Callable[[Any], Awaitable[Any]],
         audit_recorder: Callable[..., None],
         character_role_rank: Callable[[str], int],
         *,
@@ -107,7 +73,6 @@ class AdminDuplicateService:
         actor_email: str | None = None,
     ) -> None:
         self.db = db
-        self._item_response_loader = item_response_loader
         self._audit_recorder = audit_recorder
         self._character_role_rank = character_role_rank
         self._actor_user_id = actor_user_id
@@ -285,129 +250,6 @@ class AdminDuplicateService:
         )
         await self.db.commit()
         return AdminDuplicateActionResponse(ok=True, affected_items=len(entities))
-
-    async def merge_duplicate_candidate(
-        self,
-        payload: AdminDuplicateMergeRequest,
-        *,
-        note: str | None = None,
-    ) -> AdminDuplicateActionResponse:
-        source_ids = [eid for eid in payload.source_item_ids if eid != payload.target_item_id]
-        if not source_ids:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="duplicate_source_required",
-                detail="At least one source item different from target_item_id is required",
-            )
-        entities = await self._entities_by_ids([payload.target_item_id, *source_ids])
-        if len(entities) != len({payload.target_item_id, *source_ids}):
-            raise ApiHTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                code="duplicate_item_not_found",
-                detail="One or more duplicate items were not found",
-            )
-        target = next(e for e in entities if e.id == payload.target_item_id)
-        sources = [e for e in entities if e.id != payload.target_item_id]
-        self._ensure_same_duplicate_group([target, *sources])
-        entity_type = _ENTITY_TYPE[type(target)]
-        all_ids = [e.id for e in [target, *sources]]
-        conflicts = await self._duplicate_conflict_flags(all_ids, entity_type)
-        provider_counts = await self._provider_link_counts(all_ids, entity_type)
-        confidence_factors = self._duplicate_confidence_factors(
-            [target, *sources], provider_counts, conflicts=conflicts
-        )
-        merge_warnings = self._duplicate_merge_warnings(conflicts)
-        duplicate_score, recommended_target_id = self._score_duplicate_candidate(
-            [target, *sources], provider_counts, conflicts=conflicts
-        )
-
-        for source in sources:
-            await self._move_entity_children(source, target)
-            await self.db.delete(source)
-        review = DuplicateReview(
-                action="merge",
-                entity_type=entity_type,
-                entity_id=target.id,
-                target_entity_id=target.id,
-                duplicate_score=duplicate_score,
-                actor_user_id=self._actor_user_id,
-                actor_email=self._actor_email,
-                note=note,
-            )
-        review.entities = [
-            DuplicateReviewEntity(role="target", entity_id=target.id, position=0),
-            *[
-                DuplicateReviewEntity(role="source", entity_id=source.id, position=index)
-                for index, source in enumerate(sources, start=1)
-            ],
-        ]
-        review.details = [
-            DuplicateReviewDetail(**detail)
-            for detail in flatten_typed_values(
-                {
-                    "decision": "merge",
-                    "target_item_id": str(target.id),
-                    "source_item_ids": [str(source.id) for source in sources],
-                    "duplicate_score": duplicate_score,
-                    "recommended_target_item_id": str(recommended_target_id) if recommended_target_id else None,
-                    "confidence_factors": confidence_factors,
-                    "merge_warnings": merge_warnings,
-                    **({"note": note} if note else {}),
-                }
-            )
-        ]
-        self.db.add(review)
-        self._record_duplicate_review_audit(
-            action="duplicates.merge",
-            entities=[target, *sources],
-            entity_id=target.id,
-            duplicate_score=duplicate_score,
-            recommended_target_id=recommended_target_id,
-            confidence_factors=confidence_factors,
-            merge_warnings=merge_warnings,
-            details={
-                "decision": "merge",
-                "target_item_id": target.id,
-                "source_item_ids": [s.id for s in sources],
-                **({"note": note} if note else {}),
-            },
-        )
-        await self.db.commit()
-        response_item = await self._item_response_loader(target)
-        return AdminDuplicateActionResponse(
-            ok=True,
-            affected_items=len(sources),
-            item=response_item,
-        )
-
-    async def review_duplicate_candidate(
-        self,
-        payload: AdminDuplicateReviewRequest,
-    ) -> AdminDuplicateActionResponse:
-        if payload.decision == "ignore":
-            if not payload.item_ids:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="duplicate_item_ids_required",
-                    detail="item_ids are required when decision is ignore",
-                )
-            return await self.ignore_duplicate_candidate(
-                AdminDuplicateIgnoreRequest(item_ids=payload.item_ids),
-                note=payload.note,
-            )
-        if payload.target_item_id is None or not payload.source_item_ids:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="duplicate_merge_payload_invalid",
-                detail="target_item_id and source_item_ids are required when decision is merge",
-            )
-        return await self.merge_duplicate_candidate(
-            AdminDuplicateMergeRequest(
-                target_item_id=payload.target_item_id,
-                source_item_ids=payload.source_item_ids,
-            ),
-            note=payload.note,
-        )
 
     async def duplicate_group_count(self) -> int:
         return len(await self.duplicate_candidates(limit=200))
@@ -633,217 +475,6 @@ class AdminDuplicateService:
     # ------------------------------------------------------------------ #
     # Private helpers â€” merge / child reassignment                         #
     # ------------------------------------------------------------------ #
-
-    async def _move_entity_children(self, source: Any, target: Any) -> None:
-        """Reassign all children and generic links from *source* to *target*."""
-        entity_type = _ENTITY_TYPE[type(source)]
-
-        await self._move_native_children(source, target)
-        await self._move_provider_links(entity_type, source.id, target.id)
-        await self._move_organization_links(entity_type, source.id, target.id)
-        await self._move_person_links(entity_type, source.id, target.id)
-        await self._move_tag_links(entity_type, source.id, target.id)
-        await self.db.execute(
-            update(ImageAsset)
-            .where(ImageAsset.entity_type == entity_type, ImageAsset.entity_id == source.id)
-            .values(entity_id=target.id)
-        )
-
-    async def _move_native_children(self, source: Any, target: Any) -> None:
-        """Per-model child-row reassignment via bulk UPDATE statements."""
-        sid, tid = source.id, target.id
-
-        if isinstance(source, BookWork):
-            await self.db.execute(update(BookEdition).where(BookEdition.work_id == sid).values(work_id=tid))
-            await self.db.execute(
-                update(BookContribution)
-                .where(BookContribution.work_id == sid)
-                .values(work_id=tid)
-            )
-            await self.db.execute(
-                update(BookSeriesMembership)
-                .where(BookSeriesMembership.work_id == sid)
-                .values(work_id=tid)
-            )
-
-        elif isinstance(source, ComicWork):
-            await self.db.execute(update(ComicIssue).where(ComicIssue.work_id == sid).values(work_id=tid))
-            await self.db.execute(
-                update(ComicContribution)
-                .where(ComicContribution.work_id == sid)
-                .values(work_id=tid)
-            )
-            await self.db.execute(
-                update(ComicSeriesMembership)
-                .where(ComicSeriesMembership.work_id == sid)
-                .values(work_id=tid)
-            )
-
-        elif isinstance(source, MangaWork):
-            await self.db.execute(update(MangaChapter).where(MangaChapter.work_id == sid).values(work_id=tid))
-            await self.db.execute(
-                update(MangaContribution)
-                .where(MangaContribution.work_id == sid)
-                .values(work_id=tid)
-            )
-            await self.db.execute(update(MangaIdentifier).where(MangaIdentifier.work_id == sid).values(work_id=tid))
-            await self.db.execute(
-                update(MangaCharacterAppearance)
-                .where(MangaCharacterAppearance.work_id == sid)
-                .values(work_id=tid)
-            )
-            await self.db.execute(
-                update(MangaSeriesMembership)
-                .where(MangaSeriesMembership.work_id == sid)
-                .values(work_id=tid)
-            )
-
-        elif isinstance(source, AnimeSeries):
-            await self.db.execute(update(AnimeEpisode).where(AnimeEpisode.series_id == sid).values(series_id=tid))
-            await self.db.execute(
-                update(AnimeContribution)
-                .where(AnimeContribution.series_id == sid)
-                .values(series_id=tid)
-            )
-            await self.db.execute(update(AnimeIdentifier).where(AnimeIdentifier.series_id == sid).values(series_id=tid))
-            await self.db.execute(
-                update(AnimeCharacterAppearance)
-                .where(AnimeCharacterAppearance.series_id == sid)
-                .values(series_id=tid)
-            )
-
-        elif isinstance(source, MovieWork):
-            await self.db.execute(update(MovieRelease).where(MovieRelease.work_id == sid).values(work_id=tid))
-            await self.db.execute(
-                update(MovieWorkContribution)
-                .where(MovieWorkContribution.work_id == sid)
-                .values(work_id=tid)
-            )
-            await self.db.execute(
-                update(MovieWorkIdentifier)
-                .where(MovieWorkIdentifier.work_id == sid)
-                .values(work_id=tid)
-            )
-
-        elif isinstance(source, TVSeries):
-            await self.db.execute(update(TVRelease).where(TVRelease.series_id == sid).values(series_id=tid))
-            await self.db.execute(update(TVSeason).where(TVSeason.series_id == sid).values(series_id=tid))
-            await self.db.execute(update(TVEpisode).where(TVEpisode.series_id == sid).values(series_id=tid))
-
-        elif isinstance(source, GameWork):
-            await self.db.execute(update(GameRelease).where(GameRelease.work_id == sid).values(work_id=tid))
-
-        elif isinstance(source, BoardGameWork):
-            await self.db.execute(update(BoardGameEdition).where(BoardGameEdition.work_id == sid).values(work_id=tid))
-
-        elif isinstance(source, MusicReleaseGroup):
-            await self.db.execute(
-                update(MusicRelease)
-                .where(MusicRelease.release_group_id == sid)
-                .values(release_group_id=tid)
-            )
-        elif isinstance(source, MusicRelease):
-            await self.db.execute(update(MusicMedium).where(MusicMedium.release_id == sid).values(release_id=tid))
-            await self.db.execute(
-                update(MusicReleaseContribution)
-                .where(MusicReleaseContribution.release_id == sid)
-                .values(release_id=tid)
-            )
-            await self.db.execute(
-                update(MusicReleaseIdentifier)
-                .where(MusicReleaseIdentifier.release_id == sid)
-                .values(release_id=tid)
-            )
-
-    async def _move_provider_links(
-        self, entity_type: str, source_id: UUID, target_id: UUID
-    ) -> None:
-        links = await self.db.scalars(
-            select(ExternalProviderId).where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.entity_id == source_id,
-            )
-        )
-        for link in links:
-            exists = await self.db.scalar(
-                select(ExternalProviderId.id).where(
-                    ExternalProviderId.entity_type == entity_type,
-                    ExternalProviderId.entity_id == target_id,
-                    ExternalProviderId.provider == link.provider,
-                )
-            )
-            if exists:
-                await self.db.delete(link)
-            else:
-                link.entity_id = target_id
-
-    async def _move_organization_links(
-        self, entity_type: str, source_id: UUID, target_id: UUID
-    ) -> None:
-        links = await self.db.scalars(
-            select(EntityOrganization).where(
-                EntityOrganization.entity_type == entity_type,
-                EntityOrganization.entity_id == source_id,
-            )
-        )
-        for link in links:
-            exists = await self.db.scalar(
-                select(EntityOrganization.id).where(
-                    EntityOrganization.entity_type == entity_type,
-                    EntityOrganization.entity_id == target_id,
-                    EntityOrganization.organization_id == link.organization_id,
-                    EntityOrganization.role == link.role,
-                )
-            )
-            if exists:
-                await self.db.delete(link)
-            else:
-                link.entity_id = target_id
-
-    async def _move_person_links(
-        self, entity_type: str, source_id: UUID, target_id: UUID
-    ) -> None:
-        links = await self.db.scalars(
-            select(EntityPerson).where(
-                EntityPerson.entity_type == entity_type,
-                EntityPerson.entity_id == source_id,
-            )
-        )
-        for link in links:
-            exists = await self.db.scalar(
-                select(EntityPerson.id).where(
-                    EntityPerson.entity_type == entity_type,
-                    EntityPerson.entity_id == target_id,
-                    EntityPerson.person_id == link.person_id,
-                    EntityPerson.role == link.role,
-                )
-            )
-            if exists:
-                await self.db.delete(link)
-            else:
-                link.entity_id = target_id
-
-    async def _move_tag_links(
-        self, entity_type: str, source_id: UUID, target_id: UUID
-    ) -> None:
-        links = await self.db.scalars(
-            select(EntityTag).where(
-                EntityTag.entity_type == entity_type,
-                EntityTag.entity_id == source_id,
-            )
-        )
-        for link in links:
-            exists = await self.db.scalar(
-                select(EntityTag.id).where(
-                    EntityTag.entity_type == entity_type,
-                    EntityTag.entity_id == target_id,
-                    EntityTag.tag_id == link.tag_id,
-                )
-            )
-            if exists:
-                await self.db.delete(link)
-            else:
-                link.entity_id = target_id
 
     def _record_duplicate_review_audit(
         self,

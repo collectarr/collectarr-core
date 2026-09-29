@@ -234,11 +234,7 @@ async def test_overview_search_status_reports_health_and_document_count(monkeypa
 
     service = AdminOverviewService(
         db=object(),
-        providers=object(),
-        provider_search_state=object(),
-        provider_preview_state=object(),
         duplicate_group_count=lambda: None,
-        ingest_history_reader=lambda: [],
     )
 
     result = await service.search_status()
@@ -271,11 +267,7 @@ async def test_overview_reindex_search_replaces_documents_and_records_history(mo
 
     service = AdminOverviewService(
         db=object(),
-        providers=object(),
-        provider_search_state=object(),
-        provider_preview_state=object(),
         duplicate_group_count=fake_duplicate_group_count,
-        ingest_history_reader=lambda: [],
     )
 
     async def fake_search_documents():

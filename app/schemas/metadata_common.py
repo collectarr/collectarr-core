@@ -3,12 +3,11 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from app.catalog.grouping_models import GroupingModel
 from app.models.base import ExternalProvider, ItemKind
 from app.models.partial_date import PartialDateValue
-from app.types import JsonObject
 
 
 class ProviderSearchResultResponse(BaseModel):
@@ -98,38 +97,6 @@ class MetadataFieldSchemaResponse(BaseModel):
     fields: list[MetadataFieldSpecResponse]
     kind_fields: dict[ItemKind, list[str]]
     sections: list[str] = Field(default_factory=list)
-
-
-class MetadataProposalCreate(BaseModel):
-    provider: ExternalProvider
-    provider_item_id: str | None = Field(default=None, max_length=255)
-    query: str = Field(min_length=1, max_length=255)
-    title: str | None = Field(default=None, max_length=255)
-    summary: str | None = None
-    image_url: str | None = Field(default=None, max_length=1024)
-    metadata_payload: JsonObject | None = None
-
-    model_config = {"extra": "forbid"}
-
-    @field_validator("metadata_payload")
-    @classmethod
-    def _validate_metadata_payload(cls, value: JsonObject | None) -> JsonObject | None:
-        from app.proposal_payload import validate_metadata_payload
-
-        validate_metadata_payload(value)
-        return value
-
-
-class MetadataProposalResponse(BaseModel):
-    id: UUID
-    provider: ExternalProvider
-    provider_item_id: str | None
-    query: str
-    title: str | None
-    metadata_payload: JsonObject | None = None
-    status: str
-
-    model_config = {"from_attributes": True}
 
 
 class EpisodeResponse(BaseModel):

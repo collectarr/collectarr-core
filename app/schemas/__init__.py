@@ -1,6 +1,7 @@
 from app.schemas.admin import *  # noqa: F401,F403
 from app.schemas.auth import *  # noqa: F401,F403
 from app.schemas.canonical_corrections import *  # noqa: F401,F403
+from app.schemas.catalog_item_proposals import *  # noqa: F401,F403
 from app.schemas.metadata_anime import *  # noqa: F401,F403
 from app.schemas.metadata_board_games import *  # noqa: F401,F403
 from app.schemas.metadata_books import *  # noqa: F401,F403
@@ -10,5 +11,4 @@ from app.schemas.metadata_games import *  # noqa: F401,F403
 from app.schemas.metadata_manga import *  # noqa: F401,F403
 from app.schemas.metadata_music import *  # noqa: F401,F403
 from app.schemas.metadata_shared import *  # noqa: F401,F403
-from app.schemas.metadata_submissions import *  # noqa: F401,F403
 from app.schemas.metadata_video import *  # noqa: F401,F403

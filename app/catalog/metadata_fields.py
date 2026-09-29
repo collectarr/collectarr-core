@@ -5,7 +5,7 @@ places: the core normalization lookups (``_KIND_ALLOWED_KEYS``,
 ``_NORMALIZED_VALUE_TYPES``, ``TYPED_KIND_METADATA_KEYS``), the admin correction
 request schema, and the Flutter app's ``kAdminMetadataScalarFields`` contract.
 Adding a field meant editing every copy and forgetting one silently broke
-ingest/correction (see the ``NormalizedItem.color`` regression).
+manual catalog editing and correction (see the color metadata regression).
 
 This module declares each editable field once as a :class:`MetadataFieldSpec`
 and derives every lookup from the registry. It is the schema that the admin edit
@@ -18,7 +18,7 @@ Two concerns are modelled by a single spec:
 * **Normalization** — the subset of fields flagged ``normalized=True`` feed the
   ``app.metadata_normalized`` allow-lists / value-type / typed-column lookups.
   These derivations are intentionally scoped so editorial fields can be added
-  without changing normalization behaviour.
+  without changing field validation behaviour.
 * **Editing UI** — every ``editable=True`` field is rendered in the edit panel,
   grouped by :attr:`MetadataFieldSpec.section` and rendered with the widget hint
   in :attr:`MetadataFieldSpec.input`.
@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from app.catalog.grouping_models import PRINT_GROUPING_KINDS
 from app.models.base import ItemKind
 
-# Value types understood by normalization/validation + the edit surfaces.
+# Value types understood by validation + the edit surfaces.
 VALUE_TYPE_STRING = "string"
 VALUE_TYPE_STRING_LIST = "string_list"
 VALUE_TYPE_INTEGER = "integer"
@@ -78,7 +78,7 @@ class MetadataFieldSpec:
     common: bool = False
     #: ``True`` when the field maps to a typed canonical kind table column.
     typed: bool = False
-    #: ``True`` when the field participates in metadata normalization/validation.
+    #: ``True`` when the field participates in metadata validation.
     normalized: bool = False
     #: ``True`` when the field is rendered in the user-facing edit panel.
     editable: bool = True

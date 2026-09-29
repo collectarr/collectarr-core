@@ -40,7 +40,6 @@ from app.models.canonical_support import (  # noqa: F401
     ImageAsset,
     ImageCacheEntry,
     MangaSeriesRelation,
-    MetadataProposal,
     Organization,
     Person,
     ProviderIngestJob,

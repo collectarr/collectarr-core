@@ -7,6 +7,9 @@ from . import (
     boardgames,
     books,
     browse,
+    catalog_book_items,
+    catalog_movie_items,
+    catalog_music_items,
     comics,
     corrections,
     field_schema,
@@ -16,7 +19,6 @@ from . import (
     music,
     proposals,
     search,
-    submissions,
     tv,
 )
 
@@ -27,7 +29,9 @@ for child_router in (
     field_schema.router,
     search.router,
     proposals.router,
-    submissions.router,
+    catalog_book_items.router,
+    catalog_movie_items.router,
+    catalog_music_items.router,
     browse.router,
     books.router,
     comics.router,

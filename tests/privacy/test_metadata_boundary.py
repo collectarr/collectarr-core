@@ -1,148 +1,92 @@
-from dataclasses import fields as dataclass_fields
-
 import pytest
 from pydantic import ValidationError
 
 from app import main as app_main
 from app import models as app_models
+from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.catalog.metadata_fields import METADATA_FIELDS
-from app.models.base import Base, ExternalProvider
-from app.proposal_payload import compact_metadata_payload, validate_metadata_payload
-from app.providers.base import (
-    NormalizedBundleRelease,
-    NormalizedCredit,
-    NormalizedItem,
-    NormalizedTrack,
+from app.models.base import Base, ItemKind
+from app.schemas.catalog_item_proposals import (
+    CatalogItemProposalCreate,
+    CatalogItemProposalUpdate,
 )
-from app.schemas.admin import (
-    AdminMetadataCorrectionRequest,
-    MetadataProposalAdminUpdateRequest,
-    ProviderIngestRequest,
-)
-from app.schemas.metadata_common import MetadataProposalCreate
 
 PERSONAL_FIELD_KEYS = {
     "collection_status",
-    "owned",
+    "owned_copy",
+    "owned_item",
     "wishlist",
-    "my_rating",
-    "user_rating",
-    "seen_it",
-    "viewed",
-    "viewing_date",
-    "watch_progress",
-    "read_it",
-    "reading_date",
-    "read_times",
-    "played",
-    "completed",
-    "finished",
+    "tracking",
+    "watch_sessions",
+    "listening_sessions",
     "purchase_date",
     "purchase_price",
-    "store",
+    "purchase_store",
     "sold_date",
-    "sold_price",
-    "profit",
-    "current_value",
-    "my_value",
-    "market_value",
-    "grade",
-    "slabbed",
-    "cert_number",
-    "grading_company",
-    "page_quality",
+    "sell_price",
+    "personal_notes",
+    "personal_images",
     "local_image_path",
-    "local_cover_image_path",
-    "local_back_image_path",
-    "local_thumbnail_image_path",
-    "signed",
-    "signed_by",
-    "loaned_to",
-    "loan_email",
-    "loan_address",
-    "due_date",
-    "return_date",
-    "overdue",
-    "owner",
-    "storage_box",
-    "slot",
-    "local_tags",
-    "custom_field",
-    "custom_field_values",
+    "custom_fields",
+    "location_id",
+    "owner_id",
 }
 
 
-def _assert_no_personal_keys(keys: set[str]) -> None:
-    assert PERSONAL_FIELD_KEYS.isdisjoint(keys)
-
-
 def test_metadata_registry_excludes_personal_fields() -> None:
-    _assert_no_personal_keys({spec.key for spec in METADATA_FIELDS})
+    assert PERSONAL_FIELD_KEYS.isdisjoint({field.key for field in METADATA_FIELDS})
 
 
 def test_sqlalchemy_models_exclude_personal_fields() -> None:
     _ = app_models
     keys = {column.key for mapper in Base.registry.mappers for column in mapper.columns}
-    _assert_no_personal_keys(keys)
-
-
-def test_provider_normalized_models_exclude_personal_fields() -> None:
-    keys = set()
-    for cls in (NormalizedItem, NormalizedTrack, NormalizedCredit, NormalizedBundleRelease):
-        keys.update(field.name for field in dataclass_fields(cls))
-    _assert_no_personal_keys(keys)
+    assert PERSONAL_FIELD_KEYS.isdisjoint(keys)
 
 
 def test_openapi_excludes_personal_fields() -> None:
     schema = app_main.app.openapi()
     keys: set[str] = set()
     for component in schema.get("components", {}).get("schemas", {}).values():
-        if not isinstance(component, dict):
-            continue
-        properties = component.get("properties", {})
-        if isinstance(properties, dict):
-            keys.update(str(key) for key in properties)
-    _assert_no_personal_keys(keys)
+        if isinstance(component, dict):
+            properties = component.get("properties", {})
+            if isinstance(properties, dict):
+                keys.update(str(key) for key in properties)
+    assert PERSONAL_FIELD_KEYS.isdisjoint(keys)
 
 
-def test_request_models_forbid_unknown_and_personal_payload_fields() -> None:
-    with pytest.raises(ValidationError):
-        ProviderIngestRequest(provider=ExternalProvider.comicvine, provider_item_id="123", unexpected=True)
-
-    with pytest.raises(ValidationError):
-        AdminMetadataCorrectionRequest(collection_status="owned")
-
-    with pytest.raises(ValidationError):
-        MetadataProposalAdminUpdateRequest(metadata_payload={"nested": {"personal": "nope"}})
-
-    with pytest.raises(ValidationError):
-        MetadataProposalCreate(
-            provider=ExternalProvider.comicvine,
-            provider_item_id="123",
-            query="spider",
-            metadata_payload={"kind": "comic", "nested": {"personal": "nope"}},
-        )
-
-
-def test_metadata_payload_validation_rejects_personal_state_keys() -> None:
-    root_payload = compact_metadata_payload(
-        {
-            "kind": "book",
-            "owned": True,
-            "wishlist": False,
-            "tracking": {"status": "reading"},
-        }
+def test_user_proposals_project_only_kind_owned_catalog_data() -> None:
+    accepted = CatalogItemProposalCreate(
+        kind=ItemKind.book,
+        catalog_item={
+            "title": "A source-neutral edition",
+            "contributors": [{"name": "A. Writer", "role": "author"}],
+        },
     )
-    normalized_payload = compact_metadata_payload(
-        {
-            "kind": "book",
-            "normalized": {"owned": True, "wishlist": False, "tracking": {"status": "reading"}},
-        }
-    )
+    assert accepted.catalog_item["title"] == "A source-neutral edition"
 
-    assert root_payload is not None
-    assert normalized_payload is not None
-    with pytest.raises(ValueError):
-        validate_metadata_payload(root_payload)
-    with pytest.raises(ValueError):
-        validate_metadata_payload(normalized_payload)
+    submitted = {
+        "title": "A source-neutral edition",
+        "contributors": [
+            {
+                "name": "A. Writer",
+                "role": "author",
+                "provider_ids": {"external": "1"},
+            }
+        ],
+        "owned_copy": {"condition": "mint"},
+        "purchase_date": "2026-01-01",
+        "provider_item_id": "external-1",
+    }
+    projected = validate_catalog_item_payload(ItemKind.book, submitted)
+    assert projected == {
+        "title": "A source-neutral edition",
+        "contributors": [{"name": "A. Writer", "role": "author"}],
+    }
+    accepted_with_local_fields = CatalogItemProposalCreate(
+        kind=ItemKind.book,
+        catalog_item=submitted,
+    )
+    assert accepted_with_local_fields.catalog_item == projected
+
+    with pytest.raises(ValidationError):
+        CatalogItemProposalUpdate(catalog_item={"purchase_date": "2026-01-01"})

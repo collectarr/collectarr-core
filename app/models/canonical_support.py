@@ -526,42 +526,6 @@ class DuplicateReviewDetail(UuidMixin, TimestampMixin, TypedScalarValueMixin, Ba
     review: Mapped[DuplicateReview] = relationship(back_populates="details")
 
 
-class MetadataProposal(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "metadata_proposals"
-    __table_args__ = (Index("ix_metadata_proposals_status_provider", "status", "provider"),)
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    query: Mapped[str] = mapped_column(String(255), nullable=False)
-    title: Mapped[str | None] = mapped_column(String(255))
-    summary: Mapped[str | None] = mapped_column(Text)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
-
-    values: Mapped[list["MetadataProposalValue"]] = relationship(
-        back_populates="proposal",
-        cascade="all, delete-orphan",
-        order_by="MetadataProposalValue.path",
-    )
-
-
-class MetadataProposalValue(UuidMixin, TimestampMixin, TypedScalarValueMixin, Base):
-    __tablename__ = "metadata_proposal_values"
-    __table_args__ = (
-        UniqueConstraint("proposal_id", "path", name="uq_metadata_proposal_values_path"),
-        Index("ix_metadata_proposal_values_proposal", "proposal_id"),
-    )
-
-    proposal_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("metadata_proposals.id", ondelete="CASCADE"), nullable=False
-    )
-    path: Mapped[str] = mapped_column(String(1024), nullable=False)
-
-    proposal: Mapped[MetadataProposal] = relationship(back_populates="values")
-
-
 class CanonicalCorrectionProposal(UuidMixin, TimestampMixin, Base):
     """Provider-independent correction proposal for one canonical entity."""
 

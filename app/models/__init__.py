@@ -13,6 +13,8 @@ from app.models.canonical_music import *  # noqa: F401,F403
 from app.models.canonical_support import *  # noqa: F401,F403
 from app.models.canonical_video import *  # noqa: F401,F403
 from app.models.catalog_book_item import *  # noqa: F401,F403
+from app.models.catalog_boardgame_item import *  # noqa: F401,F403
+from app.models.catalog_game_item import *  # noqa: F401,F403
 from app.models.catalog_item_proposal import *  # noqa: F401,F403
 from app.models.catalog_movie_item import *  # noqa: F401,F403
 from app.models.catalog_music_item import *  # noqa: F401,F403

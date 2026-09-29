@@ -45,7 +45,7 @@ For every kind, the golden fixture covers a parent with two concrete children an
 
 User proposals remain part of the product. They are source-neutral submissions of the same Catalog Item fields shown by Add/Edit: `kind` plus a `catalog_item` object. Core stores only fields recognized for that kind; provider IDs, provider envelopes, snapshots, personal copy data, and other unrecognized values are omitted by the schema projection. The App may attach the signed-in user's ID for review attribution; anonymous submissions remain supported as in the previous flow. Proposal review remains a catalog editorial workflow and does not invoke provider search or ingestion.
 
-Proposal approval is a moderation decision, not provider ingestion. During the staged flattening work, the proposal record and its submitted fields are retained independently of catalog roots. Approval publishes reviewed fields through a kind-owned Catalog Item writer. Book, Music, and Movie now have writers; the other six kinds remain pending until their typed roots are implemented.
+Proposal approval is a moderation decision, not provider ingestion. During the staged flattening work, the proposal record and its submitted fields are retained independently of catalog roots. Approval publishes reviewed fields through a kind-owned Catalog Item writer. Book, Board Game, Game, Music, and Movie now have writers; the other four kinds remain pending until their typed roots are implemented.
 
 Proposal validation must use the same typed, kind-owned flattened Catalog Item schema as manual Add/Edit. Do not maintain a denylist of personal field names. Core projects the submitted object onto the fields recognized for its kind, including declared contained-child fields, and persists only that projection. Unknown App-local copy fields and transport values are omitted without enumerating their names. A malformed value for a recognized field still fails validation with its field path. Proposal submission does not create an owned copy. Core derives root metadata keys from the kind field registry and validates declared child shapes in `app/catalog/catalog_item_schema.py`; this is the schema boundary to extend as each flattened kind model lands and the source used by proposal create and update.
 
@@ -69,10 +69,24 @@ Core defines a typed `MovieItem` root in `movie_items` and contained `MovieItemM
 
 `migrations/20260929_flatten_movie_catalog_items.sql` is the one-way backfill from `movie_works` and `movie_releases`. Release IDs become item IDs, media IDs are retained, works with no releases become standalone roots, and work references with multiple releases are recorded as ambiguous in `movie_item_legacy_identity_map`. Legacy fields without a v1 Movie contract destination are copied to `movie_item_migration_review`; source tables are retained. The migration has row-count and collision checks and has not been run. Movie's field ledger is provisional; this implementation does not claim CLZ parity.
 
-Until the other six kinds have typed flattened roots and publication paths, attempts to approve their proposals return a conflict and leave them pending; Core never reports approval without publishing a Catalog Item.
+Until the other four kinds have typed flattened roots and publication paths, attempts to approve their proposals return a conflict and leave them pending; Core never reports approval without publishing a Catalog Item.
 
 ## Flattened Book root staging
 
 Core defines a typed `BookItem` root in `book_items`, with contained printing, credit, and identifier rows. Each Edition keeps its UUID as the item ID; shared Work fields are copied onto each derived item. A Work without Editions becomes one standalone item with edition-only fields left null. `GET /metadata/books/items` offers bounded offset pagination, exact barcode/identifier lookup, and `GET /metadata/books/items/{id}` reads one item with its contained rows.
 
 `migrations/20260929_flatten_book_catalog_items.sql` is the one-way backfill from `book_works`, `book_editions`, and `book_printings`. It records Work mappings as ambiguous when a Work has multiple Editions, preserves printing IDs, and stores legacy fields without a contract destination in `book_item_migration_review`. The source tables remain intact and the migration has not been run. The Book field ledger is provisional; exact CLZ parity is unverified without a saved Edit-form capture.
+
+## Flattened Board Game root staging
+
+Core defines a typed `BoardGameItem` root in `boardgame_items`, with canonical edition identifiers stored in `boardgame_item_identifiers`. Each legacy Edition keeps its UUID as the item ID; Work fields and edition fields are combined into one root. A Work without Editions becomes a standalone item with edition-only values left null. Board Game proposals now publish through this writer when approved, and `/metadata/boardgames/items` supports bounded offset search plus exact barcode or identifier lookup.
+
+`migrations/20260929_flatten_boardgame_catalog_items.sql` is the one-way backfill from `boardgame_works` and `boardgame_editions`. It records parent fan-out as ambiguous when a Work has multiple Editions, preserves edition identifiers, and stores complete source rows plus work/edition child snapshots for migration review. Ranking aggregates and player-count votes are retained in those review snapshots; the old source tables remain intact. The migration has not been run. The Board Game field ledger is provisional and does not claim CLZ parity.
+
+Book, Board Game, Game, Movie, and Music now have flattened Core roots. Comic, Manga, TV, and Anime roots and their proposal publication paths remain pending. Existing Work/Release APIs and tables remain mounted until the coordinated App flows move to the flat roots.
+
+## Flattened Game root staging
+
+Core defines a typed `GameItem` root in `game_items`, with source-neutral canonical identifiers in `game_item_identifiers`. Each legacy Release keeps its UUID as the item ID; Work fields and release-specific platform, region, format, publisher, barcode, and date fields are combined into the flat item. A Work without Releases remains a standalone root. `/metadata/games/items` provides bounded pagination and exact barcode or identifier lookup. Game proposals publish through this writer when approved.
+
+`migrations/20260929_flatten_game_catalog_items.sql` backfills `game_works` and `game_releases`, marks parent mappings ambiguous when a Work has multiple releases, and retains fields and child rows that have no v1 destination in migration-review snapshots. Provider-sourced IDs remain in review data; only unowned, source-neutral identifiers are attached to a concrete item. The migration has not been run. The Game field ledger remains provisional; exact CLZ parity is unverified without a saved Edit-form capture.

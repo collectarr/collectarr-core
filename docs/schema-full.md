@@ -75,7 +75,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `comic_volumes`
 - `comic_works`
 - `comic_issues`
@@ -104,7 +103,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `manga_works`
 - `manga_chapters`
 - `manga_contributions`
@@ -130,7 +128,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `anime_series`
 - `anime_episodes`
 - `anime_contributions`
@@ -152,7 +149,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `movie_works`
 - `movie_releases`
 - `movie_release_media`
@@ -175,7 +171,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `tv_series`
 - `tv_seasons`
 - `tv_episodes`
@@ -200,7 +195,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `game_works`
 - `game_releases`
 
@@ -219,7 +213,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `boardgame_works`
 - `boardgame_editions`
 
@@ -238,7 +231,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `book_series`
 - `book_works`
 - `book_editions`
@@ -262,7 +254,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `music_release_groups`
 - `music_releases`
 - `music_mediums`
@@ -286,7 +277,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `provider_payload_snapshots`
 - `bundle_releases`
 
 ## Catalog Spine
@@ -754,38 +744,6 @@ Image storage, cache tracking, ingest jobs, admin audit trails, and proposal wor
 - Check constraints: none
 - Foreign keys: none
 - Note: Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.
-
-### provider_ingest_jobs
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| provider | external_provider | no | no | no | yes | - | - | - |
-| provider_item_id | VARCHAR(255) | no | no | no | yes | - | - | - |
-| status | VARCHAR(32) | no | no | no | yes | queued | - | - |
-| attempts | INTEGER | no | no | no | no | 0 | - | - |
-| max_attempts | INTEGER | no | no | no | no | 3 | - | - |
-| next_run_at | TIMESTAMP WITH TIME ZONE | yes | no | no | yes | - | - | - |
-| resolved_entity_type | VARCHAR(64) | yes | no | no | yes | - | - | - |
-| resolved_entity_id | UUID | yes | no | no | yes | - | - | - |
-| last_error | TEXT | yes | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_provider_ingest_jobs_next_run_at` (non-unique): `next_run_at`
-- Index `ix_provider_ingest_jobs_provider` (non-unique): `provider`
-- Index `ix_provider_ingest_jobs_provider_item` (non-unique): `provider, provider_item_id`
-- Index `ix_provider_ingest_jobs_provider_item_id` (non-unique): `provider_item_id`
-- Index `ix_provider_ingest_jobs_resolved_entity_id` (non-unique): `resolved_entity_id`
-- Index `ix_provider_ingest_jobs_resolved_entity_type` (non-unique): `resolved_entity_type`
-- Index `ix_provider_ingest_jobs_status` (non-unique): `status`
-- Index `ix_provider_ingest_jobs_status_next_run` (non-unique): `status, next_run_at`
-- Check constraints: none
-- Foreign keys: none
 
 ### metadata_proposals
 
@@ -2119,33 +2077,6 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_physical_format_refs_is_system` (non-unique): `is_system`
 - Check constraints: none
 - Foreign keys: none
-
-### provider_payload_snapshot_values
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| snapshot_id | UUID | no | no | no | no | - | - | provider_payload_snapshots.id |
-| payload_kind | VARCHAR(16) | no | no | no | no | - | - | - |
-| path | VARCHAR(1024) | no | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| value_type | VARCHAR(16) | no | no | no | no | - | - | - |
-| string_value | TEXT | yes | no | no | no | - | - | - |
-| integer_value | BIGINT | yes | no | no | no | - | - | - |
-| decimal_value | NUMERIC(20, 8) | yes | no | no | no | - | - | - |
-| boolean_value | BOOLEAN | yes | no | no | no | - | - | - |
-| date_value | DATE | yes | no | no | no | - | - | - |
-| datetime_value | TIMESTAMP WITH TIME ZONE | yes | no | no | no | - | - | - |
-| uuid_value | UUID | yes | no | no | no | - | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_provider_payload_snapshot_values_path`: `snapshot_id, payload_kind, path`
-- Index `ix_provider_payload_snapshot_values_snapshot_kind` (non-unique): `snapshot_id, payload_kind`
-- Check constraints: none
-- Foreign key `(anonymous)`: `snapshot_id` -> `provider_payload_snapshots.id`
 
 ### release_statuses
 

@@ -34,8 +34,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "entity_links",
             "release_statuses",
             "physical_format_refs",
-            "provider_payload_snapshots",
-            "provider_payload_snapshot_values",
             "book_works",
             "book_series",
             "book_editions",
@@ -98,26 +96,7 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "music_medium_missing_track_positions",
             "comic_work_missing_issue_numbers",
         }.issubset(tables)
-        assert "provider_ingest_jobs" in tables
         assert "metadata_taxonomies" in tables
-        provider_ingest_columns = {
-            row[0]
-            for row in (
-                await db.execute(
-                    text(
-                        """
-                        select column_name
-                        from information_schema.columns
-                        where table_schema = 'public'
-                          and table_name = 'provider_ingest_jobs'
-                        """
-                    )
-                )
-            ).all()
-        }
-        assert "resolved_entity_type" in provider_ingest_columns
-        assert "resolved_entity_id" in provider_ingest_columns
-        assert "item_id" not in provider_ingest_columns
 
         json_columns = (
             await db.execute(

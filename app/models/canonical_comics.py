@@ -41,8 +41,6 @@ from app.models.canonical_support import (  # noqa: F401
     MangaSeriesRelation,
     Organization,
     Person,
-    ProviderIngestJob,
-    ProviderPayloadSnapshot,
     StoryArc,
     StoryArcItem,
     Tag,

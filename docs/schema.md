@@ -30,13 +30,8 @@ there is no generic metadata document column in the catalog schema.
 Lists, identifiers, genres, platforms, credits, aliases, links, and other repeated values
 use typed relation tables. Scalar metadata uses concrete SQL columns (`String`, `Text`,
 `Integer`, `Boolean`, `Date`, `DateTime`, `Numeric`, `UUID`, or typed arrays where the field
-is intrinsically ordered). Provider payloads are used at ingest time and are not persisted as
-JSON documents.
-
-`provider_payload_snapshots` stores provenance and retention fields: provider identity, source URL,
-payload hash, provider version, fetch/expiry timestamps, and purge timestamp. When a payload must
-be retained for auditing, its source and normalized values are stored in
-`provider_payload_snapshot_values` as typed path/value rows; purge removes those child rows.
+is intrinsically ordered). Canonical payloads are validated and persisted through typed
+kind-specific catalog fields.
 
 The full generated schema, including every column, enum, foreign key, index, and constraint,
 is available in [schema-full.md](schema-full.md) and the interactive [schema viewer](schema.html).
@@ -53,8 +48,6 @@ Shared typed relation tables include:
 - `entity_tags` and `tags`: shared editorial taxonomy assignments.
 - `image_assets`: cover/poster/banner/background image references in object storage.
 - `external_provider_ids`: provider-to-canonical entity mappings.
-- `provider_payload_snapshots` and `provider_payload_snapshot_values`: provider provenance plus
-  optionally retained source/normalized payload values in typed path/value rows.
 
 ## Workflow Relations
 

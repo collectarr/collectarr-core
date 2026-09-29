@@ -52,33 +52,6 @@ class ExternalProviderId(UuidMixin, TimestampMixin, Base):
     api_url: Mapped[str | None] = mapped_column(String(1024))
 
 
-class ProviderPayloadSnapshot(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "provider_payload_snapshots"
-    __table_args__ = (
-        Index("ix_provider_payload_snapshots_entity", "entity_type", "entity_id"),
-        Index("ix_provider_payload_snapshots_provider_item", "provider", "provider_item_id"),
-    )
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    source_url: Mapped[str | None] = mapped_column(String(1024))
-    raw_payload_hash: Mapped[str | None] = mapped_column(String(128))
-    provider_version: Mapped[str | None] = mapped_column(String(128))
-    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-
-    values: Mapped[list["ProviderPayloadSnapshotValue"]] = relationship(
-        back_populates="snapshot",
-        cascade="all, delete-orphan",
-        order_by="ProviderPayloadSnapshotValue.path",
-    )
-
-
 class Organization(UuidMixin, TimestampMixin, Base):
     __tablename__ = "organizations"
 
@@ -341,26 +314,6 @@ class ImageAsset(UuidMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
-class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "provider_ingest_jobs"
-    __table_args__ = (
-        Index("ix_provider_ingest_jobs_status_next_run", "status", "next_run_at"),
-        Index("ix_provider_ingest_jobs_provider_item", "provider", "provider_item_id"),
-    )
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
-    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    resolved_entity_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    resolved_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    last_error: Mapped[str | None] = mapped_column(Text)
-
-
 class AdminAuditLog(UuidMixin, TimestampMixin, Base):
     __tablename__ = "admin_audit_logs"
     __table_args__ = (
@@ -395,33 +348,6 @@ class TypedScalarValueMixin:
     date_value_parts: Mapped[str | None] = mapped_column(String(64))
     datetime_value: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     uuid_value: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-
-
-class ProviderPayloadSnapshotValue(UuidMixin, TimestampMixin, TypedScalarValueMixin, Base):
-    __tablename__ = "provider_payload_snapshot_values"
-    __table_args__ = (
-        UniqueConstraint(
-            "snapshot_id",
-            "payload_kind",
-            "path",
-            name="uq_provider_payload_snapshot_values_path",
-        ),
-        Index(
-            "ix_provider_payload_snapshot_values_snapshot_kind",
-            "snapshot_id",
-            "payload_kind",
-        ),
-    )
-
-    snapshot_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("provider_payload_snapshots.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    payload_kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    path: Mapped[str] = mapped_column(String(1024), nullable=False)
-
-    snapshot: Mapped[ProviderPayloadSnapshot] = relationship(back_populates="values")
 
 
 class AdminAuditLogDetail(UuidMixin, TimestampMixin, TypedScalarValueMixin, Base):

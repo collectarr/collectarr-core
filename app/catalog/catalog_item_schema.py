@@ -504,6 +504,7 @@ def _root_fields_for_kind(
         # field set instead of inheriting unrelated registry fields.
         return {
             "title",
+            "artist",
             "release_date",
             "release_date_parts",
             "genres",

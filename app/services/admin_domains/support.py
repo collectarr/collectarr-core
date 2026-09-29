@@ -15,12 +15,14 @@ from app.models import (
     GameWork,
     MangaWork,
     MovieWork,
+    MusicItem,
     Tag,
     TVRelease,
     TVSeries,
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
+from app.services.catalog_music_items import CatalogMusicItemService
 from app.services.facade import MetadataFacade as MetadataService
 from app.services.typed_values import flatten_typed_values
 
@@ -90,7 +92,10 @@ class AdminSupportService:
         documents: list[dict[str, Any]] = []
         if not item_ids:
             return
-        for model in (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease, GameWork, BoardGameWork):
+        for model in (
+            BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease,
+            GameWork, BoardGameWork, MusicItem,
+        ):
             model_result = await self.db.execute(select(model).where(model.id.in_(item_ids)))
             documents.extend(
                 catalog_search_document(entity)
@@ -100,6 +105,9 @@ class AdminSupportService:
             await SearchClient().index_documents_best_effort(documents)
 
     async def _native_item_response(self, item: Any) -> Any | None:
+        if isinstance(item, MusicItem):
+            response = await CatalogMusicItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
         metadata = MetadataService(self.db)
         if isinstance(item, BookWork):
             return await metadata.get_book_work(item.id)

@@ -61,12 +61,30 @@ class AdminMetadataCorrectionRequest(BaseModel):
     trailer_urls: list[dict[str, Any]] | None = None
     external_links: list[dict[str, Any]] | None = None
     catalog_number: str | None = Field(default=None, max_length=100)
+    artist: str | None = Field(default=None, max_length=500)
+    sort_title: str | None = Field(default=None, max_length=255)
+    label: str | None = Field(default=None, max_length=255)
+    format: str | None = Field(default=None, max_length=100)
+    packaging: str | None = Field(default=None, max_length=100)
+    studio: str | None = Field(default=None, max_length=255)
+    studios: list[str] | None = None
+    is_live: bool | None = None
+    sound_types: list[str] | None = None
+    vinyl_color: str | None = Field(default=None, max_length=100)
+    vinyl_weight: str | None = Field(default=None, max_length=100)
+    rpm: int | None = Field(default=None, ge=0)
+    extra: str | None = None
+    spars: str | None = Field(default=None, max_length=50)
+    box_set: str | None = Field(default=None, max_length=255)
+    original_release_date: PartialDateValue | date | None = None
+    recording_date: PartialDateValue | date | None = None
     release_status: str | None = Field(default=None, max_length=64)
     physical_format: str | None = Field(default=None, max_length=64)
     variant_name: str | None = Field(default=None, max_length=255)
     barcode: str | None = Field(default=None, max_length=32)
     cover_image_url: str | None = Field(default=None, max_length=1024)
     thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+    back_cover_image_url: str | None = Field(default=None, max_length=1024)
 
     model_config = {"extra": "forbid"}
 

@@ -4,6 +4,8 @@ The public Music catalog uses one `CatalogMusicItemResponse` for each concrete a
 
 The Core contract exporter derives `contracts/music-catalog-v1.json` from the same Pydantic response schemas used by the API. App pins this artifact and owns the kind-specific Dart DTO. `metadata-field-schema.json` remains the contract for editable metadata fields; it does not describe the contained disc and track structure.
 
+Music metadata-field ownership now points to `catalog_music_item` / `music_items`. Music no longer inherits Work/Release correction fields such as Edition title, Publisher, or Release status. The Admin catalog list, detail response, correction path, and reindexing read the flat `MusicItem` model; track corrections rewrite the contained track rows while retaining existing disc titles and matrix numbers.
+
 ## Field ownership
 
 - Core owns canonical album-edition fields, discs, tracks, credits, identifiers, and catalog links.

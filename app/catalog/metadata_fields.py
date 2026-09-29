@@ -90,6 +90,8 @@ class MetadataFieldSpec:
     kinds: frozenset[ItemKind] = field(default_factory=frozenset)
 
     def applies_to(self, kind: ItemKind) -> bool:
+        if self.key == "physical_format" and kind == ItemKind.music:
+            return False
         return self.common or kind in self.kinds
 
     def scope_for_kind(self, kind: ItemKind) -> str:
@@ -190,10 +192,9 @@ _CANONICAL_RELEASE_KEYS = {
     "age_rating",
 }
 
-# Canonical Work/Release/content source matrix.  This is the authoritative
-# source for sourceEntityType and sourceTable in the exported field schema.
-# The app-facing Work vocabulary intentionally treats a comic Issue as the
-# work node and a Comic Variant as its release node.
+# Canonical kind source matrix. This is authoritative for sourceEntityType and
+# sourceTable in the exported field schema. Music maps directly to its flat
+# Catalog Item; the remaining kinds still use their current source entities.
 CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "work": ("book_work", "book_works"),
@@ -269,19 +270,15 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.music: {
-        "work": ("music_release_group", "music_release_groups"),
-        "release_group": ("music_release_group", "music_release_groups"),
-        "release": ("music_release", "music_releases"),
-        "medium": ("music_medium", "music_mediums"),
-        "track": ("music_track", "music_tracks"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
+        "catalog_item": ("catalog_music_item", "music_items"),
     },
 }
 
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
+    if kind == ItemKind.music:
+        return "catalog_item"
     if key in _RELATION_KEYS:
         return "relations"
     if key in _TAG_KEYS:
@@ -332,10 +329,13 @@ class CanonicalFieldOwnership:
 
 def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     scope = _scope_for_kind(kind, key)
-    # Internal fields are derived from the work projection and are never
-    # writable.  Their source is still explicit; they do not get an arbitrary
-    # first-entity fallback.
-    source_scope = "work" if scope == "internal" else scope
+    # Internal fields are derived and never writable. Their source is still
+    # explicit; they do not get an arbitrary first-entity fallback.
+    source_scope = (
+        "catalog_item"
+        if kind == ItemKind.music and scope == "internal"
+        else "work" if scope == "internal" else scope
+    )
     try:
         entity_type, source_table = CANONICAL_ENTITY_MATRIX[kind][source_scope]
     except KeyError as exc:
@@ -362,6 +362,8 @@ def _field_source_table(key: str, kind: ItemKind) -> str:
 def _field_write_target(key: str, kind: ItemKind) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "readonly_computed"
+    if kind == ItemKind.music:
+        return "core_canonical"
     if key in _RELATION_KEYS or key in _TAG_KEYS:
         return "core_canonical_relation"
     return "core_canonical"
@@ -371,7 +373,7 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
     active_kinds = tuple(kinds or (kind for kind in ItemKind if kind != ItemKind.collection))
     rows: list[dict[str, object]] = []
     for spec in METADATA_FIELDS:
-        applicable_kinds = active_kinds if spec.common else tuple(kind for kind in active_kinds if kind in spec.kinds)
+        applicable_kinds = tuple(kind for kind in active_kinds if spec.applies_to(kind))
         if not spec.common and not applicable_kinds:
             continue
         if spec.common and not applicable_kinds:
@@ -445,15 +447,6 @@ _EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
 
 # --- Normalized kind-scoped, typed fields ------------------------------------
 _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    MetadataFieldSpec(
-        "recording_id",
-        VALUE_TYPE_STRING,
-        "Recording ID",
-        typed=True,
-        normalized=True,
-        section=SECTION_TECHNICAL,
-        kinds=frozenset({ItemKind.music}),
-    ),
     MetadataFieldSpec("genres", VALUE_TYPE_STRING_LIST, "Genres", typed=True, normalized=True,
                       section=SECTION_RELATIONS, input=INPUT_LIST, kinds=ALL_KINDS),
     MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
@@ -487,24 +480,24 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("title", VALUE_TYPE_STRING, "Title",
                       section=SECTION_ITEM, kinds=ALL_KINDS),
     MetadataFieldSpec("original_title", VALUE_TYPE_STRING, "Original title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("localized_title", VALUE_TYPE_STRING, "Localized title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("title_extension", VALUE_TYPE_STRING, "Title extension",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("sort_key", VALUE_TYPE_STRING, "Sort key",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("search_aliases", VALUE_TYPE_STRING_LIST, "Search aliases",
-                      section=SECTION_ITEM, input=INPUT_LIST, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, input=INPUT_LIST, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("item_number", VALUE_TYPE_STRING, "Item number",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("edition_title", VALUE_TYPE_STRING, "Edition title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
+                      section=SECTION_ITEM, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("release_date", VALUE_TYPE_PARTIAL_DATE, "Release date",
                       section=SECTION_ITEM, input=INPUT_DATE, kinds=ALL_KINDS),
     # Publishing.
     MetadataFieldSpec("publisher", VALUE_TYPE_STRING, "Publisher",
-                      section=SECTION_PUBLISHING, kinds=ALL_KINDS),
+                      section=SECTION_PUBLISHING, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("imprint", VALUE_TYPE_STRING, "Imprint",
                       section=SECTION_PUBLISHING, kinds=PRINT_KINDS),
     MetadataFieldSpec("subtitle", VALUE_TYPE_STRING, "Subtitle",
@@ -514,7 +507,7 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("barcode", VALUE_TYPE_STRING, "Barcode",
                       section=SECTION_PUBLISHING, kinds=ALL_KINDS),
     MetadataFieldSpec("variant_name", VALUE_TYPE_STRING, "Primary variant",
-                      section=SECTION_PUBLISHING, kinds=ALL_KINDS),
+                      section=SECTION_PUBLISHING, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("page_count", VALUE_TYPE_INTEGER, "Page count",
                       section=SECTION_PUBLISHING, input=INPUT_NUMBER, kinds=PRINT_KINDS),
     MetadataFieldSpec("runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
@@ -523,7 +516,7 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("catalog_number", VALUE_TYPE_STRING, "Catalog number",
                       section=SECTION_TECHNICAL, kinds=ALL_KINDS),
     MetadataFieldSpec("release_status", VALUE_TYPE_STRING, "Release status",
-                      section=SECTION_TECHNICAL, kinds=ALL_KINDS),
+                      section=SECTION_TECHNICAL, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
                       section=SECTION_TECHNICAL, input=INPUT_NUMBER, kinds=VIDEO_KINDS),
     MetadataFieldSpec("screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
@@ -538,13 +531,14 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("country", VALUE_TYPE_STRING, "Country",
                       section=SECTION_REGIONAL, kinds=ALL_KINDS),
     MetadataFieldSpec("language", VALUE_TYPE_STRING, "Language",
-                      section=SECTION_REGIONAL, kinds=ALL_KINDS),
+                      section=SECTION_REGIONAL, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("age_rating", VALUE_TYPE_STRING, "Age rating",
-                      section=SECTION_REGIONAL, kinds=ALL_KINDS),
+                      section=SECTION_REGIONAL, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("audience_rating", VALUE_TYPE_STRING, "Audience rating",
-                      common=True, typed=True, normalized=True, section=SECTION_REGIONAL),
+                      typed=True, normalized=True, section=SECTION_REGIONAL,
+                      kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("series_tags", VALUE_TYPE_STRING_LIST, "Series tags",
-                      section=SECTION_REGIONAL, input=INPUT_LIST, kinds=ALL_KINDS),
+                      section=SECTION_REGIONAL, input=INPUT_LIST, kinds=ALL_KINDS - {ItemKind.music}),
     # Artwork & copy.
     MetadataFieldSpec("cover_image_url", VALUE_TYPE_STRING, "Cover URL",
                       section=SECTION_ARTWORK, kinds=ALL_KINDS),
@@ -557,14 +551,50 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
                       section=SECTION_ARTWORK,
                       kinds=frozenset({ItemKind.comic, ItemKind.manga})),
     MetadataFieldSpec("plot_summary", VALUE_TYPE_STRING, "Plot summary",
-                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS),
+                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("plot_description", VALUE_TYPE_STRING, "Plot description",
-                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS),
+                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS - {ItemKind.music}),
     # Relations & lists.
     MetadataFieldSpec("trailer_urls", VALUE_TYPE_LINK_LIST, "Trailer URLs",
                       section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=TRAILER_KINDS),
     MetadataFieldSpec("external_links", VALUE_TYPE_LINK_LIST, "External links",
                       section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=ALL_KINDS),
+    # Music fields belong to a concrete Catalog Item, not a release-group or
+    # release node.
+    MetadataFieldSpec("artist", VALUE_TYPE_STRING, "Artist",
+                      section=SECTION_ITEM, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("sort_title", VALUE_TYPE_STRING, "Sort title",
+                      section=SECTION_ITEM, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("label", VALUE_TYPE_STRING, "Label",
+                      section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("format", VALUE_TYPE_STRING, "Format",
+                      section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("original_release_date", VALUE_TYPE_PARTIAL_DATE, "Original release date",
+                      section=SECTION_ITEM, input=INPUT_DATE, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("recording_date", VALUE_TYPE_PARTIAL_DATE, "Recording date",
+                      section=SECTION_ITEM, input=INPUT_DATE, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("packaging", VALUE_TYPE_STRING, "Packaging",
+                      section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("studio", VALUE_TYPE_STRING, "Studio",
+                      section=SECTION_ITEM, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("is_live", "boolean", "Is live",
+                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("sound_types", VALUE_TYPE_STRING_LIST, "Sound",
+                      section=SECTION_TECHNICAL, input=INPUT_LIST, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("vinyl_color", VALUE_TYPE_STRING, "Vinyl color",
+                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("vinyl_weight", VALUE_TYPE_STRING, "Vinyl weight",
+                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("rpm", VALUE_TYPE_INTEGER, "RPM",
+                      section=SECTION_TECHNICAL, input=INPUT_NUMBER, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("extra", VALUE_TYPE_STRING, "Extra",
+                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("spars", VALUE_TYPE_STRING, "SPARS",
+                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("box_set", VALUE_TYPE_STRING, "Box set",
+                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
+    MetadataFieldSpec("tracks", "object_list", "Tracks",
+                      section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=frozenset({ItemKind.music})),
 )
 
 #: The canonical registry, ordered (normalized common first, then kind-scoped,

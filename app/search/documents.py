@@ -17,6 +17,7 @@ from app.models import (
     MangaWork,
     MovieWork,
     MovieWorkContribution,
+    MusicItem,
     MusicRelease,
     MusicReleaseGroup,
     TVRelease,
@@ -775,6 +776,42 @@ def music_release_group_search_document(group: MusicReleaseGroup) -> dict[str, A
     }
 
 
+def music_item_search_document(item: MusicItem) -> dict[str, Any]:
+    release_date = item.release_date or item.original_release_date or item.recording_date
+    return {
+        "id": str(item.id),
+        "kind": ItemKind.music.value,
+        "title": item.title,
+        "item_number": None,
+        "runtime_minutes": None,
+        "cover_image_url": item.cover_image_url,
+        "thumbnail_image_url": item.thumbnail_image_url or item.cover_image_url,
+        "publisher": item.label,
+        "release_date": release_date.isoformat() if release_date else None,
+        "region": item.country,
+        "release_year": release_date.year if release_date else None,
+        "barcode": item.barcode,
+        "barcodes": [item.barcode] if item.barcode else [],
+        "variant": item.format,
+        "variant_names": [item.format] if item.format else [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": item.artist,
+        "volume_name": None,
+        "catalog_number": item.catalog_number,
+        "creators": [item.artist] if item.artist else [],
+        "characters": [],
+        "story_arcs": [],
+        "platforms": [],
+        "release_status": None,
+        "language": None,
+        "imprint": None,
+        "subtitle": item.subtitle,
+        "series_group": None,
+        "age_rating": None,
+    }
+
+
 def music_release_search_document(release: MusicRelease) -> dict[str, Any]:
     mediums = sorted(release.mediums or [], key=lambda row: (row.medium_number, str(row.id)))
     primary_medium = mediums[0] if mediums else None
@@ -944,6 +981,8 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
         return game_work_search_document(entity)
     if isinstance(entity, BoardGameWork):
         return boardgame_search_document(entity)
+    if isinstance(entity, MusicItem):
+        return music_item_search_document(entity)
     if isinstance(entity, MusicReleaseGroup):
         return music_release_group_search_document(entity)
     if isinstance(entity, MusicRelease):

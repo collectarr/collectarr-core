@@ -55,12 +55,9 @@ from app.models import (
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicReleaseGroup,
-    MusicReleaseGroupGenre,
-    MusicTrack,
+    MusicItem,
+    MusicItemDisc,
+    MusicItemTrack,
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
@@ -263,7 +260,7 @@ class AdminCatalogService:
 
         await _scan(BookWork, ItemKind.book, "book_work")
         await _scan(ComicWork, ItemKind.comic, "comic_work")
-        await _scan(MusicReleaseGroup, ItemKind.music, "music_release_group")
+        await _scan(MusicItem, ItemKind.music, "catalog_music_item")
         await _scan(GameWork, ItemKind.game, "game_work")
         await _scan(MovieWork, ItemKind.movie, "movie_work")
         await _scan(TVSeries, ItemKind.tv, "tv_series")
@@ -310,6 +307,9 @@ class AdminCatalogService:
                 detail="Item not found",
             )
 
+        if kind == ItemKind.music and isinstance(entity, MusicItem):
+            return await self._update_music_catalog_item(entity, payload)
+
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
             ItemKind.book: "book_work",
@@ -318,7 +318,7 @@ class AdminCatalogService:
             ItemKind.anime: "anime_series",
             ItemKind.movie: "movie_work",
             ItemKind.tv: "tv_series",
-            ItemKind.music: "music_release_group",
+            ItemKind.music: "catalog_music_item",
             ItemKind.game: "game_work",
             ItemKind.boardgame: "boardgame_work",
         }[kind]
@@ -663,88 +663,6 @@ class AdminCatalogService:
                 if "audience_rating" in update_data:
                     _set_metadata_value("audience_rating", payload.audience_rating)
 
-        elif kind == ItemKind.music:
-            group = entity
-            release = primary_release
-            if "title" in update_data and payload.title:
-                group.title = payload.title
-                if release is not None and "edition_title" not in update_data:
-                    release.title = payload.title
-            if "original_title" in update_data:
-                group.original_title = payload.original_title
-            if "genres" in update_data:
-                await _replace_string_rows(
-                    MusicReleaseGroupGenre,
-                    "release_group_id",
-                    "value",
-                    payload.genres,
-                    sequence_field="position",
-                )
-            if "cover_image_url" in update_data:
-                group.cover_image_url = payload.cover_image_url
-                group.cover_image_key = None
-            if "release_date" in update_data:
-                _set_partial_date(group, "original_release_date", payload.release_date)
-            if release is not None:
-                if "subtitle" in update_data:
-                    release.subtitle = self._normalize_optional_text(payload.subtitle)
-                if "publisher" in update_data:
-                    release.publisher = payload.publisher
-                if "catalog_number" in update_data:
-                    release.catalog_number = payload.catalog_number
-                if "barcode" in update_data:
-                    release.barcode = payload.barcode
-                if "language" in update_data:
-                    release.language = self._normalize_language(payload.language)
-                if "country" in update_data:
-                    release.country_code = self._normalize_region(payload.country)
-                if "release_status" in update_data:
-                    release.release_status = self._normalize_release_status(payload.release_status)
-                if "tracks" in update_data:
-                    tracks = self._normalize_tracks(payload.tracks)
-                    medium = next(iter(release.mediums or []), None)
-                    if medium is None:
-                        medium = MusicMedium(
-                            release_id=release.id,
-                            medium_number=1,
-                            medium_type="digital",
-                        )
-                        self.db.add(medium)
-                        await self.db.flush()
-                    await _clear_existing(list(medium.tracks or []))
-                    await self.db.flush()
-                    for index, track in enumerate(tracks, start=1):
-                        self.db.add(
-                            MusicTrack(
-                                medium_id=medium.id,
-                                position=str(track.get("position") or index),
-                                title=track["title"],
-                                artist=track.get("artist"),
-                                recording_id=track.get("recording_id"),
-                                is_header=bool(track.get("is_header", False)),
-                                indent_level=max(0, int(track.get("indent_level", 0) or 0)),
-                                parent_header_id=track.get("parent_header_id"),
-                                duration_ms=(track.get("duration_seconds") * 1000) if track.get("duration_seconds") else None,
-                            )
-                        )
-                    medium.track_count = sum(1 for track in tracks if not track.get("is_header", False))
-                if "creators" in update_data:
-                    await _clear_existing(list(release.contributions or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            MusicReleaseContribution(
-                                release_id=release.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-
         elif kind == ItemKind.game:
             release = primary_release
             if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode")):
@@ -1082,6 +1000,160 @@ class AdminCatalogService:
             await SearchClient().index_documents_best_effort([catalog_search_document(loaded_entity)])
         return await self._item_response_loader(loaded_entity)
 
+    async def _update_music_catalog_item(
+        self,
+        item: MusicItem,
+        payload: AdminMetadataCorrectionRequest,
+    ) -> Any:
+        update_data = payload.model_dump(exclude_unset=True)
+        supported_fields = {
+            "title", "sort_title", "subtitle", "artist", "release_date",
+            "original_release_date", "recording_date", "label", "format",
+            "barcode", "catalog_number", "genres", "packaging", "studio",
+            "studios", "country", "is_live", "sound_types", "vinyl_color",
+            "vinyl_weight", "rpm", "extra", "spars", "box_set", "tracks",
+            "external_links", "cover_image_url", "thumbnail_image_url",
+            "back_cover_image_url",
+        }
+        unsupported = sorted(set(update_data) - supported_fields)
+        if unsupported:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="music_correction_fields_unsupported",
+                detail=(
+                    "Unsupported Music Catalog Item correction fields: "
+                    f"{', '.join(unsupported)}"
+                ),
+            )
+
+        before = {
+            key: getattr(item, key, None)
+            for key in update_data
+            if key != "tracks"
+        }
+        before["tracks"] = [
+            {
+                "title": track.title,
+                "artist": track.artist,
+                "disc_number": disc.disc_number,
+                "position": track.position,
+                "duration_seconds": (
+                    track.duration_ms // 1000 if track.duration_ms is not None else None
+                ),
+            }
+            for disc in item.discs
+            for track in disc.tracks
+        ]
+
+        for field in (
+            "title", "artist", "sort_title", "subtitle", "label", "format",
+            "barcode", "catalog_number", "packaging", "studio", "country",
+            "is_live", "vinyl_color", "vinyl_weight", "rpm", "extra", "spars",
+            "box_set", "cover_image_url", "thumbnail_image_url",
+            "back_cover_image_url",
+        ):
+            if field not in update_data:
+                continue
+            value = getattr(payload, field)
+            if field == "title":
+                value = self._normalize_optional_text(value)
+                if value is None:
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        code="music_title_required",
+                        detail="Music Catalog Item title must not be empty",
+                    )
+            elif isinstance(value, str) and field not in {
+                "cover_image_url", "thumbnail_image_url", "back_cover_image_url"
+            }:
+                value = self._normalize_optional_text(value)
+            setattr(item, field, value)
+
+        if "genres" in update_data:
+            item.genres = self._normalize_text_values(payload.genres)
+        if "studios" in update_data:
+            item.studios = self._normalize_text_values(payload.studios)
+            item.studio = item.studios[0] if item.studios else None
+        elif "studio" in update_data:
+            item.studio = self._normalize_optional_text(payload.studio)
+            item.studios = [item.studio] if item.studio else []
+        if "sound_types" in update_data:
+            item.sound_types = self._normalize_text_values(payload.sound_types)
+        if "external_links" in update_data:
+            item.external_links = self._current_link_values(payload.external_links)
+
+        for field in ("release_date", "original_release_date", "recording_date"):
+            if field not in update_data:
+                continue
+            value = getattr(payload, field)
+            parsed = PartialDateValue.model_validate(value) if value is not None else None
+            setattr(item, f"{field}_parts", partial_date_storage(parsed))
+            setattr(item, field, parsed.as_date if parsed is not None else None)
+
+        if "tracks" in update_data:
+            old_discs = {disc.disc_number: disc for disc in item.discs}
+            tracks_by_disc: dict[int, list[dict[str, Any]]] = {}
+            for row in self._normalize_tracks(payload.tracks):
+                disc_number = row.get("disc_number", 1)
+                if disc_number < 1:
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        code="invalid_music_disc_number",
+                        detail="Track disc_number must be greater than zero",
+                    )
+                tracks_by_disc.setdefault(disc_number, []).append(row)
+
+            replacement_discs: list[MusicItemDisc] = []
+            for disc_number, rows in sorted(tracks_by_disc.items()):
+                old_disc = old_discs.get(disc_number)
+                disc = MusicItemDisc(
+                    disc_number=disc_number,
+                    title=old_disc.title if old_disc is not None else None,
+                    matrix_number_side_a=(
+                        old_disc.matrix_number_side_a if old_disc is not None else None
+                    ),
+                    matrix_number_side_b=(
+                        old_disc.matrix_number_side_b if old_disc is not None else None
+                    ),
+                    tracks=[],
+                )
+                for index, row in enumerate(rows):
+                    duration = row.get("duration_seconds")
+                    disc.tracks.append(
+                        MusicItemTrack(
+                            position=str(row.get("position", index + 1)),
+                            position_order=index,
+                            title=row["title"],
+                            artist=row.get("artist"),
+                            duration_ms=duration * 1000 if isinstance(duration, int) else None,
+                        )
+                    )
+                replacement_discs.append(disc)
+            item.discs = replacement_discs
+
+        self._audit_recorder(
+            action="metadata.correction",
+            entity_type=ItemKind.music.value,
+            entity_id=item.id,
+            details={
+                "kind": ItemKind.music.value,
+                "fields": sorted(update_data),
+                "before": before,
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+        self.db.expire_all()
+        loaded_item = await self._load_native_catalog_entity(ItemKind.music, item.id)
+        if loaded_item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Music Catalog Item not found after correction",
+            )
+        await SearchClient().index_documents_best_effort([catalog_search_document(loaded_item)])
+        return await self._item_response_loader(loaded_item)
+
     def _validated_physical_format(
         self,
         kind: ItemKind,
@@ -1407,7 +1479,7 @@ class AdminCatalogService:
             ItemKind.anime: AnimeSeries,
             ItemKind.movie: MovieWork,
             ItemKind.tv: TVSeries,
-            ItemKind.music: MusicReleaseGroup,
+            ItemKind.music: MusicItem,
             ItemKind.game: GameWork,
             ItemKind.boardgame: BoardGameWork,
         }
@@ -1462,18 +1534,7 @@ class AdminCatalogService:
             ]
         if kind == ItemKind.music:
             return [
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
-                    MusicMedium.tracks
-                ),
-                selectinload(MusicReleaseGroup.releases)
-                .selectinload(MusicRelease.contributions)
-                .selectinload(MusicReleaseContribution.person),
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
-                selectinload(MusicReleaseGroup.genre_entries),
-                selectinload(MusicReleaseGroup.entity_links),
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
-                    MusicMedium.missing_track_entries
-                ),
+                selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
             ]
         if kind == ItemKind.tv:
             return [

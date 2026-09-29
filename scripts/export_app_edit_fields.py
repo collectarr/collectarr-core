@@ -33,6 +33,7 @@ _VALUE_TYPE = {
     "string": "text",
     "string_list": "stringList",
     "integer": "integer",
+    "boolean": "boolean",
     "date": "date",
     "partial_date": "partialDate",
     "link_list": "text",

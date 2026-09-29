@@ -41,7 +41,8 @@ class CatalogMusicItemService:
             )
         }
         artist = (
-            "".join(
+            _optional_string(item_payload.get("artist"))
+            or "".join(
                 f"{credit['name']}{credit.get('join_phrase') or ''}"
                 for credit in credits["artist_credits"]
             ).strip()

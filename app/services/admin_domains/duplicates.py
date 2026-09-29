@@ -20,9 +20,10 @@ from app.models import (
     GameWork,
     MangaWork,
     MovieWork,
-    MusicReleaseGroup,
+    MusicItem,
     TVSeries,
 )
+from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -42,7 +43,7 @@ _ENTITY_TYPE: dict[type, str] = {
     TVSeries: "tv_series",
     GameWork: "game_work",
     BoardGameWork: "boardgame_work",
-    MusicReleaseGroup: "music_release_group",
+    MusicItem: "catalog_music_item",
 }
 
 # Maps each native root model class to a human-readable kind label.
@@ -55,7 +56,7 @@ _KIND_LABEL: dict[type, str] = {
     TVSeries: "tv",
     GameWork: "game",
     BoardGameWork: "boardgame",
-    MusicReleaseGroup: "music",
+    MusicItem: "music",
 }
 
 # All native root model classes in scan order.
@@ -319,16 +320,20 @@ class AdminDuplicateService:
     async def _duplicate_conflict_flags(
         self, entity_ids: list[UUID], entity_type: str
     ) -> dict[str, bool]:
-        provider_result = await self.db.execute(
-            select(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
-            .where(
-                ExternalProviderId.entity_type == entity_type,
-                ExternalProviderId.entity_id.in_(entity_ids),
+        entity_spec = DEFAULT_ENTITY_REF_REGISTRY.spec_for(entity_type)
+        provider_rows = []
+        if entity_spec is not None and entity_spec.supports_provider_ids:
+            provider_result = await self.db.execute(
+                select(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
+                .where(
+                    ExternalProviderId.entity_type == entity_type,
+                    ExternalProviderId.entity_id.in_(entity_ids),
+                )
+                .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
             )
-            .order_by(ExternalProviderId.provider, ExternalProviderId.provider_item_id)
-        )
+            provider_rows = provider_result.all()
         provider_ids_by_provider: dict[str, set[str]] = {}
-        for provider, pid in provider_result.all():
+        for provider, pid in provider_rows:
             provider_ids_by_provider.setdefault(str(provider), set()).add(pid)
         has_provider_conflicts = any(len(v) > 1 for v in provider_ids_by_provider.values())
 
@@ -409,6 +414,9 @@ class AdminDuplicateService:
     async def _provider_link_counts(
         self, entity_ids: list[UUID], entity_type: str
     ) -> dict[UUID, int]:
+        entity_spec = DEFAULT_ENTITY_REF_REGISTRY.spec_for(entity_type)
+        if entity_spec is None or not entity_spec.supports_provider_ids:
+            return {}
         result = await self.db.execute(
             select(ExternalProviderId.entity_id, func.count(ExternalProviderId.id))
             .where(
@@ -422,7 +430,7 @@ class AdminDuplicateService:
     def _merge_target_score(self, entity: Any, provider_link_count: int) -> tuple[int, int, int]:
         # Count immediate child collections as a proxy for "richness"
         child_count = 0
-        for attr in ("editions", "releases", "issues", "chapters", "episodes", "media"):
+        for attr in ("editions", "releases", "issues", "chapters", "episodes", "media", "discs"):
             children = getattr(entity, attr, None)
             if isinstance(children, list):
                 child_count += len(children)

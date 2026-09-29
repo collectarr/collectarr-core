@@ -254,12 +254,9 @@ Tables:
 - `tags`
 - `entity_tags`
 - `external_provider_ids`
-- `music_release_groups`
-- `music_releases`
-- `music_mediums`
-- `music_tracks`
-- `music_release_contributions`
-- `music_release_identifiers`
+- `music_items`
+- `music_item_discs`
+- `music_item_tracks`
 - `bundle_releases`
 
 ### Collections
@@ -299,6 +296,7 @@ Canonical kind-specific tables and polymorphic bundle composition.
 | sku | VARCHAR(100) | yes | no | no | yes | - | - | - |
 | barcode | VARCHAR(32) | yes | no | no | yes | - | - | - |
 | release_date | DATE | yes | no | no | yes | - | - | - |
+| release_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | cover_image_key | VARCHAR(512) | yes | no | no | no | - | - | - |
 | cover_image_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
 | thumbnail_image_key | VARCHAR(512) | yes | no | no | no | - | - | - |
@@ -511,7 +509,9 @@ People, organizations, characters, story arcs, and shared tagging tables.
 | description | TEXT | yes | no | no | no | - | - | - |
 | publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | start_date | DATE | yes | no | no | no | - | - | - |
+| start_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | end_date | DATE | yes | no | no | no | - | - | - |
+| end_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | api_detail_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
 | site_detail_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
 | id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
@@ -745,32 +745,6 @@ Image storage, cache tracking, ingest jobs, admin audit trails, and proposal wor
 - Foreign keys: none
 - Note: Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.
 
-### metadata_proposals
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| provider | external_provider | no | no | no | yes | - | - | - |
-| provider_item_id | VARCHAR(255) | yes | no | no | yes | - | - | - |
-| query | VARCHAR(255) | no | no | no | no | - | - | - |
-| title | VARCHAR(255) | yes | no | no | no | - | - | - |
-| summary | TEXT | yes | no | no | no | - | - | - |
-| image_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
-| status | VARCHAR(32) | no | no | no | yes | pending | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_metadata_proposals_provider` (non-unique): `provider`
-- Index `ix_metadata_proposals_provider_item_id` (non-unique): `provider_item_id`
-- Index `ix_metadata_proposals_status` (non-unique): `status`
-- Index `ix_metadata_proposals_status_provider` (non-unique): `status, provider`
-- Check constraints: none
-- Foreign keys: none
-
 ### admin_audit_logs
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -817,6 +791,7 @@ Tables not yet mapped to a primary domain bucket.
 | decimal_value | NUMERIC(20, 8) | yes | no | no | no | - | - | - |
 | boolean_value | BOOLEAN | yes | no | no | no | - | - | - |
 | date_value | DATE | yes | no | no | no | - | - | - |
+| date_value_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | datetime_value | TIMESTAMP WITH TIME ZONE | yes | no | no | no | - | - | - |
 | uuid_value | UUID | yes | no | no | no | - | - | - |
 
@@ -851,6 +826,95 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_admin_release_media_mapping_rules_provider` (non-unique): `provider`
 - Index `ix_admin_release_media_mapping_rules_release_type` (non-unique): `release_type`
 - Index `ix_admin_release_media_mapping_rules_target_kind` (non-unique): `target_kind`
+- Check constraints: none
+- Foreign keys: none
+
+### anime_item_episodes
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| anime_item_id | UUID | no | no | no | no | - | - | anime_items.id |
+| position | INTEGER | no | no | no | no | - | - | - |
+| episode_number | INTEGER | yes | no | no | no | - | - | - |
+| title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_anime_item_episode_position`: `anime_item_id, position`
+- Index `ix_anime_item_episodes_number` (non-unique): `anime_item_id, episode_number`
+- Check constraints: none
+- Foreign key `(anonymous)`: `anime_item_id` -> `anime_items.id`
+
+### anime_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| anime_item_id | UUID | no | no | no | no | - | - | anime_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_anime_item_identifier_normalized`: `anime_item_id, identifier_type, normalized_value`
+- Index `ix_anime_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `anime_item_id` -> `anime_items.id`
+
+### anime_item_media
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| anime_item_id | UUID | no | no | no | no | - | - | anime_items.id |
+| position | INTEGER | no | no | no | no | - | - | - |
+| media_number | INTEGER | yes | no | no | no | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_anime_item_media_position`: `anime_item_id, position`
+- Index `ix_anime_item_media_number` (non-unique): `anime_item_id, media_number`
+- Check constraints: none
+- Foreign key `(anonymous)`: `anime_item_id` -> `anime_items.id`
+
+### anime_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_anime_items_barcode` (non-unique): `barcode`
+- Index `ix_anime_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_anime_items_sort_key` (non-unique): `sort_key`
+- Index `ix_anime_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_anime_items_title` (non-unique): `title`
+- Index `ix_anime_items_title_trgm` (non-unique): `title`
 - Check constraints: none
 - Foreign keys: none
 
@@ -972,6 +1036,7 @@ Tables not yet mapped to a primary domain bucket.
 | format | VARCHAR(64) | yes | no | no | yes | - | - | - |
 | region_code | VARCHAR(32) | yes | no | no | yes | - | - | - |
 | release_date | DATE | yes | no | no | yes | - | - | - |
+| release_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | distributor | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
@@ -1165,6 +1230,54 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `boardgame_works.id`
 
+### boardgame_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| boardgame_item_id | UUID | no | no | no | no | - | - | boardgame_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_boardgame_item_identifier_normalized`: `boardgame_item_id, identifier_type, normalized_value`
+- Index `ix_boardgame_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `boardgame_item_id` -> `boardgame_items.id`
+
+### boardgame_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_boardgame_items_barcode` (non-unique): `barcode`
+- Index `ix_boardgame_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_boardgame_items_sort_key` (non-unique): `sort_key`
+- Index `ix_boardgame_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_boardgame_items_title` (non-unique): `title`
+- Index `ix_boardgame_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### boardgame_mechanics
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -1241,6 +1354,7 @@ Tables not yet mapped to a primary domain bucket.
 | users_rated | INTEGER | yes | no | no | no | - | - | - |
 | bayes_average | FLOAT | yes | no | no | no | - | - | - |
 | snapshot_date | DATE | yes | no | no | yes | - | - | - |
+| snapshot_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
 | created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
 | updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
@@ -1254,6 +1368,101 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_boardgame_rankings_snapshot_work_id` (non-unique): `work_id`
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `boardgame_works.id`
+
+### book_item_credits
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| book_item_id | UUID | no | no | no | no | - | - | book_items.id |
+| credit_type | VARCHAR(32) | no | no | no | no | - | - | - |
+| person_id | UUID | yes | no | no | no | - | - | persons.id |
+| name | VARCHAR(255) | no | no | no | no | - | - | - |
+| role | VARCHAR(64) | yes | no | no | no | - | - | - |
+| role_id | VARCHAR(64) | yes | no | no | no | - | - | - |
+| sequence | INTEGER | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_book_item_credits_item_role` (non-unique): `book_item_id, credit_type, sequence`
+- Check constraints: none
+- Foreign key `(anonymous)`: `book_item_id` -> `book_items.id`
+- Foreign key `(anonymous)`: `person_id` -> `persons.id`
+
+### book_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| book_item_id | UUID | no | no | no | no | - | - | book_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | yes | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_book_item_identifier_normalized`: `book_item_id, identifier_type, normalized_value`
+- Index `ix_book_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `book_item_id` -> `book_items.id`
+
+### book_item_printings
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| book_item_id | UUID | no | no | no | yes | - | - | book_items.id |
+| printing_number | INTEGER | yes | no | no | no | - | - | - |
+| title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| release_date | JSONB | yes | no | no | no | - | - | - |
+| publisher | VARCHAR(255) | yes | no | no | no | - | - | - |
+| language | VARCHAR(16) | yes | no | no | no | - | - | - |
+| isbn | VARCHAR(32) | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_book_item_printings_item` (non-unique): `book_item_id`
+- Check constraints: none
+- Foreign key `(anonymous)`: `book_item_id` -> `book_items.id`
+
+### book_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_book_items_barcode` (non-unique): `barcode`
+- Index `ix_book_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_book_items_sort_key` (non-unique): `sort_key`
+- Index `ix_book_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_book_items_title` (non-unique): `title`
+- Index `ix_book_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
 
 ### canonical_correction_proposal_values
 
@@ -1270,6 +1479,7 @@ Tables not yet mapped to a primary domain bucket.
 | decimal_value | NUMERIC(20, 8) | yes | no | no | no | - | - | - |
 | boolean_value | BOOLEAN | yes | no | no | no | - | - | - |
 | date_value | DATE | yes | no | no | no | - | - | - |
+| date_value_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | datetime_value | TIMESTAMP WITH TIME ZONE | yes | no | no | no | - | - | - |
 | uuid_value | UUID | yes | no | no | no | - | - | - |
 
@@ -1306,6 +1516,30 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_canonical_correction_proposals_target` (non-unique): `kind, entity_type, entity_id`
 - Check `ck_canonical_correction_proposals_base_present`: `base_revision IS NOT NULL OR base_hash IS NOT NULL`
 - Foreign keys: none
+
+### catalog_item_proposals
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| kind | item_kind | no | no | no | yes | - | - | - |
+| catalog_item | JSONB | no | no | no | no | - | - | - |
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| submitted_by_user_id | UUID | yes | no | no | no | - | - | users.id |
+| status | VARCHAR(32) | no | no | no | yes | pending | - | - |
+| review_note | VARCHAR(2000) | yes | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_catalog_item_proposals_kind` (non-unique): `kind`
+- Index `ix_catalog_item_proposals_status` (non-unique): `status`
+- Index `ix_catalog_item_proposals_title` (non-unique): `title`
+- Check constraints: none
+- Foreign key `(anonymous)`: `submitted_by_user_id` -> `users.id`
 
 ### comic_character_external_identifiers
 
@@ -1347,6 +1581,54 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign keys: none
 
+### comic_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| comic_item_id | UUID | no | no | no | no | - | - | comic_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_comic_item_identifier_normalized`: `comic_item_id, identifier_type, normalized_value`
+- Index `ix_comic_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `comic_item_id` -> `comic_items.id`
+
+### comic_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_comic_items_barcode` (non-unique): `barcode`
+- Index `ix_comic_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_comic_items_sort_key` (non-unique): `sort_key`
+- Index `ix_comic_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_comic_items_title` (non-unique): `title`
+- Index `ix_comic_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### comic_series
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -1356,7 +1638,9 @@ Tables not yet mapped to a primary domain bucket.
 | description | TEXT | yes | no | no | no | - | - | - |
 | original_title | VARCHAR(255) | yes | no | no | no | - | - | - |
 | start_date | DATE | yes | no | no | no | - | - | - |
+| start_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | end_date | DATE | yes | no | no | no | - | - | - |
+| end_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | status | VARCHAR(64) | yes | no | no | yes | - | - | - |
 | language | VARCHAR(16) | yes | no | no | yes | - | - | - |
 | country | VARCHAR(64) | yes | no | no | yes | - | - | - |
@@ -1469,7 +1753,9 @@ Tables not yet mapped to a primary domain bucket.
 | publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | imprint | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | publication_date | DATE | yes | no | no | yes | - | - | - |
+| publication_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | release_date | DATE | yes | no | no | yes | - | - | - |
+| release_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | language | VARCHAR(16) | yes | no | no | yes | - | - | - |
 | region | VARCHAR(32) | yes | no | no | yes | - | - | - |
 | physical_format | VARCHAR(64) | yes | no | no | yes | - | - | - |
@@ -1537,6 +1823,7 @@ Tables not yet mapped to a primary domain bucket.
 | decimal_value | NUMERIC(20, 8) | yes | no | no | no | - | - | - |
 | boolean_value | BOOLEAN | yes | no | no | no | - | - | - |
 | date_value | DATE | yes | no | no | no | - | - | - |
+| date_value_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | datetime_value | TIMESTAMP WITH TIME ZONE | yes | no | no | no | - | - | - |
 | uuid_value | UUID | yes | no | no | no | - | - | - |
 
@@ -1697,6 +1984,54 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `game_works.id`
 
+### game_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| game_item_id | UUID | no | no | no | no | - | - | game_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_game_item_identifier_normalized`: `game_item_id, identifier_type, normalized_value`
+- Index `ix_game_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `game_item_id` -> `game_items.id`
+
+### game_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_game_items_barcode` (non-unique): `barcode`
+- Index `ix_game_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_game_items_sort_key` (non-unique): `sort_key`
+- Index `ix_game_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_game_items_title` (non-unique): `title`
+- Index `ix_game_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### game_platforms
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -1853,6 +2188,7 @@ Tables not yet mapped to a primary domain bucket.
 | format | VARCHAR(100) | yes | no | no | yes | - | - | - |
 | binding | VARCHAR(100) | yes | no | no | yes | - | - | - |
 | publication_date | DATE | yes | no | no | yes | - | - | - |
+| publication_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | publisher | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | imprint | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | language | VARCHAR(16) | yes | no | no | yes | - | - | - |
@@ -1889,6 +2225,54 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `manga_works.id`
 
+### manga_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| manga_item_id | UUID | no | no | no | no | - | - | manga_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_manga_item_identifier_normalized`: `manga_item_id, identifier_type, normalized_value`
+- Index `ix_manga_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `manga_item_id` -> `manga_items.id`
+
+### manga_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_manga_items_barcode` (non-unique): `barcode`
+- Index `ix_manga_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_manga_items_sort_key` (non-unique): `sort_key`
+- Index `ix_manga_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_manga_items_title` (non-unique): `title`
+- Index `ix_manga_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### manga_series
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -1898,7 +2282,9 @@ Tables not yet mapped to a primary domain bucket.
 | description | TEXT | yes | no | no | no | - | - | - |
 | original_title | VARCHAR(255) | yes | no | no | no | - | - | - |
 | start_date | DATE | yes | no | no | no | - | - | - |
+| start_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | end_date | DATE | yes | no | no | no | - | - | - |
+| end_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | status | VARCHAR(64) | yes | no | no | yes | - | - | - |
 | language | VARCHAR(16) | yes | no | no | yes | - | - | - |
 | country | VARCHAR(64) | yes | no | no | yes | - | - | - |
@@ -1970,39 +2356,22 @@ Tables not yet mapped to a primary domain bucket.
 - Foreign key `(anonymous)`: `source_series_id` -> `manga_series.id`
 - Foreign key `(anonymous)`: `target_series_id` -> `manga_series.id`
 
-### metadata_proposal_values
+### movie_item_media
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
 |---|---|---|---|---|---|---|---|---|
-| proposal_id | UUID | no | no | no | yes | - | - | metadata_proposals.id |
-| path | VARCHAR(1024) | no | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| value_type | VARCHAR(16) | no | no | no | no | - | - | - |
-| string_value | TEXT | yes | no | no | no | - | - | - |
-| integer_value | BIGINT | yes | no | no | no | - | - | - |
-| decimal_value | NUMERIC(20, 8) | yes | no | no | no | - | - | - |
-| boolean_value | BOOLEAN | yes | no | no | no | - | - | - |
-| date_value | DATE | yes | no | no | no | - | - | - |
-| datetime_value | TIMESTAMP WITH TIME ZONE | yes | no | no | no | - | - | - |
-| uuid_value | UUID | yes | no | no | no | - | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_metadata_proposal_values_path`: `proposal_id, path`
-- Index `ix_metadata_proposal_values_proposal` (non-unique): `proposal_id`
-- Check constraints: none
-- Foreign key `(anonymous)`: `proposal_id` -> `metadata_proposals.id`
-
-### music_medium_missing_track_positions
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| medium_id | UUID | no | no | no | no | - | - | music_mediums.id |
-| position | VARCHAR(16) | no | no | no | no | - | - | - |
-| position_order | INTEGER | no | no | no | no | 0 | - | - |
+| movie_item_id | UUID | no | no | no | no | - | - | movie_items.id |
+| media_number | INTEGER | no | no | no | no | - | - | - |
+| media_type | VARCHAR(64) | yes | no | no | no | - | - | - |
+| title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| aspect_ratio | VARCHAR(16) | yes | no | no | no | - | - | - |
+| screen_ratio | VARCHAR(50) | yes | no | no | no | - | - | - |
+| color | VARCHAR(64) | yes | no | no | no | - | - | - |
+| num_discs | INTEGER | yes | no | no | no | - | - | - |
+| nr_layers | INTEGER | yes | no | no | no | - | - | - |
+| layers | VARCHAR(50) | yes | no | no | no | - | - | - |
+| audio_tracks | VARCHAR(500) | yes | no | no | no | - | - | - |
+| subtitles | VARCHAR(500) | yes | no | no | no | - | - | - |
 | id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
 | created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
 | updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
@@ -2010,19 +2379,21 @@ Tables not yet mapped to a primary domain bucket.
 #### Constraints
 
 - Primary key: `id`
-- Unique `uq_music_medium_missing_track_position`: `medium_id, position`
-- Index `ix_music_medium_missing_track_positions_medium` (non-unique): `medium_id, position_order`
+- Unique `uq_movie_item_media_number`: `movie_item_id, media_number`
+- Index `ix_movie_item_media_item` (non-unique): `movie_item_id, media_number`
 - Check constraints: none
-- Foreign key `(anonymous)`: `medium_id` -> `music_mediums.id`
+- Foreign key `(anonymous)`: `movie_item_id` -> `movie_items.id`
 
-### music_release_group_genres
+### movie_items
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
 |---|---|---|---|---|---|---|---|---|
-| release_group_id | UUID | no | no | no | no | - | - | music_release_groups.id |
-| value | VARCHAR(255) | no | no | no | no | - | - | - |
-| normalized_value | VARCHAR(255) | no | no | no | yes | - | - | - |
-| position | INTEGER | no | no | no | no | 0 | - | - |
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
 | id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
 | created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
 | updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
@@ -2030,11 +2401,15 @@ Tables not yet mapped to a primary domain bucket.
 #### Constraints
 
 - Primary key: `id`
-- Unique `uq_music_release_group_genre`: `release_group_id, normalized_value`
-- Index `ix_music_release_group_genres_group_position` (non-unique): `release_group_id, position`
-- Index `ix_music_release_group_genres_normalized_value` (non-unique): `normalized_value`
+- Unique constraints: none
+- Index `ix_movie_items_barcode` (non-unique): `barcode`
+- Index `ix_movie_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_movie_items_sort_key` (non-unique): `sort_key`
+- Index `ix_movie_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_movie_items_title` (non-unique): `title`
+- Index `ix_movie_items_title_trgm` (non-unique): `title`
 - Check constraints: none
-- Foreign key `(anonymous)`: `release_group_id` -> `music_release_groups.id`
+- Foreign keys: none
 
 ### person_external_identifiers
 
@@ -2153,6 +2528,116 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign key `(anonymous)`: `episode_id` -> `tv_episodes.id`
 
+### tv_item_episodes
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| tv_item_id | UUID | no | no | no | no | - | - | tv_items.id |
+| position | INTEGER | no | no | no | no | - | - | - |
+| season_number | INTEGER | yes | no | no | no | - | - | - |
+| episode_number | INTEGER | yes | no | no | no | - | - | - |
+| title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_tv_item_episode_position`: `tv_item_id, position`
+- Index `ix_tv_item_episodes_coordinates` (non-unique): `tv_item_id, season_number, episode_number`
+- Check constraints: none
+- Foreign key `(anonymous)`: `tv_item_id` -> `tv_items.id`
+
+### tv_item_identifiers
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| tv_item_id | UUID | no | no | no | no | - | - | tv_items.id |
+| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
+| value | VARCHAR(255) | no | no | no | no | - | - | - |
+| normalized_value | VARCHAR(255) | no | no | no | no | - | - | - |
+| is_primary | BOOLEAN | no | no | no | no | False | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_tv_item_identifier_normalized`: `tv_item_id, identifier_type, normalized_value`
+- Index `ix_tv_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
+- Check constraints: none
+- Foreign key `(anonymous)`: `tv_item_id` -> `tv_items.id`
+
+### tv_item_media
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| tv_item_id | UUID | no | no | no | no | - | - | tv_items.id |
+| position | INTEGER | no | no | no | no | - | - | - |
+| media_number | INTEGER | yes | no | no | no | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_tv_item_media_position`: `tv_item_id, position`
+- Index `ix_tv_item_media_number` (non-unique): `tv_item_id, media_number`
+- Check constraints: none
+- Foreign key `(anonymous)`: `tv_item_id` -> `tv_items.id`
+
+### tv_item_seasons
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| tv_item_id | UUID | no | no | no | no | - | - | tv_items.id |
+| season_number | INTEGER | no | no | no | no | - | - | - |
+| title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique `uq_tv_item_season_number`: `tv_item_id, season_number`
+- Indexes: none
+- Check constraints: none
+- Foreign key `(anonymous)`: `tv_item_id` -> `tv_items.id`
+
+### tv_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | no | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_tv_items_barcode` (non-unique): `barcode`
+- Index `ix_tv_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_tv_items_sort_key` (non-unique): `sort_key`
+- Index `ix_tv_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_tv_items_title` (non-unique): `title`
+- Index `ix_tv_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### tv_releases
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -2165,6 +2650,7 @@ Tables not yet mapped to a primary domain bucket.
 | format | VARCHAR(64) | no | no | no | no | - | - | - |
 | region_code | VARCHAR(2) | yes | no | no | no | - | - | - |
 | release_date | DATE | yes | no | no | no | - | - | - |
+| release_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
 | publisher | VARCHAR(255) | yes | no | no | no | - | - | - |
 | sku | VARCHAR(100) | yes | no | no | yes | - | - | - |
 | case_type | VARCHAR(64) | yes | no | no | no | - | - | - |

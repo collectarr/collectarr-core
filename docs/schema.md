@@ -17,7 +17,7 @@ there is no generic metadata document column in the catalog schema.
 
 | Kind | Canonical tables |
 | --- | --- |
-| Music | `music_release_groups`, `music_releases`, `music_mediums`, `music_tracks` |
+| Music | `music_items`, `music_item_discs`, `music_item_tracks` |
 | Books | `book_works`, `book_editions`, `book_printings` |
 | Games | `game_works`, `game_releases` |
 | Board games | `boardgame_works`, `boardgame_editions` |

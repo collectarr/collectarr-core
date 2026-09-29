@@ -30,10 +30,9 @@ from app.models import (
     MangaWork,
     MovieRelease,
     MovieWork,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseGroup,
-    MusicTrack,
+    MusicItem,
+    MusicItemDisc,
+    MusicItemTrack,
     Organization,
     Person,
     StoryArc,
@@ -80,10 +79,9 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "manga_work": MangaWork,
     "movie_work": MovieWork,
     "movie_release": MovieRelease,
-    "music_release_group": MusicReleaseGroup,
-    "music_release": MusicRelease,
-    "music_medium": MusicMedium,
-    "music_track": MusicTrack,
+    "catalog_music_item": MusicItem,
+    "music_item_disc": MusicItemDisc,
+    "music_item_track": MusicItemTrack,
     "organization": Organization,
     "person": Person,
     "story_arc": StoryArc,
@@ -93,7 +91,18 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
 }
 
 _TITLE_FIELDS = ("title", "display_title", "chapter_title", "episode_title", "name", "series_title")
-_NUMBER_FIELDS = ("item_number", "issue_number", "chapter_number", "episode_number", "season_number", "release_number", "volume_number", "media_number")
+_NUMBER_FIELDS = (
+    "item_number",
+    "issue_number",
+    "chapter_number",
+    "episode_number",
+    "season_number",
+    "release_number",
+    "volume_number",
+    "media_number",
+    "disc_number",
+    "position",
+)
 _COVER_FIELDS = ("cover_image_url", "thumbnail_image_url", "image_url")
 
 

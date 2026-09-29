@@ -92,8 +92,9 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "duplicate_review_details",
             "metadata_proposal_values",
             "person_external_identifiers",
-            "music_release_group_genres",
-            "music_medium_missing_track_positions",
+            "music_items",
+            "music_item_discs",
+            "music_item_tracks",
             "comic_work_missing_issue_numbers",
         }.issubset(tables)
         assert "metadata_taxonomies" in tables

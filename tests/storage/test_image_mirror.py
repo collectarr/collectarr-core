@@ -37,7 +37,7 @@ def test_image_mirror_creates_bounded_webp_cover():
 
     with Image.open(BytesIO(cover)) as image:
         assert image.format == "WEBP"
-        assert max(image.size) <= mirror.settings.provider_image_max_long_edge
+        assert max(image.size) <= mirror.settings.image_max_long_edge
 
 
 def test_normalized_cover_includes_phash():
@@ -90,7 +90,7 @@ async def test_image_mirror_stores_single_normalized_webp_cover(monkeypatch):
     assert result.provider_item_id == "4000-12345"
     assert result.size_bytes > 0
     assert result.width < 900
-    assert result.height == mirror.settings.provider_image_max_long_edge
+    assert result.height == mirror.settings.image_max_long_edge
     assert len(result.content_hash) == 64
     assert result.thumbnail_key is None
     assert result.thumbnail_url is None

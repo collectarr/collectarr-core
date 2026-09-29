@@ -39,22 +39,17 @@ class Settings(BaseSettings):
     s3_bucket: str = "collectarr-images"
     s3_public_url: str = "http://localhost:9000/collectarr-images"
     s3_manage_public_read_policy: bool = True
-    mirror_provider_images: bool = False
-    mirror_provider_images_allow_restricted: bool = False
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
     max_image_pixels: int = 40_000_000
-    provider_image_max_long_edge: int = Field(default=1280, ge=64)
-    provider_image_quality: int = Field(default=82, ge=1, le=100)
+    image_max_long_edge: int = Field(default=1280, ge=64)
+    image_quality: int = Field(default=82, ge=1, le=100)
     image_cache_max_bytes: int = Field(default=0, ge=0)
     image_cache_evict_target_bytes: int = Field(default=0, ge=0)
     image_cache_cleanup_batch_size: int = Field(default=250, ge=1)
     worker_index_interval_seconds: int = Field(default=900, ge=5)
-    dev_stub_providers: bool = False
     auth_rate_limit_requests: int = Field(default=20, ge=0)
     auth_rate_limit_window_seconds: int = Field(default=60, ge=0)
-    admin_provider_rate_limit_requests: int = Field(default=60, ge=0)
-    admin_provider_rate_limit_window_seconds: int = Field(default=60, ge=0)
     admin_read_requires_auth_in_public: bool = True
     image_upload_rate_limit_requests: int = Field(default=30, ge=0)
     image_upload_rate_limit_window_seconds: int = Field(default=60, ge=0)
@@ -80,8 +75,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
-
-def provider_stub_data_enabled() -> bool:
-    settings = get_settings()
-    return settings.dev_stub_providers or settings.environment in {"development", "test"}

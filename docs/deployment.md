@@ -146,15 +146,11 @@ PostgreSQL checkpoint lines such as `wrote 331 buffers` are normal and usually s
 For a lower-write development stack, keep this in `.env`:
 
 ```env
-MIRROR_PROVIDER_IMAGES=false
 WORKER_INDEX_INTERVAL_SECONDS=3600
 ```
 
-With image mirroring disabled, Core keeps external image URLs and avoids
-downloading covers into MinIO. MinIO/S3 remains the place for manual uploads,
-generated assets, or explicitly mirrored images. If you want a self-contained
-catalog, set `MIRROR_PROVIDER_IMAGES=true`. Mirrored covers are normalized to a
-single WebP asset and tracked in `image_cache_entries` with a bounded LRU cache.
+External canonical image URLs remain external. Images uploaded through the
+catalog image API are normalized to WebP and stored in MinIO/S3.
 
 Auth endpoints and admin endpoints use a lightweight
 in-process rate limiter by default. Tune the request/window pairs if you expose
@@ -163,8 +159,6 @@ Core beyond a trusted LAN:
 ```env
 AUTH_RATE_LIMIT_REQUESTS=20
 AUTH_RATE_LIMIT_WINDOW_SECONDS=60
-ADMIN_PROVIDER_RATE_LIMIT_REQUESTS=60
-ADMIN_PROVIDER_RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
 When `REDIS_URL` is set, Core stores rate-limit windows in Redis so multiple API

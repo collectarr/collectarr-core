@@ -158,8 +158,8 @@ class ImageMirror:
             [
                 source_url,
                 _NORMALIZED_COVER_CONTENT_TYPE,
-                str(self.settings.provider_image_max_long_edge),
-                str(self.settings.provider_image_quality),
+                str(self.settings.image_max_long_edge),
+                str(self.settings.image_quality),
             ]
         )
         digest = hashlib.sha256(cache_identity.encode("utf-8")).hexdigest()[:16]
@@ -173,7 +173,7 @@ class ImageMirror:
     def _normalized_cover(self, image_bytes: bytes) -> NormalizedCover:
         with Image.open(BytesIO(image_bytes)) as image:
             image = ImageOps.exif_transpose(image)
-            max_edge = self.settings.provider_image_max_long_edge
+            max_edge = self.settings.image_max_long_edge
             image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
             image = self._rgb_image(image)
             width, height = image.size
@@ -187,7 +187,7 @@ class ImageMirror:
             image.save(
                 output,
                 format="WEBP",
-                quality=self.settings.provider_image_quality,
+                quality=self.settings.image_quality,
                 method=6,
             )
             return NormalizedCover(

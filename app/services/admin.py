@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class AdminMetadataService:
-    """Build the remaining admin services without provider runtime state."""
+    """Build the active catalog and user administration services."""
 
     def __init__(self, db: AsyncSession, actor: User | None = None) -> None:
         actor_user_id = actor.id if actor else None

@@ -58,26 +58,6 @@ async def auth_rate_limit(request: Request) -> None:
     )
 
 
-async def admin_provider_rate_limit(request: Request) -> None:
-    settings = get_settings()
-    await _check_rate_limit(
-        request,
-        bucket="admin_provider",
-        limit=settings.admin_provider_rate_limit_requests,
-        window_seconds=settings.admin_provider_rate_limit_window_seconds,
-    )
-
-
-async def provider_search_rate_limit(request: Request) -> None:
-    settings = get_settings()
-    await _check_rate_limit(
-        request,
-        bucket="provider_search",
-        limit=settings.provider_search_rate_limit_requests,
-        window_seconds=settings.provider_search_rate_limit_window_seconds,
-    )
-
-
 async def image_upload_rate_limit(request: Request) -> None:
     settings = get_settings()
     await _check_rate_limit(
@@ -214,16 +194,10 @@ def _cleanup_expired(now: float, settings) -> None:
 def _bucket_window_seconds(settings, bucket: str) -> int:
     if bucket == "auth":
         return settings.auth_rate_limit_window_seconds
-    if bucket == "admin_provider":
-        return settings.admin_provider_rate_limit_window_seconds
-    if bucket == "provider_search":
-        return settings.provider_search_rate_limit_window_seconds
     if bucket == "image_upload":
         return settings.image_upload_rate_limit_window_seconds
     return max(
         settings.auth_rate_limit_window_seconds,
-        settings.admin_provider_rate_limit_window_seconds,
-        settings.provider_search_rate_limit_window_seconds,
         settings.image_upload_rate_limit_window_seconds,
     )
 

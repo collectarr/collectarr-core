@@ -1,21 +1,21 @@
 # Image Pipeline
 
-Core stores image references and optional mirrored assets. Provider adapters and
-importers choose the source image in the app; Core handles the shared storage
-and delivery path.
+Core stores canonical image references and uploaded image assets. App clients
+choose canonical image sources and upload images through the shared Core image
+API. Core validates, normalizes, and stores uploaded bytes in object storage.
 
 ## Delivery Modes
 
-- `external_url`: Core stores the source URL and clients render it directly.
-- `mirrored`: when `MIRROR_PROVIDER_IMAGES=true`, Core downloads the source,
-  normalizes it to WebP, stores it in MinIO/S3, and records it in
-  `image_cache_entries`.
+- `external_url`: Core stores a canonical source URL and clients render it
+  directly.
+- `uploaded`: Core normalizes uploaded bytes to WebP and stores the asset in
+  MinIO/S3. The image record points to the stored object.
 - `missing`: Core stores no image URL. The client renders a deterministic
   generated cover.
 
-User-uploaded images use the same mirroring path. Their effective source URL is
-derived from the uploaded bytes, which gives object-key generation a stable
-origin and prevents collisions between uploads.
+Uploaded assets are normalized to a bounded image size and deduplicated by
+content hash. Image records retain the entity and image type so clients can
+retrieve the right cover or auxiliary image.
 
 Image mutation endpoints are admin-only. Viewers and editors can consume image
 URLs, but only admins can add, delete, or promote canonical image assets.
@@ -27,8 +27,7 @@ blocked, or failed image loads fall back to `LibraryGeneratedCover`.
 
 ## Local Check
 
-1. Submit metadata with an image reference.
-2. Confirm the URL renders in list and detail views.
-3. Enable `MIRROR_PROVIDER_IMAGES=true` and submit another image.
-4. Confirm the response points to the MinIO/S3 object and that the cache entry
-   is visible in the admin tools.
+1. Upload an image through the Core image API.
+2. Confirm Core returns an object URL and the image renders in list and detail
+   views.
+3. Confirm the corresponding image asset is visible in the admin tools.

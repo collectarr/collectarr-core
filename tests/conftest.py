@@ -13,8 +13,6 @@ from sqlalchemy.engine.url import make_url
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test-secret")
 os.environ.setdefault("REDIS_URL", "")
-os.environ.setdefault("MIRROR_PROVIDER_IMAGES", "false")
-os.environ.setdefault("MIRROR_PROVIDER_IMAGES_ALLOW_RESTRICTED", "false")
 os.environ.setdefault(
     "DATABASE_URL", "postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr_test"
 )

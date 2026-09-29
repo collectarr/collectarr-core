@@ -45,11 +45,9 @@ from app.models import (
     MovieReleaseMedia,
     MovieWork,
     MovieWorkContribution,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicReleaseGroup,
-    MusicTrack,
+    MusicItem,
+    MusicItemDisc,
+    MusicItemTrack,
     TVRelease,
     TVReleaseContribution,
     TVSeason,
@@ -127,12 +125,12 @@ class AdminOverviewService:
                 + await self._count(TVSeries)
                 + await self._count(GameRelease)
                 + await self._count(BoardGameEdition)
-                + await self._count(MusicRelease)
+                + await self._count(MusicItemDisc)
             ),
             variants=(
                 await self._count(BookPrinting)
                 + await self._count(MovieReleaseMedia)
-                + await self._count(MusicTrack)
+                + await self._count(MusicItemTrack)
             ),
             image_assets=await self._count_image_assets(),
             pending_proposals=await self._count_pending_proposals(),
@@ -226,7 +224,7 @@ class AdminOverviewService:
             ItemKind.anime: AnimeSeries,
             ItemKind.movie: MovieWork,
             ItemKind.tv: TVSeries,
-            ItemKind.music: MusicReleaseGroup,
+            ItemKind.music: MusicItem,
             ItemKind.game: GameWork,
             ItemKind.boardgame: BoardGameWork,
         }
@@ -276,8 +274,8 @@ class AdminOverviewService:
             root_cover_fields=("cover_image_url", "cover_image_key"),
         )
         total += await self._count_missing_cover_items_for_root(
-            MusicReleaseGroup,
-            cover_fields=("cover_image_url", "cover_image_key"),
+            MusicItem,
+            cover_fields=("cover_image_url", "thumbnail_image_url"),
         )
         return total
 
@@ -406,17 +404,11 @@ class AdminOverviewService:
         documents.extend(catalog_search_document(work) for work in boardgame_result.scalars().unique())
 
         music_result = await self.db.execute(
-            select(MusicReleaseGroup).options(
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
-                    MusicMedium.tracks
-                ),
-                selectinload(MusicReleaseGroup.releases)
-                .selectinload(MusicRelease.contributions)
-                .selectinload(MusicReleaseContribution.person),
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
+            select(MusicItem).options(
+                selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
             )
         )
-        documents.extend(catalog_search_document(group) for group in music_result.scalars().unique())
+        documents.extend(catalog_search_document(item) for item in music_result.scalars().unique())
 
         return documents
 

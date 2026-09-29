@@ -43,10 +43,9 @@ from app.models import (
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicReleaseGroup,
+    MusicItem,
+    MusicItemDisc,
+    MusicItemTrack,
     TVRelease,
     TVReleaseContribution,
     TVReleaseEpisodeMap,
@@ -62,8 +61,7 @@ from app.search.documents import (
     game_work_search_document,
     manga_work_search_document,
     movie_work_search_document,
-    music_release_group_search_document,
-    music_release_search_document,
+    music_item_search_document,
     tv_release_search_document,
 )
 from app.storage.client import ObjectStorage
@@ -87,7 +85,17 @@ def _compute_phash(image_data: bytes) -> str:
 
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
-    root_tables = (BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVSeries, GameWork, BoardGameWork, MusicReleaseGroup)
+    root_tables = (
+        BookWork,
+        ComicWork,
+        MangaWork,
+        AnimeSeries,
+        MovieWork,
+        TVSeries,
+        GameWork,
+        BoardGameWork,
+        MusicItem,
+    )
     edition_tables = (
         BookEdition,
         ComicIssue,
@@ -97,12 +105,12 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         TVReleaseMedia,
         GameRelease,
         BoardGameEdition,
-        MusicRelease,
-        MusicMedium,
+        MusicItemDisc,
     )
     variant_tables = (
         BookPrinting,
         TVReleaseEpisodeMap,
+        MusicItemTrack,
     )
     item_count = 0
     item_updated_at: datetime | None = None
@@ -239,19 +247,14 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(anime_series_search_document(row) for row in anime_rows.scalars().unique())
 
         music_rows = await db.execute(
-            select(MusicReleaseGroup).options(
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.mediums).selectinload(
-                    MusicMedium.tracks
-                ),
-                selectinload(MusicReleaseGroup.releases)
-                .selectinload(MusicRelease.contributions)
-                .selectinload(MusicReleaseContribution.person),
-                selectinload(MusicReleaseGroup.releases).selectinload(MusicRelease.identifiers),
+            select(MusicItem).options(
+                selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
             )
         )
-        for group in music_rows.scalars().unique():
-            documents.append(music_release_group_search_document(group))
-            documents.extend(music_release_search_document(release) for release in group.releases or [])
+        documents.extend(
+            music_item_search_document(item)
+            for item in music_rows.scalars().unique()
+        )
         await search.index_documents(documents)
 
 

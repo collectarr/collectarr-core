@@ -18,8 +18,6 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MusicItem,
-    MusicRelease,
-    MusicReleaseGroup,
     TVRelease,
     TVSeries,
 )
@@ -740,42 +738,6 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
     }
 
 
-def music_release_group_search_document(group: MusicReleaseGroup) -> dict[str, Any]:
-    releases = sorted(group.releases or [], key=lambda row: (row.release_date is None, row.release_date, row.title.casefold()))
-    return {
-        "id": str(group.id),
-        "kind": ItemKind.music.value,
-        "title": group.title,
-        "item_number": None,
-        "runtime_minutes": None,
-        "cover_image_url": group.cover_image_url,
-        "thumbnail_image_url": group.cover_image_url,
-        "publisher": None,
-        "release_date": group.original_release_date.isoformat() if group.original_release_date else None,
-        "region": None,
-        "release_year": group.original_release_date.year if group.original_release_date else None,
-        "barcode": None,
-        "barcodes": [],
-        "variant": None,
-        "variant_names": [],
-        "bundle_titles": [],
-        "bundle_release_ids": [str(row.id) for row in releases],
-        "series_title": group.artist,
-        "volume_name": None,
-        "catalog_number": None,
-        "creators": [group.artist] if group.artist else [],
-        "characters": [],
-        "story_arcs": [],
-        "platforms": [],
-        "release_status": None,
-        "language": None,
-        "imprint": None,
-        "subtitle": None,
-        "series_group": None,
-        "age_rating": None,
-    }
-
-
 def music_item_search_document(item: MusicItem) -> dict[str, Any]:
     release_date = item.release_date or item.original_release_date or item.recording_date
     return {
@@ -807,72 +769,6 @@ def music_item_search_document(item: MusicItem) -> dict[str, Any]:
         "language": None,
         "imprint": None,
         "subtitle": item.subtitle,
-        "series_group": None,
-        "age_rating": None,
-    }
-
-
-def music_release_search_document(release: MusicRelease) -> dict[str, Any]:
-    mediums = sorted(release.mediums or [], key=lambda row: (row.medium_number, str(row.id)))
-    primary_medium = mediums[0] if mediums else None
-    group = release.release_group
-    creators: list[str] = []
-    for contribution in sorted(
-        release.contributions or [],
-        key=lambda row: (row.sequence is None, row.sequence or 0, row.role.casefold(), str(row.id)),
-    ):
-        person_name = _optional_text(getattr(getattr(contribution, "person", None), "name", None))
-        if person_name:
-            _append_unique(creators, person_name)
-    if group is not None and group.artist:
-        _append_unique(creators, group.artist)
-
-    barcodes: list[str] = []
-    for value in (release.barcode, release.upc, release.catalog_number):
-        normalized = _optional_text(value)
-        if normalized:
-            _append_unique(barcodes, _normalized_barcode(normalized))
-    for identifier in release.identifiers or []:
-        value = _optional_text(identifier.value)
-        if value:
-            _append_unique(barcodes, _normalized_barcode(value))
-
-    variant_names: list[str] = []
-    for value in (release.release_type, getattr(primary_medium, "medium_type", None)):
-        normalized = _optional_text(value)
-        if normalized:
-            _append_unique(variant_names, normalized)
-
-    release_date = release.release_date
-    return {
-        "id": str(release.id),
-        "kind": ItemKind.music.value,
-        "title": release.title,
-        "item_number": primary_medium.title if primary_medium is not None else None,
-        "runtime_minutes": None,
-        "cover_image_url": release.cover_image_url or (group.cover_image_url if group else None),
-        "thumbnail_image_url": release.cover_image_url or (group.cover_image_url if group else None),
-        "publisher": release.publisher,
-        "release_date": release_date.isoformat() if release_date else None,
-        "region": release.country_code,
-        "release_year": release_date.year if release_date else None,
-        "barcode": barcodes[0] if barcodes else None,
-        "barcodes": barcodes,
-        "variant": variant_names[0] if variant_names else None,
-        "variant_names": variant_names,
-        "bundle_titles": [],
-        "bundle_release_ids": [],
-        "series_title": group.artist if group else None,
-        "volume_name": None,
-        "catalog_number": release.catalog_number,
-        "creators": creators,
-        "characters": [],
-        "story_arcs": [],
-        "platforms": [],
-        "release_status": release.release_status,
-        "language": release.language,
-        "imprint": None,
-        "subtitle": release.subtitle,
         "series_group": None,
         "age_rating": None,
     }
@@ -983,10 +879,6 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
         return boardgame_search_document(entity)
     if isinstance(entity, MusicItem):
         return music_item_search_document(entity)
-    if isinstance(entity, MusicReleaseGroup):
-        return music_release_group_search_document(entity)
-    if isinstance(entity, MusicRelease):
-        return music_release_search_document(entity)
     raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
 
 

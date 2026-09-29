@@ -23,6 +23,7 @@ from app.services.catalog_game_items import CatalogGameItemService
 from app.services.catalog_manga_items import CatalogMangaItemService
 from app.services.catalog_movie_items import CatalogMovieItemService
 from app.services.catalog_music_items import CatalogMusicItemService
+from app.services.catalog_series_items import CatalogAnimeItemService, CatalogTvItemService
 
 
 class CatalogItemProposalService:
@@ -98,7 +99,15 @@ class CatalogItemProposalService:
 
     async def approve(self, proposal_id: UUID) -> CatalogItemProposalResponse:
         proposal = await self._pending(proposal_id)
-        if proposal.kind is ItemKind.movie:
+        if proposal.kind is ItemKind.anime:
+            await CatalogAnimeItemService(self.db).create_from_proposal(
+                proposal.catalog_item
+            )
+        elif proposal.kind is ItemKind.tv:
+            await CatalogTvItemService(self.db).create_from_proposal(
+                proposal.catalog_item
+            )
+        elif proposal.kind is ItemKind.movie:
             await CatalogMovieItemService(self.db).create_from_proposal(
                 proposal.catalog_item
             )

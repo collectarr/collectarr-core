@@ -18,6 +18,7 @@ _KIND_ROOT_FIELDS: dict[ItemKind, frozenset[str]] = {
             "contributors",
             "characters",
             "character_details",
+            "identifiers",
             "seasons",
             "episodes",
             "discs",
@@ -150,6 +151,7 @@ _KIND_ROOT_FIELDS: dict[ItemKind, frozenset[str]] = {
             "contributors",
             "characters",
             "character_details",
+            "identifiers",
             "seasons",
             "episodes",
             "discs",
@@ -316,6 +318,42 @@ _MOVIE_MEDIA_FIELDS = frozenset(
         "layers",
         "audio_tracks",
         "subtitles",
+    }
+)
+_ANIME_MEDIA_FIELDS = frozenset(
+    {
+        "media_number",
+        "media_type",
+        "title",
+        "episode_count",
+        "runtime_minutes",
+        "region_code",
+        "encoding",
+        "aspect_ratio",
+        "audio_tracks",
+        "subtitles",
+        "resolution",
+        "hdr_format",
+    }
+)
+_TV_MEDIA_FIELDS = frozenset(
+    {
+        "media_number",
+        "media_type",
+        "title",
+        "episode_count",
+        "runtime_minutes",
+        "region_code",
+        "encoding",
+        "aspect_ratio",
+        "color",
+        "audio_tracks",
+        "subtitles",
+        "layers",
+        "frame_rate",
+        "bit_depth",
+        "resolution",
+        "hdr_format",
     }
 )
 _EPISODE_FIELDS = frozenset(
@@ -588,6 +626,10 @@ def _child_fields_for_kind(
             return _MUSIC_TRACK_FIELDS
     if kind is ItemKind.movie and key == "media":
         return _MOVIE_MEDIA_FIELDS
+    if kind is ItemKind.anime and key == "media":
+        return _ANIME_MEDIA_FIELDS
+    if kind is ItemKind.tv and key == "media":
+        return _TV_MEDIA_FIELDS
     return _CHILD_FIELDS.get(key)
 
 

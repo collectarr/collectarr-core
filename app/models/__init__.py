@@ -12,6 +12,7 @@ from app.models.canonical_manga_releases import *  # noqa: F401,F403
 from app.models.canonical_music import *  # noqa: F401,F403
 from app.models.canonical_support import *  # noqa: F401,F403
 from app.models.canonical_video import *  # noqa: F401,F403
+from app.models.catalog_anime_item import *  # noqa: F401,F403
 from app.models.catalog_boardgame_item import *  # noqa: F401,F403
 from app.models.catalog_book_item import *  # noqa: F401,F403
 from app.models.catalog_comic_item import *  # noqa: F401,F403
@@ -20,6 +21,7 @@ from app.models.catalog_item_proposal import *  # noqa: F401,F403
 from app.models.catalog_manga_item import *  # noqa: F401,F403
 from app.models.catalog_movie_item import *  # noqa: F401,F403
 from app.models.catalog_music_item import *  # noqa: F401,F403
+from app.models.catalog_tv_item import *  # noqa: F401,F403
 from app.models.entity_refs import *  # noqa: F401,F403
 from app.models.partial_date import *  # noqa: F401,F403
 from app.models.user import *  # noqa: F401,F403

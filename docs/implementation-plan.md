@@ -1,47 +1,56 @@
-# Collectarr Core — Implementation Plan
+# Catalog Cutover Status
 
-Core is the canonical metadata server. Provider adapters and importers run in
-`collectarr-app`; Core accepts the versioned normalized submission contract and
-persists typed kind-specific metadata.
+This document records the current Core/App cutover state. It is not a database
+reset or deployment instruction. Do not run a reset against an existing user
+database.
 
-## Completed
+## In place in Core
 
-- Split Core from the original monorepo.
-- Replaced generic catalog storage with typed kind-specific tables.
-- Added typed kind-specific catalog routes and contract exports.
-- Added normalized provider envelopes with provenance, attribution, and image
-  references.
-- Added admin metadata corrections, duplicate review, audit logs, and image
-  cache operations.
-- Added PostgreSQL-backed search with optional Meilisearch indexing.
+- Source-neutral flattened Catalog Item roots and kind-specific read/search
+  routes exist for all nine kinds.
+- User proposals are validated against the flattened kind schema and approved
+  proposals publish through kind-owned Catalog Item writers.
+- Root searches use bounded pagination; exact identifiers use indexed
+  identifier tables. Supported substring searches use PostgreSQL trigram
+  indexes.
+- Duplicate merge is disabled until App-owned references can be remapped in a
+  coordinated operation. Duplicate inspection and ignore records remain.
+- Core's pinned field contract is exported from its schema source. Music is
+  grounded in the saved CLZ Music Edit form; exact parity for the other kinds is
+  unverified pending their Edit-form captures.
 
-## Active Roadmap
+## Remaining coordinated work
 
-### Metadata contract and canonical writes
+1. Connect App Add/Edit, local catalog persistence, workspace, offline rows,
+   and owned-copy creation to the flattened Core roots while preserving the
+   existing UI.
+2. Move App's useful personal references and records to Catalog Item or owned
+   copy identities, and keep their sync in `collectarr-sync`.
+3. Replace App's active legacy cross-kind search with flat per-kind search and
+   retain the kind's own query filters and result presentation.
+4. After App no longer calls them, remove Core's old Work/Release routes,
+   serializers, search projections, and schema imports. Retain only genuine
+   kind-owned child entities.
+5. Review old database values and complete deterministic one-way migrations
+   from the recorded baseline. The SQL is not run by this implementation; do
+   not reset or migrate a live database.
+6. Refresh generated contracts and all three repositories' current-status and
+   fresh-database instructions after each coordinated schema milestone.
 
-- Expand typed field coverage for every active kind.
-- Keep normalized submissions and OpenAPI contracts aligned.
-- Add focused validation for provider provenance and relation writes.
-- Keep new HTTP contracts under the `/api/v1` composition root.
-- Accept provider-independent canonical correction proposals against an exact
-  `(kind, entity_type, entity_id, scope)` target with a base revision/hash.
-  Core validates field scope and canonical write target, but does not resolve
-  the entity or accept personal/Owned fields.
+The detailed legacy identity cases, migration invariants, field ledgers, and
+contract notes are in
+[`architecture/flattened-catalog-baseline.md`](architecture/flattened-catalog-baseline.md).
 
-### Admin operations
+## Verification
 
-- Duplicate merge endpoints are disabled. Core must not delete a catalog item
-  until every App-owned copy and personal-history reference can be remapped as
-  one coordinated operation. Duplicate inspection and ignore records remain
-  available while that safe remap is not implemented.
-- Continue deployment hardening for internet-facing installations.
+After a Core model, route, or contract change, run:
 
-### Schema explorer
+```powershell
+python -m scripts.export_contract_bundle --check
+python -m ruff check .
+python -m pytest
+```
 
-- Keep the interactive explorer separated into shared and kind-specific domains.
-- Add progressive disclosure for dense relation-heavy sections.
-
-### Scan-to-identify boundary
-
-- Keep comics cover recognition and scan-to-identify local-first in the app.
-- Core provides image storage and search primitives only.
+Contract generation without `--check` is an intentional source change and must
+be reviewed together with App's pinned artifact. Existing databases and old
+backup formats are not rewritten or deleted by these commands.

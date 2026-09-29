@@ -43,9 +43,6 @@ class MediaTypeResponse(BaseModel):
     singular_label: str
     plural_label: str
     route_segments: list[str]
-    default_provider: ExternalProvider | None = None
-    providers: list[ExternalProvider] = Field(default_factory=list)
-    provider_search_policy: str
     is_top_level: bool = True
     grouping_model: GroupingModel
     physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)

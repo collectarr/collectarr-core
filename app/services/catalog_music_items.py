@@ -143,6 +143,9 @@ class CatalogMusicItemService:
         barcode: str | None,
         artist: str | None = None,
         label: str | None = None,
+        subtitle: str | None = None,
+        country: str | None = None,
+        catalog_number: str | None = None,
         year: int | None = None,
         limit: int,
         offset: int,
@@ -158,6 +161,7 @@ class CatalogMusicItemService:
                 or_(
                     MusicItem.title.ilike(term),
                     MusicItem.artist.ilike(term),
+                    MusicItem.subtitle.ilike(term),
                     MusicItem.label.ilike(term),
                     MusicItem.catalog_number.ilike(term),
                     MusicItem.barcode == query.strip(),
@@ -167,6 +171,14 @@ class CatalogMusicItemService:
             stmt = stmt.where(MusicItem.artist.ilike(f"%{artist.strip()}%"))
         if label and label.strip():
             stmt = stmt.where(MusicItem.label.ilike(f"%{label.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(MusicItem.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(MusicItem.country.ilike(f"%{country.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(
+                MusicItem.catalog_number.ilike(f"%{catalog_number.strip()}%")
+            )
         if year is not None:
             stmt = stmt.where(
                 or_(

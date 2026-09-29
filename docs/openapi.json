@@ -2272,6 +2272,109 @@
             }
           },
           {
+            "name": "artist",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Artist"
+            }
+          },
+          {
+            "name": "label",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Label"
+            }
+          },
+          {
+            "name": "subtitle",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subtitle"
+            }
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Country"
+            }
+          },
+          {
+            "name": "catalog_number",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Catalog Number"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 2200,
+                  "minimum": 1800
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -4773,278 +4876,6 @@
         }
       }
     },
-    "/api/v1/metadata/music/release-groups/{group_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Release Group",
-        "operationId": "get_music_release_group_api_v1_metadata_music_release_groups__group_id__get",
-        "parameters": [
-          {
-            "name": "group_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Group Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicReleaseGroupV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/releases/{release_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Release",
-        "operationId": "get_music_release_api_v1_metadata_music_releases__release_id__get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicReleaseV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/releases/{release_id}/mediums": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Release Mediums",
-        "operationId": "get_music_release_mediums_api_v1_metadata_music_releases__release_id__mediums_get",
-        "parameters": [
-          {
-            "name": "release_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Release Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MusicMediumV1Response"
-                  },
-                  "title": "Response Get Music Release Mediums Api V1 Metadata Music Releases  Release Id  Mediums Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/mediums/{medium_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Medium",
-        "operationId": "get_music_medium_api_v1_metadata_music_mediums__medium_id__get",
-        "parameters": [
-          {
-            "name": "medium_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Medium Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicMediumV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/mediums/{medium_id}/tracks": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Medium Tracks",
-        "operationId": "get_music_medium_tracks_api_v1_metadata_music_mediums__medium_id__tracks_get",
-        "parameters": [
-          {
-            "name": "medium_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Medium Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MusicTrackV1Response"
-                  },
-                  "title": "Response Get Music Medium Tracks Api V1 Metadata Music Mediums  Medium Id  Tracks Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/metadata/music/tracks/{track_id}": {
-      "get": {
-        "tags": [
-          "metadata",
-          "metadata"
-        ],
-        "summary": "Get Music Track",
-        "operationId": "get_music_track_api_v1_metadata_music_tracks__track_id__get",
-        "parameters": [
-          {
-            "name": "track_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Track Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MusicTrackV1Response"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/admin/catalog/summary": {
       "get": {
         "tags": [
@@ -6205,58 +6036,6 @@
           }
         }
       }
-    },
-    "/api/v1/admin/image-cache/stats": {
-      "get": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Image Cache Stats",
-        "operationId": "image_cache_stats_api_v1_admin_image_cache_stats_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImageCacheStatsResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/admin/image-cache/purge": {
-      "post": {
-        "tags": [
-          "admin"
-        ],
-        "summary": "Purge Image Cache",
-        "operationId": "purge_image_cache_api_v1_admin_image_cache_purge_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ImageCachePurgeResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
     }
   },
   "components": {
@@ -6365,10 +6144,6 @@
             "type": "integer",
             "title": "Image Assets"
           },
-          "image_cache_entries": {
-            "type": "integer",
-            "title": "Image Cache Entries"
-          },
           "pending_proposals": {
             "type": "integer",
             "title": "Pending Proposals"
@@ -6390,7 +6165,6 @@
           "editions",
           "variants",
           "image_assets",
-          "image_cache_entries",
           "pending_proposals",
           "missing_cover_items",
           "duplicate_candidate_groups"
@@ -17598,52 +17372,6 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "ImageCachePurgeResponse": {
-        "properties": {
-          "deleted_entries": {
-            "type": "integer",
-            "title": "Deleted Entries"
-          },
-          "freed_bytes": {
-            "type": "integer",
-            "title": "Freed Bytes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "deleted_entries",
-          "freed_bytes"
-        ],
-        "title": "ImageCachePurgeResponse"
-      },
-      "ImageCacheStatsResponse": {
-        "properties": {
-          "total_entries": {
-            "type": "integer",
-            "title": "Total Entries"
-          },
-          "total_size_bytes": {
-            "type": "integer",
-            "title": "Total Size Bytes"
-          },
-          "max_size_bytes": {
-            "type": "integer",
-            "title": "Max Size Bytes"
-          },
-          "usage_percent": {
-            "type": "number",
-            "title": "Usage Percent"
-          }
-        },
-        "type": "object",
-        "required": [
-          "total_entries",
-          "total_size_bytes",
-          "max_size_bytes",
-          "usage_percent"
-        ],
-        "title": "ImageCacheStatsResponse"
-      },
       "ItemKind": {
         "type": "string",
         "enum": [
@@ -18486,27 +18214,6 @@
             "type": "array",
             "title": "Route Segments"
           },
-          "default_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "providers": {
-            "items": {
-              "$ref": "#/components/schemas/ExternalProvider"
-            },
-            "type": "array",
-            "title": "Providers"
-          },
-          "provider_search_policy": {
-            "type": "string",
-            "title": "Provider Search Policy"
-          },
           "is_top_level": {
             "type": "boolean",
             "title": "Is Top Level",
@@ -18529,7 +18236,6 @@
           "singular_label",
           "plural_label",
           "route_segments",
-          "provider_search_policy",
           "grouping_model"
         ],
         "title": "MediaTypeResponse"
@@ -19301,1096 +19007,6 @@
           "title"
         ],
         "title": "MovieWorkV1Response"
-      },
-      "MusicArtistCreditResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "artist_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Artist Id"
-          },
-          "credited_name": {
-            "type": "string",
-            "title": "Credited Name"
-          },
-          "join_phrase": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Join Phrase"
-          },
-          "sequence": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sequence"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "credited_name"
-        ],
-        "title": "MusicArtistCreditResponse"
-      },
-      "MusicContributorResponse": {
-        "properties": {
-          "person_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Person Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "role": {
-            "type": "string",
-            "title": "Role"
-          },
-          "sequence": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sequence"
-          },
-          "image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Url"
-          },
-          "role_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "person_id",
-          "name",
-          "role"
-        ],
-        "title": "MusicContributorResponse"
-      },
-      "MusicIdentifierResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "identifier_type": {
-            "type": "string",
-            "title": "Identifier Type"
-          },
-          "value": {
-            "type": "string",
-            "title": "Value"
-          },
-          "normalized_value": {
-            "type": "string",
-            "title": "Normalized Value"
-          },
-          "is_primary": {
-            "type": "boolean",
-            "title": "Is Primary"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "identifier_type",
-          "value",
-          "normalized_value",
-          "is_primary"
-        ],
-        "title": "MusicIdentifierResponse"
-      },
-      "MusicMediumV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "release_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Release Id"
-          },
-          "medium_number": {
-            "type": "integer",
-            "title": "Medium Number"
-          },
-          "medium_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Medium Type"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Count"
-          },
-          "expected_track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Track Count"
-          },
-          "missing_track_count": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Missing Track Count"
-          },
-          "missing_track_positions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Track Positions"
-          },
-          "toc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Toc"
-          },
-          "cddb_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cddb Id"
-          },
-          "leadout_offset": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Leadout Offset"
-          },
-          "bp_disc_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bp Disc Id"
-          },
-          "sound_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sound Type"
-          },
-          "vinyl_color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vinyl Color"
-          },
-          "vinyl_weight": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vinyl Weight"
-          },
-          "rpm": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rpm"
-          },
-          "spars": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spars"
-          },
-          "tracks": {
-            "items": {
-              "$ref": "#/components/schemas/MusicTrackV1Response"
-            },
-            "type": "array",
-            "title": "Tracks"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "release_id",
-          "medium_number"
-        ],
-        "title": "MusicMediumV1Response"
-      },
-      "MusicReleaseGroupV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "sort_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Title"
-          },
-          "original_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Original Title"
-          },
-          "artist": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Artist"
-          },
-          "original_release_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Original Release Date"
-          },
-          "original_release_date_parts": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PartialDateValue"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "recording_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Recording Date"
-          },
-          "recording_date_parts": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PartialDateValue"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "studio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Studio"
-          },
-          "is_live": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is Live"
-          },
-          "genres": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Genres"
-          },
-          "artist_credits": {
-            "items": {
-              "$ref": "#/components/schemas/MusicArtistCreditResponse"
-            },
-            "type": "array",
-            "title": "Artist Credits"
-          },
-          "cover_image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Url"
-          },
-          "cover_image_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Key"
-          },
-          "external_links": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "External Links"
-          },
-          "releases": {
-            "items": {
-              "$ref": "#/components/schemas/MusicReleaseSummaryV1Response"
-            },
-            "type": "array",
-            "title": "Releases"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "title"
-        ],
-        "title": "MusicReleaseGroupV1Response"
-      },
-      "MusicReleaseLabelResponse": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "label_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label Id"
-          },
-          "label_name": {
-            "type": "string",
-            "title": "Label Name"
-          },
-          "catalog_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Catalog Number"
-          },
-          "sequence": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sequence"
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "label_name"
-        ],
-        "title": "MusicReleaseLabelResponse"
-      },
-      "MusicReleaseSummaryV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "release_group_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Release Group Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "release_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Date"
-          },
-          "release_date_parts": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PartialDateValue"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "release_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Status"
-          },
-          "medium_types": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Medium Types"
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher"
-          },
-          "barcode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Barcode"
-          },
-          "catalog_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Catalog Number"
-          },
-          "cover_image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "release_group_id",
-          "title"
-        ],
-        "title": "MusicReleaseSummaryV1Response"
-      },
-      "MusicReleaseV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "release_group_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Release Group Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "sort_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sort Title"
-          },
-          "subtitle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtitle"
-          },
-          "release_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Type"
-          },
-          "release_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Status"
-          },
-          "release_date": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Release Date"
-          },
-          "release_date_parts": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PartialDateValue"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "publisher": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Publisher"
-          },
-          "upc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Upc"
-          },
-          "catalog_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Catalog Number"
-          },
-          "barcode": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Barcode"
-          },
-          "country_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Country Code"
-          },
-          "language": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Language"
-          },
-          "packaging": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Packaging"
-          },
-          "cover_image_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Url"
-          },
-          "cover_image_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Image Key"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/ItemKind",
-            "default": "music"
-          },
-          "mediums": {
-            "items": {
-              "$ref": "#/components/schemas/MusicMediumV1Response"
-            },
-            "type": "array",
-            "title": "Mediums"
-          },
-          "contributions": {
-            "items": {
-              "$ref": "#/components/schemas/MusicContributorResponse"
-            },
-            "type": "array",
-            "title": "Contributions"
-          },
-          "artist_credits": {
-            "items": {
-              "$ref": "#/components/schemas/MusicArtistCreditResponse"
-            },
-            "type": "array",
-            "title": "Artist Credits"
-          },
-          "labels": {
-            "items": {
-              "$ref": "#/components/schemas/MusicReleaseLabelResponse"
-            },
-            "type": "array",
-            "title": "Labels"
-          },
-          "identifiers": {
-            "items": {
-              "$ref": "#/components/schemas/MusicIdentifierResponse"
-            },
-            "type": "array",
-            "title": "Identifiers"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "release_group_id",
-          "title"
-        ],
-        "title": "MusicReleaseV1Response"
-      },
-      "MusicTrackV1Response": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "medium_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Medium Id"
-          },
-          "position": {
-            "type": "string",
-            "title": "Position"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "artist": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Artist"
-          },
-          "is_header": {
-            "type": "boolean",
-            "title": "Is Header",
-            "default": false
-          },
-          "indent_level": {
-            "type": "integer",
-            "title": "Indent Level",
-            "default": 0
-          },
-          "parent_header_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Header Id"
-          },
-          "duration_ms": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Duration Ms"
-          },
-          "offset_ms": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Offset Ms"
-          },
-          "bitrate_kbps": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bitrate Kbps"
-          },
-          "file_size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size Bytes"
-          },
-          "track_hash": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Hash"
-          },
-          "recording_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Recording Id"
-          },
-          "instrument": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instrument"
-          },
-          "composition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Composition"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "medium_id",
-          "position",
-          "title"
-        ],
-        "title": "MusicTrackV1Response"
       },
       "PartialDateValue": {
         "properties": {
@@ -22523,7 +21139,7 @@
     },
     {
       "name": "admin",
-      "description": "Administration and provider management"
+      "description": "Catalog and user administration"
     }
   ]
 }

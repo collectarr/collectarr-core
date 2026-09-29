@@ -13,11 +13,11 @@ from app.models import (
     GameWork,
     MangaWork,
     MovieWork,
-    MusicReleaseGroup,
     TVRelease,
 )
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult, public_item_kind
+from app.services.catalog_music_items import CatalogMusicItemService
 
 
 class MetadataSearchService:
@@ -64,6 +64,19 @@ class MetadataSearchService:
         ):
             return []
 
+        if kind is ItemKind.music:
+            return await self._search_music_items(
+                query=query,
+                artist=series,
+                label=publisher,
+                subtitle=subtitle,
+                country=country,
+                catalog_number=catalog_number,
+                year=year,
+                barcode=barcode,
+                limit=limit,
+            )
+
         meili_results = await self.service.search_client.search(
             query=query or "",
             kind=kind,
@@ -83,10 +96,26 @@ class MetadataSearchService:
             limit=limit,
         )
         if meili_results is not None and not barcode:
-            return [
+            results = [
                 SearchResult(**{**result, "kind": public_item_kind(result.get("kind"))})
                 for result in meili_results
             ]
+            if kind is None:
+                results = [result for result in results if result.kind is not ItemKind.music]
+                results.extend(
+                    await self._search_music_items(
+                        query=query,
+                        artist=series,
+                        label=publisher,
+                        subtitle=subtitle,
+                        country=country,
+                        catalog_number=catalog_number,
+                        year=year,
+                        barcode=None,
+                        limit=limit,
+                    )
+                )
+            return results[:limit]
         if kind == ItemKind.comic:
             comic_results = await self.service._search_comic_works(
                 query=query,
@@ -165,21 +194,6 @@ class MetadataSearchService:
             )
             if anime_results:
                 return anime_results
-        if kind == ItemKind.music:
-            music_results = await self.service._search_music_releases(
-                query=query,
-                publisher=publisher,
-                subtitle=subtitle,
-                language=language,
-                country=country,
-                release_status=release_status,
-                year=year,
-                barcode=barcode,
-                catalog_number=catalog_number,
-                limit=limit,
-            )
-            if music_results:
-                return music_results
         if kind == ItemKind.boardgame:
             boardgame_results = await self.service._search_boardgame_works(
                 query=query,
@@ -290,18 +304,6 @@ class MetadataSearchService:
                     barcode=barcode,
                     limit=limit,
                 ),
-                await self.service._search_music_releases(
-                    query=query,
-                    publisher=publisher,
-                    subtitle=subtitle,
-                    language=language,
-                    country=country,
-                    release_status=release_status,
-                    year=year,
-                    barcode=barcode,
-                    catalog_number=catalog_number,
-                    limit=limit,
-                ),
                 await self.service._search_boardgame_works(
                     query=query,
                     publisher=publisher,
@@ -339,6 +341,19 @@ class MetadataSearchService:
                 ),
             ):
                 results.extend(batch)
+            results.extend(
+                await self._search_music_items(
+                    query=query,
+                    artist=series,
+                    label=publisher,
+                    subtitle=subtitle,
+                    country=country,
+                    catalog_number=catalog_number,
+                    year=year,
+                    barcode=barcode,
+                    limit=limit,
+                )
+            )
             deduped: list[SearchResult] = []
             seen: set[tuple[ItemKind, UUID]] = set()
             for result in results:
@@ -372,9 +387,19 @@ class MetadataSearchService:
             if series is not None:
                 return self.service._anime_search_result(series)
         if kind == ItemKind.music:
-            release = await self.service._music_release_by_barcode(barcode)
-            if release is not None:
-                return self.service._music_search_result(release)
+            results = await self._search_music_items(
+                query=None,
+                artist=None,
+                label=None,
+                subtitle=None,
+                country=None,
+                catalog_number=None,
+                year=None,
+                barcode=barcode,
+                limit=1,
+            )
+            if results:
+                return results[0]
         if kind == ItemKind.boardgame:
             work = await self.service._boardgame_work_by_barcode(barcode)
             if work is not None:
@@ -394,7 +419,6 @@ class MetadataSearchService:
                 self.service._movie_work_by_barcode,
                 self.service._tv_release_by_barcode,
                 self.service._anime_series_by_barcode,
-                self.service._music_release_by_barcode,
                 self.service._boardgame_work_by_barcode,
                 self.service._game_work_by_barcode,
                 self.service._manga_work_by_barcode,
@@ -413,16 +437,88 @@ class MetadataSearchService:
                     return self.service._tv_search_result(match)
                 if isinstance(match, AnimeSeries):
                     return self.service._anime_search_result(match)
-                if isinstance(match, MusicReleaseGroup):
-                    return self.service._music_search_result(match)
                 if isinstance(match, BoardGameWork):
                     return self.service._boardgame_search_result(match)
                 if isinstance(match, GameWork):
                     return self.service._game_search_result(match)
                 if isinstance(match, MangaWork):
                     return self.service._manga_search_result(match)
+            results = await self._search_music_items(
+                query=None,
+                artist=None,
+                label=None,
+                subtitle=None,
+                country=None,
+                catalog_number=None,
+                year=None,
+                barcode=barcode,
+                limit=1,
+            )
+            if results:
+                return results[0]
         raise ApiHTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             code="barcode_not_found",
             detail="Barcode not found",
         )
+
+    async def _search_music_items(
+        self,
+        *,
+        query: str | None,
+        artist: str | None,
+        label: str | None,
+        subtitle: str | None,
+        country: str | None,
+        catalog_number: str | None,
+        year: int | None,
+        barcode: str | None,
+        limit: int,
+    ) -> list[SearchResult]:
+        items = await CatalogMusicItemService(self.service.db).search(
+            query=query,
+            barcode=barcode,
+            artist=artist,
+            label=label,
+            subtitle=subtitle,
+            country=country,
+            catalog_number=catalog_number,
+            year=year,
+            limit=limit,
+            offset=0,
+        )
+        results: list[SearchResult] = []
+        for item in items:
+            discs = sorted(item.discs, key=lambda disc: disc.disc_number)
+            tracks = [
+                {
+                    "position": track.position,
+                    "title": track.title,
+                    "artist": track.artist,
+                    "duration_ms": track.duration_ms,
+                    "disc_number": disc.disc_number,
+                }
+                for disc in discs
+                for track in sorted(disc.tracks, key=lambda row: row.position_order)
+            ]
+            release_date = item.release_date or item.original_release_date
+            results.append(
+                SearchResult(
+                    id=item.id,
+                    kind=ItemKind.music,
+                    title=item.title,
+                    cover_image_url=item.cover_image_url,
+                    thumbnail_image_url=item.thumbnail_image_url,
+                    artist=item.artist,
+                    publisher=item.label,
+                    release_date=release_date,
+                    release_year=release_date.year if release_date is not None else None,
+                    barcode=item.barcode,
+                    catalog_number=item.catalog_number,
+                    country=item.country,
+                    track_count=len(tracks),
+                    tracks=tracks or None,
+                    genres=item.genres,
+                )
+            )
+        return results

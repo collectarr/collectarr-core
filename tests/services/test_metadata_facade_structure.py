@@ -13,7 +13,6 @@ def test_metadata_facade_is_thin_and_uses_response_builders():
         "metadata_builders_manga.py": ["_manga_series_response", "_manga_chapter_response", "_manga_work_response"],
         "metadata_builders_anime.py": ["_anime_series_response", "_anime_episode_response", "_anime_contributor_response"],
         "metadata_builders_movies.py": ["_movie_work_response", "_movie_release_response", "_movie_release_media_response"],
-        "metadata_builders_music.py": ["_music_release_response", "_music_media_response", "_music_track_response"],
         "metadata_builders_tv.py": ["_tv_series_response", "_tv_season_response", "_tv_episode_response"],
     }
     for filename, markers in builder_files.items():

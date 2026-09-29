@@ -27,11 +27,9 @@ CONTRACT_VERSION = "2.0.0"
 CATALOG_ITEM_CONTRACT_VERSION = "1.0.0"
 
 MUSIC_CATALOG_SCHEMAS = {
-    "releaseGroup": "MusicReleaseGroupV1Response",
-    "releaseSummary": "MusicReleaseSummaryV1Response",
-    "release": "MusicReleaseV1Response",
-    "medium": "MusicMediumV1Response",
-    "track": "MusicTrackV1Response",
+    "item": "CatalogMusicItemResponse",
+    "disc": "CatalogMusicDiscResponse",
+    "track": "CatalogMusicTrackResponse",
 }
 
 
@@ -88,7 +86,7 @@ def _music_catalog_contract(openapi: dict[str, Any], generated_at: str) -> dict[
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://schemas.collectarr.app/music-catalog/v1",
-        "title": "Collectarr Music Catalog API Graph",
+        "title": "Collectarr Flattened Music Catalog Item",
         "schemaVersion": 1,
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,

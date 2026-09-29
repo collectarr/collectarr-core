@@ -500,8 +500,8 @@ def _root_fields_for_kind(
     root_fields.update(_COMMON_ROOT_FIELDS)
     root_fields.update(_KIND_ROOT_FIELDS[kind])
     if kind is ItemKind.music:
-        # Music v1 is grounded in the saved CLZ form. Do not inherit obsolete
-        # release-group/provider fields from the transitional metadata registry.
+        # Music v1 is grounded in the saved CLZ form. Use its explicit catalog
+        # field set instead of inheriting unrelated registry fields.
         return {
             "title",
             "release_date",

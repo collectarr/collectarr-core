@@ -22,7 +22,6 @@ from . import (
     games,
     manga,
     movies,
-    music,
     proposals,
     search,
     tv,
@@ -53,7 +52,6 @@ for child_router in (
     tv.router,
     games.router,
     boardgames.router,
-    music.router,
 ):
     if child_router is not field_schema.router:
         router.include_router(child_router)

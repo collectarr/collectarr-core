@@ -59,6 +59,7 @@ _KIND_ROOT_FIELDS: dict[ItemKind, frozenset[str]] = {
             "characters",
             "character_details",
             "story_arcs",
+            "identifiers",
             "series_title",
             "volume_name",
             "issue_number",

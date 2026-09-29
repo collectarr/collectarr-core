@@ -18,6 +18,7 @@ from app.schemas.catalog_item_proposals import (
 )
 from app.services.catalog_boardgame_items import CatalogBoardGameItemService
 from app.services.catalog_book_items import CatalogBookItemService
+from app.services.catalog_comic_items import CatalogComicItemService
 from app.services.catalog_game_items import CatalogGameItemService
 from app.services.catalog_manga_items import CatalogMangaItemService
 from app.services.catalog_movie_items import CatalogMovieItemService
@@ -115,6 +116,10 @@ class CatalogItemProposalService:
             )
         elif proposal.kind is ItemKind.manga:
             await CatalogMangaItemService(self.db).create_from_proposal(
+                proposal.catalog_item
+            )
+        elif proposal.kind is ItemKind.comic:
+            await CatalogComicItemService(self.db).create_from_proposal(
                 proposal.catalog_item
             )
         elif proposal.kind is ItemKind.music:

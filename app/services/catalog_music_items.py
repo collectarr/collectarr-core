@@ -48,7 +48,6 @@ class CatalogMusicItemService:
             ).strip()
             or None
         )
-        studios = _string_values(item_payload.get("studios"))
         item = MusicItem(
             title=title.strip(),
             sort_title=_optional_string(item_payload.get("sort_title")),
@@ -77,8 +76,7 @@ class CatalogMusicItemService:
             catalog_number=_optional_string(item_payload.get("catalog_number")),
             genres=_string_values(item_payload.get("genres")),
             packaging=_optional_string(item_payload.get("packaging")),
-            studio=studios[0] if studios else None,
-            studios=studios,
+            studio=_optional_string(item_payload.get("studio")),
             country=_optional_string(item_payload.get("country")),
             is_live=item_payload.get("is_live")
             if isinstance(item_payload.get("is_live"), bool)

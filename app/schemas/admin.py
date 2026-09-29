@@ -67,7 +67,6 @@ class AdminMetadataCorrectionRequest(BaseModel):
     format: str | None = Field(default=None, max_length=100)
     packaging: str | None = Field(default=None, max_length=100)
     studio: str | None = Field(default=None, max_length=255)
-    studios: list[str] | None = None
     is_live: bool | None = None
     sound_types: list[str] | None = None
     vinyl_color: str | None = Field(default=None, max_length=100)

@@ -6,28 +6,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.catalog.grouping_models import GroupingModel
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
-
-
-class ProviderSearchResultResponse(BaseModel):
-    provider: ExternalProvider
-    provider_item_id: str
-    title: str
-    kind: ItemKind
-    summary: str | None = None
-    image_url: str | None = None
-    candidate_type: str | None = None
-    artist: str | None = None
-    series_title: str | None = None
-    issue_number: str | None = None
-    volume_start_year: int | None = None
-    variant_name: str | None = None
-    is_variant: bool | None = None
-    issue_count: int | None = None
-    publisher: str | None = None
-    character_preview: list[str] = Field(default_factory=list)
-    story_arc_preview: list[str] = Field(default_factory=list)
 
 
 class PhysicalFormatResponse(BaseModel):
@@ -94,29 +74,6 @@ class MetadataFieldSchemaResponse(BaseModel):
     fields: list[MetadataFieldSpecResponse]
     kind_fields: dict[ItemKind, list[str]]
     sections: list[str] = Field(default_factory=list)
-
-
-class EpisodeResponse(BaseModel):
-    episode_number: int
-    title: str
-    provider_item_id: str | None = None
-    overview: str | None = None
-    air_date: date | None = None
-    air_date_parts: PartialDateValue | None = None
-    runtime_minutes: int | None = None
-    page_count: int | None = None
-
-
-class SeasonResponse(BaseModel):
-    season_number: int
-    title: str
-    provider_item_id: str | None = None
-    overview: str | None = None
-    air_date: date | None = None
-    air_date_parts: PartialDateValue | None = None
-    episode_count: int | None = None
-    poster_url: str | None = None
-    episodes: list[EpisodeResponse] = Field(default_factory=list)
 
 
 class StoryArcResponse(BaseModel):

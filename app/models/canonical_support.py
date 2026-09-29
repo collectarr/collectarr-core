@@ -341,28 +341,6 @@ class ImageAsset(UuidMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
-class ImageCacheEntry(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "image_cache_entries"
-    __table_args__ = (
-        UniqueConstraint("object_key", name="uq_image_cache_object_key"),
-        Index("ix_image_cache_provider_source", "provider", "source_url"),
-        Index("ix_image_cache_last_accessed", "last_accessed_at"),
-    )
-
-    provider: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    source_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    object_key: Mapped[str] = mapped_column(String(512), nullable=False)
-    public_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    width: Mapped[int] = mapped_column(Integer, nullable=False)
-    height: Mapped[int] = mapped_column(Integer, nullable=False)
-    content_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    access_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-
 class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
     __tablename__ = "provider_ingest_jobs"
     __table_args__ = (

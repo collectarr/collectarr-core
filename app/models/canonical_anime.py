@@ -36,7 +36,6 @@ from app.models.canonical_support import (  # noqa: F401
     EntityTag,
     ExternalProviderId,
     ImageAsset,
-    ImageCacheEntry,
     MangaSeriesRelation,
     Organization,
     Person,

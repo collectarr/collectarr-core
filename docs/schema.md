@@ -52,7 +52,6 @@ Shared typed relation tables include:
 - `entity_links`: trailers and external links.
 - `entity_tags` and `tags`: shared editorial taxonomy assignments.
 - `image_assets`: cover/poster/banner/background image references in object storage.
-- `image_cache_entries`: provider image cache index.
 - `external_provider_ids`: provider-to-canonical entity mappings.
 - `provider_payload_snapshots` and `provider_payload_snapshot_values`: provider provenance plus
   optionally retained source/normalized payload values in typed path/value rows.

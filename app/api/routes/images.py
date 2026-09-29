@@ -15,7 +15,7 @@ from app.api.deps import CurrentAdmin, DbSession
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
-from app.models import ImageAsset, ImageCacheEntry
+from app.models import ImageAsset
 from app.storage.client import ObjectStorage
 from app.storage.images import ImageMirror
 
@@ -178,10 +178,6 @@ async def _authorized_image_object_keys(db: DbSession, object_keys: list[str]) -
         if thumbnail_storage_key in normalized:
             authorized.add(thumbnail_storage_key)
 
-    cache_rows = await db.scalars(
-        select(ImageCacheEntry.object_key).where(ImageCacheEntry.object_key.in_(normalized))
-    )
-    authorized.update(cache_rows)
     return authorized
 
 
@@ -343,8 +339,7 @@ async def delete_image(
             code="image_not_found",
             detail="Image asset not found",
         )
-    # Don't delete the S3 object — it may be referenced by ImageCacheEntry or
-    # another entity.  Orphan cleanup can be done separately.
+    # Keep the object for retention; orphan cleanup can be handled separately.
     await db.delete(asset)
     await db.commit()
 

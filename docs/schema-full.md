@@ -755,38 +755,6 @@ Image storage, cache tracking, ingest jobs, admin audit trails, and proposal wor
 - Foreign keys: none
 - Note: Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.
 
-### image_cache_entries
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| provider | VARCHAR(64) | no | no | no | yes | - | - | - |
-| provider_item_id | VARCHAR(255) | yes | no | no | yes | - | - | - |
-| source_url | VARCHAR(1024) | no | no | no | no | - | - | - |
-| object_key | VARCHAR(512) | no | no | yes | no | - | - | - |
-| public_url | VARCHAR(1024) | no | no | no | no | - | - | - |
-| mime_type | VARCHAR(64) | no | no | no | no | - | - | - |
-| size_bytes | INTEGER | no | no | no | no | - | - | - |
-| width | INTEGER | no | no | no | no | - | - | - |
-| height | INTEGER | no | no | no | no | - | - | - |
-| content_hash | VARCHAR(128) | no | no | no | yes | - | - | - |
-| access_count | INTEGER | no | no | no | no | 1 | - | - |
-| last_accessed_at | TIMESTAMP WITH TIME ZONE | no | no | no | yes | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_image_cache_object_key`: `object_key`
-- Index `ix_image_cache_entries_content_hash` (non-unique): `content_hash`
-- Index `ix_image_cache_entries_provider` (non-unique): `provider`
-- Index `ix_image_cache_entries_provider_item_id` (non-unique): `provider_item_id`
-- Index `ix_image_cache_last_accessed` (non-unique): `last_accessed_at`
-- Index `ix_image_cache_provider_source` (non-unique): `provider, source_url`
-- Check constraints: none
-- Foreign keys: none
-
 ### provider_ingest_jobs
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |

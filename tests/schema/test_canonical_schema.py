@@ -88,7 +88,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "tags",
             "entity_tags",
             "image_assets",
-            "image_cache_entries",
             "admin_audit_logs",
             "admin_audit_log_details",
             "duplicate_review_entities",

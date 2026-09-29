@@ -108,7 +108,6 @@ class AdminCatalogSummaryResponse(BaseModel):
     editions: int
     variants: int
     image_assets: int
-    image_cache_entries: int
     pending_proposals: int
     missing_cover_items: int
     duplicate_candidate_groups: int
@@ -248,15 +247,3 @@ class UserUpdateRequest(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
     display_name: str | None = None
-
-
-class ImageCacheStatsResponse(BaseModel):
-    total_entries: int
-    total_size_bytes: int
-    max_size_bytes: int
-    usage_percent: float
-
-
-class ImageCachePurgeResponse(BaseModel):
-    deleted_entries: int
-    freed_bytes: int

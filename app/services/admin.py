@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 from uuid import UUID
 
@@ -23,21 +22,16 @@ from app.schemas.admin import (
     AdminSearchHistoryEntry,
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
-    ImageCachePurgeResponse,
-    ImageCacheStatsResponse,
     UserResponse,
     UserUpdateRequest,
 )
 from app.search.client import SearchClient
 from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.duplicates import AdminDuplicateService
-from app.services.admin_domains.image_cache import AdminImageCacheService
 from app.services.admin_domains.overview import AdminOverviewService
 from app.services.admin_domains.shared import character_role_rank, sort_key
 from app.services.admin_domains.support import AdminSupportService
 from app.services.admin_domains.users import AdminUserService
-
-logger = logging.getLogger(__name__)
 
 
 class AdminMetadataService:
@@ -72,11 +66,6 @@ class AdminMetadataService:
             duplicate_group_count=self.duplicates_admin.duplicate_group_count,
         )
         self.user_admin = AdminUserService(db, self.support.record_admin_audit)
-        self.image_cache_admin = AdminImageCacheService(
-            db,
-            self.support.record_admin_audit,
-            logger,
-        )
 
     async def catalog_summary(self) -> AdminCatalogSummaryResponse:
         return await self.overview_admin.catalog_summary()
@@ -177,9 +166,3 @@ class AdminMetadataService:
         payload: UserUpdateRequest,
     ) -> UserResponse:
         return await self.user_admin.update_user(user_id, payload)
-
-    async def image_cache_stats(self) -> ImageCacheStatsResponse:
-        return await self.image_cache_admin.image_cache_stats()
-
-    async def purge_image_cache(self) -> ImageCachePurgeResponse:
-        return await self.image_cache_admin.purge_image_cache()

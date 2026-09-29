@@ -35,7 +35,6 @@ from app.models import (
     GameRelease,
     GameWork,
     ImageAsset,
-    ImageCacheEntry,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -136,7 +135,6 @@ class AdminOverviewService:
                 + await self._count(MusicTrack)
             ),
             image_assets=await self._count_image_assets(),
-            image_cache_entries=await self._count(ImageCacheEntry),
             pending_proposals=await self._count_pending_proposals(),
             missing_cover_items=await self._count_missing_cover_items(),
             duplicate_candidate_groups=duplicate_groups,

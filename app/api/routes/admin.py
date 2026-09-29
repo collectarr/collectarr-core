@@ -19,8 +19,6 @@ from app.schemas.admin import (
     AdminSearchReindexResponse,
     AdminSearchStatusResponse,
     CatalogItemProposalSummaryResponse,
-    ImageCachePurgeResponse,
-    ImageCacheStatsResponse,
     UserResponse,
     UserUpdateRequest,
 )
@@ -271,19 +269,3 @@ async def update_user(
     user: CurrentAdmin,
 ) -> UserResponse:
     return await AdminMetadataService(db, user).update_user(user_id, payload)
-
-
-@router.get("/image-cache/stats", response_model=ImageCacheStatsResponse)
-async def image_cache_stats(
-    db: DbSession,
-    _reader: CurrentAdminReader,
-) -> ImageCacheStatsResponse:
-    return await AdminMetadataService(db).image_cache_stats()
-
-
-@router.post("/image-cache/purge", response_model=ImageCachePurgeResponse)
-async def purge_image_cache(
-    db: DbSession,
-    user: CurrentAdmin,
-) -> ImageCachePurgeResponse:
-    return await AdminMetadataService(db, user).purge_image_cache()

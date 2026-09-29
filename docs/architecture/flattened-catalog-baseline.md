@@ -85,6 +85,12 @@ Core defines a typed `BoardGameItem` root in `boardgame_items`, with canonical e
 
 All nine kinds now have flattened Core roots and proposal publication paths. Existing Work/Release APIs and tables remain mounted until the coordinated App flows move to the flat roots.
 
+## Catalog search indexes
+
+The flattened root search endpoints use bounded `limit` and `offset` pagination. Title and sort-key substring filters use PostgreSQL `ILIKE '%term%'`; GIN trigram indexes support those filters without changing result semantics. Music also indexes artist and label substring searches. Exact identifiers continue to use the indexed identifier child tables, and barcode columns retain their B-tree indexes.
+
+`pg_trgm` is enabled by `app.scripts.bootstrap_schema` and `app.scripts.seed_full` before model creation. Existing databases with flattened item tables need the additive `migrations/20260930_catalog_item_trigram_search.sql` migration to receive the new indexes; it is safe to re-run. This migration has not been executed here. Very short search terms can still be less selective, and the legacy cross-kind `/search` path has not yet moved to the flattened roots.
+
 ## Flattened Game root staging
 
 Core defines a typed `GameItem` root in `game_items`, with source-neutral canonical identifiers in `game_item_identifiers`. Each legacy Release keeps its UUID as the item ID; Work fields and release-specific platform, region, format, publisher, barcode, and date fields are combined into the flat item. A Work without Releases remains a standalone root. `/metadata/games/items` provides bounded pagination and exact barcode or identifier lookup. Game proposals publish through this writer when approved.

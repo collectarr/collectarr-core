@@ -19,7 +19,31 @@ class MusicItem(UuidMixin, TimestampMixin, Base):
     __tablename__ = "music_items"
     __table_args__ = (
         Index("ix_music_items_title", "title"),
+        Index(
+            "ix_music_items_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
         Index("ix_music_items_sort_title", "sort_title"),
+        Index(
+            "ix_music_items_sort_title_trgm",
+            "sort_title",
+            postgresql_using="gin",
+            postgresql_ops={"sort_title": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_music_items_artist_trgm",
+            "artist",
+            postgresql_using="gin",
+            postgresql_ops={"artist": "gin_trgm_ops"},
+        ),
+        Index(
+            "ix_music_items_label_trgm",
+            "label",
+            postgresql_using="gin",
+            postgresql_ops={"label": "gin_trgm_ops"},
+        ),
         Index("ix_music_items_barcode", "barcode"),
         Index("ix_music_items_catalog_number", "catalog_number"),
     )

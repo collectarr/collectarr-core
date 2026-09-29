@@ -26,6 +26,7 @@ from app.models import Base  # noqa: E402
 
 async def _create_schema() -> None:
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
 
 

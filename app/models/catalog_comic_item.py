@@ -18,7 +18,19 @@ class ComicItem(UuidMixin, TimestampMixin, Base):
     __tablename__ = "comic_items"
     __table_args__ = (
         Index("ix_comic_items_title", "title"),
+        Index(
+            "ix_comic_items_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),
         Index("ix_comic_items_sort_key", "sort_key"),
+        Index(
+            "ix_comic_items_sort_key_trgm",
+            "sort_key",
+            postgresql_using="gin",
+            postgresql_ops={"sort_key": "gin_trgm_ops"},
+        ),
         Index("ix_comic_items_barcode", "barcode"),
         Index("ix_comic_items_catalog_number", "catalog_number"),
     )

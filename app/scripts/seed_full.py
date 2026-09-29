@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 
+from sqlalchemy import text
+
 from app.db.session import AsyncSessionLocal, engine
 from app.models import Base
 from app.scripts.seed_native_catalog import seed_catalog, wipe_seed_data
@@ -39,6 +41,7 @@ async def seed() -> None:
     args = parse_args()
 
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as db:

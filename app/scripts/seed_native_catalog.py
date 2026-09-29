@@ -42,10 +42,6 @@ from app.models import (
     MovieWork,
     MovieWorkContribution,
     MovieWorkIdentifier,
-    MusicMedium,
-    MusicRelease,
-    MusicReleaseGroup,
-    MusicTrack,
     Person,
     StoryArc,
     StoryArcItem,
@@ -59,6 +55,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ExternalProvider, ItemKind
+from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 SEED_MARKER = "seed-native"
@@ -123,7 +120,7 @@ _ENTITY_TYPE: dict[ItemKind, str] = {
     ItemKind.anime: "anime_series",
     ItemKind.movie: "movie_work",
     ItemKind.tv: "tv_release",
-    ItemKind.music: "music_release_group",
+    ItemKind.music: "music_item",
     ItemKind.game: "game_work",
     ItemKind.boardgame: "boardgame_work",
 }
@@ -231,6 +228,14 @@ async def wipe_seed_data(db: AsyncSession) -> int:
             )
         )
         ids_by_type[entity_type] = [row[0] for row in result.all()]
+    music_seed_ids = list(
+        (
+            await db.execute(
+                select(MusicItem.id).where(MusicItem.barcode.like("SEED-MUSIC-%"))
+            )
+        ).scalars()
+    )
+    ids_by_type["music_item"] = music_seed_ids
     total = sum(len(ids) for ids in ids_by_type.values())
 
     for entity_type, ids in ids_by_type.items():
@@ -426,50 +431,70 @@ async def _seed_music(
     thumbnail_url: str | None,
     index: int,
 ) -> list[Any]:
-    group, release = await _get_or_create_music_release_group_and_release(db, entry, cover_url)
-    _apply_seed_metadata(group, entry, ItemKind.music, index, cover_url, thumbnail_url)
-    _apply_seed_metadata(release, entry, ItemKind.music, index, cover_url, thumbnail_url)
-    await _upsert_provider(db, _ENTITY_TYPE[ItemKind.music], group.id, provider, index, entry)
-    await _ensure_person_link(db, release.id, "music_release", entry.creator, "artist")
-    medium = (
+    del provider  # Music catalog rows are source-neutral and carry no provider IDs.
+    barcode = f"SEED-MUSIC-{index:03d}"
+    item = (
+        await db.execute(select(MusicItem).where(MusicItem.barcode == barcode))
+    ).scalar_one_or_none()
+    if item is None:
+        item = MusicItem(title=entry.title, barcode=barcode)
+        db.add(item)
+    item.sort_title = _slug(entry.title)
+    item.artist = entry.creator[0]
+    item.artist_credits = [{"name": entry.creator[0]}]
+    item.release_date = entry.release_date
+    item.release_date_parts = {
+        "year": entry.release_date.year,
+        "month": entry.release_date.month,
+        "day": entry.release_date.day,
+    }
+    item.label = entry.publisher
+    item.format = "CD"
+    item.catalog_number = f"SEED-MUSIC-CAT-{index:03d}"
+    item.genres = [entry.tag] if entry.tag else []
+    item.packaging = "digipak"
+    item.sound_types = ["stereo"]
+    item.cover_image_url = cover_url
+    item.thumbnail_image_url = thumbnail_url
+    await db.flush()
+
+    disc = (
         await db.execute(
-            select(MusicMedium).where(
-                MusicMedium.release_id == release.id,
-                MusicMedium.medium_number == 1,
+            select(MusicItemDisc).where(
+                MusicItemDisc.music_item_id == item.id,
+                MusicItemDisc.disc_number == 1,
             )
         )
     ).scalar_one_or_none()
-    if medium is None:
-        medium = MusicMedium(
-            release=release,
-            medium_number=1,
-            medium_type="CD",
-            title="1",
-            sound_type="stereo",
+    if disc is None:
+        disc = MusicItemDisc(
+            item=item,
+            disc_number=1,
+            title="Disc 1",
         )
-        db.add(medium)
+        db.add(disc)
         await db.flush()
 
     track = (
         await db.execute(
-            select(MusicTrack).where(
-                MusicTrack.medium_id == medium.id,
-                MusicTrack.position == "1",
+            select(MusicItemTrack).where(
+                MusicItemTrack.disc_id == disc.id,
+                MusicItemTrack.position_order == 0,
             )
         )
     ).scalar_one_or_none()
     if track is None:
-        db.add(
-            MusicTrack(
-                medium=medium,
-                position="1",
-                title=f"{entry.title} Track 1",
-                duration_ms=180000,
-            )
+        track = MusicItemTrack(
+            disc=disc,
+            position="1",
+            position_order=0,
+            title=f"{entry.title} Track 1",
+            artist=entry.creator[0],
+            duration_ms=180000,
         )
-    medium.track_count = 1
+        db.add(track)
     await db.flush()
-    return [group]
+    return [item]
 
 
 async def _seed_game(db: AsyncSession, entry: _Entry, provider: ExternalProvider, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
@@ -631,50 +656,6 @@ async def _get_or_create_tv_season(db: AsyncSession, series: TVSeries, entry: _E
     db.add(row)
     await db.flush()
     return row
-
-
-async def _get_or_create_music_release_group_and_release(
-    db: AsyncSession,
-    entry: _Entry,
-    cover_url: str | None,
-) -> tuple[MusicReleaseGroup, MusicRelease]:
-    group = (
-        await db.execute(select(MusicReleaseGroup).where(MusicReleaseGroup.title == entry.title))
-    ).scalar_one_or_none()
-    if group is None:
-        group = MusicReleaseGroup(
-            title=entry.title,
-            sort_title=_slug(entry.title),
-            artist=entry.creator[0],
-            original_release_date=entry.release_date,
-            cover_image_url=cover_url,
-        )
-        db.add(group)
-        await db.flush()
-    release = (
-        await db.execute(
-            select(MusicRelease).where(
-                MusicRelease.release_group_id == group.id,
-                MusicRelease.title == entry.title,
-            )
-        )
-    ).scalar_one_or_none()
-    if release is None:
-        release = MusicRelease(
-            release_group=group,
-            title=entry.title,
-            sort_title=_slug(entry.title),
-            release_date=entry.release_date,
-            release_type="Album",
-            release_status="Official",
-            cover_image_url=cover_url,
-            publisher=entry.publisher,
-            language="en",
-            barcode=f"MUS-{_slug(entry.title)}",
-        )
-        db.add(release)
-        await db.flush()
-    return group, release
 
 
 async def _ensure_provider(db: AsyncSession, entity_type: str, entity_id: Any, provider: ExternalProvider, index: int, entry: _Entry) -> None:
@@ -885,8 +866,18 @@ async def _delete_kind_rows(db: AsyncSession, entity_type: str, ids: list[Any]) 
         await db.execute(delete(TVReleaseContribution).where(TVReleaseContribution.release_id.in_(ids)))
         await db.execute(delete(TVReleaseIdentifier).where(TVReleaseIdentifier.release_id.in_(ids)))
         await db.execute(delete(TVRelease).where(TVRelease.id.in_(ids)))
-    elif entity_type == "music_release_group":
-        await db.execute(delete(MusicReleaseGroup).where(MusicReleaseGroup.id.in_(ids)))
+    elif entity_type == "music_item":
+        await db.execute(
+            delete(MusicItemTrack).where(
+                MusicItemTrack.disc_id.in_(
+                    select(MusicItemDisc.id).where(
+                        MusicItemDisc.music_item_id.in_(ids)
+                    )
+                )
+            )
+        )
+        await db.execute(delete(MusicItemDisc).where(MusicItemDisc.music_item_id.in_(ids)))
+        await db.execute(delete(MusicItem).where(MusicItem.id.in_(ids)))
     elif entity_type == "game_work":
         await db.execute(delete(GameRelease).where(GameRelease.work_id.in_(ids)))
         await db.execute(delete(GameWork).where(GameWork.id.in_(ids)))

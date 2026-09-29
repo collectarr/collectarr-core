@@ -32,10 +32,11 @@ PostgreSQL logical backup:
 docker compose exec postgres pg_dump -U collectarr collectarr > collectarr-core.sql
 ```
 
-PostgreSQL restore into a stopped or fresh stack:
+Restore a backup only with the matching application and schema revision. The
+current baseline does not reshape older database files. To start the current
+baseline, use a new empty PostgreSQL database and bootstrap its schema:
 
 ```powershell
-Get-Content .\collectarr-core.sql | docker compose exec -T postgres psql -U collectarr collectarr
 docker compose exec api python -m app.scripts.bootstrap_schema
 ```
 

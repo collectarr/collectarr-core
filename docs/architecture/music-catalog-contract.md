@@ -13,11 +13,12 @@ The App pins this artifact alongside the other Core contracts and generates its 
 - App-only physical-format summaries are derived from medium types. A local box-set membership and its display label remain in App-owned persistence.
 - Device image paths, owned copies, tracking, and other user data stay outside the Core catalog contract.
 
-## PostgreSQL rollout
+## PostgreSQL baseline
 
-`app.scripts.bootstrap_schema` calls `create_all` and does not remove columns. Before deploying the updated model, take the normal database backup and run `migrations/20260925_music_field_ownership.sql`. The migration copies existing Music synopsis and medium-condition values into archive tables, then drops the obsolete columns. The archive tables preserve those values for manual recovery; neither field is imported into a different semantic field.
-
-The migration adds the nullable `music_tracks.recording_id` column. `create_all` alone does not add columns to an existing table.
+Core supports a fresh v1 schema created from the current SQLAlchemy models.
+There is no schema-upgrade path. Existing databases and backups are not
+rewritten by `bootstrap_schema`; retain them separately and use a new, empty
+database for this baseline.
 
 ## Export
 

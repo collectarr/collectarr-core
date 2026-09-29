@@ -48,7 +48,7 @@ Core publishes:
 - media catalog contract for `/api/v1/metadata/media-types`
 - provider status/capability schema
 - canonical catalog snapshot schema used by the app
-- versioned compatibility notes for API changes
+- versioned API contract change notes
 
 Sync publishes:
 

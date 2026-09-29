@@ -89,10 +89,13 @@ _KIND_ROOT_FIELDS: dict[ItemKind, frozenset[str]] = {
             "characters",
             "chapters",
             "character_details",
+            "identifiers",
             "series_title",
             "volume_name",
             "volume_number",
             "isbn",
+            "isbn10",
+            "isbn13",
         }
     ),
     ItemKind.movie: frozenset(

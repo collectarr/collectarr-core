@@ -51,7 +51,7 @@ class CatalogMusicItemResponse(BaseModel):
     catalog_number: str | None = None
     genres: list[str]
     packaging: str | None = None
-    studio: str | None = None
+    studios: list[str]
     country: str | None = None
     is_live: bool | None = None
     sound_types: list[str]

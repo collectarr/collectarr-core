@@ -121,7 +121,7 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "subtitle": ("subtitle",),
         "artist": ("artist",),
         "genres": ("genres",),
-        "studio": ("studio",),
+        "studios": ("studios",),
         "is_live": ("is_live",),
         "sound_types": ("sound_types",),
         "vinyl_color": ("vinyl_color",),

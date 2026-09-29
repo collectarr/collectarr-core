@@ -1009,7 +1009,7 @@ class AdminCatalogService:
         supported_fields = {
             "title", "sort_title", "subtitle", "artist", "release_date",
             "original_release_date", "recording_date", "label", "format",
-            "barcode", "catalog_number", "genres", "packaging", "studio",
+            "barcode", "catalog_number", "genres", "packaging", "studios",
             "country", "is_live", "sound_types", "vinyl_color",
             "vinyl_weight", "rpm", "extra", "spars", "box_set", "tracks",
             "external_links", "cover_image_url", "thumbnail_image_url",
@@ -1047,7 +1047,7 @@ class AdminCatalogService:
 
         for field in (
             "title", "artist", "sort_title", "subtitle", "label", "format",
-            "barcode", "catalog_number", "packaging", "studio", "country",
+            "barcode", "catalog_number", "packaging", "country",
             "is_live", "vinyl_color", "vinyl_weight", "rpm", "extra", "spars",
             "box_set", "cover_image_url", "thumbnail_image_url",
             "back_cover_image_url",
@@ -1071,8 +1071,8 @@ class AdminCatalogService:
 
         if "genres" in update_data:
             item.genres = self._normalize_text_values(payload.genres)
-        if "studio" in update_data:
-            item.studio = self._normalize_optional_text(payload.studio)
+        if "studios" in update_data:
+            item.studios = self._normalize_text_values(payload.studios)
         if "sound_types" in update_data:
             item.sound_types = self._normalize_text_values(payload.sound_types)
         if "external_links" in update_data:

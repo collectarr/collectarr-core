@@ -459,7 +459,11 @@ class AdminDuplicateService:
         return False
 
     def _entity_primary_publisher(self, entity: Any) -> str | None:
-        pub = getattr(entity, "publisher", None) or getattr(entity, "studio", None)
+        studios = getattr(entity, "studios", None)
+        studio = getattr(entity, "studio", None)
+        if studio is None and isinstance(studios, list) and studios:
+            studio = studios[0]
+        pub = getattr(entity, "publisher", None) or studio
         if pub and str(pub).strip():
             return str(pub).strip().lower()
         return None

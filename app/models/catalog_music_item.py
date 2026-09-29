@@ -67,7 +67,7 @@ class MusicItem(UuidMixin, TimestampMixin, Base):
     catalog_number: Mapped[str | None] = mapped_column(String(100))
     genres: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     packaging: Mapped[str | None] = mapped_column(String(100))
-    studio: Mapped[str | None] = mapped_column(String(255))
+    studios: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     country: Mapped[str | None] = mapped_column(String(100))
     is_live: Mapped[bool | None] = mapped_column(Boolean)
     sound_types: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)

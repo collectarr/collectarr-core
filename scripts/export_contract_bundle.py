@@ -23,7 +23,7 @@ from app.catalog.media_types import top_level_media_types  # noqa: E402
 from app.catalog.metadata_fields import contract_rows  # noqa: E402
 from app.main import app  # noqa: E402
 
-CONTRACT_VERSION = "2.0.0"
+CONTRACT_VERSION = "1.0.0"
 CATALOG_ITEM_CONTRACT_VERSION = "1.0.0"
 
 MUSIC_CATALOG_SCHEMAS = {

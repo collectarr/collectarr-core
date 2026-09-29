@@ -31,8 +31,7 @@ from app.models import (
     MangaWork,
     MovieRelease,
     MovieWork,
-    MusicRelease,
-    MusicReleaseGroup,
+    MusicItem,
     TVRelease,
     TVSeries,
 )
@@ -57,8 +56,7 @@ _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "manga_work": MangaWork,
     "movie_release": MovieRelease,
     "movie_work": MovieWork,
-    "music_release": MusicRelease,
-    "music_release_group": MusicReleaseGroup,
+    "catalog_music_item": MusicItem,
     "tv_release": TVRelease,
     "tv_series": TVSeries,
 }
@@ -104,6 +102,7 @@ def canonical_snapshot_hash(
 def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | None:
     direct = {
         "title": ("title", "display_title"),
+        "sort_title": ("sort_title",),
         "original_title": ("original_title",),
         "localized_title": ("localized_title",),
         "title_extension": ("title_extension",),
@@ -111,10 +110,29 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "item_number": ("issue_number", "volume_number", "season_number", "episode_number", "chapter_number"),
         "edition_title": ("display_title", "title"),
         "physical_format": ("physical_format", "format"),
+        "format": ("format",),
         "release_date": ("release_date", "publication_date"),
+        "original_release_date": ("original_release_date",),
+        "recording_date": ("recording_date",),
         "publisher": ("publisher",),
+        "label": ("label",),
+        "packaging": ("packaging",),
         "imprint": ("imprint",),
         "subtitle": ("subtitle",),
+        "artist": ("artist",),
+        "genres": ("genres",),
+        "studio": ("studio",),
+        "is_live": ("is_live",),
+        "sound_types": ("sound_types",),
+        "vinyl_color": ("vinyl_color",),
+        "vinyl_weight": ("vinyl_weight",),
+        "rpm": ("rpm",),
+        "extra": ("extra",),
+        "spars": ("spars",),
+        "box_set": ("box_set",),
+        "external_links": ("external_links",),
+        "cover_image_url": ("cover_image_url",),
+        "thumbnail_image_url": ("thumbnail_image_url",),
         "barcode": ("barcode",),
         "variant_name": ("variant_name",),
         "page_count": ("page_count",),
@@ -129,6 +147,49 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         if candidate in inspect(model).columns:
             return candidate
     return None
+
+
+def _music_partial_date_parts(entity: Any, key: str) -> dict[str, int] | None:
+    raw_parts = getattr(entity, f"{key}_parts", None)
+    if raw_parts is not None:
+        return _parse_partial_date_parts(raw_parts)
+    value = getattr(entity, key, None)
+    if isinstance(value, date):
+        return {"year": value.year, "month": value.month, "day": value.day}
+    return None
+
+
+def _parse_partial_date_parts(value: Any) -> dict[str, int] | None:
+    if isinstance(value, str):
+        text = value.strip().split("T", 1)[0]
+        if not text:
+            return None
+        values = text.split("-")
+        value = dict(zip(("year", "month", "day"), values, strict=False))
+    if not isinstance(value, dict):
+        return None
+
+    parts: dict[str, int] = {}
+    for key in ("year", "month", "day"):
+        raw = value.get(key)
+        if raw is None or raw == "":
+            continue
+        if isinstance(raw, bool):
+            return None
+        try:
+            parts[key] = int(raw)
+        except (TypeError, ValueError):
+            return None
+    year = parts.get("year")
+    month = parts.get("month")
+    day = parts.get("day")
+    if year is None or year < 1 or (day is not None and month is None):
+        return None
+    try:
+        date(year, month or 1, day or 1)
+    except ValueError:
+        return None
+    return parts
 
 
 class CanonicalField:
@@ -177,7 +238,16 @@ class CanonicalCorrectionTargetService:
         if entity is None:
             raise ApiHTTPException(status_code=404, code="canonical_target_not_found", detail=f"Canonical target {entity_type}/{entity_id} was not found.")
         fields = self._field_specs(kind, entity_type, scope, model)
-        values = {field.key: _json_value(getattr(entity, field.column)) for field in fields}
+        values = {
+            field.key: (
+                _music_partial_date_parts(entity, field.key)
+                if entity_type == "catalog_music_item"
+                and field.key
+                in {"release_date", "original_release_date", "recording_date"}
+                else _json_value(getattr(entity, field.column))
+            )
+            for field in fields
+        }
         revision = self._revision(entity)
         return CanonicalCorrectionTargetResponse(
             kind=kind,
@@ -226,6 +296,30 @@ class CanonicalCorrectionTargetService:
             field = specs.get(key)
             if field is None:
                 raise ApiHTTPException(status_code=422, code="unsupported_canonical_field", detail=f"Field '{key}' is not writable on {entity_type}.")
+            if (
+                entity_type == "catalog_music_item"
+                and key in {"release_date", "original_release_date", "recording_date"}
+            ):
+                parts = _parse_partial_date_parts(value)
+                if value is not None and parts is None:
+                    raise ApiHTTPException(
+                        status_code=422,
+                        code="invalid_partial_date",
+                        detail=f"Field '{key}' must be a year, partial date, or date object.",
+                    )
+                setattr(entity, f"{key}_parts", parts)
+                setattr(
+                    entity,
+                    key,
+                    date(
+                        parts["year"],
+                        parts.get("month", 1),
+                        parts.get("day", 1),
+                    )
+                    if parts is not None
+                    else None,
+                )
+                continue
             column = getattr(model, field.column).property.columns[0]
             setattr(entity, field.column, self._coerce(value, column))
         await self.db.flush()

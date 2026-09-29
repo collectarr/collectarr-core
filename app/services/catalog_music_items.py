@@ -6,7 +6,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import extract, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -141,6 +141,9 @@ class CatalogMusicItemService:
         *,
         query: str | None,
         barcode: str | None,
+        artist: str | None = None,
+        label: str | None = None,
+        year: int | None = None,
         limit: int,
         offset: int,
     ) -> list[CatalogMusicItemResponse]:
@@ -158,6 +161,18 @@ class CatalogMusicItemService:
                     MusicItem.label.ilike(term),
                     MusicItem.catalog_number.ilike(term),
                     MusicItem.barcode == query.strip(),
+                )
+            )
+        if artist and artist.strip():
+            stmt = stmt.where(MusicItem.artist.ilike(f"%{artist.strip()}%"))
+        if label and label.strip():
+            stmt = stmt.where(MusicItem.label.ilike(f"%{label.strip()}%"))
+        if year is not None:
+            stmt = stmt.where(
+                or_(
+                    extract("year", MusicItem.release_date) == year,
+                    extract("year", MusicItem.original_release_date) == year,
+                    extract("year", MusicItem.recording_date) == year,
                 )
             )
         stmt = (

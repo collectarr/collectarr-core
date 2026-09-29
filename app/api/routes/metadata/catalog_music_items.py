@@ -16,12 +16,18 @@ async def search_music_items(
     db: DbSession,
     q: str | None = Query(default=None, min_length=1),
     barcode: str | None = Query(default=None, min_length=1),
+    artist: str | None = Query(default=None, min_length=1),
+    label: str | None = Query(default=None, min_length=1),
+    year: int | None = Query(default=None, ge=1800, le=2200),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> list[CatalogMusicItemResponse]:
     return await CatalogMusicItemService(db).search(
         query=q,
         barcode=barcode,
+        artist=artist,
+        label=label,
+        year=year,
         limit=limit,
         offset=offset,
     )

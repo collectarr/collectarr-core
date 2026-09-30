@@ -19,10 +19,6 @@ from app.models import (
     BoardGameContribution,
     BoardGameEdition,
     BoardGameWork,
-    BookContribution,
-    BookEdition,
-    BookSeriesMembership,
-    BookWork,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
@@ -58,8 +54,6 @@ from app.schemas import (
     AnimeSeriesV1Response,
     BoardGameEditionV1Response,
     BoardGameWorkV1Response,
-    BookEditionV1Response,
-    BookWorkV1Response,
     ComicIssueV1Response,
     ComicVariantV1Response,
     ComicWorkV1Response,
@@ -77,68 +71,6 @@ from app.schemas import (
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
-
-
-async def get_book_work(service, work_id: UUID) -> BookWorkV1Response:
-    work = await service.db.scalar(
-        select(BookWork)
-        .where(BookWork.id == work_id)
-        .options(
-            selectinload(BookWork.contributions).selectinload(BookContribution.person),
-            selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
-            selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(BookContribution.person),
-            selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-        )
-    )
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="book_work_not_found",
-            detail="Book work not found",
-        )
-    return service._book_work_response(work)
-
-
-async def get_book_work_editions(service, work_id: UUID) -> list[BookEditionV1Response]:
-    work = await service.db.scalar(select(BookWork.id).where(BookWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="book_work_not_found",
-            detail="Book work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(BookEdition)
-                .where(BookEdition.work_id == work_id)
-                .options(
-                    selectinload(BookEdition.contributions).selectinload(BookContribution.person),
-                    selectinload(BookEdition.identifiers),
-                )
-                .order_by(BookEdition.publication_date.asc().nullslast(), BookEdition.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._book_edition_response(row) for row in rows]
-
-
-async def get_book_edition(service, edition_id: UUID) -> BookEditionV1Response:
-    edition = await service.db.scalar(
-        select(BookEdition)
-        .where(BookEdition.id == edition_id)
-        .options(
-            selectinload(BookEdition.contributions).selectinload(BookContribution.person),
-            selectinload(BookEdition.identifiers),
-        )
-    )
-    if edition is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="book_edition_not_found",
-            detail="Book edition not found",
-        )
-    return service._book_edition_response(edition)
 
 
 async def get_game_work(service, work_id: UUID) -> GameWorkV1Response:

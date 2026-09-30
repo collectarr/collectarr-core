@@ -5,7 +5,6 @@ from fastapi import APIRouter
 from . import (
     anime,
     boardgames,
-    books,
     browse,
     catalog_anime_items,
     catalog_boardgame_items,
@@ -43,7 +42,6 @@ for child_router in (
     catalog_music_items.router,
     catalog_tv_items.router,
     browse.router,
-    books.router,
     comics.router,
     manga.router,
     anime.router,

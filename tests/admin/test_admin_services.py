@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException, status
 
-from app.models import BookWork
+from app.models import BookItem, BookWork
 from app.models.base import ItemKind
 from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.overview import (
@@ -130,22 +130,32 @@ def test_support_service_retry_helpers_cover_retryable_and_non_retryable_errors(
 
 
 @pytest.mark.asyncio
-async def test_support_service_item_response_uses_native_book_loader(monkeypatch):
+async def test_support_service_item_response_uses_flat_book_loader(monkeypatch):
     called = {}
 
-    async def fake_get_book_work(self, work_id):
-        called["work_id"] = work_id
-        return {"id": str(work_id), "kind": "book"}
+    class FakeResponse:
+        def __init__(self, item_id):
+            self.item_id = item_id
 
-    monkeypatch.setattr("app.services.facade.MetadataFacade.get_book_work", fake_get_book_work)
+        def model_dump(self, mode="json"):
+            return {"id": str(self.item_id), "kind": "book"}
+
+    async def fake_get_book_item(self, item_id):
+        called["item_id"] = item_id
+        return FakeResponse(item_id)
+
+    monkeypatch.setattr(
+        "app.services.admin_domains.support.CatalogBookItemService.get",
+        fake_get_book_item,
+    )
 
     service = AdminSupportService(db=object(), actor_user_id=None, actor_email=None)
-    work = BookWork(id=uuid4(), title="Dune")
+    item = BookItem(id=uuid4(), title="Dune", details={})
 
-    result = await service.item_response(work)
+    result = await service.item_response(item)
 
-    assert result == {"id": str(work.id), "kind": "book"}
-    assert called["work_id"] == work.id
+    assert result == {"id": str(item.id), "kind": "book"}
+    assert called["item_id"] == item.id
 
 
 @pytest.mark.asyncio
@@ -167,13 +177,13 @@ async def test_support_service_reindex_items_indexes_native_entities_only(monkey
             return self._values
 
     unknown_entity = SimpleNamespace(id=uuid4())
-    native_work = BookWork(id=uuid4(), title="Dune")
+    native_item = BookItem(id=uuid4(), title="Dune", details={})
 
     class FakeDb:
         async def execute(self, stmt):
             entity = stmt.column_descriptions[0]["entity"]
-            if entity is BookWork:
-                return FakeResult([native_work])
+            if entity is BookItem:
+                return FakeResult([native_item])
             return FakeResult([])
 
     monkeypatch.setattr("app.services.admin_domains.support.SearchClient", FakeSearchClient)
@@ -184,9 +194,9 @@ async def test_support_service_reindex_items_indexes_native_entities_only(monkey
 
     service = AdminSupportService(db=FakeDb(), actor_user_id=None, actor_email=None)
 
-    await service.reindex_items({unknown_entity.id, native_work.id})
+    await service.reindex_items({unknown_entity.id, native_item.id})
 
-    assert captured == [{"id": str(native_work.id), "entity": "BookWork"}]
+    assert captured == [{"id": str(native_item.id), "entity": "BookItem"}]
 
 
 @pytest.mark.parametrize(

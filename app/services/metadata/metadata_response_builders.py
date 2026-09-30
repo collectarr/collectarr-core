@@ -1,15 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
-
 from app.models import (
     BoardGameEdition,
     BoardGameWork,
-    BookContribution,
-    BookEdition,
-    BookIdentifier,
-    BookSeriesMembership,
-    BookWork,
     GameRelease,
     GameWork,
 )
@@ -17,13 +10,6 @@ from app.models.partial_date import partial_date_from_storage
 from app.schemas import (
     BoardGameEditionV1Response,
     BoardGameWorkV1Response,
-    BookContributorResponse,
-    BookEditionV1Response,
-    BookIdentifierResponse,
-    BookOriginalDetailsResponse,
-    BookPhysicalDetailsResponse,
-    BookSeriesResponse,
-    BookWorkV1Response,
     GameReleaseV1Response,
     GameWorkV1Response,
 )
@@ -36,156 +22,6 @@ from app.services.metadata.metadata_helpers import entity_link_values
 
 
 class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataResponseBuilders, AnimeMetadataResponseBuilders, MovieMetadataResponseBuilders, TVMetadataResponseBuilders):
-    def _book_contributor_response(
-        self,
-        contribution: BookContribution,
-        *,
-        scope: str,
-    ) -> BookContributorResponse:
-        person = contribution.person
-        return BookContributorResponse(
-            person_id=contribution.person_id,
-            name=person.name if person is not None else "",
-            role=contribution.role,
-            sequence=contribution.sequence,
-            image_url=person.image_url if person is not None else None,
-            biography=person.biography if person is not None else None,
-            sort_name=person.sort_name if person is not None else None,
-            role_id=contribution.role_id,
-            scope=scope,
-        )
-
-    def _book_identifier_response(self, identifier: BookIdentifier) -> BookIdentifierResponse:
-        return BookIdentifierResponse(
-            id=identifier.id,
-            identifier_type=identifier.identifier_type,
-            value=identifier.value,
-            normalized_value=identifier.normalized_value,
-            is_primary=identifier.is_primary,
-        )
-
-    def _book_edition_response(self, edition: BookEdition) -> BookEditionV1Response:
-        return BookEditionV1Response(
-            id=edition.id,
-            work_id=edition.work_id,
-            display_title=edition.display_title,
-            edition_statement=edition.edition_statement,
-            format=edition.format,
-            binding=edition.binding,
-            publication_date=edition.publication_date,
-            publication_date_parts=partial_date_from_storage(edition.publication_date_parts),
-            publisher=edition.publisher,
-            imprint=edition.imprint,
-            language=edition.language,
-            region=edition.region,
-            page_count=edition.page_count,
-            audio_length_minutes=edition.audio_length_minutes,
-            age_rating=edition.age_rating,
-            release_status=edition.release_status,
-            physical_details=BookPhysicalDetailsResponse(
-                dimensions=edition.dimensions,
-                dust_jacket=edition.dust_jacket,
-                printing=edition.printing,
-                first_edition=edition.first_edition,
-                number_line=edition.number_line,
-            ),
-            cover_image_url=edition.cover_image_url,
-            cover_image_key=edition.cover_image_key,
-            description=edition.description,
-            contributors=[
-                self._book_contributor_response(row, scope="edition")
-                for row in sorted(
-                    edition.contributions or [],
-                    key=lambda c: (
-                        c.sequence is None,
-                        c.sequence or 0,
-                        c.role.casefold(),
-                        str(c.person_id),
-                    ),
-                )
-            ],
-            identifiers=[
-                self._book_identifier_response(row)
-                for row in sorted(
-                    edition.identifiers or [],
-                    key=lambda i: (
-                        i.identifier_type.casefold(),
-                        (i.normalized_value or i.value or "").casefold(),
-                        str(i.id),
-                    ),
-                )
-            ],
-        )
-
-    def _book_series_response(self, membership: BookSeriesMembership) -> BookSeriesResponse:
-        series = membership.series
-        return BookSeriesResponse(
-            id=series.id,
-            title=series.title,
-            slug=series.slug,
-            sequence=membership.sequence,
-            display_number=membership.display_number,
-            start_date=series.start_date,
-            start_date_parts=partial_date_from_storage(series.start_date_parts),
-            end_date=series.end_date,
-            end_date_parts=partial_date_from_storage(series.end_date_parts),
-        )
-
-    def _book_work_response(self, work: BookWork) -> BookWorkV1Response:
-        editions = sorted(
-            work.editions or [],
-            key=lambda e: (
-                e.publication_date is None,
-                e.publication_date or date.max,
-                str(e.id),
-            ),
-        )
-        return BookWorkV1Response(
-            id=work.id,
-            title=work.title,
-            sort_title=work.sort_title,
-            subtitle=work.subtitle,
-            description=work.description,
-            original_language=work.original_language,
-            original_publication_date=work.original_publication_date,
-            original_publication_date_parts=partial_date_from_storage(work.original_publication_date_parts),
-            first_publication_date=work.first_publication_date,
-            first_publication_date_parts=partial_date_from_storage(work.first_publication_date_parts),
-            original_details=BookOriginalDetailsResponse(
-                original_language=work.original_language,
-                original_publication_date=work.original_publication_date,
-                original_publication_date_parts=partial_date_from_storage(work.original_publication_date_parts),
-                original_publisher=work.original_publisher,
-                dewey=work.dewey,
-                lccn=work.lccn,
-                loc_control_number=work.loc_control_number,
-            ),
-            contributors=[
-                self._book_contributor_response(row, scope="work")
-                for row in sorted(
-                    work.contributions or [],
-                    key=lambda c: (
-                        c.sequence is None,
-                        c.sequence or 0,
-                        c.role.casefold(),
-                        str(c.person_id),
-                    ),
-                )
-            ],
-            series=[
-                self._book_series_response(row)
-                for row in sorted(
-                    work.series_memberships or [],
-                    key=lambda m: (
-                        m.sequence is None,
-                        m.sequence or 0,
-                        str(m.series_id),
-                    ),
-                )
-            ],
-            editions=[self._book_edition_response(row) for row in editions],
-        )
-
     def _game_release_response(self, release: GameRelease) -> GameReleaseV1Response:
         return GameReleaseV1Response(
             id=release.id,

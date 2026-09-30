@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from app.services.anime_service import AnimeService
 from app.services.boardgames_service import BoardGamesService
-from app.services.books_service import BooksService
 from app.services.comics_service import ComicsService
 from app.services.games_service import GamesService
 from app.services.manga_service import MangaService
@@ -18,7 +17,6 @@ class MetadataReadService(
     MetadataCommonSupport,
     MetadataTypedReadService,
     MetadataResponseBuilders,
-    BooksService,
     MoviesService,
     TVService,
     AnimeService,

@@ -10,8 +10,6 @@ from app.schemas import (
     AnimeSeriesV1Response,
     BoardGameEditionV1Response,
     BoardGameWorkV1Response,
-    BookEditionV1Response,
-    BookWorkV1Response,
     ComicIssueV1Response,
     ComicVariantV1Response,
     ComicWorkV1Response,
@@ -58,15 +56,6 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_boardgame_work_editions as _get_boardgame_work_editions,
-)
-from app.services.metadata.metadata_reads import (
-    get_book_edition as _get_book_edition,
-)
-from app.services.metadata.metadata_reads import (
-    get_book_work as _get_book_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_book_work_editions as _get_book_work_editions,
 )
 from app.services.metadata.metadata_reads import (
     get_comic_issue as _get_comic_issue,
@@ -149,15 +138,6 @@ from app.services.metadata.metadata_reads import (
 
 
 class MetadataTypedReadService:
-
-    async def get_book_work(self, work_id: UUID) -> BookWorkV1Response:
-        return await _get_book_work(self, work_id)
-
-    async def get_book_work_editions(self, work_id: UUID) -> list[BookEditionV1Response]:
-        return await _get_book_work_editions(self, work_id)
-
-    async def get_book_edition(self, edition_id: UUID) -> BookEditionV1Response:
-        return await _get_book_edition(self, edition_id)
 
     async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
         return await _get_game_work(self, work_id)

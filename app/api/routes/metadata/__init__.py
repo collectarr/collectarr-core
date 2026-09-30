@@ -4,7 +4,6 @@ from fastapi import APIRouter
 
 from . import (
     anime,
-    boardgames,
     browse,
     catalog_anime_items,
     catalog_boardgame_items,
@@ -18,7 +17,6 @@ from . import (
     comics,
     corrections,
     field_schema,
-    games,
     manga,
     proposals,
     search,
@@ -46,8 +44,6 @@ for child_router in (
     manga.router,
     anime.router,
     tv.router,
-    games.router,
-    boardgames.router,
 ):
     if child_router is not field_schema.router:
         router.include_router(child_router)

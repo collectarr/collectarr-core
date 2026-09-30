@@ -194,7 +194,8 @@ _CANONICAL_RELEASE_KEYS = {
 
 # Canonical kind source matrix. This is authoritative for sourceEntityType and
 # sourceTable in the exported field schema. Book, Music, and Movie map to flat
-# Catalog Items; the other kinds still use their current source entities.
+# Catalog Items; kinds with genuine child records keep those children in their
+# own tables.
 CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "catalog_item": ("catalog_book_item", "book_items"),
@@ -238,31 +239,14 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.game: {
-        "work": ("game_work", "game_works"),
-        "platform": ("game_work", "game_platforms"),
-        "identifier": ("game_work", "game_identifiers"),
-        "company_role": ("game_work", "game_company_roles"),
-        "age_rating": ("game_work", "game_age_ratings"),
-        "release": ("game_release", "game_releases"),
-        "media": ("game_release", "game_releases"),
-        "track": ("game_release", "game_releases"),
-        "series_membership": ("game_work", "game_series_memberships"),
+        "catalog_item": ("catalog_game_item", "game_items"),
+        "identifier": ("catalog_game_item", "game_item_identifiers"),
         "relations": ("entity_link", "entity_links"),
         "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.boardgame: {
-        "work": ("boardgame_work", "boardgame_works"),
-        "release": ("boardgame_edition", "boardgame_editions"),
-        "identifier": ("boardgame_work", "boardgame_identifiers"),
-        "contributor": ("boardgame_work", "boardgame_contributions"),
-        "mechanic": ("boardgame_work", "boardgame_mechanics"),
-        "category": ("boardgame_work", "boardgame_categories"),
-        "family": ("boardgame_work", "boardgame_families"),
-        "expansion": ("boardgame_work", "boardgame_expansions"),
-        "ranking": ("boardgame_work", "boardgame_rankings_snapshot"),
-        "player_count_vote": ("boardgame_edition", "boardgame_player_count_votes"),
-        "media": ("boardgame_edition", "boardgame_editions"),
-        "track": ("boardgame_edition", "boardgame_editions"),
+        "catalog_item": ("catalog_boardgame_item", "boardgame_items"),
+        "identifier": ("catalog_boardgame_item", "boardgame_item_identifiers"),
         "relations": ("entity_link", "entity_links"),
         "tags": ("entity_tag", "entity_tags"),
     },
@@ -289,6 +273,14 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
             return "tags"
         if key == "media":
             return "media"
+        return "catalog_item"
+    if kind in {ItemKind.game, ItemKind.boardgame}:
+        if key == "identifiers":
+            return "identifier"
+        if key in _RELATION_KEYS:
+            return "relations"
+        if key in _TAG_KEYS:
+            return "tags"
         return "catalog_item"
     if key in _RELATION_KEYS:
         return "relations"
@@ -344,7 +336,7 @@ def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     # explicit; they do not get an arbitrary first-entity fallback.
     source_scope = (
         "catalog_item"
-        if kind in {ItemKind.book, ItemKind.music, ItemKind.movie} and scope == "internal"
+        if kind in {ItemKind.boardgame, ItemKind.book, ItemKind.game, ItemKind.movie, ItemKind.music} and scope == "internal"
         else "work" if scope == "internal" else scope
     )
     try:

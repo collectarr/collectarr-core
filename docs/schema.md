@@ -21,8 +21,8 @@ behavior remain relational.
 | --- | --- |
 | Music | `music_items`, `music_item_discs`, `music_item_tracks` |
 | Books | `book_items`, `book_item_printings`, `book_item_credits`, `book_item_identifiers`, `book_series`, `book_item_series_memberships` |
-| Games | `game_works`, `game_releases` |
-| Board games | `boardgame_works`, `boardgame_editions` |
+| Games | `game_items`, `game_item_identifiers` |
+| Board games | `boardgame_items`, `boardgame_item_identifiers` |
 | Comics | `comic_volumes`, `comic_works`, `comic_issues`, `comic_variants` |
 | Manga | `manga_works`, `manga_editions`, `manga_chapters` |
 | Anime | `anime_series` (Work), `anime_episodes`, `anime_releases`, `anime_release_media`, `anime_release_episode_map` |

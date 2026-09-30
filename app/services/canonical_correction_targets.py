@@ -19,12 +19,8 @@ from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeRelease,
     AnimeSeries,
-    BoardGameEdition,
-    BoardGameWork,
     ComicIssue,
     ComicVariant,
-    GameRelease,
-    GameWork,
     MangaEdition,
     MangaWork,
     MusicItem,
@@ -32,7 +28,9 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
+from app.models.catalog_game_item import GameItem
 from app.models.catalog_movie_item import MovieItem
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
@@ -42,13 +40,11 @@ from app.schemas.canonical_corrections import (
 _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "anime_release": AnimeRelease,
     "anime_series": AnimeSeries,
-    "boardgame_edition": BoardGameEdition,
-    "boardgame_work": BoardGameWork,
+    "catalog_boardgame_item": BoardGameItem,
     "catalog_book_item": BookItem,
     "comic_issue": ComicIssue,
     "comic_variant": ComicVariant,
-    "game_release": GameRelease,
-    "game_work": GameWork,
+    "catalog_game_item": GameItem,
     "manga_edition": MangaEdition,
     "manga_work": MangaWork,
     "catalog_movie_item": MovieItem,
@@ -142,7 +138,9 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
     for candidate in direct.get(key, ()):
         if candidate in inspect(model).columns:
             return candidate
-    if model in {BookItem, MovieItem} and "details" in inspect(model).columns:
+    if key == "identifiers" and model in {BookItem, GameItem, BoardGameItem}:
+        return None
+    if model in {BookItem, MovieItem, GameItem, BoardGameItem} and "details" in inspect(model).columns:
         return "details"
     return None
 
@@ -252,11 +250,9 @@ class CanonicalCorrectionTargetService:
                 and field.key
                 in {"release_date", "original_release_date", "recording_date"}
                 else _json_value(
-                    (
-                        getattr(entity, field.column).get(field.json_key)
-                        if field.json_key is not None
-                        else getattr(entity, field.column)
-                    )
+                    getattr(entity, field.column).get(field.json_key)
+                    if field.json_key is not None
+                    else getattr(entity, field.column)
                 )
             )
             for field in fields
@@ -368,7 +364,8 @@ class CanonicalCorrectionTargetService:
                         column,
                         json_key=(
                             field.key
-                            if model in {BookItem, MovieItem} and column == "details"
+                            if model in {BookItem, MovieItem, GameItem, BoardGameItem}
+                            and column == "details"
                             else None
                         ),
                     )

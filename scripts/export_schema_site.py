@@ -37,11 +37,9 @@ SOURCE_MODULES = [
     "app/models/base.py",
     "app/models/canonical_anime.py",
     "app/models/canonical_anime_releases.py",
-    "app/models/canonical_board_games.py",
     "app/models/canonical_comic_releases.py",
     "app/models/canonical_comics.py",
     "app/models/canonical_common.py",
-    "app/models/canonical_games.py",
     "app/models/canonical_manga.py",
     "app/models/canonical_manga_releases.py",
     "app/models/catalog_anime_item.py",
@@ -187,12 +185,12 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_releases",
     ],
     "game": [
-        "game_works",
-        "game_releases",
+        "game_items",
+        "game_item_identifiers",
     ],
     "boardgame": [
-        "boardgame_works",
-        "boardgame_editions",
+        "boardgame_items",
+        "boardgame_item_identifiers",
     ],
     "book": [
         "book_series",

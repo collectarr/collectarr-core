@@ -71,7 +71,7 @@ def test_no_parallel_edges_between_same_entity_pair():
         assert not duplicates, f"{domain_id}: parallel edges must be merged: {duplicates}"
 
 
-def test_kind_views_surface_flat_book_catalog_tables():
+def test_kind_views_surface_flat_catalog_tables():
     data = build_schema_data()
     kinds = {kind["id"]: kind for kind in data["kinds"]}
     misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
@@ -83,10 +83,10 @@ def test_kind_views_surface_flat_book_catalog_tables():
     assert "book_item_printings" in kinds["book"]["tables"]
     assert "book_item_credits" in kinds["book"]["tables"]
     assert "book_item_series_memberships" in kinds["book"]["tables"]
-    assert "game_works" in kinds["game"]["tables"]
-    assert "game_releases" in kinds["game"]["tables"]
-    assert "boardgame_works" in kinds["boardgame"]["tables"]
-    assert "boardgame_editions" in kinds["boardgame"]["tables"]
+    assert "game_items" in kinds["game"]["tables"]
+    assert "game_item_identifiers" in kinds["game"]["tables"]
+    assert "boardgame_items" in kinds["boardgame"]["tables"]
+    assert "boardgame_item_identifiers" in kinds["boardgame"]["tables"]
     assert "music_items" in kinds["music"]["tables"]
     assert "music_item_discs" in kinds["music"]["tables"]
     assert "music_item_tracks" in kinds["music"]["tables"]
@@ -94,8 +94,8 @@ def test_kind_views_surface_flat_book_catalog_tables():
 
     assert "comic_works" not in misc_tables
     assert "book_items" not in misc_tables
-    assert "game_works" not in misc_tables
-    assert "boardgame_works" not in misc_tables
+    assert "game_items" not in misc_tables
+    assert "boardgame_items" not in misc_tables
     assert "music_items" not in misc_tables
     assert "music_item_discs" not in misc_tables
     assert "music_item_tracks" not in misc_tables
@@ -106,6 +106,12 @@ def test_schema_view_contains_only_declared_tables():
     data = build_schema_data()
     table_names = {table["name"] for table in data["tables"]}
     assert table_names == set(Base.metadata.tables) - HIDDEN_TABLE_NAMES
+    assert {
+        "game_works",
+        "game_releases",
+        "boardgame_works",
+        "boardgame_editions",
+    }.isdisjoint(table_names)
 
 
 def test_catalog_spine_marks_bundle_composition_tables():

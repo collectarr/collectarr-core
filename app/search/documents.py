@@ -7,10 +7,8 @@ from app.catalog.physical_formats import is_video_item_kind, physical_format_for
 from app.models import (
     AnimeContribution,
     AnimeSeries,
-    BoardGameWork,
     ComicContribution,
     ComicWork,
-    GameWork,
     MangaContribution,
     MangaWork,
     MusicItem,
@@ -177,128 +175,6 @@ def item_search_document(item: Any) -> dict[str, Any]:
         "subtitle": subtitle,
         "series_group": series_group,
         "age_rating": age_rating,
-    }
-
-
-def game_work_search_document(work: GameWork) -> dict[str, Any]:
-    releases = sorted(
-        getattr(work, "releases", []) or [],
-        key=lambda row: (
-            getattr(row, "release_date", None) is None,
-            getattr(row, "release_date", None),
-            str(getattr(row, "id", "")),
-        ),
-    )
-    primary_release = releases[0] if releases else None
-    barcode = _optional_text(getattr(primary_release, "barcode", None))
-    release_date = (
-        primary_release.release_date.isoformat()
-        if primary_release is not None and primary_release.release_date is not None
-        else work.release_date.isoformat() if work.release_date is not None else None
-    )
-    release_year = (
-        primary_release.release_date.year
-        if primary_release is not None and primary_release.release_date is not None
-        else work.release_date.year if work.release_date is not None else None
-    )
-    return {
-        "id": str(work.id),
-        "kind": ItemKind.game.value,
-        "title": work.title,
-        "item_number": None,
-        "runtime_minutes": None,
-        "cover_image_url": primary_release.cover_image_url if primary_release is not None else None,
-        "thumbnail_image_url": None,
-        "publisher": primary_release.publisher if primary_release is not None else None,
-        "release_date": release_date,
-        "region": primary_release.region_code if primary_release is not None else None,
-        "release_year": release_year,
-        "barcode": barcode,
-        "barcodes": [barcode] if barcode else [],
-        "variant": primary_release.platform if primary_release is not None else None,
-        "variant_names": work.platforms,
-        "bundle_titles": [],
-        "bundle_release_ids": [],
-        "series_title": None,
-        "volume_name": None,
-        "catalog_number": primary_release.catalog_number if primary_release is not None else None,
-        "creators": [],
-        "characters": [],
-        "story_arcs": [],
-        "platforms": work.platforms,
-        "identifiers": work.identifiers,
-        "company_roles": work.company_roles,
-        "age_ratings": work.age_ratings,
-        "release_status": primary_release.release_status if primary_release is not None else None,
-        "language": primary_release.language if primary_release is not None else work.original_language,
-        "imprint": None,
-        "subtitle": work.subtitle,
-        "series_group": None,
-        "age_rating": work.age_rating,
-    }
-
-
-def boardgame_search_document(work: BoardGameWork) -> dict[str, Any]:
-    editions = sorted(
-        getattr(work, "editions", []) or [],
-        key=lambda row: (
-            getattr(row, "release_date", None) is None,
-            getattr(row, "release_date", None),
-            str(getattr(row, "id", "")),
-        ),
-    )
-    primary_edition = editions[0] if editions else None
-    release_date = (
-        primary_edition.release_date.isoformat()
-        if primary_edition is not None and primary_edition.release_date is not None
-        else work.release_date.isoformat() if work.release_date is not None else None
-    )
-    release_year = (
-        primary_edition.release_date.year
-        if primary_edition is not None and primary_edition.release_date is not None
-        else work.release_date.year if work.release_date is not None else None
-    )
-    return {
-        "id": str(work.id),
-        "kind": ItemKind.boardgame.value,
-        "title": work.title,
-        "item_number": None,
-        "runtime_minutes": None,
-        "cover_image_url": primary_edition.cover_image_url if primary_edition is not None else None,
-        "thumbnail_image_url": None,
-        "publisher": primary_edition.publisher if primary_edition is not None else None,
-        "release_date": release_date,
-        "region": primary_edition.country if primary_edition is not None else None,
-        "release_year": release_year,
-        "barcode": _optional_text(getattr(primary_edition, "barcode", None)),
-        "barcodes": [primary_edition.barcode] if primary_edition is not None and primary_edition.barcode else [],
-        "variant": primary_edition.format if primary_edition is not None else None,
-        "variant_names": _unique(
-            work.platforms
-            + ([primary_edition.format] if primary_edition is not None and primary_edition.format else [])
-        ),
-        "bundle_titles": [],
-        "bundle_release_ids": [],
-        "series_title": None,
-        "volume_name": None,
-        "catalog_number": primary_edition.catalog_number if primary_edition is not None else None,
-        "creators": [],
-        "characters": [],
-        "story_arcs": [],
-        "platforms": work.platforms,
-        "identifiers": work.identifiers,
-        "contributors": work.contributors,
-        "mechanics": work.mechanics,
-        "categories": work.categories,
-        "families": work.families,
-        "expansions": work.expansions,
-        "rankings": work.rankings,
-        "release_status": primary_edition.release_status if primary_edition is not None else None,
-        "language": primary_edition.language if primary_edition is not None else None,
-        "imprint": None,
-        "subtitle": work.subtitle,
-        "series_group": None,
-        "age_rating": primary_edition.age_rating if primary_edition is not None else work.age_rating,
     }
 
 
@@ -761,10 +637,6 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
             return flat_catalog_item_search_document(entity, kind)
     if isinstance(entity, (TVSeries, TVRelease)):
         return tv_release_search_document(entity)
-    if isinstance(entity, GameWork):
-        return game_work_search_document(entity)
-    if isinstance(entity, BoardGameWork):
-        return boardgame_search_document(entity)
     if isinstance(entity, MusicItem):
         return music_item_search_document(entity)
     raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
@@ -812,7 +684,11 @@ def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, An
         "thumbnail_image_url": _optional_text(details.get("thumbnail_image_url")),
         "publisher": _optional_text(details.get("publisher") or details.get("label")),
         "release_date": release_date,
-        "region": _optional_text(details.get("country") or details.get("region")),
+        "region": _optional_text(
+            details.get("country")
+            or details.get("release_region")
+            or details.get("region")
+        ),
         "release_year": release_date_parts.year if release_date_parts else None,
         "barcode": barcode,
         "barcodes": barcodes,

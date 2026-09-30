@@ -7,8 +7,6 @@ from app.models import (
     BundleReleaseComponent,
     ComicIssue,
     ComicWork,
-    GameRelease,
-    GameWork,
     MovieItem,
     MovieItemMedia,
     MusicItem,
@@ -19,6 +17,7 @@ from app.models import (
     TVReleaseMedia,
 )
 from app.models.base import ItemKind
+from app.models.catalog_game_item import GameItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
@@ -42,6 +41,15 @@ def test_movie_entity_refs_target_the_flat_catalog():
     assert _entity_table("catalog_movie_item") == "movie_items"
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("movie_work")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("movie_release")
+
+
+def test_game_and_board_game_entity_refs_target_flat_catalog_items():
+    assert _entity_table("catalog_game_item") == "game_items"
+    assert _entity_table("catalog_boardgame_item") == "boardgame_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_work")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_release")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("boardgame_work")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("boardgame_edition")
 
 
 async def _assert_rows_reference_existing_entities(
@@ -86,17 +94,16 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
         tv_release = TVRelease(title="TV Release", format="DVD")
         music_item = MusicItem(title="Music Item")
         comic_work = ComicWork(title="Comic Work")
-        game_work = GameWork(title="Game Work")
+        game_item = GameItem(title="Game Item", details={})
         bundle = BundleRelease(kind=ItemKind.music, title="Mixed Bundle")
-        db.add_all([movie_item, tv_release, music_item, comic_work, game_work, bundle])
+        db.add_all([movie_item, tv_release, music_item, comic_work, game_item, bundle])
         await db.flush()
 
         movie_media = MovieItemMedia(movie_item_id=movie_item.id, media_number=1)
         tv_media = TVReleaseMedia(release_id=tv_release.id, media_number=1, media_type="disc")
         music_disc = MusicItemDisc(music_item_id=music_item.id, disc_number=1)
         comic_issue = ComicIssue(work_id=comic_work.id)
-        game_release = GameRelease(work_id=game_work.id)
-        db.add_all([movie_media, tv_media, music_disc, comic_issue, game_release])
+        db.add_all([movie_media, tv_media, music_disc, comic_issue])
         await db.flush()
 
         tv_episode = TVEpisode(
@@ -149,9 +156,9 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="game_release",
-                    entity_id=game_release.id,
-                    role="release",
+                    entity_type="catalog_game_item",
+                    entity_id=game_item.id,
+                    role="edition",
                     sequence_number=5,
                 ),
             ]
@@ -177,7 +184,7 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
             "tv_episode",
             "music_item_track",
             "comic_issue",
-            "game_release",
+            "catalog_game_item",
         ]
 
 

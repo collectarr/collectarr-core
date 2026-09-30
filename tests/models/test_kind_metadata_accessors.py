@@ -2,130 +2,77 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from app.models.canonical_board_games import (
-    BoardGameCategory,
-    BoardGameContribution,
-    BoardGameEdition,
-    BoardGameEditionIdentifier,
-    BoardGameExpansion,
-    BoardGameFamily,
-    BoardGameIdentifier,
-    BoardGameMechanic,
-    BoardGameRankingSnapshot,
-    BoardGameWork,
-)
-from app.models.canonical_games import (
-    GameAgeRating,
-    GameCompanyRole,
-    GameIdentifier,
-    GamePlatform,
-    GameRelease,
-    GameReleaseIdentifier,
-    GameSeriesMembership,
-    GameWork,
-)
-from app.models.canonical_support import Person
+from app.models.catalog_boardgame_item import BoardGameItem, BoardGameItemIdentifier
+from app.models.catalog_game_item import GameItem, GameItemIdentifier
+from app.services.catalog_boardgame_items import _response as boardgame_response
+from app.services.catalog_game_items import _response as game_response
 
 
-def test_game_metadata_accessors_normalize_lists():
-    work = GameWork(
+def test_game_catalog_item_response_projects_flat_edition_details():
+    item = GameItem(
+        id=UUID("00000000-0000-0000-0000-000000000001"),
         title="Game",
-        platform_entries=[
-            GamePlatform(platform_name="PC", normalized_name="pc"),
-            GamePlatform(platform_name="pc", normalized_name="pc"),
-            GamePlatform(platform_name="PlayStation 5", normalized_name="playstation 5"),
-        ],
-        identifier_entries=[
-            GameIdentifier(identifier_type="igdb", value="IGDB:1", normalized_value="IGDB:1"),
-            GameIdentifier(identifier_type="igdb", value=" IGDB:1 ", normalized_value="IGDB:1"),
-        ],
-        company_role_entries=[
-            GameCompanyRole(role="developer"),
-            GameCompanyRole(role="publisher"),
-        ],
-        age_rating_entries=[GameAgeRating(rating_system="esrb", rating="E10+")],
-        series_memberships=[
-            GameSeriesMembership(
-                series_name="Halo",
-                normalized_series_name="halo",
-                display_number="1",
+        revision=1,
+        details={
+            "platforms": ["PC", "PlayStation 5"],
+            "company_roles": ["developer", "publisher"],
+            "release_region": "US",
+            "physical_format": "disc",
+        },
+        identifiers=[
+            GameItemIdentifier(
+                id=UUID("00000000-0000-0000-0000-000000000002"),
+                identifier_type="sku",
+                value="SKU-1",
+                normalized_value="sku1",
+                is_primary=True,
             )
         ],
     )
-    release = GameRelease(
-        work_id=UUID("00000000-0000-0000-0000-000000000001"),
-        identifier_entries=[
-            GameReleaseIdentifier(
-                identifier_type="release",
-                value="Release:1",
-                normalized_value="release:1",
-            ),
-            GameReleaseIdentifier(
-                identifier_type="sku",
-                value="SKU-1",
-                normalized_value="sku-1",
-            ),
-        ],
-    )
 
-    assert work.platforms == ["PC", "PlayStation 5"]
-    assert work.identifiers == ["IGDB:1"]
-    assert work.company_roles == ["developer", "publisher"]
-    assert work.age_ratings == ["E10+"]
-    assert release.identifiers == ["Release:1", "SKU-1"]
+    response = game_response(item)
+
+    assert response.kind == "game"
+    assert response.platforms == ["PC", "PlayStation 5"]
+    assert response.company_roles == ["developer", "publisher"]
+    assert response.release_region == "US"
+    assert response.physical_format == "disc"
+    assert response.identifiers[0].value == "SKU-1"
 
 
-def test_boardgame_metadata_accessors_normalize_lists():
-    work = BoardGameWork(
+def test_board_game_catalog_item_response_projects_flat_edition_details():
+    item = BoardGameItem(
+        id=UUID("00000000-0000-0000-0000-000000000003"),
         title="Board Game",
-        identifier_entries=[
-            BoardGameIdentifier(identifier_type="bgg", value="BGG:13", normalized_value="BGG:13"),
-            BoardGameIdentifier(identifier_type="bgg", value="BGG:13", normalized_value="BGG:13"),
-        ],
-        contribution_entries=[
-            BoardGameContribution(
-                role="designer",
-                person_id=UUID("00000000-0000-0000-0000-000000000003"),
-                person=Person(name="Klaus Teuber"),
-            ),
-            BoardGameContribution(
-                role="designer",
-                person_id=UUID("00000000-0000-0000-0000-000000000003"),
-                person=Person(name="Klaus Teuber"),
-            ),
-        ],
-        mechanic_entries=[
-            BoardGameMechanic(value="dice rolling", normalized_value="dice rolling"),
-            BoardGameMechanic(value="resource management", normalized_value="resource management"),
-        ],
-        category_entries=[BoardGameCategory(value="economic", normalized_value="economic")],
-        family_entries=[BoardGameFamily(value="catan", normalized_value="catan")],
-        expansion_entries=[BoardGameExpansion(value="Seafarers", normalized_value="seafarers")],
-        ranking_snapshots=[
-            BoardGameRankingSnapshot(ranking_name="BGG Rank #1", rank_position=1),
-        ],
-    )
-    edition = BoardGameEdition(
-        work_id=UUID("00000000-0000-0000-0000-000000000002"),
-        identifier_entries=[
-            BoardGameEditionIdentifier(
-                identifier_type="edition",
-                value="ED:1",
-                normalized_value="ed:1",
-            ),
-            BoardGameEditionIdentifier(
-                identifier_type="edition",
-                value="ED:2",
-                normalized_value="ed:2",
-            ),
+        revision=1,
+        details={
+            "year_published": 1995,
+            "min_players": 2,
+            "max_players": 4,
+            "playing_time_minutes": 60,
+            "contributors": [{"name": "Klaus Teuber", "role": "designer"}],
+            "mechanics": ["trading", "building"],
+            "categories": ["economic"],
+        },
+        identifiers=[
+            BoardGameItemIdentifier(
+                id=UUID("00000000-0000-0000-0000-000000000004"),
+                identifier_type="catalog_number",
+                value="BG-1",
+                normalized_value="bg1",
+                is_primary=True,
+            )
         ],
     )
 
-    assert work.identifiers == ["BGG:13"]
-    assert work.contributors == ["Klaus Teuber"]
-    assert work.mechanics == ["dice rolling", "resource management"]
-    assert work.categories == ["economic"]
-    assert work.families == ["catan"]
-    assert work.expansions == ["Seafarers"]
-    assert work.rankings == ["BGG Rank #1"]
-    assert edition.identifiers == ["ED:1", "ED:2"]
+    response = boardgame_response(item)
+
+    assert response.kind == "boardgame"
+    assert response.year_published == 1995
+    assert response.min_players == 2
+    assert response.max_players == 4
+    assert response.playing_time_minutes == 60
+    assert response.contributors == [{"name": "Klaus Teuber", "role": "designer"}]
+    assert response.mechanics == ["trading", "building"]
+    assert response.categories == ["economic"]
+    assert response.identifiers[0].value == "BG-1"

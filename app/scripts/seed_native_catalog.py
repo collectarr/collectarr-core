@@ -12,8 +12,6 @@ from app.models import (
     AnimeCharacterAppearance,
     AnimeEpisode,
     AnimeSeries,
-    BoardGameEdition,
-    BoardGameWork,
     ComicIssue,
     ComicSeries,
     ComicSeriesMembership,
@@ -21,8 +19,6 @@ from app.models import (
     ComicWork,
     EntityPerson,
     EntityTag,
-    GameRelease,
-    GameWork,
     MangaChapter,
     MangaSeries,
     MangaSeriesMembership,
@@ -38,10 +34,12 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrinting
 from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
-from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
+from app.models.catalog_game_item import GameItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
+from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 SEED_MARKER = "seed-native"
@@ -554,61 +552,95 @@ async def _seed_music(
     return [item]
 
 
-async def _seed_game(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    work = await _get_or_create_work(db, GameWork, entry.title, entry.release_date, cover_url)
-    work.original_language = "en"
-    _apply_seed_metadata(work, entry, ItemKind.game, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, work.id, "game_work", entry.creator, "designer")
-    release = (
-        await db.execute(
-            select(GameRelease).where(
-                GameRelease.work_id == work.id,
-                GameRelease.platform == "PC",
-                GameRelease.release_date == entry.release_date,
-                GameRelease.region_code == "US",
-            )
-        )
+async def _seed_game(
+    db: AsyncSession,
+    entry: _Entry,
+    cover_url: str | None,
+    thumbnail_url: str | None,
+    index: int,
+) -> list[Any]:
+    item = (
+        await db.execute(select(GameItem).where(GameItem.title == entry.title))
     ).scalar_one_or_none()
-    if release is None:
-        release = GameRelease(work=work)
-        db.add(release)
-    release.release_title = entry.title
-    release.platform = "PC"
-    release.release_date = entry.release_date
-    release.region_code = "US"
-    release.format = "digital"
-    release.publisher = entry.publisher
-    release.barcode = f"GAME-{index:03d}"
-    release.cover_image_url = cover_url
-    await db.flush()
-    _apply_seed_metadata(release, entry, ItemKind.game, index, cover_url, thumbnail_url)
-    return [work]
+    if item is None:
+        item = GameItem(
+            title=entry.title,
+            sort_key=_slug(entry.title),
+            barcode=f"GAME-{index:03d}",
+            catalog_number=f"SEED-GAME-{index:03d}",
+            details={},
+        )
+        db.add(item)
+        await db.flush()
+    item.details = {
+        **dict(item.details or {}),
+        "original_title": entry.title,
+        "release_date": entry.release_date.isoformat(),
+        "release_date_parts": {
+            "year": entry.release_date.year,
+            "month": entry.release_date.month,
+            "day": entry.release_date.day,
+        },
+        "release_region": "US",
+        "publisher": entry.publisher,
+        "physical_format": "digital",
+        "language": "en",
+        "age_rating": _seed_age_rating(ItemKind.game),
+        "genres": [entry.tag] if entry.tag else [],
+        "platforms": ["PC"],
+        "company_roles": ["developer"],
+        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    return [item]
 
 
-async def _seed_boardgame(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    work = await _get_or_create_work(db, BoardGameWork, entry.title, entry.release_date, cover_url)
-    _apply_seed_metadata(work, entry, ItemKind.boardgame, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, work.id, "boardgame_work", entry.creator, "designer")
-    edition = (
-        await db.execute(
-            select(BoardGameEdition).where(
-                BoardGameEdition.work_id == work.id,
-                BoardGameEdition.edition_title == entry.title,
-                BoardGameEdition.release_date == entry.release_date,
-            )
-        )
+async def _seed_boardgame(
+    db: AsyncSession,
+    entry: _Entry,
+    cover_url: str | None,
+    thumbnail_url: str | None,
+    index: int,
+) -> list[Any]:
+    item = (
+        await db.execute(select(BoardGameItem).where(BoardGameItem.title == entry.title))
     ).scalar_one_or_none()
-    if edition is None:
-        edition = BoardGameEdition(work=work, edition_title=entry.title)
-        db.add(edition)
-    edition.format = "standard"
-    edition.publisher = entry.publisher
-    edition.release_date = entry.release_date
-    edition.country = "US"
-    edition.cover_image_url = cover_url
-    await db.flush()
-    _apply_seed_metadata(edition, entry, ItemKind.boardgame, index, cover_url, thumbnail_url)
-    return [work]
+    if item is None:
+        item = BoardGameItem(
+            title=entry.title,
+            sort_key=_slug(entry.title),
+            barcode=f"BOARDGAME-{index:03d}",
+            catalog_number=f"SEED-BOARDGAME-{index:03d}",
+            details={},
+        )
+        db.add(item)
+        await db.flush()
+    item.details = {
+        **dict(item.details or {}),
+        "original_title": entry.title,
+        "year_published": entry.release_date.year,
+        "release_date": entry.release_date.isoformat(),
+        "release_date_parts": {
+            "year": entry.release_date.year,
+            "month": entry.release_date.month,
+            "day": entry.release_date.day,
+        },
+        "country": "US",
+        "publisher": entry.publisher,
+        "physical_format": "standard",
+        "age_rating": _seed_age_rating(ItemKind.boardgame),
+        "min_players": 2,
+        "max_players": 4,
+        "playing_time_minutes": 60,
+        "min_age": 10,
+        "genres": [entry.tag] if entry.tag else [],
+        "platforms": [],
+        "contributors": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    return [item]
 
 
 async def _get_or_create_series(db: AsyncSession, model: type, title: str, publisher: str, release_date: date):

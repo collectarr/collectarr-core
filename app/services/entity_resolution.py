@@ -11,8 +11,6 @@ from app.models import (
     AnimeEpisode,
     AnimeRelease,
     AnimeSeries,
-    BoardGameEdition,
-    BoardGameWork,
     BundleRelease,
     Character,
     ComicIssue,
@@ -20,8 +18,6 @@ from app.models import (
     ComicVariant,
     ComicVolume,
     ComicWork,
-    GameRelease,
-    GameWork,
     MangaChapter,
     MangaEdition,
     MangaSeries,
@@ -37,9 +33,11 @@ from app.models import (
     TVRelease,
 )
 from app.models.base import ItemKind
+from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
-from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_book_series import BookSeries
+from app.models.catalog_game_item import GameItem
+from app.models.catalog_movie_item import MovieItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
@@ -59,8 +57,7 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "anime_episode": AnimeEpisode,
     "anime_release": AnimeRelease,
     "anime_series": AnimeSeries,
-    "boardgame_edition": BoardGameEdition,
-    "boardgame_work": BoardGameWork,
+    "catalog_boardgame_item": BoardGameItem,
     "catalog_book_item": BookItem,
     "book_series": BookSeries,
     "bundle_release": BundleRelease,
@@ -70,8 +67,7 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "comic_series": ComicSeries,
     "comic_volume": ComicVolume,
     "comic_work": ComicWork,
-    "game_release": GameRelease,
-    "game_work": GameWork,
+    "catalog_game_item": GameItem,
     "manga_chapter": MangaChapter,
     "manga_edition": MangaEdition,
     "manga_series": MangaSeries,
@@ -112,8 +108,12 @@ def _text(value: Any) -> str | None:
 
 
 def _first_text(entity: object, fields: tuple[str, ...]) -> str | None:
+    details = getattr(entity, "details", None)
     for field in fields:
-        value = _text(getattr(entity, field, None))
+        raw = getattr(entity, field, None)
+        if raw is None and isinstance(details, dict):
+            raw = details.get(field)
+        value = _text(raw)
         if value:
             return value
     return None

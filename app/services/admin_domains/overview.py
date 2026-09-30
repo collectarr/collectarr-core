@@ -11,33 +11,28 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     AdminAuditLog,
-    AnimeItem,
     AnimeCharacterAppearance,
     AnimeContribution,
     AnimeEpisode,
+    AnimeItem,
     AnimeSeries,
     BoardGameItem,
-    BoardGameContribution,
-    BoardGameEdition,
-    BoardGameWork,
     BookItem,
     CatalogItemProposal,
     ComicCharacterAppearance,
-    ComicItem,
     ComicContribution,
     ComicIssue,
+    ComicItem,
     ComicSeries,
     ComicStoryArcMembership,
     ComicVolume,
     ComicWork,
-    GameRelease,
     GameItem,
-    GameWork,
     ImageAsset,
     MangaChapter,
     MangaCharacterAppearance,
-    MangaItem,
     MangaContribution,
+    MangaItem,
     MangaSeries,
     MangaSeriesMembership,
     MangaWork,
@@ -46,14 +41,14 @@ from app.models import (
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
+    TvItem,
     TVRelease,
     TVReleaseContribution,
     TVSeason,
     TVSeries,
-    TvItem,
 )
-from app.models.catalog_book_item import BookItemPrinting
 from app.models.base import ItemKind
+from app.models.catalog_book_item import BookItemPrinting
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -120,8 +115,6 @@ class AdminOverviewService:
                 + await self._count(MangaChapter)
                 + await self._count(AnimeEpisode)
                 + await self._count(TVSeries)
-                + await self._count(GameRelease)
-                + await self._count(BoardGameEdition)
                 + await self._count(MusicItemDisc)
             ),
             variants=(
@@ -367,31 +360,6 @@ class AdminOverviewService:
             )
         )
         documents.extend(catalog_search_document(release) for release in tv_result.scalars().unique())
-
-        game_result = await self.db.execute(
-            select(GameWork).options(
-                selectinload(GameWork.releases),
-                selectinload(GameWork.platform_entries),
-                selectinload(GameWork.identifier_entries),
-                selectinload(GameWork.company_role_entries),
-                selectinload(GameWork.age_rating_entries),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in game_result.scalars().unique())
-
-        boardgame_result = await self.db.execute(
-            select(BoardGameWork).options(
-                selectinload(BoardGameWork.editions),
-                selectinload(BoardGameWork.identifier_entries),
-                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
-                selectinload(BoardGameWork.mechanic_entries),
-                selectinload(BoardGameWork.category_entries),
-                selectinload(BoardGameWork.family_entries),
-                selectinload(BoardGameWork.expansion_entries),
-                selectinload(BoardGameWork.ranking_snapshots),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in boardgame_result.scalars().unique())
 
         music_result = await self.db.execute(
             select(MusicItem).options(

@@ -25,22 +25,10 @@ from app.metadata_normalized import (
 from app.models import (
     AnimeItem,
     AnimeItemIdentifier,
-    AnimeSeries,
     BoardGameItem,
-    BoardGameCategory,
-    BoardGameContribution,
-    BoardGameEdition,
-    BoardGameExpansion,
-    BoardGameFamily,
-    BoardGameGenre,
-    BoardGameIdentifier,
     BoardGameItemIdentifier,
-    BoardGameMechanic,
-    BoardGamePlatform,
-    BoardGameRankingSnapshot,
-    BoardGameWork,
-    BookItemCredit,
     BookItem,
+    BookItemCredit,
     BookItemIdentifier,
     Character,
     ComicCharacterAppearance,
@@ -52,18 +40,10 @@ from app.models import (
     ComicWork,
     EntityAlias,
     EntityLink,
-    GameAgeRating,
-    GameCompanyRole,
-    GameGenre,
     GameItem,
     GameItemIdentifier,
-    GameIdentifier,
-    GamePlatform,
-    GameRelease,
-    GameWork,
     MangaItem,
     MangaItemIdentifier,
-    MangaWork,
     MovieItem,
     MusicItem,
     MusicItemDisc,
@@ -72,13 +52,13 @@ from app.models import (
     PhysicalFormatRef,
     ReleaseStatus,
     StoryArc,
+    TvItem,
+    TvItemIdentifier,
     TVRelease,
     TVReleaseContribution,
     TVReleaseMedia,
     TVSeason,
     TVSeries,
-    TvItem,
-    TvItemIdentifier,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -274,10 +254,10 @@ class AdminCatalogService:
         await _scan(BookItem, ItemKind.book, "book_item")
         await _scan(ComicWork, ItemKind.comic, "comic_work")
         await _scan(MusicItem, ItemKind.music, "catalog_music_item")
-        await _scan(GameWork, ItemKind.game, "game_work")
+        await _scan(GameItem, ItemKind.game, "catalog_game_item")
         await _scan(MovieItem, ItemKind.movie, "catalog_movie_item")
         await _scan(TVSeries, ItemKind.tv, "tv_series")
-        await _scan(BoardGameWork, ItemKind.boardgame, "boardgame_work")
+        await _scan(BoardGameItem, ItemKind.boardgame, "catalog_boardgame_item")
 
         schema_issue_count = sum(count for issue, count in issue_counts.items() if issue in schema_issue_keys)
         blocking_issue_count = sum(
@@ -347,8 +327,6 @@ class AdminCatalogService:
             ItemKind.anime: "anime_series",
             ItemKind.tv: "tv_series",
             ItemKind.music: "catalog_music_item",
-            ItemKind.game: "game_work",
-            ItemKind.boardgame: "boardgame_work",
         }[kind]
         def _current_value(key: str) -> Any:
             value = getattr(entity, key, None)
@@ -486,48 +464,6 @@ class AdminCatalogService:
                     )
                 )
 
-        async def _replace_game_company_roles(values: list[str] | None) -> None:
-            await self.db.execute(delete(GameCompanyRole).where(GameCompanyRole.work_id == entity.id))
-            for sequence, role in enumerate(self._normalize_text_values(values)):
-                self.db.add(GameCompanyRole(work_id=entity.id, role=role, sequence=sequence))
-
-        async def _replace_game_age_ratings(values: list[str] | None) -> None:
-            await self.db.execute(delete(GameAgeRating).where(GameAgeRating.work_id == entity.id))
-            for rating in self._normalize_text_values(values):
-                self.db.add(
-                    GameAgeRating(
-                        work_id=entity.id,
-                        rating_system="unspecified",
-                        rating=rating,
-                        region_code=None,
-                        descriptor=None,
-                    )
-                )
-
-        async def _replace_boardgame_contributors(values: list[str] | None) -> None:
-            await self.db.execute(delete(BoardGameContribution).where(BoardGameContribution.work_id == entity.id))
-            for sequence, name in enumerate(self._normalize_text_values(values)):
-                person = await self._get_or_create_person(name)
-                self.db.add(
-                    BoardGameContribution(
-                        work_id=entity.id,
-                        person_id=person.id,
-                        role="designer",
-                        sequence=sequence,
-                    )
-                )
-
-        async def _replace_boardgame_rankings(values: list[str] | None) -> None:
-            await self.db.execute(delete(BoardGameRankingSnapshot).where(BoardGameRankingSnapshot.work_id == entity.id))
-            for sequence, ranking in enumerate(self._normalize_text_values(values)):
-                self.db.add(
-                    BoardGameRankingSnapshot(
-                        work_id=entity.id,
-                        ranking_name=ranking,
-                        rank_position=sequence + 1,
-                    )
-                )
-
         async def _replace_aliases(values: list[str] | None) -> None:
             await self.db.execute(
                 delete(EntityAlias).where(
@@ -581,8 +517,6 @@ class AdminCatalogService:
                     )
 
         primary_issue = next(iter(getattr(entity, "issues", []) or []), None)
-        primary_edition = next(iter(getattr(entity, "editions", []) or []), None)
-        primary_release = next(iter(getattr(entity, "releases", []) or []), None)
         primary_media = next(iter(getattr(entity, "media", []) or []), None)
 
         if "title" in update_data and payload.title is not None:
@@ -691,75 +625,6 @@ class AdminCatalogService:
                 if "audience_rating" in update_data:
                     _set_metadata_value("audience_rating", payload.audience_rating)
 
-        elif kind == ItemKind.game:
-            release = primary_release
-            if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode")):
-                release = GameRelease(work_id=entity.id, release_title=payload.edition_title)
-                self.db.add(release)
-                await self.db.flush()
-            if release is not None:
-                before["edition_title"] = release.release_title
-                before["publisher"] = release.publisher
-                before["release_date"] = release.release_date
-                before["country"] = release.region_code
-                before["language"] = release.language
-                before["catalog_number"] = release.catalog_number
-                before["barcode"] = release.barcode
-                before["release_status"] = release.release_status
-                if "title" in update_data:
-                    entity.title = payload.title or entity.title
-                if "edition_title" in update_data:
-                    release.release_title = payload.edition_title
-                if "publisher" in update_data:
-                    release.publisher = payload.publisher
-                if "release_date" in update_data:
-                    _set_partial_date(release, "release_date", payload.release_date)
-                if "country" in update_data:
-                    release.region_code = self._normalize_region(payload.country)
-                if "language" in update_data:
-                    release.language = self._normalize_language(payload.language)
-                if "catalog_number" in update_data:
-                    release.catalog_number = payload.catalog_number
-                if "barcode" in update_data:
-                    release.barcode = payload.barcode
-                if "release_status" in update_data:
-                    release.release_status = self._normalize_release_status(payload.release_status)
-                if "physical_format" in update_data:
-                    physical_format = self._validated_physical_format(kind, payload.physical_format)
-                    await self._ensure_physical_format_ref(physical_format)
-                    release.format = physical_format.label
-                if "genres" in update_data:
-                    await _replace_string_rows(
-                        GameGenre,
-                        "work_id",
-                        "value",
-                        payload.genres,
-                    )
-                if "platforms" in update_data:
-                    await _replace_string_rows(
-                        GamePlatform,
-                        "work_id",
-                        "platform_name",
-                        payload.platforms,
-                        normalized_field="normalized_name",
-                    )
-                if "identifiers" in update_data:
-                    await _replace_identifier_rows(
-                        GameIdentifier,
-                        "work_id",
-                        payload.identifiers,
-                    )
-                if "company_roles" in update_data:
-                    await _replace_game_company_roles(payload.company_roles)
-                if "age_ratings" in update_data:
-                    await _replace_game_age_ratings(payload.age_ratings)
-                if "trailer_urls" in update_data:
-                    _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
-                if "external_links" in update_data:
-                    _set_metadata_value("external_links", self._current_link_values(payload.external_links))
-                if "audience_rating" in update_data:
-                    entity.audience_rating = payload.audience_rating
-
         elif kind == ItemKind.tv:
             release = next(iter(getattr(entity, "releases", []) or []), None)
             media = primary_media
@@ -830,86 +695,6 @@ class AdminCatalogService:
                             )
                         )
 
-        elif kind == ItemKind.boardgame:
-            edition = primary_edition
-            if edition is None:
-                edition = BoardGameEdition(work_id=entity.id)
-                self.db.add(edition)
-                await self.db.flush()
-            if "edition_title" in update_data:
-                edition.edition_title = payload.edition_title
-            if "publisher" in update_data:
-                edition.publisher = payload.publisher
-            if "release_date" in update_data:
-                _set_partial_date(edition, "release_date", payload.release_date)
-            if "catalog_number" in update_data:
-                edition.catalog_number = payload.catalog_number
-            if "barcode" in update_data:
-                edition.barcode = payload.barcode
-            if "country" in update_data:
-                edition.country = self._normalize_region(payload.country)
-            if "language" in update_data:
-                edition.language = self._normalize_language(payload.language)
-            if "age_rating" in update_data:
-                edition.age_rating = payload.age_rating
-            if "audience_rating" in update_data:
-                edition.audience_rating = payload.audience_rating
-            if "release_status" in update_data:
-                edition.release_status = self._normalize_release_status(payload.release_status)
-            if "page_count" in update_data:
-                _set_metadata_value("page_count", payload.page_count)
-            if "genres" in update_data:
-                await _replace_string_rows(
-                    BoardGameGenre,
-                    "work_id",
-                    "value",
-                    payload.genres,
-                )
-            if "platforms" in update_data:
-                await _replace_string_rows(
-                    BoardGamePlatform,
-                    "work_id",
-                    "value",
-                    payload.platforms,
-                )
-            if "identifiers" in update_data:
-                await _replace_identifier_rows(
-                    BoardGameIdentifier,
-                    "work_id",
-                    payload.identifiers,
-                )
-            if "contributors" in update_data:
-                await _replace_boardgame_contributors(payload.contributors)
-            if "mechanics" in update_data:
-                await _replace_string_rows(
-                    BoardGameMechanic,
-                    "work_id",
-                    "value",
-                    payload.mechanics,
-                )
-            if "categories" in update_data:
-                await _replace_string_rows(
-                    BoardGameCategory,
-                    "work_id",
-                    "value",
-                    payload.categories,
-                )
-            if "families" in update_data:
-                await _replace_string_rows(
-                    BoardGameFamily,
-                    "work_id",
-                    "value",
-                    payload.families,
-                )
-            if "expansions" in update_data:
-                await _replace_string_rows(
-                    BoardGameExpansion,
-                    "work_id",
-                    "value",
-                    payload.expansions,
-                )
-            if "rankings" in update_data:
-                await _replace_boardgame_rankings(payload.rankings)
         if "audience_rating" in update_data and kind not in {ItemKind.comic, ItemKind.music}:
             _set_named_field(entity, "audience_rating", payload.audience_rating)
 
@@ -1728,6 +1513,8 @@ class AdminCatalogService:
         return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
+        if kind in {ItemKind.game, ItemKind.boardgame}:
+            return self._flat_catalog_item_load_options(kind)
         if kind == ItemKind.book:
             return [
                 selectinload(BookItem.printings),
@@ -1748,17 +1535,6 @@ class AdminCatalogService:
                 ),
                 selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
             ]
-        if kind == ItemKind.game:
-            return [
-                selectinload(GameWork.releases).selectinload(GameRelease.identifier_entries),
-                selectinload(GameWork.genre_entries),
-                selectinload(GameWork.platform_entries),
-                selectinload(GameWork.identifier_entries),
-                selectinload(GameWork.company_role_entries).selectinload(GameCompanyRole.organization),
-                selectinload(GameWork.age_rating_entries),
-                selectinload(GameWork.alias_entries),
-                selectinload(GameWork.entity_links),
-            ]
         if kind == ItemKind.movie:
             return [
                 selectinload(MovieItem.media),
@@ -1775,20 +1551,5 @@ class AdminCatalogService:
                     TVReleaseContribution.person
                 ),
                 selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
-            ]
-        if kind == ItemKind.boardgame:
-            return [
-                selectinload(BoardGameWork.editions).selectinload(BoardGameEdition.identifier_entries),
-                selectinload(BoardGameWork.genre_entries),
-                selectinload(BoardGameWork.platform_entries),
-                selectinload(BoardGameWork.identifier_entries),
-                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
-                selectinload(BoardGameWork.mechanic_entries),
-                selectinload(BoardGameWork.category_entries),
-                selectinload(BoardGameWork.family_entries),
-                selectinload(BoardGameWork.expansion_entries),
-                selectinload(BoardGameWork.ranking_snapshots),
-                selectinload(BoardGameWork.alias_entries),
-                selectinload(BoardGameWork.entity_links),
             ]
         return []

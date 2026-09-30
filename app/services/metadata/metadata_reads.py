@@ -16,18 +16,12 @@ from app.models import (
     AnimeReleaseEpisodeMap,
     AnimeReleaseMedia,
     AnimeSeries,
-    BoardGameContribution,
-    BoardGameEdition,
-    BoardGameWork,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
     ComicStoryArcMembership,
     ComicVariant,
     ComicWork,
-    GameCompanyRole,
-    GameRelease,
-    GameWork,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -49,13 +43,9 @@ from app.schemas import (
     AnimeReleaseMediaResponse,
     AnimeReleaseV1Response,
     AnimeSeriesV1Response,
-    BoardGameEditionV1Response,
-    BoardGameWorkV1Response,
     ComicIssueV1Response,
     ComicVariantV1Response,
     ComicWorkV1Response,
-    GameReleaseV1Response,
-    GameWorkV1Response,
     MangaChapterV1Response,
     MangaEditionV1Response,
     MangaWorkV1Response,
@@ -66,126 +56,6 @@ from app.schemas import (
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
-
-
-async def get_game_work(service, work_id: UUID) -> GameWorkV1Response:
-    work = await service.db.scalar(
-        select(GameWork).where(GameWork.id == work_id).options(
-            selectinload(GameWork.releases).selectinload(GameRelease.identifier_entries),
-            selectinload(GameWork.genre_entries),
-            selectinload(GameWork.platform_entries),
-            selectinload(GameWork.identifier_entries),
-            selectinload(GameWork.company_role_entries).selectinload(GameCompanyRole.organization),
-            selectinload(GameWork.age_rating_entries),
-            selectinload(GameWork.alias_entries),
-            selectinload(GameWork.entity_links),
-        )
-    )
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="game_work_not_found",
-            detail="Game work not found",
-        )
-    return service._game_work_response(work)
-
-
-async def get_game_work_releases(service, work_id: UUID) -> list[GameReleaseV1Response]:
-    work = await service.db.scalar(select(GameWork.id).where(GameWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="game_work_not_found",
-            detail="Game work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(GameRelease)
-                .where(GameRelease.work_id == work_id)
-                .options(selectinload(GameRelease.identifier_entries))
-                .order_by(GameRelease.release_date.asc().nullslast(), GameRelease.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._game_release_response(row) for row in rows]
-
-
-async def get_game_release(service, release_id: UUID) -> GameReleaseV1Response:
-    release = await service.db.scalar(
-        select(GameRelease)
-        .where(GameRelease.id == release_id)
-        .options(selectinload(GameRelease.identifier_entries))
-    )
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="game_release_not_found",
-            detail="Game release not found",
-        )
-    return service._game_release_response(release)
-
-
-async def get_boardgame_work(service, work_id: UUID) -> BoardGameWorkV1Response:
-    work = await service.db.scalar(
-        select(BoardGameWork).where(BoardGameWork.id == work_id).options(
-            selectinload(BoardGameWork.editions).selectinload(BoardGameEdition.identifier_entries),
-            selectinload(BoardGameWork.genre_entries),
-            selectinload(BoardGameWork.platform_entries),
-            selectinload(BoardGameWork.identifier_entries),
-            selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
-            selectinload(BoardGameWork.mechanic_entries),
-            selectinload(BoardGameWork.category_entries),
-            selectinload(BoardGameWork.family_entries),
-            selectinload(BoardGameWork.expansion_entries),
-            selectinload(BoardGameWork.ranking_snapshots),
-            selectinload(BoardGameWork.alias_entries),
-            selectinload(BoardGameWork.entity_links),
-        )
-    )
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="boardgame_work_not_found",
-            detail="Board game work not found",
-        )
-    return service._boardgame_work_response(work)
-
-
-async def get_boardgame_work_editions(service, work_id: UUID) -> list[BoardGameEditionV1Response]:
-    work = await service.db.scalar(select(BoardGameWork.id).where(BoardGameWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="boardgame_work_not_found",
-            detail="Board game work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(BoardGameEdition)
-                .where(BoardGameEdition.work_id == work_id)
-                .options(selectinload(BoardGameEdition.identifier_entries))
-                .order_by(BoardGameEdition.release_date.asc().nullslast(), BoardGameEdition.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._boardgame_edition_response(row) for row in rows]
-
-
-async def get_boardgame_edition(service, edition_id: UUID) -> BoardGameEditionV1Response:
-    edition = await service.db.scalar(
-        select(BoardGameEdition)
-        .where(BoardGameEdition.id == edition_id)
-        .options(selectinload(BoardGameEdition.identifier_entries))
-    )
-    if edition is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="boardgame_edition_not_found",
-            detail="Board game edition not found",
-        )
-    return service._boardgame_edition_response(edition)
 
 
 async def get_comic_work(service, work_id: UUID) -> ComicWorkV1Response:

@@ -18,17 +18,12 @@ from app.models import (
     AnimeContribution,
     AnimeEpisode,
     AnimeSeries,
-    BoardGameContribution,
-    BoardGameEdition,
-    BoardGameWork,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
     ComicSeriesMembership,
     ComicStoryArcMembership,
     ComicWork,
-    GameRelease,
-    GameWork,
     ImageAsset,
     MangaChapter,
     MangaCharacterAppearance,
@@ -44,20 +39,20 @@ from app.models import (
     TVReleaseMedia,
     TVSeries,
 )
+from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import (
     BookItem,
     BookItemCredit,
     BookItemIdentifier,
     BookItemPrinting,
 )
+from app.models.catalog_game_item import GameItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
-    boardgame_search_document,
     catalog_search_document,
     comic_work_search_document,
-    game_work_search_document,
     manga_work_search_document,
     movie_item_search_document,
     music_item_search_document,
@@ -91,8 +86,8 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         AnimeSeries,
         MovieItem,
         TVSeries,
-        GameWork,
-        BoardGameWork,
+        GameItem,
+        BoardGameItem,
         MusicItem,
     )
     edition_tables = (
@@ -102,8 +97,6 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         AnimeEpisode,
         MovieItemMedia,
         TVReleaseMedia,
-        GameRelease,
-        BoardGameEdition,
         MusicItemDisc,
     )
     variant_tables = (
@@ -205,29 +198,14 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(tv_release_search_document(row) for row in tv_rows.scalars().unique())
 
         game_rows = await db.execute(
-            select(GameWork).options(
-                selectinload(GameWork.releases),
-                selectinload(GameWork.platform_entries),
-                selectinload(GameWork.identifier_entries),
-                selectinload(GameWork.company_role_entries),
-                selectinload(GameWork.age_rating_entries),
-            )
+            select(GameItem).options(selectinload(GameItem.identifiers))
         )
-        documents.extend(game_work_search_document(row) for row in game_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in game_rows.scalars().unique())
 
         boardgame_rows = await db.execute(
-            select(BoardGameWork).options(
-                selectinload(BoardGameWork.editions),
-                selectinload(BoardGameWork.identifier_entries),
-                selectinload(BoardGameWork.contribution_entries).selectinload(BoardGameContribution.person),
-                selectinload(BoardGameWork.mechanic_entries),
-                selectinload(BoardGameWork.category_entries),
-                selectinload(BoardGameWork.family_entries),
-                selectinload(BoardGameWork.expansion_entries),
-                selectinload(BoardGameWork.ranking_snapshots),
-            )
+            select(BoardGameItem).options(selectinload(BoardGameItem.identifiers))
         )
-        documents.extend(boardgame_search_document(row) for row in boardgame_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in boardgame_rows.scalars().unique())
 
         anime_rows = await db.execute(
             select(AnimeSeries).options(

@@ -8,13 +8,9 @@ from app.schemas import (
     AnimeReleaseMediaResponse,
     AnimeReleaseV1Response,
     AnimeSeriesV1Response,
-    BoardGameEditionV1Response,
-    BoardGameWorkV1Response,
     ComicIssueV1Response,
     ComicVariantV1Response,
     ComicWorkV1Response,
-    GameReleaseV1Response,
-    GameWorkV1Response,
     MangaChapterV1Response,
     MangaEditionV1Response,
     MangaWorkV1Response,
@@ -47,15 +43,6 @@ from app.services.metadata.metadata_reads import (
     get_anime_series_releases as _get_anime_series_releases,
 )
 from app.services.metadata.metadata_reads import (
-    get_boardgame_edition as _get_boardgame_edition,
-)
-from app.services.metadata.metadata_reads import (
-    get_boardgame_work as _get_boardgame_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_boardgame_work_editions as _get_boardgame_work_editions,
-)
-from app.services.metadata.metadata_reads import (
     get_comic_issue as _get_comic_issue,
 )
 from app.services.metadata.metadata_reads import (
@@ -69,15 +56,6 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_comic_work_issues as _get_comic_work_issues,
-)
-from app.services.metadata.metadata_reads import (
-    get_game_release as _get_game_release,
-)
-from app.services.metadata.metadata_reads import (
-    get_game_work as _get_game_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_game_work_releases as _get_game_work_releases,
 )
 from app.services.metadata.metadata_reads import (
     get_manga_chapter as _get_manga_chapter,
@@ -127,24 +105,6 @@ from app.services.metadata.metadata_reads import (
 
 
 class MetadataTypedReadService:
-
-    async def get_game_work(self, work_id: UUID) -> GameWorkV1Response:
-        return await _get_game_work(self, work_id)
-
-    async def get_game_work_releases(self, work_id: UUID) -> list[GameReleaseV1Response]:
-        return await _get_game_work_releases(self, work_id)
-
-    async def get_game_release(self, release_id: UUID) -> GameReleaseV1Response:
-        return await _get_game_release(self, release_id)
-
-    async def get_boardgame_work(self, work_id: UUID) -> BoardGameWorkV1Response:
-        return await _get_boardgame_work(self, work_id)
-
-    async def get_boardgame_work_editions(self, work_id: UUID) -> list[BoardGameEditionV1Response]:
-        return await _get_boardgame_work_editions(self, work_id)
-
-    async def get_boardgame_edition(self, edition_id: UUID) -> BoardGameEditionV1Response:
-        return await _get_boardgame_edition(self, edition_id)
 
     async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
         return await _get_comic_work(self, work_id)

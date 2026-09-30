@@ -10,16 +10,18 @@ from sqlalchemy.orm import selectinload
 from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeSeries,
-    BoardGameWork,
     ComicWork,
     DuplicateReview,
     DuplicateReviewDetail,
     DuplicateReviewEntity,
-    GameWork,
     MangaWork,
     MusicItem,
     TVSeries,
 )
+from app.models.catalog_boardgame_item import BoardGameItem
+from app.models.catalog_book_item import BookItem
+from app.models.catalog_game_item import GameItem
+from app.models.catalog_movie_item import MovieItem
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -27,8 +29,6 @@ from app.schemas.admin import (
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
 )
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_movie_item import MovieItem
 from app.services.typed_values import flatten_typed_values, materialize_typed_values
 
 # Maps each native root model class to the entity_type string used in generic link tables.
@@ -39,8 +39,8 @@ _ENTITY_TYPE: dict[type, str] = {
     AnimeSeries: "anime_series",
     MovieItem: "catalog_movie_item",
     TVSeries: "tv_series",
-    GameWork: "game_work",
-    BoardGameWork: "boardgame_work",
+    GameItem: "catalog_game_item",
+    BoardGameItem: "catalog_boardgame_item",
     MusicItem: "catalog_music_item",
 }
 
@@ -52,8 +52,8 @@ _KIND_LABEL: dict[type, str] = {
     AnimeSeries: "anime",
     MovieItem: "movie",
     TVSeries: "tv",
-    GameWork: "game",
-    BoardGameWork: "boardgame",
+    GameItem: "game",
+    BoardGameItem: "boardgame",
     MusicItem: "music",
 }
 
@@ -95,7 +95,6 @@ class AdminDuplicateService:
 
         candidates: list[AdminDuplicateCandidateResponse] = []
         for model_cls, title, count, entity_ids in raw_groups:
-            entity_type = _ENTITY_TYPE[model_cls]
             kind_label = _KIND_LABEL[model_cls]
             if await self._duplicate_group_is_ignored(entity_ids, model_cls):
                 continue

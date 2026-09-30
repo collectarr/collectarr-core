@@ -7,25 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
-    AnimeItem,
     AdminAuditLog,
     AdminAuditLogDetail,
+    AnimeItem,
     AnimeSeries,
     BoardGameItem,
-    BoardGameWork,
     BookItem,
     ComicItem,
     ComicWork,
     GameItem,
-    GameWork,
     MangaItem,
     MangaWork,
     MovieItem,
     MusicItem,
     Tag,
+    TvItem,
     TVRelease,
     TVSeries,
-    TvItem,
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
@@ -34,8 +32,8 @@ from app.services.catalog_book_items import CatalogBookItemService
 from app.services.catalog_comic_items import CatalogComicItemService
 from app.services.catalog_game_items import CatalogGameItemService
 from app.services.catalog_manga_items import CatalogMangaItemService
-from app.services.catalog_music_items import CatalogMusicItemService
 from app.services.catalog_movie_items import CatalogMovieItemService
+from app.services.catalog_music_items import CatalogMusicItemService
 from app.services.catalog_series_items import (
     CatalogAnimeItemService,
     CatalogTvItemService,
@@ -123,7 +121,7 @@ class AdminSupportService:
         }
         for model in (
             ComicWork, MangaWork, AnimeSeries, TVRelease,
-            GameWork, BoardGameWork, MusicItem, MovieItem,
+            MusicItem, MovieItem,
             BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
         ):
             statement = select(model).where(model.id.in_(item_ids))
@@ -175,8 +173,4 @@ class AdminSupportService:
             return await metadata.get_tv_series(item.id)
         if isinstance(item, TVRelease):
             return await metadata.get_tv_series(item.series_id)
-        if isinstance(item, GameWork):
-            return await metadata.get_game_work(item.id)
-        if isinstance(item, BoardGameWork):
-            return await metadata.get_boardgame_work(item.id)
         return None

@@ -19,7 +19,12 @@ PRINT_GROUPING_KINDS: frozenset[ItemKind] = frozenset(
 
 
 def grouping_model_for_kind(kind: ItemKind) -> GroupingModel:
-    if kind in {ItemKind.movie, ItemKind.music}:
+    if kind in {
+        ItemKind.boardgame,
+        ItemKind.game,
+        ItemKind.movie,
+        ItemKind.music,
+    }:
         return GroupingModel.catalog_item
     if kind == ItemKind.book:
         return GroupingModel.book_series

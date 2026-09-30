@@ -27,11 +27,11 @@ unverified until their Edit-form captures are available.
 
 Admin catalog search, item detail, root-level correction, per-kind item counts,
 and search reindex now include flat Catalog Item roots for all nine kinds.
-Corrections to contained data such as identifiers, Book credits, discs, and
-episodes must go through the corresponding kind-owned child API; the generic
-Admin correction endpoint rejects those fields rather than persisting them in
-JSON. Other older Core read, diagnostic, and administration paths still use
-Work/Release models and remain part of the cutover.
+Admin corrections update normalized identifier rows for the applicable kinds
+and Book credit rows; structured contents such as printings, media, discs, and
+episodes remain kind-owned child data. Other older Core read, diagnostic, and
+administration paths still use Work/Release models and remain part of the
+cutover.
 
 The shared field contract is exported from Core schemas and pinned by App.
 Regenerate it with `python -m scripts.export_contract_bundle`; review any

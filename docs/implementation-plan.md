@@ -8,8 +8,8 @@
   through the corresponding kind writer.
 - Admin catalog search, item detail, root-level corrections, per-kind item
   counts, and search reindex now include flat Catalog Item roots for all nine
-  kinds. The generic correction endpoint rejects contained child fields; those
-  still need to be edited through kind-owned child operations.
+  kinds. Admin updates normalize identifier and Book credit rows; structured
+  contents remain kind-owned child data.
 - Add search queries the flattened roots and accepts `limit` and `offset`.
   Exact identifier matching uses kind-owned indexed identity tables where
   available and indexed root barcode/catalog-number columns. Free-text queries
@@ -29,10 +29,10 @@
 2. Move retained personal references to Catalog Item or Owned Copy references
    and keep their synchronization in `collectarr-sync`.
 3. Move the remaining Core read, diagnostic, and administration paths from
-   Work/Release models to flat Catalog Item roots. Complete child-aware Admin
-   correction operations before removing the generic child-field rejection.
-   Then remove Core catalog routes and tables that App no longer consumes,
-   retaining kind-owned children with independent domain behavior.
+   Work/Release models to flat Catalog Item roots. Keep structured child edits
+   on their kind-owned operations. Then remove Core catalog routes and tables
+   that App no longer consumes, retaining kind-owned children with independent
+   domain behavior.
 4. Regenerate the contract and update the documented fresh-database setup in
    all three repositories.
 

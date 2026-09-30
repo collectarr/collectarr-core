@@ -24,6 +24,7 @@ from app.metadata_normalized import (
 )
 from app.models import (
     AnimeItem,
+    AnimeItemIdentifier,
     AnimeSeries,
     BoardGameItem,
     BoardGameCategory,
@@ -33,13 +34,16 @@ from app.models import (
     BoardGameFamily,
     BoardGameGenre,
     BoardGameIdentifier,
+    BoardGameItemIdentifier,
     BoardGameMechanic,
     BoardGamePlatform,
     BoardGameRankingSnapshot,
     BoardGameWork,
     BookContribution,
     BookEdition,
+    BookItemCredit,
     BookItem,
+    BookItemIdentifier,
     BookIdentifier,
     BookSeriesMembership,
     BookWork,
@@ -48,6 +52,7 @@ from app.models import (
     ComicContribution,
     ComicIssue,
     ComicItem,
+    ComicItemIdentifier,
     ComicStoryArcMembership,
     ComicWork,
     EntityAlias,
@@ -56,11 +61,13 @@ from app.models import (
     GameCompanyRole,
     GameGenre,
     GameItem,
+    GameItemIdentifier,
     GameIdentifier,
     GamePlatform,
     GameRelease,
     GameWork,
     MangaItem,
+    MangaItemIdentifier,
     MangaWork,
     MovieItem,
     MovieRelease,
@@ -79,6 +86,7 @@ from app.models import (
     TVSeason,
     TVSeries,
     TvItem,
+    TvItemIdentifier,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -1289,29 +1297,6 @@ class AdminCatalogService:
                 ),
             )
 
-        # These values are represented by kind-owned child rows on the flat
-        # roots. They must be edited through their child-aware catalog API,
-        # never copied into JSON where the API would silently hide them.
-        child_fields_by_kind = {
-            ItemKind.book: {"printings", "creators", "contributors", "identifiers"},
-            ItemKind.comic: {"identifiers"},
-            ItemKind.manga: {"identifiers"},
-            ItemKind.anime: {"media", "episodes", "identifiers"},
-            ItemKind.game: {"identifiers"},
-            ItemKind.boardgame: {"identifiers"},
-            ItemKind.tv: {"media", "episodes", "seasons", "identifiers"},
-        }
-        child_fields = sorted(set(update_data) & child_fields_by_kind[kind])
-        if child_fields:
-            raise ApiHTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="catalog_child_correction_unsupported",
-                detail=(
-                    "Contained catalog data must be updated through its "
-                    f"kind-owned editor: {', '.join(child_fields)}"
-                ),
-            )
-
         before_payload = {
             **dict(item.details or {}),
             "title": item.title,
@@ -1319,6 +1304,19 @@ class AdminCatalogService:
             "barcode": item.barcode,
             "catalog_number": item.catalog_number,
         }
+        if hasattr(item, "identifiers"):
+            before_payload["identifiers"] = [
+                f"{row.identifier_type}: {row.value}" for row in item.identifiers
+            ]
+        if kind == ItemKind.book:
+            before_payload["creators"] = [
+                {"name": row.name, "role": row.role}
+                for row in item.credits
+                if row.credit_type == "creator"
+            ]
+            before_payload["contributors"] = [
+                row.name for row in item.credits if row.credit_type == "contributor"
+            ]
         try:
             projected = validate_catalog_item_payload(
                 kind,
@@ -1345,7 +1343,93 @@ class AdminCatalogService:
         item.catalog_number = self._normalize_optional_text(
             projected.pop("catalog_number", None)
         )
-        for key in ("title", "identifiers", "media", "episodes", "seasons", "printings", "creators", "contributors"):
+        projected.pop("title", None)
+
+        if "identifiers" in update_data:
+            identifier_model_by_kind = {
+                ItemKind.book: BookItemIdentifier,
+                ItemKind.comic: ComicItemIdentifier,
+                ItemKind.manga: MangaItemIdentifier,
+                ItemKind.anime: AnimeItemIdentifier,
+                ItemKind.game: GameItemIdentifier,
+                ItemKind.boardgame: BoardGameItemIdentifier,
+                ItemKind.tv: TvItemIdentifier,
+            }
+            identifier_model = identifier_model_by_kind[kind]
+            identifiers = []
+            seen_identifiers: set[tuple[str, str]] = set()
+            for raw_value in self._normalize_text_values(payload.identifiers):
+                if ":" in raw_value:
+                    identifier_type, value = raw_value.split(":", 1)
+                    identifier_type = identifier_type.strip().lower() or "value"
+                    value = value.strip() or raw_value
+                else:
+                    identifier_type, value = "value", raw_value
+                normalized_value = "".join(
+                    character
+                    for character in value.casefold()
+                    if character.isalnum()
+                )
+                if not normalized_value:
+                    continue
+                identity = (identifier_type, normalized_value)
+                if identity in seen_identifiers:
+                    continue
+                seen_identifiers.add(identity)
+                identifiers.append(
+                    identifier_model(
+                        identifier_type=identifier_type,
+                        value=value,
+                        normalized_value=normalized_value,
+                        is_primary=not identifiers,
+                    )
+                )
+            item.identifiers = identifiers
+        projected.pop("identifiers", None)
+
+        if kind == ItemKind.book:
+            if "creators" in update_data or "contributors" in update_data:
+                retained_credits = [
+                    row
+                    for row in item.credits
+                    if not (
+                        ("creators" in update_data and row.credit_type == "creator")
+                        or (
+                            "contributors" in update_data
+                            and row.credit_type == "contributor"
+                        )
+                    )
+                ]
+                if "creators" in update_data:
+                    for sequence, creator in enumerate(payload.creators or [], start=1):
+                        name = self._normalize_optional_text(creator.name)
+                        if not name:
+                            continue
+                        retained_credits.append(
+                            BookItemCredit(
+                                credit_type="creator",
+                                name=name,
+                                role=self._normalize_optional_text(creator.role),
+                                sequence=sequence,
+                            )
+                        )
+                if "contributors" in update_data:
+                    for sequence, raw_name in enumerate(
+                        self._normalize_text_values(payload.contributors),
+                        start=1,
+                    ):
+                        retained_credits.append(
+                            BookItemCredit(
+                                credit_type="contributor",
+                                name=raw_name,
+                                sequence=sequence,
+                            )
+                        )
+                item.credits = retained_credits
+            projected.pop("creators", None)
+            projected.pop("contributors", None)
+
+        for key in ("media", "episodes", "seasons", "printings"):
             projected.pop(key, None)
         item.details = projected
 

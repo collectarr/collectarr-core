@@ -29,6 +29,7 @@ async def search(
     year: int | None = Query(default=None, ge=1800, le=2200),
     barcode: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
 ) -> list[SearchResult]:
     return await MetadataService(db).search(
         query=q,
@@ -47,6 +48,7 @@ async def search(
         year=year,
         barcode=barcode,
         limit=limit,
+        offset=offset,
     )
 
 

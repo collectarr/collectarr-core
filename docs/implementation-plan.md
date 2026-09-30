@@ -6,8 +6,12 @@
   nine kinds.
 - User proposals use kind-owned Catalog Item fields and publish approved values
   through the corresponding kind writer.
-- Search is paginated, exact identifier lookup uses indexed identity tables,
-  and supported substring search uses trigram indexes.
+- Add search queries the flattened roots and accepts `limit` and `offset`.
+  Exact identifier matching uses kind-owned indexed identity tables where
+  available and indexed root barcode/catalog-number columns. Free-text queries
+  use indexed title/sort columns (plus indexed Music artist, label, and
+  subtitle fields); explicit filters target named kind fields rather than
+  scanning a JSON document as text.
 - Duplicate merge remains disabled until App-owned references can be remapped
   atomically.
 - The Core contract is exported from its schema source and pinned by App.

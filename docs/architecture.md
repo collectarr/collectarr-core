@@ -46,6 +46,10 @@ baseline. Never reset a deployed database as part of implementation work.
 
 ## Search and storage
 
-PostgreSQL is the source of truth; Meilisearch is a derived index. Catalog Item
-search is paginated, exact identifier lookup uses kind-owned identity tables,
-and supported substring fields use PostgreSQL trigram indexes.
+PostgreSQL is the source of truth. The Add search route queries the flattened
+Catalog Item roots directly and accepts `limit` and `offset`. Exact identifier
+matches use each kind's indexed identity table where one exists, plus indexed
+root barcode and catalog-number columns. Free-text matching is limited to
+indexed title/sort fields (and indexed Music artist, label, and subtitle
+fields); explicit filters inspect their named kind fields instead of casting
+the entire JSON document to text.

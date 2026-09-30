@@ -7,9 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models.base import ItemKind
 from app.schemas.metadata_shared import SearchResult
-from app.search.client import SearchClient
+from app.services.catalog_item_search import CatalogItemSearchService
 from app.services.metadata.metadata_read_service import MetadataReadService
-from app.services.metadata.metadata_search_service import MetadataSearchService
 
 
 class MetadataFacade(MetadataReadService):
@@ -17,8 +16,7 @@ class MetadataFacade(MetadataReadService):
         self.db: AsyncSession = db
         self.settings = get_settings()
         self.logger = logging.getLogger(__name__)
-        self.search_client = SearchClient()
-        self.search_service = MetadataSearchService(self)
+        self.search_service = CatalogItemSearchService(db)
 
     async def search(
         self,
@@ -38,6 +36,7 @@ class MetadataFacade(MetadataReadService):
         year: int | None = None,
         barcode: str | None = None,
         limit: int = 25,
+        offset: int = 0,
     ) -> list[SearchResult]:
         return await self.search_service.search(
             query=query,
@@ -56,6 +55,7 @@ class MetadataFacade(MetadataReadService):
             year=year,
             barcode=barcode,
             limit=limit,
+            offset=offset,
         )
 
     async def lookup_barcode(self, barcode: str, kind: ItemKind | None = None) -> SearchResult:

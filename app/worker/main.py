@@ -21,11 +21,6 @@ from app.models import (
     BoardGameContribution,
     BoardGameEdition,
     BoardGameWork,
-    BookContribution,
-    BookEdition,
-    BookPrinting,
-    BookSeriesMembership,
-    BookWork,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
@@ -52,11 +47,17 @@ from app.models import (
     TVReleaseMedia,
     TVSeries,
 )
+from app.models.catalog_book_item import (
+    BookItem,
+    BookItemCredit,
+    BookItemIdentifier,
+    BookItemPrinting,
+)
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
     boardgame_search_document,
-    book_work_search_document,
+    catalog_search_document,
     comic_work_search_document,
     game_work_search_document,
     manga_work_search_document,
@@ -86,7 +87,7 @@ def _compute_phash(image_data: bytes) -> str:
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     root_tables = (
-        BookWork,
+        BookItem,
         ComicWork,
         MangaWork,
         AnimeSeries,
@@ -97,7 +98,7 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         MusicItem,
     )
     edition_tables = (
-        BookEdition,
+        BookItemPrinting,
         ComicIssue,
         MangaChapter,
         AnimeEpisode,
@@ -108,7 +109,8 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         MusicItemDisc,
     )
     variant_tables = (
-        BookPrinting,
+        BookItemCredit,
+        BookItemIdentifier,
         TVReleaseEpisodeMap,
         MusicItemTrack,
     )
@@ -154,16 +156,13 @@ async def index_once(search: SearchClient) -> None:
     async with AsyncSessionLocal() as db:
         documents = []
         book_rows = await db.execute(
-            select(BookWork).options(
-                selectinload(BookWork.contributions).selectinload(BookContribution.person),
-                selectinload(BookWork.editions)
-                .selectinload(BookEdition.contributions)
-                .selectinload(BookContribution.person),
-                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
+            select(BookItem).options(
+                selectinload(BookItem.printings),
+                selectinload(BookItem.credits),
+                selectinload(BookItem.identifiers),
             )
         )
-        documents.extend(book_work_search_document(row) for row in book_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in book_rows.scalars().unique())
 
         comic_rows = await db.execute(
             select(ComicWork).options(

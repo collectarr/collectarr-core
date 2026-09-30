@@ -62,7 +62,6 @@ class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataRespo
             value=identifier.value,
             normalized_value=identifier.normalized_value,
             is_primary=identifier.is_primary,
-            source_provider=identifier.source_provider,
         )
 
     def _book_edition_response(self, edition: BookEdition) -> BookEditionV1Response:

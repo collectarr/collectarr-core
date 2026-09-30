@@ -21,20 +21,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import (
     Base,
-    ExternalProvider,
     TimestampMixin,
     UuidMixin,
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
     MangaSeriesRelation,
     Organization,
@@ -146,10 +143,6 @@ class AnimeIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        index=True,
-    )
 
     series: Mapped[AnimeSeries] = relationship(back_populates="identifiers")
 

@@ -6,22 +6,20 @@ from datetime import date
 from sqlalchemy import (
     Boolean,
     Date,
-    Enum,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
-    and_,
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, ExternalProvider, TimestampMixin, UuidMixin
+from app.models.base import Base, TimestampMixin, UuidMixin
 from app.models.canonical_anime import AnimeEpisode, AnimeSeries
-from app.models.canonical_support import ExternalProviderId, Person
+from app.models.canonical_support import Person
 
 
 class AnimeRelease(UuidMixin, TimestampMixin, Base):
@@ -67,13 +65,6 @@ class AnimeRelease(UuidMixin, TimestampMixin, Base):
     )
     identifiers: Mapped[list["AnimeReleaseIdentifier"]] = relationship(
         back_populates="release", cascade="all, delete-orphan"
-    )
-    provider_links: Mapped[list[ExternalProviderId]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == AnimeRelease.id,
-            ExternalProviderId.entity_type == "anime_release",
-        ),
-        viewonly=True,
     )
 
 
@@ -160,8 +151,5 @@ class AnimeReleaseIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False), index=True
-    )
 
     release: Mapped[AnimeRelease] = relationship(back_populates="identifiers")

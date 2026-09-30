@@ -7,10 +7,9 @@ delivery, search, and catalog administration. App owns owned copies and all
 personal state. Sync may mirror that personal state between App installations;
 it never stores canonical catalog data.
 
-Provider search, provider credentials, ingest jobs, source snapshots, and
-provider provenance are outside Core. Proposals carry kind-owned catalog fields
-from the same form used for manual Catalog Item creation and editing. They do
-not contain provider identities or owned-copy data.
+The project has no provider search or ingest subsystem. Proposals carry only
+kind-owned catalog fields from the same form used for manual Catalog Item
+creation and editing. They do not contain source identities or owned-copy data.
 
 ## Catalog model
 

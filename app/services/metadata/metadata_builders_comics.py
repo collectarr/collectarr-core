@@ -46,7 +46,6 @@ class ComicMetadataResponseBuilders:
                 value=identifier.value,
                 normalized_value=identifier.normalized_value,
                 is_primary=identifier.is_primary,
-                source_provider=identifier.source_provider,
             )
 
         def _comic_variant_response(self, variant: ComicVariant) -> ComicVariantV1Response:
@@ -126,14 +125,6 @@ class ComicMetadataResponseBuilders:
                         role=row.role,
                         image_url=row.character.image_url if row.character is not None else None,
                         sort_name=row.character.canonical_name if row.character is not None else None,
-                        external_ids=(
-                            {
-                                identifier.identifier_type: identifier.value
-                                for identifier in row.character.external_identifiers
-                            }
-                            if row.character is not None and row.character.external_identifiers
-                            else None
-                        ),
                     )
                     for row in sorted(
                         issue.character_appearances or [],

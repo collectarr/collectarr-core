@@ -26,7 +26,6 @@ from app.models.base import (
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
@@ -35,7 +34,6 @@ from app.models.canonical_support import (  # noqa: F401
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
     MangaSeriesRelation,
     Organization,
@@ -106,13 +104,6 @@ class GameWork(UuidMixin, TimestampMixin, Base):
         primaryjoin=lambda: and_(
             foreign(EntityOrganization.entity_id) == GameWork.id,
             EntityOrganization.entity_type == "game_work",
-        ),
-        viewonly=True,
-    )
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == GameWork.id,
-            ExternalProviderId.entity_type == "game_work",
         ),
         viewonly=True,
     )
@@ -228,7 +219,6 @@ class GameIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
 
     work: Mapped[GameWork] = relationship(back_populates="identifier_entries")
 
@@ -346,6 +336,5 @@ class GameReleaseIdentifier(UuidMixin, TimestampMixin, Base):
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    source_provider: Mapped[str | None] = mapped_column(String(64), index=True)
 
     release: Mapped[GameRelease] = relationship(back_populates="identifier_entries")

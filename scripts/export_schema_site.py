@@ -80,22 +80,18 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     },
     {
         "id": "identity",
-        "title": "Identity and Source Mapping",
-        "description": "Users and external provider identifiers that map upstream ids back to catalog entities.",
-        "tables": [
-            "users",
-            "external_provider_ids",
-        ],
+        "title": "User Identity",
+        "description": "User accounts used for authentication and administration.",
+        "tables": ["users"],
     },
     {
         "id": "operations",
         "title": "Images and Operations",
-        "description": "Image storage, cache tracking, ingest jobs, admin audit trails, and proposal workflow tables.",
+        "description": "Image storage, admin audit trails, and catalog proposal workflow tables.",
         "tables": [
             "image_assets",
             "image_cache_entries",
-            "provider_ingest_jobs",
-            "metadata_proposals",
+            "catalog_item_proposals",
             "admin_audit_logs",
         ],
     },
@@ -129,8 +125,6 @@ KIND_SHARED_TABLES = [
     "entity_persons",
     "tags",
     "entity_tags",
-    "external_provider_ids",
-    "provider_payload_snapshots",
 ]
 
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
@@ -218,12 +212,11 @@ POLYMORPHIC_LINK_TABLES = {
     "entity_organizations",
     "entity_persons",
     "entity_tags",
-    "external_provider_ids",
     "image_assets",
 }
 
 STATIC_NOTES = [
-    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets use entity_type + entity_id instead of concrete foreign keys for every target entity.",
     "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",

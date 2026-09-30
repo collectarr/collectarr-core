@@ -23,7 +23,6 @@ from app.models import (
     BookEdition,
     BookSeriesMembership,
     BookWork,
-    Character,
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
@@ -273,7 +272,7 @@ async def get_comic_work(service, work_id: UUID) -> ComicWorkV1Response:
             selectinload(ComicWork.issues).selectinload(ComicIssue.variants),
             selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
                 ComicCharacterAppearance.character
-            ).selectinload(Character.external_identifiers),
+            ),
             selectinload(ComicWork.missing_issue_entries),
             selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
                 ComicStoryArcMembership.story_arc
@@ -307,8 +306,7 @@ async def get_comic_work_issues(service, work_id: UUID) -> list[ComicIssueV1Resp
                     selectinload(ComicIssue.identifiers),
                     selectinload(ComicIssue.variants),
                     selectinload(ComicIssue.character_appearances)
-                    .selectinload(ComicCharacterAppearance.character)
-                    .selectinload(Character.external_identifiers),
+                    .selectinload(ComicCharacterAppearance.character),
                     selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
                 )
                 .order_by(
@@ -331,8 +329,7 @@ async def get_comic_issue(service, issue_id: UUID) -> ComicIssueV1Response:
             selectinload(ComicIssue.identifiers),
             selectinload(ComicIssue.variants),
             selectinload(ComicIssue.character_appearances)
-            .selectinload(ComicCharacterAppearance.character)
-            .selectinload(Character.external_identifiers),
+            .selectinload(ComicCharacterAppearance.character),
             selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
         )
     )

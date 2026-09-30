@@ -21,13 +21,12 @@
 
 > Shared source-neutral catalog for Collectarr: canonical metadata, user-submitted catalog proposals, image delivery, admin tooling, and search infrastructure.
 
-Collectarr Core owns canonical catalog data and its read contract. Provider
-search, provider credentials, import jobs, snapshots, and ingest are outside the
-target architecture. User proposals remain available: the App submits the same
-kind-owned catalog fields shown by manual Add/Edit, and moderators review them
-as catalog data. Core must not receive owned-copy or other personal state.
-Personal data stays in `collectarr-app` and can optionally sync through
-`collectarr-sync`.
+Collectarr Core owns canonical catalog data and its read/write contract. The
+project has no provider search or ingest subsystem. User proposals remain
+available: the App submits the same kind-owned catalog fields shown by manual
+Add/Edit, and moderators review them as catalog data. Core must not receive
+owned-copy or other personal state. Personal data stays in `collectarr-app` and
+can optionally sync through `collectarr-sync`.
 
 ---
 
@@ -196,10 +195,13 @@ The workflow logs in through `/api/v1/auth/login` when a bearer token is not pro
 | `collectarr-app` | Flutter client for local-first collection browsing, editing, and admin-facing UX |
 | `collectarr-sync` | Optional personal sync service for multi-device shelf state |
 
-## 🧭 Library Parity Contract
+## 🧭 Catalog Field Contract
 
-See [docs/library-parity-contract.md](docs/library-parity-contract.md) for the
-cross-repo active-kind/provider guarantees and enforcement points.
+See [docs/field-schema.md](docs/field-schema.md) for the generated editable
+field schema, and [docs/implementation-plan.md](docs/implementation-plan.md)
+for current cutover status. Music is grounded in the saved CLZ Music Edit form;
+exact CLZ parity for the other eight kinds remains unverified pending their
+Edit-form captures.
 
 ## 🗺️ Roadmap
 
@@ -207,12 +209,13 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the full road
 
 Current active tracks:
 
-- stabilize typed-per-kind metadata storage as the canonical contract
-- deepen per-kind canonical field coverage where normalized submissions still have gaps
-- expand duplicate/merge review into a full operator queue
+- complete the App Catalog Item and Owned Copy cutover while preserving the established UI
+- move retained personal features to explicit Catalog Item or Owned Copy references and Sync
+- remove Core's old per-kind Work/Release API and tables after App no longer consumes them
+- expand duplicate review, keeping merge disabled until personal references can be remapped safely
 - continue public-deployment hardening for internet-facing setups
 - keep the interactive schema explorer clearer by separating general tables from kind-specific tables
-- keep comic cover-photo recognition / scan-to-identify local-first in the app; Core only provides image search/storage primitives
+- keep catalog proposals source-neutral and separate from App-owned personal data
 
 ---
 

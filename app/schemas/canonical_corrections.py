@@ -9,7 +9,7 @@ from app.types import JsonObject
 
 
 class CanonicalCorrectionProposalCreate(BaseModel):
-    """A provider-independent proposal against one canonical entity."""
+    """A source-neutral proposal against one canonical entity."""
 
     kind: ItemKind
     entity_type: str = Field(min_length=1, max_length=64)

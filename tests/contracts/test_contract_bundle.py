@@ -9,13 +9,11 @@ def test_contract_bundle_exports_versioned_snapshot(tmp_path):
     manifest = json.loads((tmp_path / "contract-manifest.json").read_text(encoding="utf-8"))
     field_schema = json.loads((tmp_path / "metadata-field-schema.json").read_text(encoding="utf-8"))
     active_kinds = json.loads((tmp_path / "active-kinds.json").read_text(encoding="utf-8"))
-    provider_support = json.loads((tmp_path / "provider-support.json").read_text(encoding="utf-8"))
 
     assert manifest["contractVersion"] == CONTRACT_VERSION
     assert manifest["openApiHash"] == hashes["openapi.json"]
     assert manifest["fieldSchemaHash"] == hashes["metadata-field-schema.json"]
     assert manifest["activeKindsHash"] == hashes["active-kinds.json"]
-    assert manifest["providerSupportHash"] == hashes["provider-support.json"]
     assert manifest["generatedAt"]
     assert manifest["coreCommit"]
 
@@ -33,4 +31,3 @@ def test_contract_bundle_exports_versioned_snapshot(tmp_path):
 
     assert "collection" not in active_kinds["kinds"]
     assert len(active_kinds["kinds"]) == 9
-    assert provider_support["providers"]

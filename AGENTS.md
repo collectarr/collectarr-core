@@ -14,7 +14,7 @@ Use separate typed root tables per kind. The planned roots are `music_items`, `t
 
 ## Provider boundary
 
-Provider search, credentials, rate limiting, source-ID mapping, snapshots, ingest, and provider administration belong outside Core and are removed for this implementation. Core APIs and contracts must remain source-neutral. Do not add provider envelopes, provider-support exports, or provider-specific IDs to the flattened catalog API.
+The project has no provider search, credentials, rate limiting, source-ID mapping, snapshots, ingest, or provider administration subsystem. Do not reintroduce those features, compatibility identifiers, provider envelopes, provider-support exports, or provider-specific IDs. User Catalog Item proposals remain source-neutral and contain only the kind fields accepted by manual Add/Edit.
 
 ## API and contracts
 

@@ -26,7 +26,6 @@ from app.models.base import (
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
     ComicSeriesRelation,
@@ -35,7 +34,6 @@ from app.models.canonical_support import (  # noqa: F401
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
     MangaSeriesRelation,
     Organization,
@@ -107,13 +105,6 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
 
     components: Mapped[list["BundleReleaseComponent"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
-    )
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == BundleRelease.id,
-            ExternalProviderId.entity_type == "bundle_release",
-        ),
-        viewonly=True,
     )
 
 

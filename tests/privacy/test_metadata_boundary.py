@@ -70,12 +70,12 @@ def test_user_proposals_project_only_kind_owned_catalog_data() -> None:
             {
                 "name": "A. Writer",
                 "role": "author",
-                "provider_ids": {"external": "1"},
+                "unrecognized_identifiers": {"external": "1"},
             }
         ],
         "owned_copy": {"condition": "mint"},
         "purchase_date": "2026-01-01",
-        "provider_item_id": "external-1",
+        "external_catalog_reference": "external-1",
     }
     projected = validate_catalog_item_payload(ItemKind.book, submitted)
     assert projected == {

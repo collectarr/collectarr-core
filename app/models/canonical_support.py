@@ -24,7 +24,6 @@ from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
     Base,
-    ExternalProvider,
     ItemKind,
     SeriesRelationType,
     TimestampMixin,
@@ -33,23 +32,6 @@ from app.models.base import (
 
 if TYPE_CHECKING:
     from app.models import ComicSeries, MangaSeries
-
-
-class ExternalProviderId(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "external_provider_ids"
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_item_id", name="uq_provider_provider_item_id"),
-        Index("ix_external_entity", "entity_type", "entity_id"),
-    )
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    site_url: Mapped[str | None] = mapped_column(String(1024))
-    api_url: Mapped[str | None] = mapped_column(String(1024))
 
 
 class Organization(UuidMixin, TimestampMixin, Base):
@@ -71,38 +53,6 @@ class Person(UuidMixin, TimestampMixin, Base):
     image_url: Mapped[str | None] = mapped_column(String(1024))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
     site_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    external_identifiers: Mapped[list["PersonExternalIdentifier"]] = relationship(
-        back_populates="person",
-        cascade="all, delete-orphan",
-        order_by="PersonExternalIdentifier.identifier_type",
-    )
-
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == Person.id,
-            ExternalProviderId.entity_type == "person",
-        ),
-        viewonly=True,
-    )
-
-
-class PersonExternalIdentifier(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "person_external_identifiers"
-    __table_args__ = (
-        UniqueConstraint("person_id", "identifier_type", "normalized_value", name="uq_person_external_identifier"),
-        Index("ix_person_external_identifiers_type_value", "identifier_type", "normalized_value"),
-    )
-
-    person_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False
-    )
-    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
-    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    person: Mapped[Person] = relationship(back_populates="external_identifiers")
-
-
 class EntityOrganization(UuidMixin, TimestampMixin, Base):
     __tablename__ = "entity_organizations"
     __table_args__ = (
@@ -244,15 +194,6 @@ class Character(UuidMixin, TimestampMixin, Base):
         order_by="EntityAlias.position",
         cascade="all, delete-orphan",
     )
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == Character.id,
-            ExternalProviderId.entity_type == "character",
-        ),
-        viewonly=True,
-    )
-
-
 class CharacterAppearance(UuidMixin, TimestampMixin, Base):
     __tablename__ = "character_appearances"
     __table_args__ = (
@@ -430,7 +371,7 @@ class DuplicateReviewDetail(UuidMixin, TimestampMixin, TypedScalarValueMixin, Ba
 
 
 class CanonicalCorrectionProposal(UuidMixin, TimestampMixin, Base):
-    """Provider-independent correction proposal for one canonical entity."""
+    """Source-neutral correction proposal for one canonical entity."""
 
     __tablename__ = "canonical_correction_proposals"
     __table_args__ = (
@@ -494,32 +435,6 @@ class CanonicalCorrectionProposalValue(
     proposal: Mapped[CanonicalCorrectionProposal] = relationship(back_populates="values")
 
 
-class AdminReleaseMediaMappingRule(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "admin_release_media_mapping_rules"
-    __table_args__ = (
-        Index(
-            "ix_admin_release_media_mapping_rules_lookup",
-            "release_type",
-            "provider",
-            "is_active",
-            "priority",
-        ),
-    )
-
-    provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        nullable=True,
-        index=True,
-    )
-    release_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    target_kind: Mapped[ItemKind] = mapped_column(
-        Enum(ItemKind, name="item_kind", create_type=False), nullable=False, index=True
-    )
-    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
-    notes: Mapped[str | None] = mapped_column(Text)
-
-
 class MangaSeriesRelation(UuidMixin, TimestampMixin, Base):
     __tablename__ = "manga_series_relations"
     __table_args__ = (
@@ -545,9 +460,6 @@ class MangaSeriesRelation(UuidMixin, TimestampMixin, Base):
     ordinal: Mapped[int | None] = mapped_column(Integer)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     start_year: Mapped[int | None] = mapped_column(Integer)
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
-
     source_series: Mapped["MangaSeries"] = relationship(
         foreign_keys=[source_series_id],
     )
@@ -581,9 +493,6 @@ class ComicSeriesRelation(UuidMixin, TimestampMixin, Base):
     ordinal: Mapped[int | None] = mapped_column(Integer)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     start_year: Mapped[int | None] = mapped_column(Integer)
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
-
     source_series: Mapped["ComicSeries"] = relationship(
         foreign_keys=[source_series_id],
     )

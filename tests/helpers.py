@@ -2,7 +2,6 @@ from datetime import date
 
 from app.db.session import AsyncSessionLocal
 from app.models import ComicIdentifier, ComicIssue, ComicWork
-from app.models.base import ExternalProvider
 
 
 async def seed_comic() -> tuple[str, str, str]:
@@ -38,7 +37,6 @@ async def seed_comic() -> tuple[str, str, str]:
                 value="75960604716100111",
                 normalized_value="75960604716100111",
                 is_primary=True,
-                source_provider=ExternalProvider.comicvine,
             )
         )
         await db.commit()

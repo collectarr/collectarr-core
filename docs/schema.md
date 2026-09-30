@@ -47,7 +47,6 @@ Shared typed relation tables include:
 - `entity_links`: trailers and external links.
 - `entity_tags` and `tags`: shared editorial taxonomy assignments.
 - `image_assets`: cover/poster/banner/background image references in object storage.
-- `external_provider_ids`: provider-to-canonical entity mappings.
 
 ## Workflow Relations
 

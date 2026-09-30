@@ -36,7 +36,7 @@ traceability.
 - local Drift database
 - local catalog snapshots used for offline-first browsing
 - owned/wishlist/personal fields
-- provider adapters, CSV/CLZ import-export, and importer workflows
+- CSV import/export and barcode scanning with manual Core search
 - barcode scanning/manual fallback UX
 - sync client, pairing UX, conflict review/actions, and local retry queue
 
@@ -46,7 +46,6 @@ Core publishes:
 
 - OpenAPI schema for metadata/admin/auth endpoints
 - media catalog contract for `/api/v1/metadata/media-types`
-- provider status/capability schema
 - canonical catalog snapshot schema used by the app
 - versioned API contract change notes
 
@@ -61,7 +60,7 @@ App consumes:
 
 - Core metadata/admin/auth APIs
 - Sync protocol schema
-- media catalog fallback data for offline/dev mode
+- Core catalog search, catalog item write, and Catalog Item proposal contracts
 
 ## Future Devstack Decision
 

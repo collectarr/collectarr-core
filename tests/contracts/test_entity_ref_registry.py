@@ -8,7 +8,6 @@ def test_entity_ref_registry_exposes_bundle_release_spec():
     assert spec is not None
     assert spec.table_name == "bundle_releases"
     assert spec.display_name == "Bundle release"
-    assert spec.supports_provider_ids
     assert DEFAULT_ENTITY_REF_REGISTRY.table_name("bundle_release") == "bundle_releases"
 
 

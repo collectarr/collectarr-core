@@ -6,18 +6,13 @@ import argparse
 import asyncio
 
 from app.db.session import AsyncSessionLocal
-from app.scripts.seed_native_catalog import seed_catalog, wipe_seed_data
+from app.scripts.seed_native_catalog import seed_catalog
 from app.services.admin import AdminMetadataService
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Seed one deterministic native entry for every library kind."
-    )
-    parser.add_argument(
-        "--wipe",
-        action="store_true",
-        help="Remove existing rows created by the native seed before writing.",
     )
     parser.add_argument(
         "--skip-search-reindex",
@@ -30,9 +25,6 @@ def parse_args() -> argparse.Namespace:
 async def seed() -> None:
     args = parse_args()
     async with AsyncSessionLocal() as db:
-        if args.wipe:
-            removed = await wipe_seed_data(db)
-            print(f"Removed {removed} existing native seed roots.")
         await seed_catalog(db, entries_per_kind=1)
         if not args.skip_search_reindex:
             result = await AdminMetadataService(db).reindex_search()

@@ -1119,6 +1119,17 @@
               "default": 25,
               "title": "Limit"
             }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
           }
         ],
         "responses": {
@@ -6227,11 +6238,6 @@
             "title": "Reason",
             "default": "same title and item number"
           },
-          "has_provider_conflicts": {
-            "type": "boolean",
-            "title": "Has Provider Conflicts",
-            "default": false
-          },
           "has_cover_conflicts": {
             "type": "boolean",
             "title": "Has Cover Conflicts",
@@ -7080,6 +7086,206 @@
             ],
             "title": "Catalog Number"
           },
+          "artist": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artist"
+          },
+          "sort_title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Title"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "packaging": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packaging"
+          },
+          "studios": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Studios"
+          },
+          "is_live": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Live"
+          },
+          "sound_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sound Types"
+          },
+          "vinyl_color": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vinyl Color"
+          },
+          "vinyl_weight": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vinyl Weight"
+          },
+          "rpm": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpm"
+          },
+          "extra": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra"
+          },
+          "spars": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spars"
+          },
+          "box_set": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box Set"
+          },
+          "original_release_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Release Date"
+          },
+          "recording_date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartialDateValue"
+              },
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recording Date"
+          },
           "release_status": {
             "anyOf": [
               {
@@ -7151,6 +7357,18 @@
               }
             ],
             "title": "Thumbnail Image Url"
+          },
+          "back_cover_image_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1024
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Cover Image Url"
           }
         },
         "additionalProperties": false,
@@ -8709,17 +8927,6 @@
             ],
             "title": "Source Url"
           },
-          "provider": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider"
-          },
           "attribution": {
             "anyOf": [
               {
@@ -9094,16 +9301,6 @@
           "is_primary": {
             "type": "boolean",
             "title": "Is Primary"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -9705,7 +9902,7 @@
           "proposed_fields"
         ],
         "title": "CanonicalCorrectionProposalCreate",
-        "description": "A provider-independent proposal against one canonical entity."
+        "description": "A source-neutral proposal against one canonical entity."
       },
       "CanonicalCorrectionProposalResponse": {
         "properties": {
@@ -14779,17 +14976,6 @@
             ],
             "title": "Packaging"
           },
-          "studio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Studio"
-          },
           "studios": {
             "items": {
               "type": "string"
@@ -15992,20 +16178,6 @@
               }
             ],
             "title": "Sort Name"
-          },
-          "external_ids": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "External Ids"
           }
         },
         "type": "object",
@@ -16100,16 +16272,6 @@
           "is_primary": {
             "type": "boolean",
             "title": "Is Primary"
-          },
-          "source_provider": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExternalProvider"
-              },
-              {
-                "type": "null"
-              }
-            ]
           }
         },
         "type": "object",
@@ -16966,22 +17128,6 @@
           "name"
         ],
         "title": "CreatorResponse"
-      },
-      "ExternalProvider": {
-        "type": "string",
-        "enum": [
-          "anilist",
-          "bgg",
-          "comicvine",
-          "gcd",
-          "hardcover",
-          "igdb",
-          "mangadex",
-          "musicbrainz",
-          "openlibrary",
-          "tmdb"
-        ],
-        "title": "ExternalProvider"
       },
       "FacetEntityIdsRequest": {
         "properties": {

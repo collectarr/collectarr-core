@@ -123,7 +123,7 @@ class ComicsService:
                 (
                     identifier.value
                     for identifier in (primary.identifiers or [])
-                    if identifier.identifier_type in {"upc", "ean", "isbn10", "isbn13", "provider_item_id"}
+                    if identifier.identifier_type in {"upc", "ean", "isbn10", "isbn13"}
                 ),
                 None,
             )

@@ -23,7 +23,9 @@ from app.metadata_normalized import (
     typed_metadata_payload,
 )
 from app.models import (
+    AnimeItem,
     AnimeSeries,
+    BoardGameItem,
     BoardGameCategory,
     BoardGameContribution,
     BoardGameEdition,
@@ -37,6 +39,7 @@ from app.models import (
     BoardGameWork,
     BookContribution,
     BookEdition,
+    BookItem,
     BookIdentifier,
     BookSeriesMembership,
     BookWork,
@@ -44,6 +47,7 @@ from app.models import (
     ComicCharacterAppearance,
     ComicContribution,
     ComicIssue,
+    ComicItem,
     ComicStoryArcMembership,
     ComicWork,
     EntityAlias,
@@ -51,10 +55,12 @@ from app.models import (
     GameAgeRating,
     GameCompanyRole,
     GameGenre,
+    GameItem,
     GameIdentifier,
     GamePlatform,
     GameRelease,
     GameWork,
+    MangaItem,
     MangaWork,
     MovieItem,
     MovieRelease,
@@ -72,6 +78,7 @@ from app.models import (
     TVReleaseMedia,
     TVSeason,
     TVSeries,
+    TvItem,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -316,6 +323,21 @@ class AdminCatalogService:
             return await self._update_music_catalog_item(entity, payload)
         if kind == ItemKind.movie and isinstance(entity, MovieItem):
             return await self._update_movie_catalog_item(entity, payload)
+        flat_kind_by_type = {
+            BookItem: ItemKind.book,
+            ComicItem: ItemKind.comic,
+            MangaItem: ItemKind.manga,
+            AnimeItem: ItemKind.anime,
+            GameItem: ItemKind.game,
+            BoardGameItem: ItemKind.boardgame,
+            TvItem: ItemKind.tv,
+        }
+        flat_kind = next(
+            (root_kind for model, root_kind in flat_kind_by_type.items() if isinstance(entity, model)),
+            None,
+        )
+        if flat_kind is not None:
+            return await self._update_flat_catalog_item(entity, flat_kind, payload)
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
@@ -1243,6 +1265,113 @@ class AdminCatalogService:
         )
         return await self._item_response_loader(loaded_item)
 
+    async def _update_flat_catalog_item(
+        self,
+        item: Any,
+        kind: ItemKind,
+        payload: AdminMetadataCorrectionRequest,
+    ) -> Any:
+        update_data = payload.model_dump(exclude_unset=True, mode="json")
+        if not update_data:
+            return await self._item_response_loader(item)
+
+        contract_fields = set(
+            catalog_item_payload_contract()["kinds"][kind.value]["properties"]
+        )
+        unsupported = sorted(set(update_data) - contract_fields)
+        if unsupported:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_correction_fields_unsupported",
+                detail=(
+                    f"Unsupported {kind.value} Catalog Item correction fields: "
+                    f"{', '.join(unsupported)}"
+                ),
+            )
+
+        # These values are represented by kind-owned child rows on the flat
+        # roots. They must be edited through their child-aware catalog API,
+        # never copied into JSON where the API would silently hide them.
+        child_fields_by_kind = {
+            ItemKind.book: {"printings", "creators", "contributors", "identifiers"},
+            ItemKind.comic: {"identifiers"},
+            ItemKind.manga: {"identifiers"},
+            ItemKind.anime: {"media", "episodes", "identifiers"},
+            ItemKind.game: {"identifiers"},
+            ItemKind.boardgame: {"identifiers"},
+            ItemKind.tv: {"media", "episodes", "seasons", "identifiers"},
+        }
+        child_fields = sorted(set(update_data) & child_fields_by_kind[kind])
+        if child_fields:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_child_correction_unsupported",
+                detail=(
+                    "Contained catalog data must be updated through its "
+                    f"kind-owned editor: {', '.join(child_fields)}"
+                ),
+            )
+
+        before_payload = {
+            **dict(item.details or {}),
+            "title": item.title,
+            "sort_key": item.sort_key,
+            "barcode": item.barcode,
+            "catalog_number": item.catalog_number,
+        }
+        try:
+            projected = validate_catalog_item_payload(
+                kind,
+                {**before_payload, **update_data},
+            )
+        except (TypeError, ValueError) as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_correction_payload_invalid",
+                detail=str(exc),
+            ) from exc
+
+        title = self._normalize_optional_text(projected.get("title"))
+        if title is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_title_required",
+                detail=f"{kind.value} Catalog Item title must not be empty",
+            )
+
+        item.title = title
+        item.sort_key = self._normalize_optional_text(projected.pop("sort_key", None))
+        item.barcode = self._normalize_optional_text(projected.pop("barcode", None))
+        item.catalog_number = self._normalize_optional_text(
+            projected.pop("catalog_number", None)
+        )
+        for key in ("title", "identifiers", "media", "episodes", "seasons", "printings", "creators", "contributors"):
+            projected.pop(key, None)
+        item.details = projected
+
+        self._audit_recorder(
+            action="metadata.correction",
+            entity_type=kind.value,
+            entity_id=item.id,
+            details={
+                "kind": kind.value,
+                "fields": sorted(update_data),
+                "before": {key: before_payload.get(key) for key in update_data},
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+        self.db.expire_all()
+        loaded_item = await self._load_native_catalog_entity(kind, item.id)
+        if loaded_item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail=f"{kind.value} Catalog Item not found after correction",
+            )
+        await self._reindex_items({item.id})
+        return await self._item_response_loader(loaded_item)
+
     def _validated_physical_format(
         self,
         kind: ItemKind,
@@ -1562,21 +1691,57 @@ class AdminCatalogService:
 
     async def _load_native_catalog_entity(self, kind: ItemKind, entity_id: UUID) -> Any | None:
         model_by_kind = {
-            ItemKind.book: BookWork,
-            ItemKind.comic: ComicWork,
-            ItemKind.manga: MangaWork,
-            ItemKind.anime: AnimeSeries,
+            ItemKind.book: BookItem,
+            ItemKind.comic: ComicItem,
+            ItemKind.manga: MangaItem,
+            ItemKind.anime: AnimeItem,
             ItemKind.movie: MovieItem,
-            ItemKind.tv: TVSeries,
+            ItemKind.tv: TvItem,
             ItemKind.music: MusicItem,
-            ItemKind.game: GameWork,
-            ItemKind.boardgame: BoardGameWork,
+            ItemKind.game: GameItem,
+            ItemKind.boardgame: BoardGameItem,
         }
         model = model_by_kind.get(kind)
         if model is None:
             return None
-        stmt = select(model).where(model.id == entity_id).options(*self._native_load_options(kind))
+        stmt = select(model).where(model.id == entity_id).options(
+            *self._flat_catalog_item_load_options(kind)
+        )
         return await self.db.scalar(stmt)
+
+    def _flat_catalog_item_load_options(self, kind: ItemKind) -> list[Any]:
+        if kind == ItemKind.book:
+            return [
+                selectinload(BookItem.printings),
+                selectinload(BookItem.credits),
+                selectinload(BookItem.identifiers),
+            ]
+        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.game, ItemKind.boardgame}:
+            item_model = {
+                ItemKind.comic: ComicItem,
+                ItemKind.manga: MangaItem,
+                ItemKind.game: GameItem,
+                ItemKind.boardgame: BoardGameItem,
+            }[kind]
+            return [selectinload(item_model.identifiers)]
+        if kind == ItemKind.anime:
+            return [
+                selectinload(AnimeItem.media),
+                selectinload(AnimeItem.episodes),
+                selectinload(AnimeItem.identifiers),
+            ]
+        if kind == ItemKind.tv:
+            return [
+                selectinload(TvItem.seasons),
+                selectinload(TvItem.media),
+                selectinload(TvItem.episodes),
+                selectinload(TvItem.identifiers),
+            ]
+        if kind == ItemKind.movie:
+            return [selectinload(MovieItem.media)]
+        if kind == ItemKind.music:
+            return [selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks)]
+        return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
         if kind == ItemKind.book:

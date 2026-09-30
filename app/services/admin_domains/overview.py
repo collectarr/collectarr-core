@@ -11,13 +11,16 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     AdminAuditLog,
+    AnimeItem,
     AnimeCharacterAppearance,
     AnimeContribution,
     AnimeEpisode,
     AnimeSeries,
+    BoardGameItem,
     BoardGameContribution,
     BoardGameEdition,
     BoardGameWork,
+    BookItem,
     BookContribution,
     BookEdition,
     BookPrinting,
@@ -26,6 +29,7 @@ from app.models import (
     BookWork,
     CatalogItemProposal,
     ComicCharacterAppearance,
+    ComicItem,
     ComicContribution,
     ComicIssue,
     ComicSeries,
@@ -33,10 +37,12 @@ from app.models import (
     ComicVolume,
     ComicWork,
     GameRelease,
+    GameItem,
     GameWork,
     ImageAsset,
     MangaChapter,
     MangaCharacterAppearance,
+    MangaItem,
     MangaContribution,
     MangaSeries,
     MangaSeriesMembership,
@@ -50,6 +56,7 @@ from app.models import (
     TVReleaseContribution,
     TVSeason,
     TVSeries,
+    TvItem,
 )
 from app.models.base import ItemKind
 from app.schemas.admin import (
@@ -215,15 +222,15 @@ class AdminOverviewService:
     async def _item_counts_by_kind(self) -> dict[str, int]:
         counts = {kind.value: 0 for kind in ItemKind}
         native_counts: dict[ItemKind, type] = {
-            ItemKind.book: BookWork,
-            ItemKind.comic: ComicWork,
-            ItemKind.manga: MangaWork,
-            ItemKind.anime: AnimeSeries,
+            ItemKind.book: BookItem,
+            ItemKind.comic: ComicItem,
+            ItemKind.manga: MangaItem,
+            ItemKind.anime: AnimeItem,
             ItemKind.movie: MovieItem,
-            ItemKind.tv: TVSeries,
+            ItemKind.tv: TvItem,
             ItemKind.music: MusicItem,
-            ItemKind.game: GameWork,
-            ItemKind.boardgame: BoardGameWork,
+            ItemKind.game: GameItem,
+            ItemKind.boardgame: BoardGameItem,
         }
         for kind, model in native_counts.items():
             counts[kind.value] = await self._count(model)
@@ -244,27 +251,26 @@ class AdminOverviewService:
 
     async def _count_missing_cover_items(self) -> int:
         total = 0
-        total += await self._count_missing_cover_items_for_child(BookWork, BookEdition, "work_id")
-        total += await self._count_missing_cover_items_for_child(ComicWork, ComicIssue, "work_id")
-        total += await self._count_missing_cover_items_for_child(MangaWork, MangaChapter, "work_id")
-        total += await self._count_missing_cover_items_for_child(AnimeSeries, AnimeEpisode, "series_id")
-        total += await self._count_missing_cover_movie_items()
-        total += await self._count_missing_cover_items_for_root(
-            TVRelease,
-            cover_fields=("cover_image_url", "cover_image_key"),
-        )
-        total += await self._count_missing_cover_items_for_child(
-            GameWork,
-            GameRelease,
-            "work_id",
-            root_cover_fields=("cover_image_url", "cover_image_key"),
-        )
-        total += await self._count_missing_cover_items_for_child(
-            BoardGameWork,
-            BoardGameEdition,
-            "work_id",
-            root_cover_fields=("cover_image_url", "cover_image_key"),
-        )
+        for model in (
+            BookItem,
+            ComicItem,
+            MangaItem,
+            AnimeItem,
+            MovieItem,
+            TvItem,
+            GameItem,
+            BoardGameItem,
+        ):
+            has_cover = or_(
+                model.details["cover_image_url"].as_string().is_not(None),
+                model.details["thumbnail_image_url"].as_string().is_not(None),
+            )
+            total += int(
+                await self.db.scalar(
+                    select(func.count()).select_from(model).where(~has_cover)
+                )
+                or 0
+            )
         total += await self._count_missing_cover_items_for_root(
             MusicItem,
             cover_fields=("cover_image_url", "thumbnail_image_url"),
@@ -411,6 +417,34 @@ class AdminOverviewService:
             )
         )
         documents.extend(catalog_search_document(item) for item in music_result.scalars().unique())
+
+        for item_model in (
+            BookItem,
+            ComicItem,
+            MangaItem,
+            AnimeItem,
+            MovieItem,
+            TvItem,
+            GameItem,
+            BoardGameItem,
+        ):
+            options = {
+                BookItem: [
+                    selectinload(BookItem.identifiers),
+                    selectinload(BookItem.credits),
+                ],
+                ComicItem: [selectinload(ComicItem.identifiers)],
+                MangaItem: [selectinload(MangaItem.identifiers)],
+                AnimeItem: [selectinload(AnimeItem.identifiers)],
+                GameItem: [selectinload(GameItem.identifiers)],
+                BoardGameItem: [selectinload(BoardGameItem.identifiers)],
+                TvItem: [selectinload(TvItem.identifiers)],
+            }.get(item_model, [])
+            result = await self.db.execute(select(item_model).options(*options))
+            documents.extend(
+                catalog_search_document(item)
+                for item in result.scalars().unique()
+            )
 
         return documents
 

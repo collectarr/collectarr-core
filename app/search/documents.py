@@ -22,7 +22,14 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.catalog_anime_item import AnimeItem
+from app.models.catalog_boardgame_item import BoardGameItem
+from app.models.catalog_book_item import BookItem
+from app.models.catalog_comic_item import ComicItem
+from app.models.catalog_game_item import GameItem
+from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
+from app.models.catalog_tv_item import TvItem
 from app.models.partial_date import PartialDateValue
 
 
@@ -926,6 +933,18 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
         return movie_item_search_document(entity)
     if isinstance(entity, MovieWork):
         return movie_work_search_document(entity)
+    flat_root_kinds = (
+        (AnimeItem, ItemKind.anime),
+        (BoardGameItem, ItemKind.boardgame),
+        (BookItem, ItemKind.book),
+        (ComicItem, ItemKind.comic),
+        (GameItem, ItemKind.game),
+        (MangaItem, ItemKind.manga),
+        (TvItem, ItemKind.tv),
+    )
+    for model, kind in flat_root_kinds:
+        if isinstance(entity, model):
+            return flat_catalog_item_search_document(entity, kind)
     if isinstance(entity, (TVSeries, TVRelease)):
         return tv_release_search_document(entity)
     if isinstance(entity, GameWork):
@@ -935,6 +954,74 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
     if isinstance(entity, MusicItem):
         return music_item_search_document(entity)
     raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
+
+
+def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, Any]:
+    """Project a flat typed Catalog Item root into the shared search shape."""
+    details = dict(getattr(item, "details", {}) or {})
+    date_value = details.get("release_date_parts") or details.get("release_date")
+    try:
+        release_date_parts = PartialDateValue.model_validate(date_value)
+    except (TypeError, ValueError):
+        release_date_parts = None
+    release_date = release_date_parts.iso_string if release_date_parts else None
+
+    creators = _catalog_names(details.get("creators"))
+    for values in (details.get("contributors"), details.get("artist_credits")):
+        creators.extend(_catalog_names(values))
+    if hasattr(item, "credits"):
+        for credit in _loaded_rows(item, "credits"):
+            name = _optional_text(getattr(credit, "name", None))
+            if name:
+                creators.append(name)
+    creators = _unique(creators)
+    barcode = _normalized_barcode(_optional_text(getattr(item, "barcode", None)))
+    barcodes = [barcode] if barcode else []
+    for identifier in _loaded_rows(item, "identifiers"):
+        value = _normalized_barcode(_optional_text(getattr(identifier, "value", None)))
+        _append_unique(barcodes, value)
+    barcode = barcode or (barcodes[0] if barcodes else None)
+
+    physical_format = _optional_text(details.get("physical_format"))
+    variant = physical_format or _optional_text(details.get("format"))
+    if variant is None:
+        variant = _optional_text(details.get("edition_title"))
+    return {
+        "id": str(item.id),
+        "kind": kind.value,
+        "title": item.title,
+        "item_number": _optional_text(
+            details.get("item_number") or details.get("issue_number")
+        ),
+        "runtime_minutes": details.get("runtime_minutes"),
+        "cover_image_url": _optional_text(details.get("cover_image_url")),
+        "thumbnail_image_url": _optional_text(details.get("thumbnail_image_url")),
+        "publisher": _optional_text(details.get("publisher") or details.get("label")),
+        "release_date": release_date,
+        "region": _optional_text(details.get("country") or details.get("region")),
+        "release_year": release_date_parts.year if release_date_parts else None,
+        "barcode": barcode,
+        "barcodes": barcodes,
+        "variant": variant,
+        "variant_names": [variant] if variant else [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": _optional_text(details.get("series_title")),
+        "volume_name": _optional_text(details.get("volume_name")),
+        "catalog_number": _optional_text(
+            getattr(item, "catalog_number", None) or details.get("catalog_number")
+        ),
+        "creators": creators,
+        "characters": _catalog_names(details.get("characters")),
+        "story_arcs": _catalog_names(details.get("story_arcs")),
+        "platforms": _catalog_names(details.get("platforms")),
+        "release_status": _optional_text(details.get("release_status")),
+        "language": _optional_text(details.get("language")),
+        "imprint": _optional_text(details.get("imprint")),
+        "subtitle": _optional_text(details.get("subtitle")),
+        "series_group": _optional_text(details.get("series_group")),
+        "age_rating": _optional_text(details.get("age_rating")),
+    }
 
 
 def _physical_format_label(

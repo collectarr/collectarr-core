@@ -120,7 +120,6 @@ def _asset_dict(asset: ImageAsset, storage: ObjectStorage) -> dict:
         "public_url": storage.public_object_url(asset.storage_key),
         "thumbnail_storage_key": asset.thumbnail_storage_key,
         "source_url": asset.source_url,
-        "provider": asset.provider,
         "attribution": asset.attribution,
         "width": asset.width,
         "height": asset.height,
@@ -213,7 +212,6 @@ async def add_entity_image(
     image_type: str = Body(default="front_cover"),
     image_data_base64: str = Body(min_length=1),
     source_url: str | None = Body(default=None),
-    provider: str | None = Body(default=None),
     attribution: str | None = Body(default=None),
     is_primary: bool = Body(default=False),
 ) -> dict:
@@ -258,8 +256,6 @@ async def add_entity_image(
         )
 
     mirror = ImageMirror()
-    provider_value = provider or "user"
-    item_id_str = str(entity_id)
     effective_source_url = source_url or await _upload_source_url(
         entity_type=entity_type,
         entity_id=entity_id,
@@ -269,8 +265,8 @@ async def add_entity_image(
     mirrored = await mirror.mirror_cover_bytes_best_effort(
         image_bytes,
         source_url=effective_source_url,
-        provider=provider_value,
-        provider_item_id=item_id_str,
+        entity_type=entity_type,
+        entity_id=str(entity_id),
     )
     if mirrored is None:
         raise ApiHTTPException(
@@ -310,7 +306,6 @@ async def add_entity_image(
         image_type=image_type,
         storage_key=mirrored.key,
         source_url=effective_source_url,
-        provider=provider_value,
         attribution=attribution,
         width=mirrored.width,
         height=mirrored.height,

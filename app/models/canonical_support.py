@@ -306,7 +306,6 @@ class ImageAsset(UuidMixin, TimestampMixin, Base):
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     thumbnail_storage_key: Mapped[str | None] = mapped_column(String(512))
     source_url: Mapped[str | None] = mapped_column(String(1024))
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
     attribution: Mapped[str | None] = mapped_column(Text)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)

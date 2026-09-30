@@ -71,9 +71,9 @@ async def test_add_entity_image_allows_bundle_release_entity_type(client, monkey
         def public_object_url(self, object_key: str) -> str:
             return f"https://storage.example/{object_key}"
 
-    async def fake_mirror(self, image_bytes, *, source_url, provider, provider_item_id):
+    async def fake_mirror(self, image_bytes, *, source_url, entity_type, entity_id):
         class Mirrored:
-            key = f"covers/user/{provider_item_id}/bundle.webp"
+            key = f"covers/{entity_type}/{entity_id}/bundle.webp"
             width = 1200
             height = 1200
 
@@ -115,9 +115,9 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
         def public_object_url(self, object_key: str) -> str:
             return f"https://storage.example/{object_key}"
 
-    async def fake_mirror(self, image_bytes, *, source_url, provider, provider_item_id):
+    async def fake_mirror(self, image_bytes, *, source_url, entity_type, entity_id):
         source_urls.append(source_url)
-        storage_key = f"covers/user/{provider_item_id}/{source_url.rsplit('/', 1)[-1]}.webp"
+        storage_key = f"covers/{entity_type}/{entity_id}/{source_url.rsplit('/', 1)[-1]}.webp"
         mirrored_keys.append(storage_key)
 
         class Mirrored:
@@ -187,8 +187,7 @@ async def test_delete_image_requires_admin(client):
                 entity_type="item",
                 entity_id=uuid4(),
                 image_type="front_cover",
-                storage_key="covers/user/item/front.webp",
-                provider="user",
+                storage_key="covers/item/item/front.webp",
             )
         )
         await db.commit()
@@ -228,7 +227,7 @@ async def test_download_image_rejects_untracked_object_key(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_download_image_allows_authorized_image_asset_key(client, monkeypatch):
     token = await register_and_login(client)
-    object_key = "covers/comicvine/4000-1/cover.webp"
+    object_key = "covers/item/4000-1/cover.webp"
 
     async with AsyncSessionLocal() as db:
         db.add(
@@ -237,7 +236,6 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
                 entity_id=uuid4(),
                 image_type="front_cover",
                 storage_key=object_key,
-                provider="comicvine",
             )
         )
         await db.commit()
@@ -263,7 +261,7 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
 @pytest.mark.asyncio
 async def test_batch_download_images_returns_none_for_untracked_keys(client, monkeypatch):
     token = await register_and_login(client)
-    allowed_key = "covers/comicvine/4000-2/cover.webp"
+    allowed_key = "covers/item/4000-2/cover.webp"
     blocked_key = "backups/users.sql"
 
     async with AsyncSessionLocal() as db:
@@ -273,7 +271,6 @@ async def test_batch_download_images_returns_none_for_untracked_keys(client, mon
                 entity_id=uuid4(),
                 image_type="front_cover",
                 storage_key=allowed_key,
-                provider="comicvine",
             )
         )
         await db.commit()

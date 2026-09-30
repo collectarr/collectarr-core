@@ -24,7 +24,7 @@ async def test_catalog_service_catalog_items_uses_loader_for_each_result(monkeyp
     comic = SimpleNamespace(id=uuid4(), kind=ItemKind.comic)
     results = [work, comic]
 
-    class FakeMetadataService:
+    class FakeCatalogItemSearchService:
         def __init__(self, db):
             seen["db"] = db
 
@@ -38,20 +38,24 @@ async def test_catalog_service_catalog_items_uses_loader_for_each_result(monkeyp
         responses.append(item.id)
         return {"id": str(item.id)}
 
-    async def fake_get(model, entity_id):
-        seen.setdefault("loaded", []).append((model, entity_id))
+    async def fake_load(kind, entity_id):
+        seen.setdefault("loaded", []).append((kind, entity_id))
         return SimpleNamespace(id=entity_id)
 
-    monkeypatch.setattr("app.services.admin_domains.catalog.MetadataService", FakeMetadataService)
+    monkeypatch.setattr(
+        "app.services.admin_domains.catalog.CatalogItemSearchService",
+        FakeCatalogItemSearchService,
+    )
 
     service = AdminCatalogService(
-        db=SimpleNamespace(get=fake_get),
+        db=SimpleNamespace(),
         item_response_loader=fake_item_response_loader,
         audit_recorder=lambda *args, **kwargs: None,
         reindex_items=lambda item_ids: None,
         sort_key_builder=lambda kind, title, item_number: "sort-key",
         get_or_create_tag=lambda kind, name: None,
     )
+    service._load_native_catalog_entity = fake_load
 
     result = await service.catalog_items(
         query="batman",
@@ -75,6 +79,7 @@ async def test_catalog_service_catalog_items_uses_loader_for_each_result(monkeyp
         "age_rating": None,
         "catalog_number": "ABS-1",
         "release_status": None,
+        "offset": 0,
     }
     assert responses == [work.id, comic.id]
     assert [entity_id for _, entity_id in seen["loaded"]] == [work.id, comic.id]

@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException, status
 
-from app.models import BookItem, BookWork
+from app.models import BookItem
 from app.models.base import ItemKind
 from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.overview import (

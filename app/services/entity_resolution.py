@@ -13,8 +13,6 @@ from app.models import (
     AnimeSeries,
     BoardGameEdition,
     BoardGameWork,
-    BookEdition,
-    BookWork,
     BundleRelease,
     Character,
     ComicIssue,
@@ -41,6 +39,8 @@ from app.models import (
     TVRelease,
 )
 from app.models.base import ItemKind
+from app.models.catalog_book_item import BookItem
+from app.models.catalog_book_series import BookSeries
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
@@ -62,8 +62,8 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "anime_series": AnimeSeries,
     "boardgame_edition": BoardGameEdition,
     "boardgame_work": BoardGameWork,
-    "book_edition": BookEdition,
-    "book_work": BookWork,
+    "catalog_book_item": BookItem,
+    "book_series": BookSeries,
     "bundle_release": BundleRelease,
     "character": Character,
     "comic_issue": ComicIssue,

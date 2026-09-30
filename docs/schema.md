@@ -12,13 +12,15 @@ attached to catalog entities are allowed in Core.
 
 ## Central Catalog
 
-The schema is kind-first. Canonical metadata is stored in typed tables for each media kind;
-there is no generic metadata document column in the catalog schema.
+The schema is kind-first. Each flattened kind root has a typed identity and revision,
+kind-owned canonical details, and dedicated child tables for repeated records. Several
+flattened roots store their validated kind details in JSONB; child records with independent
+behavior remain relational.
 
 | Kind | Canonical tables |
 | --- | --- |
 | Music | `music_items`, `music_item_discs`, `music_item_tracks` |
-| Books | `book_works`, `book_editions`, `book_printings` |
+| Books | `book_items`, `book_item_printings`, `book_item_credits`, `book_item_identifiers`, `book_series`, `book_item_series_memberships` |
 | Games | `game_works`, `game_releases` |
 | Board games | `boardgame_works`, `boardgame_editions` |
 | Comics | `comic_volumes`, `comic_works`, `comic_issues`, `comic_variants` |

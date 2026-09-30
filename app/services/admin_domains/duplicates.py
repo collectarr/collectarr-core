@@ -11,7 +11,6 @@ from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeSeries,
     BoardGameWork,
-    BookWork,
     ComicWork,
     DuplicateReview,
     DuplicateReviewDetail,
@@ -29,11 +28,12 @@ from app.schemas.admin import (
     AdminDuplicateQueueSummaryResponse,
     AdminDuplicateReviewEntryResponse,
 )
+from app.models.catalog_book_item import BookItem
 from app.services.typed_values import flatten_typed_values, materialize_typed_values
 
 # Maps each native root model class to the entity_type string used in generic link tables.
 _ENTITY_TYPE: dict[type, str] = {
-    BookWork: "book_work",
+    BookItem: "catalog_book_item",
     ComicWork: "comic_work",
     MangaWork: "manga_work",
     AnimeSeries: "anime_series",
@@ -46,7 +46,7 @@ _ENTITY_TYPE: dict[type, str] = {
 
 # Maps each native root model class to a human-readable kind label.
 _KIND_LABEL: dict[type, str] = {
-    BookWork: "book",
+    BookItem: "book",
     ComicWork: "comic",
     MangaWork: "manga",
     AnimeSeries: "anime",

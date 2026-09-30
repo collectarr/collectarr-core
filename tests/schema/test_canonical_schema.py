@@ -34,13 +34,10 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "entity_links",
             "release_statuses",
             "physical_format_refs",
-            "book_works",
-            "book_series",
-            "book_editions",
-            "book_printings",
-            "book_contributions",
-            "book_identifiers",
-            "book_series_memberships",
+            "book_items",
+            "book_item_printings",
+            "book_item_credits",
+            "book_item_identifiers",
             "comic_series",
             "game_works",
             "game_releases",
@@ -110,7 +107,9 @@ async def test_canonical_catalog_schema_exists(schema_database):
                 )
             )
         ).all()
-        assert json_columns == []
+        json_columns = set(json_columns)
+        assert ("book_items", "details", "jsonb") in json_columns
+        assert ("book_item_printings", "release_date", "jsonb") in json_columns
 
         enum_values = {
             row[0]

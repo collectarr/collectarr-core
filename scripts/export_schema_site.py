@@ -188,12 +188,11 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     ],
     "book": [
         "book_series",
-        "book_works",
-        "book_editions",
-        "book_printings",
-        "book_contributions",
-        "book_identifiers",
-        "book_series_memberships",
+        "book_items",
+        "book_item_printings",
+        "book_item_credits",
+        "book_item_identifiers",
+        "book_item_series_memberships",
     ],
     "music": [
         "music_items",

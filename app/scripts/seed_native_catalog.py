@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models import (
     AnimeCharacterAppearance,
@@ -13,10 +14,6 @@ from app.models import (
     AnimeSeries,
     BoardGameEdition,
     BoardGameWork,
-    BookEdition,
-    BookSeries,
-    BookSeriesMembership,
-    BookWork,
     ComicIssue,
     ComicSeries,
     ComicSeriesMembership,
@@ -44,6 +41,8 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrinting
+from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
 from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
@@ -226,21 +225,74 @@ async def _seed_entry(db: AsyncSession, kind: ItemKind, entry: _Entry, index: in
 
 
 async def _seed_book(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    series = await _get_or_create_series(db, BookSeries, entry.series_title, entry.publisher, entry.release_date)
-    work = await _get_or_create_work(db, BookWork, entry.title, entry.release_date, cover_url)
+    item = (
+        await db.execute(
+            select(BookItem)
+            .where(BookItem.title == entry.title)
+            .options(
+                selectinload(BookItem.printings),
+                selectinload(BookItem.credits),
+                selectinload(BookItem.series_memberships),
+            )
+        )
+    ).scalar_one_or_none()
+    if item is None:
+        item = BookItem(
+            title=entry.title,
+            sort_key=_slug(entry.title),
+            barcode=f"SEED-BOOK-{index:03d}",
+            catalog_number=f"SEED-BOOK-{index:03d}",
+            details={},
+        )
+        db.add(item)
+        await db.flush()
+
+    item.details = {
+        **(item.details or {}),
+        "original_title": entry.title,
+        "release_date": entry.release_date.isoformat(),
+        "publisher": entry.publisher,
+        "series_title": entry.series_title,
+        "language": "en",
+        "country": "US",
+        "physical_format": "Paperback",
+        "age_rating": "General",
+        "description": f"Seed data for {entry.title}.",
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    series = await _get_or_create_series(
+        db,
+        BookSeries,
+        entry.series_title,
+        entry.publisher,
+        entry.release_date,
+    )
     if series is not None:
-        _apply_seed_metadata(series, entry, ItemKind.book, index, cover_url, thumbnail_url)
-    _apply_seed_metadata(work, entry, ItemKind.book, index, cover_url, thumbnail_url)
-    if work not in []:
-        work.original_publication_date = entry.release_date
-    await _ensure_person_link(db, work.id, "book_work", entry.creator, "creator")
-    await _ensure_tag_link(db, work.id, "book_work", entry.tag)
-    await _ensure_story_arc_link(db, work.id, "book_work", entry.story_arc)
-    if series is not None:
-        await _ensure_book_membership(db, work.id, series.id, index)
-    edition = await _get_or_create_book_edition(db, work.id, entry, cover_url)
-    _apply_seed_metadata(edition, entry, ItemKind.book, index, cover_url, thumbnail_url)
-    return [work]
+        await _ensure_book_item_series_membership(db, item.id, series.id, index)
+    if not item.printings:
+        item.printings.append(
+            BookItemPrinting(
+                printing_number=1,
+                title=entry.title,
+                release_date=entry.release_date.isoformat(),
+                publisher=entry.publisher,
+                language="en",
+            )
+        )
+    if not item.credits:
+        item.credits.append(
+            BookItemCredit(
+                credit_type="creator",
+                name=entry.creator[0],
+                role=entry.creator[1],
+                sequence=1,
+            )
+        )
+    await _ensure_person_link(db, item.id, "catalog_book_item", entry.creator, "creator")
+    await _ensure_tag_link(db, item.id, "catalog_book_item", entry.tag)
+    await _ensure_story_arc_link(db, item.id, "catalog_book_item", entry.story_arc)
+    return [item]
 
 
 async def _seed_comic(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
@@ -605,23 +657,10 @@ async def _get_or_create_work(db: AsyncSession, model: type, title: str, release
         kwargs["cover_image_url"] = cover_url
     if model is MovieWork:
         kwargs["original_release_date"] = release_date
-    if model is BookWork:
-        kwargs["original_publication_date"] = release_date
     work = model(**kwargs)
     db.add(work)
     await db.flush()
     return work
-
-
-async def _get_or_create_book_edition(db: AsyncSession, work_id: Any, entry: _Entry, cover_url: str | None) -> BookEdition:
-    result = await db.execute(select(BookEdition).where(BookEdition.work_id == work_id, BookEdition.display_title == entry.title))
-    edition = result.scalar_one_or_none()
-    if edition is not None:
-        return edition
-    edition = BookEdition(work_id=work_id, display_title=entry.title, format="Paperback", publication_date=entry.release_date, publisher=entry.publisher, language="en", region="US", cover_image_url=cover_url)
-    db.add(edition)
-    await db.flush()
-    return edition
 
 
 async def _get_or_create_comic_issue(db: AsyncSession, work_id: Any, entry: _Entry, cover_url: str | None) -> ComicIssue:
@@ -714,10 +753,11 @@ async def _ensure_person_link(db: AsyncSession, entity_id: Any, entity_type: str
 async def _ensure_tag_link(db: AsyncSession, entity_id: Any, entity_type: str, tag_name: str | None) -> None:
     if not tag_name:
         return
-    result = await db.execute(select(Tag).where(Tag.kind == entity_type.replace("_work", ""), Tag.name == tag_name))
+    tag_kind = "book" if entity_type == "catalog_book_item" else entity_type.replace("_work", "")
+    result = await db.execute(select(Tag).where(Tag.kind == tag_kind, Tag.name == tag_name))
     tag = result.scalar_one_or_none()
     if tag is None:
-        tag = Tag(kind=entity_type.replace("_work", ""), name=tag_name)
+        tag = Tag(kind=tag_kind, name=tag_name)
         db.add(tag)
         await db.flush()
     result = await db.execute(
@@ -747,10 +787,27 @@ async def _ensure_story_arc_link(db: AsyncSession, entity_id: Any, entity_type: 
         db.add(StoryArcItem(story_arc_id=arc.id, entity_type=entity_type, entity_id=entity_id, ordinal=1))
 
 
-async def _ensure_book_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
-    result = await db.execute(select(BookSeriesMembership).where(BookSeriesMembership.work_id == work_id, BookSeriesMembership.series_id == series_id))
+async def _ensure_book_item_series_membership(
+    db: AsyncSession,
+    item_id: Any,
+    series_id: Any,
+    index: int,
+) -> None:
+    result = await db.execute(
+        select(BookItemSeriesMembership).where(
+            BookItemSeriesMembership.book_item_id == item_id,
+            BookItemSeriesMembership.series_id == series_id,
+        )
+    )
     if result.scalar_one_or_none() is None:
-        db.add(BookSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index)))
+        db.add(
+            BookItemSeriesMembership(
+                book_item_id=item_id,
+                series_id=series_id,
+                sequence=float(index),
+                display_number=str(index),
+            )
+        )
 
 
 async def _ensure_comic_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:

@@ -71,15 +71,18 @@ def test_no_parallel_edges_between_same_entity_pair():
         assert not duplicates, f"{domain_id}: parallel edges must be merged: {duplicates}"
 
 
-def test_kind_views_surface_v1_work_tables():
+def test_kind_views_surface_flat_book_catalog_tables():
     data = build_schema_data()
     kinds = {kind["id"]: kind for kind in data["kinds"]}
     misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
 
     assert "comic_works" in kinds["comic"]["tables"]
     assert "comic_volumes" in kinds["comic"]["tables"]
-    assert "book_works" in kinds["book"]["tables"]
+    assert "book_items" in kinds["book"]["tables"]
     assert "book_series" in kinds["book"]["tables"]
+    assert "book_item_printings" in kinds["book"]["tables"]
+    assert "book_item_credits" in kinds["book"]["tables"]
+    assert "book_item_series_memberships" in kinds["book"]["tables"]
     assert "game_works" in kinds["game"]["tables"]
     assert "game_releases" in kinds["game"]["tables"]
     assert "boardgame_works" in kinds["boardgame"]["tables"]
@@ -90,7 +93,7 @@ def test_kind_views_surface_v1_work_tables():
     assert "tv_releases" in kinds["tv"]["tables"]
 
     assert "comic_works" not in misc_tables
-    assert "book_works" not in misc_tables
+    assert "book_items" not in misc_tables
     assert "game_works" not in misc_tables
     assert "boardgame_works" not in misc_tables
     assert "music_items" not in misc_tables

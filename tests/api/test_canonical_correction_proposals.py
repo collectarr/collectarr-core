@@ -3,7 +3,8 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.models import BookWork, CanonicalCorrectionProposal, User, UserRole
+from app.models import CanonicalCorrectionProposal, User, UserRole
+from app.models.catalog_book_item import BookItem
 from app.schemas.canonical_corrections import CanonicalCorrectionProposalCreate
 from app.services.canonical_corrections import CanonicalCorrectionService
 
@@ -14,12 +15,12 @@ async def test_canonical_correction_proposal_is_targeted_without_entity_resoluti
     from app.db.session import AsyncSessionLocal
 
     async with AsyncSessionLocal() as db:
-        db.add(BookWork(id=entity_id, title="Original title"))
+        db.add(BookItem(id=entity_id, title="Original title", details={}))
         await db.commit()
 
     snapshot = await client.get(
         f"/api/v1/metadata/correction-targets/book/{entity_id}",
-        params={"scope": "work"},
+        params={"scope": "catalog_item"},
     )
     assert snapshot.status_code == 200
     snapshot_body = snapshot.json()
@@ -27,9 +28,9 @@ async def test_canonical_correction_proposal_is_targeted_without_entity_resoluti
         "/api/v1/metadata/correction-proposals",
         json={
             "kind": "book",
-            "entity_type": "book_work",
+            "entity_type": "catalog_book_item",
             "entity_id": str(entity_id),
-            "scope": "work",
+            "scope": "catalog_item",
             "base_hash": snapshot_body["hash"],
             "proposed_fields": {"title": "A corrected title"},
         },
@@ -38,8 +39,8 @@ async def test_canonical_correction_proposal_is_targeted_without_entity_resoluti
     assert response.status_code == 201
     body = response.json()
     assert body["entity_id"] == str(entity_id)
-    assert body["entity_type"] == "book_work"
-    assert body["scope"] == "work"
+    assert body["entity_type"] == "catalog_book_item"
+    assert body["scope"] == "catalog_item"
     assert body["proposed_fields"] == {"title": "A corrected title"}
     assert body["status"] == "pending"
     assert body["current_fields"]["title"] == "Original title"
@@ -59,9 +60,9 @@ async def test_canonical_correction_proposal_is_targeted_without_entity_resoluti
 async def test_canonical_correction_rejects_owned_and_provider_fields(client):
     base = {
         "kind": "book",
-        "entity_type": "book_work",
+        "entity_type": "catalog_book_item",
         "entity_id": str(uuid4()),
-        "scope": "work",
+        "scope": "catalog_item",
         "base_revision": "42",
     }
 
@@ -71,34 +72,31 @@ async def test_canonical_correction_rejects_owned_and_provider_fields(client):
     )
     provider_only = await client.post(
         "/api/v1/metadata/correction-proposals",
-        json={**base, "proposed_fields": {"physical_format": "cd"}},
+        json={**base, "proposed_fields": {"provider_item_id": "external-1"}},
     )
 
     assert owned.status_code == 422
     assert owned.json()["code"] == "invalid_canonical_correction_target"
     assert provider_only.status_code == 422
-    assert provider_only.json()["code"] in {
-        "canonical_correction_scope_mismatch",
-        "canonical_correction_entity_type_mismatch",
-    }
+    assert provider_only.json()["code"] == "invalid_canonical_correction_target"
 
 
 def test_canonical_correction_requires_a_base_and_forbids_provider_metadata():
     with pytest.raises(ValidationError):
         CanonicalCorrectionProposalCreate(
             kind="book",
-            entity_type="book_work",
+            entity_type="catalog_book_item",
             entity_id=uuid4(),
-            scope="work",
+            scope="catalog_item",
             proposed_fields={"title": "Title"},
         )
 
     with pytest.raises(ValidationError):
         CanonicalCorrectionProposalCreate(
             kind="book",
-            entity_type="book_work",
+            entity_type="catalog_book_item",
             entity_id=uuid4(),
-            scope="work",
+            scope="catalog_item",
             base_hash="hash",
             provider="openlibrary",
             proposed_fields={"title": "Title"},
@@ -111,21 +109,21 @@ async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_ta
     from app.db.session import AsyncSessionLocal
 
     async with AsyncSessionLocal() as db:
-        db.add(BookWork(id=entity_id, title="Before"))
+        db.add(BookItem(id=entity_id, title="Before", details={}))
         await db.commit()
 
     snapshot = await client.get(
         f"/api/v1/metadata/correction-targets/book/{entity_id}",
-        params={"scope": "work"},
+        params={"scope": "catalog_item"},
     )
     base = snapshot.json()
     proposal = await client.post(
         "/api/v1/metadata/correction-proposals",
         json={
             "kind": "book",
-            "entity_type": "book_work",
+            "entity_type": "catalog_book_item",
             "entity_id": str(entity_id),
-            "scope": "work",
+            "scope": "catalog_item",
             "base_hash": base["hash"],
             "proposed_fields": {"title": "After"},
         },
@@ -133,7 +131,7 @@ async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_ta
     assert proposal.status_code == 201
 
     async with AsyncSessionLocal() as db:
-        entity = await db.get(BookWork, entity_id)
+        entity = await db.get(BookItem, entity_id)
         assert entity is not None
         entity.title = "Changed elsewhere"
         await db.commit()
@@ -155,6 +153,6 @@ async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_ta
             )
         assert "stale" in str(error.value).lower()
 
-        entity = await db.get(BookWork, entity_id)
+        entity = await db.get(BookItem, entity_id)
         assert entity is not None
         assert entity.title == "Changed elsewhere"

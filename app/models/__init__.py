@@ -2,7 +2,6 @@ from app.models.base import *  # noqa: F401,F403
 from app.models.canonical_anime import *  # noqa: F401,F403
 from app.models.canonical_anime_releases import *  # noqa: F401,F403
 from app.models.canonical_board_games import *  # noqa: F401,F403
-from app.models.canonical_books import *  # noqa: F401,F403
 from app.models.canonical_comic_releases import *  # noqa: F401,F403
 from app.models.canonical_comics import *  # noqa: F401,F403
 from app.models.canonical_common import *  # noqa: F401,F403
@@ -14,6 +13,7 @@ from app.models.canonical_video import *  # noqa: F401,F403
 from app.models.catalog_anime_item import *  # noqa: F401,F403
 from app.models.catalog_boardgame_item import *  # noqa: F401,F403
 from app.models.catalog_book_item import *  # noqa: F401,F403
+from app.models.catalog_book_series import *  # noqa: F401,F403
 from app.models.catalog_comic_item import *  # noqa: F401,F403
 from app.models.catalog_game_item import *  # noqa: F401,F403
 from app.models.catalog_item_proposal import *  # noqa: F401,F403

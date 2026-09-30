@@ -6,7 +6,7 @@ import re
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +20,7 @@ from app.models.catalog_book_item import (
     BookItemIdentifier,
     BookItemPrinting,
 )
+from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
 from app.schemas.catalog_book_item import CatalogBookItemResponse
 
 
@@ -70,6 +71,23 @@ class CatalogBookItemService:
         }
         if len(identifier_keys) != len(identifier_rows):
             raise ValueError("Book identifiers must be unique by type and normalized value")
+        series_memberships: list[BookItemSeriesMembership] = []
+        series_title = _optional_string(payload.get("series_title"))
+        if series_title is not None:
+            series_result = await self.db.execute(
+                select(BookSeries).where(
+                    func.lower(BookSeries.title) == series_title.casefold()
+                ).limit(1)
+            )
+            series = series_result.scalar_one_or_none()
+            if series is None:
+                series = BookSeries(title=series_title, slug=_normalize(series_title))
+            series_memberships.append(
+                BookItemSeriesMembership(
+                    series=series,
+                    display_number=_optional_string(payload.get("volume_number")),
+                )
+            )
         item = BookItem(
             title=title.strip(),
             sort_key=_optional_string(payload.get("sort_key")),
@@ -89,6 +107,7 @@ class CatalogBookItemService:
             ],
             credits=credits,
             identifiers=identifier_rows,
+            series_memberships=series_memberships,
         )
         self.db.add(item)
         await self.db.flush()

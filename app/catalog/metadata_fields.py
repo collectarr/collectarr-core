@@ -193,12 +193,11 @@ _CANONICAL_RELEASE_KEYS = {
 }
 
 # Canonical kind source matrix. This is authoritative for sourceEntityType and
-# sourceTable in the exported field schema. Music and Movie map to flat Catalog
-# Items; the other kinds still use their current source entities during cutover.
+# sourceTable in the exported field schema. Book, Music, and Movie map to flat
+# Catalog Items; the other kinds still use their current source entities.
 CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
-        "work": ("book_work", "book_works"),
-        "release": ("book_edition", "book_editions"),
+        "catalog_item": ("catalog_book_item", "book_items"),
         "relations": ("entity_link", "entity_links"),
         "tags": ("entity_tag", "entity_tags"),
     },
@@ -277,6 +276,12 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
         return "internal"
     if kind == ItemKind.music:
         return "catalog_item"
+    if kind == ItemKind.book:
+        if key in _RELATION_KEYS:
+            return "relations"
+        if key in _TAG_KEYS:
+            return "tags"
+        return "catalog_item"
     if kind == ItemKind.movie:
         if key in _RELATION_KEYS:
             return "relations"
@@ -339,7 +344,7 @@ def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     # explicit; they do not get an arbitrary first-entity fallback.
     source_scope = (
         "catalog_item"
-        if kind in {ItemKind.music, ItemKind.movie} and scope == "internal"
+        if kind in {ItemKind.book, ItemKind.music, ItemKind.movie} and scope == "internal"
         else "work" if scope == "internal" else scope
     )
     try:

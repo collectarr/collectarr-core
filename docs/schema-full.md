@@ -211,12 +211,11 @@ Tables:
 - `tags`
 - `entity_tags`
 - `book_series`
-- `book_works`
-- `book_editions`
-- `book_printings`
-- `book_contributions`
-- `book_identifiers`
-- `book_series_memberships`
+- `book_items`
+- `book_item_printings`
+- `book_item_credits`
+- `book_item_identifiers`
+- `book_item_series_memberships`
 
 ### Music
 
@@ -1312,101 +1311,6 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_boardgame_rankings_snapshot_work_id` (non-unique): `work_id`
 - Check constraints: none
 - Foreign key `(anonymous)`: `work_id` -> `boardgame_works.id`
-
-### book_item_credits
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| book_item_id | UUID | no | no | no | no | - | - | book_items.id |
-| credit_type | VARCHAR(32) | no | no | no | no | - | - | - |
-| person_id | UUID | yes | no | no | no | - | - | persons.id |
-| name | VARCHAR(255) | no | no | no | no | - | - | - |
-| role | VARCHAR(64) | yes | no | no | no | - | - | - |
-| role_id | VARCHAR(64) | yes | no | no | no | - | - | - |
-| sequence | INTEGER | yes | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_book_item_credits_item_role` (non-unique): `book_item_id, credit_type, sequence`
-- Check constraints: none
-- Foreign key `(anonymous)`: `book_item_id` -> `book_items.id`
-- Foreign key `(anonymous)`: `person_id` -> `persons.id`
-
-### book_item_identifiers
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| book_item_id | UUID | no | no | no | no | - | - | book_items.id |
-| identifier_type | VARCHAR(64) | no | no | no | no | - | - | - |
-| value | VARCHAR(255) | no | no | no | no | - | - | - |
-| normalized_value | VARCHAR(255) | yes | no | no | no | - | - | - |
-| is_primary | BOOLEAN | no | no | no | no | False | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_book_item_identifier_normalized`: `book_item_id, identifier_type, normalized_value`
-- Index `ix_book_item_identifiers_type_value` (non-unique): `identifier_type, normalized_value`
-- Check constraints: none
-- Foreign key `(anonymous)`: `book_item_id` -> `book_items.id`
-
-### book_item_printings
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| book_item_id | UUID | no | no | no | yes | - | - | book_items.id |
-| printing_number | INTEGER | yes | no | no | no | - | - | - |
-| title | VARCHAR(255) | yes | no | no | no | - | - | - |
-| release_date | JSONB | yes | no | no | no | - | - | - |
-| publisher | VARCHAR(255) | yes | no | no | no | - | - | - |
-| language | VARCHAR(16) | yes | no | no | no | - | - | - |
-| isbn | VARCHAR(32) | yes | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_book_item_printings_item` (non-unique): `book_item_id`
-- Check constraints: none
-- Foreign key `(anonymous)`: `book_item_id` -> `book_items.id`
-
-### book_items
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| title | VARCHAR(255) | no | no | no | yes | - | - | - |
-| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
-| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
-| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
-| details | JSONB | no | no | no | no | - | - | - |
-| revision | INTEGER | no | no | no | no | 1 | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_book_items_barcode` (non-unique): `barcode`
-- Index `ix_book_items_catalog_number` (non-unique): `catalog_number`
-- Index `ix_book_items_sort_key` (non-unique): `sort_key`
-- Index `ix_book_items_sort_key_trgm` (non-unique): `sort_key`
-- Index `ix_book_items_title` (non-unique): `title`
-- Index `ix_book_items_title_trgm` (non-unique): `title`
-- Check constraints: none
-- Foreign keys: none
 
 ### canonical_correction_proposal_values
 

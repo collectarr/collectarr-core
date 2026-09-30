@@ -21,8 +21,6 @@ from app.models import (
     AnimeSeries,
     BoardGameEdition,
     BoardGameWork,
-    BookEdition,
-    BookWork,
     ComicIssue,
     ComicVariant,
     GameRelease,
@@ -36,6 +34,7 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.catalog_book_item import BookItem
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
     CanonicalCorrectionTargetResponse,
@@ -46,8 +45,7 @@ _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "anime_series": AnimeSeries,
     "boardgame_edition": BoardGameEdition,
     "boardgame_work": BoardGameWork,
-    "book_edition": BookEdition,
-    "book_work": BookWork,
+    "catalog_book_item": BookItem,
     "comic_issue": ComicIssue,
     "comic_variant": ComicVariant,
     "game_release": GameRelease,
@@ -106,7 +104,7 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "original_title": ("original_title",),
         "localized_title": ("localized_title",),
         "title_extension": ("title_extension",),
-        "sort_key": ("sort_title",),
+        "sort_key": ("sort_key", "sort_title"),
         "item_number": ("issue_number", "volume_number", "season_number", "episode_number", "chapter_number"),
         "edition_title": ("display_title", "title"),
         "physical_format": ("physical_format", "format"),
@@ -146,6 +144,8 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
     for candidate in direct.get(key, ()):
         if candidate in inspect(model).columns:
             return candidate
+    if model is BookItem and "details" in inspect(model).columns:
+        return "details"
     return None
 
 
@@ -193,15 +193,24 @@ def _parse_partial_date_parts(value: Any) -> dict[str, int] | None:
 
 
 class CanonicalField:
-    def __init__(self, key: str, label: str, value_type: str, column: str) -> None:
+    def __init__(
+        self,
+        key: str,
+        label: str,
+        value_type: str,
+        column: str,
+        *,
+        json_key: str | None = None,
+    ) -> None:
         self.key = key
         self.label = label
         self.value_type = value_type
         self.column = column
+        self.json_key = json_key
 
 
 class CanonicalCorrectionTargetService:
-    """Resolve and mutate only exact canonical Work/Release targets."""
+    """Resolve and mutate exact source-neutral canonical targets."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -244,7 +253,13 @@ class CanonicalCorrectionTargetService:
                 if entity_type == "catalog_music_item"
                 and field.key
                 in {"release_date", "original_release_date", "recording_date"}
-                else _json_value(getattr(entity, field.column))
+                else _json_value(
+                    (
+                        getattr(entity, field.column).get(field.json_key)
+                        if field.json_key is not None
+                        else getattr(entity, field.column)
+                    )
+                )
             )
             for field in fields
         }
@@ -320,6 +335,11 @@ class CanonicalCorrectionTargetService:
                     else None,
                 )
                 continue
+            if field.json_key is not None:
+                details = dict(getattr(entity, field.column) or {})
+                details[field.json_key] = _json_value(value)
+                setattr(entity, field.column, details)
+                continue
             column = getattr(model, field.column).property.columns[0]
             setattr(entity, field.column, self._coerce(value, column))
         await self.db.flush()
@@ -342,7 +362,19 @@ class CanonicalCorrectionTargetService:
                 continue
             column = _column_for_field(entity_type, field.key, model)
             if column is not None:
-                result.append(CanonicalField(field.key, field.label, field.value_type, column))
+                result.append(
+                    CanonicalField(
+                        field.key,
+                        field.label,
+                        field.value_type,
+                        column,
+                        json_key=(
+                            field.key
+                            if model is BookItem and column == "details"
+                            else None
+                        ),
+                    )
+                )
         return result
 
     @staticmethod

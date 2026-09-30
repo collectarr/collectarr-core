@@ -58,6 +58,10 @@ class BookItem(UuidMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
         order_by="BookItemIdentifier.identifier_type",
     )
+    series_memberships: Mapped[list["BookItemSeriesMembership"]] = relationship(
+        back_populates="item",
+        cascade="all, delete-orphan",
+    )
 
 
 class BookItemPrinting(UuidMixin, TimestampMixin, Base):

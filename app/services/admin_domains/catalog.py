@@ -39,14 +39,9 @@ from app.models import (
     BoardGamePlatform,
     BoardGameRankingSnapshot,
     BoardGameWork,
-    BookContribution,
-    BookEdition,
     BookItemCredit,
     BookItem,
     BookItemIdentifier,
-    BookIdentifier,
-    BookSeriesMembership,
-    BookWork,
     Character,
     ComicCharacterAppearance,
     ComicContribution,
@@ -279,7 +274,7 @@ class AdminCatalogService:
             for entity in rows:
                 _record(entity_type, entity, kind)
 
-        await _scan(BookWork, ItemKind.book, "book_work")
+        await _scan(BookItem, ItemKind.book, "book_item")
         await _scan(ComicWork, ItemKind.comic, "comic_work")
         await _scan(MusicItem, ItemKind.music, "catalog_music_item")
         await _scan(GameWork, ItemKind.game, "game_work")
@@ -350,7 +345,6 @@ class AdminCatalogService:
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
-            ItemKind.book: "book_work",
             ItemKind.comic: "comic_work",
             ItemKind.manga: "manga_work",
             ItemKind.anime: "anime_series",
@@ -854,77 +848,6 @@ class AdminCatalogService:
                         self.db.add(
                             TVReleaseContribution(
                                 release_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-
-        elif kind == ItemKind.book:
-            edition = primary_edition
-            if edition is None and any(key in update_data for key in ("edition_title", "publisher", "barcode")):
-                edition = BookEdition(work_id=entity.id)
-                self.db.add(edition)
-                await self.db.flush()
-            if edition is not None:
-                before["edition_title"] = edition.display_title
-                before["publisher"] = edition.publisher
-                before["release_date"] = edition.publication_date
-                before["imprint"] = edition.imprint
-                before["country"] = edition.region
-                before["language"] = edition.language
-                before["age_rating"] = edition.age_rating
-                before["catalog_number"] = None
-                before["release_status"] = edition.release_status
-                if "edition_title" in update_data:
-                    edition.display_title = payload.edition_title
-                if "publisher" in update_data:
-                    edition.publisher = payload.publisher
-                if "release_date" in update_data:
-                    _set_partial_date(edition, "publication_date", payload.release_date)
-                if "imprint" in update_data:
-                    edition.imprint = payload.imprint
-                if "subtitle" in update_data:
-                    entity.subtitle = payload.subtitle
-                if "country" in update_data:
-                    edition.region = self._normalize_region(payload.country)
-                if "language" in update_data:
-                    edition.language = self._normalize_language(payload.language)
-                if "age_rating" in update_data:
-                    edition.age_rating = payload.age_rating
-                if "catalog_number" in update_data:
-                    await _set_identifier(
-                        BookIdentifier,
-                        "edition_id",
-                        "catalog_number",
-                        payload.catalog_number,
-                        owner_id=edition.id,
-                    )
-                if "barcode" in update_data:
-                    await _set_identifier(
-                        BookIdentifier,
-                        "edition_id",
-                        "barcode",
-                        payload.barcode,
-                        owner_id=edition.id,
-                    )
-                if "release_status" in update_data:
-                    edition.release_status = self._normalize_release_status(payload.release_status)
-                if "page_count" in update_data:
-                    edition.page_count = payload.page_count
-                if "cover_image_url" in update_data:
-                    edition.cover_image_url = payload.cover_image_url
-                if "creators" in update_data:
-                    _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            BookContribution(
-                                work_id=entity.id,
                                 person_id=person.id,
                                 role=(creator.role or "creator").strip() or "creator",
                                 sequence=index,
@@ -1831,12 +1754,9 @@ class AdminCatalogService:
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
         if kind == ItemKind.book:
             return [
-                selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
-                    BookContribution.person
-                ),
-                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-                selectinload(BookWork.contributions).selectinload(BookContribution.person),
-                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
+                selectinload(BookItem.printings),
+                selectinload(BookItem.credits),
+                selectinload(BookItem.identifiers),
             ]
         if kind in {ItemKind.comic, ItemKind.manga}:
             return [

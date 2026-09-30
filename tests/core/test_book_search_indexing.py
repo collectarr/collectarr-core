@@ -3,32 +3,30 @@ from datetime import date
 import pytest
 
 from app.db.session import AsyncSessionLocal
-from app.models import BookContribution, BookEdition, BookWork, Person
+from app.models import Person
+from app.models.catalog_book_item import BookItem, BookItemCredit
 from app.worker.main import index_once
 
 
 @pytest.mark.asyncio
-async def test_index_once_eager_loads_book_edition_contributions():
+async def test_index_once_eager_loads_flat_book_item_credits():
     async with AsyncSessionLocal() as db:
         person = Person(name="J.R.R. Tolkien")
         db.add(person)
         await db.flush()
 
-        work = BookWork(title="The Fellowship of the Ring")
-        db.add(work)
-        await db.flush()
-
-        edition = BookEdition(
-            work_id=work.id,
-            display_title="The Fellowship of the Ring",
-            publication_date=date(1954, 7, 29),
+        item = BookItem(
+            title="The Fellowship of the Ring",
+            details={"release_date": date(1954, 7, 29).isoformat()},
         )
-        db.add(edition)
+        db.add(item)
         await db.flush()
         db.add(
-            BookContribution(
-                edition_id=edition.id,
+            BookItemCredit(
+                book_item_id=item.id,
+                credit_type="creator",
                 person_id=person.id,
+                name=person.name,
                 role="author",
                 sequence=1,
             )

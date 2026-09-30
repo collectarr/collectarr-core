@@ -8,8 +8,6 @@ from app.models import (
     AnimeContribution,
     AnimeSeries,
     BoardGameWork,
-    BookContribution,
-    BookWork,
     ComicContribution,
     ComicWork,
     GameWork,
@@ -181,100 +179,6 @@ def item_search_document(item: Any) -> dict[str, Any]:
         "subtitle": subtitle,
         "series_group": series_group,
         "age_rating": age_rating,
-    }
-
-
-def book_work_search_document(work: BookWork) -> dict[str, Any]:
-    editions = sorted(
-        getattr(work, "__dict__", {}).get("editions") or [],
-        key=lambda row: (
-            getattr(row, "publication_date", None) is None,
-            getattr(row, "publication_date", None),
-            str(getattr(row, "id", "")),
-        ),
-    )
-    primary_edition = editions[0] if editions else None
-    series_memberships = sorted(
-        getattr(work, "__dict__", {}).get("series_memberships") or [],
-        key=lambda row: (
-            getattr(row, "sequence", None) is None,
-            getattr(row, "sequence", None) or 0,
-            str(getattr(row, "series_id", "")),
-        ),
-    )
-    primary_series = series_memberships[0] if series_memberships else None
-    creators: list[str] = []
-    barcodes: list[str] = []
-    variant_names: list[str] = []
-    for edition in editions:
-        variant = _optional_text(getattr(edition, "binding", None)) or _optional_text(getattr(edition, "format", None))
-        if variant:
-            _append_unique(variant_names, variant)
-        for contribution in sorted(
-            getattr(edition, "contributions", []) or [],
-            key=lambda row: (
-                getattr(row, "sequence", None) is None,
-                getattr(row, "sequence", None) or 0,
-                str(getattr(row, "id", "")),
-            ),
-        ):
-            if not isinstance(contribution, BookContribution):
-                continue
-            person = getattr(contribution, "person", None)
-            person_name = _optional_text(getattr(person, "name", None))
-            if person_name:
-                _append_unique(creators, person_name)
-        for identifier in list(getattr(edition, "identifiers", []) or []):
-            value = _optional_text(getattr(identifier, "value", None))
-            if not value:
-                continue
-            _append_unique(barcodes, _normalized_barcode(value))
-    barcode = barcodes[0] if barcodes else None
-    release_date = (
-        primary_edition.publication_date.isoformat()
-        if primary_edition is not None and primary_edition.publication_date is not None
-        else None
-    )
-    release_year = (
-        primary_edition.publication_date.year
-        if primary_edition is not None and primary_edition.publication_date is not None
-        else None
-    )
-    return {
-        "id": str(work.id),
-        "kind": ItemKind.book.value,
-        "title": work.title,
-        "item_number": None,
-        "runtime_minutes": (
-            primary_edition.audio_length_minutes if primary_edition is not None else None
-        ),
-        "cover_image_url": primary_edition.cover_image_url if primary_edition is not None else None,
-        "thumbnail_image_url": None,
-        "publisher": primary_edition.publisher if primary_edition is not None else None,
-        "release_date": release_date,
-        "region": primary_edition.region if primary_edition is not None else None,
-        "release_year": release_year,
-        "barcode": barcode,
-        "barcodes": barcodes,
-        "variant": variant_names[0] if variant_names else None,
-        "variant_names": variant_names,
-        "series_title": (
-            getattr(getattr(primary_series, "__dict__", {}).get("series"), "title", None)
-            if primary_series is not None
-            else None
-        ),
-        "volume_name": None,
-        "catalog_number": None,
-        "creators": creators,
-        "characters": [],
-        "story_arcs": [],
-        "platforms": [],
-        "release_status": primary_edition.release_status if primary_edition is not None else None,
-        "language": primary_edition.language if primary_edition is not None else None,
-        "imprint": primary_edition.imprint if primary_edition is not None else None,
-        "subtitle": work.subtitle,
-        "series_group": None,
-        "age_rating": primary_edition.age_rating if primary_edition is not None else None,
     }
 
 
@@ -921,8 +825,6 @@ def tv_release_search_document(entity: TVSeries | TVRelease) -> dict[str, Any]:
 
 
 def catalog_search_document(entity: Any) -> dict[str, Any]:
-    if isinstance(entity, BookWork):
-        return book_work_search_document(entity)
     if isinstance(entity, ComicWork):
         return comic_work_search_document(entity)
     if isinstance(entity, MangaWork):

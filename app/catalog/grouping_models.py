@@ -5,6 +5,7 @@ from app.models.base import ItemKind
 
 class GroupingModel(StrEnum):
     book_series = "book_series"
+    catalog_item = "catalog_item"
     comic_volume = "comic_volume"
     manga_series = "manga_series"
     release_based = "release_based"
@@ -18,6 +19,8 @@ PRINT_GROUPING_KINDS: frozenset[ItemKind] = frozenset(
 
 
 def grouping_model_for_kind(kind: ItemKind) -> GroupingModel:
+    if kind in {ItemKind.movie, ItemKind.music}:
+        return GroupingModel.catalog_item
     if kind == ItemKind.book:
         return GroupingModel.book_series
     if kind == ItemKind.comic:

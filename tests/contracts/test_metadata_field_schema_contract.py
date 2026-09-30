@@ -190,7 +190,7 @@ def test_game_and_boardgame_fields_route_to_dedicated_tables():
 def test_field_ownership_matrix_is_total_and_does_not_rebind_scopes():
     for kind, fields in FIELD_OWNERSHIP_MATRIX.items():
         scopes = {ownership.scope for ownership in fields.values()}
-        if kind == ItemKind.book:
+        if kind in {ItemKind.book, ItemKind.movie, ItemKind.music}:
             assert "catalog_item" in scopes
             assert not scopes.intersection({"work", "release"})
         else:
@@ -208,7 +208,7 @@ def test_field_ownership_matrix_is_total_and_does_not_rebind_scopes():
     assert canonical_field_ownership(ItemKind.comic, "item_number").entity_type == "comic_issue"
     assert canonical_field_ownership(ItemKind.comic, "variant_name").entity_type == "comic_variant"
     assert canonical_field_ownership(ItemKind.game, "age_rating").entity_type == "game_work"
-    assert canonical_field_ownership(ItemKind.movie, "runtime_minutes").entity_type == "movie_release_media"
+    assert canonical_field_ownership(ItemKind.movie, "runtime_minutes").entity_type == "catalog_movie_item"
 
     with pytest.raises(KeyError, match="No canonical field ownership"):
         canonical_field_ownership(ItemKind.book, "not_a_canonical_field")

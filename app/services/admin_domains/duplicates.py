@@ -17,7 +17,6 @@ from app.models import (
     DuplicateReviewEntity,
     GameWork,
     MangaWork,
-    MovieWork,
     MusicItem,
     TVSeries,
 )
@@ -29,6 +28,7 @@ from app.schemas.admin import (
     AdminDuplicateReviewEntryResponse,
 )
 from app.models.catalog_book_item import BookItem
+from app.models.catalog_movie_item import MovieItem
 from app.services.typed_values import flatten_typed_values, materialize_typed_values
 
 # Maps each native root model class to the entity_type string used in generic link tables.
@@ -37,7 +37,7 @@ _ENTITY_TYPE: dict[type, str] = {
     ComicWork: "comic_work",
     MangaWork: "manga_work",
     AnimeSeries: "anime_series",
-    MovieWork: "movie_work",
+    MovieItem: "catalog_movie_item",
     TVSeries: "tv_series",
     GameWork: "game_work",
     BoardGameWork: "boardgame_work",
@@ -50,7 +50,7 @@ _KIND_LABEL: dict[type, str] = {
     ComicWork: "comic",
     MangaWork: "manga",
     AnimeSeries: "anime",
-    MovieWork: "movie",
+    MovieItem: "movie",
     TVSeries: "tv",
     GameWork: "game",
     BoardGameWork: "boardgame",
@@ -394,14 +394,24 @@ class AdminDuplicateService:
         for attr in ("cover_image_url", "cover_image_key", "poster_image_url", "poster_image_key"):
             if getattr(entity, attr, None):
                 return True
-        return False
+        details = getattr(entity, "details", None)
+        return isinstance(details, dict) and any(
+            details.get(key)
+            for key in ("cover_image_url", "cover_image_key", "thumbnail_image_url")
+        )
 
     def _entity_primary_publisher(self, entity: Any) -> str | None:
         studios = getattr(entity, "studios", None)
         studio = getattr(entity, "studio", None)
         if studio is None and isinstance(studios, list) and studios:
             studio = studios[0]
-        pub = getattr(entity, "publisher", None) or studio
+        details = getattr(entity, "details", None)
+        detail_publisher = (
+            details.get("publisher") or details.get("label")
+            if isinstance(details, dict)
+            else None
+        )
+        pub = getattr(entity, "publisher", None) or studio or detail_publisher
         if pub and str(pub).strip():
             return str(pub).strip().lower()
         return None
@@ -417,6 +427,11 @@ class AdminDuplicateService:
             val = getattr(entity, attr, None)
             if val is not None:
                 return str(val)
+        details = getattr(entity, "details", None)
+        if isinstance(details, dict):
+            for key in ("release_date", "original_release_date"):
+                if details.get(key) is not None:
+                    return str(details[key])
         return None
 
     def _duplicate_ignore_token(self, entity_ids: list[UUID]) -> str:

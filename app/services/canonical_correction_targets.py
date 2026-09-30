@@ -27,14 +27,13 @@ from app.models import (
     GameWork,
     MangaEdition,
     MangaWork,
-    MovieRelease,
-    MovieWork,
     MusicItem,
     TVRelease,
     TVSeries,
 )
 from app.models.base import ItemKind
 from app.models.catalog_book_item import BookItem
+from app.models.catalog_movie_item import MovieItem
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
     CanonicalCorrectionTargetResponse,
@@ -52,8 +51,7 @@ _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "game_work": GameWork,
     "manga_edition": MangaEdition,
     "manga_work": MangaWork,
-    "movie_release": MovieRelease,
-    "movie_work": MovieWork,
+    "catalog_movie_item": MovieItem,
     "catalog_music_item": MusicItem,
     "tv_release": TVRelease,
     "tv_series": TVSeries,
@@ -144,7 +142,7 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
     for candidate in direct.get(key, ()):
         if candidate in inspect(model).columns:
             return candidate
-    if model is BookItem and "details" in inspect(model).columns:
+    if model in {BookItem, MovieItem} and "details" in inspect(model).columns:
         return "details"
     return None
 
@@ -370,7 +368,7 @@ class CanonicalCorrectionTargetService:
                         column,
                         json_key=(
                             field.key
-                            if model is BookItem and column == "details"
+                            if model in {BookItem, MovieItem} and column == "details"
                             else None
                         ),
                     )

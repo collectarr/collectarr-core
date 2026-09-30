@@ -34,9 +34,6 @@ from app.models import (
     MangaEdition,
     MangaSeriesMembership,
     MangaWork,
-    MovieRelease,
-    MovieWork,
-    MovieWorkContribution,
     TVEpisode,
     TVEpisodeContribution,
     TVRelease,
@@ -62,8 +59,6 @@ from app.schemas import (
     MangaChapterV1Response,
     MangaEditionV1Response,
     MangaWorkV1Response,
-    MovieReleaseV1Response,
-    MovieWorkV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
@@ -736,57 +731,3 @@ async def get_tv_episode(service, episode_id: UUID) -> TVEpisodeV1Response:
             detail="TV episode not found",
         )
     return service._tv_episode_response(episode)
-
-
-async def get_movie_work(service, work_id: UUID) -> MovieWorkV1Response:
-    work = await service.db.scalar(
-        select(MovieWork)
-        .where(MovieWork.id == work_id)
-        .options(
-            selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-            selectinload(MovieWork.releases).selectinload(MovieRelease.media),
-            selectinload(MovieWork.identifiers),
-            selectinload(MovieWork.entity_links),
-        )
-    )
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="movie_work_not_found",
-            detail="Movie work not found",
-        )
-    return service._movie_work_response(work)
-
-
-async def get_movie_work_releases(service, work_id: UUID) -> list[MovieReleaseV1Response]:
-    work = await service.db.scalar(select(MovieWork.id).where(MovieWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="movie_work_not_found",
-            detail="Movie work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(MovieRelease)
-                .where(MovieRelease.work_id == work_id)
-        .options(selectinload(MovieRelease.media), selectinload(MovieRelease.entity_links))
-                .order_by(MovieRelease.release_date.asc().nullslast(), MovieRelease.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._movie_release_response(release) for release in rows]
-
-
-async def get_movie_release(service, release_id: UUID) -> MovieReleaseV1Response:
-    release = await service.db.scalar(
-        select(MovieRelease).where(MovieRelease.id == release_id).options(selectinload(MovieRelease.media))
-    )
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="movie_release_not_found",
-            detail="Movie release not found",
-        )
-    return service._movie_release_response(release)

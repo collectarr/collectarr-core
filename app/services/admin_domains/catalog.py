@@ -65,9 +65,6 @@ from app.models import (
     MangaItemIdentifier,
     MangaWork,
     MovieItem,
-    MovieRelease,
-    MovieWork,
-    MovieWorkContribution,
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
@@ -278,7 +275,7 @@ class AdminCatalogService:
         await _scan(ComicWork, ItemKind.comic, "comic_work")
         await _scan(MusicItem, ItemKind.music, "catalog_music_item")
         await _scan(GameWork, ItemKind.game, "game_work")
-        await _scan(MovieWork, ItemKind.movie, "movie_work")
+        await _scan(MovieItem, ItemKind.movie, "catalog_movie_item")
         await _scan(TVSeries, ItemKind.tv, "tv_series")
         await _scan(BoardGameWork, ItemKind.boardgame, "boardgame_work")
 
@@ -348,7 +345,6 @@ class AdminCatalogService:
             ItemKind.comic: "comic_work",
             ItemKind.manga: "manga_work",
             ItemKind.anime: "anime_series",
-            ItemKind.movie: "movie_work",
             ItemKind.tv: "tv_series",
             ItemKind.music: "catalog_music_item",
             ItemKind.game: "game_work",
@@ -764,17 +760,13 @@ class AdminCatalogService:
                 if "audience_rating" in update_data:
                     entity.audience_rating = payload.audience_rating
 
-        elif kind in {ItemKind.movie, ItemKind.tv}:
-            release = primary_release if kind == ItemKind.movie else next(iter(getattr(entity, "releases", []) or []), None)
+        elif kind == ItemKind.tv:
+            release = next(iter(getattr(entity, "releases", []) or []), None)
             media = primary_media
             if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode", "physical_format")):
-                if kind == ItemKind.movie:
-                    release = MovieRelease(work_id=entity.id, format=payload.physical_format or "digital")
-                    self.db.add(release)
-                else:
-                    release = TVRelease(series_id=entity.id, title=payload.edition_title or entity.title, format=payload.physical_format or "dvd")
-                    self.db.add(release)
-                    await self.db.flush()
+                release = TVRelease(series_id=entity.id, title=payload.edition_title or entity.title, format=payload.physical_format or "dvd")
+                self.db.add(release)
+                await self.db.flush()
             if release is not None:
                 before["edition_title"] = getattr(release, "format", None)
                 before["publisher"] = getattr(release, "publisher", None)
@@ -821,22 +813,6 @@ class AdminCatalogService:
                     release.format = physical_format.label
                 if "cover_image_url" in update_data:
                     release.cover_image_url = payload.cover_image_url
-                if "creators" in update_data and kind == ItemKind.movie:
-                    await _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            MovieWorkContribution(
-                                work_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
                 if "creators" in update_data and kind == ItemKind.tv:
                     await _clear_existing(list(getattr(entity, "contributions", []) or []))
                     await self.db.flush()

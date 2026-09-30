@@ -18,8 +18,6 @@ from app.schemas import (
     MangaChapterV1Response,
     MangaEditionV1Response,
     MangaWorkV1Response,
-    MovieReleaseV1Response,
-    MovieWorkV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
@@ -95,15 +93,6 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_manga_work_editions as _get_manga_work_editions,
-)
-from app.services.metadata.metadata_reads import (
-    get_movie_release as _get_movie_release,
-)
-from app.services.metadata.metadata_reads import (
-    get_movie_work as _get_movie_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_movie_work_releases as _get_movie_work_releases,
 )
 from app.services.metadata.metadata_reads import (
     get_tv_episode as _get_tv_episode,
@@ -210,15 +199,6 @@ class MetadataTypedReadService:
 
     async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
         return await _get_anime_episode(self, episode_id)
-
-    async def get_movie_work(self, work_id: UUID) -> MovieWorkV1Response:
-        return await _get_movie_work(self, work_id)
-
-    async def get_movie_work_releases(self, work_id: UUID) -> list[MovieReleaseV1Response]:
-        return await _get_movie_work_releases(self, work_id)
-
-    async def get_movie_release(self, release_id: UUID) -> MovieReleaseV1Response:
-        return await _get_movie_release(self, release_id)
 
     async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
         return await _get_tv_series(self, series_id)

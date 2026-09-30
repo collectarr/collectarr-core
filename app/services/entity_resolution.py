@@ -26,8 +26,6 @@ from app.models import (
     MangaEdition,
     MangaSeries,
     MangaWork,
-    MovieRelease,
-    MovieWork,
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
@@ -40,6 +38,7 @@ from app.models import (
 )
 from app.models.base import ItemKind
 from app.models.catalog_book_item import BookItem
+from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_book_series import BookSeries
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
@@ -77,8 +76,7 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "manga_edition": MangaEdition,
     "manga_series": MangaSeries,
     "manga_work": MangaWork,
-    "movie_work": MovieWork,
-    "movie_release": MovieRelease,
+    "catalog_movie_item": MovieItem,
     "catalog_music_item": MusicItem,
     "music_item_disc": MusicItemDisc,
     "music_item_track": MusicItemTrack,

@@ -27,9 +27,6 @@ from app.models import (
     MangaSeries,
     MangaSeriesMembership,
     MangaWork,
-    MovieRelease,
-    MovieReleaseMedia,
-    MovieWork,
     Person,
     StoryArc,
     StoryArcItem,
@@ -44,6 +41,7 @@ from app.models.base import ItemKind
 from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrinting
 from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
 from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
+from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 SEED_MARKER = "seed-native"
@@ -380,49 +378,55 @@ async def _seed_anime(db: AsyncSession, entry: _Entry, cover_url: str | None, th
 
 
 async def _seed_movie(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    work = await _get_or_create_work(db, MovieWork, entry.title, entry.release_date, cover_url)
-    work.original_release_date = entry.release_date
-    _apply_seed_metadata(work, entry, ItemKind.movie, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, work.id, "movie_work", entry.creator, "director")
-    release = (
-        await db.execute(
-            select(MovieRelease).where(
-                MovieRelease.work_id == work.id,
-                MovieRelease.format == "Blu-ray",
-                MovieRelease.region_code == "US",
-                MovieRelease.release_date == entry.release_date,
-            )
-        )
+    item = (
+        await db.execute(select(MovieItem).where(MovieItem.title == entry.title))
     ).scalar_one_or_none()
-    if release is None:
-        release = MovieRelease(work=work)
-        db.add(release)
-    release.format = "Blu-ray"
-    release.region_code = "US"
-    release.release_date = entry.release_date
-    release.release_type = "home_video"
-    release.publisher = entry.publisher
-    release.barcode = f"MOV-{index:03d}"
-    release.cover_image_url = cover_url
-    await db.flush()
-    _apply_seed_metadata(release, entry, ItemKind.movie, index, cover_url, thumbnail_url)
+    if item is None:
+        item = MovieItem(
+            title=entry.title,
+            sort_key=_slug(entry.title),
+            barcode=f"MOV-{index:03d}",
+            catalog_number=f"SEED-MOVIE-{index:03d}",
+            details={},
+        )
+        db.add(item)
+        await db.flush()
+    item.details = {
+        **dict(item.details or {}),
+        "original_title": entry.title,
+        "release_date": entry.release_date.isoformat(),
+        "release_date_parts": {
+            "year": entry.release_date.year,
+            "month": entry.release_date.month,
+            "day": entry.release_date.day,
+        },
+        "publisher": entry.publisher,
+        "country": "US",
+        "physical_format": "Blu-ray",
+        "runtime_minutes": _seed_runtime_minutes(ItemKind.movie),
+        "age_rating": _seed_age_rating(ItemKind.movie),
+        "genres": [entry.tag] if entry.tag else [],
+        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "characters": [entry.character] if entry.character else [],
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    await _ensure_person_link(db, item.id, "catalog_movie_item", entry.creator, "director")
     media = (
         await db.execute(
-            select(MovieReleaseMedia).where(
-                MovieReleaseMedia.release_id == release.id,
-                MovieReleaseMedia.media_number == 1,
+            select(MovieItemMedia).where(
+                MovieItemMedia.movie_item_id == item.id,
+                MovieItemMedia.media_number == 1,
             )
         )
     ).scalar_one_or_none()
     if media is None:
-        media = MovieReleaseMedia(release=release, media_number=1)
+        media = MovieItemMedia(item=item, media_number=1)
         db.add(media)
     media.media_type = "disc"
     media.title = entry.title
     media.color = "color"
-    await db.flush()
-    _apply_seed_metadata(media, entry, ItemKind.movie, index, cover_url, thumbnail_url)
-    return [work]
+    return [item]
 
 
 async def _seed_tv(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
@@ -655,8 +659,6 @@ async def _get_or_create_work(db: AsyncSession, model: type, title: str, release
         kwargs["description"] = f"Seed data for {title}."
     if hasattr(model, "cover_image_url"):
         kwargs["cover_image_url"] = cover_url
-    if model is MovieWork:
-        kwargs["original_release_date"] = release_date
     work = model(**kwargs)
     db.add(work)
     await db.flush()

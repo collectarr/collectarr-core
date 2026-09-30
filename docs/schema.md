@@ -26,7 +26,7 @@ behavior remain relational.
 | Comics | `comic_volumes`, `comic_works`, `comic_issues`, `comic_variants` |
 | Manga | `manga_works`, `manga_editions`, `manga_chapters` |
 | Anime | `anime_series` (Work), `anime_episodes`, `anime_releases`, `anime_release_media`, `anime_release_episode_map` |
-| Movies | `movie_works`, `movie_releases`, `movie_release_media` |
+| Movies | `movie_items`, `movie_item_media` |
 | TV | `tv_series`, `tv_seasons`, `tv_episodes`, `tv_releases`, `tv_release_media` |
 
 Lists, identifiers, genres, platforms, credits, aliases, links, and other repeated values

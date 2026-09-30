@@ -35,9 +35,6 @@ from app.models import (
     MangaContribution,
     MangaSeriesMembership,
     MangaWork,
-    MovieRelease,
-    MovieWork,
-    MovieWorkContribution,
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
@@ -53,6 +50,7 @@ from app.models.catalog_book_item import (
     BookItemIdentifier,
     BookItemPrinting,
 )
+from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
@@ -61,7 +59,7 @@ from app.search.documents import (
     comic_work_search_document,
     game_work_search_document,
     manga_work_search_document,
-    movie_work_search_document,
+    movie_item_search_document,
     music_item_search_document,
     tv_release_search_document,
 )
@@ -91,7 +89,7 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         ComicWork,
         MangaWork,
         AnimeSeries,
-        MovieWork,
+        MovieItem,
         TVSeries,
         GameWork,
         BoardGameWork,
@@ -102,7 +100,7 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         ComicIssue,
         MangaChapter,
         AnimeEpisode,
-        MovieRelease,
+        MovieItemMedia,
         TVReleaseMedia,
         GameRelease,
         BoardGameEdition,
@@ -193,13 +191,9 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(manga_work_search_document(row) for row in manga_rows.scalars().unique())
 
         movie_rows = await db.execute(
-            select(MovieWork).options(
-                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-                selectinload(MovieWork.releases).selectinload(MovieRelease.media),
-                selectinload(MovieWork.identifiers),
-            )
+            select(MovieItem).options(selectinload(MovieItem.media))
         )
-        documents.extend(movie_work_search_document(row) for row in movie_rows.scalars().unique())
+        documents.extend(movie_item_search_document(row) for row in movie_rows.scalars().unique())
 
         tv_rows = await db.execute(
             select(TVSeries).options(

@@ -16,12 +16,11 @@ from app.schemas import (
 from app.services.metadata.metadata_builders_anime import AnimeMetadataResponseBuilders
 from app.services.metadata.metadata_builders_comics import ComicMetadataResponseBuilders
 from app.services.metadata.metadata_builders_manga import MangaMetadataResponseBuilders
-from app.services.metadata.metadata_builders_movies import MovieMetadataResponseBuilders
 from app.services.metadata.metadata_builders_tv import TVMetadataResponseBuilders
 from app.services.metadata.metadata_helpers import entity_link_values
 
 
-class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataResponseBuilders, AnimeMetadataResponseBuilders, MovieMetadataResponseBuilders, TVMetadataResponseBuilders):
+class MetadataResponseBuilders(ComicMetadataResponseBuilders, MangaMetadataResponseBuilders, AnimeMetadataResponseBuilders, TVMetadataResponseBuilders):
     def _game_release_response(self, release: GameRelease) -> GameReleaseV1Response:
         return GameReleaseV1Response(
             id=release.id,

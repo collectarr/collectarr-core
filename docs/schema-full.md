@@ -132,11 +132,8 @@ Tables:
 - `entity_persons`
 - `tags`
 - `entity_tags`
-- `movie_works`
-- `movie_releases`
-- `movie_release_media`
-- `movie_work_contributions`
-- `movie_work_identifiers`
+- `movie_items`
+- `movie_item_media`
 - `bundle_releases`
 
 ### TV
@@ -2143,61 +2140,6 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign key `(anonymous)`: `source_series_id` -> `manga_series.id`
 - Foreign key `(anonymous)`: `target_series_id` -> `manga_series.id`
-
-### movie_item_media
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| movie_item_id | UUID | no | no | no | no | - | - | movie_items.id |
-| media_number | INTEGER | no | no | no | no | - | - | - |
-| media_type | VARCHAR(64) | yes | no | no | no | - | - | - |
-| title | VARCHAR(255) | yes | no | no | no | - | - | - |
-| aspect_ratio | VARCHAR(16) | yes | no | no | no | - | - | - |
-| screen_ratio | VARCHAR(50) | yes | no | no | no | - | - | - |
-| color | VARCHAR(64) | yes | no | no | no | - | - | - |
-| num_discs | INTEGER | yes | no | no | no | - | - | - |
-| nr_layers | INTEGER | yes | no | no | no | - | - | - |
-| layers | VARCHAR(50) | yes | no | no | no | - | - | - |
-| audio_tracks | VARCHAR(500) | yes | no | no | no | - | - | - |
-| subtitles | VARCHAR(500) | yes | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_movie_item_media_number`: `movie_item_id, media_number`
-- Index `ix_movie_item_media_item` (non-unique): `movie_item_id, media_number`
-- Check constraints: none
-- Foreign key `(anonymous)`: `movie_item_id` -> `movie_items.id`
-
-### movie_items
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| title | VARCHAR(255) | no | no | no | yes | - | - | - |
-| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
-| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
-| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
-| details | JSONB | no | no | no | no | - | - | - |
-| revision | INTEGER | no | no | no | no | 1 | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_movie_items_barcode` (non-unique): `barcode`
-- Index `ix_movie_items_catalog_number` (non-unique): `catalog_number`
-- Index `ix_movie_items_sort_key` (non-unique): `sort_key`
-- Index `ix_movie_items_sort_key_trgm` (non-unique): `sort_key`
-- Index `ix_movie_items_title` (non-unique): `title`
-- Index `ix_movie_items_title_trgm` (non-unique): `title`
-- Check constraints: none
-- Foreign keys: none
 
 ### physical_format_refs
 

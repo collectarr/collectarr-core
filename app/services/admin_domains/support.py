@@ -14,6 +14,7 @@ from app.models import (
     ComicWork,
     GameWork,
     MangaWork,
+    MovieItem,
     MovieWork,
     MusicItem,
     Tag,
@@ -23,6 +24,7 @@ from app.models import (
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
 from app.services.catalog_music_items import CatalogMusicItemService
+from app.services.catalog_movie_items import CatalogMovieItemService
 from app.services.facade import MetadataFacade as MetadataService
 from app.services.typed_values import flatten_typed_values
 
@@ -94,7 +96,7 @@ class AdminSupportService:
             return
         for model in (
             BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease,
-            GameWork, BoardGameWork, MusicItem,
+            GameWork, BoardGameWork, MusicItem, MovieItem,
         ):
             model_result = await self.db.execute(select(model).where(model.id.in_(item_ids)))
             documents.extend(
@@ -107,6 +109,9 @@ class AdminSupportService:
     async def _native_item_response(self, item: Any) -> Any | None:
         if isinstance(item, MusicItem):
             response = await CatalogMusicItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, MovieItem):
+            response = await CatalogMovieItemService(self.db).get(item.id)
             return response.model_dump(mode="json")
         metadata = MetadataService(self.db)
         if isinstance(item, BookWork):

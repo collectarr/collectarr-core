@@ -193,8 +193,8 @@ _CANONICAL_RELEASE_KEYS = {
 }
 
 # Canonical kind source matrix. This is authoritative for sourceEntityType and
-# sourceTable in the exported field schema. Music maps directly to its flat
-# Catalog Item; the remaining kinds still use their current source entities.
+# sourceTable in the exported field schema. Music and Movie map to flat Catalog
+# Items; the other kinds still use their current source entities during cutover.
 CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "work": ("book_work", "book_works"),
@@ -224,12 +224,10 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.movie: {
-        "work": ("movie_work", "movie_works"),
-        "release": ("movie_release", "movie_releases"),
-        "media": ("movie_release_media", "movie_release_media"),
-        "track": ("movie_release_media", "movie_release_media"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
+        "catalog_item": ("catalog_movie_item", "movie_items"),
+        "media": ("catalog_movie_item_media", "movie_item_media"),
+        "relations": ("catalog_movie_item", "movie_items"),
+        "tags": ("catalog_movie_item", "movie_items"),
     },
     ItemKind.tv: {
         "work": ("tv_series", "tv_series"),
@@ -278,6 +276,14 @@ def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
     if kind == ItemKind.music:
+        return "catalog_item"
+    if kind == ItemKind.movie:
+        if key in _RELATION_KEYS:
+            return "relations"
+        if key in _TAG_KEYS:
+            return "tags"
+        if key == "media":
+            return "media"
         return "catalog_item"
     if key in _RELATION_KEYS:
         return "relations"
@@ -333,7 +339,7 @@ def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     # explicit; they do not get an arbitrary first-entity fallback.
     source_scope = (
         "catalog_item"
-        if kind == ItemKind.music and scope == "internal"
+        if kind in {ItemKind.music, ItemKind.movie} and scope == "internal"
         else "work" if scope == "internal" else scope
     )
     try:

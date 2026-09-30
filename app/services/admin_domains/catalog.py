@@ -7,6 +7,10 @@ from fastapi import status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import selectinload
 
+from app.catalog.catalog_item_schema import (
+    catalog_item_payload_contract,
+    validate_catalog_item_payload,
+)
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
     is_video_item_kind,
@@ -52,6 +56,7 @@ from app.models import (
     GameRelease,
     GameWork,
     MangaWork,
+    MovieItem,
     MovieRelease,
     MovieWork,
     MovieWorkContribution,
@@ -309,6 +314,8 @@ class AdminCatalogService:
 
         if kind == ItemKind.music and isinstance(entity, MusicItem):
             return await self._update_music_catalog_item(entity, payload)
+        if kind == ItemKind.movie and isinstance(entity, MovieItem):
+            return await self._update_movie_catalog_item(entity, payload)
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
@@ -1150,6 +1157,92 @@ class AdminCatalogService:
         await SearchClient().index_documents_best_effort([catalog_search_document(loaded_item)])
         return await self._item_response_loader(loaded_item)
 
+    async def _update_movie_catalog_item(
+        self,
+        item: MovieItem,
+        payload: AdminMetadataCorrectionRequest,
+    ) -> Any:
+        update_data = payload.model_dump(exclude_unset=True, mode="json")
+        if not update_data:
+            return await self._item_response_loader(item)
+
+        contract_fields = set(
+            catalog_item_payload_contract()["kinds"][ItemKind.movie.value]["properties"]
+        )
+        unsupported = sorted(set(update_data) - contract_fields)
+        if unsupported:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="movie_correction_fields_unsupported",
+                detail=(
+                    "Unsupported Movie Catalog Item correction fields: "
+                    f"{', '.join(unsupported)}"
+                ),
+            )
+
+        before_payload = {
+            **dict(item.details or {}),
+            "title": item.title,
+            "sort_key": item.sort_key,
+            "barcode": item.barcode,
+            "catalog_number": item.catalog_number,
+        }
+        try:
+            projected = validate_catalog_item_payload(
+                ItemKind.movie,
+                {**before_payload, **update_data},
+            )
+        except (TypeError, ValueError) as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="movie_correction_payload_invalid",
+                detail=str(exc),
+            ) from exc
+        title = self._normalize_optional_text(projected.get("title"))
+        if title is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="movie_title_required",
+                detail="Movie Catalog Item title must not be empty",
+            )
+
+        item.title = title
+        item.sort_key = self._normalize_optional_text(projected.pop("sort_key", None))
+        item.barcode = self._normalize_optional_text(projected.pop("barcode", None))
+        item.catalog_number = self._normalize_optional_text(
+            projected.pop("catalog_number", None)
+        )
+        # `media` is a contained child table. The admin correction form edits
+        # root fields only, so leave those rows to the kind-owned item API.
+        projected.pop("media", None)
+        projected.pop("title", None)
+        item.details = projected
+
+        self._audit_recorder(
+            action="metadata.correction",
+            entity_type=ItemKind.movie.value,
+            entity_id=item.id,
+            details={
+                "kind": ItemKind.movie.value,
+                "fields": sorted(update_data),
+                "before": {key: before_payload.get(key) for key in update_data},
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+        self.db.expire_all()
+        loaded_item = await self._load_native_catalog_entity(ItemKind.movie, item.id)
+        if loaded_item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Movie Catalog Item not found after correction",
+            )
+        await SearchClient().index_documents_best_effort(
+            [catalog_search_document(loaded_item)]
+        )
+        return await self._item_response_loader(loaded_item)
+
     def _validated_physical_format(
         self,
         kind: ItemKind,
@@ -1473,7 +1566,7 @@ class AdminCatalogService:
             ItemKind.comic: ComicWork,
             ItemKind.manga: MangaWork,
             ItemKind.anime: AnimeSeries,
-            ItemKind.movie: MovieWork,
+            ItemKind.movie: MovieItem,
             ItemKind.tv: TVSeries,
             ItemKind.music: MusicItem,
             ItemKind.game: GameWork,
@@ -1522,11 +1615,7 @@ class AdminCatalogService:
             ]
         if kind == ItemKind.movie:
             return [
-                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-                selectinload(MovieWork.identifiers),
-                selectinload(MovieWork.releases).selectinload(MovieRelease.media),
-                selectinload(MovieWork.entity_links),
-                selectinload(MovieWork.releases).selectinload(MovieRelease.entity_links),
+                selectinload(MovieItem.media),
             ]
         if kind == ItemKind.music:
             return [

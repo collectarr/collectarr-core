@@ -6,6 +6,8 @@
   nine kinds.
 - User proposals use kind-owned Catalog Item fields and publish approved values
   through the corresponding kind writer.
+- Admin catalog search, item detail, corrections, summary counts, and search
+  reindex now use the flat Movie Catalog Item root.
 - Add search queries the flattened roots and accepts `limit` and `offset`.
   Exact identifier matching uses kind-owned indexed identity tables where
   available and indexed root barcode/catalog-number columns. Free-text queries
@@ -24,8 +26,10 @@
    creation to the typed roots while preserving the existing UI.
 2. Move retained personal references to Catalog Item or Owned Copy references
    and keep their synchronization in `collectarr-sync`.
-3. Remove Core catalog routes and tables that App no longer consumes. Retain
-   kind-owned children with independent domain behavior.
+3. Move the remaining eight kinds' Admin, read, correction, and indexing paths
+   from Work/Release models to their flat Catalog Item roots. Then remove Core
+   catalog routes and tables that App no longer consumes, retaining kind-owned
+   children with independent domain behavior.
 4. Regenerate the contract and update the documented fresh-database setup in
    all three repositories.
 

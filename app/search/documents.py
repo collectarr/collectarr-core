@@ -22,6 +22,8 @@ from app.models import (
     TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.catalog_movie_item import MovieItem
+from app.models.partial_date import PartialDateValue
 
 
 def item_search_document(item: Any) -> dict[str, Any]:
@@ -738,6 +740,57 @@ def movie_work_search_document(work: MovieWork) -> dict[str, Any]:
     }
 
 
+def movie_item_search_document(item: MovieItem) -> dict[str, Any]:
+    details = dict(item.details or {})
+    date_value = details.get("release_date_parts") or details.get("release_date")
+    try:
+        release_date_parts = PartialDateValue.model_validate(date_value)
+    except (TypeError, ValueError):
+        release_date_parts = None
+    release_date = release_date_parts.iso_string if release_date_parts else None
+
+    creators = _unique(
+        _catalog_names(details.get("creators"))
+        + _catalog_names(details.get("contributors"))
+    )
+    characters = _catalog_names(details.get("characters"))
+    physical_format = _optional_text(details.get("physical_format"))
+    variant = physical_format or _optional_text(details.get("variant_name"))
+
+    return {
+        "id": str(item.id),
+        "kind": ItemKind.movie.value,
+        "title": item.title,
+        "item_number": _optional_text(details.get("item_number")),
+        "runtime_minutes": details.get("runtime_minutes"),
+        "cover_image_url": _optional_text(details.get("cover_image_url")),
+        "thumbnail_image_url": _optional_text(details.get("thumbnail_image_url")),
+        "publisher": _optional_text(details.get("publisher")),
+        "release_date": release_date,
+        "region": _optional_text(details.get("country")),
+        "release_year": release_date_parts.year if release_date_parts else None,
+        "barcode": _optional_text(item.barcode),
+        "barcodes": [item.barcode] if item.barcode else [],
+        "variant": variant,
+        "variant_names": [variant] if variant else [],
+        "bundle_titles": [],
+        "bundle_release_ids": [],
+        "series_title": _optional_text(details.get("series_title")),
+        "volume_name": _optional_text(details.get("volume_name")),
+        "catalog_number": _optional_text(item.catalog_number),
+        "creators": creators,
+        "characters": characters,
+        "story_arcs": _string_list(details.get("story_arcs")),
+        "platforms": [],
+        "release_status": _optional_text(details.get("release_status")),
+        "language": _optional_text(details.get("language")),
+        "imprint": _optional_text(details.get("imprint")),
+        "subtitle": _optional_text(details.get("subtitle")),
+        "series_group": _optional_text(details.get("series_group")),
+        "age_rating": _optional_text(details.get("age_rating")),
+    }
+
+
 def music_item_search_document(item: MusicItem) -> dict[str, Any]:
     release_date = item.release_date or item.original_release_date or item.recording_date
     return {
@@ -869,6 +922,8 @@ def catalog_search_document(entity: Any) -> dict[str, Any]:
         return manga_work_search_document(entity)
     if isinstance(entity, AnimeSeries):
         return anime_series_search_document(entity)
+    if isinstance(entity, MovieItem):
+        return movie_item_search_document(entity)
     if isinstance(entity, MovieWork):
         return movie_work_search_document(entity)
     if isinstance(entity, (TVSeries, TVRelease)):
@@ -922,6 +977,22 @@ def _credit_names(values: Any) -> list[str]:
         name = value.get("name")
         if name:
             names.append(str(name))
+    return names
+
+
+def _catalog_names(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    names: list[str] = []
+    for value in values:
+        if isinstance(value, str):
+            name = value.strip()
+        elif isinstance(value, dict):
+            name = str(value.get("name") or "").strip()
+        else:
+            name = ""
+        if name:
+            _append_unique(names, name)
     return names
 
 

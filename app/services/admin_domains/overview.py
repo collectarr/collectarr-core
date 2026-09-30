@@ -41,10 +41,8 @@ from app.models import (
     MangaSeries,
     MangaSeriesMembership,
     MangaWork,
-    MovieRelease,
-    MovieReleaseMedia,
-    MovieWork,
-    MovieWorkContribution,
+    MovieItem,
+    MovieItemMedia,
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
@@ -121,7 +119,6 @@ class AdminOverviewService:
                 + await self._count(ComicIssue)
                 + await self._count(MangaChapter)
                 + await self._count(AnimeEpisode)
-                + await self._count(MovieRelease)
                 + await self._count(TVSeries)
                 + await self._count(GameRelease)
                 + await self._count(BoardGameEdition)
@@ -129,7 +126,7 @@ class AdminOverviewService:
             ),
             variants=(
                 await self._count(BookPrinting)
-                + await self._count(MovieReleaseMedia)
+                + await self._count(MovieItemMedia)
                 + await self._count(MusicItemTrack)
             ),
             image_assets=await self._count_image_assets(),
@@ -222,7 +219,7 @@ class AdminOverviewService:
             ItemKind.comic: ComicWork,
             ItemKind.manga: MangaWork,
             ItemKind.anime: AnimeSeries,
-            ItemKind.movie: MovieWork,
+            ItemKind.movie: MovieItem,
             ItemKind.tv: TVSeries,
             ItemKind.music: MusicItem,
             ItemKind.game: GameWork,
@@ -251,12 +248,7 @@ class AdminOverviewService:
         total += await self._count_missing_cover_items_for_child(ComicWork, ComicIssue, "work_id")
         total += await self._count_missing_cover_items_for_child(MangaWork, MangaChapter, "work_id")
         total += await self._count_missing_cover_items_for_child(AnimeSeries, AnimeEpisode, "series_id")
-        total += await self._count_missing_cover_items_for_child(
-            MovieWork,
-            MovieRelease,
-            "work_id",
-            root_cover_fields=("poster_image_url", "poster_image_key"),
-        )
+        total += await self._count_missing_cover_movie_items()
         total += await self._count_missing_cover_items_for_root(
             TVRelease,
             cover_fields=("cover_image_url", "cover_image_key"),
@@ -278,6 +270,18 @@ class AdminOverviewService:
             cover_fields=("cover_image_url", "thumbnail_image_url"),
         )
         return total
+
+    async def _count_missing_cover_movie_items(self) -> int:
+        has_no_cover = (
+            MovieItem.details["cover_image_url"].as_string().is_(None)
+            & MovieItem.details["thumbnail_image_url"].as_string().is_(None)
+        )
+        return int(
+            await self.db.scalar(
+                select(func.count()).select_from(MovieItem).where(has_no_cover)
+            )
+            or 0
+        )
 
     async def _count_missing_cover_items_for_root(
         self,
@@ -359,13 +363,11 @@ class AdminOverviewService:
         documents.extend(catalog_search_document(series) for series in anime_result.scalars().unique())
 
         movie_result = await self.db.execute(
-            select(MovieWork).options(
-                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-                selectinload(MovieWork.releases),
-                selectinload(MovieWork.identifiers),
-            )
+            select(MovieItem).options(selectinload(MovieItem.media))
         )
-        documents.extend(catalog_search_document(work) for work in movie_result.scalars().unique())
+        documents.extend(
+            catalog_search_document(item) for item in movie_result.scalars().unique()
+        )
 
         tv_result = await self.db.execute(
             select(TVSeries).options(

@@ -25,6 +25,10 @@ per-kind route and table has been removed. Music's field contract is grounded in
 the saved CLZ Music Edit form. Exact CLZ parity for the other eight kinds remains
 unverified until their Edit-form captures are available.
 
+Admin catalog search, item detail, correction, summary counts, and search
+reindex now use the flat `MovieItem` root. The other eight kinds still have
+Admin paths that read or update their older Work/Release models.
+
 The shared field contract is exported from Core schemas and pinned by App.
 Regenerate it with `python -m scripts.export_contract_bundle`; review any
 intentional contract change together with the App pin.

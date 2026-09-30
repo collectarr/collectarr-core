@@ -14,7 +14,6 @@ from app.models import (
     BoardGameItem,
     BoardGameWork,
     BookItem,
-    BookWork,
     ComicItem,
     ComicWork,
     GameItem,
@@ -124,7 +123,7 @@ class AdminSupportService:
             TvItem: [selectinload(TvItem.identifiers)],
         }
         for model in (
-            BookWork, ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease,
+            ComicWork, MangaWork, AnimeSeries, MovieWork, TVRelease,
             GameWork, BoardGameWork, MusicItem, MovieItem,
             BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
         ):
@@ -167,8 +166,6 @@ class AdminSupportService:
             response = await CatalogTvItemService(self.db).get(item.id)
             return response.model_dump(mode="json")
         metadata = MetadataService(self.db)
-        if isinstance(item, BookWork):
-            return await metadata.get_book_work(item.id)
         if isinstance(item, ComicWork):
             return await metadata.get_comic_work(item.id)
         if isinstance(item, MangaWork):

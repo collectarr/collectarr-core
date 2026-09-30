@@ -21,12 +21,6 @@ from app.models import (
     BoardGameEdition,
     BoardGameWork,
     BookItem,
-    BookContribution,
-    BookEdition,
-    BookPrinting,
-    BookSeries,
-    BookSeriesMembership,
-    BookWork,
     CatalogItemProposal,
     ComicCharacterAppearance,
     ComicItem,
@@ -58,6 +52,7 @@ from app.models import (
     TVSeries,
     TvItem,
 )
+from app.models.catalog_book_item import BookItemPrinting
 from app.models.base import ItemKind
 from app.schemas.admin import (
     AdminAuditLogResponse,
@@ -115,15 +110,13 @@ class AdminOverviewService:
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
             series=(
-                await self._count(BookSeries)
-                + await self._count(ComicSeries)
+                await self._count(ComicSeries)
                 + await self._count(MangaSeries)
                 + await self._count(AnimeSeries)
             ),
             volumes=await self._count(ComicVolume),
             editions=(
-                await self._count(BookEdition)
-                + await self._count(ComicIssue)
+                await self._count(ComicIssue)
                 + await self._count(MangaChapter)
                 + await self._count(AnimeEpisode)
                 + await self._count(TVSeries)
@@ -132,7 +125,7 @@ class AdminOverviewService:
                 + await self._count(MusicItemDisc)
             ),
             variants=(
-                await self._count(BookPrinting)
+                await self._count(BookItemPrinting)
                 + await self._count(MovieItemMedia)
                 + await self._count(MusicItemTrack)
             ),
@@ -321,17 +314,6 @@ class AdminOverviewService:
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
-
-        book_result = await self.db.execute(
-            select(BookWork).options(
-                selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
-                    BookContribution.person
-                ),
-                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in book_result.scalars().unique())
 
         comic_result = await self.db.execute(
             select(ComicWork).options(

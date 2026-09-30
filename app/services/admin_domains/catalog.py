@@ -97,7 +97,7 @@ from app.schemas.admin import (
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
-from app.services.facade import MetadataFacade as MetadataService
+from app.services.catalog_item_search import CatalogItemSearchService
 
 _LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 _REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
@@ -136,10 +136,9 @@ class AdminCatalogService:
         catalog_number: str | None = None,
         release_status: str | None = None,
     ) -> list[Any]:
-        results = await MetadataService(self.db).search(
+        results = await CatalogItemSearchService(self.db).search(
             query=query,
             kind=kind,
-            limit=limit,
             series=series_group,
             publisher=publisher,
             imprint=imprint,
@@ -149,6 +148,8 @@ class AdminCatalogService:
             age_rating=age_rating,
             catalog_number=catalog_number,
             release_status=self._normalize_release_status(release_status),
+            limit=limit,
+            offset=0,
         )
         responses: list[Any] = []
         for result in results:

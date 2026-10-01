@@ -14,7 +14,7 @@ from app.models import (
     DuplicateReview,
     DuplicateReviewDetail,
     DuplicateReviewEntity,
-    MangaWork,
+    MangaItem,
     MusicItem,
     TVSeries,
 )
@@ -35,7 +35,7 @@ from app.services.typed_values import flatten_typed_values, materialize_typed_va
 _ENTITY_TYPE: dict[type, str] = {
     BookItem: "catalog_book_item",
     ComicItem: "catalog_comic_item",
-    MangaWork: "manga_work",
+    MangaItem: "catalog_manga_item",
     AnimeSeries: "anime_series",
     MovieItem: "catalog_movie_item",
     TVSeries: "tv_series",
@@ -48,7 +48,7 @@ _ENTITY_TYPE: dict[type, str] = {
 _KIND_LABEL: dict[type, str] = {
     BookItem: "book",
     ComicItem: "comic",
-    MangaWork: "manga",
+    MangaItem: "manga",
     AnimeSeries: "anime",
     MovieItem: "movie",
     TVSeries: "tv",

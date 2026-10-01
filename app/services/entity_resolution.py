@@ -13,10 +13,6 @@ from app.models import (
     AnimeSeries,
     BundleRelease,
     Character,
-    MangaChapter,
-    MangaEdition,
-    MangaSeries,
-    MangaWork,
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
@@ -33,6 +29,7 @@ from app.models.catalog_book_item import BookItem
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_book_series import BookSeries
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
@@ -60,10 +57,7 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "character": Character,
     "catalog_comic_item": ComicItem,
     "catalog_game_item": GameItem,
-    "manga_chapter": MangaChapter,
-    "manga_edition": MangaEdition,
-    "manga_series": MangaSeries,
-    "manga_work": MangaWork,
+    "catalog_manga_item": MangaItem,
     "catalog_movie_item": MovieItem,
     "catalog_music_item": MusicItem,
     "music_item_disc": MusicItemDisc,

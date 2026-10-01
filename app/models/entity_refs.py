@@ -84,10 +84,14 @@ DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry(
             supports_aliases=True,
             supports_links=True,
         ),
-        "manga_series": EntityRefSpec("manga_series", "manga_series", "Manga series", kind=ItemKind.manga, supports_aliases=True, supports_links=True),
-        "manga_chapter": EntityRefSpec("manga_chapter", "manga_chapters", "Manga chapter", kind=ItemKind.manga, supports_links=True),
-        "manga_work": EntityRefSpec("manga_work", "manga_works", "Manga work", kind=ItemKind.manga, supports_aliases=True, supports_links=True),
-        "manga_edition": EntityRefSpec("manga_edition", "manga_editions", "Manga edition", kind=ItemKind.manga, supports_links=True),
+        "catalog_manga_item": EntityRefSpec(
+            "catalog_manga_item",
+            "manga_items",
+            "Manga Catalog Item",
+            kind=ItemKind.manga,
+            supports_aliases=True,
+            supports_links=True,
+        ),
         "catalog_movie_item": EntityRefSpec(
             "catalog_movie_item",
             "movie_items",

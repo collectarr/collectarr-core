@@ -19,11 +19,6 @@ from app.models import (
     AnimeEpisode,
     AnimeSeries,
     ImageAsset,
-    MangaChapter,
-    MangaCharacterAppearance,
-    MangaContribution,
-    MangaSeriesMembership,
-    MangaWork,
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
@@ -43,11 +38,11 @@ from app.models.catalog_book_item import (
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
+from app.models.catalog_manga_item import MangaItem
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
     catalog_search_document,
-    manga_work_search_document,
     movie_item_search_document,
     music_item_search_document,
     tv_release_search_document,
@@ -76,7 +71,7 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     root_tables = (
         BookItem,
         ComicItem,
-        MangaWork,
+        MangaItem,
         AnimeSeries,
         MovieItem,
         TVSeries,
@@ -86,7 +81,6 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     )
     edition_tables = (
         BookItemPrinting,
-        MangaChapter,
         AnimeEpisode,
         MovieItemMedia,
         TVReleaseMedia,
@@ -154,14 +148,9 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(catalog_search_document(row) for row in comic_rows.scalars().unique())
 
         manga_rows = await db.execute(
-            select(MangaWork).options(
-                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.chapters),
-                selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
-                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
-            )
+            select(MangaItem).options(selectinload(MangaItem.identifiers))
         )
-        documents.extend(manga_work_search_document(row) for row in manga_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in manga_rows.scalars().unique())
 
         movie_rows = await db.execute(
             select(MovieItem).options(selectinload(MovieItem.media))

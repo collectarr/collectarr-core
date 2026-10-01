@@ -16,12 +16,6 @@ from app.models import (
     AnimeReleaseEpisodeMap,
     AnimeReleaseMedia,
     AnimeSeries,
-    MangaChapter,
-    MangaCharacterAppearance,
-    MangaContribution,
-    MangaEdition,
-    MangaSeriesMembership,
-    MangaWork,
     TVEpisode,
     TVEpisodeContribution,
     TVRelease,
@@ -37,9 +31,6 @@ from app.schemas import (
     AnimeReleaseMediaResponse,
     AnimeReleaseV1Response,
     AnimeSeriesV1Response,
-    MangaChapterV1Response,
-    MangaEditionV1Response,
-    MangaWorkV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
@@ -47,92 +38,6 @@ from app.schemas import (
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
-
-
-async def get_manga_work(service, work_id: UUID) -> MangaWorkV1Response:
-    work = await service.db.scalar(
-        select(MangaWork)
-        .where(MangaWork.id == work_id)
-        .options(
-            selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-            selectinload(MangaWork.chapters),
-            selectinload(MangaWork.editions),
-            selectinload(MangaWork.identifiers),
-            selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
-            selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
-        )
-    )
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="manga_work_not_found",
-            detail="Manga work not found",
-        )
-    return service._manga_work_response(work)
-
-
-async def get_manga_work_editions(service, work_id: UUID) -> list[MangaEditionV1Response]:
-    work = await service.db.scalar(select(MangaWork.id).where(MangaWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="manga_work_not_found",
-            detail="Manga work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(MangaEdition)
-                .where(MangaEdition.work_id == work_id)
-                .order_by(MangaEdition.publication_date.asc().nullslast(), MangaEdition.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._manga_edition_response(row) for row in rows]
-
-
-async def get_manga_edition(service, edition_id: UUID) -> MangaEditionV1Response:
-    edition = await service.db.scalar(
-        select(MangaEdition).where(MangaEdition.id == edition_id)
-    )
-    if edition is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="manga_edition_not_found",
-            detail="Manga edition not found",
-        )
-    return service._manga_edition_response(edition)
-
-
-async def get_manga_work_chapters(service, work_id: UUID) -> list[MangaChapterV1Response]:
-    work = await service.db.scalar(select(MangaWork.id).where(MangaWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="manga_work_not_found",
-            detail="Manga work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(MangaChapter)
-                .where(MangaChapter.work_id == work_id)
-                .order_by(MangaChapter.chapter_number.asc().nullslast(), MangaChapter.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._manga_chapter_response(chapter) for chapter in rows]
-
-
-async def get_manga_chapter(service, chapter_id: UUID) -> MangaChapterV1Response:
-    chapter = await service.db.scalar(select(MangaChapter).where(MangaChapter.id == chapter_id))
-    if chapter is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="manga_chapter_not_found",
-            detail="Manga chapter not found",
-        )
-    return service._manga_chapter_response(chapter)
 
 
 async def get_anime_series(service, series_id: UUID) -> AnimeSeriesV1Response:

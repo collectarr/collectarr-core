@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.services.anime_service import AnimeService
-from app.services.manga_service import MangaService
 from app.services.metadata.field_schema_service import FieldSchemaService
 from app.services.metadata.metadata_common_support import MetadataCommonSupport
 from app.services.metadata.metadata_response_builders import MetadataResponseBuilders
@@ -15,7 +14,6 @@ class MetadataReadService(
     MetadataResponseBuilders,
     TVService,
     AnimeService,
-    MangaService,
     FieldSchemaService,
 ):
     """Composed typed read surface mixed directly into MetadataFacade."""

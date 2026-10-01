@@ -8,9 +8,6 @@ from app.schemas import (
     AnimeReleaseMediaResponse,
     AnimeReleaseV1Response,
     AnimeSeriesV1Response,
-    MangaChapterV1Response,
-    MangaEditionV1Response,
-    MangaWorkV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
@@ -38,21 +35,6 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_anime_series_releases as _get_anime_series_releases,
-)
-from app.services.metadata.metadata_reads import (
-    get_manga_chapter as _get_manga_chapter,
-)
-from app.services.metadata.metadata_reads import (
-    get_manga_edition as _get_manga_edition,
-)
-from app.services.metadata.metadata_reads import (
-    get_manga_work as _get_manga_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_manga_work_chapters as _get_manga_work_chapters,
-)
-from app.services.metadata.metadata_reads import (
-    get_manga_work_editions as _get_manga_work_editions,
 )
 from app.services.metadata.metadata_reads import (
     get_tv_episode as _get_tv_episode,
@@ -87,21 +69,6 @@ from app.services.metadata.metadata_reads import (
 
 
 class MetadataTypedReadService:
-
-    async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
-        return await _get_manga_work(self, work_id)
-
-    async def get_manga_work_chapters(self, work_id: UUID) -> list[MangaChapterV1Response]:
-        return await _get_manga_work_chapters(self, work_id)
-
-    async def get_manga_work_editions(self, work_id: UUID) -> list[MangaEditionV1Response]:
-        return await _get_manga_work_editions(self, work_id)
-
-    async def get_manga_edition(self, edition_id: UUID) -> MangaEditionV1Response:
-        return await _get_manga_edition(self, edition_id)
-
-    async def get_manga_chapter(self, chapter_id: UUID) -> MangaChapterV1Response:
-        return await _get_manga_chapter(self, chapter_id)
 
     async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
         return await _get_anime_series(self, series_id)

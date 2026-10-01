@@ -16,7 +16,6 @@ from . import (
     catalog_tv_items,
     corrections,
     field_schema,
-    manga,
     proposals,
     search,
     tv,
@@ -39,7 +38,6 @@ for child_router in (
     catalog_music_items.router,
     catalog_tv_items.router,
     browse.router,
-    manga.router,
     anime.router,
     tv.router,
 ):

@@ -44,8 +44,8 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "game_item_identifiers",
             "boardgame_items",
             "boardgame_item_identifiers",
-            "manga_series",
-            "manga_series_relations",
+            "manga_items",
+            "manga_item_identifiers",
             "persons",
             "entity_organizations",
             "entity_persons",
@@ -74,6 +74,10 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "comic_volumes",
             "comic_issues",
             "comic_variants",
+            "manga_works",
+            "manga_editions",
+            "manga_chapters",
+            "manga_series",
         }.isdisjoint(tables)
         assert "metadata_taxonomies" in tables
 

@@ -14,10 +14,6 @@ from app.models import (
     AnimeSeries,
     EntityPerson,
     EntityTag,
-    MangaChapter,
-    MangaSeries,
-    MangaSeriesMembership,
-    MangaWork,
     Person,
     StoryArc,
     StoryArcItem,
@@ -34,6 +30,7 @@ from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrint
 from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
@@ -335,39 +332,57 @@ async def _seed_comic(db: AsyncSession, entry: _Entry, cover_url: str | None, th
 
 
 async def _seed_manga(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    series = await _get_or_create_series(db, MangaSeries, entry.series_title, entry.publisher, entry.release_date)
-    work = await _get_or_create_work(db, MangaWork, entry.title, entry.release_date, cover_url)
-    if series is not None:
-        _apply_seed_metadata(series, entry, ItemKind.manga, index, cover_url, thumbnail_url)
-    _apply_seed_metadata(work, entry, ItemKind.manga, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, work.id, "manga_work", entry.creator, "creator")
-    await _ensure_tag_link(db, work.id, "manga_work", entry.tag)
-    if series is not None:
-        await _ensure_manga_membership(db, work.id, series.id, index)
-    chapter = (
-        await db.execute(
-            select(MangaChapter).where(
-                MangaChapter.work_id == work.id,
-                MangaChapter.chapter_number == float(index),
-            )
-        )
+    title = f"{entry.title} Vol. {index}"
+    item = (
+        await db.execute(select(MangaItem).where(MangaItem.title == title))
     ).scalar_one_or_none()
-    if chapter is None:
-        chapter = MangaChapter(work=work, chapter_number=float(index))
-        db.add(chapter)
-    chapter.chapter_title = entry.title
-    chapter.publication_date = entry.release_date
-    chapter.description = entry.series_title
-    chapter.cover_image_url = cover_url
-    await db.flush()
-    _apply_seed_metadata(chapter, entry, ItemKind.manga, index, cover_url, thumbnail_url)
+    if item is None:
+        item = MangaItem(title=title, sort_key=_slug(title), details={})
+        db.add(item)
+        await db.flush()
+    item.sort_key = _slug(title)
+    item.barcode = f"SEED-MANGA-{index:03d}"
+    item.catalog_number = f"SEED-MANGA-{index:03d}"
+    item.details = {
+        **dict(item.details or {}),
+        "series_title": entry.series_title,
+        "volume_number": str(index),
+        "item_number": str(index),
+        "release_date": entry.release_date.isoformat(),
+        "release_date_parts": {
+            "year": entry.release_date.year,
+            "month": entry.release_date.month,
+            "day": entry.release_date.day,
+        },
+        "publisher": entry.publisher,
+        "country": "JP",
+        "language": "ja",
+        "genres": [entry.tag] if entry.tag else [],
+        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "characters": [entry.character] if entry.character else [],
+        "chapters": [
+            {
+                "chapter_number": 1,
+                "title": entry.title,
+                "release_date": entry.release_date.isoformat(),
+                "description": entry.series_title,
+                "cover_image_url": cover_url,
+            }
+        ],
+        "description": f"Seed data for {entry.title}.",
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    await _ensure_person_link(db, item.id, "catalog_manga_item", entry.creator, "creator")
+    await _ensure_tag_link(db, item.id, "catalog_manga_item", entry.tag)
+    await _ensure_story_arc_link(db, item.id, "catalog_manga_item", entry.story_arc)
     await _ensure_character_appearance(
         db,
-        chapter.id,
+        item.id,
         entry.character,
-        entity_type="manga_chapter",
+        entity_type="catalog_manga_item",
     )
-    return [work]
+    return [item]
 
 
 async def _seed_anime(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
@@ -704,24 +719,6 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
     return row
 
 
-async def _get_or_create_work(db: AsyncSession, model: type, title: str, release_date: date, cover_url: str | None):
-    result = await db.execute(select(model).where(model.title == title))
-    work = result.scalar_one_or_none()
-    if work is not None:
-        if getattr(work, "cover_image_url", None) is None:
-            work.cover_image_url = cover_url
-        return work
-    kwargs = {"title": title, "sort_title": _slug(title)}
-    if hasattr(model, "description"):
-        kwargs["description"] = f"Seed data for {title}."
-    if hasattr(model, "cover_image_url"):
-        kwargs["cover_image_url"] = cover_url
-    work = model(**kwargs)
-    db.add(work)
-    await db.flush()
-    return work
-
-
 async def _get_or_create_tv_release(db: AsyncSession, entry: _Entry) -> TVRelease:
     result = await db.execute(select(TVRelease).where(TVRelease.title == entry.title))
     row = result.scalar_one_or_none()
@@ -801,7 +798,11 @@ async def _ensure_person_link(db: AsyncSession, entity_id: Any, entity_type: str
 async def _ensure_tag_link(db: AsyncSession, entity_id: Any, entity_type: str, tag_name: str | None) -> None:
     if not tag_name:
         return
-    tag_kind = "book" if entity_type == "catalog_book_item" else entity_type.replace("_work", "")
+    tag_kind = {
+        "catalog_book_item": "book",
+        "catalog_comic_item": "comic",
+        "catalog_manga_item": "manga",
+    }.get(entity_type, entity_type.replace("_work", ""))
     result = await db.execute(select(Tag).where(Tag.kind == tag_kind, Tag.name == tag_name))
     tag = result.scalar_one_or_none()
     if tag is None:
@@ -856,12 +857,6 @@ async def _ensure_book_item_series_membership(
                 display_number=str(index),
             )
         )
-
-
-async def _ensure_manga_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
-    result = await db.execute(select(MangaSeriesMembership).where(MangaSeriesMembership.work_id == work_id, MangaSeriesMembership.series_id == series_id))
-    if result.scalar_one_or_none() is None:
-        db.add(MangaSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index)))
 
 
 async def _ensure_character_appearance(

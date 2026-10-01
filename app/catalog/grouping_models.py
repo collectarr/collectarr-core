@@ -6,7 +6,6 @@ from app.models.base import ItemKind
 class GroupingModel(StrEnum):
     book_series = "book_series"
     catalog_item = "catalog_item"
-    manga_series = "manga_series"
     release_based = "release_based"
     series_episode = "series_episode"
     work_release = "work_release"
@@ -29,8 +28,6 @@ def grouping_model_for_kind(kind: ItemKind) -> GroupingModel:
         return GroupingModel.book_series
     if kind == ItemKind.comic:
         return GroupingModel.catalog_item
-    if kind == ItemKind.manga:
-        return GroupingModel.manga_series
     if kind == ItemKind.anime or kind == ItemKind.tv:
         return GroupingModel.series_episode
     return GroupingModel.work_release

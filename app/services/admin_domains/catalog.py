@@ -43,11 +43,6 @@ from app.models import (
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
-    MangaCharacterAppearance,
-    MangaChapter,
-    MangaContribution,
-    MangaSeriesMembership,
-    MangaWork,
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
@@ -322,7 +317,6 @@ class AdminCatalogService:
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
-            ItemKind.manga: "manga_work",
             ItemKind.anime: "anime_series",
             ItemKind.tv: "tv_series",
             ItemKind.music: "catalog_music_item",
@@ -1426,24 +1420,13 @@ class AdminCatalogService:
         return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind in {ItemKind.comic, ItemKind.game, ItemKind.boardgame}:
+        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.game, ItemKind.boardgame}:
             return self._flat_catalog_item_load_options(kind)
         if kind == ItemKind.book:
             return [
                 selectinload(BookItem.printings),
                 selectinload(BookItem.credits),
                 selectinload(BookItem.identifiers),
-            ]
-        if kind == ItemKind.manga:
-            return [
-                selectinload(MangaWork.chapters),
-                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.character_appearances).selectinload(
-                    MangaCharacterAppearance.character
-                ),
-                selectinload(MangaWork.series_memberships).selectinload(
-                    MangaSeriesMembership.series
-                ),
             ]
         if kind == ItemKind.movie:
             return [

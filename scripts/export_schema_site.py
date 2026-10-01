@@ -144,11 +144,8 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "story_arc_items",
     ],
     "manga": [
-        "manga_works",
-        "manga_chapters",
-        "manga_contributions",
-        "manga_identifiers",
-        "manga_character_appearances",
+        "manga_items",
+        "manga_item_identifiers",
         "characters",
         "character_appearances",
         "story_arcs",

@@ -33,7 +33,6 @@ from app.models.canonical_support import (  # noqa: F401
     EntityPerson,
     EntityTag,
     ImageAsset,
-    MangaSeriesRelation,
     Organization,
     Person,
     StoryArc,

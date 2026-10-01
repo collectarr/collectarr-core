@@ -22,13 +22,7 @@ from app.models import (
     ComicItem,
     GameItem,
     ImageAsset,
-    MangaChapter,
-    MangaCharacterAppearance,
-    MangaContribution,
     MangaItem,
-    MangaSeries,
-    MangaSeriesMembership,
-    MangaWork,
     MovieItem,
     MovieItemMedia,
     MusicItem,
@@ -98,13 +92,11 @@ class AdminOverviewService:
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
             series=(
-                await self._count(MangaSeries)
-                + await self._count(AnimeSeries)
+                await self._count(AnimeSeries)
             ),
             volumes=0,
             editions=(
-                await self._count(MangaChapter)
-                + await self._count(AnimeEpisode)
+                await self._count(AnimeEpisode)
                 + await self._count(TVSeries)
                 + await self._count(MusicItemDisc)
             ),
@@ -298,16 +290,6 @@ class AdminOverviewService:
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
-
-        manga_result = await self.db.execute(
-            select(MangaWork).options(
-                selectinload(MangaWork.chapters),
-                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
-                selectinload(MangaWork.character_appearances).selectinload(MangaCharacterAppearance.character),
-                selectinload(MangaWork.series_memberships).selectinload(MangaSeriesMembership.series),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in manga_result.scalars().unique())
 
         anime_result = await self.db.execute(
             select(AnimeSeries).options(

@@ -9,7 +9,6 @@ def test_metadata_facade_is_thin_and_uses_response_builders():
     ).read_text(encoding="utf-8")
 
     builder_files = {
-        "metadata_builders_manga.py": ["_manga_series_response", "_manga_chapter_response", "_manga_work_response"],
         "metadata_builders_anime.py": ["_anime_series_response", "_anime_episode_response", "_anime_contributor_response"],
         "metadata_builders_tv.py": ["_tv_series_response", "_tv_season_response", "_tv_episode_response"],
     }

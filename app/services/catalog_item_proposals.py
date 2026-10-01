@@ -44,11 +44,9 @@ class CatalogItemProposalService:
         submitted_by_user_id: UUID | None,
     ) -> CatalogItemProposalResponse:
         item = payload.catalog_item
-        title = str(item["title"]).strip()
         proposal = CatalogItemProposal(
             kind=payload.kind,
             catalog_item=item,
-            title=title,
             submitted_by_user_id=submitted_by_user_id,
             status="pending",
         )
@@ -90,7 +88,6 @@ class CatalogItemProposalService:
             proposal.kind,
             payload.catalog_item,
         )
-        proposal.title = str(payload.catalog_item["title"]).strip()
         proposal.review_note = payload.review_note
         self._record_review("metadata_proposal.update", proposal.id)
         await self.db.commit()

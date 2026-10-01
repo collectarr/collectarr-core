@@ -22,7 +22,6 @@ class CatalogItemProposal(UuidMixin, TimestampMixin, Base):
         Enum(ItemKind, name="item_kind", create_type=False), nullable=False, index=True
     )
     catalog_item: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     submitted_by_user_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )

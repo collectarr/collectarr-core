@@ -9511,10 +9511,6 @@
           "catalog_item": {
             "$ref": "#/components/schemas/JsonObject-Output"
           },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
           "status": {
             "type": "string",
             "title": "Status"
@@ -9541,7 +9537,6 @@
           "id",
           "kind",
           "catalog_item",
-          "title",
           "status",
           "created_at"
         ],

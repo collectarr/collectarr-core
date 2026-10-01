@@ -40,7 +40,6 @@ class CatalogItemProposalResponse(BaseModel):
     schema_version: Literal["v1"] = "v1"
     kind: ItemKind
     catalog_item: JsonObject
-    title: str
     status: str
     review_note: str | None = None
     created_at: datetime

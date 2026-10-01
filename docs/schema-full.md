@@ -674,7 +674,6 @@ Image storage, admin audit trails, and catalog proposal workflow tables.
 |---|---|---|---|---|---|---|---|---|
 | kind | item_kind | no | no | no | yes | - | - | - |
 | catalog_item | JSONB | no | no | no | no | - | - | - |
-| title | VARCHAR(255) | no | no | no | yes | - | - | - |
 | submitted_by_user_id | UUID | yes | no | no | no | - | - | users.id |
 | status | VARCHAR(32) | no | no | no | yes | pending | - | - |
 | review_note | VARCHAR(2000) | yes | no | no | no | - | - | - |
@@ -688,7 +687,6 @@ Image storage, admin audit trails, and catalog proposal workflow tables.
 - Unique constraints: none
 - Index `ix_catalog_item_proposals_kind` (non-unique): `kind`
 - Index `ix_catalog_item_proposals_status` (non-unique): `status`
-- Index `ix_catalog_item_proposals_title` (non-unique): `title`
 - Check constraints: none
 - Foreign key `(anonymous)`: `submitted_by_user_id` -> `users.id`
 

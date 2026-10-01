@@ -76,7 +76,7 @@
         "catalog_item_proposals",
         "admin_audit_logs"
       ],
-      "diagram": "erDiagram\n  IMAGE_ASSETS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_64 image_type\n    VARCHAR_512 storage_key\n    VARCHAR_512 thumbnail_storage_key\n    VARCHAR_1024 source_url\n    TEXT attribution\n    INTEGER width\n    INTEGER height\n    VARCHAR_128 phash\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CATALOG_ITEM_PROPOSALS {\n    item_kind kind\n    JSONB catalog_item\n    VARCHAR_255 title\n    UUID submitted_by_user_id FK\n    VARCHAR_32 status\n    VARCHAR_2000 review_note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ADMIN_AUDIT_LOGS {\n    VARCHAR_100 action\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }",
+      "diagram": "erDiagram\n  IMAGE_ASSETS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_64 image_type\n    VARCHAR_512 storage_key\n    VARCHAR_512 thumbnail_storage_key\n    VARCHAR_1024 source_url\n    TEXT attribution\n    INTEGER width\n    INTEGER height\n    VARCHAR_128 phash\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CATALOG_ITEM_PROPOSALS {\n    item_kind kind\n    JSONB catalog_item\n    UUID submitted_by_user_id FK\n    VARCHAR_32 status\n    VARCHAR_2000 review_note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ADMIN_AUDIT_LOGS {\n    VARCHAR_100 action\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }",
       "external_references": [
         {
           "from_table": "catalog_item_proposals",
@@ -8166,23 +8166,6 @@
           "enum": null
         },
         {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_catalog_item_proposals_title"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
           "name": "submitted_by_user_id",
           "type": "UUID",
           "nullable": true,
@@ -8319,13 +8302,6 @@
             "name": "ix_catalog_item_proposals_status",
             "columns": [
               "status"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_catalog_item_proposals_title",
-            "columns": [
-              "title"
             ],
             "unique": false
           }
@@ -12584,9 +12560,9 @@
   ],
   "summary": {
     "tables": 55,
-    "columns": 545,
+    "columns": 544,
     "foreign_keys": 33,
-    "indexes": 173,
+    "indexes": 172,
     "unique_constraints": 32,
     "check_constraints": 3
   }

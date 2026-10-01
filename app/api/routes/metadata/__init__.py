@@ -17,7 +17,6 @@ from . import (
     field_schema,
     proposals,
     search,
-    tv,
 )
 
 router = APIRouter(tags=["metadata"])
@@ -37,7 +36,6 @@ for child_router in (
     catalog_music_items.router,
     catalog_tv_items.router,
     browse.router,
-    tv.router,
 ):
     if child_router is not field_schema.router:
         router.include_router(child_router)

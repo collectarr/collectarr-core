@@ -159,13 +159,11 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "bundle_releases",
     ],
     "tv": [
-        "tv_series",
-        "tv_seasons",
-        "tv_episodes",
-        "tv_release_media",
-        "tv_release_episode_map",
-        "tv_release_contributions",
-        "tv_release_identifiers",
+        "tv_items",
+        "tv_item_seasons",
+        "tv_item_episodes",
+        "tv_item_media",
+        "tv_item_identifiers",
         "bundle_releases",
     ],
     "game": [

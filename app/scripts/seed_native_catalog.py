@@ -15,11 +15,6 @@ from app.models import (
     StoryArc,
     StoryArcItem,
     Tag,
-    TVEpisode,
-    TVRelease,
-    TVReleaseMedia,
-    TVSeason,
-    TVSeries,
 )
 from app.models.base import ItemKind
 from app.models.catalog_boardgame_item import BoardGameItem
@@ -31,6 +26,7 @@ from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
+from app.models.catalog_tv_item import TvItem, TvItemEpisode, TvItemMedia, TvItemSeason
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 SEED_MARKER = "seed-native"
@@ -502,56 +498,95 @@ async def _seed_movie(db: AsyncSession, entry: _Entry, cover_url: str | None, th
 
 
 async def _seed_tv(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    release = await _get_or_create_tv_release(db, entry)
-    if release.series is not None:
-        _apply_seed_metadata(release.series, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    _apply_seed_metadata(release, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, release.id, "tv_release", entry.creator, "creator")
+    barcode = f"SEED-TV-{index:03d}"
+    item = (
+        await db.execute(select(TvItem).where(TvItem.barcode == barcode))
+    ).scalar_one_or_none()
+    if item is None:
+        item = TvItem(title=entry.title, barcode=barcode)
+        db.add(item)
+    item.title = entry.title
+    item.sort_key = _slug(entry.title)
+    item.catalog_number = f"SEED-TV-{index:03d}"
+    item.details = {
+        "original_title": entry.title,
+        "original_language": "en",
+        "release_date": entry.release_date.isoformat(),
+        "original_release_date": entry.release_date.isoformat(),
+        "publisher": entry.publisher,
+        "country": "US",
+        "physical_format": "Blu-ray",
+        "runtime_minutes": 42,
+        "age_rating": _seed_age_rating(ItemKind.tv),
+        "genres": [entry.tag] if entry.tag else [],
+        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "characters": [entry.character] if entry.character else [],
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    await db.flush()
+    await _ensure_person_link(db, item.id, "catalog_tv_item", entry.creator, "creator")
     media = (
         await db.execute(
-            select(TVReleaseMedia).where(
-                TVReleaseMedia.release_id == release.id,
-                TVReleaseMedia.media_number == 1,
+            select(TvItemMedia).where(
+                TvItemMedia.tv_item_id == item.id,
+                TvItemMedia.media_number == 1,
             )
         )
     ).scalar_one_or_none()
     if media is None:
-        media = TVReleaseMedia(release=release, media_number=1)
+        media = TvItemMedia(item=item, position=0, media_number=1)
         db.add(media)
-    media.media_type = "season"
-    media.title = entry.title
-    media.episode_count = 1
-    media.runtime_minutes = 42
-    media.region_code = "US"
-    media.encoding = "digital"
-    await db.flush()
-    _apply_seed_metadata(media, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    season = await _get_or_create_tv_season(db, release.series, entry)
+    media.details = {
+        "media_type": "season",
+        "title": entry.title,
+        "episode_count": 1,
+        "runtime_minutes": 42,
+        "region_code": "US",
+        "encoding": "digital",
+    }
+    season = (
+        await db.execute(
+            select(TvItemSeason).where(
+                TvItemSeason.tv_item_id == item.id,
+                TvItemSeason.season_number == 1,
+            )
+        )
+    ).scalar_one_or_none()
+    if season is None:
+        season = TvItemSeason(item=item, season_number=1)
+        db.add(season)
+    season.title = entry.series_title
+    season.details = {
+        "episode_count": 1,
+        "release_date": entry.release_date.isoformat(),
+        "description": f"Seed season for {entry.series_title}.",
+    }
     episode = (
         await db.execute(
-            select(TVEpisode).where(
-                TVEpisode.release_id == release.id,
-                TVEpisode.season_number == 1,
-                TVEpisode.episode_number == index,
+            select(TvItemEpisode).where(
+                TvItemEpisode.tv_item_id == item.id,
+                TvItemEpisode.position == 0,
             )
         )
     ).scalar_one_or_none()
     if episode is None:
-        episode = TVEpisode(
-            series=release.series,
-            season=season,
-            release=release,
-            media=media,
+        episode = TvItemEpisode(
+            item=item,
+            position=0,
             season_number=1,
-            episode_number=index,
         )
         db.add(episode)
+    episode.season_number = 1
+    episode.episode_number = index
     episode.title = entry.title
-    episode.overview = entry.series_title
-    episode.original_air_date = entry.release_date
+    episode.details = {
+        "overview": entry.series_title,
+        "original_air_date": entry.release_date.isoformat(),
+        "runtime_minutes": 42,
+    }
     await db.flush()
-    _apply_seed_metadata(episode, entry, ItemKind.tv, index, cover_url, thumbnail_url)
-    return [release]
+    return [item]
 
 
 async def _seed_music(
@@ -748,62 +783,6 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
     if hasattr(model, "episode_count"):
         kwargs["episode_count"] = 12
     row = model(**kwargs)
-    db.add(row)
-    await db.flush()
-    return row
-
-
-async def _get_or_create_tv_release(db: AsyncSession, entry: _Entry) -> TVRelease:
-    result = await db.execute(select(TVRelease).where(TVRelease.title == entry.title))
-    row = result.scalar_one_or_none()
-    if row is not None:
-        return row
-    series = await _get_or_create_tv_series(db, entry)
-    row = TVRelease(series=series, title=entry.title, sort_title=_slug(entry.title), description=f"Seed data for {entry.title}.", format="digital", release_date=entry.release_date, publisher=entry.publisher, content_rating="TV-MA", cover_image_url=None)
-    db.add(row)
-    await db.flush()
-    return row
-
-
-async def _get_or_create_tv_series(db: AsyncSession, entry: _Entry) -> TVSeries:
-    result = await db.execute(select(TVSeries).where(TVSeries.title == entry.series_title))
-    row = result.scalar_one_or_none()
-    if row is not None:
-        return row
-    row = TVSeries(
-        title=entry.series_title,
-        original_title=entry.series_title,
-        sort_title=_slug(entry.series_title),
-        overview=f"Seed data for {entry.series_title}.",
-        first_air_date=entry.release_date,
-        status="ended",
-        type="scripted",
-        network=entry.publisher,
-        original_language="en",
-        country="US",
-        season_count=1,
-        episode_count=1,
-    )
-    db.add(row)
-    await db.flush()
-    return row
-
-
-async def _get_or_create_tv_season(db: AsyncSession, series: TVSeries, entry: _Entry) -> TVSeason:
-    result = await db.execute(
-        select(TVSeason).where(TVSeason.series_id == series.id, TVSeason.season_number == 1)
-    )
-    row = result.scalar_one_or_none()
-    if row is not None:
-        return row
-    row = TVSeason(
-        series=series,
-        season_number=1,
-        title=entry.series_title,
-        overview=f"Seed season for {entry.series_title}.",
-        air_date=entry.release_date,
-        episode_count=1,
-    )
     db.add(row)
     await db.flush()
     return row

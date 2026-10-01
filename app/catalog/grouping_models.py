@@ -23,14 +23,13 @@ def grouping_model_for_kind(kind: ItemKind) -> GroupingModel:
         ItemKind.game,
         ItemKind.movie,
         ItemKind.music,
+        ItemKind.tv,
     }:
         return GroupingModel.catalog_item
     if kind == ItemKind.book:
         return GroupingModel.book_series
     if kind == ItemKind.comic:
         return GroupingModel.catalog_item
-    if kind == ItemKind.tv:
-        return GroupingModel.series_episode
     return GroupingModel.work_release
 
 

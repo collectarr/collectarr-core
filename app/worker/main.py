@@ -18,11 +18,6 @@ from app.models import (
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
-    TVRelease,
-    TVReleaseContribution,
-    TVReleaseEpisodeMap,
-    TVReleaseMedia,
-    TVSeries,
 )
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import (
@@ -36,12 +31,18 @@ from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode, AnimeItemMedia
+from app.models.catalog_tv_item import (
+    TvItem,
+    TvItemEpisode,
+    TvItemIdentifier,
+    TvItemMedia,
+    TvItemSeason,
+)
 from app.search.client import SearchClient
 from app.search.documents import (
     catalog_search_document,
     movie_item_search_document,
     music_item_search_document,
-    tv_release_search_document,
 )
 from app.storage.client import ObjectStorage
 
@@ -70,7 +71,7 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         MangaItem,
         AnimeItem,
         MovieItem,
-        TVSeries,
+        TvItem,
         GameItem,
         BoardGameItem,
         MusicItem,
@@ -80,13 +81,15 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         AnimeItemMedia,
         AnimeItemEpisode,
         MovieItemMedia,
-        TVReleaseMedia,
+        TvItemSeason,
+        TvItemMedia,
+        TvItemEpisode,
         MusicItemDisc,
     )
     variant_tables = (
         BookItemCredit,
         BookItemIdentifier,
-        TVReleaseEpisodeMap,
+        TvItemIdentifier,
         MusicItemTrack,
     )
     item_count = 0
@@ -155,13 +158,14 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(movie_item_search_document(row) for row in movie_rows.scalars().unique())
 
         tv_rows = await db.execute(
-            select(TVSeries).options(
-                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(TVReleaseContribution.person),
-                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
-                selectinload(TVSeries.releases).selectinload(TVRelease.media),
+            select(TvItem).options(
+                selectinload(TvItem.seasons),
+                selectinload(TvItem.media),
+                selectinload(TvItem.episodes),
+                selectinload(TvItem.identifiers),
             )
         )
-        documents.extend(tv_release_search_document(row) for row in tv_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in tv_rows.scalars().unique())
 
         game_rows = await db.execute(
             select(GameItem).options(selectinload(GameItem.identifiers))

@@ -11,12 +11,10 @@ from app.models import (
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
-    TVEpisode,
-    TVRelease,
-    TVReleaseMedia,
 )
 from app.models.base import ItemKind
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_tv_item import TvItem, TvItemEpisode, TvItemMedia
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
@@ -97,27 +95,32 @@ async def test_bundle_release_components_reference_existing_entities(schema_data
 async def test_bundle_release_components_support_multiple_entity_types(schema_database):
     async with AsyncSessionLocal() as db:
         movie_item = MovieItem(title="Movie Item", details={})
-        tv_release = TVRelease(title="TV Release", format="DVD")
+        tv_item = TvItem(title="TV Item", details={})
         music_item = MusicItem(title="Music Item")
         comic_item = ComicItem(title="Comic Item", details={})
         game_item = GameItem(title="Game Item", details={})
         bundle = BundleRelease(kind=ItemKind.music, title="Mixed Bundle")
-        db.add_all([movie_item, tv_release, music_item, comic_item, game_item, bundle])
+        db.add_all([movie_item, tv_item, music_item, comic_item, game_item, bundle])
         await db.flush()
 
         movie_media = MovieItemMedia(movie_item_id=movie_item.id, media_number=1)
-        tv_media = TVReleaseMedia(release_id=tv_release.id, media_number=1, media_type="disc")
+        tv_media = TvItemMedia(
+            item=tv_item,
+            position=0,
+            media_number=1,
+            details={"media_type": "disc"},
+        )
         music_disc = MusicItemDisc(music_item_id=music_item.id, disc_number=1)
         db.add_all([movie_media, tv_media, music_disc])
         await db.flush()
 
-        tv_episode = TVEpisode(
-            release_id=tv_release.id,
-            media_id=tv_media.id,
-            series_title="TV Release",
+        tv_episode = TvItemEpisode(
+            item=tv_item,
+            position=0,
             season_number=1,
             episode_number=1,
             title="Pilot",
+            details={},
         )
         music_track = MusicItemTrack(
             disc_id=music_disc.id,
@@ -140,9 +143,9 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="tv_episode",
-                    entity_id=tv_episode.id,
-                    role="episode",
+                    entity_type="catalog_tv_item",
+                    entity_id=tv_item.id,
+                    role="edition",
                     sequence_number=2,
                 ),
                 BundleReleaseComponent(
@@ -186,7 +189,7 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
 
         assert [row[0] for row in rows] == [
             "catalog_movie_item",
-            "tv_episode",
+            "catalog_tv_item",
             "music_item_track",
             "catalog_comic_item",
             "catalog_game_item",

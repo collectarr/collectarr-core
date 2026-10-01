@@ -1,7 +1,6 @@
 from app.models.base import *  # noqa: F401,F403
 from app.models.canonical_common import *  # noqa: F401,F403
 from app.models.canonical_support import *  # noqa: F401,F403
-from app.models.canonical_video import *  # noqa: F401,F403
 from app.models.catalog_anime_item import *  # noqa: F401,F403
 from app.models.catalog_boardgame_item import *  # noqa: F401,F403
 from app.models.catalog_book_item import *  # noqa: F401,F403

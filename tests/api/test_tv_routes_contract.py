@@ -5,20 +5,18 @@ from fastapi.routing import APIRoute
 from app.main import app
 
 
-def test_tv_routes_contract_paths_exist():
+def test_tv_catalog_item_routes_are_mounted_without_old_graph_routes():
     paths = {
         route.path
         for route in app.routes
         if isinstance(route, APIRoute)
     }
     required = {
-        "/api/v1/metadata/tv/seasons/{season_id}",
-        "/api/v1/metadata/tv/seasons/{season_id}/episodes",
-        "/api/v1/metadata/tv/series/{series_id}/releases",
-        "/api/v1/metadata/tv/releases/{release_id}",
-        "/api/v1/metadata/tv/releases/{release_id}/media",
-        "/api/v1/metadata/tv/releases/{release_id}/episode-map",
-        "/api/v1/metadata/tv/media/{media_id}",
+        "/api/v1/metadata/tv/items",
+        "/api/v1/metadata/tv/items/{item_id}",
     }
 
     assert required <= paths
+    assert not any("/api/v1/metadata/tv/series/" in path for path in paths)
+    assert not any("/api/v1/metadata/tv/releases/" in path for path in paths)
+    assert not any("/api/v1/metadata/tv/seasons/" in path for path in paths)

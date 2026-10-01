@@ -49,11 +49,6 @@ from app.models import (
     StoryArc,
     TvItem,
     TvItemIdentifier,
-    TVRelease,
-    TVReleaseContribution,
-    TVReleaseMedia,
-    TVSeason,
-    TVSeries,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -177,7 +172,7 @@ class AdminCatalogService:
                 if primary_release is not None
                 else None
             )
-            if kind in {ItemKind.movie, ItemKind.tv} and primary_media is not None:
+            if kind == ItemKind.movie and primary_media is not None:
                 for key in ("color", "audio_tracks", "subtitles", "layers", "screen_ratio"):
                     value = getattr(primary_media, key, None)
                     if value is not None:
@@ -251,7 +246,7 @@ class AdminCatalogService:
         await _scan(MusicItem, ItemKind.music, "catalog_music_item")
         await _scan(GameItem, ItemKind.game, "catalog_game_item")
         await _scan(MovieItem, ItemKind.movie, "catalog_movie_item")
-        await _scan(TVSeries, ItemKind.tv, "tv_series")
+        await _scan(TvItem, ItemKind.tv, "catalog_tv_item")
         await _scan(BoardGameItem, ItemKind.boardgame, "catalog_boardgame_item")
 
         schema_issue_count = sum(count for issue, count in issue_counts.items() if issue in schema_issue_keys)
@@ -318,7 +313,6 @@ class AdminCatalogService:
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
             ItemKind.anime: "catalog_anime_item",
-            ItemKind.tv: "tv_series",
             ItemKind.music: "catalog_music_item",
         }[kind]
         def _current_value(key: str) -> Any:
@@ -374,89 +368,6 @@ class AdminCatalogService:
             if hasattr(obj, field):
                 setattr(obj, field, parsed.as_date if parsed is not None else None)
 
-        async def _clear_existing(collection: list[Any]) -> None:
-            for row in list(collection):
-                await self.db.delete(row)
-
-        async def _replace_string_rows(
-            model: Any,
-            foreign_key: str,
-            value_field: str,
-            values: list[str] | None,
-            *,
-            normalized_field: str = "normalized_value",
-            sequence_field: str = "sequence",
-        ) -> None:
-            await self.db.execute(
-                delete(model).where(getattr(model, foreign_key) == entity.id)
-            )
-            for sequence, value in enumerate(self._normalize_text_values(values)):
-                self.db.add(
-                    model(
-                        **{
-                            foreign_key: entity.id,
-                            value_field: value,
-                            normalized_field: value.casefold(),
-                            sequence_field: sequence,
-                        }
-                    )
-                )
-
-        async def _replace_identifier_rows(
-            model: Any,
-            foreign_key: str,
-            values: list[str] | None,
-        ) -> None:
-            await self.db.execute(
-                delete(model).where(getattr(model, foreign_key) == entity.id)
-            )
-            for index, raw_value in enumerate(self._normalize_text_values(values)):
-                if ":" in raw_value:
-                    identifier_type, value = raw_value.split(":", 1)
-                    identifier_type = identifier_type.strip().lower() or "value"
-                    value = value.strip() or raw_value
-                else:
-                    identifier_type, value = "value", raw_value
-                self.db.add(
-                    model(
-                        **{
-                            foreign_key: entity.id,
-                            "identifier_type": identifier_type,
-                            "value": value,
-                            "normalized_value": value.casefold(),
-                            "is_primary": index == 0,
-                        }
-                    )
-                )
-
-        async def _set_identifier(
-            model: Any,
-            foreign_key: str,
-            identifier_type: str,
-            value: str | None,
-            *,
-            owner_id: UUID,
-        ) -> None:
-            await self.db.execute(
-                delete(model).where(
-                    getattr(model, foreign_key) == owner_id,
-                    model.identifier_type == identifier_type,
-                )
-            )
-            clean_value = self._normalize_optional_text(value)
-            if clean_value is not None:
-                self.db.add(
-                    model(
-                        **{
-                            foreign_key: owner_id,
-                            "identifier_type": identifier_type,
-                            "value": clean_value,
-                            "normalized_value": clean_value.casefold(),
-                            "is_primary": False,
-                        }
-                    )
-                )
-
         async def _replace_aliases(values: list[str] | None) -> None:
             await self.db.execute(
                 delete(EntityAlias).where(
@@ -509,7 +420,6 @@ class AdminCatalogService:
                         )
                     )
 
-        primary_media = next(iter(getattr(entity, "media", []) or []), None)
 
         if "title" in update_data and payload.title is not None:
             _set_named_field(entity, "title", payload.title)
@@ -531,76 +441,6 @@ class AdminCatalogService:
             _set_metadata_value("plot_summary", self._normalize_optional_text(payload.plot_summary))
         if "plot_description" in update_data:
             _set_metadata_value("plot_description", self._normalize_optional_text(payload.plot_description))
-
-        if kind == ItemKind.tv:
-            release = next(iter(getattr(entity, "releases", []) or []), None)
-            media = primary_media
-            if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode", "physical_format")):
-                release = TVRelease(series_id=entity.id, title=payload.edition_title or entity.title, format=payload.physical_format or "dvd")
-                self.db.add(release)
-                await self.db.flush()
-            if release is not None:
-                before["edition_title"] = getattr(release, "format", None)
-                before["publisher"] = getattr(release, "publisher", None)
-                before["release_date"] = getattr(release, "release_date", None)
-                before["catalog_number"] = getattr(release, "catalog_number", None) or getattr(release, "sku", None)
-                before["barcode"] = getattr(release, "barcode", None)
-                if "subtitle" in update_data:
-                    release.subtitle = self._normalize_optional_text(payload.subtitle)
-                if "publisher" in update_data:
-                    release.publisher = payload.publisher
-                if "release_date" in update_data:
-                    _set_partial_date(release, "release_date", payload.release_date)
-                if "country" in update_data and hasattr(release, "region_code"):
-                    release.region_code = self._normalize_region(payload.country)
-                if "language" in update_data and hasattr(release, "language_audio"):
-                    release.language_audio = [self._normalize_language(payload.language)] if payload.language else None
-                if "catalog_number" in update_data:
-                    if hasattr(release, "catalog_number"):
-                        release.catalog_number = payload.catalog_number
-                    if hasattr(release, "sku"):
-                        release.sku = payload.catalog_number
-                if "barcode" in update_data and hasattr(release, "barcode"):
-                    release.barcode = payload.barcode
-                if "release_status" in update_data and hasattr(release, "release_status"):
-                    release.release_status = self._normalize_release_status(payload.release_status)
-                if "color" in update_data and media is not None:
-                    media.color = payload.color
-                if "nr_discs" in update_data and media is not None and hasattr(media, "num_discs"):
-                    media.num_discs = payload.nr_discs
-                if "screen_ratio" in update_data and media is not None:
-                    if hasattr(media, "screen_ratio"):
-                        media.screen_ratio = payload.screen_ratio
-                    if hasattr(media, "aspect_ratio"):
-                        media.aspect_ratio = payload.screen_ratio
-                if "audio_tracks" in update_data and media is not None:
-                    media.audio_tracks = payload.audio_tracks
-                if "subtitles" in update_data and media is not None:
-                    media.subtitles = payload.subtitles
-                if "layers" in update_data and media is not None:
-                    media.layers = payload.layers
-                if "physical_format" in update_data:
-                    physical_format = self._validated_physical_format(kind, payload.physical_format)
-                    await self._ensure_physical_format_ref(physical_format)
-                    release.format = physical_format.label
-                if "cover_image_url" in update_data:
-                    release.cover_image_url = payload.cover_image_url
-                if "creators" in update_data and kind == ItemKind.tv:
-                    await _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            TVReleaseContribution(
-                                release_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
 
         if "audience_rating" in update_data and kind not in {ItemKind.comic, ItemKind.music}:
             _set_named_field(entity, "audience_rating", payload.audience_rating)
@@ -1420,7 +1260,7 @@ class AdminCatalogService:
         return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.game, ItemKind.boardgame}:
+        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.tv, ItemKind.game, ItemKind.boardgame}:
             return self._flat_catalog_item_load_options(kind)
         if kind == ItemKind.book:
             return [
@@ -1435,14 +1275,5 @@ class AdminCatalogService:
         if kind == ItemKind.music:
             return [
                 selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
-            ]
-        if kind == ItemKind.tv:
-            return [
-                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.releases).selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
-                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
-                    TVReleaseContribution.person
-                ),
-                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
             ]
         return []

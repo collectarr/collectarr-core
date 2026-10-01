@@ -25,10 +25,6 @@ from app.models import (
     MusicItemDisc,
     MusicItemTrack,
     TvItem,
-    TVRelease,
-    TVReleaseContribution,
-    TVSeason,
-    TVSeries,
 )
 from app.models.base import ItemKind
 from app.models.catalog_book_item import BookItemPrinting
@@ -89,10 +85,7 @@ class AdminOverviewService:
             items_by_kind=items_by_kind,
             series=0,
             volumes=0,
-            editions=(
-                await self._count(TVSeries)
-                + await self._count(MusicItemDisc)
-            ),
+            editions=await self._count(MusicItemDisc),
             variants=(
                 await self._count(BookItemPrinting)
                 + await self._count(MovieItemMedia)
@@ -284,33 +277,6 @@ class AdminOverviewService:
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
 
-        anime_result = await self.db.execute(
-            select(AnimeItem).options(
-                selectinload(AnimeItem.media),
-                selectinload(AnimeItem.episodes),
-                selectinload(AnimeItem.identifiers),
-            )
-        )
-        documents.extend(catalog_search_document(item) for item in anime_result.scalars().unique())
-
-        movie_result = await self.db.execute(
-            select(MovieItem).options(selectinload(MovieItem.media))
-        )
-        documents.extend(
-            catalog_search_document(item) for item in movie_result.scalars().unique()
-        )
-
-        tv_result = await self.db.execute(
-            select(TVSeries).options(
-                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
-                    TVReleaseContribution.person
-                ),
-                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
-            )
-        )
-        documents.extend(catalog_search_document(release) for release in tv_result.scalars().unique())
-
         music_result = await self.db.execute(
             select(MusicItem).options(
                 selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
@@ -338,7 +304,12 @@ class AdminOverviewService:
                 AnimeItem: [selectinload(AnimeItem.identifiers)],
                 GameItem: [selectinload(GameItem.identifiers)],
                 BoardGameItem: [selectinload(BoardGameItem.identifiers)],
-                TvItem: [selectinload(TvItem.identifiers)],
+                TvItem: [
+                    selectinload(TvItem.seasons),
+                    selectinload(TvItem.media),
+                    selectinload(TvItem.episodes),
+                    selectinload(TvItem.identifiers),
+                ],
             }.get(item_model, [])
             result = await self.db.execute(select(item_model).options(*options))
             documents.extend(

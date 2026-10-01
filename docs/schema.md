@@ -27,7 +27,7 @@ behavior remain relational.
 | Manga | `manga_items`, `manga_item_identifiers` |
 | Anime | `anime_items`, `anime_item_media`, `anime_item_episodes`, `anime_item_identifiers` |
 | Movies | `movie_items`, `movie_item_media` |
-| TV | `tv_series`, `tv_seasons`, `tv_episodes`, `tv_releases`, `tv_release_media` |
+| TV | `tv_items`, `tv_item_seasons`, `tv_item_episodes`, `tv_item_media`, `tv_item_identifiers` |
 
 Lists, identifiers, genres, platforms, credits, aliases, links, and other repeated values
 use typed relation tables. Scalar metadata uses concrete SQL columns (`String`, `Text`,

@@ -21,14 +21,13 @@ from app.models import (
     ComicItem,
     MangaItem,
     MusicItem,
-    TVRelease,
-    TVSeries,
 )
 from app.models.base import ItemKind
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_movie_item import MovieItem
+from app.models.catalog_tv_item import TvItem
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
     CanonicalCorrectionTargetResponse,
@@ -43,8 +42,7 @@ _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "catalog_game_item": GameItem,
     "catalog_movie_item": MovieItem,
     "catalog_music_item": MusicItem,
-    "tv_release": TVRelease,
-    "tv_series": TVSeries,
+    "catalog_tv_item": TvItem,
 }
 
 
@@ -132,9 +130,9 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
     for candidate in direct.get(key, ()):
         if candidate in inspect(model).columns:
             return candidate
-    if key == "identifiers" and model in {BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem}:
+    if key == "identifiers" and model in {BookItem, ComicItem, MangaItem, AnimeItem, TvItem, GameItem, BoardGameItem}:
         return None
-    if model in {BookItem, ComicItem, MangaItem, AnimeItem, MovieItem, GameItem, BoardGameItem} and "details" in inspect(model).columns:
+    if model in {BookItem, ComicItem, MangaItem, AnimeItem, TvItem, MovieItem, GameItem, BoardGameItem} and "details" in inspect(model).columns:
         return "details"
     return None
 
@@ -358,7 +356,7 @@ class CanonicalCorrectionTargetService:
                         column,
                         json_key=(
                             field.key
-                            if model in {BookItem, ComicItem, MangaItem, AnimeItem, MovieItem, GameItem, BoardGameItem}
+                            if model in {BookItem, ComicItem, MangaItem, AnimeItem, TvItem, MovieItem, GameItem, BoardGameItem}
                             and column == "details"
                             else None
                         ),

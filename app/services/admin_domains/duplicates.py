@@ -15,13 +15,13 @@ from app.models import (
     DuplicateReviewEntity,
     MangaItem,
     MusicItem,
-    TVSeries,
 )
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_movie_item import MovieItem
+from app.models.catalog_tv_item import TvItem
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -38,7 +38,7 @@ _ENTITY_TYPE: dict[type, str] = {
     MangaItem: "catalog_manga_item",
     AnimeItem: "catalog_anime_item",
     MovieItem: "catalog_movie_item",
-    TVSeries: "tv_series",
+    TvItem: "catalog_tv_item",
     GameItem: "catalog_game_item",
     BoardGameItem: "catalog_boardgame_item",
     MusicItem: "catalog_music_item",
@@ -51,7 +51,7 @@ _KIND_LABEL: dict[type, str] = {
     MangaItem: "manga",
     AnimeItem: "anime",
     MovieItem: "movie",
-    TVSeries: "tv",
+    TvItem: "tv",
     GameItem: "game",
     BoardGameItem: "boardgame",
     MusicItem: "music",

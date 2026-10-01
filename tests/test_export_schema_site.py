@@ -90,7 +90,10 @@ def test_kind_views_surface_flat_catalog_tables():
     assert "music_items" in kinds["music"]["tables"]
     assert "music_item_discs" in kinds["music"]["tables"]
     assert "music_item_tracks" in kinds["music"]["tables"]
-    assert "tv_releases" in kinds["tv"]["tables"]
+    assert "tv_items" in kinds["tv"]["tables"]
+    assert "tv_item_seasons" in kinds["tv"]["tables"]
+    assert "tv_item_episodes" in kinds["tv"]["tables"]
+    assert "tv_item_media" in kinds["tv"]["tables"]
 
     assert "comic_works" not in misc_tables
     assert "book_items" not in misc_tables
@@ -99,7 +102,8 @@ def test_kind_views_surface_flat_catalog_tables():
     assert "music_items" not in misc_tables
     assert "music_item_discs" not in misc_tables
     assert "music_item_tracks" not in misc_tables
-    assert "tv_releases" not in misc_tables
+    assert "tv_items" not in misc_tables
+    assert "tv_item_episodes" not in misc_tables
 
 
 def test_schema_view_contains_only_declared_tables():

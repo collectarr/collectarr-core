@@ -19,8 +19,6 @@ from app.models import (
     MusicItem,
     Tag,
     TvItem,
-    TVRelease,
-    TVSeries,
 )
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
@@ -35,7 +33,6 @@ from app.services.catalog_series_items import (
     CatalogAnimeItemService,
     CatalogTvItemService,
 )
-from app.services.facade import MetadataFacade as MetadataService
 from app.services.typed_values import flatten_typed_values
 
 
@@ -117,7 +114,6 @@ class AdminSupportService:
             TvItem: [selectinload(TvItem.identifiers)],
         }
         for model in (
-            TVRelease,
             MusicItem, MovieItem,
             BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
         ):
@@ -159,9 +155,4 @@ class AdminSupportService:
         if isinstance(item, TvItem):
             response = await CatalogTvItemService(self.db).get(item.id)
             return response.model_dump(mode="json")
-        metadata = MetadataService(self.db)
-        if isinstance(item, TVSeries):
-            return await metadata.get_tv_series(item.id)
-        if isinstance(item, TVRelease):
-            return await metadata.get_tv_series(item.series_id)
         return None

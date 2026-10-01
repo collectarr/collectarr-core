@@ -14,10 +14,6 @@ from sqlalchemy.orm import selectinload
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import (
-    AnimeCharacterAppearance,
-    AnimeContribution,
-    AnimeEpisode,
-    AnimeSeries,
     ImageAsset,
     MusicItem,
     MusicItemDisc,
@@ -39,9 +35,9 @@ from app.models.catalog_game_item import GameItem
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.models.catalog_manga_item import MangaItem
+from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode, AnimeItemMedia
 from app.search.client import SearchClient
 from app.search.documents import (
-    anime_series_search_document,
     catalog_search_document,
     movie_item_search_document,
     music_item_search_document,
@@ -72,7 +68,7 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         BookItem,
         ComicItem,
         MangaItem,
-        AnimeSeries,
+        AnimeItem,
         MovieItem,
         TVSeries,
         GameItem,
@@ -81,7 +77,8 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     )
     edition_tables = (
         BookItemPrinting,
-        AnimeEpisode,
+        AnimeItemMedia,
+        AnimeItemEpisode,
         MovieItemMedia,
         TVReleaseMedia,
         MusicItemDisc,
@@ -177,14 +174,13 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(catalog_search_document(row) for row in boardgame_rows.scalars().unique())
 
         anime_rows = await db.execute(
-            select(AnimeSeries).options(
-                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
-                selectinload(AnimeSeries.episodes),
-                selectinload(AnimeSeries.identifiers),
-                selectinload(AnimeSeries.character_appearances).selectinload(AnimeCharacterAppearance.character),
+            select(AnimeItem).options(
+                selectinload(AnimeItem.media),
+                selectinload(AnimeItem.episodes),
+                selectinload(AnimeItem.identifiers),
             )
         )
-        documents.extend(anime_series_search_document(row) for row in anime_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in anime_rows.scalars().unique())
 
         music_rows = await db.execute(
             select(MusicItem).options(

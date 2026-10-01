@@ -8,9 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    AnimeEpisode,
-    AnimeRelease,
-    AnimeSeries,
     BundleRelease,
     Character,
     MusicItem,
@@ -29,6 +26,7 @@ from app.models.catalog_book_item import BookItem
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_book_series import BookSeries
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
@@ -47,9 +45,7 @@ class EntitySummary:
 
 
 ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
-    "anime_episode": AnimeEpisode,
-    "anime_release": AnimeRelease,
-    "anime_series": AnimeSeries,
+    "catalog_anime_item": AnimeItem,
     "catalog_boardgame_item": BoardGameItem,
     "catalog_book_item": BookItem,
     "book_series": BookSeries,

@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from . import (
-    anime,
     browse,
     catalog_anime_items,
     catalog_boardgame_items,
@@ -38,7 +37,6 @@ for child_router in (
     catalog_music_items.router,
     catalog_tv_items.router,
     browse.router,
-    anime.router,
     tv.router,
 ):
     if child_router is not field_schema.router:

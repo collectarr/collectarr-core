@@ -9,13 +9,6 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import (
-    AnimeCharacterAppearance,
-    AnimeContribution,
-    AnimeEpisode,
-    AnimeRelease,
-    AnimeReleaseEpisodeMap,
-    AnimeReleaseMedia,
-    AnimeSeries,
     TVEpisode,
     TVEpisodeContribution,
     TVRelease,
@@ -26,11 +19,6 @@ from app.models import (
     TVSeries,
 )
 from app.schemas import (
-    AnimeEpisodeV1Response,
-    AnimeReleaseEpisodeMapV1Response,
-    AnimeReleaseMediaResponse,
-    AnimeReleaseV1Response,
-    AnimeSeriesV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
@@ -38,148 +26,6 @@ from app.schemas import (
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
-
-
-async def get_anime_series(service, series_id: UUID) -> AnimeSeriesV1Response:
-    series = await service.db.scalar(
-        select(AnimeSeries)
-        .where(AnimeSeries.id == series_id)
-        .options(
-            selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
-            selectinload(AnimeSeries.episodes),
-            selectinload(AnimeSeries.releases).selectinload(AnimeRelease.media),
-            selectinload(AnimeSeries.releases).selectinload(AnimeRelease.episode_mappings),
-            selectinload(AnimeSeries.identifiers),
-            selectinload(AnimeSeries.character_appearances).selectinload(AnimeCharacterAppearance.character),
-        )
-    )
-    if series is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_series_not_found",
-            detail="Anime series not found",
-        )
-    return service._anime_series_response(series)
-
-
-async def get_anime_series_releases(service, series_id: UUID) -> list[AnimeReleaseV1Response]:
-    series = await service.db.scalar(select(AnimeSeries.id).where(AnimeSeries.id == series_id))
-    if series is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_series_not_found",
-            detail="Anime work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(AnimeRelease)
-                .where(AnimeRelease.work_id == series_id)
-                .options(
-                    selectinload(AnimeRelease.media),
-                    selectinload(AnimeRelease.episode_mappings),
-                )
-                .order_by(AnimeRelease.release_date.asc().nullslast(), AnimeRelease.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._anime_release_response(row) for row in rows]
-
-
-async def get_anime_release(service, release_id: UUID) -> AnimeReleaseV1Response:
-    release = await service.db.scalar(
-        select(AnimeRelease)
-        .where(AnimeRelease.id == release_id)
-        .options(
-            selectinload(AnimeRelease.media),
-            selectinload(AnimeRelease.episode_mappings),
-        )
-    )
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_release_not_found",
-            detail="Anime release not found",
-        )
-    return service._anime_release_response(release)
-
-
-async def get_anime_release_media(service, release_id: UUID) -> list[AnimeReleaseMediaResponse]:
-    release = await service.db.scalar(select(AnimeRelease.id).where(AnimeRelease.id == release_id))
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_release_not_found",
-            detail="Anime release not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(AnimeReleaseMedia)
-                .where(AnimeReleaseMedia.release_id == release_id)
-                .order_by(AnimeReleaseMedia.media_number.asc(), AnimeReleaseMedia.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._anime_release_media_response(row) for row in rows]
-
-
-async def get_anime_release_episode_map(
-    service,
-    release_id: UUID,
-) -> list[AnimeReleaseEpisodeMapV1Response]:
-    release = await service.db.scalar(select(AnimeRelease.id).where(AnimeRelease.id == release_id))
-    if release is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_release_not_found",
-            detail="Anime release not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(AnimeReleaseEpisodeMap)
-                .where(AnimeReleaseEpisodeMap.release_id == release_id)
-                .order_by(
-                    AnimeReleaseEpisodeMap.disc_number.asc().nullslast(),
-                    AnimeReleaseEpisodeMap.sequence_number.asc().nullslast(),
-                    AnimeReleaseEpisodeMap.created_at.asc(),
-                )
-            )
-        ).scalars()
-    )
-    return [service._anime_release_episode_map_response(row) for row in rows]
-
-
-async def get_anime_series_episodes(service, series_id: UUID) -> list[AnimeEpisodeV1Response]:
-    series = await service.db.scalar(select(AnimeSeries.id).where(AnimeSeries.id == series_id))
-    if series is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_series_not_found",
-            detail="Anime series not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(AnimeEpisode)
-                .where(AnimeEpisode.series_id == series_id)
-                .order_by(AnimeEpisode.episode_number.asc().nullslast(), AnimeEpisode.created_at.asc())
-            )
-        ).scalars()
-    )
-    return [service._anime_episode_response(episode) for episode in rows]
-
-
-async def get_anime_episode(service, episode_id: UUID) -> AnimeEpisodeV1Response:
-    episode = await service.db.scalar(select(AnimeEpisode).where(AnimeEpisode.id == episode_id))
-    if episode is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="anime_episode_not_found",
-            detail="Anime episode not found",
-        )
-    return service._anime_episode_response(episode)
 
 
 async def get_tv_series(service, series_id: UUID) -> TVSeriesV1Response:

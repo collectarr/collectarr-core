@@ -209,13 +209,7 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "catalog_item": ("catalog_manga_item", "manga_items"),
     },
     ItemKind.anime: {
-        "work": ("anime_series", "anime_series"),
-        "release": ("anime_release", "anime_releases"),
-        "episode": ("anime_episode", "anime_episodes"),
-        "media": ("anime_release_media", "anime_release_media"),
-        "track": ("anime_release_media", "anime_release_media"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
+        "catalog_item": ("catalog_anime_item", "anime_items"),
     },
     ItemKind.movie: {
         "catalog_item": ("catalog_movie_item", "movie_items"),
@@ -252,7 +246,7 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
-    if kind in {ItemKind.comic, ItemKind.manga}:
+    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime}:
         return "catalog_item"
     if kind == ItemKind.music:
         return "catalog_item"
@@ -332,7 +326,7 @@ def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     # explicit; they do not get an arbitrary first-entity fallback.
     source_scope = (
         "catalog_item"
-        if kind in {ItemKind.boardgame, ItemKind.book, ItemKind.comic, ItemKind.manga, ItemKind.game, ItemKind.movie, ItemKind.music} and scope == "internal"
+        if kind in {ItemKind.boardgame, ItemKind.book, ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.game, ItemKind.movie, ItemKind.music} and scope == "internal"
         else "work" if scope == "internal" else scope
     )
     try:
@@ -361,9 +355,9 @@ def _field_source_table(key: str, kind: ItemKind) -> str:
 def _field_write_target(key: str, kind: ItemKind) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "readonly_computed"
-    if kind in {ItemKind.comic, ItemKind.manga} and key == "identifiers":
+    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime} and key == "identifiers":
         return "core_canonical_relation"
-    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.music}:
+    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.music}:
         return "core_canonical"
     if key in _RELATION_KEYS or key in _TAG_KEYS:
         return "core_canonical_relation"

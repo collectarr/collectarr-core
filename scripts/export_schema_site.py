@@ -35,11 +35,7 @@ HIDDEN_TABLE_NAMES = {
 }
 SOURCE_MODULES = [
     "app/models/base.py",
-    "app/models/canonical_anime.py",
-    "app/models/canonical_anime_releases.py",
     "app/models/canonical_common.py",
-    "app/models/canonical_manga.py",
-    "app/models/canonical_manga_releases.py",
     "app/models/catalog_anime_item.py",
     "app/models/catalog_boardgame_item.py",
     "app/models/catalog_book_item.py",
@@ -152,11 +148,10 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
         "story_arc_items",
     ],
     "anime": [
-        "anime_series",
-        "anime_episodes",
-        "anime_contributions",
-        "anime_identifiers",
-        "anime_character_appearances",
+        "anime_items",
+        "anime_item_media",
+        "anime_item_episodes",
+        "anime_item_identifiers",
     ],
     "movie": [
         "movie_items",

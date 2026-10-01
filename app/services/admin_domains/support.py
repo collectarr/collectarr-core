@@ -10,7 +10,6 @@ from app.models import (
     AdminAuditLog,
     AdminAuditLogDetail,
     AnimeItem,
-    AnimeSeries,
     BoardGameItem,
     BookItem,
     ComicItem,
@@ -118,7 +117,7 @@ class AdminSupportService:
             TvItem: [selectinload(TvItem.identifiers)],
         }
         for model in (
-            AnimeSeries, TVRelease,
+            TVRelease,
             MusicItem, MovieItem,
             BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
         ):
@@ -161,8 +160,6 @@ class AdminSupportService:
             response = await CatalogTvItemService(self.db).get(item.id)
             return response.model_dump(mode="json")
         metadata = MetadataService(self.db)
-        if isinstance(item, AnimeSeries):
-            return await metadata.get_anime_series(item.id)
         if isinstance(item, TVSeries):
             return await metadata.get_tv_series(item.id)
         if isinstance(item, TVRelease):

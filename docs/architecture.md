@@ -31,8 +31,9 @@ Game, Board Game, and Manga each use one root per concrete collectible item;
 their old Work/Release-style roots and related read paths have been removed.
 Admin corrections update normalized identifier rows for applicable kinds and
 Book credit rows. Structured contents such as printings, media, discs, and
-episodes remain kind-owned child data. Anime and TV still have older read and
-administration paths using Work/Release models and remain part of the cutover.
+episodes remain kind-owned child data. Anime now uses one flat Catalog Item
+root with contained media, episodes, and identifiers; TV still has older read and
+administration paths using Work/Release models and remains part of the cutover.
 
 The shared field contract is exported from Core schemas and pinned by App.
 Regenerate it with `python -m scripts.export_contract_bundle`; review any

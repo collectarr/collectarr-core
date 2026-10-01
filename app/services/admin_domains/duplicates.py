@@ -9,7 +9,6 @@ from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models import (
-    AnimeSeries,
     ComicItem,
     DuplicateReview,
     DuplicateReviewDetail,
@@ -21,6 +20,7 @@ from app.models import (
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_movie_item import MovieItem
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
@@ -36,7 +36,7 @@ _ENTITY_TYPE: dict[type, str] = {
     BookItem: "catalog_book_item",
     ComicItem: "catalog_comic_item",
     MangaItem: "catalog_manga_item",
-    AnimeSeries: "anime_series",
+    AnimeItem: "catalog_anime_item",
     MovieItem: "catalog_movie_item",
     TVSeries: "tv_series",
     GameItem: "catalog_game_item",
@@ -49,7 +49,7 @@ _KIND_LABEL: dict[type, str] = {
     BookItem: "book",
     ComicItem: "comic",
     MangaItem: "manga",
-    AnimeSeries: "anime",
+    AnimeItem: "anime",
     MovieItem: "movie",
     TVSeries: "tv",
     GameItem: "game",

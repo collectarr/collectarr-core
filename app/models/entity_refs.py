@@ -42,9 +42,7 @@ DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry(
             supports_aliases=True,
             supports_links=True,
         ),
-        "anime_series": EntityRefSpec("anime_series", "anime_series", "Anime series", kind=ItemKind.anime, supports_aliases=True, supports_links=True),
-        "anime_release": EntityRefSpec("anime_release", "anime_releases", "Anime release", kind=ItemKind.anime, supports_links=True),
-        "anime_episode": EntityRefSpec("anime_episode", "anime_episodes", "Anime episode", kind=ItemKind.anime, supports_links=True),
+        "catalog_anime_item": EntityRefSpec("catalog_anime_item", "anime_items", "Anime Catalog Item", kind=ItemKind.anime, supports_aliases=True, supports_links=True),
         "catalog_boardgame_item": EntityRefSpec(
             "catalog_boardgame_item",
             "boardgame_items",

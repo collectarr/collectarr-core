@@ -9,9 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
-    AnimeCharacterAppearance,
-    AnimeEpisode,
-    AnimeSeries,
     EntityPerson,
     EntityTag,
     Person,
@@ -30,6 +27,7 @@ from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrint
 from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
@@ -386,33 +384,69 @@ async def _seed_manga(db: AsyncSession, entry: _Entry, cover_url: str | None, th
 
 
 async def _seed_anime(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    series = await _get_or_create_series(db, AnimeSeries, entry.series_title, entry.publisher, entry.release_date)
-    if series is not None:
-        series.original_air_date = entry.release_date
-        series.status = "completed"
-        _apply_seed_metadata(series, entry, ItemKind.anime, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, series.id, "anime_series", entry.creator, "creator")
-    await _ensure_tag_link(db, series.id, "anime_series", entry.tag)
+    item = (
+        await db.execute(select(AnimeItem).where(AnimeItem.title == entry.title))
+    ).scalar_one_or_none()
+    if item is None:
+        item = AnimeItem(title=entry.title, sort_key=_slug(entry.title), details={})
+        db.add(item)
+        await db.flush()
+    item.sort_key = _slug(entry.title)
+    item.barcode = f"SEED-ANIME-{index:03d}"
+    item.catalog_number = f"SEED-ANIME-{index:03d}"
+    item.details = {
+        **dict(item.details or {}),
+        "series_title": entry.series_title,
+        "item_number": str(index),
+        "release_date": entry.release_date.isoformat(),
+        "release_date_parts": {
+            "year": entry.release_date.year,
+            "month": entry.release_date.month,
+            "day": entry.release_date.day,
+        },
+        "publisher": entry.publisher,
+        "country": "JP",
+        "language": "ja",
+        "genres": [entry.tag] if entry.tag else [],
+        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "characters": [entry.character] if entry.character else [],
+        "release_status": "completed",
+        "description": f"Seed data for {entry.title}.",
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
     episode = (
         await db.execute(
-            select(AnimeEpisode).where(
-                AnimeEpisode.series_id == series.id,
-                AnimeEpisode.episode_number == index,
+            select(AnimeItemEpisode).where(
+                AnimeItemEpisode.anime_item_id == item.id,
+                AnimeItemEpisode.position == 0,
             )
         )
     ).scalar_one_or_none()
     if episode is None:
-        episode = AnimeEpisode(series=series, episode_number=index)
+        episode = AnimeItemEpisode(
+            item=item,
+            position=0,
+            episode_number=index,
+            title=entry.title,
+            details={
+                "air_date": entry.release_date.isoformat(),
+                "description": entry.series_title,
+                "runtime_minutes": 24,
+                "cover_image_url": cover_url,
+            },
+        )
         db.add(episode)
-    episode.episode_title = entry.title
-    episode.air_date = entry.release_date
-    episode.description = entry.series_title
-    episode.cover_image_url = cover_url
-    episode.runtime_minutes = 24
-    await db.flush()
-    _apply_seed_metadata(episode, entry, ItemKind.anime, index, cover_url, thumbnail_url)
-    await _ensure_character_appearance(db, series.id, entry.character, entity_type="anime_series")
-    return [series]
+    await _ensure_person_link(db, item.id, "catalog_anime_item", entry.creator, "creator")
+    await _ensure_tag_link(db, item.id, "catalog_anime_item", entry.tag)
+    await _ensure_story_arc_link(db, item.id, "catalog_anime_item", entry.story_arc)
+    await _ensure_character_appearance(
+        db,
+        item.id,
+        entry.character,
+        entity_type="catalog_anime_item",
+    )
+    return [item]
 
 
 async def _seed_movie(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
@@ -799,6 +833,7 @@ async def _ensure_tag_link(db: AsyncSession, entity_id: Any, entity_type: str, t
     if not tag_name:
         return
     tag_kind = {
+        "catalog_anime_item": "anime",
         "catalog_book_item": "book",
         "catalog_comic_item": "comic",
         "catalog_manga_item": "manga",
@@ -879,11 +914,6 @@ async def _ensure_character_appearance(
         character = Character(name=character_name, description=f"Seed character {character_name}")
         db.add(character)
         await db.flush()
-    if entity_type == "anime_series":
-        result = await db.execute(select(AnimeCharacterAppearance).where(AnimeCharacterAppearance.series_id == entity_id, AnimeCharacterAppearance.character_id == character.id))
-        if result.scalar_one_or_none() is None:
-            db.add(AnimeCharacterAppearance(series_id=entity_id, character_id=character.id, role="main"))
-        return
     result = await db.execute(
         select(CharacterAppearance).where(
             CharacterAppearance.entity_type == entity_type,

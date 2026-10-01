@@ -317,7 +317,7 @@ class AdminCatalogService:
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
-            ItemKind.anime: "anime_series",
+            ItemKind.anime: "catalog_anime_item",
             ItemKind.tv: "tv_series",
             ItemKind.music: "catalog_music_item",
         }[kind]
@@ -1420,7 +1420,7 @@ class AdminCatalogService:
         return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.game, ItemKind.boardgame}:
+        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.game, ItemKind.boardgame}:
             return self._flat_catalog_item_load_options(kind)
         if kind == ItemKind.book:
             return [

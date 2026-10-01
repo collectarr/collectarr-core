@@ -3,38 +3,12 @@ from __future__ import annotations
 from uuid import UUID
 
 from app.schemas import (
-    AnimeEpisodeV1Response,
-    AnimeReleaseEpisodeMapV1Response,
-    AnimeReleaseMediaResponse,
-    AnimeReleaseV1Response,
-    AnimeSeriesV1Response,
     TVEpisodeV1Response,
     TVReleaseEpisodeMapV1Response,
     TVReleaseMediaResponse,
     TVReleaseV1Response,
     TVSeasonV1Response,
     TVSeriesV1Response,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_episode as _get_anime_episode,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_release as _get_anime_release,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_release_episode_map as _get_anime_release_episode_map,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_release_media as _get_anime_release_media,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_series as _get_anime_series,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_series_episodes as _get_anime_series_episodes,
-)
-from app.services.metadata.metadata_reads import (
-    get_anime_series_releases as _get_anime_series_releases,
 )
 from app.services.metadata.metadata_reads import (
     get_tv_episode as _get_tv_episode,
@@ -69,31 +43,6 @@ from app.services.metadata.metadata_reads import (
 
 
 class MetadataTypedReadService:
-
-    async def get_anime_series(self, series_id: UUID) -> AnimeSeriesV1Response:
-        return await _get_anime_series(self, series_id)
-
-    async def get_anime_series_episodes(self, series_id: UUID) -> list[AnimeEpisodeV1Response]:
-        return await _get_anime_series_episodes(self, series_id)
-
-    async def get_anime_series_releases(self, series_id: UUID) -> list[AnimeReleaseV1Response]:
-        return await _get_anime_series_releases(self, series_id)
-
-    async def get_anime_release(self, release_id: UUID) -> AnimeReleaseV1Response:
-        return await _get_anime_release(self, release_id)
-
-    async def get_anime_release_media(self, release_id: UUID) -> list[AnimeReleaseMediaResponse]:
-        return await _get_anime_release_media(self, release_id)
-
-    async def get_anime_release_episode_map(
-        self,
-        release_id: UUID,
-    ) -> list[AnimeReleaseEpisodeMapV1Response]:
-        return await _get_anime_release_episode_map(self, release_id)
-
-    async def get_anime_episode(self, episode_id: UUID) -> AnimeEpisodeV1Response:
-        return await _get_anime_episode(self, episode_id)
-
     async def get_tv_series(self, series_id: UUID) -> TVSeriesV1Response:
         return await _get_tv_series(self, series_id)
 

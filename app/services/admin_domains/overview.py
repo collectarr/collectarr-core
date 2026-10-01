@@ -11,11 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import (
     AdminAuditLog,
-    AnimeCharacterAppearance,
-    AnimeContribution,
-    AnimeEpisode,
     AnimeItem,
-    AnimeSeries,
     BoardGameItem,
     BookItem,
     CatalogItemProposal,
@@ -91,13 +87,10 @@ class AdminOverviewService:
         return AdminCatalogSummaryResponse(
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
-            series=(
-                await self._count(AnimeSeries)
-            ),
+            series=0,
             volumes=0,
             editions=(
-                await self._count(AnimeEpisode)
-                + await self._count(TVSeries)
+                await self._count(TVSeries)
                 + await self._count(MusicItemDisc)
             ),
             variants=(
@@ -292,13 +285,13 @@ class AdminOverviewService:
         documents: list[dict[str, Any]] = []
 
         anime_result = await self.db.execute(
-            select(AnimeSeries).options(
-                selectinload(AnimeSeries.episodes),
-                selectinload(AnimeSeries.contributions).selectinload(AnimeContribution.person),
-                selectinload(AnimeSeries.character_appearances).selectinload(AnimeCharacterAppearance.character),
+            select(AnimeItem).options(
+                selectinload(AnimeItem.media),
+                selectinload(AnimeItem.episodes),
+                selectinload(AnimeItem.identifiers),
             )
         )
-        documents.extend(catalog_search_document(series) for series in anime_result.scalars().unique())
+        documents.extend(catalog_search_document(item) for item in anime_result.scalars().unique())
 
         movie_result = await self.db.execute(
             select(MovieItem).options(selectinload(MovieItem.media))

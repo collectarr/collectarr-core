@@ -5,8 +5,6 @@ from sqlalchemy.orm.attributes import NO_VALUE
 
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.models import (
-    AnimeContribution,
-    AnimeSeries,
     MusicItem,
     TVRelease,
     TVSeries,
@@ -171,92 +169,6 @@ def item_search_document(item: Any) -> dict[str, Any]:
         "subtitle": subtitle,
         "series_group": series_group,
         "age_rating": age_rating,
-    }
-
-
-def anime_series_search_document(series: AnimeSeries) -> dict[str, Any]:
-    episodes = sorted(
-        getattr(series, "episodes", []) or [],
-        key=lambda row: (
-            getattr(row, "air_date", None) is None,
-            getattr(row, "air_date", None),
-            getattr(row, "episode_number", None) is None,
-            getattr(row, "episode_number", None) or 0,
-            str(getattr(row, "id", "")),
-        ),
-    )
-    primary_episode = episodes[0] if episodes else None
-    creators: list[str] = []
-    characters: list[str] = []
-
-    for contribution in sorted(
-        getattr(series, "contributions", []) or [],
-        key=lambda row: (
-            getattr(row, "sequence", None) is None,
-            getattr(row, "sequence", None) or 0,
-            str(getattr(row, "id", "")),
-        ),
-    ):
-        if not isinstance(contribution, AnimeContribution):
-            continue
-        person = getattr(contribution, "person", None)
-        person_name = _optional_text(getattr(person, "name", None))
-        if person_name:
-            _append_unique(creators, person_name)
-
-    for char_app in sorted(
-        getattr(series, "character_appearances", []) or [],
-        key=lambda row: (
-            str(getattr(getattr(row, "character", None), "name", "") or "").casefold(),
-        ),
-    ):
-        character = getattr(char_app, "character", None)
-        character_name = _optional_text(getattr(character, "name", None))
-        if character_name:
-            _append_unique(characters, character_name)
-
-    release_date = (
-        primary_episode.air_date.isoformat()
-        if primary_episode is not None and primary_episode.air_date is not None
-        else None
-    )
-    release_year = (
-        primary_episode.air_date.year
-        if primary_episode is not None and primary_episode.air_date is not None
-        else None
-    )
-
-    return {
-        "id": str(series.id),
-        "kind": ItemKind.anime.value,
-        "title": series.title,
-        "item_number": None,
-        "runtime_minutes": primary_episode.runtime_minutes if primary_episode is not None else None,
-        "cover_image_url": primary_episode.cover_image_url if primary_episode is not None else None,
-        "thumbnail_image_url": None,
-        "publisher": None,
-        "release_date": release_date,
-        "region": None,
-        "release_year": release_year,
-        "barcode": None,
-        "barcodes": [],
-        "variant": None,
-        "variant_names": [],
-        "bundle_titles": [],
-        "bundle_release_ids": [],
-        "series_title": series.title,
-        "volume_name": None,
-        "catalog_number": None,
-        "creators": creators,
-        "characters": characters,
-        "story_arcs": [],
-        "platforms": [],
-        "release_status": series.status,
-        "language": series.original_language,
-        "imprint": None,
-        "subtitle": None,
-        "series_group": None,
-        "age_rating": None,
     }
 
 
@@ -434,8 +346,6 @@ def tv_release_search_document(entity: TVSeries | TVRelease) -> dict[str, Any]:
 
 
 def catalog_search_document(entity: Any) -> dict[str, Any]:
-    if isinstance(entity, AnimeSeries):
-        return anime_series_search_document(entity)
     if isinstance(entity, MovieItem):
         return movie_item_search_document(entity)
     flat_root_kinds = (

@@ -104,18 +104,16 @@ class _CatalogSeriesItemService:
             if position in seen_episode_positions:
                 raise ValueError("Episode positions must be unique within a Catalog Item")
             seen_episode_positions.add(position)
-            episode_rows.append(
-                self.episode_model(
-                    position=position,
-                    season_number=_integer(value.get("season_number"))
-                    if self.kind is ItemKind.tv
-                    else None,
-                    episode_number=_integer(value.get("episode_number")),
-                    title=_optional_string(value.get("episode_title"))
-                    or _optional_string(value.get("title")),
-                    details=value,
-                )
-            )
+            episode_data: dict[str, Any] = {
+                "position": position,
+                "episode_number": _integer(value.get("episode_number")),
+                "title": _optional_string(value.get("episode_title"))
+                or _optional_string(value.get("title")),
+                "details": value,
+            }
+            if self.kind is ItemKind.tv:
+                episode_data["season_number"] = _integer(value.get("season_number"))
+            episode_rows.append(self.episode_model(**episode_data))
 
         item = self.item_model(
             title=title.strip(),
@@ -269,7 +267,7 @@ def _response(item: Any, response_model: Any, kind: ItemKind) -> Any:
                 {
                     **row.details,
                     "id": row.id,
-                    "season_number": row.season_number,
+                    "season_number": getattr(row, "season_number", None),
                     "episode_number": row.episode_number,
                     "episode_title": row.title,
                     "title": row.title,

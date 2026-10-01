@@ -25,7 +25,7 @@ behavior remain relational.
 | Board games | `boardgame_items`, `boardgame_item_identifiers` |
 | Comics | `comic_items`, `comic_item_identifiers` |
 | Manga | `manga_items`, `manga_item_identifiers` |
-| Anime | `anime_series` (Work), `anime_episodes`, `anime_releases`, `anime_release_media`, `anime_release_episode_map` |
+| Anime | `anime_items`, `anime_item_media`, `anime_item_episodes`, `anime_item_identifiers` |
 | Movies | `movie_items`, `movie_item_media` |
 | TV | `tv_series`, `tv_seasons`, `tv_episodes`, `tv_releases`, `tv_release_media` |
 

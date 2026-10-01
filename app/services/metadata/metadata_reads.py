@@ -16,12 +16,6 @@ from app.models import (
     AnimeReleaseEpisodeMap,
     AnimeReleaseMedia,
     AnimeSeries,
-    ComicCharacterAppearance,
-    ComicContribution,
-    ComicIssue,
-    ComicStoryArcMembership,
-    ComicVariant,
-    ComicWork,
     MangaChapter,
     MangaCharacterAppearance,
     MangaContribution,
@@ -43,9 +37,6 @@ from app.schemas import (
     AnimeReleaseMediaResponse,
     AnimeReleaseV1Response,
     AnimeSeriesV1Response,
-    ComicIssueV1Response,
-    ComicVariantV1Response,
-    ComicWorkV1Response,
     MangaChapterV1Response,
     MangaEditionV1Response,
     MangaWorkV1Response,
@@ -56,124 +47,6 @@ from app.schemas import (
     TVSeasonV1Response,
     TVSeriesV1Response,
 )
-
-
-async def get_comic_work(service, work_id: UUID) -> ComicWorkV1Response:
-    work = await service.db.scalar(
-        select(ComicWork)
-        .where(ComicWork.id == work_id)
-        .options(
-            selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
-            selectinload(ComicWork.issues).selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
-            selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-            selectinload(ComicWork.issues).selectinload(ComicIssue.variants),
-            selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
-                ComicCharacterAppearance.character
-            ),
-            selectinload(ComicWork.missing_issue_entries),
-            selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
-                ComicStoryArcMembership.story_arc
-            ),
-        )
-    )
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="comic_work_not_found",
-            detail="Comic work not found",
-        )
-    return service._comic_work_response(work)
-
-
-async def get_comic_work_issues(service, work_id: UUID) -> list[ComicIssueV1Response]:
-    work = await service.db.scalar(select(ComicWork.id).where(ComicWork.id == work_id))
-    if work is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="comic_work_not_found",
-            detail="Comic work not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(ComicIssue)
-                .where(ComicIssue.work_id == work_id)
-                .options(
-                    selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
-                    selectinload(ComicIssue.identifiers),
-                    selectinload(ComicIssue.variants),
-                    selectinload(ComicIssue.character_appearances)
-                    .selectinload(ComicCharacterAppearance.character),
-                    selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
-                )
-                .order_by(
-                    ComicIssue.publication_date.asc().nullslast(),
-                    ComicIssue.issue_number.asc().nullslast(),
-                    ComicIssue.created_at.asc(),
-                )
-            )
-        ).scalars()
-    )
-    return [service._comic_issue_response(row) for row in rows]
-
-
-async def get_comic_issue(service, issue_id: UUID) -> ComicIssueV1Response:
-    issue = await service.db.scalar(
-        select(ComicIssue)
-        .where(ComicIssue.id == issue_id)
-        .options(
-            selectinload(ComicIssue.contributions).selectinload(ComicContribution.person),
-            selectinload(ComicIssue.identifiers),
-            selectinload(ComicIssue.variants),
-            selectinload(ComicIssue.character_appearances)
-            .selectinload(ComicCharacterAppearance.character),
-            selectinload(ComicIssue.story_arc_memberships).selectinload(ComicStoryArcMembership.story_arc),
-        )
-    )
-    if issue is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="comic_issue_not_found",
-            detail="Comic issue not found",
-        )
-    return service._comic_issue_response(issue)
-
-
-async def get_comic_issue_variants(service, issue_id: UUID) -> list[ComicVariantV1Response]:
-    issue = await service.db.scalar(select(ComicIssue.id).where(ComicIssue.id == issue_id))
-    if issue is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="comic_issue_not_found",
-            detail="Comic issue not found",
-        )
-    rows = list(
-        (
-            await service.db.execute(
-                select(ComicVariant)
-                .where(ComicVariant.issue_id == issue_id)
-                .order_by(
-                    ComicVariant.release_date.asc().nullslast(),
-                    ComicVariant.variant_name.asc().nullslast(),
-                    ComicVariant.created_at.asc(),
-                )
-            )
-        ).scalars()
-    )
-    return [service._comic_variant_response(row) for row in rows]
-
-
-async def get_comic_variant(service, variant_id: UUID) -> ComicVariantV1Response:
-    variant = await service.db.scalar(
-        select(ComicVariant).where(ComicVariant.id == variant_id)
-    )
-    if variant is None:
-        raise ApiHTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="comic_variant_not_found",
-            detail="Comic variant not found",
-        )
-    return service._comic_variant_response(variant)
 
 
 async def get_manga_work(service, work_id: UUID) -> MangaWorkV1Response:

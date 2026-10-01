@@ -13,11 +13,6 @@ from app.models import (
     AnimeSeries,
     BundleRelease,
     Character,
-    ComicIssue,
-    ComicSeries,
-    ComicVariant,
-    ComicVolume,
-    ComicWork,
     MangaChapter,
     MangaEdition,
     MangaSeries,
@@ -35,6 +30,7 @@ from app.models import (
 from app.models.base import ItemKind
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
+from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_book_series import BookSeries
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_movie_item import MovieItem
@@ -62,11 +58,7 @@ ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
     "book_series": BookSeries,
     "bundle_release": BundleRelease,
     "character": Character,
-    "comic_issue": ComicIssue,
-    "comic_variant": ComicVariant,
-    "comic_series": ComicSeries,
-    "comic_volume": ComicVolume,
-    "comic_work": ComicWork,
+    "catalog_comic_item": ComicItem,
     "catalog_game_item": GameItem,
     "manga_chapter": MangaChapter,
     "manga_edition": MangaEdition,

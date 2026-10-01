@@ -18,12 +18,6 @@ from app.models import (
     AnimeContribution,
     AnimeEpisode,
     AnimeSeries,
-    ComicCharacterAppearance,
-    ComicContribution,
-    ComicIssue,
-    ComicSeriesMembership,
-    ComicStoryArcMembership,
-    ComicWork,
     ImageAsset,
     MangaChapter,
     MangaCharacterAppearance,
@@ -47,12 +41,12 @@ from app.models.catalog_book_item import (
     BookItemPrinting,
 )
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.search.client import SearchClient
 from app.search.documents import (
     anime_series_search_document,
     catalog_search_document,
-    comic_work_search_document,
     manga_work_search_document,
     movie_item_search_document,
     music_item_search_document,
@@ -81,7 +75,7 @@ def _compute_phash(image_data: bytes) -> str:
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     root_tables = (
         BookItem,
-        ComicWork,
+        ComicItem,
         MangaWork,
         AnimeSeries,
         MovieItem,
@@ -92,7 +86,6 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
     )
     edition_tables = (
         BookItemPrinting,
-        ComicIssue,
         MangaChapter,
         AnimeEpisode,
         MovieItemMedia,
@@ -156,22 +149,9 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(catalog_search_document(row) for row in book_rows.scalars().unique())
 
         comic_rows = await db.execute(
-            select(ComicWork).options(
-                selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.contributions)
-                .selectinload(ComicContribution.person),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.series_memberships).selectinload(ComicSeriesMembership.series),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.story_arc_memberships)
-                .selectinload(ComicStoryArcMembership.story_arc),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.character_appearances)
-                .selectinload(ComicCharacterAppearance.character),
-            )
+            select(ComicItem).options(selectinload(ComicItem.identifiers))
         )
-        documents.extend(comic_work_search_document(row) for row in comic_rows.scalars().unique())
+        documents.extend(catalog_search_document(row) for row in comic_rows.scalars().unique())
 
         manga_rows = await db.execute(
             select(MangaWork).options(

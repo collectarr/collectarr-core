@@ -19,14 +19,7 @@ from app.models import (
     BoardGameItem,
     BookItem,
     CatalogItemProposal,
-    ComicCharacterAppearance,
-    ComicContribution,
-    ComicIssue,
     ComicItem,
-    ComicSeries,
-    ComicStoryArcMembership,
-    ComicVolume,
-    ComicWork,
     GameItem,
     ImageAsset,
     MangaChapter,
@@ -105,14 +98,12 @@ class AdminOverviewService:
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
             series=(
-                await self._count(ComicSeries)
-                + await self._count(MangaSeries)
+                await self._count(MangaSeries)
                 + await self._count(AnimeSeries)
             ),
-            volumes=await self._count(ComicVolume),
+            volumes=0,
             editions=(
-                await self._count(ComicIssue)
-                + await self._count(MangaChapter)
+                await self._count(MangaChapter)
                 + await self._count(AnimeEpisode)
                 + await self._count(TVSeries)
                 + await self._count(MusicItemDisc)
@@ -307,22 +298,6 @@ class AdminOverviewService:
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
-
-        comic_result = await self.db.execute(
-            select(ComicWork).options(
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.contributions)
-                .selectinload(ComicContribution.person),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.character_appearances)
-                .selectinload(ComicCharacterAppearance.character),
-                selectinload(ComicWork.issues)
-                .selectinload(ComicIssue.story_arc_memberships)
-                .selectinload(ComicStoryArcMembership.story_arc),
-            )
-        )
-        documents.extend(catalog_search_document(work) for work in comic_result.scalars().unique())
 
         manga_result = await self.db.execute(
             select(MangaWork).options(

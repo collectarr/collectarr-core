@@ -3,7 +3,6 @@ from app.schemas.auth import *  # noqa: F401,F403
 from app.schemas.canonical_corrections import *  # noqa: F401,F403
 from app.schemas.catalog_item_proposals import *  # noqa: F401,F403
 from app.schemas.metadata_anime import *  # noqa: F401,F403
-from app.schemas.metadata_comics import *  # noqa: F401,F403
 from app.schemas.metadata_common import *  # noqa: F401,F403
 from app.schemas.metadata_manga import *  # noqa: F401,F403
 from app.schemas.metadata_shared import *  # noqa: F401,F403

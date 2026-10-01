@@ -31,13 +31,8 @@ from app.models import (
     BookItemCredit,
     BookItemIdentifier,
     Character,
-    ComicCharacterAppearance,
-    ComicContribution,
-    ComicIssue,
     ComicItem,
     ComicItemIdentifier,
-    ComicStoryArcMembership,
-    ComicWork,
     EntityAlias,
     EntityLink,
     GameItem,
@@ -48,6 +43,11 @@ from app.models import (
     MusicItem,
     MusicItemDisc,
     MusicItemTrack,
+    MangaCharacterAppearance,
+    MangaChapter,
+    MangaContribution,
+    MangaSeriesMembership,
+    MangaWork,
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
@@ -252,7 +252,7 @@ class AdminCatalogService:
                 _record(entity_type, entity, kind)
 
         await _scan(BookItem, ItemKind.book, "book_item")
-        await _scan(ComicWork, ItemKind.comic, "comic_work")
+        await _scan(ComicItem, ItemKind.comic, "catalog_comic_item")
         await _scan(MusicItem, ItemKind.music, "catalog_music_item")
         await _scan(GameItem, ItemKind.game, "catalog_game_item")
         await _scan(MovieItem, ItemKind.movie, "catalog_movie_item")
@@ -322,7 +322,6 @@ class AdminCatalogService:
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
-            ItemKind.comic: "comic_work",
             ItemKind.manga: "manga_work",
             ItemKind.anime: "anime_series",
             ItemKind.tv: "tv_series",
@@ -516,7 +515,6 @@ class AdminCatalogService:
                         )
                     )
 
-        primary_issue = next(iter(getattr(entity, "issues", []) or []), None)
         primary_media = next(iter(getattr(entity, "media", []) or []), None)
 
         if "title" in update_data and payload.title is not None:
@@ -540,92 +538,7 @@ class AdminCatalogService:
         if "plot_description" in update_data:
             _set_metadata_value("plot_description", self._normalize_optional_text(payload.plot_description))
 
-        if kind == ItemKind.comic:
-            issue = primary_issue
-            if issue is None and any(key in update_data for key in ("item_number", "edition_title", "publisher")):
-                issue = ComicIssue(work_id=entity.id)
-                self.db.add(issue)
-                await self.db.flush()
-            if issue is not None:
-                before["item_number"] = issue.issue_number
-                before["edition_title"] = issue.display_title
-                before["publisher"] = issue.publisher
-                before["release_date"] = issue.release_date
-                before["imprint"] = issue.imprint
-                before["country"] = issue.region
-                before["language"] = issue.language
-                before["age_rating"] = issue.age_rating
-                before["catalog_number"] = issue.catalog_number
-                before["release_status"] = issue.release_status
-                before["page_count"] = issue.page_count
-                if "item_number" in update_data:
-                    issue.issue_number = payload.item_number
-                if "edition_title" in update_data:
-                    issue.display_title = payload.edition_title
-                if "publisher" in update_data:
-                    issue.publisher = payload.publisher
-                if "release_date" in update_data:
-                    _set_partial_date(issue, "release_date", payload.release_date)
-                if "imprint" in update_data:
-                    issue.imprint = payload.imprint
-                if "series_group" in update_data:
-                    _set_metadata_value("series_group", self._normalize_optional_text(payload.series_group))
-                if "country" in update_data:
-                    issue.region = self._normalize_region(payload.country)
-                if "language" in update_data:
-                    issue.language = self._normalize_language(payload.language)
-                if "age_rating" in update_data:
-                    issue.age_rating = payload.age_rating
-                if "catalog_number" in update_data:
-                    issue.catalog_number = payload.catalog_number
-                if "release_status" in update_data:
-                    issue.release_status = self._normalize_release_status(payload.release_status)
-                    if issue.release_status is not None:
-                        await self._ensure_release_status(issue.release_status)
-                if "page_count" in update_data:
-                    issue.page_count = payload.page_count
-                if "cover_image_url" in update_data:
-                    issue.cover_image_url = payload.cover_image_url
-                if "barcode" in update_data:
-                    issue.barcode = payload.barcode
-                if "creators" in update_data:
-                    await _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            ComicContribution(
-                                work_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-                if "characters" in update_data and issue is not None:
-                    await _clear_existing(list(getattr(issue, "character_appearances", []) or []))
-                    await self.db.flush()
-                    for name in self._normalize_text_values(payload.characters):
-                        character = await self._get_or_create_character(name)
-                        self.db.add(ComicCharacterAppearance(issue_id=issue.id, character_id=character.id, role="appears"))
-                if "story_arcs" in update_data and issue is not None:
-                    await _clear_existing(list(getattr(issue, "story_arc_memberships", []) or []))
-                    await self.db.flush()
-                    for index, name in enumerate(self._normalize_text_values(payload.story_arcs), start=1):
-                        story_arc = await self._get_or_create_story_arc(name)
-                        self.db.add(ComicStoryArcMembership(issue_id=issue.id, story_arc_id=story_arc.id, ordinal=index))
-                if "external_links" in update_data:
-                    _set_metadata_value("external_links", self._current_link_values(payload.external_links))
-                if "trailer_urls" in update_data:
-                    _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
-                if "genres" in update_data:
-                    _set_metadata_value("genres", self._normalize_text_values(payload.genres))
-                if "audience_rating" in update_data:
-                    _set_metadata_value("audience_rating", payload.audience_rating)
-
-        elif kind == ItemKind.tv:
+        if kind == ItemKind.tv:
             release = next(iter(getattr(entity, "releases", []) or []), None)
             media = primary_media
             if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode", "physical_format")):
@@ -1513,7 +1426,7 @@ class AdminCatalogService:
         return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind in {ItemKind.game, ItemKind.boardgame}:
+        if kind in {ItemKind.comic, ItemKind.game, ItemKind.boardgame}:
             return self._flat_catalog_item_load_options(kind)
         if kind == ItemKind.book:
             return [
@@ -1521,19 +1434,16 @@ class AdminCatalogService:
                 selectinload(BookItem.credits),
                 selectinload(BookItem.identifiers),
             ]
-        if kind in {ItemKind.comic, ItemKind.manga}:
+        if kind == ItemKind.manga:
             return [
-                selectinload(ComicWork.issues).selectinload(ComicIssue.contributions).selectinload(
-                    ComicContribution.person
+                selectinload(MangaWork.chapters),
+                selectinload(MangaWork.contributions).selectinload(MangaContribution.person),
+                selectinload(MangaWork.character_appearances).selectinload(
+                    MangaCharacterAppearance.character
                 ),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
-                    ComicCharacterAppearance.character
+                selectinload(MangaWork.series_memberships).selectinload(
+                    MangaSeriesMembership.series
                 ),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
-                    ComicStoryArcMembership.story_arc
-                ),
-                selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
             ]
         if kind == ItemKind.movie:
             return [

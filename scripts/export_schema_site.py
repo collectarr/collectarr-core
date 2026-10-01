@@ -37,8 +37,6 @@ SOURCE_MODULES = [
     "app/models/base.py",
     "app/models/canonical_anime.py",
     "app/models/canonical_anime_releases.py",
-    "app/models/canonical_comic_releases.py",
-    "app/models/canonical_comics.py",
     "app/models/canonical_common.py",
     "app/models/canonical_manga.py",
     "app/models/canonical_manga_releases.py",
@@ -138,14 +136,8 @@ KIND_SHARED_TABLES = [
 
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "comic": [
-        "comic_volumes",
-        "comic_works",
-        "comic_issues",
-        "comic_contributions",
-        "comic_identifiers",
-        "comic_series_memberships",
-        "comic_story_arc_memberships",
-        "comic_character_appearances",
+        "comic_items",
+        "comic_item_identifiers",
         "characters",
         "character_appearances",
         "story_arcs",

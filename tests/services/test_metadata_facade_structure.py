@@ -9,7 +9,6 @@ def test_metadata_facade_is_thin_and_uses_response_builders():
     ).read_text(encoding="utf-8")
 
     builder_files = {
-        "metadata_builders_comics.py": ["_comic_contributor_response", "_comic_issue_response", "_comic_work_response"],
         "metadata_builders_manga.py": ["_manga_series_response", "_manga_chapter_response", "_manga_work_response"],
         "metadata_builders_anime.py": ["_anime_series_response", "_anime_episode_response", "_anime_contributor_response"],
         "metadata_builders_tv.py": ["_tv_series_response", "_tv_season_response", "_tv_episode_response"],
@@ -21,6 +20,7 @@ def test_metadata_facade_is_thin_and_uses_response_builders():
 
     assert not (app_dir / "services" / "movies_service.py").exists()
     assert not (app_dir / "services" / "metadata" / "metadata_builders_movies.py").exists()
+    assert not (app_dir / "services" / "metadata" / "metadata_builders_comics.py").exists()
 
     for marker in [marker for markers in builder_files.values() for marker in markers] + ["async def get_item("]:
         assert marker not in facade_service

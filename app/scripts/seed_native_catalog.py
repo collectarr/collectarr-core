@@ -12,11 +12,6 @@ from app.models import (
     AnimeCharacterAppearance,
     AnimeEpisode,
     AnimeSeries,
-    ComicIssue,
-    ComicSeries,
-    ComicSeriesMembership,
-    ComicStoryArcMembership,
-    ComicWork,
     EntityPerson,
     EntityTag,
     MangaChapter,
@@ -37,6 +32,7 @@ from app.models.base import ItemKind
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrinting
 from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
+from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
 from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
@@ -292,21 +288,50 @@ async def _seed_book(db: AsyncSession, entry: _Entry, cover_url: str | None, thu
 
 
 async def _seed_comic(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    series = await _get_or_create_series(db, ComicSeries, entry.series_title, entry.publisher, entry.release_date)
-    work = await _get_or_create_work(db, ComicWork, entry.title, entry.release_date, cover_url)
-    if series is not None:
-        _apply_seed_metadata(series, entry, ItemKind.comic, index, cover_url, thumbnail_url)
-    _apply_seed_metadata(work, entry, ItemKind.comic, index, cover_url, thumbnail_url)
-    await _ensure_person_link(db, work.id, "comic_work", entry.creator, "creator")
-    await _ensure_tag_link(db, work.id, "comic_work", entry.tag)
-    await _ensure_story_arc_link(db, work.id, "comic_work", entry.story_arc)
-    if series is not None:
-        await _ensure_comic_membership(db, work.id, series.id, index)
-    issue = await _get_or_create_comic_issue(db, work.id, entry, cover_url)
-    _apply_seed_metadata(issue, entry, ItemKind.comic, index, cover_url, thumbnail_url)
-    await _ensure_character_appearance(db, issue.id, entry.character, entity_type="comic_issue")
-    await _ensure_story_arc_membership(db, issue.id, entry.story_arc)
-    return [work]
+    title = f"{entry.title} #1"
+    item = (
+        await db.execute(select(ComicItem).where(ComicItem.title == title))
+    ).scalar_one_or_none()
+    if item is None:
+        item = ComicItem(title=title, sort_key=_slug(title), details={})
+        db.add(item)
+        await db.flush()
+    item.sort_key = _slug(title)
+    item.barcode = f"SEED-COMIC-{index:03d}"
+    item.catalog_number = f"SEED-COMIC-{index:03d}"
+    item.details = {
+        **dict(item.details or {}),
+        "original_title": entry.title,
+        "series_title": entry.series_title,
+        "issue_number": "1",
+        "release_date": entry.release_date.isoformat(),
+        "release_date_parts": {
+            "year": entry.release_date.year,
+            "month": entry.release_date.month,
+            "day": entry.release_date.day,
+        },
+        "publisher": entry.publisher,
+        "country": "US",
+        "language": "en",
+        "age_rating": "PG",
+        "genres": [entry.tag] if entry.tag else [],
+        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
+        "characters": [entry.character] if entry.character else [],
+        "story_arcs": [entry.story_arc] if entry.story_arc else [],
+        "description": f"Seed data for {entry.title}.",
+        "cover_image_url": cover_url,
+        "thumbnail_image_url": thumbnail_url,
+    }
+    await _ensure_person_link(db, item.id, "catalog_comic_item", entry.creator, "creator")
+    await _ensure_tag_link(db, item.id, "catalog_comic_item", entry.tag)
+    await _ensure_story_arc_link(db, item.id, "catalog_comic_item", entry.story_arc)
+    await _ensure_character_appearance(
+        db,
+        item.id,
+        entry.character,
+        entity_type="catalog_comic_item",
+    )
+    return [item]
 
 
 async def _seed_manga(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
@@ -697,17 +722,6 @@ async def _get_or_create_work(db: AsyncSession, model: type, title: str, release
     return work
 
 
-async def _get_or_create_comic_issue(db: AsyncSession, work_id: Any, entry: _Entry, cover_url: str | None) -> ComicIssue:
-    result = await db.execute(select(ComicIssue).where(ComicIssue.work_id == work_id, ComicIssue.issue_number == "1"))
-    issue = result.scalar_one_or_none()
-    if issue is not None:
-        return issue
-    issue = ComicIssue(work_id=work_id, issue_number="1", display_title=entry.title, publication_date=entry.release_date, release_date=entry.release_date, publisher=entry.publisher, language="en", region="US", release_status="released", cover_image_url=cover_url)
-    db.add(issue)
-    await db.flush()
-    return issue
-
-
 async def _get_or_create_tv_release(db: AsyncSession, entry: _Entry) -> TVRelease:
     result = await db.execute(select(TVRelease).where(TVRelease.title == entry.title))
     row = result.scalar_one_or_none()
@@ -844,12 +858,6 @@ async def _ensure_book_item_series_membership(
         )
 
 
-async def _ensure_comic_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
-    result = await db.execute(select(ComicSeriesMembership).where(ComicSeriesMembership.work_id == work_id, ComicSeriesMembership.series_id == series_id))
-    if result.scalar_one_or_none() is None:
-        db.add(ComicSeriesMembership(work_id=work_id, series_id=series_id, sequence=float(index), display_number=str(index)))
-
-
 async def _ensure_manga_membership(db: AsyncSession, work_id: Any, series_id: Any, index: int) -> None:
     result = await db.execute(select(MangaSeriesMembership).where(MangaSeriesMembership.work_id == work_id, MangaSeriesMembership.series_id == series_id))
     if result.scalar_one_or_none() is None:
@@ -861,7 +869,7 @@ async def _ensure_character_appearance(
     entity_id: Any,
     character_name: str | None,
     *,
-    entity_type: str = "comic_issue",
+    entity_type: str,
 ) -> None:
     if not character_name:
         return
@@ -897,17 +905,3 @@ async def _ensure_character_appearance(
                 role="main",
             )
         )
-
-
-async def _ensure_story_arc_membership(db: AsyncSession, issue_id: Any, arc_name: str | None) -> None:
-    if not arc_name:
-        return
-    result = await db.execute(select(StoryArc).where(StoryArc.name == arc_name))
-    arc = result.scalar_one_or_none()
-    if arc is None:
-        arc = StoryArc(name=arc_name, description=f"Seed arc {arc_name}", publisher=None)
-        db.add(arc)
-        await db.flush()
-    result = await db.execute(select(ComicStoryArcMembership).where(ComicStoryArcMembership.issue_id == issue_id, ComicStoryArcMembership.story_arc_id == arc.id))
-    if result.scalar_one_or_none() is None:
-        db.add(ComicStoryArcMembership(issue_id=issue_id, story_arc_id=arc.id, ordinal=1))

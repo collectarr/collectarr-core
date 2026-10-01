@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeSeries,
-    ComicWork,
+    ComicItem,
     DuplicateReview,
     DuplicateReviewDetail,
     DuplicateReviewEntity,
@@ -34,7 +34,7 @@ from app.services.typed_values import flatten_typed_values, materialize_typed_va
 # Maps each native root model class to the entity_type string used in generic link tables.
 _ENTITY_TYPE: dict[type, str] = {
     BookItem: "catalog_book_item",
-    ComicWork: "comic_work",
+    ComicItem: "catalog_comic_item",
     MangaWork: "manga_work",
     AnimeSeries: "anime_series",
     MovieItem: "catalog_movie_item",
@@ -47,7 +47,7 @@ _ENTITY_TYPE: dict[type, str] = {
 # Maps each native root model class to a human-readable kind label.
 _KIND_LABEL: dict[type, str] = {
     BookItem: "book",
-    ComicWork: "comic",
+    ComicItem: "comic",
     MangaWork: "manga",
     AnimeSeries: "anime",
     MovieItem: "movie",

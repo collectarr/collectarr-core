@@ -5,7 +5,8 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import ComicWork, DuplicateReview
+from app.models import DuplicateReview
+from app.models.catalog_comic_item import ComicItem
 from app.search.client import SearchClient
 from tests.helpers import seed_comic
 
@@ -29,7 +30,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
         return True
 
     monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
-    item_id, _, _ = await seed_comic()
+    item_id = await seed_comic()
 
     response = await client.patch(
         f"/api/v1/admin/catalog/items/comic/{item_id}",
@@ -49,7 +50,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     body = logs.json()
     assert len(body) == 1
     assert body[0]["actor_email"] == "admin@example.com"
-    assert body[0]["entity_type"] == "comic_work"
+    assert body[0]["entity_type"] == "catalog_comic_item"
     assert body[0]["entity_id"] == item_id
     assert body[0]["details_json"]["fields"] == ["title"]
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
@@ -57,7 +58,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     item_logs = await client.get(
         "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
-        params={"entity_type": "comic_work", "entity_id": item_id},
+        params={"entity_type": "catalog_comic_item", "entity_id": item_id},
     )
 
     assert item_logs.status_code == 200
@@ -68,8 +69,8 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
 async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
-        target = ComicWork(title="Duplicate Book", sort_title="duplicate book")
-        source = ComicWork(title="Duplicate Book", sort_title="duplicate book")
+        target = ComicItem(title="Duplicate Book", sort_key="duplicate book", details={})
+        source = ComicItem(title="Duplicate Book", sort_key="duplicate book", details={})
         db.add_all([target, source])
         await db.commit()
         target_id = str(target.id)
@@ -86,8 +87,8 @@ async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     async with AsyncSessionLocal() as db:
         remaining = list(
             await db.scalars(
-                select(ComicWork).where(
-                    ComicWork.id.in_([UUID(target_id), UUID(source_id)])
+                select(ComicItem).where(
+                    ComicItem.id.in_([UUID(target_id), UUID(source_id)])
                 )
             )
         )
@@ -98,8 +99,8 @@ async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
 async def test_admin_duplicate_ignore_endpoint_records_audit_context(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
     async with AsyncSessionLocal() as db:
-        first = ComicWork(title="Review Me", sort_title="review me")
-        second = ComicWork(title="Review Me", sort_title="review me")
+        first = ComicItem(title="Review Me", sort_key="review me", details={})
+        second = ComicItem(title="Review Me", sort_key="review me", details={})
         db.add_all([first, second])
         await db.commit()
         item_ids = [str(first.id), str(second.id)]

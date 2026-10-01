@@ -30,7 +30,6 @@ from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
     Character,
     CharacterAppearance,
-    ComicSeriesRelation,
     EntityOrganization,
     EntityPerson,
     EntityTag,

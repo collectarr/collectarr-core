@@ -203,10 +203,7 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
         "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.comic: {
-        "work": ("comic_issue", "comic_issues"),
-        "release": ("comic_variant", "comic_variants"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
+        "catalog_item": ("catalog_comic_item", "comic_items"),
     },
     ItemKind.manga: {
         "work": ("manga_work", "manga_works"),
@@ -258,6 +255,8 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
+    if kind == ItemKind.comic:
+        return "catalog_item"
     if kind == ItemKind.music:
         return "catalog_item"
     if kind == ItemKind.book:
@@ -336,7 +335,7 @@ def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     # explicit; they do not get an arbitrary first-entity fallback.
     source_scope = (
         "catalog_item"
-        if kind in {ItemKind.boardgame, ItemKind.book, ItemKind.game, ItemKind.movie, ItemKind.music} and scope == "internal"
+        if kind in {ItemKind.boardgame, ItemKind.book, ItemKind.comic, ItemKind.game, ItemKind.movie, ItemKind.music} and scope == "internal"
         else "work" if scope == "internal" else scope
     )
     try:
@@ -365,7 +364,9 @@ def _field_source_table(key: str, kind: ItemKind) -> str:
 def _field_write_target(key: str, kind: ItemKind) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "readonly_computed"
-    if kind == ItemKind.music:
+    if kind == ItemKind.comic and key == "identifiers":
+        return "core_canonical_relation"
+    if kind in {ItemKind.comic, ItemKind.music}:
         return "core_canonical"
     if key in _RELATION_KEYS or key in _TAG_KEYS:
         return "core_canonical_relation"

@@ -26,12 +26,14 @@ the saved CLZ Music Edit form. Exact CLZ parity for the other eight kinds remain
 unverified until their Edit-form captures are available.
 
 Admin catalog search, item detail, root-level correction, per-kind item counts,
-and search reindex now include flat Catalog Item roots for all nine kinds.
-Admin corrections update normalized identifier rows for the applicable kinds
-and Book credit rows; structured contents such as printings, media, discs, and
-episodes remain kind-owned child data. Other older Core read, diagnostic, and
-administration paths still use Work/Release models and remain part of the
-cutover.
+and search reindex include flat Catalog Item roots for all nine kinds. Comic
+now uses one `ComicItem` root per concrete issue or collected edition; its old
+Work/Issue/Variant tables, routes, correction targets, and search projection
+have been removed. Admin corrections update normalized identifier rows for the
+applicable kinds and Book credit rows; structured contents such as printings,
+media, discs, and episodes remain kind-owned child data. Anime, Manga, and TV
+still have older read and administration paths using Work/Release models and
+remain part of the cutover.
 
 The shared field contract is exported from Core schemas and pinned by App.
 Regenerate it with `python -m scripts.export_contract_bundle`; review any

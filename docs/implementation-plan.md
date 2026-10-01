@@ -29,10 +29,11 @@
 2. Move retained personal references to Catalog Item or Owned Copy references
    and keep their synchronization in `collectarr-sync`.
 3. Move the remaining Core read, diagnostic, and administration paths from
-   Work/Release models to flat Catalog Item roots. Keep structured child edits
-   on their kind-owned operations. Then remove Core catalog routes and tables
-   that App no longer consumes, retaining kind-owned children with independent
-   domain behavior.
+   Work/Release models to flat Catalog Item roots. Comic's old Work/Issue/Variant
+   graph and routes are removed; Anime, Manga, and TV remain. Keep structured
+   child edits on their kind-owned operations. Then remove Core catalog routes
+   and tables that App no longer consumes, retaining kind-owned children with
+   independent domain behavior.
 4. Regenerate the contract and update the documented fresh-database setup in
    all three repositories.
 

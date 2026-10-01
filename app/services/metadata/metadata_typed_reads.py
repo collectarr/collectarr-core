@@ -8,9 +8,6 @@ from app.schemas import (
     AnimeReleaseMediaResponse,
     AnimeReleaseV1Response,
     AnimeSeriesV1Response,
-    ComicIssueV1Response,
-    ComicVariantV1Response,
-    ComicWorkV1Response,
     MangaChapterV1Response,
     MangaEditionV1Response,
     MangaWorkV1Response,
@@ -41,21 +38,6 @@ from app.services.metadata.metadata_reads import (
 )
 from app.services.metadata.metadata_reads import (
     get_anime_series_releases as _get_anime_series_releases,
-)
-from app.services.metadata.metadata_reads import (
-    get_comic_issue as _get_comic_issue,
-)
-from app.services.metadata.metadata_reads import (
-    get_comic_issue_variants as _get_comic_issue_variants,
-)
-from app.services.metadata.metadata_reads import (
-    get_comic_variant as _get_comic_variant,
-)
-from app.services.metadata.metadata_reads import (
-    get_comic_work as _get_comic_work,
-)
-from app.services.metadata.metadata_reads import (
-    get_comic_work_issues as _get_comic_work_issues,
 )
 from app.services.metadata.metadata_reads import (
     get_manga_chapter as _get_manga_chapter,
@@ -105,21 +87,6 @@ from app.services.metadata.metadata_reads import (
 
 
 class MetadataTypedReadService:
-
-    async def get_comic_work(self, work_id: UUID) -> ComicWorkV1Response:
-        return await _get_comic_work(self, work_id)
-
-    async def get_comic_work_issues(self, work_id: UUID) -> list[ComicIssueV1Response]:
-        return await _get_comic_work_issues(self, work_id)
-
-    async def get_comic_issue(self, issue_id: UUID) -> ComicIssueV1Response:
-        return await _get_comic_issue(self, issue_id)
-
-    async def get_comic_issue_variants(self, issue_id: UUID) -> list[ComicVariantV1Response]:
-        return await _get_comic_issue_variants(self, issue_id)
-
-    async def get_comic_variant(self, variant_id: UUID) -> ComicVariantV1Response:
-        return await _get_comic_variant(self, variant_id)
 
     async def get_manga_work(self, work_id: UUID) -> MangaWorkV1Response:
         return await _get_manga_work(self, work_id)

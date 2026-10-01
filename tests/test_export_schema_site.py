@@ -76,8 +76,8 @@ def test_kind_views_surface_flat_catalog_tables():
     kinds = {kind["id"]: kind for kind in data["kinds"]}
     misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
 
-    assert "comic_works" in kinds["comic"]["tables"]
-    assert "comic_volumes" in kinds["comic"]["tables"]
+    assert "comic_items" in kinds["comic"]["tables"]
+    assert "comic_item_identifiers" in kinds["comic"]["tables"]
     assert "book_items" in kinds["book"]["tables"]
     assert "book_series" in kinds["book"]["tables"]
     assert "book_item_printings" in kinds["book"]["tables"]

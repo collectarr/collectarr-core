@@ -19,8 +19,7 @@ from app.core.errors import ApiHTTPException
 from app.models import (
     AnimeRelease,
     AnimeSeries,
-    ComicIssue,
-    ComicVariant,
+    ComicItem,
     MangaEdition,
     MangaWork,
     MusicItem,
@@ -42,8 +41,7 @@ _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     "anime_series": AnimeSeries,
     "catalog_boardgame_item": BoardGameItem,
     "catalog_book_item": BookItem,
-    "comic_issue": ComicIssue,
-    "comic_variant": ComicVariant,
+    "catalog_comic_item": ComicItem,
     "catalog_game_item": GameItem,
     "manga_edition": MangaEdition,
     "manga_work": MangaWork,
@@ -138,9 +136,9 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
     for candidate in direct.get(key, ()):
         if candidate in inspect(model).columns:
             return candidate
-    if key == "identifiers" and model in {BookItem, GameItem, BoardGameItem}:
+    if key == "identifiers" and model in {BookItem, ComicItem, GameItem, BoardGameItem}:
         return None
-    if model in {BookItem, MovieItem, GameItem, BoardGameItem} and "details" in inspect(model).columns:
+    if model in {BookItem, ComicItem, MovieItem, GameItem, BoardGameItem} and "details" in inspect(model).columns:
         return "details"
     return None
 
@@ -364,7 +362,7 @@ class CanonicalCorrectionTargetService:
                         column,
                         json_key=(
                             field.key
-                            if model in {BookItem, MovieItem, GameItem, BoardGameItem}
+                            if model in {BookItem, ComicItem, MovieItem, GameItem, BoardGameItem}
                             and column == "details"
                             else None
                         ),

@@ -1,11 +1,9 @@
 from app.services.metadata.metadata_builders_anime import AnimeMetadataResponseBuilders
-from app.services.metadata.metadata_builders_comics import ComicMetadataResponseBuilders
 from app.services.metadata.metadata_builders_manga import MangaMetadataResponseBuilders
 from app.services.metadata.metadata_builders_tv import TVMetadataResponseBuilders
 
 
 class MetadataResponseBuilders(
-    ComicMetadataResponseBuilders,
     MangaMetadataResponseBuilders,
     AnimeMetadataResponseBuilders,
     TVMetadataResponseBuilders,

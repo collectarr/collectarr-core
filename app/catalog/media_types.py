@@ -14,7 +14,7 @@ class MediaTypeConfig:
     item_number_sort_padding: int | None = None
     is_top_level: bool = True
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
-    grouping_model: GroupingModel = GroupingModel.work_release
+    grouping_model: GroupingModel = GroupingModel.catalog_item
 
     @property
     def primary_route_segment(self) -> str:

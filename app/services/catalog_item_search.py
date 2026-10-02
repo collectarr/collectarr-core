@@ -10,7 +10,6 @@ from uuid import UUID
 from fastapi import status
 from sqlalchemy import extract, func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
@@ -21,10 +20,19 @@ from app.models.catalog_comic_item import ComicItem, ComicItemIdentifier
 from app.models.catalog_game_item import GameItem, GameItemIdentifier
 from app.models.catalog_manga_item import MangaItem, MangaItemIdentifier
 from app.models.catalog_movie_item import MovieItem
-from app.models.catalog_music_item import MusicItem, MusicItemDisc
+from app.models.catalog_music_item import MusicItem
 from app.models.catalog_tv_item import TvItem, TvItemIdentifier
 from app.models.partial_date import PartialDateValue
-from app.schemas.metadata_shared import SearchResult
+from app.schemas.catalog_anime_item import CatalogAnimeItemResponse
+from app.schemas.catalog_boardgame_item import CatalogBoardGameItemResponse
+from app.schemas.catalog_book_item import CatalogBookItemResponse
+from app.schemas.catalog_comic_item import CatalogComicItemResponse
+from app.schemas.catalog_game_item import CatalogGameItemResponse
+from app.schemas.catalog_manga_item import CatalogMangaItemResponse
+from app.schemas.catalog_movie_item import CatalogMovieItemResponse
+from app.schemas.catalog_music_item import CatalogMusicItemResponse
+from app.schemas.catalog_tv_item import CatalogTvItemResponse
+from app.schemas.metadata_shared import CatalogSearchItemEnvelope
 
 
 @dataclass(frozen=True)
@@ -53,6 +61,17 @@ _ROOTS = (
     _CatalogRoot(ItemKind.tv, TvItem, TvItemIdentifier, "identifiers"),
 )
 _ROOT_BY_KIND = {root.kind: root for root in _ROOTS}
+_KIND_FIELDS = {
+    ItemKind.anime: CatalogAnimeItemResponse.model_fields,
+    ItemKind.boardgame: CatalogBoardGameItemResponse.model_fields,
+    ItemKind.book: CatalogBookItemResponse.model_fields,
+    ItemKind.comic: CatalogComicItemResponse.model_fields,
+    ItemKind.game: CatalogGameItemResponse.model_fields,
+    ItemKind.manga: CatalogMangaItemResponse.model_fields,
+    ItemKind.movie: CatalogMovieItemResponse.model_fields,
+    ItemKind.music: CatalogMusicItemResponse.model_fields,
+    ItemKind.tv: CatalogTvItemResponse.model_fields,
+}
 
 
 class CatalogItemSearchService:
@@ -81,7 +100,7 @@ class CatalogItemSearchService:
         barcode: str | None = None,
         limit: int = 25,
         offset: int = 0,
-    ) -> list[SearchResult]:
+    ) -> list[CatalogSearchItemEnvelope]:
         if not any(
             value is not None and str(value).strip()
             for value in (
@@ -152,15 +171,11 @@ class CatalogItemSearchService:
             if not ids:
                 continue
             statement = select(root.model).where(root.model.id.in_(ids))
-            if root.kind is ItemKind.music:
-                statement = statement.options(
-                    selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks)
-                )
             rows = (await self.db.execute(statement)).scalars().unique().all()
             items_by_kind[root.kind] = {item.id: item for item in rows}
 
         return [
-            self._to_search_result(
+            self._to_search_envelope(
                 root=_ROOT_BY_KIND[ItemKind(kind_value)],
                 item=items_by_kind.get(ItemKind(kind_value), {}).get(item_id),
             )
@@ -172,7 +187,7 @@ class CatalogItemSearchService:
         self,
         barcode: str,
         kind: ItemKind | None = None,
-    ) -> SearchResult:
+    ) -> CatalogSearchItemEnvelope:
         results = await self.search(
             kind=kind,
             barcode=barcode,
@@ -322,7 +337,10 @@ class CatalogItemSearchService:
         )
 
     @staticmethod
-    def _to_search_result(root: _CatalogRoot, item: Any) -> SearchResult:
+    def _to_search_envelope(
+        root: _CatalogRoot,
+        item: Any,
+    ) -> CatalogSearchItemEnvelope:
         details = {} if root.kind is ItemKind.music else item.details
         release_date = getattr(item, "release_date", None)
         date_parts_value = getattr(item, "release_date_parts", None)
@@ -333,81 +351,82 @@ class CatalogItemSearchService:
         if date_parts_value is None:
             date_parts_value = details.get("release_date")
         date_parts = _partial_date(date_parts_value)
-        release_year = (
-            release_date.year
-            if release_date is not None
-            else date_parts.year if date_parts is not None else None
-        )
         cover = getattr(item, "cover_image_url", None) or details.get(
             "cover_image_url"
         )
         thumbnail = getattr(item, "thumbnail_image_url", None) or details.get(
             "thumbnail_image_url"
         )
-        track_rows = []
-        if root.kind is ItemKind.music:
-            for disc in sorted(item.discs, key=lambda value: value.disc_number):
-                for track in sorted(disc.tracks, key=lambda value: value.position_order):
-                    track_rows.append(
-                        {
-                            "position": track.position,
-                            "title": track.title,
-                            "artist": track.artist,
-                            "duration_ms": track.duration_ms,
-                            "disc_number": disc.disc_number,
-                        }
-                    )
+        kind_data: dict[str, Any] = {"title": item.title}
 
-        return SearchResult(
+        def add(name: str, value: Any) -> None:
+            if value is None:
+                return
+            field_name = name
+            if name == "variant":
+                field_name = "variant_name"
+            elif root.kind is ItemKind.music and name == "publisher":
+                field_name = "label"
+            elif root.kind is ItemKind.music and name == "physical_format":
+                field_name = "format"
+            if field_name in _KIND_FIELDS[root.kind] and field_name not in {
+                "id",
+                "kind",
+            }:
+                kind_data[field_name] = value
+
+        add(
+            "synopsis",
+            None if root.kind is ItemKind.music else _text(details.get("synopsis")),
+        )
+        add("cover_image_url", _text(cover))
+        add("thumbnail_image_url", _text(thumbnail))
+        add("edition_title", _text(details.get("edition_title")))
+        add(
+            "physical_format",
+            _text(getattr(item, "format", None) or details.get("physical_format")),
+        )
+        add("physical_format_label", _text(details.get("physical_format_label")))
+        add("artist", _text(getattr(item, "artist", None)))
+        add(
+            "publisher",
+            _text(getattr(item, "label", None) or details.get("publisher")),
+        )
+        add("release_date", release_date)
+        add("release_date_parts", date_parts)
+        add("barcode", _text(getattr(item, "barcode", None)))
+        add("item_number", _text(details.get("item_number")))
+        add("catalog_number", _text(getattr(item, "catalog_number", None)))
+        add("series_title", _text(details.get("series_title")))
+        add("volume_name", _text(details.get("volume_name")))
+        add("creators", _object_list(details.get("creators")))
+        add("characters", _string_list(details.get("characters")))
+        add("character_details", _object_list(details.get("character_details")))
+        add("story_arcs", _string_list(details.get("story_arcs")))
+        add("platforms", _string_list(details.get("platforms")))
+        add(
+            "genres",
+            _string_list(
+                getattr(item, "genres", None)
+                if root.kind is ItemKind.music
+                else details.get("genres")
+            ),
+        )
+        add("page_count", _integer(details.get("page_count")))
+        add("cover_price_cents", _integer(details.get("cover_price_cents")))
+        add("currency", _text(details.get("currency")))
+        add("country", _text(getattr(item, "country", None) or details.get("country")))
+        add("release_status", _text(details.get("release_status")))
+        add("language", _text(details.get("language")))
+        add("age_rating", _text(details.get("age_rating")))
+        add("imprint", _text(details.get("imprint")))
+        add("subtitle", _text(getattr(item, "subtitle", None) or details.get("subtitle")))
+        add("series_group", _text(details.get("series_group")))
+
+        return CatalogSearchItemEnvelope(
             id=item.id,
             kind=root.kind,
-            title=item.title,
-            synopsis=(
-                None
-                if root.kind is ItemKind.music
-                else _text(details.get("synopsis"))
-            ),
-            cover_image_url=_text(cover),
-            thumbnail_image_url=_text(thumbnail),
-            edition_title=_text(details.get("edition_title")),
-            physical_format=_text(
-                getattr(item, "format", None) or details.get("physical_format")
-            ),
-            physical_format_label=_text(details.get("physical_format_label")),
-            artist=_text(getattr(item, "artist", None)),
-            publisher=_text(
-                getattr(item, "label", None) or details.get("publisher")
-            ),
-            release_date=release_date,
-            release_date_parts=date_parts,
-            release_year=release_year,
-            barcode=_text(getattr(item, "barcode", None)),
-            item_number=_text(details.get("item_number")),
-            catalog_number=_text(getattr(item, "catalog_number", None)),
-            series_title=_text(details.get("series_title")),
-            volume_name=_text(details.get("volume_name")),
-            track_count=len(track_rows) if root.kind is ItemKind.music else None,
-            tracks=track_rows or None,
-            creators=_object_list(details.get("creators")),
-            characters=_string_list(details.get("characters")),
-            character_details=_object_list(details.get("character_details")),
-            story_arcs=_string_list(details.get("story_arcs")),
-            platforms=_string_list(details.get("platforms")),
-            genres=(
-                _string_list(getattr(item, "genres", None))
-                if root.kind is ItemKind.music
-                else _string_list(details.get("genres"))
-            ),
-            page_count=_integer(details.get("page_count")),
-            cover_price_cents=_integer(details.get("cover_price_cents")),
-            currency=_text(details.get("currency")),
-            country=_text(getattr(item, "country", None) or details.get("country")),
-            release_status=_text(details.get("release_status")),
-            language=_text(details.get("language")),
-            age_rating=_text(details.get("age_rating")),
-            imprint=_text(details.get("imprint")),
-            subtitle=_text(getattr(item, "subtitle", None) or details.get("subtitle")),
-            series_group=_text(details.get("series_group")),
+            kind_data=kind_data,
         )
 
 

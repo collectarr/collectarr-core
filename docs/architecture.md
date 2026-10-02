@@ -63,3 +63,8 @@ root barcode and catalog-number columns. Free-text matching is limited to
 indexed title/sort fields (and indexed Music artist, label, and subtitle
 fields); explicit filters inspect their named kind fields instead of casting
 the entire JSON document to text.
+
+Search and barcode responses use the Catalog Item envelope shape
+`{id, kind, kind_data}`. Search projections are filtered through the response
+schema for the result's kind, so catalog fields such as title, synopsis, dates,
+and images are never emitted as shared top-level metadata.

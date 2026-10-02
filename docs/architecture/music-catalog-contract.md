@@ -1,6 +1,6 @@
 # Music Catalog Contract
 
-The public Music catalog uses one `CatalogMusicItemResponse` for each concrete album edition. Search and detail reads use `/metadata/music/items`; no response contains a Release Group → Release parent chain. Disc and track data are contained by the item and are described by `CatalogMusicDiscResponse` and `CatalogMusicTrackResponse`.
+The public Music catalog uses one `CatalogMusicItemResponse` for each concrete album edition. Search and detail reads use `/metadata/music/items`; no response contains a Release Group → Release parent chain. Disc and track data are contained by the item and are described by `CatalogMusicDiscResponse` and `CatalogMusicTrackResponse`. The cross-kind `/search` and barcode lookup endpoints return `{id, kind, kind_data}` and keep Music fields, including the title, inside the Music-owned data map.
 
 The Core contract exporter derives `contracts/music-catalog-v1.json` from the same Pydantic response schemas used by the API. App pins this artifact and owns the kind-specific Dart DTO. `metadata-field-schema.json` remains the contract for editable metadata fields; it does not describe the contained disc and track structure.
 

@@ -11,7 +11,7 @@ from app.catalog.document_shape import (
     ChildObjectShape,
     KindDocumentShape,
 )
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN, PRINTING, SERIES_MEMBERSHIP
+from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
 from app.catalog.metadata_field_spec import (
     INPUT_DATE,
     INPUT_LIST,
@@ -125,6 +125,41 @@ _BOOK_PERSON = ChildObjectShape(
     allow_string_value=True,
 )
 
+BOOK_PRINTING = ChildObjectShape(
+    fields={
+        "id": STRING,
+        "printing_number": INTEGER,
+        "title": STRING,
+        "release_date": PARTIAL_DATE,
+        "publisher": STRING,
+        "language": STRING,
+        "isbn": STRING,
+    },
+    nullable=frozenset(
+        {
+            "id",
+            "printing_number",
+            "title",
+            "release_date",
+            "publisher",
+            "language",
+            "isbn",
+        }
+    ),
+)
+
+BOOK_SERIES_MEMBERSHIP = ChildObjectShape(
+    fields={
+        "id": STRING,
+        "series_id": STRING,
+        "sequence": "number",
+        "display_number": STRING,
+    },
+    required=frozenset({"series_id"}),
+    non_empty=frozenset({"series_id"}),
+    nullable=frozenset({"id", "sequence", "display_number"}),
+)
+
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(
         {
@@ -180,8 +215,8 @@ DOCUMENT = KindDocumentShape(
         **COMMON_ROOT_CHILDREN,
         "creators": _BOOK_PERSON,
         "contributors": _BOOK_PERSON,
-        "printings": PRINTING,
-        "series_memberships": SERIES_MEMBERSHIP,
+        "printings": BOOK_PRINTING,
+        "series_memberships": BOOK_SERIES_MEMBERSHIP,
         "characters": CHARACTER,
     },
 )

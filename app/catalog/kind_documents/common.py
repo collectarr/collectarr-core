@@ -24,33 +24,6 @@ CHAPTER = ChildObjectShape(
     nullable=frozenset({"id", "chapter_number", "title", "release_date", "page_count", "position"}),
 )
 
-PRINTING = ChildObjectShape(
-    fields={
-        "id": STRING,
-        "printing_number": INTEGER,
-        "title": STRING,
-        "release_date": PARTIAL_DATE,
-        "publisher": STRING,
-        "language": STRING,
-        "isbn": STRING,
-    },
-    nullable=frozenset(
-        {"id", "printing_number", "title", "release_date", "publisher", "language", "isbn"}
-    ),
-)
-
-SERIES_MEMBERSHIP = ChildObjectShape(
-    fields={
-        "id": STRING,
-        "series_id": STRING,
-        "sequence": "number",
-        "display_number": STRING,
-    },
-    required=frozenset({"series_id"}),
-    non_empty=frozenset({"series_id"}),
-    nullable=frozenset({"id", "sequence", "display_number"}),
-)
-
 COMMON_ROOT_CHILDREN = {
     "creators": PERSON,
     "contributors": PERSON,
@@ -68,6 +41,4 @@ COMMON_ROOT_CHILDREN = {
 __all__ = [
     "CHAPTER",
     "COMMON_ROOT_CHILDREN",
-    "PRINTING",
-    "SERIES_MEMBERSHIP",
 ]

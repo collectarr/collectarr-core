@@ -22,12 +22,14 @@
 
 ## Remaining coordinated work
 
-1. Move the remaining cross-kind and kind-specific editable field definitions
-   from `app/catalog/metadata_fields.py` into owner modules. Music, Video,
-   Print, Game, and Board Game fields now declare themselves alongside their
-   kind document contracts; keep the shared registry as composition and
-   contract export only. Truly shared catalog fields remain in the common
-   registry until their owners are explicit in every kind's field contract.
+1. Shared source-neutral field declarations now live in
+   `app/catalog/common_metadata_fields.py`; `metadata_fields.py` composes those
+   declarations with kind and family field specs and derives the exported
+   registry. Music, Video, Print, Game, and Board Game fields declare
+   themselves alongside their document contracts. Continue moving any
+   remaining kind-only declarations into their owner modules; keep genuinely
+   shared catalog fields in the common module until their owners are explicit
+   in every kind's field contract.
 2. Re-export OpenAPI, the canonical contract bundle, and schema visualizations
    after field ownership is complete; review and pin the final bundle in App.
 3. App now has kind-owned typed metadata and `*PersonalData` values in all nine

@@ -1,8 +1,7 @@
 """Anime Catalog Item fields and contained episode/media schemas."""
 
-from app.catalog.document_shape import STRING
+from app.catalog.document_shape import STRING, KindDocumentShape
 from app.catalog.kind_documents.common import ANIME_MEDIA, COMMON_ROOT_CHILDREN, EPISODE, SEASON
-from app.catalog.document_shape import KindDocumentShape
 
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(

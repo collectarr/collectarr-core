@@ -59,6 +59,7 @@ class CatalogBoardGameItemResponse(BaseModel):
     release_date_parts: dict[str, int] | str | None = None
     release_status: str | None = None
     search_aliases: list[str] | None = None
+    series_title: str | None = None
     series_tags: list[str] | None = None
     subtitle: str | None = None
     synopsis: str | None = None

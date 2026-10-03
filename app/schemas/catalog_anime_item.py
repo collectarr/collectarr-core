@@ -80,6 +80,7 @@ class CatalogAnimeItemResponse(BaseModel):
     screen_ratio: str | None = None
     search_aliases: list[str] | None = None
     seasons: list[dict[str, Any]] | None = None
+    series_title: str | None = None
     series_tags: list[str] | None = None
     subtitle: str | None = None
     subtitles: str | None = None

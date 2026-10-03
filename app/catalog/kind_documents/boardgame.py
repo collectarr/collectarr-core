@@ -35,7 +35,7 @@ DOCUMENT = KindDocumentShape(
     root_fields=frozenset(
         {
             "contributors", "description", "identifiers", "min_players", "max_players",
-            "playing_time_minutes", "min_age", "year_published",
+            "playing_time_minutes", "min_age", "year_published", "series_title",
         }
     ),
     root_value_types={
@@ -45,6 +45,7 @@ DOCUMENT = KindDocumentShape(
         "playing_time_minutes": INTEGER,
         "min_age": INTEGER,
         "year_published": INTEGER,
+        "series_title": STRING,
     },
     children=COMMON_ROOT_CHILDREN,
 )

@@ -7,10 +7,10 @@ DOCUMENT = KindDocumentShape(
     root_fields=frozenset(
         {
             "description", "creators", "contributors", "characters", "character_details",
-            "identifiers", "seasons", "episodes", "discs", "media",
+            "identifiers", "seasons", "episodes", "discs", "media", "series_title",
         }
     ),
-    root_value_types={"description": STRING},
+    root_value_types={"description": STRING, "series_title": STRING},
     children={
         **COMMON_ROOT_CHILDREN,
         "media": TV_MEDIA,

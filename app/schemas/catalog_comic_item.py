@@ -29,6 +29,7 @@ class CatalogComicItemResponse(BaseModel):
     audience_rating: str | None = None
     barcode: str | None = None
     catalog_number: str | None = None
+    cover_date: dict[str, int] | str | None = None
     characters: list[dict[str, Any] | str] | None = None
     character_details: list[dict[str, Any] | str] | None = None
     contributors: list[dict[str, Any] | str] | None = None
@@ -71,5 +72,8 @@ class CatalogComicItemResponse(BaseModel):
     volume_name: str | None = None
     volume_number: str | None = None
     identifiers: list[CatalogComicItemIdentifierResponse | str] | None = None
+    key_events: list[dict[str, str | None]] | None = None
+    variant_description: str | None = None
+    volume_start_year: int | None = None
 
     model_config = ConfigDict(extra="forbid")

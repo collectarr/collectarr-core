@@ -1,6 +1,13 @@
 """Comic Catalog Item fields and contained relationships."""
 
-from app.catalog.document_shape import BOOLEAN, INTEGER, STRING, KindDocumentShape
+from app.catalog.document_shape import (
+    BOOLEAN,
+    INTEGER,
+    PARTIAL_DATE,
+    STRING,
+    ChildObjectShape,
+    KindDocumentShape,
+)
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
 from app.catalog.metadata_field_spec import (
     SECTION_ARTWORK,
@@ -15,12 +22,25 @@ FIELD_SPECS = (
                       kinds=frozenset({ItemKind.comic})),
 )
 
+KEY_EVENT = ChildObjectShape(
+    fields={
+        "type": STRING,
+        "character_or_subject": STRING,
+        "description": STRING,
+    },
+    required=frozenset({"type", "character_or_subject"}),
+    non_empty=frozenset({"type", "character_or_subject"}),
+    nullable=frozenset({"description"}),
+)
+
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(
         {
             "creators", "contributors", "description", "characters", "character_details",
             "story_arcs", "identifiers", "series_title", "volume_name", "issue_number",
             "cover_price_cents", "currency", "key_comic", "key_reason",
+            "cover_date", "variant_description", "key_events", "volume_number",
+            "volume_start_year",
         }
     ),
     root_value_types={
@@ -32,6 +52,10 @@ DOCUMENT = KindDocumentShape(
         "currency": STRING,
         "key_comic": BOOLEAN,
         "key_reason": STRING,
+        "cover_date": PARTIAL_DATE,
+        "variant_description": STRING,
+        "volume_number": STRING,
+        "volume_start_year": INTEGER,
     },
-    children=COMMON_ROOT_CHILDREN,
+    children={**COMMON_ROOT_CHILDREN, "key_events": KEY_EVENT},
 )

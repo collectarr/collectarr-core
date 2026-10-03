@@ -105,7 +105,6 @@ DOCUMENT = KindDocumentShape(
             "identifiers",
             "seasons",
             "episodes",
-            "discs",
             "media",
             "series_title",
         }

@@ -66,7 +66,6 @@ class CatalogTvItemResponse(BaseModel):
     cover_image_url: str | None = None
     creators: list[dict[str, Any] | str] | None = None
     description: str | None = None
-    discs: list[dict[str, Any]] | None = None
     edition_title: str | None = None
     episodes: list[CatalogTvItemEpisodeResponse]
     external_links: list[dict[str, Any]] | None = None

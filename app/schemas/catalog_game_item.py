@@ -42,9 +42,12 @@ class CatalogGameItemResponse(BaseModel):
     identifiers: list[CatalogGameItemIdentifierResponse | str] | None = None
     item_number: str | None = None
     language: str | None = None
+    languages: list[str] | None = None
     localized_title: str | None = None
+    original_language: str | None = None
     original_title: str | None = None
     physical_format: str | None = None
+    physical_format_label: str | None = None
     platforms: list[str] | None = None
     plot_description: str | None = None
     plot_summary: str | None = None
@@ -56,6 +59,7 @@ class CatalogGameItemResponse(BaseModel):
     search_aliases: list[str] | None = None
     series_tags: list[str] | None = None
     series_title: str | None = None
+    franchise: str | None = None
     subtitle: str | None = None
     synopsis: str | None = None
     thumbnail_image_url: str | None = None

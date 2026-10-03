@@ -126,81 +126,10 @@ _INTERNAL_DERIVED_KEYS = {
 }
 
 
-_WORK_SCOPE_KEYS = {
-    "title",
-    "original_title",
-    "localized_title",
-    "title_extension",
-    "sort_key",
-    "search_aliases",
-    "item_number",
-    "genres",
-    "platforms",
-    "identifiers",
-    "company_roles",
-    "contributors",
-    "mechanics",
-    "categories",
-    "families",
-    "expansions",
-    "rankings",
-    "audience_rating",
-    "cover_image_url",
-    "thumbnail_image_url",
-    "synopsis",
-    "crossover",
-    "plot_summary",
-    "plot_description",
-}
-
-_MEDIA_SCOPE_KEYS = {
-    "color",
-    "nr_discs",
-    "screen_ratio",
-    "audio_tracks",
-    "subtitles",
-    "layers",
-    "runtime_minutes",
-    "track_count",
-    "tracks",
-}
-
-_TRACK_SCOPE_KEYS = {"tracks", "recording_id"}
-
-_RELATION_KEYS = {"trailer_urls", "external_links"}
-_TAG_KEYS = {"series_tags"}
-
-# Canonical release metadata is deliberately routed through one structural
-# scope for every kind.  Kind-specific labels such as Edition, Issue, or
-# Variant belong to presentation; they must not leak into the Core field
-# contract or correction target.
-_CANONICAL_RELEASE_KEYS = {
-    "physical_format",
-    "edition_title",
-    "release_date",
-    "publisher",
-    "imprint",
-    "subtitle",
-    "series_group",
-    "barcode",
-    "variant_name",
-    "page_count",
-    "catalog_number",
-    "release_status",
-    "country",
-    "language",
-    "age_rating",
-}
-
-# Canonical kind source matrix. This is authoritative for sourceEntityType and
-# sourceTable in the exported field schema. Book, Music, and Movie map to flat
-# Catalog Items; kinds with genuine child records keep those children in their
-# own tables.
+# Canonical source matrix. Item-contained values are stored on each kind root.
 CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     ItemKind.book: {
         "catalog_item": ("catalog_book_item", "book_items"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.comic: {
         "catalog_item": ("catalog_comic_item", "comic_items"),
@@ -213,24 +142,15 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
     },
     ItemKind.movie: {
         "catalog_item": ("catalog_movie_item", "movie_items"),
-        "media": ("catalog_movie_item_media", "movie_item_media"),
-        "relations": ("catalog_movie_item", "movie_items"),
-        "tags": ("catalog_movie_item", "movie_items"),
     },
     ItemKind.tv: {
         "catalog_item": ("catalog_tv_item", "tv_items"),
     },
     ItemKind.game: {
         "catalog_item": ("catalog_game_item", "game_items"),
-        "identifier": ("catalog_game_item", "game_item_identifiers"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.boardgame: {
         "catalog_item": ("catalog_boardgame_item", "boardgame_items"),
-        "identifier": ("catalog_boardgame_item", "boardgame_item_identifiers"),
-        "relations": ("entity_link", "entity_links"),
-        "tags": ("entity_tag", "entity_tags"),
     },
     ItemKind.music: {
         "catalog_item": ("catalog_music_item", "music_items"),
@@ -240,68 +160,9 @@ CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
 def _scope_for_kind(kind: ItemKind, key: str) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "internal"
-    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.tv}:
-        return "catalog_item"
-    if kind == ItemKind.music:
-        return "catalog_item"
-    if kind == ItemKind.book:
-        if key in _RELATION_KEYS:
-            return "relations"
-        if key in _TAG_KEYS:
-            return "tags"
-        return "catalog_item"
-    if kind == ItemKind.movie:
-        if key in _RELATION_KEYS:
-            return "relations"
-        if key in _TAG_KEYS:
-            return "tags"
-        if key == "media":
-            return "media"
-        return "catalog_item"
-    if kind in {ItemKind.game, ItemKind.boardgame}:
-        if key == "identifiers":
-            return "identifier"
-        if key in _RELATION_KEYS:
-            return "relations"
-        if key in _TAG_KEYS:
-            return "tags"
-        return "catalog_item"
-    if key in _RELATION_KEYS:
-        return "relations"
-    if key in _TAG_KEYS:
-        return "tags"
-    if key in _MEDIA_SCOPE_KEYS:
-        return "track" if key == "tracks" else "media"
-    if key in _TRACK_SCOPE_KEYS:
-        return "track"
-    if key == "age_rating" and kind == ItemKind.game:
-        return "age_rating"
-    if key in _CANONICAL_RELEASE_KEYS:
-        return "release"
-    if key == "platforms" and kind == ItemKind.game:
-        return "platform"
-    if key == "identifiers":
-        if kind == ItemKind.game:
-            return "identifier"
-        if kind == ItemKind.boardgame:
-            return "identifier"
-    if key == "company_roles" and kind == ItemKind.game:
-        return "company_role"
-    if key == "contributors" and kind == ItemKind.boardgame:
-        return "contributor"
-    if key == "mechanics" and kind == ItemKind.boardgame:
-        return "mechanic"
-    if key == "categories" and kind == ItemKind.boardgame:
-        return "category"
-    if key == "families" and kind == ItemKind.boardgame:
-        return "family"
-    if key == "expansions" and kind == ItemKind.boardgame:
-        return "expansion"
-    if key == "rankings" and kind == ItemKind.boardgame:
-        return "ranking"
-    if key in _WORK_SCOPE_KEYS:
-        return "work"
-    raise KeyError(f"No canonical field ownership is declared for {kind.value}/{key}.")
+    if kind not in CANONICAL_ENTITY_MATRIX:
+        raise KeyError(f"No canonical field ownership is declared for {kind.value}/{key}.")
+    return "catalog_item"
 
 
 @dataclass(frozen=True)
@@ -316,13 +177,8 @@ class CanonicalFieldOwnership:
 
 def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
     scope = _scope_for_kind(kind, key)
-    # Internal fields are derived and never writable. Their source is still
-    # explicit; they do not get an arbitrary first-entity fallback.
-    source_scope = (
-        "catalog_item"
-        if kind in {ItemKind.boardgame, ItemKind.book, ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.game, ItemKind.movie, ItemKind.music, ItemKind.tv} and scope == "internal"
-        else "work" if scope == "internal" else scope
-    )
+    # Derived display fields read their inputs from the same typed root.
+    source_scope = "catalog_item"
     try:
         entity_type, source_table = CANONICAL_ENTITY_MATRIX[kind][source_scope]
     except KeyError as exc:
@@ -349,12 +205,6 @@ def _field_source_table(key: str, kind: ItemKind) -> str:
 def _field_write_target(key: str, kind: ItemKind) -> str:
     if key in _INTERNAL_DERIVED_KEYS:
         return "readonly_computed"
-    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.tv} and key == "identifiers":
-        return "core_canonical_relation"
-    if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.music, ItemKind.tv}:
-        return "core_canonical"
-    if key in _RELATION_KEYS or key in _TAG_KEYS:
-        return "core_canonical_relation"
     return "core_canonical"
 
 
@@ -462,8 +312,8 @@ _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
 )
 
 # --- Editorial / release fields (not part of normalization) ------------------
-# These are edited by hand on the catalog work + release; they map to canonical
-# columns rather than the normalized metadata JSON, so ``normalized=False``.
+# These are source-neutral fields on one concrete Catalog Item. They map to
+# canonical root fields rather than normalized metadata JSON.
 _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     # Item identity.
     MetadataFieldSpec("title", VALUE_TYPE_STRING, "Title",
@@ -638,9 +488,9 @@ def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[Meta
     ]
 
 
-# Materialize the ownership matrix once so every consumer reads the same
-# answer.  There is intentionally no default Work/Release rebinding here: an
-# applicable field without an explicit source entry is a registration error.
+# Materialize the ownership matrix once so every consumer reads the same root
+# ownership answer. An applicable field without a declared kind root is an
+# error rather than an implicit fallback.
 FIELD_OWNERSHIP_MATRIX: dict[ItemKind, dict[str, CanonicalFieldOwnership]] = {
     kind: {
         spec.key: _field_ownership(kind, spec.key)

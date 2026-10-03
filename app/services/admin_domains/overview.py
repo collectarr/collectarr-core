@@ -20,12 +20,10 @@ from app.models import (
     ImageAsset,
     MangaItem,
     MovieItem,
-    MovieItemMedia,
     MusicItem,
     TvItem,
 )
 from app.models.base import ItemKind
-from app.models.catalog_book_item import BookItemPrinting
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -84,10 +82,7 @@ class AdminOverviewService:
             series=0,
             volumes=0,
             editions=0,
-            variants=(
-                await self._count(BookItemPrinting)
-                + await self._count(MovieItemMedia)
-            ),
+            variants=await self._count_contained_values(),
             image_assets=await self._count_image_assets(),
             pending_proposals=await self._count_pending_proposals(),
             missing_cover_items=await self._count_missing_cover_items(),
@@ -171,6 +166,32 @@ class AdminOverviewService:
     async def _count(self, model: type) -> int:
         return int(await self.db.scalar(select(func.count()).select_from(model)) or 0)
 
+    async def _count_contained_values(self) -> int:
+        counts = {
+            BookItem: ("printings", "credits", "identifiers", "series_memberships"),
+            ComicItem: ("identifiers",),
+            MangaItem: ("identifiers",),
+            AnimeItem: ("media", "episodes", "identifiers"),
+            MovieItem: ("media",),
+            TvItem: ("seasons", "media", "episodes", "identifiers"),
+            GameItem: ("identifiers",),
+            BoardGameItem: ("identifiers",),
+            MusicItem: ("discs",),
+        }
+        total = 0
+        for model, fields in counts.items():
+            length = sum(
+                func.coalesce(func.jsonb_array_length(model.details[field]), 0)
+                for field in fields
+            )
+            total += int(
+                await self.db.scalar(
+                    select(func.coalesce(func.sum(length), 0)).select_from(model)
+                )
+                or 0
+            )
+        return total
+
     async def _item_counts_by_kind(self) -> dict[str, int]:
         counts = {kind.value: 0 for kind in ItemKind}
         native_counts: dict[ItemKind, type] = {
@@ -229,18 +250,6 @@ class AdminOverviewService:
         )
         return total
 
-    async def _count_missing_cover_movie_items(self) -> int:
-        has_no_cover = (
-            MovieItem.details["cover_image_url"].as_string().is_(None)
-            & MovieItem.details["thumbnail_image_url"].as_string().is_(None)
-        )
-        return int(
-            await self.db.scalar(
-                select(func.count()).select_from(MovieItem).where(has_no_cover)
-            )
-            or 0
-        )
-
     async def _count_missing_cover_items_for_root(
         self,
         model: type,
@@ -249,27 +258,6 @@ class AdminOverviewService:
     ) -> int:
         has_cover = or_(*[getattr(model, field).is_not(None) for field in cover_fields])
         return int(await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0)
-
-    async def _count_missing_cover_items_for_child(
-        self,
-        parent_model: type,
-        child_model: type,
-        parent_fk: str,
-        *,
-        root_cover_fields: tuple[str, str] = (),
-        child_cover_fields: tuple[str, str] = ("cover_image_url", "cover_image_key"),
-    ) -> int:
-        root_has_cover = (
-            or_(*[getattr(parent_model, field).is_not(None) for field in root_cover_fields])
-            if root_cover_fields
-            else None
-        )
-        child_has_cover = exists().where(
-            getattr(child_model, parent_fk) == parent_model.id,
-            or_(*[getattr(child_model, field).is_not(None) for field in child_cover_fields]),
-        )
-        predicate = child_has_cover if root_has_cover is None else or_(root_has_cover, child_has_cover)
-        return int(await self.db.scalar(select(func.count()).select_from(parent_model).where(~predicate)) or 0)
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
@@ -289,24 +277,7 @@ class AdminOverviewService:
             GameItem,
             BoardGameItem,
         ):
-            options = {
-                BookItem: [
-                    selectinload(BookItem.identifiers),
-                    selectinload(BookItem.credits),
-                ],
-                ComicItem: [selectinload(ComicItem.identifiers)],
-                MangaItem: [selectinload(MangaItem.identifiers)],
-                AnimeItem: [selectinload(AnimeItem.identifiers)],
-                GameItem: [selectinload(GameItem.identifiers)],
-                BoardGameItem: [selectinload(BoardGameItem.identifiers)],
-                TvItem: [
-                    selectinload(TvItem.seasons),
-                    selectinload(TvItem.media),
-                    selectinload(TvItem.episodes),
-                    selectinload(TvItem.identifiers),
-                ],
-            }.get(item_model, [])
-            result = await self.db.execute(select(item_model).options(*options))
+            result = await self.db.execute(select(item_model))
             documents.extend(
                 catalog_search_document(item)
                 for item in result.scalars().unique()

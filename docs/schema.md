@@ -12,28 +12,27 @@ attached to catalog entities are allowed in Core.
 
 ## Central Catalog
 
-The schema is kind-first. Each flattened kind root has a typed identity and revision,
-kind-owned canonical details, and dedicated child tables for repeated records. Several
-flattened roots store their validated kind details in JSONB; child records with independent
-behavior remain relational.
+The schema is kind-first. Each concrete catalog item has one typed root row with a stable
+identity, revision, and kind-owned `details` JSONB document. Repeated item data is typed and
+stored inside that root document instead of separate child tables. `book_series` remains an
+independent reusable grouping.
 
 | Kind | Canonical tables |
 | --- | --- |
-| Music | `music_items` (contained discs/tracks in JSONB) |
-| Books | `book_items`, `book_item_printings`, `book_item_credits`, `book_item_identifiers`, `book_series`, `book_item_series_memberships` |
-| Games | `game_items`, `game_item_identifiers` |
-| Board games | `boardgame_items`, `boardgame_item_identifiers` |
-| Comics | `comic_items`, `comic_item_identifiers` |
-| Manga | `manga_items`, `manga_item_identifiers` |
-| Anime | `anime_items`, `anime_item_media`, `anime_item_episodes`, `anime_item_identifiers` |
-| Movies | `movie_items`, `movie_item_media` |
-| TV | `tv_items`, `tv_item_seasons`, `tv_item_episodes`, `tv_item_media`, `tv_item_identifiers` |
+| Music | `music_items` (discs and tracks are contained in `details`) |
+| Books | `book_items`, `book_series` (printings, credits, identifiers, and item membership are contained in `details`) |
+| Games | `game_items` (identifiers are contained in `details`) |
+| Board games | `boardgame_items` (identifiers are contained in `details`) |
+| Comics | `comic_items` (identifiers and issue details are contained in `details`) |
+| Manga | `manga_items` (identifiers and chapters are contained in `details`) |
+| Anime | `anime_items` (media, seasons, episodes, and identifiers are contained in `details`) |
+| Movies | `movie_items` (media is contained in `details`) |
+| TV | `tv_items` (media, seasons, episodes, and identifiers are contained in `details`) |
 
-Lists, identifiers, genres, platforms, credits, aliases, links, and other repeated values
-use typed relation tables. Scalar metadata uses concrete SQL columns (`String`, `Text`,
-`Integer`, `Boolean`, `Date`, `DateTime`, `Numeric`, `UUID`, or typed arrays where the field
-is intrinsically ordered). Canonical payloads are validated and persisted through typed
-kind-specific catalog fields.
+Kind-owned document schemas validate each root's scalar fields and repeated values, including
+component identity and order where applicable. Shared editorial records such as people,
+organizations, aliases, links, and tags keep independent tables when they are reused across
+catalog items. Core search uses root columns and indexes over the JSONB documents.
 
 The full generated schema, including every column, enum, foreign key, index, and constraint,
 is available in [schema-full.md](schema-full.md) and the interactive [schema viewer](schema.html).

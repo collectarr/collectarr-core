@@ -14,10 +14,11 @@ creation and editing. They do not contain source identities or owned-copy data.
 ## Catalog model
 
 The target shape is one typed Catalog Item per concrete collectible edition,
-version, issue variant, or release. Music discs and tracks are contained in the root JSONB document.
-Independent children such as TV/Anime episodes, Book printings, credits, and
-identifiers remain in kind-owned tables. A series may remain a reference or grouping; it is not a
-required editable parent.
+version, issue variant, or release. Media, seasons, episodes, printings,
+credits, identifiers, discs, tracks, and other repeated item values are typed
+documents inside that kind's root JSONB document. Reusable groupings such as
+Book series may keep independent identity; they are not required editable
+parents.
 
 Typed Catalog Item APIs and proposals exist for all nine kinds. The App cutover
 is still in progress, so this repository does not yet claim that every older
@@ -29,10 +30,11 @@ Admin catalog search, item detail, root-level correction, per-kind item counts,
 and search reindex include flat Catalog Item roots for all nine kinds. Comic,
 Game, Board Game, and Manga each use one root per concrete collectible item;
 their old Work/Release-style roots and related read paths have been removed.
-Admin corrections update normalized identifier rows for applicable kinds and
-Book credit rows. Structured contents such as printings, media, discs, seasons,
-and episodes remain kind-owned child data. Anime and TV each use one flat
-Catalog Item root with contained media, episodes, and identifiers; TV's former
+Admin corrections update the relevant kind-owned root document while preserving
+unrelated component identities. Structured contents such as printings, media,
+discs, seasons, and episodes remain kind-owned values inside that document.
+Anime and TV each use one flat Catalog Item root with contained media,
+seasons, episodes, and identifiers; TV's former
 series/release routes, models, services, and database tables are removed from
 the active schema.
 
@@ -58,8 +60,8 @@ baseline. Never reset a deployed database as part of implementation work.
 
 PostgreSQL is the source of truth. The Add search route queries the flattened
 Catalog Item roots directly and accepts `limit` and `offset`. Exact identifier
-matches use each kind's indexed identity table where one exists, plus indexed
-root barcode and catalog-number columns. Free-text matching is limited to
+matches use the kind root's indexed JSONB details document, plus indexed root
+barcode and catalog-number columns. Free-text matching is limited to
 indexed title/sort fields (and indexed Music artist, label, and subtitle
 fields); explicit filters inspect their named kind fields instead of casting
 the entire JSON document to text.

@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from uuid import uuid4
 
 from app.models import (
     EntityPerson,
@@ -18,15 +18,15 @@ from app.models import (
 )
 from app.models.base import ItemKind
 from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem, BookItemCredit, BookItemPrinting
-from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
+from app.models.catalog_book_item import BookItem
+from app.models.catalog_book_series import BookSeries
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_game_item import GameItem
-from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode
+from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_manga_item import MangaItem
-from app.models.catalog_movie_item import MovieItem, MovieItemMedia
+from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_music_item import MusicItem
-from app.models.catalog_tv_item import TvItem, TvItemEpisode, TvItemMedia, TvItemSeason
+from app.models.catalog_tv_item import TvItem
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
 SEED_MARKER = "seed-native"
@@ -209,15 +209,7 @@ async def _seed_entry(db: AsyncSession, kind: ItemKind, entry: _Entry, index: in
 
 async def _seed_book(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
     item = (
-        await db.execute(
-            select(BookItem)
-            .where(BookItem.title == entry.title)
-            .options(
-                selectinload(BookItem.printings),
-                selectinload(BookItem.credits),
-                selectinload(BookItem.series_memberships),
-            )
-        )
+        await db.execute(select(BookItem).where(BookItem.title == entry.title))
     ).scalar_one_or_none()
     if item is None:
         item = BookItem(
@@ -252,26 +244,25 @@ async def _seed_book(db: AsyncSession, entry: _Entry, cover_url: str | None, thu
         entry.release_date,
     )
     if series is not None:
-        await _ensure_book_item_series_membership(db, item.id, series.id, index)
-    if not item.printings:
-        item.printings.append(
-            BookItemPrinting(
-                printing_number=1,
-                title=entry.title,
-                release_date=entry.release_date.isoformat(),
-                publisher=entry.publisher,
-                language="en",
-            )
-        )
-    if not item.credits:
-        item.credits.append(
-            BookItemCredit(
-                credit_type="creator",
-                name=entry.creator[0],
-                role=entry.creator[1],
-                sequence=1,
-            )
-        )
+        await _ensure_book_item_series_membership(db, item, series.id, index)
+    if not item.details.get("printings"):
+        item.details["printings"] = [{
+            "id": str(uuid4()),
+            "printing_number": 1,
+            "title": entry.title,
+            "release_date": entry.release_date.isoformat(),
+            "publisher": entry.publisher,
+            "language": "en",
+        }]
+    if not item.details.get("credits"):
+        item.details["credits"] = [{
+            "id": str(uuid4()),
+            "credit_type": "creator",
+            "name": entry.creator[0],
+            "role": entry.creator[1],
+            "sequence": 1,
+        }]
+    item.details = dict(item.details)
     await _ensure_person_link(db, item.id, "catalog_book_item", entry.creator, "creator")
     await _ensure_tag_link(db, item.id, "catalog_book_item", entry.tag)
     await _ensure_story_arc_link(db, item.id, "catalog_book_item", entry.story_arc)
@@ -411,28 +402,21 @@ async def _seed_anime(db: AsyncSession, entry: _Entry, cover_url: str | None, th
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
     }
-    episode = (
-        await db.execute(
-            select(AnimeItemEpisode).where(
-                AnimeItemEpisode.anime_item_id == item.id,
-                AnimeItemEpisode.position == 0,
-            )
-        )
-    ).scalar_one_or_none()
-    if episode is None:
-        episode = AnimeItemEpisode(
-            item=item,
-            position=0,
-            episode_number=index,
-            title=entry.title,
-            details={
-                "air_date": entry.release_date.isoformat(),
-                "description": entry.series_title,
-                "runtime_minutes": 24,
-                "cover_image_url": cover_url,
-            },
-        )
-        db.add(episode)
+    if not item.details.get("media"):
+        item.details["media"] = [{"id": str(uuid4()), "position": 0, "media_number": 1}]
+    if not item.details.get("episodes"):
+        item.details["episodes"] = [{
+            "id": str(uuid4()),
+            "position": 0,
+            "episode_number": index,
+            "title": entry.title,
+            "episode_title": entry.title,
+            "air_date": entry.release_date.isoformat(),
+            "description": entry.series_title,
+            "runtime_minutes": 24,
+            "cover_image_url": cover_url,
+        }]
+    item.details = dict(item.details)
     await _ensure_person_link(db, item.id, "catalog_anime_item", entry.creator, "creator")
     await _ensure_tag_link(db, item.id, "catalog_anime_item", entry.tag)
     await _ensure_story_arc_link(db, item.id, "catalog_anime_item", entry.story_arc)
@@ -480,20 +464,16 @@ async def _seed_movie(db: AsyncSession, entry: _Entry, cover_url: str | None, th
         "thumbnail_image_url": thumbnail_url,
     }
     await _ensure_person_link(db, item.id, "catalog_movie_item", entry.creator, "director")
-    media = (
-        await db.execute(
-            select(MovieItemMedia).where(
-                MovieItemMedia.movie_item_id == item.id,
-                MovieItemMedia.media_number == 1,
-            )
-        )
-    ).scalar_one_or_none()
-    if media is None:
-        media = MovieItemMedia(item=item, media_number=1)
-        db.add(media)
-    media.media_type = "disc"
-    media.title = entry.title
-    media.color = "color"
+    media = item.details.get("media") or []
+    if not media:
+        item.details["media"] = [{
+            "id": str(uuid4()),
+            "media_number": 1,
+            "media_type": "disc",
+            "title": entry.title,
+            "color": "color",
+        }]
+        item.details = dict(item.details)
     return [item]
 
 
@@ -526,65 +506,40 @@ async def _seed_tv(db: AsyncSession, entry: _Entry, cover_url: str | None, thumb
     }
     await db.flush()
     await _ensure_person_link(db, item.id, "catalog_tv_item", entry.creator, "creator")
-    media = (
-        await db.execute(
-            select(TvItemMedia).where(
-                TvItemMedia.tv_item_id == item.id,
-                TvItemMedia.media_number == 1,
-            )
-        )
-    ).scalar_one_or_none()
-    if media is None:
-        media = TvItemMedia(item=item, position=0, media_number=1)
-        db.add(media)
-    media.details = {
-        "media_type": "season",
-        "title": entry.title,
-        "episode_count": 1,
-        "runtime_minutes": 42,
-        "region_code": "US",
-        "encoding": "digital",
-    }
-    season = (
-        await db.execute(
-            select(TvItemSeason).where(
-                TvItemSeason.tv_item_id == item.id,
-                TvItemSeason.season_number == 1,
-            )
-        )
-    ).scalar_one_or_none()
-    if season is None:
-        season = TvItemSeason(item=item, season_number=1)
-        db.add(season)
-    season.title = entry.series_title
-    season.details = {
-        "episode_count": 1,
-        "release_date": entry.release_date.isoformat(),
-        "description": f"Seed season for {entry.series_title}.",
-    }
-    episode = (
-        await db.execute(
-            select(TvItemEpisode).where(
-                TvItemEpisode.tv_item_id == item.id,
-                TvItemEpisode.position == 0,
-            )
-        )
-    ).scalar_one_or_none()
-    if episode is None:
-        episode = TvItemEpisode(
-            item=item,
-            position=0,
-            season_number=1,
-        )
-        db.add(episode)
-    episode.season_number = 1
-    episode.episode_number = index
-    episode.title = entry.title
-    episode.details = {
-        "overview": entry.series_title,
-        "original_air_date": entry.release_date.isoformat(),
-        "runtime_minutes": 42,
-    }
+    if not item.details.get("media"):
+        item.details["media"] = [{
+            "id": str(uuid4()),
+            "position": 0,
+            "media_number": 1,
+            "media_type": "season",
+            "title": entry.title,
+            "episode_count": 1,
+            "runtime_minutes": 42,
+            "region_code": "US",
+            "encoding": "digital",
+        }]
+    if not item.details.get("episodes"):
+        item.details["episodes"] = [{
+            "id": str(uuid4()),
+            "position": 0,
+            "season_number": 1,
+            "episode_number": index,
+            "title": entry.title,
+            "episode_title": entry.title,
+            "overview": entry.series_title,
+            "original_air_date": entry.release_date.isoformat(),
+            "runtime_minutes": 42,
+        }]
+    if not item.details.get("seasons"):
+        item.details["seasons"] = [{
+            "id": str(uuid4()),
+            "season_number": 1,
+            "title": entry.series_title,
+            "episode_count": 1,
+            "release_date": entry.release_date.isoformat(),
+            "description": f"Seed season for {entry.series_title}.",
+        }]
+    item.details = dict(item.details)
     await db.flush()
     return [item]
 
@@ -827,25 +782,18 @@ async def _ensure_story_arc_link(db: AsyncSession, entity_id: Any, entity_type: 
 
 async def _ensure_book_item_series_membership(
     db: AsyncSession,
-    item_id: Any,
+    item: BookItem,
     series_id: Any,
     index: int,
 ) -> None:
-    result = await db.execute(
-        select(BookItemSeriesMembership).where(
-            BookItemSeriesMembership.book_item_id == item_id,
-            BookItemSeriesMembership.series_id == series_id,
-        )
-    )
-    if result.scalar_one_or_none() is None:
-        db.add(
-            BookItemSeriesMembership(
-                book_item_id=item_id,
-                series_id=series_id,
-                sequence=float(index),
-                display_number=str(index),
-            )
-        )
+    memberships = list(item.details.get("series_memberships") or [])
+    if not any(str(value.get("series_id")) == str(series_id) for value in memberships):
+        memberships.append({
+            "series_id": str(series_id),
+            "sequence": float(index),
+            "display_number": str(index),
+        })
+        item.details = {**item.details, "series_memberships": memberships}
 
 
 async def _ensure_character_appearance(

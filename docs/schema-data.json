@@ -14,12 +14,11 @@
     "app/models/catalog_music_item.py",
     "app/models/catalog_tv_item.py",
     "app/models/canonical_support.py",
-    "app/models/canonical_video.py",
     "app/models/user.py"
   ],
   "notes": [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
+    "Each Catalog Item's repeated kind data is stored in its validated JSONB details document; shared support tables model independent cross-cutting records.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command."
   ],
@@ -162,13 +161,12 @@
         "tags",
         "entity_tags",
         "comic_items",
-        "comic_item_identifiers",
         "characters",
         "character_appearances",
         "story_arcs",
         "story_arc_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_ITEM_IDENTIFIERS {\n    UUID comic_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    VARCHAR_64 first_appearance_entity_type\n    UUID first_appearance_entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    VARCHAR_64 start_date_parts\n    DATE end_date\n    VARCHAR_64 end_date_parts\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  COMIC_ITEMS ||--o{ COMIC_ITEM_IDENTIFIERS : comic_item_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  COMIC_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    VARCHAR_64 first_appearance_entity_type\n    UUID first_appearance_entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    VARCHAR_64 start_date_parts\n    DATE end_date\n    VARCHAR_64 end_date_parts\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
       "external_references": []
     },
     {
@@ -185,13 +183,12 @@
         "tags",
         "entity_tags",
         "manga_items",
-        "manga_item_identifiers",
         "characters",
         "character_appearances",
         "story_arcs",
         "story_arc_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_ITEM_IDENTIFIERS {\n    UUID manga_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    VARCHAR_64 first_appearance_entity_type\n    UUID first_appearance_entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    VARCHAR_64 start_date_parts\n    DATE end_date\n    VARCHAR_64 end_date_parts\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  MANGA_ITEMS ||--o{ MANGA_ITEM_IDENTIFIERS : manga_item_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MANGA_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTERS {\n    VARCHAR_255 name\n    VARCHAR_255 canonical_name\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    VARCHAR_64 first_appearance_entity_type\n    UUID first_appearance_entity_id\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  CHARACTER_APPEARANCES {\n    UUID character_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARCS {\n    VARCHAR_255 name\n    TEXT description\n    VARCHAR_255 publisher\n    DATE start_date\n    VARCHAR_64 start_date_parts\n    DATE end_date\n    VARCHAR_64 end_date_parts\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  STORY_ARC_ITEMS {\n    UUID story_arc_id FK\n    VARCHAR_64 entity_type\n    UUID entity_id\n    INTEGER ordinal\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  CHARACTERS ||--o{ CHARACTER_APPEARANCES : character_id\n  STORY_ARCS ||--o{ STORY_ARC_ITEMS : story_arc_id",
       "external_references": []
     },
     {
@@ -207,12 +204,9 @@
         "entity_persons",
         "tags",
         "entity_tags",
-        "anime_items",
-        "anime_item_media",
-        "anime_item_episodes",
-        "anime_item_identifiers"
+        "anime_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_ITEM_MEDIA {\n    UUID anime_item_id FK\n    INTEGER position\n    INTEGER media_number\n    JSONB details\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_ITEM_EPISODES {\n    UUID anime_item_id FK\n    INTEGER position\n    INTEGER episode_number\n    VARCHAR_255 title\n    JSONB details\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_ITEM_IDENTIFIERS {\n    UUID anime_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  ANIME_ITEMS ||--o{ ANIME_ITEM_MEDIA : anime_item_id\n  ANIME_ITEMS ||--o{ ANIME_ITEM_EPISODES : anime_item_id\n  ANIME_ITEMS ||--o{ ANIME_ITEM_IDENTIFIERS : anime_item_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ANIME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -228,11 +222,9 @@
         "entity_persons",
         "tags",
         "entity_tags",
-        "movie_items",
-        "movie_item_media",
-        "bundle_releases"
+        "movie_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MOVIE_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MOVIE_ITEM_MEDIA {\n    UUID movie_item_id FK\n    INTEGER media_number\n    VARCHAR_64 media_type\n    VARCHAR_255 title\n    VARCHAR_16 aspect_ratio\n    VARCHAR_50 screen_ratio\n    VARCHAR_64 color\n    INTEGER num_discs\n    INTEGER nr_layers\n    VARCHAR_50 layers\n    VARCHAR_500 audio_tracks\n    VARCHAR_500 subtitles\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_64 release_date_parts\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  MOVIE_ITEMS ||--o{ MOVIE_ITEM_MEDIA : movie_item_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MOVIE_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -248,14 +240,9 @@
         "entity_persons",
         "tags",
         "entity_tags",
-        "tv_items",
-        "tv_item_seasons",
-        "tv_item_episodes",
-        "tv_item_media",
-        "tv_item_identifiers",
-        "bundle_releases"
+        "tv_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_ITEM_SEASONS {\n    UUID tv_item_id FK\n    INTEGER season_number\n    VARCHAR_255 title\n    JSONB details\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_ITEM_EPISODES {\n    UUID tv_item_id FK\n    INTEGER position\n    INTEGER season_number\n    INTEGER episode_number\n    VARCHAR_255 title\n    JSONB details\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_ITEM_MEDIA {\n    UUID tv_item_id FK\n    INTEGER position\n    INTEGER media_number\n    JSONB details\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_ITEM_IDENTIFIERS {\n    UUID tv_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_64 release_date_parts\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  TV_ITEMS ||--o{ TV_ITEM_SEASONS : tv_item_id\n  TV_ITEMS ||--o{ TV_ITEM_EPISODES : tv_item_id\n  TV_ITEMS ||--o{ TV_ITEM_MEDIA : tv_item_id\n  TV_ITEMS ||--o{ TV_ITEM_IDENTIFIERS : tv_item_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TV_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -271,10 +258,9 @@
         "entity_persons",
         "tags",
         "entity_tags",
-        "game_items",
-        "game_item_identifiers"
+        "game_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_ITEM_IDENTIFIERS {\n    UUID game_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  GAME_ITEMS ||--o{ GAME_ITEM_IDENTIFIERS : game_item_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -290,16 +276,15 @@
         "entity_persons",
         "tags",
         "entity_tags",
-        "boardgame_items",
-        "boardgame_item_identifiers"
+        "boardgame_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_ITEM_IDENTIFIERS {\n    UUID boardgame_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  BOARDGAME_ITEMS ||--o{ BOARDGAME_ITEM_IDENTIFIERS : boardgame_item_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOARDGAME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
       "id": "book",
       "title": "Books",
-      "description": "Books v1 work/edition schema slice.",
+      "description": "Book Catalog Item and reusable series grouping schema slice.",
       "tables": [
         "entity_aliases",
         "entity_links",
@@ -310,13 +295,9 @@
         "tags",
         "entity_tags",
         "book_series",
-        "book_items",
-        "book_item_printings",
-        "book_item_credits",
-        "book_item_identifiers",
-        "book_item_series_memberships"
+        "book_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    VARCHAR_64 start_date_parts\n    DATE end_date\n    VARCHAR_64 end_date_parts\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_ITEM_PRINTINGS {\n    UUID book_item_id FK\n    INTEGER printing_number\n    VARCHAR_255 title\n    JSONB release_date\n    VARCHAR_255 publisher\n    VARCHAR_16 language\n    VARCHAR_32 isbn\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_ITEM_CREDITS {\n    UUID book_item_id FK\n    VARCHAR_32 credit_type\n    UUID person_id FK\n    VARCHAR_255 name\n    VARCHAR_64 role\n    VARCHAR_64 role_id\n    INTEGER sequence\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_ITEM_IDENTIFIERS {\n    UUID book_item_id FK\n    VARCHAR_64 identifier_type\n    VARCHAR_255 value\n    VARCHAR_255 normalized_value\n    BOOLEAN is_primary\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_ITEM_SERIES_MEMBERSHIPS {\n    UUID book_item_id FK\n    UUID series_id FK\n    FLOAT sequence\n    VARCHAR_64 display_number\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  BOOK_ITEMS ||--o{ BOOK_ITEM_PRINTINGS : book_item_id\n  BOOK_ITEMS ||--o{ BOOK_ITEM_CREDITS : book_item_id\n  PERSONS o|--o{ BOOK_ITEM_CREDITS : person_id\n  BOOK_ITEMS ||--o{ BOOK_ITEM_IDENTIFIERS : book_item_id\n  BOOK_ITEMS ||--o{ BOOK_ITEM_SERIES_MEMBERSHIPS : book_item_id\n  BOOK_SERIES ||--o{ BOOK_ITEM_SERIES_MEMBERSHIPS : series_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_SERIES {\n    VARCHAR_255 title\n    VARCHAR_255 slug\n    TEXT description\n    VARCHAR_255 original_title\n    DATE start_date\n    VARCHAR_64 start_date_parts\n    DATE end_date\n    VARCHAR_64 end_date_parts\n    VARCHAR_64 status\n    VARCHAR_16 language\n    VARCHAR_64 country\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BOOK_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -332,10 +313,9 @@
         "entity_persons",
         "tags",
         "entity_tags",
-        "music_items",
-        "bundle_releases"
+        "music_items"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_500 subtitle\n    VARCHAR_500 artist\n    JSONB artist_credits\n    DATE original_release_date\n    JSONB original_release_date_parts\n    DATE recording_date\n    JSONB recording_date_parts\n    DATE release_date\n    JSONB release_date_parts\n    VARCHAR_255 label\n    VARCHAR_100 format\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB genres\n    VARCHAR_100 packaging\n    JSONB studios\n    VARCHAR_100 country\n    BOOLEAN is_live\n    JSONB sound_types\n    VARCHAR_100 vinyl_color\n    VARCHAR_100 vinyl_weight\n    INTEGER rpm\n    TEXT extra\n    VARCHAR_50 spars\n    VARCHAR_255 box_set\n    JSONB composers\n    JSONB conductors\n    JSONB choruses\n    JSONB compositions\n    JSONB orchestras\n    JSONB songwriters\n    JSONB producers\n    JSONB engineers\n    JSONB musicians\n    JSONB external_links\n    VARCHAR_2048 cover_image_url\n    VARCHAR_2048 back_cover_image_url\n    VARCHAR_2048 thumbnail_image_url\n    INTEGER revision\n    JSONB discs\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_64 release_date_parts\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_500 subtitle\n    VARCHAR_500 artist\n    JSONB artist_credits\n    DATE original_release_date\n    JSONB original_release_date_parts\n    DATE recording_date\n    JSONB recording_date_parts\n    DATE release_date\n    JSONB release_date_parts\n    VARCHAR_255 label\n    VARCHAR_100 format\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB genres\n    VARCHAR_100 packaging\n    JSONB studios\n    VARCHAR_100 country\n    BOOLEAN is_live\n    JSONB sound_types\n    VARCHAR_100 vinyl_color\n    VARCHAR_100 vinyl_weight\n    INTEGER rpm\n    TEXT extra\n    VARCHAR_50 spars\n    VARCHAR_255 box_set\n    JSONB composers\n    JSONB conductors\n    JSONB choruses\n    JSONB compositions\n    JSONB orchestras\n    JSONB songwriters\n    JSONB producers\n    JSONB engineers\n    JSONB musicians\n    JSONB external_links\n    VARCHAR_2048 cover_image_url\n    VARCHAR_2048 back_cover_image_url\n    VARCHAR_2048 thumbnail_image_url\n    INTEGER revision\n    JSONB discs\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -439,8 +419,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_anime_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -530,6 +512,13 @@
             "name": "ix_anime_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_anime_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -646,8 +635,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_boardgame_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -737,6 +728,13 @@
             "name": "ix_boardgame_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_boardgame_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -853,8 +851,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_book_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -944,6 +944,13 @@
             "name": "ix_book_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_book_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -2183,8 +2190,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_comic_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -2274,6 +2283,13 @@
             "name": "ix_comic_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_comic_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -2781,8 +2797,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_game_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -2872,6 +2890,13 @@
             "name": "ix_game_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -3244,8 +3269,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_manga_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -3335,6 +3362,13 @@
             "name": "ix_manga_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_manga_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -3584,8 +3618,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_movie_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -3679,6 +3715,13 @@
             "unique": false
           },
           {
+            "name": "ix_movie_items_details_gin",
+            "columns": [
+              "details"
+            ],
+            "unique": false
+          },
+          {
             "name": "ix_movie_items_sort_key",
             "columns": [
               "sort_key"
@@ -3757,8 +3800,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_music_items_subtitle_trgm"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -4454,6 +4499,13 @@
             "name": "ix_music_items_sort_title_trgm",
             "columns": [
               "sort_title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_music_items_subtitle_trgm",
+            "columns": [
+              "subtitle"
             ],
             "unique": false
           },
@@ -5569,8 +5621,10 @@
           "primary_key": false,
           "unique": false,
           "unique_constraint": null,
-          "index": false,
-          "indexes": [],
+          "index": true,
+          "indexes": [
+            "ix_tv_items_details_gin"
+          ],
           "default": null,
           "server_default": null,
           "autoincrement": true,
@@ -5660,6 +5714,13 @@
             "name": "ix_tv_items_catalog_number",
             "columns": [
               "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_tv_items_details_gin",
+            "columns": [
+              "details"
             ],
             "unique": false
           },
@@ -6067,1509 +6128,6 @@
             "name": "ix_admin_audit_logs_entity_type",
             "columns": [
               "entity_type"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "anime_item_episodes",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "anime_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "anime_item_id",
-              "target_table": "anime_items",
-              "target_column": "id",
-              "target": "anime_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "position",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "episode_number",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "details",
-          "type": "JSONB",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "anime_item_id"
-            ],
-            "targets": [
-              "anime_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_anime_item_episode_position",
-            "columns": [
-              "anime_item_id",
-              "position"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_anime_item_episodes_number",
-            "columns": [
-              "anime_item_id",
-              "episode_number"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "anime_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "anime_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "anime_item_id",
-              "target_table": "anime_items",
-              "target_column": "id",
-              "target": "anime_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "anime_item_id"
-            ],
-            "targets": [
-              "anime_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_anime_item_identifier_normalized",
-            "columns": [
-              "anime_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_anime_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "anime_item_media",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "anime_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "anime_item_id",
-              "target_table": "anime_items",
-              "target_column": "id",
-              "target": "anime_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "position",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "media_number",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "details",
-          "type": "JSONB",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "anime_item_id"
-            ],
-            "targets": [
-              "anime_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_anime_item_media_position",
-            "columns": [
-              "anime_item_id",
-              "position"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_anime_item_media_number",
-            "columns": [
-              "anime_item_id",
-              "media_number"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "boardgame_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "boardgame_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "boardgame_item_id",
-              "target_table": "boardgame_items",
-              "target_column": "id",
-              "target": "boardgame_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "boardgame_item_id"
-            ],
-            "targets": [
-              "boardgame_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_boardgame_item_identifier_normalized",
-            "columns": [
-              "boardgame_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_boardgame_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "book_item_credits",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "book_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "book_item_id",
-              "target_table": "book_items",
-              "target_column": "id",
-              "target": "book_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "credit_type",
-          "type": "VARCHAR(32)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "person_id",
-          "type": "UUID",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "person_id",
-              "target_table": "persons",
-              "target_column": "id",
-              "target": "persons.id",
-              "ondelete": "SET NULL",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "name",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "role",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "role_id",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "sequence",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "book_item_id"
-            ],
-            "targets": [
-              "book_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
-              "person_id"
-            ],
-            "targets": [
-              "persons.id"
-            ],
-            "ondelete": "SET NULL",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_book_item_credits_item_role",
-            "columns": [
-              "book_item_id",
-              "credit_type",
-              "sequence"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "book_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "book_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "book_item_id",
-              "target_table": "book_items",
-              "target_column": "id",
-              "target": "book_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "book_item_id"
-            ],
-            "targets": [
-              "book_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_book_item_identifier_normalized",
-            "columns": [
-              "book_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_book_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "book_item_printings",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "book_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_book_item_printings_item"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "book_item_id",
-              "target_table": "book_items",
-              "target_column": "id",
-              "target": "book_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "printing_number",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "release_date",
-          "type": "JSONB",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "publisher",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "language",
-          "type": "VARCHAR(16)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "isbn",
-          "type": "VARCHAR(32)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "book_item_id"
-            ],
-            "targets": [
-              "book_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_book_item_printings_item",
-            "columns": [
-              "book_item_id"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "book_item_series_memberships",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "book_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_book_item_series_memberships_book_item_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "book_item_id",
-              "target_table": "book_items",
-              "target_column": "id",
-              "target": "book_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "series_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_book_item_series_memberships_series_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "series_id",
-              "target_table": "book_series",
-              "target_column": "id",
-              "target": "book_series.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "sequence",
-          "type": "FLOAT",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "display_number",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "book_item_id"
-            ],
-            "targets": [
-              "book_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          },
-          {
-            "name": null,
-            "columns": [
-              "series_id"
-            ],
-            "targets": [
-              "book_series.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_book_item_series_memberships_item_series",
-            "columns": [
-              "book_item_id",
-              "series_id"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_book_item_series_memberships_book_item_id",
-            "columns": [
-              "book_item_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_book_item_series_memberships_series_id",
-            "columns": [
-              "series_id"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_book_item_series_memberships_series_sequence",
-            "columns": [
-              "series_id",
-              "sequence"
             ],
             "unique": false
           }
@@ -8523,185 +7081,6 @@
       "polymorphic_note": null
     },
     {
-      "name": "comic_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "comic_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "comic_item_id",
-              "target_table": "comic_items",
-              "target_column": "id",
-              "target": "comic_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "comic_item_id"
-            ],
-            "targets": [
-              "comic_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_comic_item_identifier_normalized",
-            "columns": [
-              "comic_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_comic_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
       "name": "duplicate_reviews",
       "domain": "misc",
       "columns": [
@@ -9535,647 +7914,6 @@
       "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
     },
     {
-      "name": "game_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "game_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "game_item_id",
-              "target_table": "game_items",
-              "target_column": "id",
-              "target": "game_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "game_item_id"
-            ],
-            "targets": [
-              "game_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_game_item_identifier_normalized",
-            "columns": [
-              "game_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_game_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "manga_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "manga_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "manga_item_id",
-              "target_table": "manga_items",
-              "target_column": "id",
-              "target": "manga_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "manga_item_id"
-            ],
-            "targets": [
-              "manga_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_manga_item_identifier_normalized",
-            "columns": [
-              "manga_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_manga_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "movie_item_media",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "movie_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "movie_item_id",
-              "target_table": "movie_items",
-              "target_column": "id",
-              "target": "movie_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "media_number",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "media_type",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "aspect_ratio",
-          "type": "VARCHAR(16)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "screen_ratio",
-          "type": "VARCHAR(50)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "color",
-          "type": "VARCHAR(64)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "num_discs",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "nr_layers",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "layers",
-          "type": "VARCHAR(50)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "audio_tracks",
-          "type": "VARCHAR(500)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "subtitles",
-          "type": "VARCHAR(500)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "movie_item_id"
-            ],
-            "targets": [
-              "movie_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_movie_item_media_number",
-            "columns": [
-              "movie_item_id",
-              "media_number"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_movie_item_media_item",
-            "columns": [
-              "movie_item_id",
-              "media_number"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
       "name": "story_arc_items",
       "domain": "editorial",
       "columns": [
@@ -10363,696 +8101,6 @@
             "unique": false
           }
         ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "tv_item_episodes",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "tv_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "tv_item_id",
-              "target_table": "tv_items",
-              "target_column": "id",
-              "target": "tv_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "position",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "season_number",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "episode_number",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "details",
-          "type": "JSONB",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "tv_item_id"
-            ],
-            "targets": [
-              "tv_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_tv_item_episode_position",
-            "columns": [
-              "tv_item_id",
-              "position"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_tv_item_episodes_coordinates",
-            "columns": [
-              "tv_item_id",
-              "season_number",
-              "episode_number"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "tv_item_identifiers",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "tv_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "tv_item_id",
-              "target_table": "tv_items",
-              "target_column": "id",
-              "target": "tv_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "identifier_type",
-          "type": "VARCHAR(64)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "normalized_value",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "is_primary",
-          "type": "BOOLEAN",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "False",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "tv_item_id"
-            ],
-            "targets": [
-              "tv_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_tv_item_identifier_normalized",
-            "columns": [
-              "tv_item_id",
-              "identifier_type",
-              "normalized_value"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_tv_item_identifiers_type_value",
-            "columns": [
-              "identifier_type",
-              "normalized_value"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "tv_item_media",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "tv_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "tv_item_id",
-              "target_table": "tv_items",
-              "target_column": "id",
-              "target": "tv_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "position",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "media_number",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "details",
-          "type": "JSONB",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "tv_item_id"
-            ],
-            "targets": [
-              "tv_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_tv_item_media_position",
-            "columns": [
-              "tv_item_id",
-              "position"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_tv_item_media_number",
-            "columns": [
-              "tv_item_id",
-              "media_number"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
-      "name": "tv_item_seasons",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "tv_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "tv_item_id",
-              "target_table": "tv_items",
-              "target_column": "id",
-              "target": "tv_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "season_number",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "details",
-          "type": "JSONB",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "tv_item_id"
-            ],
-            "targets": [
-              "tv_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_tv_item_season_number",
-            "columns": [
-              "tv_item_id",
-              "season_number"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": []
       },
       "polymorphic_note": null
     },
@@ -11798,126 +8846,6 @@
       "onupdate": null
     },
     {
-      "from_table": "anime_item_episodes",
-      "from_columns": [
-        "anime_item_id"
-      ],
-      "to_targets": [
-        "anime_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "anime_item_identifiers",
-      "from_columns": [
-        "anime_item_id"
-      ],
-      "to_targets": [
-        "anime_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "anime_item_media",
-      "from_columns": [
-        "anime_item_id"
-      ],
-      "to_targets": [
-        "anime_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "boardgame_item_identifiers",
-      "from_columns": [
-        "boardgame_item_id"
-      ],
-      "to_targets": [
-        "boardgame_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "book_item_credits",
-      "from_columns": [
-        "book_item_id"
-      ],
-      "to_targets": [
-        "book_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "book_item_credits",
-      "from_columns": [
-        "person_id"
-      ],
-      "to_targets": [
-        "persons.id"
-      ],
-      "name": null,
-      "ondelete": "SET NULL",
-      "onupdate": null
-    },
-    {
-      "from_table": "book_item_identifiers",
-      "from_columns": [
-        "book_item_id"
-      ],
-      "to_targets": [
-        "book_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "book_item_printings",
-      "from_columns": [
-        "book_item_id"
-      ],
-      "to_targets": [
-        "book_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "book_item_series_memberships",
-      "from_columns": [
-        "book_item_id"
-      ],
-      "to_targets": [
-        "book_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "book_item_series_memberships",
-      "from_columns": [
-        "series_id"
-      ],
-      "to_targets": [
-        "book_series.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
       "from_table": "bundle_release_components",
       "from_columns": [
         "bundle_release_id"
@@ -11960,18 +8888,6 @@
       ],
       "to_targets": [
         "characters.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "comic_item_identifiers",
-      "from_columns": [
-        "comic_item_id"
-      ],
-      "to_targets": [
-        "comic_items.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -12026,96 +8942,12 @@
       "onupdate": null
     },
     {
-      "from_table": "game_item_identifiers",
-      "from_columns": [
-        "game_item_id"
-      ],
-      "to_targets": [
-        "game_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "manga_item_identifiers",
-      "from_columns": [
-        "manga_item_id"
-      ],
-      "to_targets": [
-        "manga_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "movie_item_media",
-      "from_columns": [
-        "movie_item_id"
-      ],
-      "to_targets": [
-        "movie_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
       "from_table": "story_arc_items",
       "from_columns": [
         "story_arc_id"
       ],
       "to_targets": [
         "story_arcs.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "tv_item_episodes",
-      "from_columns": [
-        "tv_item_id"
-      ],
-      "to_targets": [
-        "tv_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "tv_item_identifiers",
-      "from_columns": [
-        "tv_item_id"
-      ],
-      "to_targets": [
-        "tv_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "tv_item_media",
-      "from_columns": [
-        "tv_item_id"
-      ],
-      "to_targets": [
-        "tv_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
-      "from_table": "tv_item_seasons",
-      "from_columns": [
-        "tv_item_id"
-      ],
-      "to_targets": [
-        "tv_items.id"
       ],
       "name": null,
       "ondelete": "CASCADE",
@@ -12159,11 +8991,11 @@
     }
   ],
   "summary": {
-    "tables": 53,
-    "columns": 528,
-    "foreign_keys": 31,
-    "indexes": 168,
-    "unique_constraints": 30,
+    "tables": 37,
+    "columns": 392,
+    "foreign_keys": 13,
+    "indexes": 160,
+    "unique_constraints": 16,
     "check_constraints": 3
   }
 }

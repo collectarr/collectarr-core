@@ -15,7 +15,16 @@ class CatalogMusicTrackResponse(BaseModel):
     position_order: int = Field(ge=0)
     title: str = Field(min_length=1, max_length=255)
     artist: str | None = None
+    composition: str | None = None
     duration_ms: int | None = Field(default=None, ge=0)
+    offset_ms: int | None = Field(default=None, ge=0)
+    bitrate_kbps: int | None = Field(default=None, ge=0)
+    file_size_bytes: int | None = Field(default=None, ge=0)
+    track_hash: str | None = None
+    instrument: str | None = None
+    is_header: bool = False
+    indent_level: int = Field(default=0, ge=0)
+    parent_header_id: UUID | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -32,8 +41,22 @@ class CatalogMusicDiscResponse(BaseModel):
     id: UUID
     disc_number: int = Field(ge=1)
     title: str | None = None
+    medium_type: str | None = None
+    track_count: int | None = Field(default=None, ge=0)
+    expected_track_count: int | None = Field(default=None, ge=0)
+    missing_track_count: int | None = Field(default=None, ge=0)
+    missing_track_positions: list[str] = Field(default_factory=list)
+    toc: str | None = None
+    cddb_id: str | None = None
+    leadout_offset: int | None = Field(default=None, ge=0)
+    bp_disc_id: str | None = None
     matrix_number_side_a: str | None = None
     matrix_number_side_b: str | None = None
+    sound_type: str | None = None
+    vinyl_color: str | None = None
+    vinyl_weight: str | None = None
+    rpm: int | None = Field(default=None, ge=0)
+    spars: str | None = None
     tracks: list[CatalogMusicTrackResponse]
 
     model_config = ConfigDict(from_attributes=True)
@@ -45,6 +68,12 @@ class CatalogMusicDiscResponse(BaseModel):
             raise ValueError("Track IDs must be unique within a disc")
         if len({track.position_order for track in tracks}) != len(tracks):
             raise ValueError("Track order must be unique within a disc")
+        if len({track.position.casefold() for track in tracks}) != len(tracks):
+            raise ValueError("Track positions must be unique within a disc")
+        header_ids = {track.id for track in tracks if track.is_header}
+        for track in tracks:
+            if track.parent_header_id is not None and track.parent_header_id not in header_ids:
+                raise ValueError("Track parent_header_id must refer to a header on the same disc")
         return sorted(tracks, key=lambda track: track.position_order)
 
 
@@ -52,15 +81,24 @@ def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Build validated JSON-safe discs, preserving supplied component IDs."""
     discs: list[CatalogMusicDiscResponse] = []
     for raw in value:
-        tracks = [
-            CatalogMusicTrackResponse.model_validate({
-                **track,
-                "id": track.get("id") or uuid4(),
-                "position": str(track["position"]),
-                "position_order": track.get("position_order", index),
-            })
-            for index, track in enumerate(raw.get("tracks") or [])
-        ]
+        tracks: list[CatalogMusicTrackResponse] = []
+        for index, track in enumerate(raw.get("tracks") or []):
+            position_order = track.get("position_order")
+            if not isinstance(position_order, int) or isinstance(position_order, bool):
+                position_order = index
+            position = track.get("position")
+            if position is None or not str(position).strip():
+                position = str(position_order + 1)
+            tracks.append(
+                CatalogMusicTrackResponse.model_validate(
+                    {
+                        **track,
+                        "id": track.get("id") or uuid4(),
+                        "position": str(position),
+                        "position_order": position_order,
+                    }
+                )
+            )
         discs.append(CatalogMusicDiscResponse.model_validate({
             **raw, "id": raw.get("id") or uuid4(), "tracks": tracks,
         }))

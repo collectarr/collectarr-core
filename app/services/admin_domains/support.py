@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models import (
     AdminAuditLog,
@@ -101,24 +100,11 @@ class AdminSupportService:
         documents: list[dict[str, Any]] = []
         if not item_ids:
             return
-        flat_root_options = {
-            BookItem: [
-                selectinload(BookItem.identifiers),
-                selectinload(BookItem.credits),
-            ],
-            ComicItem: [selectinload(ComicItem.identifiers)],
-            MangaItem: [selectinload(MangaItem.identifiers)],
-            AnimeItem: [selectinload(AnimeItem.identifiers)],
-            GameItem: [selectinload(GameItem.identifiers)],
-            BoardGameItem: [selectinload(BoardGameItem.identifiers)],
-            TvItem: [selectinload(TvItem.identifiers)],
-        }
         for model in (
             MusicItem, MovieItem,
             BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
         ):
             statement = select(model).where(model.id.in_(item_ids))
-            statement = statement.options(*flat_root_options.get(model, []))
             model_result = await self.db.execute(statement)
             documents.extend(
                 catalog_search_document(entity)

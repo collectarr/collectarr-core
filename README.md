@@ -35,7 +35,8 @@ can optionally sync through `collectarr-sync`.
 ### 📚 Canonical Catalog
 
 - Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
-- Canonical entities and kind-specific children such as media, tracks, people, organizations, story arcs, characters, and shared series tags
+- One root item per concrete edition with typed, kind-owned JSONB documents for media, tracks, episodes, credits, identifiers, and other contained values
+- Independent reusable people, organizations, series groupings, story arcs, and shared editorial tags where their identities are needed
 - Kind-aware search and admin responses backed by Core-owned catalog fields
 - Shared editorial metadata that complements local-first personal data in the app
 
@@ -73,9 +74,11 @@ references.
 
 ### Schema bootstrap
 
-The server database is created directly from the typed SQLAlchemy models. When
-the schema changes, recreate the development database and run
-`python -m app.scripts.bootstrap_schema`.
+The server database is created directly from the typed SQLAlchemy models. Use a
+new, empty database for this baseline, then run
+`python -m app.scripts.bootstrap_schema`. `create_all()` does not reshape an
+existing schema. Keep existing databases and backups untouched; do not point
+the new baseline at an existing database.
 
 ---
 
@@ -89,6 +92,9 @@ docker compose up --build -d
 docker compose exec api python -m app.scripts.bootstrap_schema
 docker compose exec api python -m app.scripts.seed_comics
 ```
+
+Before bootstrapping, configure the stack to use a new empty PostgreSQL database.
+Do not delete or reuse an existing database as part of this setup.
 
 ### Run local development tooling
 
@@ -209,9 +215,10 @@ See [docs/implementation-plan.md](docs/implementation-plan.md) for the full road
 
 Current active tracks:
 
-- complete the App Catalog Item and Owned Copy cutover while preserving the established UI
-- move retained personal features to explicit Catalog Item or Owned Copy references and Sync
-- remove Core's old per-kind Work/Release API and tables after App no longer consumes them
+- move scalar editable field definitions from Core's shared metadata registry into kind-owned modules
+- finish App's typed metadata and personal-data model while preserving its established UI
+- finish the coordinated App/Sync payload cutover; Sync remains personal-data-only
+- regenerate and pin the Core contract bundle after the field ownership changes
 - expand duplicate review, keeping merge disabled until personal references can be remapped safely
 - continue public-deployment hardening for internet-facing setups
 - keep the interactive schema explorer clearer by separating general tables from kind-specific tables

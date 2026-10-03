@@ -9,7 +9,6 @@ import imagehash
 from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
@@ -18,24 +17,13 @@ from app.models import (
     MusicItem,
 )
 from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import (
-    BookItem,
-    BookItemCredit,
-    BookItemIdentifier,
-    BookItemPrinting,
-)
+from app.models.catalog_book_item import BookItem
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_comic_item import ComicItem
-from app.models.catalog_movie_item import MovieItem, MovieItemMedia
+from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_manga_item import MangaItem
-from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode, AnimeItemMedia
-from app.models.catalog_tv_item import (
-    TvItem,
-    TvItemEpisode,
-    TvItemIdentifier,
-    TvItemMedia,
-    TvItemSeason,
-)
+from app.models.catalog_anime_item import AnimeItem
+from app.models.catalog_tv_item import TvItem
 from app.search.client import SearchClient
 from app.search.documents import (
     catalog_search_document,
@@ -74,26 +62,21 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         BoardGameItem,
         MusicItem,
     )
-    edition_tables = (
-        BookItemPrinting,
-        AnimeItemMedia,
-        AnimeItemEpisode,
-        MovieItemMedia,
-        TvItemSeason,
-        TvItemMedia,
-        TvItemEpisode,
-        )
-    variant_tables = (
-        BookItemCredit,
-        BookItemIdentifier,
-        TvItemIdentifier,
-        )
+    nested_fields = {
+        BookItem: ("printings", "credits", "identifiers", "series_memberships"),
+        ComicItem: ("identifiers",),
+        MangaItem: ("identifiers",),
+        AnimeItem: ("media", "episodes", "identifiers"),
+        MovieItem: ("media",),
+        TvItem: ("seasons", "media", "episodes", "identifiers"),
+        GameItem: ("identifiers",),
+        BoardGameItem: ("identifiers",),
+        MusicItem: ("discs",),
+    }
     item_count = 0
     item_updated_at: datetime | None = None
     edition_count = 0
     edition_updated_at: datetime | None = None
-    variant_count = 0
-    variant_updated_at: datetime | None = None
 
     for table in root_tables:
         count = await db.scalar(select(func.count()).select_from(table))
@@ -102,84 +85,54 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         if updated_at and (item_updated_at is None or updated_at > item_updated_at):
             item_updated_at = updated_at
 
-    for table in edition_tables:
-        count = await db.scalar(select(func.count()).select_from(table))
-        updated_at = await db.scalar(select(func.max(table.updated_at)))
+    for model, fields in nested_fields.items():
+        lengths = [
+            func.coalesce(func.jsonb_array_length(model.details[field]), 0)
+            for field in fields
+        ]
+        count = await db.scalar(
+            select(func.coalesce(func.sum(sum(lengths)), 0)).select_from(model)
+        )
+        updated_at = await db.scalar(select(func.max(model.updated_at)))
         edition_count += count or 0
         if updated_at and (edition_updated_at is None or updated_at > edition_updated_at):
             edition_updated_at = updated_at
-
-    for table in variant_tables:
-        count = await db.scalar(select(func.count()).select_from(table))
-        updated_at = await db.scalar(select(func.max(table.updated_at)))
-        variant_count += count or 0
-        if updated_at and (variant_updated_at is None or updated_at > variant_updated_at):
-            variant_updated_at = updated_at
 
     return CatalogFingerprint(
         item_count=item_count,
         item_updated_at=item_updated_at,
         edition_count=edition_count,
         edition_updated_at=edition_updated_at,
-        variant_count=variant_count,
-        variant_updated_at=variant_updated_at,
+        variant_count=0,
+        variant_updated_at=None,
     )
 
 
 async def index_once(search: SearchClient) -> None:
     async with AsyncSessionLocal() as db:
         documents = []
-        book_rows = await db.execute(
-            select(BookItem).options(
-                selectinload(BookItem.printings),
-                selectinload(BookItem.credits),
-                selectinload(BookItem.identifiers),
-            )
-        )
+        book_rows = await db.execute(select(BookItem))
         documents.extend(catalog_search_document(row) for row in book_rows.scalars().unique())
 
-        comic_rows = await db.execute(
-            select(ComicItem).options(selectinload(ComicItem.identifiers))
-        )
+        comic_rows = await db.execute(select(ComicItem))
         documents.extend(catalog_search_document(row) for row in comic_rows.scalars().unique())
 
-        manga_rows = await db.execute(
-            select(MangaItem).options(selectinload(MangaItem.identifiers))
-        )
+        manga_rows = await db.execute(select(MangaItem))
         documents.extend(catalog_search_document(row) for row in manga_rows.scalars().unique())
 
-        movie_rows = await db.execute(
-            select(MovieItem).options(selectinload(MovieItem.media))
-        )
+        movie_rows = await db.execute(select(MovieItem))
         documents.extend(movie_item_search_document(row) for row in movie_rows.scalars().unique())
 
-        tv_rows = await db.execute(
-            select(TvItem).options(
-                selectinload(TvItem.seasons),
-                selectinload(TvItem.media),
-                selectinload(TvItem.episodes),
-                selectinload(TvItem.identifiers),
-            )
-        )
+        tv_rows = await db.execute(select(TvItem))
         documents.extend(catalog_search_document(row) for row in tv_rows.scalars().unique())
 
-        game_rows = await db.execute(
-            select(GameItem).options(selectinload(GameItem.identifiers))
-        )
+        game_rows = await db.execute(select(GameItem))
         documents.extend(catalog_search_document(row) for row in game_rows.scalars().unique())
 
-        boardgame_rows = await db.execute(
-            select(BoardGameItem).options(selectinload(BoardGameItem.identifiers))
-        )
+        boardgame_rows = await db.execute(select(BoardGameItem))
         documents.extend(catalog_search_document(row) for row in boardgame_rows.scalars().unique())
 
-        anime_rows = await db.execute(
-            select(AnimeItem).options(
-                selectinload(AnimeItem.media),
-                selectinload(AnimeItem.episodes),
-                selectinload(AnimeItem.identifiers),
-            )
-        )
+        anime_rows = await db.execute(select(AnimeItem))
         documents.extend(catalog_search_document(row) for row in anime_rows.scalars().unique())
 
         music_rows = await db.execute(

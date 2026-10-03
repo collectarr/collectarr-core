@@ -6,11 +6,11 @@ Core owns source-neutral canonical catalog data and its read/write API. It must 
 
 ## Flattened catalog architecture
 
-Each kind has one root aggregate per concrete collectible edition, version, issue variant, or release. The root keeps edition-level facts in one kind-owned aggregate. Do not add a generic Work-to-Release graph.
+Each kind has one root aggregate per concrete collectible edition, version, issue variant, or release. The root keeps item-level facts and repeated item contents in one kind-owned JSONB document. Do not add a generic Work-to-Release graph.
 
-Keep genuinely independent children in kind-owned tables, including TV and Anime seasons/episodes/media, Book printings, and kind-specific people, characters, credits, links, identifiers, and mappings.
+Media, seasons, episodes, printings, credits, identifiers, discs, and tracks are typed values contained by their kind's root. They are not standalone catalog entities or relational child tables. Genuinely independent groupings such as `book_series`, and reusable people or organizations, may keep their own identities when active workflows need them.
 
-Music discs and tracks are contained JSONB documents on `music_items`, validated by typed schemas and edited through the album root. They are not standalone entities.
+Music discs and tracks are contained JSONB documents on `music_items`, validated by Music-owned schemas and edited through the album root.
 
 Use separate typed root tables per kind. The planned roots are `music_items`, `tv_items`, `anime_items`, `movie_items`, `book_items`, `boardgame_items`, `game_items`, `manga_items`, and `comic_items`. A kind-local series may remain a grouping/reference, but it must not be a required editable parent in the catalog-item flow.
 
@@ -20,7 +20,7 @@ The project has no provider search, credentials, rate limiting, source-ID mappin
 
 ## API and contracts
 
-Prefer typed, kind-owned routes for flat roots and their real children. Export OpenAPI and the canonical field/identity contracts from their source schemas. Regenerate contracts after schema or route changes and keep the App's pinned contract in sync.
+Prefer typed, kind-owned routes for flat roots and their contained documents. Export OpenAPI and the canonical field/identity contracts from their source schemas. Regenerate contracts after schema or route changes and keep the App's pinned contract in sync.
 
 ## Database baseline
 

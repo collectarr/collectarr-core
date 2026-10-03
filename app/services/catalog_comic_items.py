@@ -5,16 +5,15 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.catalog_comic_item import ComicItem, ComicItemIdentifier
+from app.models.catalog_comic_item import ComicItem
 from app.schemas.catalog_comic_item import CatalogComicItemResponse
 
 
@@ -31,14 +30,14 @@ class CatalogComicItemService:
         if not isinstance(title, str) or not title.strip():
             raise ValueError("Comic Catalog Item title must not be empty")
 
-        raw_identifiers = payload.pop("identifiers", None) or []
+        raw_identifiers = payload.get("identifiers", []) or []
         identifiers = [
             identifier
             for identifier in (_identifier(value) for value in raw_identifiers)
             if identifier is not None
         ]
         identifier_keys = {
-            (row.identifier_type, row.normalized_value) for row in identifiers
+            (row["identifier_type"], row["normalized_value"]) for row in identifiers
         }
         if len(identifier_keys) != len(identifiers):
             raise ValueError("Comic identifiers must be unique by type and normalized value")
@@ -48,8 +47,7 @@ class CatalogComicItemService:
             sort_key=_optional_string(payload.pop("sort_key", None)),
             barcode=_optional_string(payload.pop("barcode", None)),
             catalog_number=_optional_string(payload.pop("catalog_number", None)),
-            details=payload,
-            identifiers=identifiers,
+            details={**payload, "identifiers": identifiers},
         )
         self.db.add(item)
         await self.db.flush()
@@ -63,17 +61,14 @@ class CatalogComicItemService:
         limit: int,
         offset: int,
     ) -> list[CatalogComicItemResponse]:
-        statement = select(ComicItem).options(selectinload(ComicItem.identifiers))
+        statement = select(ComicItem)
         if barcode and barcode.strip():
             exact = barcode.strip()
             statement = statement.where(
                 or_(
                     ComicItem.barcode == exact,
-                    ComicItem.identifiers.any(
-                        or_(
-                            ComicItemIdentifier.value == exact,
-                            ComicItemIdentifier.normalized_value == _normalize(exact),
-                        )
+                    ComicItem.details.contains(
+                        {"identifiers": [{"normalized_value": _normalize(exact)}]}
                     ),
                 )
             )
@@ -86,8 +81,8 @@ class CatalogComicItemService:
                     ComicItem.sort_key.ilike(term),
                     ComicItem.barcode == exact,
                     ComicItem.catalog_number == exact,
-                    ComicItem.identifiers.any(
-                        ComicItemIdentifier.normalized_value == _normalize(exact)
+                    ComicItem.details.contains(
+                        {"identifiers": [{"normalized_value": _normalize(exact)}]}
                     ),
                 )
             )
@@ -107,7 +102,6 @@ class CatalogComicItemService:
         result = await self.db.execute(
             select(ComicItem)
             .where(ComicItem.id == item_id)
-            .options(selectinload(ComicItem.identifiers))
         )
         item = result.scalar_one_or_none()
         if item is None:
@@ -127,16 +121,6 @@ def _response(item: ComicItem) -> CatalogComicItemResponse:
             "sort_key": item.sort_key,
             "barcode": item.barcode,
             "catalog_number": item.catalog_number,
-            "identifiers": [
-                {
-                    "id": row.id,
-                    "identifier_type": row.identifier_type,
-                    "value": row.value,
-                    "normalized_value": row.normalized_value,
-                    "is_primary": row.is_primary,
-                }
-                for row in item.identifiers
-            ],
         }
     )
     return CatalogComicItemResponse.model_validate(
@@ -144,7 +128,7 @@ def _response(item: ComicItem) -> CatalogComicItemResponse:
     )
 
 
-def _identifier(value: Any) -> ComicItemIdentifier | None:
+def _identifier(value: Any) -> dict[str, Any] | None:
     if isinstance(value, str):
         identifier_type = "other"
         raw_value = value.strip()
@@ -161,12 +145,17 @@ def _identifier(value: Any) -> ComicItemIdentifier | None:
         return None
     if not raw_value:
         return None
-    return ComicItemIdentifier(
-        identifier_type=identifier_type,
-        value=raw_value,
-        normalized_value=normalized_value,
-        is_primary=is_primary,
-    )
+    try:
+        identifier_id = str(UUID(str(value.get("id")))) if isinstance(value, Mapping) and value.get("id") else str(uuid4())
+    except ValueError as error:
+        raise ValueError("Comic identifier id must be a UUID") from error
+    return {
+        "id": identifier_id,
+        "identifier_type": identifier_type,
+        "value": raw_value,
+        "normalized_value": normalized_value,
+        "is_primary": is_primary,
+    }
 
 
 def _normalize(value: str) -> str:

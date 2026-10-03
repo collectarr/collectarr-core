@@ -5,16 +5,15 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.catalog_game_item import GameItem, GameItemIdentifier
+from app.models.catalog_game_item import GameItem
 from app.schemas.catalog_game_item import CatalogGameItemResponse
 
 
@@ -31,14 +30,14 @@ class CatalogGameItemService:
         if not isinstance(title, str) or not title.strip():
             raise ValueError("Game Catalog Item title must not be empty")
 
-        raw_identifiers = payload.pop("identifiers", None) or []
+        raw_identifiers = payload.get("identifiers", []) or []
         identifiers = [
             identifier
             for identifier in (_identifier(value) for value in raw_identifiers)
             if identifier is not None
         ]
         identifier_keys = {
-            (row.identifier_type, row.normalized_value) for row in identifiers
+            (row["identifier_type"], row["normalized_value"]) for row in identifiers
         }
         if len(identifier_keys) != len(identifiers):
             raise ValueError("Game identifiers must be unique by type and normalized value")
@@ -48,8 +47,7 @@ class CatalogGameItemService:
             sort_key=_optional_string(payload.pop("sort_key", None)),
             barcode=_optional_string(payload.pop("barcode", None)),
             catalog_number=_optional_string(payload.pop("catalog_number", None)),
-            details=payload,
-            identifiers=identifiers,
+            details={**payload, "identifiers": identifiers},
         )
         self.db.add(item)
         await self.db.flush()
@@ -63,17 +61,14 @@ class CatalogGameItemService:
         limit: int,
         offset: int,
     ) -> list[CatalogGameItemResponse]:
-        statement = select(GameItem).options(selectinload(GameItem.identifiers))
+        statement = select(GameItem)
         if barcode and barcode.strip():
             exact = barcode.strip()
             statement = statement.where(
                 or_(
                     GameItem.barcode == exact,
-                    GameItem.identifiers.any(
-                        or_(
-                            GameItemIdentifier.value == exact,
-                            GameItemIdentifier.normalized_value == _normalize(exact),
-                        )
+                    GameItem.details.contains(
+                        {"identifiers": [{"normalized_value": _normalize(exact)}]}
                     ),
                 )
             )
@@ -86,8 +81,8 @@ class CatalogGameItemService:
                     GameItem.sort_key.ilike(term),
                     GameItem.barcode == exact,
                     GameItem.catalog_number == exact,
-                    GameItem.identifiers.any(
-                        GameItemIdentifier.normalized_value == _normalize(exact)
+                    GameItem.details.contains(
+                        {"identifiers": [{"normalized_value": _normalize(exact)}]}
                     ),
                 )
             )
@@ -107,7 +102,6 @@ class CatalogGameItemService:
         result = await self.db.execute(
             select(GameItem)
             .where(GameItem.id == item_id)
-            .options(selectinload(GameItem.identifiers))
         )
         item = result.scalar_one_or_none()
         if item is None:
@@ -127,16 +121,6 @@ def _response(item: GameItem) -> CatalogGameItemResponse:
             "sort_key": item.sort_key,
             "barcode": item.barcode,
             "catalog_number": item.catalog_number,
-            "identifiers": [
-                {
-                    "id": row.id,
-                    "identifier_type": row.identifier_type,
-                    "value": row.value,
-                    "normalized_value": row.normalized_value,
-                    "is_primary": row.is_primary,
-                }
-                for row in item.identifiers
-            ],
         }
     )
     return CatalogGameItemResponse.model_validate(
@@ -144,7 +128,7 @@ def _response(item: GameItem) -> CatalogGameItemResponse:
     )
 
 
-def _identifier(value: Any) -> GameItemIdentifier | None:
+def _identifier(value: Any) -> dict[str, Any] | None:
     if isinstance(value, str):
         identifier_type = "other"
         raw_value = value.strip()
@@ -161,12 +145,17 @@ def _identifier(value: Any) -> GameItemIdentifier | None:
         return None
     if not raw_value:
         return None
-    return GameItemIdentifier(
-        identifier_type=identifier_type,
-        value=raw_value,
-        normalized_value=normalized_value,
-        is_primary=is_primary,
-    )
+    try:
+        identifier_id = str(UUID(str(value.get("id")))) if isinstance(value, Mapping) and value.get("id") else str(uuid4())
+    except ValueError as error:
+        raise ValueError("Game identifier id must be a UUID") from error
+    return {
+        "id": identifier_id,
+        "identifier_type": identifier_type,
+        "value": raw_value,
+        "normalized_value": normalized_value,
+        "is_primary": is_primary,
+    }
 
 
 def _normalize(value: str) -> str:

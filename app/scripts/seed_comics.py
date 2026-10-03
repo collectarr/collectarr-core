@@ -5,6 +5,7 @@ import asyncio
 import re
 from dataclasses import dataclass
 from datetime import date
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.models import (
     ComicItem,
-    ComicItemIdentifier,
 )
 from app.models.base import ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
@@ -221,25 +221,29 @@ async def _upsert_item(db: AsyncSession, comic: SeedComicIssue) -> ComicItem:
 
     if comic.upc:
         normalized_value = re.sub(r"\D+", "", comic.upc) or comic.upc.strip()
-        identifier = (
-            await db.execute(
-                select(ComicItemIdentifier).where(
-                    ComicItemIdentifier.comic_item_id == item.id,
-                    ComicItemIdentifier.identifier_type == "upc",
-                    ComicItemIdentifier.normalized_value == normalized_value,
-                )
-            )
-        ).scalar_one_or_none()
+        identifiers = list(item.details.get("identifiers") or [])
+        identifier = next(
+            (
+                value
+                for value in identifiers
+                if value.get("identifier_type") == "upc"
+                and value.get("normalized_value") == normalized_value
+            ),
+            None,
+        )
         if identifier is None:
-            item.identifiers.append(
-                ComicItemIdentifier(
-                    identifier_type="upc",
-                    value=comic.upc,
-                    normalized_value=normalized_value,
-                )
+            identifiers.append(
+                {
+                    "id": str(uuid4()),
+                    "identifier_type": "upc",
+                    "value": comic.upc,
+                    "normalized_value": normalized_value,
+                    "is_primary": False,
+                }
             )
         else:
-            identifier.value = comic.upc
+            identifier["value"] = comic.upc
+        item.details = {**item.details, "identifiers": identifiers}
     await db.flush()
     return item
 

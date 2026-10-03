@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Index, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UuidMixin
 
@@ -48,36 +47,3 @@ class GameItem(UuidMixin, TimestampMixin, Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     __mapper_args__ = {"version_id_col": revision}
-
-    identifiers: Mapped[list["GameItemIdentifier"]] = relationship(
-        back_populates="item",
-        cascade="all, delete-orphan",
-        order_by="GameItemIdentifier.identifier_type",
-    )
-
-
-class GameItemIdentifier(UuidMixin, TimestampMixin, Base):
-    """A source-neutral canonical identifier attached to one Game item."""
-
-    __tablename__ = "game_item_identifiers"
-    __table_args__ = (
-        UniqueConstraint(
-            "game_item_id",
-            "identifier_type",
-            "normalized_value",
-            name="uq_game_item_identifier_normalized",
-        ),
-        Index("ix_game_item_identifiers_type_value", "identifier_type", "normalized_value"),
-    )
-
-    game_item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("game_items.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
-    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-    item: Mapped[GameItem] = relationship(back_populates="identifiers")

@@ -1,11 +1,10 @@
 import re
 from collections.abc import Awaitable, Callable
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import status
 from sqlalchemy import delete, select
-from sqlalchemy.orm import selectinload
 
 from app.catalog.catalog_item_schema import (
     catalog_item_payload_contract,
@@ -24,21 +23,14 @@ from app.metadata_normalized import (
 )
 from app.models import (
     AnimeItem,
-    AnimeItemIdentifier,
     BoardGameItem,
-    BoardGameItemIdentifier,
     BookItem,
-    BookItemCredit,
-    BookItemIdentifier,
     Character,
     ComicItem,
-    ComicItemIdentifier,
     EntityAlias,
     EntityLink,
     GameItem,
-    GameItemIdentifier,
     MangaItem,
-    MangaItemIdentifier,
     MovieItem,
     MusicItem,
     Person,
@@ -46,7 +38,6 @@ from app.models import (
     ReleaseStatus,
     StoryArc,
     TvItem,
-    TvItemIdentifier,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -220,7 +211,7 @@ class AdminCatalogService:
                     )
 
         async def _scan(model: Any, kind: ItemKind, entity_type: str) -> None:
-            stmt = select(model).options(*self._native_load_options(kind)).order_by(model.id.asc())
+            stmt = select(model).order_by(model.id.asc())
             if scan_limit is not None:
                 stmt = stmt.limit(scan_limit)
             rows = (await self.db.execute(stmt)).scalars()
@@ -652,9 +643,6 @@ class AdminCatalogService:
         item.catalog_number = self._normalize_optional_text(
             projected.pop("catalog_number", None)
         )
-        # `media` is a contained child table. The admin correction form edits
-        # root fields only, so leave those rows to the kind-owned item API.
-        projected.pop("media", None)
         projected.pop("title", None)
         item.details = projected
 
@@ -714,18 +702,17 @@ class AdminCatalogService:
             "barcode": item.barcode,
             "catalog_number": item.catalog_number,
         }
-        if hasattr(item, "identifiers"):
-            before_payload["identifiers"] = [
-                f"{row.identifier_type}: {row.value}" for row in item.identifiers
-            ]
         if kind == ItemKind.book:
+            credits = before_payload.get("credits", [])
             before_payload["creators"] = [
-                {"name": row.name, "role": row.role}
-                for row in item.credits
-                if row.credit_type == "creator"
+                {"name": row.get("name"), "role": row.get("role")}
+                for row in credits
+                if row.get("credit_type") == "creator"
             ]
             before_payload["contributors"] = [
-                row.name for row in item.credits if row.credit_type == "contributor"
+                row.get("name")
+                for row in credits
+                if row.get("credit_type") == "contributor"
             ]
         try:
             projected = validate_catalog_item_payload(
@@ -756,16 +743,14 @@ class AdminCatalogService:
         projected.pop("title", None)
 
         if "identifiers" in update_data:
-            identifier_model_by_kind = {
-                ItemKind.book: BookItemIdentifier,
-                ItemKind.comic: ComicItemIdentifier,
-                ItemKind.manga: MangaItemIdentifier,
-                ItemKind.anime: AnimeItemIdentifier,
-                ItemKind.game: GameItemIdentifier,
-                ItemKind.boardgame: BoardGameItemIdentifier,
-                ItemKind.tv: TvItemIdentifier,
+            existing_identifiers = {
+                (
+                    row.get("identifier_type", "value"),
+                    "".join(character for character in row.get("value", "").casefold() if character.isalnum()),
+                ): row.get("id")
+                for row in item.details.get("identifiers", [])
+                if isinstance(row, dict)
             }
-            identifier_model = identifier_model_by_kind[kind]
             identifiers = []
             seen_identifiers: set[tuple[str, str]] = set()
             for raw_value in self._normalize_text_values(payload.identifiers):
@@ -787,26 +772,27 @@ class AdminCatalogService:
                     continue
                 seen_identifiers.add(identity)
                 identifiers.append(
-                    identifier_model(
-                        identifier_type=identifier_type,
-                        value=value,
-                        normalized_value=normalized_value,
-                        is_primary=not identifiers,
-                    )
+                    {
+                        "id": existing_identifiers.get(identity) or str(uuid4()),
+                        "identifier_type": identifier_type,
+                        "value": value,
+                        "normalized_value": normalized_value,
+                        "is_primary": not identifiers,
+                    }
                 )
-            item.identifiers = identifiers
-        projected.pop("identifiers", None)
+            projected["identifiers"] = identifiers
 
         if kind == ItemKind.book:
             if "creators" in update_data or "contributors" in update_data:
                 retained_credits = [
                     row
-                    for row in item.credits
+                    for row in item.details.get("credits", [])
+                    if isinstance(row, dict)
                     if not (
-                        ("creators" in update_data and row.credit_type == "creator")
+                        ("creators" in update_data and row.get("credit_type") == "creator")
                         or (
                             "contributors" in update_data
-                            and row.credit_type == "contributor"
+                            and row.get("credit_type") == "contributor"
                         )
                     )
                 ]
@@ -815,32 +801,30 @@ class AdminCatalogService:
                         name = self._normalize_optional_text(creator.name)
                         if not name:
                             continue
-                        retained_credits.append(
-                            BookItemCredit(
-                                credit_type="creator",
-                                name=name,
-                                role=self._normalize_optional_text(creator.role),
-                                sequence=sequence,
-                            )
-                        )
+                        retained_credits.append({
+                            "id": str(uuid4()),
+                            "credit_type": "creator",
+                            "name": name,
+                            "role": self._normalize_optional_text(creator.role),
+                            "sequence": sequence,
+                        })
                 if "contributors" in update_data:
                     for sequence, raw_name in enumerate(
                         self._normalize_text_values(payload.contributors),
                         start=1,
                     ):
-                        retained_credits.append(
-                            BookItemCredit(
-                                credit_type="contributor",
-                                name=raw_name,
-                                sequence=sequence,
-                            )
-                        )
-                item.credits = retained_credits
+                        retained_credits.append({
+                            "id": str(uuid4()),
+                            "credit_type": "contributor",
+                            "name": raw_name,
+                            "sequence": sequence,
+                        })
+                projected["credits"] = retained_credits
+            else:
+                projected["credits"] = list(item.details.get("credits", []))
             projected.pop("creators", None)
             projected.pop("contributors", None)
 
-        for key in ("media", "episodes", "seasons", "printings"):
-            projected.pop(key, None)
         item.details = projected
 
         self._audit_recorder(
@@ -1198,58 +1182,5 @@ class AdminCatalogService:
         model = model_by_kind.get(kind)
         if model is None:
             return None
-        stmt = select(model).where(model.id == entity_id).options(
-            *self._flat_catalog_item_load_options(kind)
-        )
+        stmt = select(model).where(model.id == entity_id)
         return await self.db.scalar(stmt)
-
-    def _flat_catalog_item_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind == ItemKind.book:
-            return [
-                selectinload(BookItem.printings),
-                selectinload(BookItem.credits),
-                selectinload(BookItem.identifiers),
-            ]
-        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.game, ItemKind.boardgame}:
-            item_model = {
-                ItemKind.comic: ComicItem,
-                ItemKind.manga: MangaItem,
-                ItemKind.game: GameItem,
-                ItemKind.boardgame: BoardGameItem,
-            }[kind]
-            return [selectinload(item_model.identifiers)]
-        if kind == ItemKind.anime:
-            return [
-                selectinload(AnimeItem.media),
-                selectinload(AnimeItem.episodes),
-                selectinload(AnimeItem.identifiers),
-            ]
-        if kind == ItemKind.tv:
-            return [
-                selectinload(TvItem.seasons),
-                selectinload(TvItem.media),
-                selectinload(TvItem.episodes),
-                selectinload(TvItem.identifiers),
-            ]
-        if kind == ItemKind.movie:
-            return [selectinload(MovieItem.media)]
-        if kind == ItemKind.music:
-            return []
-        return []
-
-    def _native_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind in {ItemKind.comic, ItemKind.manga, ItemKind.anime, ItemKind.tv, ItemKind.game, ItemKind.boardgame}:
-            return self._flat_catalog_item_load_options(kind)
-        if kind == ItemKind.book:
-            return [
-                selectinload(BookItem.printings),
-                selectinload(BookItem.credits),
-                selectinload(BookItem.identifiers),
-            ]
-        if kind == ItemKind.movie:
-            return [
-                selectinload(MovieItem.media),
-            ]
-        if kind == ItemKind.music:
-            return []
-        return []

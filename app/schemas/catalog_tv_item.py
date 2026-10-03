@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CatalogTvItemIdentifierResponse(BaseModel):
@@ -15,7 +15,35 @@ class CatalogTvItemIdentifierResponse(BaseModel):
     normalized_value: str
     is_primary: bool = False
 
-    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    model_config = ConfigDict(from_attributes=True, extra="allow")
+
+
+class CatalogTvItemMediaResponse(BaseModel):
+    id: UUID
+    position: int = Field(ge=0)
+    media_number: int | None = Field(default=None, ge=1)
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CatalogTvItemEpisodeResponse(BaseModel):
+    id: UUID
+    position: int = Field(ge=0)
+    season_number: int | None = Field(default=None, ge=0)
+    episode_number: int | None = Field(default=None, ge=0)
+    title: str | None = None
+    episode_title: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CatalogTvItemSeasonResponse(BaseModel):
+    id: UUID
+    season_number: int = Field(ge=0)
+    title: str | None = None
+    episodes: list[CatalogTvItemEpisodeResponse] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
 
 
 class CatalogTvItemResponse(BaseModel):
@@ -40,7 +68,7 @@ class CatalogTvItemResponse(BaseModel):
     description: str | None = None
     discs: list[dict[str, Any]] | None = None
     edition_title: str | None = None
-    episodes: list[dict[str, Any]]
+    episodes: list[CatalogTvItemEpisodeResponse]
     external_links: list[dict[str, Any]] | None = None
     genres: list[str] | None = None
     identifiers: list[CatalogTvItemIdentifierResponse | str] | None = None
@@ -48,7 +76,7 @@ class CatalogTvItemResponse(BaseModel):
     language: str | None = None
     layers: str | None = None
     localized_title: str | None = None
-    media: list[dict[str, Any]]
+    media: list[CatalogTvItemMediaResponse]
     nr_discs: int | None = None
     original_title: str | None = None
     physical_format: str | None = None
@@ -61,7 +89,7 @@ class CatalogTvItemResponse(BaseModel):
     runtime_minutes: int | None = None
     screen_ratio: str | None = None
     search_aliases: list[str] | None = None
-    seasons: list[dict[str, Any]] | None = None
+    seasons: list[CatalogTvItemSeasonResponse] | None = None
     series_tags: list[str] | None = None
     subtitle: str | None = None
     subtitles: str | None = None

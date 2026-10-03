@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import extract, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -186,7 +186,7 @@ def _credit_objects(value: Any) -> list[dict[str, Any]]:
         return result
     for entry in value:
         if isinstance(entry, str) and entry.strip():
-            result.append({"name": entry.strip()})
+            result.append({"id": str(uuid4()), "name": entry.strip()})
         elif isinstance(entry, dict):
             name = entry.get("name") or entry.get("credited_name")
             if isinstance(name, str) and name.strip():
@@ -195,6 +195,8 @@ def _credit_objects(value: Any) -> list[dict[str, Any]]:
                     for key, part in entry.items()
                     if key
                     in {
+                        "id",
+                        "artist_id",
                         "role",
                         "role_id",
                         "sequence",
@@ -203,6 +205,11 @@ def _credit_objects(value: Any) -> list[dict[str, Any]]:
                         "instrument",
                     }
                 }
+                raw_id = credit.get("id")
+                try:
+                    credit["id"] = str(UUID(str(raw_id))) if raw_id else str(uuid4())
+                except ValueError as error:
+                    raise ValueError("Music credit id must be a UUID") from error
                 credit["name"] = name.strip()
                 result.append(credit)
     return result

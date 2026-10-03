@@ -22,7 +22,7 @@ class CatalogMovieItemMediaResponse(BaseModel):
     audio_tracks: str | None = None
     subtitles: str | None = None
 
-    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
 class CatalogMovieItemResponse(BaseModel):
@@ -76,4 +76,3 @@ class CatalogMovieItemResponse(BaseModel):
     media: list[CatalogMovieItemMediaResponse]
 
     model_config = ConfigDict(extra="forbid")
-

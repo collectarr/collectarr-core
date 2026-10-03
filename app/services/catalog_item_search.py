@@ -13,15 +13,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.catalog_anime_item import AnimeItem, AnimeItemIdentifier
-from app.models.catalog_boardgame_item import BoardGameItem, BoardGameItemIdentifier
-from app.models.catalog_book_item import BookItem, BookItemIdentifier
-from app.models.catalog_comic_item import ComicItem, ComicItemIdentifier
-from app.models.catalog_game_item import GameItem, GameItemIdentifier
-from app.models.catalog_manga_item import MangaItem, MangaItemIdentifier
+from app.models.catalog_anime_item import AnimeItem
+from app.models.catalog_boardgame_item import BoardGameItem
+from app.models.catalog_book_item import BookItem
+from app.models.catalog_comic_item import ComicItem
+from app.models.catalog_game_item import GameItem
+from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_music_item import MusicItem
-from app.models.catalog_tv_item import TvItem, TvItemIdentifier
+from app.models.catalog_tv_item import TvItem
 from app.models.partial_date import PartialDateValue
 from app.schemas.catalog_anime_item import CatalogAnimeItemResponse
 from app.schemas.catalog_boardgame_item import CatalogBoardGameItemResponse
@@ -39,26 +39,19 @@ from app.schemas.metadata_shared import CatalogSearchItemEnvelope
 class _CatalogRoot:
     kind: ItemKind
     model: type
-    identity_model: type | None = None
-    identity_relation: str | None = None
     sort_column: Any | None = None
 
 
 _ROOTS = (
-    _CatalogRoot(ItemKind.anime, AnimeItem, AnimeItemIdentifier, "identifiers"),
-    _CatalogRoot(
-        ItemKind.boardgame,
-        BoardGameItem,
-        BoardGameItemIdentifier,
-        "identifiers",
-    ),
-    _CatalogRoot(ItemKind.book, BookItem, BookItemIdentifier, "identifiers"),
-    _CatalogRoot(ItemKind.comic, ComicItem, ComicItemIdentifier, "identifiers"),
-    _CatalogRoot(ItemKind.game, GameItem, GameItemIdentifier, "identifiers"),
-    _CatalogRoot(ItemKind.manga, MangaItem, MangaItemIdentifier, "identifiers"),
+    _CatalogRoot(ItemKind.anime, AnimeItem),
+    _CatalogRoot(ItemKind.boardgame, BoardGameItem),
+    _CatalogRoot(ItemKind.book, BookItem),
+    _CatalogRoot(ItemKind.comic, ComicItem),
+    _CatalogRoot(ItemKind.game, GameItem),
+    _CatalogRoot(ItemKind.manga, MangaItem),
     _CatalogRoot(ItemKind.movie, MovieItem),
     _CatalogRoot(ItemKind.music, MusicItem, sort_column=MusicItem.sort_title),
-    _CatalogRoot(ItemKind.tv, TvItem, TvItemIdentifier, "identifiers"),
+    _CatalogRoot(ItemKind.tv, TvItem),
 )
 _ROOT_BY_KIND = {root.kind: root for root in _ROOTS}
 _KIND_FIELDS = {
@@ -330,12 +323,11 @@ class CatalogItemSearchService:
 
     @staticmethod
     def _identifier_match(root: _CatalogRoot, value: str):
-        if root.identity_model is None or root.identity_relation is None:
+        if root.kind in {ItemKind.music, ItemKind.movie}:
             return literal(False)
-        identity = root.identity_model
         normalized = _normalize_identifier(value)
-        return getattr(root.model, root.identity_relation).any(
-            or_(identity.value == value, identity.normalized_value == normalized)
+        return root.model.details.contains(
+            {"identifiers": [{"normalized_value": normalized}]}
         )
 
     @staticmethod

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
@@ -16,11 +15,8 @@ from app.models.base import ItemKind
 from app.models.canonical_support import Person
 from app.models.catalog_book_item import (
     BookItem,
-    BookItemCredit,
-    BookItemIdentifier,
-    BookItemPrinting,
 )
-from app.models.catalog_book_series import BookItemSeriesMembership, BookSeries
+from app.models.catalog_book_series import BookSeries
 from app.schemas.catalog_book_item import CatalogBookItemResponse
 
 
@@ -50,7 +46,11 @@ class CatalogBookItemService:
             for credit in (_credit("contributor", value) for value in contributors)
             if credit is not None
         ]
-        person_ids = {credit.person_id for credit in credits if credit.person_id is not None}
+        person_ids = {
+            UUID(credit["person_id"])
+            for credit in credits
+            if credit.get("person_id") is not None
+        }
         if person_ids:
             result = await self.db.execute(select(Person.id).where(Person.id.in_(person_ids)))
             found_person_ids = set(result.scalars())
@@ -65,13 +65,55 @@ class CatalogBookItemService:
             for identifier in (_identifier(value) for value in identifiers)
             if identifier is not None
         ]
-        identifier_keys = {
-            (row.identifier_type, row.normalized_value or _normalize(row.value))
-            for row in identifier_rows
-        }
-        if len(identifier_keys) != len(identifier_rows):
-            raise ValueError("Book identifiers must be unique by type and normalized value")
-        series_memberships: list[BookItemSeriesMembership] = []
+        for key in ("isbn", "isbn10", "isbn13"):
+            value = _optional_string(payload.get(key))
+            if value is not None:
+                candidate = _identifier(
+                    {"identifier_type": key, "value": value}
+                )
+                if candidate is not None:
+                    identifier_rows.append(candidate)
+        for printing in printings:
+            if not isinstance(printing, dict):
+                continue
+            value = _optional_string(printing.get("isbn"))
+            if value is None:
+                continue
+            candidate = _identifier({"identifier_type": "isbn", "value": value})
+            if candidate is not None:
+                identifier_rows.append(candidate)
+        identifiers_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+        for row in identifier_rows:
+            identity = row["identifier_type"], row["normalized_value"]
+            existing = identifiers_by_key.get(identity)
+            if existing is None:
+                identifiers_by_key[identity] = row
+            elif existing["value"] != row["value"]:
+                raise ValueError("Book identifiers must be unique by type and normalized value")
+        identifier_rows = list(identifiers_by_key.values())
+        raw_memberships = payload.pop("series_memberships", None) or []
+        series_memberships: list[dict[str, Any]] = []
+        for value in raw_memberships:
+            if not isinstance(value, dict):
+                continue
+            try:
+                series_id = UUID(str(value.get("series_id")))
+            except (TypeError, ValueError) as error:
+                raise ValueError("Book series_id must be a UUID") from error
+            exists = await self.db.scalar(
+                select(BookSeries.id).where(BookSeries.id == series_id)
+            )
+            if exists is None:
+                raise ValueError(f"Book series_id does not refer to a known series: {series_id}")
+            membership_id = _component_id(value.get("id"), "Book series membership")
+            series_memberships.append(
+                {
+                    "id": membership_id,
+                    "series_id": str(series_id),
+                    "sequence": _optional_number(value.get("sequence")),
+                    "display_number": _optional_string(value.get("display_number")),
+                }
+            )
         series_title = _optional_string(payload.get("series_title"))
         if series_title is not None:
             series_result = await self.db.execute(
@@ -82,32 +124,32 @@ class CatalogBookItemService:
             series = series_result.scalar_one_or_none()
             if series is None:
                 series = BookSeries(title=series_title, slug=_normalize(series_title))
-            series_memberships.append(
-                BookItemSeriesMembership(
-                    series=series,
-                    display_number=_optional_string(payload.get("volume_number")),
+                self.db.add(series)
+                await self.db.flush()
+            if not any(value["series_id"] == str(series.id) for value in series_memberships):
+                series_memberships.append(
+                    {
+                        "id": str(uuid4()),
+                        "series_id": str(series.id),
+                        "sequence": _optional_number(payload.get("volume_number")),
+                        "display_number": _optional_string(payload.get("volume_number")),
+                    }
                 )
-            )
+        contained_printings = [_printing(value) for value in printings]
+        contained_printings = [value for value in contained_printings if value is not None]
+        details = {
+            **payload,
+            "printings": contained_printings,
+            "credits": credits,
+            "identifiers": identifier_rows,
+            "series_memberships": series_memberships,
+        }
         item = BookItem(
             title=title.strip(),
             sort_key=_optional_string(payload.get("sort_key")),
             barcode=_optional_string(payload.get("barcode")),
             catalog_number=_optional_string(payload.get("catalog_number")),
-            details=payload,
-            printings=[
-                BookItemPrinting(
-                    printing_number=_optional_integer(value.get("printing_number")),
-                    title=_optional_string(value.get("title")),
-                    release_date=_date_value(value.get("release_date")),
-                    publisher=_optional_string(value.get("publisher")),
-                    language=_optional_string(value.get("language")),
-                    isbn=_optional_string(value.get("isbn")),
-                )
-                for value in printings
-            ],
-            credits=credits,
-            identifiers=identifier_rows,
-            series_memberships=series_memberships,
+            details=details,
         )
         self.db.add(item)
         await self.db.flush()
@@ -121,21 +163,14 @@ class CatalogBookItemService:
         limit: int,
         offset: int,
     ) -> list[CatalogBookItemResponse]:
-        statement = select(BookItem).options(
-            selectinload(BookItem.printings),
-            selectinload(BookItem.credits),
-            selectinload(BookItem.identifiers),
-        )
+        statement = select(BookItem)
         if barcode and barcode.strip():
             exact = barcode.strip()
             statement = statement.where(
                 or_(
                     BookItem.barcode == exact,
-                    BookItem.identifiers.any(
-                        or_(
-                            BookItemIdentifier.value == exact,
-                            BookItemIdentifier.normalized_value == _normalize(exact),
-                        )
+                    BookItem.details.contains(
+                        {"identifiers": [{"normalized_value": _normalize(exact)}]}
                     ),
                 )
             )
@@ -147,11 +182,8 @@ class CatalogBookItemService:
                     BookItem.sort_key.ilike(f"%{term}%"),
                     BookItem.barcode == term,
                     BookItem.catalog_number == term,
-                    BookItem.identifiers.any(
-                        or_(
-                            BookItemIdentifier.value == term,
-                            BookItemIdentifier.normalized_value == _normalize(term),
-                        )
+                    BookItem.details.contains(
+                        {"identifiers": [{"normalized_value": _normalize(term)}]}
                     ),
                 )
             )
@@ -171,11 +203,6 @@ class CatalogBookItemService:
         result = await self.db.execute(
             select(BookItem)
             .where(BookItem.id == item_id)
-            .options(
-                selectinload(BookItem.printings),
-                selectinload(BookItem.credits),
-                selectinload(BookItem.identifiers),
-            )
         )
         item = result.scalar_one_or_none()
         if item is None:
@@ -189,44 +216,22 @@ class CatalogBookItemService:
 
 def _response(item: BookItem) -> CatalogBookItemResponse:
     fields = dict(item.details)
+    credits = fields.pop("credits", [])
     fields.update(
         {
             "title": item.title,
             "sort_key": item.sort_key,
             "barcode": item.barcode,
             "catalog_number": item.catalog_number,
-            "printings": [
-                {
-                    "id": row.id,
-                    "printing_number": row.printing_number,
-                    "title": row.title,
-                    "release_date": row.release_date,
-                    "publisher": row.publisher,
-                    "language": row.language,
-                    "isbn": row.isbn,
-                }
-                for row in item.printings
-            ],
+            "printings": fields.get("printings", []),
             "creators": [
-                _credit_response(row)
-                for row in item.credits
-                if row.credit_type == "creator"
+                _credit_response(row) for row in credits if row.get("credit_type") == "creator"
             ],
             "contributors": [
-                _credit_response(row)
-                for row in item.credits
-                if row.credit_type == "contributor"
+                _credit_response(row) for row in credits if row.get("credit_type") == "contributor"
             ],
-            "identifiers": [
-                {
-                    "id": row.id,
-                    "identifier_type": row.identifier_type,
-                    "value": row.value,
-                    "normalized_value": row.normalized_value,
-                    "is_primary": row.is_primary,
-                }
-                for row in item.identifiers
-            ],
+            "identifiers": fields.get("identifiers", []),
+            "series_memberships": fields.get("series_memberships", []),
         }
     )
     return CatalogBookItemResponse.model_validate(
@@ -234,23 +239,16 @@ def _response(item: BookItem) -> CatalogBookItemResponse:
     )
 
 
-def _credit_response(row: BookItemCredit) -> dict[str, Any]:
-    return {
-        "id": row.id,
-        "person_id": row.person_id,
-        "name": row.name,
-        "role": row.role,
-        "role_id": row.role_id,
-        "sequence": row.sequence,
-    }
+def _credit_response(row: dict[str, Any]) -> dict[str, Any]:
+    return dict(row)
 
 
-def _credit(credit_type: str, value: Any) -> BookItemCredit | None:
+def _credit(credit_type: str, value: Any) -> dict[str, Any] | None:
     if isinstance(value, str):
         name = value.strip()
         if not name:
             return None
-        return BookItemCredit(credit_type=credit_type, name=name)
+        return {"id": str(uuid4()), "credit_type": credit_type, "name": name}
     if not isinstance(value, dict):
         return None
     name = _optional_string(value.get("name"))
@@ -262,17 +260,22 @@ def _credit(credit_type: str, value: Any) -> BookItemCredit | None:
             person_id = UUID(str(person_id))
         except ValueError as error:
             raise ValueError("Book credit person_id must be a UUID") from error
-    return BookItemCredit(
-        credit_type=credit_type,
-        person_id=person_id,
-        name=name,
-        role=_optional_string(value.get("role")),
-        role_id=_optional_string(value.get("role_id")),
-        sequence=_optional_integer(value.get("sequence")),
-    )
+    try:
+        credit_id = str(UUID(str(value.get("id")))) if value.get("id") else str(uuid4())
+    except ValueError as error:
+        raise ValueError("Book credit id must be a UUID") from error
+    return {
+        "id": credit_id,
+        "credit_type": credit_type,
+        "person_id": str(person_id) if person_id is not None else None,
+        "name": name,
+        "role": _optional_string(value.get("role")),
+        "role_id": _optional_string(value.get("role_id")),
+        "sequence": _optional_integer(value.get("sequence")),
+    }
 
 
-def _identifier(value: Any) -> BookItemIdentifier | None:
+def _identifier(value: Any) -> dict[str, Any] | None:
     if isinstance(value, str):
         identifier_type = "other"
         raw_value = value.strip()
@@ -291,12 +294,35 @@ def _identifier(value: Any) -> BookItemIdentifier | None:
         return None
     if not raw_value:
         return None
-    return BookItemIdentifier(
-        identifier_type=identifier_type,
-        value=raw_value,
-        normalized_value=normalized_value or None,
-        is_primary=is_primary,
-    )
+    try:
+        identifier_id = str(UUID(str(value.get("id")))) if isinstance(value, dict) and value.get("id") else str(uuid4())
+    except ValueError as error:
+        raise ValueError("Book identifier id must be a UUID") from error
+    return {
+        "id": identifier_id,
+        "identifier_type": identifier_type,
+        "value": raw_value,
+        "normalized_value": normalized_value or _normalize(raw_value),
+        "is_primary": is_primary,
+    }
+
+
+def _printing(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    try:
+        printing_id = str(UUID(str(value.get("id")))) if value.get("id") else str(uuid4())
+    except ValueError as error:
+        raise ValueError("Book printing id must be a UUID") from error
+    return {
+        "id": printing_id,
+        "printing_number": _optional_integer(value.get("printing_number")),
+        "title": _optional_string(value.get("title")),
+        "release_date": _date_value(value.get("release_date")),
+        "publisher": _optional_string(value.get("publisher")),
+        "language": _optional_string(value.get("language")),
+        "isbn": _optional_string(value.get("isbn")),
+    }
 
 
 def _normalize(value: str) -> str:
@@ -320,3 +346,18 @@ def _date_value(value: Any) -> Any | None:
     if isinstance(value, dict):
         return value or None
     return None
+
+
+def _component_id(value: Any, label: str) -> str:
+    if value is None:
+        return str(uuid4())
+    try:
+        return str(UUID(str(value)))
+    except ValueError as error:
+        raise ValueError(f"{label} id must be a UUID") from error
+
+
+def _optional_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)

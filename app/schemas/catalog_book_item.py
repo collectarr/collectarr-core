@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CatalogBookItemPrintingResponse(BaseModel):
@@ -17,7 +17,7 @@ class CatalogBookItemPrintingResponse(BaseModel):
     language: str | None = None
     isbn: str | None = None
 
-    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
 class CatalogBookItemCreditResponse(BaseModel):
@@ -28,7 +28,7 @@ class CatalogBookItemCreditResponse(BaseModel):
     role_id: str | None = None
     sequence: int | None = None
 
-    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
 class CatalogBookItemIdentifierResponse(BaseModel):
@@ -38,7 +38,16 @@ class CatalogBookItemIdentifierResponse(BaseModel):
     normalized_value: str | None = None
     is_primary: bool = False
 
-    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    model_config = ConfigDict(from_attributes=True, extra="allow")
+
+
+class CatalogBookItemSeriesMembershipResponse(BaseModel):
+    id: UUID
+    series_id: UUID
+    sequence: float | None = None
+    display_number: str | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class CatalogBookItemResponse(BaseModel):
@@ -74,6 +83,9 @@ class CatalogBookItemResponse(BaseModel):
     plot_description: str | None = None
     plot_summary: str | None = None
     printings: list[CatalogBookItemPrintingResponse] | None = None
+    series_memberships: list[CatalogBookItemSeriesMembershipResponse] = Field(
+        default_factory=list
+    )
     publisher: str | None = None
     release_date: Any | None = None
     release_date_parts: Any | None = None

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Index, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UuidMixin
 
@@ -48,36 +47,3 @@ class BoardGameItem(UuidMixin, TimestampMixin, Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     __mapper_args__ = {"version_id_col": revision}
-
-    identifiers: Mapped[list["BoardGameItemIdentifier"]] = relationship(
-        back_populates="item",
-        cascade="all, delete-orphan",
-        order_by="BoardGameItemIdentifier.identifier_type",
-    )
-
-
-class BoardGameItemIdentifier(UuidMixin, TimestampMixin, Base):
-    """A canonical identifier attached to one concrete Board Game edition."""
-
-    __tablename__ = "boardgame_item_identifiers"
-    __table_args__ = (
-        UniqueConstraint(
-            "boardgame_item_id",
-            "identifier_type",
-            "normalized_value",
-            name="uq_boardgame_item_identifier_normalized",
-        ),
-        Index("ix_boardgame_item_identifiers_type_value", "identifier_type", "normalized_value"),
-    )
-
-    boardgame_item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("boardgame_items.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    identifier_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
-    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-    item: Mapped[BoardGameItem] = relationship(back_populates="identifiers")

@@ -286,18 +286,18 @@ def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, An
     release_date = release_date_parts.iso_string if release_date_parts else None
 
     creators = _catalog_names(details.get("creators"))
-    for values in (details.get("contributors"), details.get("artist_credits")):
+    for values in (
+        details.get("contributors"),
+        details.get("artist_credits"),
+        details.get("credits"),
+    ):
         creators.extend(_catalog_names(values))
-    if hasattr(item, "credits"):
-        for credit in _loaded_rows(item, "credits"):
-            name = _optional_text(getattr(credit, "name", None))
-            if name:
-                creators.append(name)
     creators = _unique(creators)
     barcode = _normalized_barcode(_optional_text(getattr(item, "barcode", None)))
     barcodes = [barcode] if barcode else []
-    for identifier in _loaded_rows(item, "identifiers"):
-        value = _normalized_barcode(_optional_text(getattr(identifier, "value", None)))
+    for identifier in details.get("identifiers", []):
+        raw_value = identifier.get("value") if isinstance(identifier, dict) else identifier
+        value = _normalized_barcode(_optional_text(raw_value))
         _append_unique(barcodes, value)
     barcode = barcode or (barcodes[0] if barcodes else None)
 

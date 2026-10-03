@@ -1,50 +1,45 @@
-# Catalog Item v1 Status
+# Catalog Item Document Unification Status
 
-## Implemented in Core
+## Implemented in Core source
 
-- Source-neutral typed Catalog Item roots and read/search routes exist for all
-  nine kinds.
-- User proposals use kind-owned Catalog Item fields and publish approved values
-  through the corresponding kind writer.
-- Admin catalog search, item detail, root-level corrections, per-kind item
-  counts, and search reindex now include flat Catalog Item roots for all nine
-  kinds. Admin updates normalize identifier and Book credit rows; structured
-  contents remain kind-owned child data.
-- Add search queries the flattened roots and accepts `limit` and `offset`.
-  Exact identifier matching uses kind-owned indexed identity tables where
-  available and indexed root barcode/catalog-number columns. Free-text queries
-  use indexed title/sort columns (plus indexed Music artist, label, and
-  subtitle fields); explicit filters target named kind fields rather than
-  scanning a JSON document as text.
-- Duplicate merge remains disabled until App-owned references can be remapped
-  atomically.
-- The Core contract is exported from its schema source and pinned by App.
-  Music is grounded in the saved CLZ Music Edit form; exact CLZ parity for the
+- One SQLAlchemy root table per concrete item for all nine kinds. Item-contained
+  media, seasons, episodes, printings, credits, identifiers, discs, and tracks
+  are stored in each root's `details` JSONB document.
+- Kind-owned document-shape modules define root keys, contained object fields,
+  nullability, required values, and collection validation. The common schema
+  module composes those kind contracts and projects accepted proposals.
+- Book series remain independent reusable groupings. People, organizations,
+  editorial links, and workflow records keep their independent identities.
+- Admin corrections, seed data, search, barcode/identifier lookup, reindex
+  fingerprints, and overview counts use the flattened root documents.
+- Movie media, Anime seasons, Music disc/track IDs and order, Book printing
+  data, and identifier lists are retained in the contained documents.
+- Music is grounded in the saved CLZ Music Edit form. Exact CLZ parity for the
   other eight kinds is unverified pending their Edit-form captures.
 
 ## Remaining coordinated work
 
-1. Move App forms, local catalog persistence, workspace, and owned-copy
-   creation to the typed roots while preserving the existing UI.
-2. Move retained personal references to Catalog Item or Owned Copy references
-   and keep their synchronization in `collectarr-sync`.
-3. Move the remaining Core read, diagnostic, and administration paths from
-   Work/Release models to flat Catalog Item roots. Comic, Game, Board Game,
-   Manga, and Anime no longer use the old root graphs; TV remains. Keep structured
-   child edits on their kind-owned operations. Then remove Core catalog routes
-   and tables that App no longer consumes, retaining kind-owned children with
-   independent domain behavior.
-4. Regenerate the contract and update the documented fresh-database setup in
-   all three repositories.
+1. Move scalar editable field definitions from `app/catalog/metadata_fields.py`
+   into kind-owned field modules. Keep the shared registry as composition and
+   contract export only.
+2. Regenerate OpenAPI, the canonical contract bundle, and schema visualizations
+   from the updated models. Review and pin the resulting bundle in App.
+3. Finish App's per-kind typed metadata and personal-data models, remove
+   duplicate shared kind DTOs and generic semantic readers, and preserve its
+   current workspace presentation and personal features.
+4. Finish the coordinated App/Sync reference and payload cutover. Sync continues
+   to mirror personal state only; it must never receive Core catalog documents.
+5. Update all repositories' current-status documents when the code and pinned
+   contracts have been synchronized.
 
-## Local checks
+## Database boundary
 
-```powershell
-python -m scripts.export_contract_bundle --check
-python -m ruff check .
-python -m pytest
-```
+The supported Core schema is created from the current SQLAlchemy models on a
+new, empty PostgreSQL database. `create_all()` does not reshape an existing
+database. Keep existing databases and backups untouched; use a separate empty
+database for the v1 baseline.
 
-Contract generation without `--check` is an intentional source change and must
-be reviewed together with App's pinned artifact. These checks do not modify or
-reset a database.
+## Checks
+
+Contract generation and schema export are implementation steps. Run automated
+tests only after the coordinated source and documentation changes are complete.

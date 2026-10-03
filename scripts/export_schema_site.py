@@ -47,7 +47,6 @@ SOURCE_MODULES = [
     "app/models/catalog_music_item.py",
     "app/models/catalog_tv_item.py",
     "app/models/canonical_support.py",
-    "app/models/canonical_video.py",
     "app/models/user.py",
 ]
 
@@ -114,7 +113,7 @@ KIND_SPECS: list[dict[str, str]] = [
     {"id": "tv", "title": "TV", "description": "TV-specific schema slice."},
     {"id": "game", "title": "Games", "description": "Video game schema slice."},
     {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
-    {"id": "book", "title": "Books", "description": "Books v1 work/edition schema slice."},
+    {"id": "book", "title": "Books", "description": "Book Catalog Item and reusable series grouping schema slice."},
     {"id": "music", "title": "Music", "description": "Music schema slice."},
     {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
 ]
@@ -133,7 +132,6 @@ KIND_SHARED_TABLES = [
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "comic": [
         "comic_items",
-        "comic_item_identifiers",
         "characters",
         "character_appearances",
         "story_arcs",
@@ -141,7 +139,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     ],
     "manga": [
         "manga_items",
-        "manga_item_identifiers",
         "characters",
         "character_appearances",
         "story_arcs",
@@ -149,42 +146,25 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     ],
     "anime": [
         "anime_items",
-        "anime_item_media",
-        "anime_item_episodes",
-        "anime_item_identifiers",
     ],
     "movie": [
         "movie_items",
-        "movie_item_media",
-        "bundle_releases",
     ],
     "tv": [
         "tv_items",
-        "tv_item_seasons",
-        "tv_item_episodes",
-        "tv_item_media",
-        "tv_item_identifiers",
-        "bundle_releases",
     ],
     "game": [
         "game_items",
-        "game_item_identifiers",
     ],
     "boardgame": [
         "boardgame_items",
-        "boardgame_item_identifiers",
     ],
     "book": [
         "book_series",
         "book_items",
-        "book_item_printings",
-        "book_item_credits",
-        "book_item_identifiers",
-        "book_item_series_memberships",
     ],
     "music": [
         "music_items",
-        "bundle_releases",
     ],
     "collection": [
         "bundle_releases",
@@ -202,7 +182,7 @@ POLYMORPHIC_LINK_TABLES = {
 
 STATIC_NOTES = [
     "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "Canonical metadata is stored in kind-specific tables; shared support tables only model cross-cutting relationships.",
+    "Each Catalog Item's repeated kind data is stored in its validated JSONB details document; shared support tables model independent cross-cutting records.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
     "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",
 ]

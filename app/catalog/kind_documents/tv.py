@@ -9,6 +9,12 @@ from app.catalog.document_shape import (
 )
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
 
+TV_PERSON = ChildObjectShape(
+    fields={**COMMON_ROOT_CHILDREN["creators"].fields, "character": STRING},
+    nullable=COMMON_ROOT_CHILDREN["creators"].nullable | frozenset({"character"}),
+    allow_string_value=True,
+)
+
 TV_MEDIA = ChildObjectShape(
     fields={
         "id": STRING,
@@ -120,6 +126,8 @@ DOCUMENT = KindDocumentShape(
     root_value_types={"description": STRING, "series_title": STRING},
     children={
         **COMMON_ROOT_CHILDREN,
+        "creators": TV_PERSON,
+        "contributors": TV_PERSON,
         "media": TV_MEDIA,
         "episodes": TV_EPISODE,
         "seasons": TV_SEASON,

@@ -10,6 +10,7 @@ from app.models.base import ItemKind
 VALUE_TYPE_STRING = "string"
 VALUE_TYPE_STRING_LIST = "string_list"
 VALUE_TYPE_INTEGER = "integer"
+VALUE_TYPE_BOOLEAN = "boolean"
 VALUE_TYPE_PARTIAL_DATE = "partial_date"
 VALUE_TYPE_LINK_LIST = "link_list"
 
@@ -27,9 +28,7 @@ INPUT_NUMBER = "number"
 INPUT_DATE = "date"
 INPUT_LIST = "list"
 
-VIDEO_KINDS: frozenset[ItemKind] = frozenset(
-    {ItemKind.anime, ItemKind.movie, ItemKind.tv}
-)
+VIDEO_KINDS: frozenset[ItemKind] = frozenset({ItemKind.anime, ItemKind.movie, ItemKind.tv})
 PRINT_KINDS: frozenset[ItemKind] = PRINT_GROUPING_KINDS
 TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
 ALL_KINDS: frozenset[ItemKind] = frozenset(ItemKind)

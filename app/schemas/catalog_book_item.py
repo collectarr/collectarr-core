@@ -50,6 +50,18 @@ class CatalogBookItemSeriesMembershipResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class CatalogBookItemCharacterResponse(BaseModel):
+    id: str | None = None
+    character_id: str | None = None
+    name: str | None = None
+    aliases: list[str] | None = None
+    role: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
 class CatalogBookItemResponse(BaseModel):
     id: UUID
     kind: Literal["book"] = "book"
@@ -62,11 +74,16 @@ class CatalogBookItemResponse(BaseModel):
     barcode: str | None = None
     catalog_number: str | None = None
     contributors: list[CatalogBookItemCreditResponse | str] | None = None
+    characters: list[CatalogBookItemCharacterResponse | str] | None = None
     country: str | None = None
     cover_image_url: str | None = None
+    back_cover_image_url: str | None = None
     creators: list[CatalogBookItemCreditResponse | str] | None = None
     description: str | None = None
+    distributor: str | None = None
+    dimensions: str | None = None
     edition_title: str | None = None
+    edition_statement: str | None = None
     external_links: list[dict[str, Any]] | None = None
     genres: list[str] | None = None
     identifiers: list[CatalogBookItemIdentifierResponse | str] | None = None
@@ -75,17 +92,21 @@ class CatalogBookItemResponse(BaseModel):
     isbn10: str | None = None
     isbn13: str | None = None
     item_number: str | None = None
+    first_edition: bool | None = None
+    first_publication_date: Any | None = None
+    audio_length_minutes: int | None = None
+    binding: str | None = None
     language: str | None = None
     localized_title: str | None = None
     original_title: str | None = None
+    original_language: str | None = None
+    original_publication_date: Any | None = None
     page_count: int | None = None
     physical_format: str | None = None
     plot_description: str | None = None
     plot_summary: str | None = None
     printings: list[CatalogBookItemPrintingResponse] | None = None
-    series_memberships: list[CatalogBookItemSeriesMembershipResponse] = Field(
-        default_factory=list
-    )
+    series_memberships: list[CatalogBookItemSeriesMembershipResponse] = Field(default_factory=list)
     publisher: str | None = None
     release_date: Any | None = None
     release_date_parts: Any | None = None
@@ -94,6 +115,8 @@ class CatalogBookItemResponse(BaseModel):
     series_group: str | None = None
     series_tags: list[str] | None = None
     series_title: str | None = None
+    subjects: list[str] | None = None
+    region: str | None = None
     subtitle: str | None = None
     synopsis: str | None = None
     thumbnail_image_url: str | None = None

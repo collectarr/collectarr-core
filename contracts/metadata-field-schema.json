@@ -3013,22 +3013,6 @@
       "common": false,
       "editable": true,
       "input": "text",
-      "key": "series_title",
-      "kind": "movie",
-      "label": "Series title",
-      "normalized": false,
-      "scope": "catalog_item",
-      "section": "item",
-      "sourceEntityType": "catalog_movie_item",
-      "sourceTable": "movie_items",
-      "typed": false,
-      "valueType": "string",
-      "writeTarget": "core_canonical"
-    },
-    {
-      "common": false,
-      "editable": true,
-      "input": "text",
       "key": "color",
       "kind": "anime",
       "label": "Color",
@@ -7474,5 +7458,5 @@
       "writeTarget": "core_canonical"
     }
   ],
-  "generatedAt": "2026-10-03T13:41:42.223295Z"
+  "generatedAt": "2026-10-03T13:43:09.199736Z"
 }

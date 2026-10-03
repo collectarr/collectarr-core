@@ -40,13 +40,6 @@ FIELD_SPECS = (
         section=SECTION_PUBLISHING,
         kinds=MOVIE_KINDS,
     ),
-    MetadataFieldSpec(
-        "series_title",
-        VALUE_TYPE_STRING,
-        "Series title",
-        section=SECTION_ITEM,
-        kinds=MOVIE_KINDS,
-    ),
 )
 
 __all__ = ["FIELD_SPECS"]

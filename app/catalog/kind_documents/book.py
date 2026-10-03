@@ -32,6 +32,19 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
+        "imprint", VALUE_TYPE_STRING, "Imprint",
+        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "series_group", VALUE_TYPE_STRING, "Series group",
+        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "page_count", VALUE_TYPE_INTEGER, "Page count",
+        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
         "original_language",
         VALUE_TYPE_STRING,
         "Original language",

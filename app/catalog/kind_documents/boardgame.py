@@ -18,6 +18,16 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
+        "platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
+        normalized=True, section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "identifiers", VALUE_TYPE_STRING_LIST, "Identifiers",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
         "contributors", VALUE_TYPE_STRING_LIST, "Contributors",
         section=SECTION_RELATIONS, input=INPUT_LIST,
         kinds=frozenset({ItemKind.boardgame}),

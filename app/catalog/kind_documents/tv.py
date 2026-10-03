@@ -11,6 +11,48 @@ from app.catalog.document_shape import (
     KindDocumentShape,
 )
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.metadata_field_spec import (
+    INPUT_NUMBER,
+    SECTION_PUBLISHING,
+    SECTION_TECHNICAL,
+    VALUE_TYPE_INTEGER,
+    VALUE_TYPE_STRING,
+    MetadataFieldSpec,
+)
+from app.models.base import ItemKind
+
+FIELD_SPECS = (
+    MetadataFieldSpec(
+        "color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
+        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
+        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
+        section=SECTION_TECHNICAL, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
+        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
+        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "subtitles", VALUE_TYPE_STRING, "Subtitles",
+        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "layers", VALUE_TYPE_STRING, "Layers",
+        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+    ),
+)
 
 TV_PERSON = ChildObjectShape(
     fields={**COMMON_ROOT_CHILDREN["creators"].fields, "character": STRING},

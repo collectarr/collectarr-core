@@ -9,13 +9,29 @@ from app.catalog.document_shape import (
 )
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
 from app.catalog.metadata_field_spec import (
+    INPUT_NUMBER,
     SECTION_ARTWORK,
+    SECTION_PUBLISHING,
+    VALUE_TYPE_INTEGER,
     VALUE_TYPE_STRING,
     MetadataFieldSpec,
 )
 from app.models.base import ItemKind
 
 FIELD_SPECS = (
+    MetadataFieldSpec(
+        "imprint", VALUE_TYPE_STRING, "Imprint",
+        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.manga}),
+    ),
+    MetadataFieldSpec(
+        "series_group", VALUE_TYPE_STRING, "Series group",
+        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.manga}),
+    ),
+    MetadataFieldSpec(
+        "page_count", VALUE_TYPE_INTEGER, "Page count",
+        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.manga}),
+    ),
     MetadataFieldSpec(
         "crossover",
         VALUE_TYPE_STRING,

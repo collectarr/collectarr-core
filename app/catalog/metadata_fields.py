@@ -27,18 +27,25 @@ Two concerns are modelled by a single spec:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 
 from app.catalog.common_metadata_fields import (
     _EDITABLE_COMMON_FIELDS,
     _EDITORIAL_FIELDS,
     _INTERNAL_COMMON_FIELDS,
 )
-from app.catalog.kind_documents import boardgame, book, game, movie_fields
-from app.catalog.kind_documents.game_boardgame_fields import FIELD_SPECS as _GAME_BOARDGAME_FIELDS
-from app.catalog.kind_documents.music import FIELD_SPECS as _MUSIC_FIELDS
-from app.catalog.kind_documents.video_fields import FIELD_SPECS as _VIDEO_FIELDS
+from app.catalog.kind_documents import (
+    anime,
+    boardgame,
+    book,
+    comic,
+    game,
+    manga,
+    movie,
+    music,
+    tv,
+)
 from app.catalog.metadata_field_spec import (
     ALL_KINDS,
     INPUT_LIST,
@@ -182,7 +189,58 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
     return rows
 
 
-# --- Normalized kind-scoped, typed fields ------------------------------------
+# --- Kind-owned field composition --------------------------------------------
+def _coalesce_identical_specs(
+    specs: Iterable[MetadataFieldSpec],
+) -> tuple[MetadataFieldSpec, ...]:
+    """Compose matching kind declarations without duplicating the API field."""
+    ordered: dict[tuple[object, ...], MetadataFieldSpec] = {}
+    for spec in specs:
+        identity = (
+            spec.key,
+            spec.value_type,
+            spec.label,
+            spec.common,
+            spec.typed,
+            spec.normalized,
+            spec.editable,
+            spec.section,
+            spec.input,
+        )
+        existing = ordered.get(identity)
+        if existing is None:
+            ordered[identity] = spec
+        else:
+            ordered[identity] = replace(existing, kinds=existing.kinds | spec.kinds)
+    return tuple(ordered.values())
+
+
+def _specs_for_keys(
+    modules: Sequence[object],
+    keys: set[str],
+) -> tuple[MetadataFieldSpec, ...]:
+    return _coalesce_identical_specs(
+        spec
+        for module in modules
+        for spec in module.FIELD_SPECS
+        if spec.key in keys
+    )
+
+
+_PRINT_KEYS = {"imprint", "series_group", "page_count"}
+_VIDEO_KEYS = {
+    "color",
+    "runtime_minutes",
+    "nr_discs",
+    "screen_ratio",
+    "audio_tracks",
+    "subtitles",
+    "layers",
+}
+_GAME_SHARED_KEYS = {"platforms", "identifiers"}
+
+# Keep the established field-schema order while the declarations live in their
+# owning kind modules. This order controls Admin presentation only.
 _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec(
         "genres",
@@ -194,14 +252,40 @@ _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
         input=INPUT_LIST,
         kinds=ALL_KINDS,
     ),
-    *_GAME_BOARDGAME_FIELDS[:1],
-    *_GAME_BOARDGAME_FIELDS[1:],
-    *book.FIELD_SPECS,
-    *game.FIELD_SPECS,
-    *boardgame.FIELD_SPECS,
-    *movie_fields.FIELD_SPECS,
-    *_VIDEO_FIELDS[:1],
+    *_specs_for_keys((game, boardgame), _GAME_SHARED_KEYS),
+    *_specs_for_keys((book,), {spec.key for spec in book.FIELD_SPECS} - _PRINT_KEYS),
+    *_specs_for_keys((game,), {spec.key for spec in game.FIELD_SPECS} - _GAME_SHARED_KEYS),
+    *_specs_for_keys(
+        (boardgame,),
+        {spec.key for spec in boardgame.FIELD_SPECS} - _GAME_SHARED_KEYS,
+    ),
+    *_specs_for_keys((movie,), {spec.key for spec in movie.FIELD_SPECS} - _VIDEO_KEYS),
+    *_specs_for_keys((anime, movie, tv), {"color"}),
 )
+
+
+def _editorial_fields_in_schema_order() -> tuple[MetadataFieldSpec, ...]:
+    print_fields = _specs_for_keys((book, comic, manga), _PRINT_KEYS)
+    runtime_field = _specs_for_keys((anime, movie, tv), {"runtime_minutes"})
+    video_technical_fields = _specs_for_keys(
+        (anime, movie, tv), _VIDEO_KEYS - {"color", "runtime_minutes"}
+    )
+    comic_and_manga_fields = _specs_for_keys((comic, manga), {"crossover"})
+    insert_after = {
+        "publisher": tuple(spec for spec in print_fields if spec.key == "imprint"),
+        "subtitle": tuple(spec for spec in print_fields if spec.key == "series_group"),
+        "variant_name": (
+            *tuple(spec for spec in print_fields if spec.key == "page_count"),
+            *runtime_field,
+        ),
+        "release_status": video_technical_fields,
+        "synopsis": comic_and_manga_fields,
+    }
+    ordered: list[MetadataFieldSpec] = []
+    for spec in _EDITORIAL_FIELDS:
+        ordered.append(spec)
+        ordered.extend(insert_after.get(spec.key, ()))
+    return tuple(ordered)
 
 #: The canonical registry, ordered (normalized common first, then kind-scoped,
 #: then editorial). Internal bookkeeping fields come first so the normalized
@@ -210,15 +294,21 @@ METADATA_FIELDS: tuple[MetadataFieldSpec, ...] = (
     _INTERNAL_COMMON_FIELDS
     + _EDITABLE_COMMON_FIELDS
     + _KIND_FIELDS
-    + _EDITORIAL_FIELDS
-    + _MUSIC_FIELDS
+    + _editorial_fields_in_schema_order()
+    + music.FIELD_SPECS
 )
 
-_FIELD_BY_KEY: dict[str, MetadataFieldSpec] = {spec.key: spec for spec in METADATA_FIELDS}
+_FIELDS_BY_KEY: dict[str, tuple[MetadataFieldSpec, ...]] = {
+    key: tuple(spec for spec in METADATA_FIELDS if spec.key == key)
+    for key in {spec.key for spec in METADATA_FIELDS}
+}
 
 
-def field_spec(key: str) -> MetadataFieldSpec | None:
-    return _FIELD_BY_KEY.get(key)
+def field_spec(key: str, kind: ItemKind | None = None) -> MetadataFieldSpec | None:
+    candidates = _FIELDS_BY_KEY.get(key, ())
+    if kind is not None:
+        return next((spec for spec in candidates if spec.applies_to(kind)), None)
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def common_field_keys() -> set[str]:
@@ -288,8 +378,8 @@ def editable_field_keys() -> set[str]:
 def canonical_correction_field_spec(kind: ItemKind, key: str) -> MetadataFieldSpec | None:
     """Return *key* when it is valid for a canonical correction target."""
 
-    spec = field_spec(key)
-    if spec is None or not spec.editable or not spec.applies_to(kind):
+    spec = field_spec(key, kind)
+    if spec is None or not spec.editable:
         return None
     if spec.write_target_for_kind(kind) != "core_canonical":
         return None

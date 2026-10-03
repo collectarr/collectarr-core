@@ -1,8 +1,5 @@
 """Shared source-neutral Catalog Item metadata field specifications."""
 
-from app.catalog.kind_documents import comic, manga
-from app.catalog.kind_documents.print_fields import FIELD_SPECS as _PRINT_FIELDS
-from app.catalog.kind_documents.video_fields import FIELD_SPECS as _VIDEO_FIELDS
 from app.catalog.metadata_field_spec import (
     ALL_KINDS,
     INPUT_DATE,
@@ -265,11 +262,9 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         section=SECTION_PUBLISHING,
         kinds=ALL_KINDS - {ItemKind.music},
     ),
-    *_PRINT_FIELDS[:1],
     MetadataFieldSpec(
         "subtitle", VALUE_TYPE_STRING, "Subtitle", section=SECTION_PUBLISHING, kinds=ALL_KINDS
     ),
-    *_PRINT_FIELDS[1:2],
     MetadataFieldSpec(
         "barcode", VALUE_TYPE_STRING, "Barcode", section=SECTION_PUBLISHING, kinds=ALL_KINDS
     ),
@@ -280,8 +275,6 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         section=SECTION_PUBLISHING,
         kinds=ALL_KINDS - {ItemKind.music},
     ),
-    *_PRINT_FIELDS[2:],
-    *_VIDEO_FIELDS[1:2],
     # Technical / release.
     MetadataFieldSpec(
         "catalog_number",
@@ -297,7 +290,6 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         section=SECTION_TECHNICAL,
         kinds=ALL_KINDS - {ItemKind.music},
     ),
-    *_VIDEO_FIELDS[2:],
     # Regional.
     MetadataFieldSpec(
         "country", VALUE_TYPE_STRING, "Country", section=SECTION_REGIONAL, kinds=ALL_KINDS
@@ -352,8 +344,6 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         input=INPUT_MULTILINE,
         kinds=ALL_KINDS - {ItemKind.music},
     ),
-    *comic.FIELD_SPECS,
-    *manga.FIELD_SPECS,
     MetadataFieldSpec(
         "plot_summary",
         VALUE_TYPE_STRING,

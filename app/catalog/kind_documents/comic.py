@@ -2,6 +2,7 @@
 
 from app.catalog.document_shape import (
     BOOLEAN,
+    CHARACTER,
     INTEGER,
     PARTIAL_DATE,
     STRING,
@@ -33,6 +34,17 @@ KEY_EVENT = ChildObjectShape(
     nullable=frozenset({"description"}),
 )
 
+COMIC_CHARACTER = ChildObjectShape(
+    fields={**CHARACTER.fields, "real_name": STRING},
+    nullable=CHARACTER.nullable | frozenset({"real_name"}),
+    allow_string_value=True,
+)
+
+COMIC_CHARACTER_DETAIL = ChildObjectShape(
+    fields=COMIC_CHARACTER.fields,
+    nullable=COMIC_CHARACTER.nullable,
+)
+
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(
         {
@@ -57,5 +69,10 @@ DOCUMENT = KindDocumentShape(
         "volume_number": STRING,
         "volume_start_year": INTEGER,
     },
-    children={**COMMON_ROOT_CHILDREN, "key_events": KEY_EVENT},
+    children={
+        **COMMON_ROOT_CHILDREN,
+        "characters": COMIC_CHARACTER,
+        "character_details": COMIC_CHARACTER_DETAIL,
+        "key_events": KEY_EVENT,
+    },
 )

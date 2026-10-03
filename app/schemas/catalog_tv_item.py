@@ -27,7 +27,7 @@ class CatalogTvItemMediaResponse(BaseModel):
 
 
 class CatalogTvItemEpisodeResponse(BaseModel):
-    id: UUID
+    id: UUID | None = None
     position: int = Field(ge=0)
     season_number: int | None = Field(default=None, ge=0)
     episode_number: int | None = Field(default=None, ge=0)

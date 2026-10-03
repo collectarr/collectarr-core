@@ -22,8 +22,6 @@ from app.models import (
     MovieItem,
     MovieItemMedia,
     MusicItem,
-    MusicItemDisc,
-    MusicItemTrack,
     TvItem,
 )
 from app.models.base import ItemKind
@@ -85,11 +83,10 @@ class AdminOverviewService:
             items_by_kind=items_by_kind,
             series=0,
             volumes=0,
-            editions=await self._count(MusicItemDisc),
+            editions=0,
             variants=(
                 await self._count(BookItemPrinting)
                 + await self._count(MovieItemMedia)
-                + await self._count(MusicItemTrack)
             ),
             image_assets=await self._count_image_assets(),
             pending_proposals=await self._count_pending_proposals(),
@@ -278,9 +275,7 @@ class AdminOverviewService:
         documents: list[dict[str, Any]] = []
 
         music_result = await self.db.execute(
-            select(MusicItem).options(
-                selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
-            )
+            select(MusicItem)
         )
         documents.extend(catalog_search_document(item) for item in music_result.scalars().unique())
 

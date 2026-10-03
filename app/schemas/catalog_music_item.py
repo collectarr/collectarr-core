@@ -4,31 +4,74 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CatalogMusicTrackResponse(BaseModel):
     id: UUID
-    position: str
-    position_order: int
-    title: str
+    position: str = Field(min_length=1, max_length=16)
+    position_order: int = Field(ge=0)
+    title: str = Field(min_length=1, max_length=255)
     artist: str | None = None
-    duration_ms: int | None = None
+    duration_ms: int | None = Field(default=None, ge=0)
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("title", "position")
+    @classmethod
+    def validate_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Track title and position must not be empty")
+        return value
 
 
 class CatalogMusicDiscResponse(BaseModel):
     id: UUID
-    disc_number: int
+    disc_number: int = Field(ge=1)
     title: str | None = None
     matrix_number_side_a: str | None = None
     matrix_number_side_b: str | None = None
     tracks: list[CatalogMusicTrackResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("tracks")
+    @classmethod
+    def validate_track_identity(cls, tracks: list[CatalogMusicTrackResponse]) -> list[CatalogMusicTrackResponse]:
+        if len({track.id for track in tracks}) != len(tracks):
+            raise ValueError("Track IDs must be unique within a disc")
+        if len({track.position_order for track in tracks}) != len(tracks):
+            raise ValueError("Track order must be unique within a disc")
+        return sorted(tracks, key=lambda track: track.position_order)
+
+
+def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Build validated JSON-safe discs, preserving supplied component IDs."""
+    discs: list[CatalogMusicDiscResponse] = []
+    for raw in value:
+        tracks = [
+            CatalogMusicTrackResponse.model_validate({
+                **track,
+                "id": track.get("id") or uuid4(),
+                "position": str(track["position"]),
+                "position_order": track.get("position_order", index),
+            })
+            for index, track in enumerate(raw.get("tracks") or [])
+        ]
+        discs.append(CatalogMusicDiscResponse.model_validate({
+            **raw, "id": raw.get("id") or uuid4(), "tracks": tracks,
+        }))
+    if len({disc.disc_number for disc in discs}) != len(discs):
+        raise ValueError("Disc numbers must be unique within an album")
+    if len({disc.id for disc in discs}) != len(discs):
+        raise ValueError("Disc IDs must be unique within an album")
+    track_ids = [track.id for disc in discs for track in disc.tracks]
+    if len(set(track_ids)) != len(track_ids):
+        raise ValueError("Track IDs must be unique within an album")
+    return [disc.model_dump(mode="json") for disc in sorted(discs, key=lambda disc: disc.disc_number)]
 
 
 class CatalogMusicItemResponse(BaseModel):

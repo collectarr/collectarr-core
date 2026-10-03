@@ -333,11 +333,9 @@
         "tags",
         "entity_tags",
         "music_items",
-        "music_item_discs",
-        "music_item_tracks",
         "bundle_releases"
       ],
-      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_500 subtitle\n    VARCHAR_500 artist\n    JSONB artist_credits\n    DATE original_release_date\n    JSONB original_release_date_parts\n    DATE recording_date\n    JSONB recording_date_parts\n    DATE release_date\n    JSONB release_date_parts\n    VARCHAR_255 label\n    VARCHAR_100 format\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB genres\n    VARCHAR_100 packaging\n    JSONB studios\n    VARCHAR_100 country\n    BOOLEAN is_live\n    JSONB sound_types\n    VARCHAR_100 vinyl_color\n    VARCHAR_100 vinyl_weight\n    INTEGER rpm\n    TEXT extra\n    VARCHAR_50 spars\n    VARCHAR_255 box_set\n    JSONB composers\n    JSONB conductors\n    JSONB choruses\n    JSONB compositions\n    JSONB orchestras\n    JSONB songwriters\n    JSONB producers\n    JSONB engineers\n    JSONB musicians\n    JSONB external_links\n    VARCHAR_2048 cover_image_url\n    VARCHAR_2048 back_cover_image_url\n    VARCHAR_2048 thumbnail_image_url\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_ITEM_DISCS {\n    UUID music_item_id FK\n    INTEGER disc_number\n    VARCHAR_255 title\n    VARCHAR_100 matrix_number_side_a\n    VARCHAR_100 matrix_number_side_b\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_ITEM_TRACKS {\n    UUID disc_id FK\n    VARCHAR_16 position\n    INTEGER position_order\n    VARCHAR_255 title\n    VARCHAR_500 artist\n    INTEGER duration_ms\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_64 release_date_parts\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id\n  MUSIC_ITEMS ||--o{ MUSIC_ITEM_DISCS : music_item_id\n  MUSIC_ITEM_DISCS ||--o{ MUSIC_ITEM_TRACKS : disc_id",
+      "diagram": "erDiagram\n  ENTITY_ALIASES {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_255 alias\n    VARCHAR_255 normalized_alias\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_LINKS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_32 link_type\n    VARCHAR_1024 url\n    VARCHAR_255 site\n    VARCHAR_255 name\n    VARCHAR_255 kind\n    TEXT description\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS {\n    VARCHAR_255 name\n    VARCHAR_64 type\n    VARCHAR_64 country\n    VARCHAR_255 parent_publisher\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PERSONS {\n    VARCHAR_255 name\n    VARCHAR_255 sort_name\n    TEXT biography\n    TEXT description\n    VARCHAR_1024 image_url\n    VARCHAR_1024 api_detail_url\n    VARCHAR_1024 site_detail_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_ORGANIZATIONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID organization_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_PERSONS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID person_id FK\n    VARCHAR_64 role\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  TAGS {\n    VARCHAR_64 kind\n    VARCHAR_255 name\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ENTITY_TAGS {\n    VARCHAR_64 entity_type\n    UUID entity_id\n    UUID tag_id FK\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  MUSIC_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_title\n    VARCHAR_500 subtitle\n    VARCHAR_500 artist\n    JSONB artist_credits\n    DATE original_release_date\n    JSONB original_release_date_parts\n    DATE recording_date\n    JSONB recording_date_parts\n    DATE release_date\n    JSONB release_date_parts\n    VARCHAR_255 label\n    VARCHAR_100 format\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB genres\n    VARCHAR_100 packaging\n    JSONB studios\n    VARCHAR_100 country\n    BOOLEAN is_live\n    JSONB sound_types\n    VARCHAR_100 vinyl_color\n    VARCHAR_100 vinyl_weight\n    INTEGER rpm\n    TEXT extra\n    VARCHAR_50 spars\n    VARCHAR_255 box_set\n    JSONB composers\n    JSONB conductors\n    JSONB choruses\n    JSONB compositions\n    JSONB orchestras\n    JSONB songwriters\n    JSONB producers\n    JSONB engineers\n    JSONB musicians\n    JSONB external_links\n    VARCHAR_2048 cover_image_url\n    VARCHAR_2048 back_cover_image_url\n    VARCHAR_2048 thumbnail_image_url\n    INTEGER revision\n    JSONB discs\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  BUNDLE_RELEASES {\n    item_kind kind\n    VARCHAR_255 title\n    VARCHAR_64 bundle_type\n    VARCHAR_64 format\n    VARCHAR_64 variant_type\n    VARCHAR_64 packaging_type\n    VARCHAR_32 region\n    VARCHAR_32 language\n    VARCHAR_255 publisher\n    VARCHAR_100 sku\n    VARCHAR_32 barcode\n    DATE release_date\n    VARCHAR_64 release_date_parts\n    VARCHAR_512 cover_image_key\n    VARCHAR_1024 cover_image_url\n    VARCHAR_512 thumbnail_image_key\n    VARCHAR_1024 thumbnail_image_url\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  ORGANIZATIONS ||--o{ ENTITY_ORGANIZATIONS : organization_id\n  PERSONS ||--o{ ENTITY_PERSONS : person_id\n  TAGS ||--o{ ENTITY_TAGS : tag_id",
       "external_references": []
     },
     {
@@ -4340,6 +4338,21 @@
           "index": false,
           "indexes": [],
           "default": "1",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "discs",
+          "type": "JSONB",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:builtins.list",
           "server_default": null,
           "autoincrement": true,
           "foreign_keys": [],
@@ -10163,193 +10176,6 @@
       "polymorphic_note": null
     },
     {
-      "name": "music_item_discs",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "music_item_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_music_item_discs_music_item_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "music_item_id",
-              "target_table": "music_items",
-              "target_column": "id",
-              "target": "music_items.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "disc_number",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "matrix_number_side_a",
-          "type": "VARCHAR(100)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "matrix_number_side_b",
-          "type": "VARCHAR(100)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "music_item_id"
-            ],
-            "targets": [
-              "music_items.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_music_item_disc_number",
-            "columns": [
-              "music_item_id",
-              "disc_number"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_music_item_discs_item",
-            "columns": [
-              "music_item_id",
-              "disc_number"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_music_item_discs_music_item_id",
-            "columns": [
-              "music_item_id"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
-    },
-    {
       "name": "story_arc_items",
       "domain": "editorial",
       "columns": [
@@ -11931,208 +11757,6 @@
         ]
       },
       "polymorphic_note": null
-    },
-    {
-      "name": "music_item_tracks",
-      "domain": "misc",
-      "columns": [
-        {
-          "name": "disc_id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": true,
-          "indexes": [
-            "ix_music_item_tracks_disc_id"
-          ],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [
-            {
-              "column": "disc_id",
-              "target_table": "music_item_discs",
-              "target_column": "id",
-              "target": "music_item_discs.id",
-              "ondelete": "CASCADE",
-              "onupdate": null,
-              "name": null
-            }
-          ],
-          "enum": null
-        },
-        {
-          "name": "position",
-          "type": "VARCHAR(16)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "position_order",
-          "type": "INTEGER",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "title",
-          "type": "VARCHAR(255)",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "artist",
-          "type": "VARCHAR(500)",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "duration_ms",
-          "type": "INTEGER",
-          "nullable": true,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": null,
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "id",
-          "type": "UUID",
-          "nullable": false,
-          "primary_key": true,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:uuid.uuid4",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "created_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        },
-        {
-          "name": "updated_at",
-          "type": "TIMESTAMP WITH TIME ZONE",
-          "nullable": false,
-          "primary_key": false,
-          "unique": false,
-          "unique_constraint": null,
-          "index": false,
-          "indexes": [],
-          "default": "python:app.models.base.TimestampMixin.<lambda>",
-          "server_default": null,
-          "autoincrement": true,
-          "foreign_keys": [],
-          "enum": null
-        }
-      ],
-      "constraints": {
-        "primary_key": {
-          "name": null,
-          "columns": [
-            "id"
-          ]
-        },
-        "foreign_keys": [
-          {
-            "name": null,
-            "columns": [
-              "disc_id"
-            ],
-            "targets": [
-              "music_item_discs.id"
-            ],
-            "ondelete": "CASCADE",
-            "onupdate": null
-          }
-        ],
-        "unique_constraints": [
-          {
-            "name": "uq_music_item_track_position",
-            "columns": [
-              "disc_id",
-              "position_order"
-            ]
-          }
-        ],
-        "check_constraints": [],
-        "indexes": [
-          {
-            "name": "ix_music_item_tracks_disc",
-            "columns": [
-              "disc_id",
-              "position_order"
-            ],
-            "unique": false
-          },
-          {
-            "name": "ix_music_item_tracks_disc_id",
-            "columns": [
-              "disc_id"
-            ],
-            "unique": false
-          }
-        ]
-      },
-      "polymorphic_note": null
     }
   ],
   "enums": {
@@ -12438,18 +12062,6 @@
       "onupdate": null
     },
     {
-      "from_table": "music_item_discs",
-      "from_columns": [
-        "music_item_id"
-      ],
-      "to_targets": [
-        "music_items.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
-    },
-    {
       "from_table": "story_arc_items",
       "from_columns": [
         "story_arc_id"
@@ -12544,26 +12156,14 @@
       "name": null,
       "ondelete": "CASCADE",
       "onupdate": null
-    },
-    {
-      "from_table": "music_item_tracks",
-      "from_columns": [
-        "disc_id"
-      ],
-      "to_targets": [
-        "music_item_discs.id"
-      ],
-      "name": null,
-      "ondelete": "CASCADE",
-      "onupdate": null
     }
   ],
   "summary": {
-    "tables": 55,
-    "columns": 544,
-    "foreign_keys": 33,
-    "indexes": 172,
-    "unique_constraints": 32,
+    "tables": 53,
+    "columns": 528,
+    "foreign_keys": 31,
+    "indexes": 168,
+    "unique_constraints": 30,
     "check_constraints": 3
   }
 }

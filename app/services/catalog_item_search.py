@@ -261,9 +261,12 @@ class CatalogItemSearchService:
                 expression = music_columns.get(argument)
                 if expression is None:
                     continue
+                predicates.append(expression.ilike(f"%{value}%"))
             else:
-                expression = model.details[field].as_string()
-            predicates.append(expression.ilike(f"%{value}%"))
+                # Detail filters are picker/filter values, not free-text
+                # search. Use JSONB containment so the per-root GIN index can
+                # serve them instead of scanning each details document.
+                predicates.append(model.details.contains({field: value}))
 
         catalog_number = _trim(arguments.get("catalog_number"))
         if catalog_number:
@@ -274,9 +277,9 @@ class CatalogItemSearchService:
             else:
                 predicates.append(
                     or_(
-                        model.catalog_number.ilike(f"%{catalog_number}%"),
-                        model.details["catalog_number"].as_string().ilike(
-                            f"%{catalog_number}%"
+                        model.catalog_number == catalog_number,
+                        model.details.contains(
+                            {"catalog_number": catalog_number}
                         ),
                     )
                 )
@@ -300,12 +303,11 @@ class CatalogItemSearchService:
                 year_text = str(year)
                 predicates.append(
                     or_(
-                        model.details["year_published"].as_integer() == year,
-                        model.details["release_date_parts"]["year"].as_integer()
-                        == year,
-                        model.details["release_date"].as_string().like(
-                            f"{year_text}%"
+                        model.details.contains({"year_published": year}),
+                        model.details.contains(
+                            {"release_date_parts": {"year": year}}
                         ),
+                        model.details.contains({"release_date": year_text}),
                     )
                 )
 

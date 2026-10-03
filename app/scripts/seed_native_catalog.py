@@ -25,7 +25,7 @@ from app.models.catalog_game_item import GameItem
 from app.models.catalog_anime_item import AnimeItem, AnimeItemEpisode
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem, MovieItemMedia
-from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
+from app.models.catalog_music_item import MusicItem
 from app.models.catalog_tv_item import TvItem, TvItemEpisode, TvItemMedia, TvItemSeason
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 
@@ -622,41 +622,16 @@ async def _seed_music(
     item.thumbnail_image_url = thumbnail_url
     await db.flush()
 
-    disc = (
-        await db.execute(
-            select(MusicItemDisc).where(
-                MusicItemDisc.music_item_id == item.id,
-                MusicItemDisc.disc_number == 1,
-            )
-        )
-    ).scalar_one_or_none()
-    if disc is None:
-        disc = MusicItemDisc(
-            item=item,
-            disc_number=1,
-            title="Disc 1",
-        )
-        db.add(disc)
-        await db.flush()
-
-    track = (
-        await db.execute(
-            select(MusicItemTrack).where(
-                MusicItemTrack.disc_id == disc.id,
-                MusicItemTrack.position_order == 0,
-            )
-        )
-    ).scalar_one_or_none()
-    if track is None:
-        track = MusicItemTrack(
-            disc=disc,
-            position="1",
-            position_order=0,
-            title=f"{entry.title} Track 1",
-            artist=entry.creator[0],
-            duration_ms=180000,
-        )
-        db.add(track)
+    existing = item.discs[0] if item.discs else {}
+    existing_track = (existing.get("tracks") or [{}])[0]
+    item.discs = [{
+        **existing, "disc_number": 1, "title": "Disc 1",
+        "tracks": [{
+            **existing_track, "position": "1", "position_order": 0,
+            "title": f"{entry.title} Track 1", "artist": entry.creator[0],
+            "duration_ms": 180000,
+        }],
+    }]
     await db.flush()
     return [item]
 

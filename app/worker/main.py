@@ -16,8 +16,6 @@ from app.db.session import AsyncSessionLocal
 from app.models import (
     ImageAsset,
     MusicItem,
-    MusicItemDisc,
-    MusicItemTrack,
 )
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import (
@@ -84,14 +82,12 @@ async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
         TvItemSeason,
         TvItemMedia,
         TvItemEpisode,
-        MusicItemDisc,
-    )
+        )
     variant_tables = (
         BookItemCredit,
         BookItemIdentifier,
         TvItemIdentifier,
-        MusicItemTrack,
-    )
+        )
     item_count = 0
     item_updated_at: datetime | None = None
     edition_count = 0
@@ -187,9 +183,7 @@ async def index_once(search: SearchClient) -> None:
         documents.extend(catalog_search_document(row) for row in anime_rows.scalars().unique())
 
         music_rows = await db.execute(
-            select(MusicItem).options(
-                selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
-            )
+            select(MusicItem)
         )
         documents.extend(
             music_item_search_document(item)

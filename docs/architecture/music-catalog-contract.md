@@ -4,7 +4,7 @@ The public Music catalog uses one `CatalogMusicItemResponse` for each concrete a
 
 The Core contract exporter derives `contracts/music-catalog-v1.json` from the same Pydantic response schemas used by the API. App pins this artifact and owns the kind-specific Dart DTO. `metadata-field-schema.json` remains the contract for editable metadata fields; it does not describe the contained disc and track structure.
 
-Music metadata-field ownership now points to `catalog_music_item` / `music_items`. Music no longer inherits Work/Release correction fields such as Edition title, Publisher, or Release status. The Admin catalog list, detail response, correction path, and reindexing read the flat `MusicItem` model; track corrections rewrite the contained track rows while retaining existing disc titles and matrix numbers.
+Music metadata-field ownership now points to `catalog_music_item` / `music_items`. Music no longer inherits Work/Release correction fields such as Edition title, Publisher, or Release status. The Admin catalog list, detail response, correction path, and reindexing read the flat `MusicItem` model; track corrections replace the contained JSONB document while retaining existing disc IDs, titles, matrix numbers, and matching track IDs.
 
 ## Field ownership
 
@@ -22,3 +22,17 @@ Core supports a fresh v1 schema created from the current SQLAlchemy models. Ther
 From the Core repository, run `python -m scripts.export_contract_bundle`. The exporter builds the Music item, disc, and track schemas from the API response classes and includes the artifact hash in `contract-manifest.json`.
 
 CI runs `python -m scripts.export_contract_bundle --check` to compare the committed bundle with the current API schemas and verify the hashes in the manifest. The check ignores only the export timestamp and Core commit metadata, which change on each export.
+
+## Music document storage
+
+`music_items` is the only Music catalog table. Its non-null `discs` JSONB column
+contains ordered discs and their tracks. Component UUIDs remain in the document;
+there are no standalone disc/track entities or foreign keys. Typed validation
+checks positive unique disc numbers, component IDs, non-negative track order and
+duration, and required track titles/positions. Reads return the same nested API
+shape. Writers replace the whole validated document; in-place nested JSON edits
+are not a supported persistence path. Album revision/timestamps track document
+changes. Search indexes album metadata; track search remains local to the App.
+
+This is a fresh schema-v1 baseline, without migration or compatibility code.
+Existing databases are not reset or transformed by this change.

@@ -41,8 +41,6 @@ from app.models import (
     MangaItemIdentifier,
     MovieItem,
     MusicItem,
-    MusicItemDisc,
-    MusicItemTrack,
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
@@ -140,29 +138,17 @@ class AdminCatalogService:
             metadata: dict[str, Any] = {}
             if kind == ItemKind.music:
                 tracks: list[dict[str, Any]] = []
-                releases = getattr(entity, "releases", []) or []
-                for release in releases:
-                    for media in sorted(
-                        getattr(release, "mediums", []) or [],
-                        key=lambda row: (getattr(row, "medium_number", 0), str(getattr(row, "id", ""))),
-                    ):
-                        for track in sorted(
-                            getattr(media, "tracks", []) or [],
-                            key=lambda row: (str(getattr(row, "position", "")), str(getattr(row, "id", ""))),
-                        ):
-                            tracks.append(
-                                {
-                                    "position": int(track.position) if str(track.position).isdigit() else track.position,
-                                    "title": track.title,
-                                    "artist": track.artist,
-                                    "is_header": track.is_header,
-                                    "indent_level": track.indent_level,
-                                    "parent_header_id": track.parent_header_id,
-                                    "duration_seconds": (
-                                        track.duration_ms // 1000 if track.duration_ms is not None else None
-                                    ),
-                                }
-                            )
+                for disc in entity.discs:
+                    for track in disc["tracks"]:
+                        tracks.append({
+                            "position": track["position"],
+                            "title": track["title"],
+                            "artist": track.get("artist"),
+                            "duration_seconds": (
+                                track["duration_ms"] // 1000
+                                if track.get("duration_ms") is not None else None
+                            ),
+                        })
                 if tracks:
                     metadata["tracks"] = tracks
                     metadata["track_count"] = len(tracks)
@@ -502,16 +488,16 @@ class AdminCatalogService:
         }
         before["tracks"] = [
             {
-                "title": track.title,
-                "artist": track.artist,
-                "disc_number": disc.disc_number,
-                "position": track.position,
+                "title": track["title"],
+                "artist": track.get("artist"),
+                "disc_number": disc["disc_number"],
+                "position": track["position"],
                 "duration_seconds": (
-                    track.duration_ms // 1000 if track.duration_ms is not None else None
+                    track["duration_ms"] // 1000 if track.get("duration_ms") is not None else None
                 ),
             }
             for disc in item.discs
-            for track in disc.tracks
+            for track in disc["tracks"]
         ]
 
         for field in (
@@ -556,7 +542,7 @@ class AdminCatalogService:
             setattr(item, field, parsed.as_date if parsed is not None else None)
 
         if "tracks" in update_data:
-            old_discs = {disc.disc_number: disc for disc in item.discs}
+            old_discs = {disc["disc_number"]: disc for disc in item.discs}
             tracks_by_disc: dict[int, list[dict[str, Any]]] = {}
             for row in self._normalize_tracks(payload.tracks):
                 disc_number = row.get("disc_number", 1)
@@ -568,32 +554,24 @@ class AdminCatalogService:
                     )
                 tracks_by_disc.setdefault(disc_number, []).append(row)
 
-            replacement_discs: list[MusicItemDisc] = []
+            replacement_discs: list[dict[str, Any]] = []
             for disc_number, rows in sorted(tracks_by_disc.items()):
-                old_disc = old_discs.get(disc_number)
-                disc = MusicItemDisc(
-                    disc_number=disc_number,
-                    title=old_disc.title if old_disc is not None else None,
-                    matrix_number_side_a=(
-                        old_disc.matrix_number_side_a if old_disc is not None else None
-                    ),
-                    matrix_number_side_b=(
-                        old_disc.matrix_number_side_b if old_disc is not None else None
-                    ),
-                    tracks=[],
-                )
+                old_disc = old_discs.get(disc_number, {})
+                old_tracks = {track["position"]: track for track in old_disc.get("tracks", [])}
+                tracks = []
                 for index, row in enumerate(rows):
                     duration = row.get("duration_seconds")
-                    disc.tracks.append(
-                        MusicItemTrack(
-                            position=str(row.get("position", index + 1)),
-                            position_order=index,
-                            title=row["title"],
-                            artist=row.get("artist"),
-                            duration_ms=duration * 1000 if isinstance(duration, int) else None,
-                        )
-                    )
-                replacement_discs.append(disc)
+                    position = str(row.get("position", index + 1))
+                    old_track = old_tracks.pop(position, {})
+                    tracks.append({
+                        **old_track,
+                        "position": position, "position_order": index,
+                        "title": row["title"], "artist": row.get("artist"),
+                        "duration_ms": duration * 1000 if isinstance(duration, int) else None,
+                    })
+                replacement_discs.append({
+                    **old_disc, "disc_number": disc_number, "tracks": tracks,
+                })
             item.discs = replacement_discs
 
         self._audit_recorder(
@@ -1256,7 +1234,7 @@ class AdminCatalogService:
         if kind == ItemKind.movie:
             return [selectinload(MovieItem.media)]
         if kind == ItemKind.music:
-            return [selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks)]
+            return []
         return []
 
     def _native_load_options(self, kind: ItemKind) -> list[Any]:
@@ -1273,7 +1251,5 @@ class AdminCatalogService:
                 selectinload(MovieItem.media),
             ]
         if kind == ItemKind.music:
-            return [
-                selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks),
-            ]
+            return []
         return []

@@ -14,9 +14,9 @@ creation and editing. They do not contain source identities or owned-copy data.
 ## Catalog model
 
 The target shape is one typed Catalog Item per concrete collectible edition,
-version, issue variant, or release. Kind-specific children such as Music discs
-and tracks, TV/Anime episodes, Book printings, credits, and identifiers remain
-children of that item. A series may remain a reference or grouping; it is not a
+version, issue variant, or release. Music discs and tracks are contained in the root JSONB document.
+Independent children such as TV/Anime episodes, Book printings, credits, and
+identifiers remain in kind-owned tables. A series may remain a reference or grouping; it is not a
 required editable parent.
 
 Typed Catalog Item APIs and proposals exist for all nine kinds. The App cutover

@@ -8,12 +8,11 @@ from uuid import UUID
 
 from sqlalchemy import extract, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.catalog_music_item import MusicItem, MusicItemDisc, MusicItemTrack
+from app.models.catalog_music_item import MusicItem
 from app.schemas.catalog_music_item import CatalogMusicItemResponse
 
 
@@ -101,36 +100,8 @@ class CatalogMusicItemService:
             cover_image_url=_optional_string(item_payload.get("cover_image_url")),
             back_cover_image_url=_optional_string(item_payload.get("back_cover_image_url")),
             thumbnail_image_url=_optional_string(item_payload.get("thumbnail_image_url")),
-            discs=[],
+            discs=item_payload.get("discs") or [],
         )
-        for disc_index, disc_payload in enumerate(
-            _object_values(item_payload.get("discs")), start=1
-        ):
-            disc_number = disc_payload.get("disc_number")
-            disc = MusicItemDisc(
-                disc_number=disc_number if isinstance(disc_number, int) else disc_index,
-                title=_optional_string(disc_payload.get("title")),
-                matrix_number_side_a=_optional_string(disc_payload.get("matrix_number_side_a")),
-                matrix_number_side_b=_optional_string(disc_payload.get("matrix_number_side_b")),
-                tracks=[],
-            )
-            for position_order, track_payload in enumerate(
-                _object_values(disc_payload.get("tracks"))
-            ):
-                position = track_payload.get("position")
-                disc.tracks.append(
-                    MusicItemTrack(
-                        position=str(position if position is not None else position_order + 1),
-                        position_order=position_order,
-                        title=str(track_payload.get("title") or "").strip(),
-                        artist=_optional_string(track_payload.get("artist")),
-                        duration_ms=track_payload.get("duration_ms")
-                        if isinstance(track_payload.get("duration_ms"), int)
-                        else None,
-                    )
-                )
-            item.discs.append(disc)
-
         self.db.add(item)
         await self.db.flush()
         return CatalogMusicItemResponse.model_validate(item)
@@ -149,9 +120,7 @@ class CatalogMusicItemService:
         limit: int,
         offset: int,
     ) -> list[CatalogMusicItemResponse]:
-        stmt = select(MusicItem).options(
-            selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks)
-        )
+        stmt = select(MusicItem)
         if barcode and barcode.strip():
             stmt = stmt.where(MusicItem.barcode == barcode.strip())
         elif query and query.strip():
@@ -200,7 +169,6 @@ class CatalogMusicItemService:
         result = await self.db.execute(
             select(MusicItem)
             .where(MusicItem.id == item_id)
-            .options(selectinload(MusicItem.discs).selectinload(MusicItemDisc.tracks))
         )
         item = result.scalar_one_or_none()
         if item is None:

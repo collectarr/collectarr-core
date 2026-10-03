@@ -19,7 +19,7 @@ behavior remain relational.
 
 | Kind | Canonical tables |
 | --- | --- |
-| Music | `music_items`, `music_item_discs`, `music_item_tracks` |
+| Music | `music_items` (contained discs/tracks in JSONB) |
 | Books | `book_items`, `book_item_printings`, `book_item_credits`, `book_item_identifiers`, `book_series`, `book_item_series_memberships` |
 | Games | `game_items`, `game_item_identifiers` |
 | Board games | `boardgame_items`, `boardgame_item_identifiers` |

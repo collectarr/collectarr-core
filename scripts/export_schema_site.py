@@ -184,8 +184,6 @@ KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     ],
     "music": [
         "music_items",
-        "music_item_discs",
-        "music_item_tracks",
         "bundle_releases",
     ],
     "collection": [

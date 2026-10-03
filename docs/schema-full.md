@@ -204,8 +204,6 @@ Tables:
 - `tags`
 - `entity_tags`
 - `music_items`
-- `music_item_discs`
-- `music_item_tracks`
 - `bundle_releases`
 
 ### Collections

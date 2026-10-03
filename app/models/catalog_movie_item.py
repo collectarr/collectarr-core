@@ -33,6 +33,12 @@ class MovieItem(UuidMixin, TimestampMixin, Base):
         ),
         Index("ix_movie_items_barcode", "barcode"),
         Index("ix_movie_items_catalog_number", "catalog_number"),
+        Index(
+            "ix_movie_items_details_gin",
+            "details",
+            postgresql_using="gin",
+            postgresql_ops={"details": "jsonb_path_ops"},
+        ),
     )
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)

@@ -8,6 +8,9 @@
 - Kind-owned document-shape modules define root keys, contained object fields,
   nullability, required values, and collection validation. The common schema
   module composes those kind contracts and projects accepted proposals.
+- Kind-only metadata field specifications now live beside each of the nine
+  kind document schemas. Shared field declarations remain in the common module;
+  the registry composes the kind declarations in the established Admin order.
 - Book series remain independent reusable groupings. People, organizations,
   editorial links, and workflow records keep their independent identities.
 - Admin corrections, seed data, search, barcode/identifier lookup, reindex
@@ -22,14 +25,9 @@
 
 ## Remaining coordinated work
 
-1. Shared source-neutral field declarations now live in
-   `app/catalog/common_metadata_fields.py`; `metadata_fields.py` composes those
-   declarations with kind and family field specs and derives the exported
-   registry. Music, Video, Print, Game, and Board Game fields declare
-   themselves alongside their document contracts. Continue moving any
-   remaining kind-only declarations into their owner modules; keep genuinely
-   shared catalog fields in the common module until their owners are explicit
-   in every kind's field contract.
+1. Field ownership is organized between the shared common-field module and
+   each kind's document module. Keep new kind-only field specs beside their
+   owner's schema; `metadata_fields.py` remains the registry composition point.
 2. Re-export OpenAPI, the canonical contract bundle, and schema visualizations
    after field ownership is complete; review and pin the final bundle in App.
 3. App now has kind-owned typed metadata and `*PersonalData` values in all nine

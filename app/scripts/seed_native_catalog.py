@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import uuid4
 
 from app.models import (
     EntityPerson,
@@ -17,12 +17,12 @@ from app.models import (
     Tag,
 )
 from app.models.base import ItemKind
+from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_book_series import BookSeries
 from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_game_item import GameItem
-from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_music_item import MusicItem
@@ -159,8 +159,6 @@ def _apply_seed_metadata(
         "vinyl_color": "black" if kind == ItemKind.music else None,
         "vinyl_weight": "180g" if kind == ItemKind.music else None,
         "rpm": 33 if kind == ItemKind.music else None,
-        "instrument": "ensemble" if kind == ItemKind.music else None,
-        "composition": entry.title if kind == ItemKind.music else None,
     }
 
     for attr, value in values.items():

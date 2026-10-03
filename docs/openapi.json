@@ -11092,105 +11092,6 @@
             ],
             "title": "Title"
           },
-          "medium_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Medium Type"
-          },
-          "track_count": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Count"
-          },
-          "expected_track_count": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expected Track Count"
-          },
-          "missing_track_count": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Missing Track Count"
-          },
-          "missing_track_positions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Missing Track Positions"
-          },
-          "toc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Toc"
-          },
-          "cddb_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cddb Id"
-          },
-          "leadout_offset": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Leadout Offset"
-          },
-          "bp_disc_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bp Disc Id"
-          },
           "matrix_number_side_a": {
             "anyOf": [
               {
@@ -11212,62 +11113,6 @@
               }
             ],
             "title": "Matrix Number Side B"
-          },
-          "sound_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sound Type"
-          },
-          "vinyl_color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vinyl Color"
-          },
-          "vinyl_weight": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Vinyl Weight"
-          },
-          "rpm": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rpm"
-          },
-          "spars": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Spars"
           },
           "tracks": {
             "items": {
@@ -11773,17 +11618,6 @@
             ],
             "title": "Artist"
           },
-          "composition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Composition"
-          },
           "duration_ms": {
             "anyOf": [
               {
@@ -11795,87 +11629,6 @@
               }
             ],
             "title": "Duration Ms"
-          },
-          "offset_ms": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Offset Ms"
-          },
-          "bitrate_kbps": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bitrate Kbps"
-          },
-          "file_size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Size Bytes"
-          },
-          "track_hash": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Track Hash"
-          },
-          "instrument": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instrument"
-          },
-          "is_header": {
-            "type": "boolean",
-            "title": "Is Header",
-            "default": false
-          },
-          "indent_level": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Indent Level",
-            "default": 0
-          },
-          "parent_header_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Header Id"
           }
         },
         "type": "object",

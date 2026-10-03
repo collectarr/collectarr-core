@@ -7,12 +7,12 @@ from app.catalog.document_shape import (
     BOOLEAN,
     INTEGER,
     INTEGER_OR_STRING,
+    LINK,
+    PERSON,
     STRING,
     STRING_LIST,
     ChildObjectShape,
     KindDocumentShape,
-    LINK,
-    PERSON,
 )
 
 
@@ -49,24 +49,13 @@ TRACK = ChildObjectShape(
         "position_order": INTEGER,
         "title": STRING,
         "artist": STRING,
-        "composition": STRING,
         "duration_ms": INTEGER,
-        "offset_ms": INTEGER,
-        "bitrate_kbps": INTEGER,
-        "file_size_bytes": INTEGER,
-        "track_hash": STRING,
-        "instrument": STRING,
-        "is_header": BOOLEAN,
-        "indent_level": INTEGER,
-        "parent_header_id": STRING,
     },
     required=frozenset({"title"}),
     non_empty=frozenset({"title"}),
     nullable=frozenset(
         {
-            "id", "position", "position_order", "artist", "composition",
-            "duration_ms", "offset_ms", "bitrate_kbps", "file_size_bytes",
-            "track_hash", "instrument", "parent_header_id",
+            "id", "position", "position_order", "artist", "duration_ms",
         }
     ),
 )
@@ -76,32 +65,14 @@ DISC = ChildObjectShape(
         "id": STRING,
         "disc_number": INTEGER,
         "title": STRING,
-        "medium_type": STRING,
-        "track_count": INTEGER,
-        "expected_track_count": INTEGER,
-        "missing_track_count": INTEGER,
-        "missing_track_positions": STRING_LIST,
-        "toc": STRING,
-        "cddb_id": STRING,
-        "leadout_offset": INTEGER,
-        "bp_disc_id": STRING,
         "matrix_number_side_a": STRING,
         "matrix_number_side_b": STRING,
-        "sound_type": STRING,
-        "vinyl_color": STRING,
-        "vinyl_weight": STRING,
-        "rpm": INTEGER,
-        "spars": STRING,
     },
     nested={"tracks": TRACK},
     required=frozenset({"disc_number"}),
     nullable=frozenset(
         {
-            "id", "title", "medium_type", "track_count", "expected_track_count",
-            "missing_track_count", "missing_track_positions", "toc", "cddb_id",
-            "leadout_offset", "bp_disc_id", "matrix_number_side_a",
-            "matrix_number_side_b", "sound_type", "vinyl_color", "vinyl_weight",
-            "rpm", "spars",
+            "id", "title", "matrix_number_side_a", "matrix_number_side_b",
         }
     ),
     validate_collection=_validate_discs,
@@ -139,7 +110,7 @@ DOCUMENT = KindDocumentShape(
         "thumbnail_image_url": STRING,
     },
     children={
-        **{key: PERSON for key in _CREDIT_ROLES},
+        **dict.fromkeys(_CREDIT_ROLES, PERSON),
         "discs": DISC,
         "external_links": ChildObjectShape(
             fields=LINK.fields, nullable=frozenset(LINK.fields.keys())

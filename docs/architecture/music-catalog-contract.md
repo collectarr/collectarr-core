@@ -9,6 +9,11 @@ Music metadata-field ownership now points to `catalog_music_item` / `music_items
 ## Field ownership
 
 - Core owns canonical album-edition fields, discs, tracks, credits, identifiers, and catalog links.
+- The v1 canonical track document contains ID, display position/order, title,
+  artist, and duration. A disc contains its ID/number, title, matrix numbers,
+  and ordered tracks. Provider recording IDs, track headers, playback/file
+  details, disc TOC data, storage placement, and other local-only fields are
+  not accepted or returned by Core.
 - User copies, media condition, storage device and slot, owned images, listening history, and other personal data remain in App and Sync.
 - Music has no synopsis field. Synopsis remains available for kinds that define it.
 - A Music item has one catalog identity. Two editions with the same title remain separate items.

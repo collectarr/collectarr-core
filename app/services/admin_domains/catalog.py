@@ -555,13 +555,18 @@ class AdminCatalogService:
                     position = str(row.get("position", index + 1))
                     old_track = old_tracks.pop(position, {})
                     tracks.append({
-                        **old_track,
+                        "id": old_track.get("id") or uuid4(),
                         "position": position, "position_order": index,
                         "title": row["title"], "artist": row.get("artist"),
                         "duration_ms": duration * 1000 if isinstance(duration, int) else None,
                     })
                 replacement_discs.append({
-                    **old_disc, "disc_number": disc_number, "tracks": tracks,
+                    "id": old_disc.get("id") or uuid4(),
+                    "disc_number": disc_number,
+                    "title": old_disc.get("title"),
+                    "matrix_number_side_a": old_disc.get("matrix_number_side_a"),
+                    "matrix_number_side_b": old_disc.get("matrix_number_side_b"),
+                    "tracks": tracks,
                 })
             item.discs = replacement_discs
 
@@ -1118,25 +1123,14 @@ class AdminCatalogService:
                 continue
             track: dict[str, Any] = {"title": title}
             position = raw.get("position")
-            if isinstance(position, int):
-                track["position"] = position
+            if isinstance(position, (int, str)) and str(position).strip():
+                track["position"] = str(position).strip()
             duration_seconds = raw.get("duration_seconds")
             if isinstance(duration_seconds, int):
                 track["duration_seconds"] = duration_seconds
             artist = " ".join(str(raw.get("artist") or "").split()).strip()
             if artist:
                 track["artist"] = artist
-            recording_id = " ".join(str(raw.get("recording_id") or "").split()).strip()
-            if recording_id:
-                track["recording_id"] = recording_id
-            if raw.get("is_header") is True:
-                track["is_header"] = True
-            indent_level = raw.get("indent_level")
-            if isinstance(indent_level, int) and indent_level >= 0:
-                track["indent_level"] = indent_level
-            parent_header_id = " ".join(str(raw.get("parent_header_id") or "").split()).strip()
-            if parent_header_id:
-                track["parent_header_id"] = parent_header_id
             disc_number = raw.get("disc_number")
             if isinstance(disc_number, int):
                 track["disc_number"] = disc_number

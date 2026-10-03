@@ -14,6 +14,9 @@
   fingerprints, and overview counts use the flattened root documents.
 - Movie media, Anime seasons, Music disc/track IDs and order, Book printing
   data, and identifier lists are retained in the contained documents.
+- The canonical Music disc/track fields match the saved CLZ ledger. Core does
+  not accept or return App-local track headers, playback/file metadata, disc
+  TOC values, or copy-specific storage details.
 - Music is grounded in the saved CLZ Music Edit form. Exact CLZ parity for the
   other eight kinds is unverified pending their Edit-form captures.
 
@@ -22,8 +25,8 @@
 1. Move scalar editable field definitions from `app/catalog/metadata_fields.py`
    into kind-owned field modules. Keep the shared registry as composition and
    contract export only.
-2. Regenerate OpenAPI, the canonical contract bundle, and schema visualizations
-   from the updated models. Review and pin the resulting bundle in App.
+2. Re-export OpenAPI, the canonical contract bundle, and schema visualizations
+   after field ownership is complete; review and pin the final bundle in App.
 3. Finish App's per-kind typed metadata and personal-data models, remove
    duplicate shared kind DTOs and generic semantic readers, and preserve its
    current workspace presentation and personal features.

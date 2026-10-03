@@ -2,6 +2,18 @@
 
 from app.catalog.document_shape import BOOLEAN, INTEGER, STRING, KindDocumentShape
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.metadata_field_spec import (
+    SECTION_ARTWORK,
+    VALUE_TYPE_STRING,
+    MetadataFieldSpec,
+)
+from app.models.base import ItemKind
+
+FIELD_SPECS = (
+    MetadataFieldSpec("crossover", VALUE_TYPE_STRING, "Crossover",
+                      section=SECTION_ARTWORK,
+                      kinds=frozenset({ItemKind.comic})),
+)
 
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(

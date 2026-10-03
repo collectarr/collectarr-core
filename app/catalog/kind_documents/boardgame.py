@@ -1,8 +1,35 @@
 """Board Game Catalog Item fields and contained identifiers."""
 
-from app.catalog.document_shape import INTEGER, STRING
+from app.catalog.document_shape import INTEGER, STRING, KindDocumentShape
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
-from app.catalog.document_shape import KindDocumentShape
+from app.catalog.metadata_field_spec import (
+    INPUT_LIST,
+    SECTION_RELATIONS,
+    VALUE_TYPE_STRING_LIST,
+    MetadataFieldSpec,
+)
+from app.models.base import ItemKind
+
+FIELD_SPECS = (
+    MetadataFieldSpec("contributors", VALUE_TYPE_STRING_LIST, "Contributors",
+                      section=SECTION_RELATIONS, input=INPUT_LIST,
+                      kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("mechanics", VALUE_TYPE_STRING_LIST, "Mechanics",
+                      section=SECTION_RELATIONS, input=INPUT_LIST,
+                      kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("categories", VALUE_TYPE_STRING_LIST, "Categories",
+                      section=SECTION_RELATIONS, input=INPUT_LIST,
+                      kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("families", VALUE_TYPE_STRING_LIST, "Families",
+                      section=SECTION_RELATIONS, input=INPUT_LIST,
+                      kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("expansions", VALUE_TYPE_STRING_LIST, "Expansions",
+                      section=SECTION_RELATIONS, input=INPUT_LIST,
+                      kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec("rankings", VALUE_TYPE_STRING_LIST, "Rankings",
+                      section=SECTION_RELATIONS, input=INPUT_LIST,
+                      kinds=frozenset({ItemKind.boardgame})),
+)
 
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(

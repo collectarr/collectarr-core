@@ -30,14 +30,16 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from app.catalog.kind_documents import boardgame, comic, game, manga
+from app.catalog.kind_documents.game_boardgame_fields import FIELD_SPECS as _GAME_BOARDGAME_FIELDS
 from app.catalog.kind_documents.music import FIELD_SPECS as _MUSIC_FIELDS
+from app.catalog.kind_documents.print_fields import FIELD_SPECS as _PRINT_FIELDS
+from app.catalog.kind_documents.video_fields import FIELD_SPECS as _VIDEO_FIELDS
 from app.catalog.metadata_field_spec import (
     ALL_KINDS,
     INPUT_DATE,
     INPUT_LIST,
     INPUT_MULTILINE,
-    INPUT_NUMBER,
-    PRINT_KINDS,
     SECTION_ARTWORK,
     SECTION_INTERNAL,
     SECTION_ITEM,
@@ -46,12 +48,10 @@ from app.catalog.metadata_field_spec import (
     SECTION_RELATIONS,
     SECTION_TECHNICAL,
     TRAILER_KINDS,
-    VALUE_TYPE_INTEGER,
     VALUE_TYPE_LINK_LIST,
     VALUE_TYPE_PARTIAL_DATE,
     VALUE_TYPE_STRING,
     VALUE_TYPE_STRING_LIST,
-    VIDEO_KINDS,
     MetadataFieldSpec,
 )
 from app.models.base import ItemKind
@@ -238,27 +238,11 @@ _EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
 _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("genres", VALUE_TYPE_STRING_LIST, "Genres", typed=True, normalized=True,
                       section=SECTION_RELATIONS, input=INPUT_LIST, kinds=ALL_KINDS),
-    MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
-                      normalized=True, section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
-    MetadataFieldSpec("identifiers", VALUE_TYPE_STRING_LIST, "Identifiers",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
-    MetadataFieldSpec("company_roles", VALUE_TYPE_STRING_LIST, "Company roles",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.game})),
-    MetadataFieldSpec("contributors", VALUE_TYPE_STRING_LIST, "Contributors",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("mechanics", VALUE_TYPE_STRING_LIST, "Mechanics",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("categories", VALUE_TYPE_STRING_LIST, "Categories",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("families", VALUE_TYPE_STRING_LIST, "Families",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("expansions", VALUE_TYPE_STRING_LIST, "Expansions",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("rankings", VALUE_TYPE_STRING_LIST, "Rankings",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
+    *_GAME_BOARDGAME_FIELDS[:1],
+    *_GAME_BOARDGAME_FIELDS[1:],
+    *game.FIELD_SPECS,
+    *boardgame.FIELD_SPECS,
+    *_VIDEO_FIELDS[:1],
 )
 
 # --- Editorial / release fields (not part of normalization) ------------------
@@ -287,35 +271,22 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     # Publishing.
     MetadataFieldSpec("publisher", VALUE_TYPE_STRING, "Publisher",
                       section=SECTION_PUBLISHING, kinds=ALL_KINDS - {ItemKind.music}),
-    MetadataFieldSpec("imprint", VALUE_TYPE_STRING, "Imprint",
-                      section=SECTION_PUBLISHING, kinds=PRINT_KINDS),
+    *_PRINT_FIELDS[:1],
     MetadataFieldSpec("subtitle", VALUE_TYPE_STRING, "Subtitle",
                       section=SECTION_PUBLISHING, kinds=ALL_KINDS),
-    MetadataFieldSpec("series_group", VALUE_TYPE_STRING, "Series group",
-                      section=SECTION_PUBLISHING, kinds=PRINT_KINDS),
+    *_PRINT_FIELDS[1:2],
     MetadataFieldSpec("barcode", VALUE_TYPE_STRING, "Barcode",
                       section=SECTION_PUBLISHING, kinds=ALL_KINDS),
     MetadataFieldSpec("variant_name", VALUE_TYPE_STRING, "Primary variant",
                       section=SECTION_PUBLISHING, kinds=ALL_KINDS - {ItemKind.music}),
-    MetadataFieldSpec("page_count", VALUE_TYPE_INTEGER, "Page count",
-                      section=SECTION_PUBLISHING, input=INPUT_NUMBER, kinds=PRINT_KINDS),
-    MetadataFieldSpec("runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
-                      section=SECTION_PUBLISHING, input=INPUT_NUMBER, kinds=VIDEO_KINDS),
+    *_PRINT_FIELDS[2:],
+    *_VIDEO_FIELDS[1:2],
     # Technical / release.
     MetadataFieldSpec("catalog_number", VALUE_TYPE_STRING, "Catalog number",
                       section=SECTION_TECHNICAL, kinds=ALL_KINDS),
     MetadataFieldSpec("release_status", VALUE_TYPE_STRING, "Release status",
                       section=SECTION_TECHNICAL, kinds=ALL_KINDS - {ItemKind.music}),
-    MetadataFieldSpec("nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
-                      section=SECTION_TECHNICAL, input=INPUT_NUMBER, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("subtitles", VALUE_TYPE_STRING, "Subtitles",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("layers", VALUE_TYPE_STRING, "Layers",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
+    *_VIDEO_FIELDS[2:],
     # Regional.
     MetadataFieldSpec("country", VALUE_TYPE_STRING, "Country",
                       section=SECTION_REGIONAL, kinds=ALL_KINDS),
@@ -336,9 +307,8 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec("synopsis", VALUE_TYPE_STRING, "Synopsis",
                       section=SECTION_ARTWORK, input=INPUT_MULTILINE,
                       kinds=ALL_KINDS - {ItemKind.music}),
-    MetadataFieldSpec("crossover", VALUE_TYPE_STRING, "Crossover",
-                      section=SECTION_ARTWORK,
-                      kinds=frozenset({ItemKind.comic, ItemKind.manga})),
+    *comic.FIELD_SPECS,
+    *manga.FIELD_SPECS,
     MetadataFieldSpec("plot_summary", VALUE_TYPE_STRING, "Plot summary",
                       section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS - {ItemKind.music}),
     MetadataFieldSpec("plot_description", VALUE_TYPE_STRING, "Plot description",

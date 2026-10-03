@@ -4,31 +4,134 @@ from app.catalog.document_shape import INTEGER, STRING, KindDocumentShape
 from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
 from app.catalog.metadata_field_spec import (
     INPUT_LIST,
+    INPUT_NUMBER,
+    INPUT_TEXT,
+    SECTION_ITEM,
+    SECTION_PUBLISHING,
     SECTION_RELATIONS,
+    VALUE_TYPE_INTEGER,
+    VALUE_TYPE_STRING,
     VALUE_TYPE_STRING_LIST,
     MetadataFieldSpec,
 )
 from app.models.base import ItemKind
 
 FIELD_SPECS = (
-    MetadataFieldSpec("contributors", VALUE_TYPE_STRING_LIST, "Contributors",
-                      section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("mechanics", VALUE_TYPE_STRING_LIST, "Mechanics",
-                      section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("categories", VALUE_TYPE_STRING_LIST, "Categories",
-                      section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("families", VALUE_TYPE_STRING_LIST, "Families",
-                      section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("expansions", VALUE_TYPE_STRING_LIST, "Expansions",
-                      section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("rankings", VALUE_TYPE_STRING_LIST, "Rankings",
-                      section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.boardgame})),
+    MetadataFieldSpec(
+        "contributors", VALUE_TYPE_STRING_LIST, "Contributors",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "mechanics", VALUE_TYPE_STRING_LIST, "Mechanics",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "categories", VALUE_TYPE_STRING_LIST, "Categories",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "families", VALUE_TYPE_STRING_LIST, "Families",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "expansions", VALUE_TYPE_STRING_LIST, "Expansions",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "rankings", VALUE_TYPE_STRING_LIST, "Rankings",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "designers", VALUE_TYPE_STRING_LIST, "Designers",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "artists", VALUE_TYPE_STRING_LIST, "Artists",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "publishers", VALUE_TYPE_STRING_LIST, "Publishers",
+        section=SECTION_PUBLISHING, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "physical_format_label", VALUE_TYPE_STRING, "Format label",
+        section=SECTION_PUBLISHING, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "themes", VALUE_TYPE_STRING_LIST, "Themes",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "languages", VALUE_TYPE_STRING_LIST, "Languages",
+        section=SECTION_ITEM, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "characters", VALUE_TYPE_STRING_LIST, "Characters",
+        section=SECTION_RELATIONS, input=INPUT_LIST,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "original_language", VALUE_TYPE_STRING, "Original language",
+        section=SECTION_ITEM, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "expansion_for", VALUE_TYPE_STRING, "Expansion for",
+        section=SECTION_RELATIONS, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "recommended_players", VALUE_TYPE_STRING, "Recommended players",
+        section=SECTION_ITEM, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "best_players", VALUE_TYPE_STRING, "Best with players",
+        section=SECTION_ITEM, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "min_playtime_minutes", VALUE_TYPE_INTEGER, "Minimum play time",
+        section=SECTION_ITEM, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "max_playtime_minutes", VALUE_TYPE_INTEGER, "Maximum play time",
+        section=SECTION_ITEM, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "complexity_weight", "number", "Complexity weight",
+        section=SECTION_ITEM, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "bgg_rating", "number", "BoardGameGeek rating",
+        section=SECTION_ITEM, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "bgg_rating_count", VALUE_TYPE_INTEGER, "BoardGameGeek rating count",
+        section=SECTION_ITEM, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
+    MetadataFieldSpec(
+        "bgg_rank", VALUE_TYPE_INTEGER, "BoardGameGeek rank",
+        section=SECTION_ITEM, input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.boardgame}),
+    ),
 )
 
 DOCUMENT = KindDocumentShape(

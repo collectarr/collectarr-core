@@ -64,6 +64,8 @@ class CatalogGameItemResponse(BaseModel):
     synopsis: str | None = None
     thumbnail_image_url: str | None = None
     title_extension: str | None = None
+    toy_subtype: str | None = None
+    toy_type: str | None = None
     trailer_urls: list[dict[str, Any]] | None = None
     variant_name: str | None = None
 

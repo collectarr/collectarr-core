@@ -5,6 +5,7 @@ from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
 from app.catalog.metadata_field_spec import (
     INPUT_LIST,
     INPUT_TEXT,
+    SECTION_ITEM,
     SECTION_REGIONAL,
     SECTION_RELATIONS,
     VALUE_TYPE_STRING,
@@ -14,6 +15,16 @@ from app.catalog.metadata_field_spec import (
 from app.models.base import ItemKind
 
 FIELD_SPECS = (
+    MetadataFieldSpec(
+        "toy_subtype", VALUE_TYPE_STRING, "Toy subtype",
+        section=SECTION_ITEM, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.game}),
+    ),
+    MetadataFieldSpec(
+        "toy_type", VALUE_TYPE_STRING, "Toy type",
+        section=SECTION_ITEM, input=INPUT_TEXT,
+        kinds=frozenset({ItemKind.game}),
+    ),
     MetadataFieldSpec(
         "company_roles", VALUE_TYPE_STRING_LIST, "Company roles",
         section=SECTION_RELATIONS, input=INPUT_LIST,
@@ -42,6 +53,7 @@ DOCUMENT = KindDocumentShape(
             "creators", "contributors", "description", "identifiers", "platforms",
             "developers", "company_roles", "series_title", "release_region",
             "physical_format_label",
+            "toy_subtype", "toy_type",
         }
     ),
     root_value_types={
@@ -50,6 +62,8 @@ DOCUMENT = KindDocumentShape(
         "series_title": STRING,
         "release_region": STRING,
         "physical_format_label": STRING,
+        "toy_subtype": STRING,
+        "toy_type": STRING,
     },
     children=COMMON_ROOT_CHILDREN,
 )

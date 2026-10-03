@@ -12,39 +12,6 @@ from app.catalog.document_shape import (
     ChildObjectShape,
 )
 
-MOVIE_MEDIA = ChildObjectShape(
-    fields={
-        "id": STRING,
-        "media_number": INTEGER,
-        "media_type": STRING,
-        "title": STRING,
-        "aspect_ratio": STRING,
-        "screen_ratio": STRING,
-        "color": STRING,
-        "num_discs": INTEGER,
-        "nr_layers": INTEGER,
-        "layers": STRING,
-        "audio_tracks": STRING,
-        "subtitles": STRING,
-    },
-    required=frozenset({"media_number"}),
-    nullable=frozenset(
-        {
-            "id",
-            "media_type",
-            "title",
-            "aspect_ratio",
-            "screen_ratio",
-            "color",
-            "num_discs",
-            "nr_layers",
-            "layers",
-            "audio_tracks",
-            "subtitles",
-        }
-    ),
-)
-
 CHAPTER = ChildObjectShape(
     fields={
         "id": STRING,
@@ -101,7 +68,6 @@ COMMON_ROOT_CHILDREN = {
 __all__ = [
     "CHAPTER",
     "COMMON_ROOT_CHILDREN",
-    "MOVIE_MEDIA",
     "PRINTING",
     "SERIES_MEMBERSHIP",
 ]

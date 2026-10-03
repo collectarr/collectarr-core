@@ -4,8 +4,41 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
-from app.catalog.document_shape import STRING, ChildObjectShape, KindDocumentShape
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN, MOVIE_MEDIA
+from app.catalog.document_shape import INTEGER, STRING, ChildObjectShape, KindDocumentShape
+from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+
+MOVIE_MEDIA = ChildObjectShape(
+    fields={
+        "id": STRING,
+        "media_number": INTEGER,
+        "media_type": STRING,
+        "title": STRING,
+        "aspect_ratio": STRING,
+        "screen_ratio": STRING,
+        "color": STRING,
+        "num_discs": INTEGER,
+        "nr_layers": INTEGER,
+        "layers": STRING,
+        "audio_tracks": STRING,
+        "subtitles": STRING,
+    },
+    required=frozenset({"media_number"}),
+    nullable=frozenset(
+        {
+            "id",
+            "media_type",
+            "title",
+            "aspect_ratio",
+            "screen_ratio",
+            "color",
+            "num_discs",
+            "nr_layers",
+            "layers",
+            "audio_tracks",
+            "subtitles",
+        }
+    ),
+)
 
 
 def _validate_media(values: list[Mapping[str, Any]], path: str) -> None:
@@ -30,10 +63,16 @@ MOVIE_PERSON = ChildObjectShape(
 )
 
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset({
-        "description", "creators", "contributors", "characters",
-        "character_details", "media",
-    }),
+    root_fields=frozenset(
+        {
+            "description",
+            "creators",
+            "contributors",
+            "characters",
+            "character_details",
+            "media",
+        }
+    ),
     root_value_types={"description": STRING},
     children={
         **COMMON_ROOT_CHILDREN,

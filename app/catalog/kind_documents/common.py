@@ -3,25 +3,10 @@
 from app.catalog.document_shape import (
     CHARACTER,
     IDENTIFIER,
-    INTEGER,
     LINK,
-    PARTIAL_DATE,
     PERSON,
     STORY_ARC,
-    STRING,
     ChildObjectShape,
-)
-
-CHAPTER = ChildObjectShape(
-    fields={
-        "id": STRING,
-        "chapter_number": INTEGER,
-        "title": STRING,
-        "release_date": PARTIAL_DATE,
-        "page_count": INTEGER,
-        "position": INTEGER,
-    },
-    nullable=frozenset({"id", "chapter_number", "title", "release_date", "page_count", "position"}),
 )
 
 COMMON_ROOT_CHILDREN = {
@@ -39,6 +24,5 @@ COMMON_ROOT_CHILDREN = {
 }
 
 __all__ = [
-    "CHAPTER",
     "COMMON_ROOT_CHILDREN",
 ]

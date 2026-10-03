@@ -35,7 +35,7 @@ from app.catalog.common_metadata_fields import (
     _EDITORIAL_FIELDS,
     _INTERNAL_COMMON_FIELDS,
 )
-from app.catalog.kind_documents import boardgame, book, game
+from app.catalog.kind_documents import boardgame, book, game, movie_fields
 from app.catalog.kind_documents.game_boardgame_fields import FIELD_SPECS as _GAME_BOARDGAME_FIELDS
 from app.catalog.kind_documents.music import FIELD_SPECS as _MUSIC_FIELDS
 from app.catalog.kind_documents.video_fields import FIELD_SPECS as _VIDEO_FIELDS
@@ -199,6 +199,7 @@ _KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
     *book.FIELD_SPECS,
     *game.FIELD_SPECS,
     *boardgame.FIELD_SPECS,
+    *movie_fields.FIELD_SPECS,
     *_VIDEO_FIELDS[:1],
 )
 

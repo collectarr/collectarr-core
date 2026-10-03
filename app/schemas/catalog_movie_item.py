@@ -31,6 +31,11 @@ class CatalogMovieItemResponse(BaseModel):
     title: str
     sort_key: str | None = None
     revision: int
+    display_title: str | None = None
+    original_language: str | None = None
+    studio: str | None = None
+    production_companies: list[str] | None = None
+    series_title: str | None = None
 
     original_title: str | None = None
     localized_title: str | None = None
@@ -72,7 +77,6 @@ class CatalogMovieItemResponse(BaseModel):
     audio_tracks: str | None = None
     subtitles: str | None = None
     layers: str | None = None
-    discs: list[dict[str, Any]] | None = None
     media: list[CatalogMovieItemMediaResponse]
 
     model_config = ConfigDict(extra="forbid")

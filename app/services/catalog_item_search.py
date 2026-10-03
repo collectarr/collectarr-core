@@ -375,6 +375,7 @@ class CatalogItemSearchService:
         )
         add("cover_image_url", _text(cover))
         add("thumbnail_image_url", _text(thumbnail))
+        add("display_title", _text(details.get("display_title")))
         add("edition_title", _text(details.get("edition_title")))
         add(
             "physical_format",
@@ -392,6 +393,9 @@ class CatalogItemSearchService:
         add("item_number", _text(details.get("item_number")))
         add("catalog_number", _text(getattr(item, "catalog_number", None)))
         add("series_title", _text(details.get("series_title")))
+        add("original_language", _text(details.get("original_language")))
+        add("studio", _text(details.get("studio")))
+        add("production_companies", _string_list(details.get("production_companies")))
         add("volume_name", _text(details.get("volume_name")))
         add("creators", _object_list(details.get("creators")))
         add("characters", _string_list(details.get("characters")))

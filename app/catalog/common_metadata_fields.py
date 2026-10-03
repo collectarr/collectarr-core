@@ -236,6 +236,13 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         kinds=ALL_KINDS - {ItemKind.music},
     ),
     MetadataFieldSpec(
+        "series_title",
+        VALUE_TYPE_STRING,
+        "Series title",
+        section=SECTION_ITEM,
+        kinds=ALL_KINDS - {ItemKind.music},
+    ),
+    MetadataFieldSpec(
         "edition_title",
         VALUE_TYPE_STRING,
         "Edition title",

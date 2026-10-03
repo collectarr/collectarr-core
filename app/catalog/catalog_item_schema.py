@@ -32,8 +32,7 @@ def catalog_item_payload_contract() -> dict[str, Any]:
         field_specs = {spec.key: spec for spec in fields_for_kind(kind, editable_only=True)}
         root_fields = _root_fields_for_kind(document, field_specs)
         properties = {
-            key: _root_field_schema(key, document, field_specs)
-            for key in sorted(root_fields)
+            key: _root_field_schema(key, document, field_specs) for key in sorted(root_fields)
         }
         kinds[kind.value] = {
             "type": "object",
@@ -70,13 +69,16 @@ def validate_catalog_item_payload(
 
     document = document_for(kind)
     field_specs = {spec.key: spec for spec in fields_for_kind(kind, editable_only=True)}
-    return _project_object(
+    projected = _project_object(
         payload,
         _root_fields_for_kind(document, field_specs),
         "catalog_item",
         document=document,
         field_specs=field_specs,
     )
+    if document.validate_document is not None:
+        document.validate_document(projected, "catalog_item")
+    return projected
 
 
 def _root_fields_for_kind(
@@ -104,11 +106,7 @@ def _root_field_schema(
             }
         )
     spec = field_specs.get(key)
-    value_type = (
-        spec.value_type
-        if spec is not None
-        else document.root_value_types.get(key)
-    )
+    value_type = spec.value_type if spec is not None else document.root_value_types.get(key)
     return _nullable(_value_schema(value_type, document))
 
 
@@ -124,14 +122,10 @@ def _child_schema(shape: ChildObjectShape) -> dict[str, Any]:
             child_schema = _value_schema(value_type)
         if key in shape.non_empty and value_type == STRING:
             child_schema["minLength"] = 1
-        properties[key] = (
-            child_schema if key not in shape.nullable else _nullable(child_schema)
-        )
+        properties[key] = child_schema if key not in shape.nullable else _nullable(child_schema)
     for key, nested_shape in shape.nested.items():
         if key not in properties:
-            properties[key] = _nullable(
-                {"type": "array", "items": _child_schema(nested_shape)}
-            )
+            properties[key] = _nullable({"type": "array", "items": _child_schema(nested_shape)})
     schema: dict[str, Any] = {
         "type": "object",
         "additionalProperties": False,
@@ -188,11 +182,7 @@ def _project_object(
         child_shape = document.children.get(key)
         if child_shape is None:
             spec = field_specs.get(key) if field_specs is not None else None
-            value_type = (
-                spec.value_type
-                if spec is not None
-                else document.root_value_types.get(key)
-            )
+            value_type = spec.value_type if spec is not None else document.root_value_types.get(key)
             _validate_value(child, field_path, value_type)
             projected[key] = child
             continue
@@ -276,9 +266,7 @@ def _validate_value(value: Any, path: str, value_type: str | None) -> None:
         raise ValueError(f"{path} must be a string")
     if value_type == INTEGER and (not isinstance(value, int) or isinstance(value, bool)):
         raise ValueError(f"{path} must be an integer")
-    if value_type == "number" and (
-        not isinstance(value, (int, float)) or isinstance(value, bool)
-    ):
+    if value_type == "number" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
         raise ValueError(f"{path} must be a number")
     if value_type == BOOLEAN and not isinstance(value, bool):
         raise ValueError(f"{path} must be a boolean")

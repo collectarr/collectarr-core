@@ -1,5 +1,8 @@
 """TV Catalog Item fields and contained season/media/episode schemas."""
 
+from collections.abc import Mapping
+from typing import Any
+
 from app.catalog.document_shape import (
     INTEGER,
     PARTIAL_DATE,
@@ -63,6 +66,7 @@ TV_MEDIA = ChildObjectShape(
 TV_EPISODE = ChildObjectShape(
     fields={
         "id": STRING,
+        "media_id": STRING,
         "season_number": INTEGER,
         "episode_number": INTEGER,
         "episode_title": STRING,
@@ -79,6 +83,7 @@ TV_EPISODE = ChildObjectShape(
     nullable=frozenset(
         {
             "id",
+            "media_id",
             "season_number",
             "episode_number",
             "episode_title",
@@ -108,6 +113,31 @@ TV_SEASON = ChildObjectShape(
     nullable=frozenset({"id", "title", "description", "air_date", "release_date", "episode_count"}),
 )
 
+
+def _validate_media_references(document: Mapping[str, Any], path: str) -> None:
+    media_ids: set[str] = set()
+    for media in document.get("media") or []:
+        if isinstance(media, Mapping):
+            media_id = media.get("id")
+            if isinstance(media_id, str) and media_id.strip():
+                media_ids.add(media_id)
+
+    episodes = list(document.get("episodes") or [])
+    for season in document.get("seasons") or []:
+        if isinstance(season, Mapping):
+            episodes.extend(season.get("episodes") or [])
+
+    for index, episode in enumerate(episodes):
+        if not isinstance(episode, Mapping):
+            continue
+        media_id = episode.get("media_id")
+        if media_id is not None and media_id not in media_ids:
+            raise ValueError(
+                f"{path}.episodes[{index}].media_id must reference a media id "
+                "contained in this Catalog Item."
+            )
+
+
 DOCUMENT = KindDocumentShape(
     root_fields=frozenset(
         {
@@ -132,4 +162,5 @@ DOCUMENT = KindDocumentShape(
         "episodes": TV_EPISODE,
         "seasons": TV_SEASON,
     },
+    validate_document=_validate_media_references,
 )

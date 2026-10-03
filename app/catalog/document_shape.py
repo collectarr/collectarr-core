@@ -28,6 +28,7 @@ class KindDocumentShape:
     root_value_types: Mapping[str, str]
     children: Mapping[str, ChildObjectShape]
     explicit_root_fields: frozenset[str] | None = None
+    validate_document: Callable[[Mapping[str, Any], str], None] | None = None
 
 
 STRING = "string"

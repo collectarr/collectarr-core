@@ -30,8 +30,10 @@
    registry until their owners are explicit in every kind's field contract.
 2. Re-export OpenAPI, the canonical contract bundle, and schema visualizations
    after field ownership is complete; review and pin the final bundle in App.
-3. Finish App's per-kind typed metadata and personal-data models, remove
-   duplicate shared kind DTOs and generic semantic readers, and preserve its
+3. App now has kind-owned typed metadata and `*PersonalData` values in all nine
+   local entry aggregates. Still remove duplicate shared kind DTOs and generic
+   semantic readers, replace the generic `PersonalStateDraft` and flat entry
+   update facade with kind-owned edit bindings/commands, and preserve the
    current workspace presentation and personal features.
 4. Finish the coordinated App/Sync reference and payload cutover. Sync continues
    to mirror personal state only; it must never receive Core catalog documents.

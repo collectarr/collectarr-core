@@ -22,9 +22,10 @@
 
 ## Remaining coordinated work
 
-1. Move scalar editable field definitions from `app/catalog/metadata_fields.py`
-   into kind-owned field modules. Keep the shared registry as composition and
-   contract export only.
+1. Move the remaining cross-kind and kind-specific editable field definitions
+   from `app/catalog/metadata_fields.py` into owner modules. Music now declares
+   its fields in `app/catalog/kind_documents/music.py`; keep the shared registry
+   as composition and contract export only.
 2. Re-export OpenAPI, the canonical contract bundle, and schema visualizations
    after field ownership is complete; review and pin the final bundle in App.
 3. Finish App's per-kind typed metadata and personal-data models, remove

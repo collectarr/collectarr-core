@@ -7,9 +7,10 @@ request schema, and the Flutter app's ``kAdminMetadataScalarFields`` contract.
 Adding a field meant editing every copy and forgetting one silently broke
 manual catalog editing and correction (see the color metadata regression).
 
-This module declares each editable field once as a :class:`MetadataFieldSpec`
-and derives every lookup from the registry. It is the schema that the admin edit
-panel and the Flutter app edit dialog render from (exposed at
+Each kind declares its own fields as :class:`MetadataFieldSpec` values. This
+module composes those declarations with shared bookkeeping and truly common
+fields, then derives every lookup from the registry. It is the schema that the
+admin edit panel and the Flutter app edit dialog render from (exposed at
 ``GET /api/v1/metadata/field-schema``), so the two surfaces can no longer drift
 apart.
 
@@ -27,84 +28,33 @@ Two concerns are modelled by a single spec:
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from app.catalog.grouping_models import PRINT_GROUPING_KINDS
-from app.models.base import ItemKind
-
-# Value types understood by validation + the edit surfaces.
-VALUE_TYPE_STRING = "string"
-VALUE_TYPE_STRING_LIST = "string_list"
-VALUE_TYPE_INTEGER = "integer"
-VALUE_TYPE_PARTIAL_DATE = "partial_date"
-VALUE_TYPE_LINK_LIST = "link_list"
-
-# Edit-panel sections (mirror the app's SharedMetadataEditTab grouping).
-SECTION_ITEM = "item"
-SECTION_PUBLISHING = "publishing"
-SECTION_TECHNICAL = "technical"
-SECTION_REGIONAL = "regional"
-SECTION_ARTWORK = "artwork"
-SECTION_RELATIONS = "relations"
-SECTION_INTERNAL = "internal"
-
-# Widget hints for the edit surfaces.
-INPUT_TEXT = "text"
-INPUT_MULTILINE = "multiline"
-INPUT_NUMBER = "number"
-INPUT_DATE = "date"
-INPUT_LIST = "list"
-
-# Kinds that carry the physical video/disc spec fields.
-VIDEO_KINDS: frozenset[ItemKind] = frozenset(
-    {ItemKind.anime, ItemKind.movie, ItemKind.tv}
+from app.catalog.kind_documents.music import FIELD_SPECS as _MUSIC_FIELDS
+from app.catalog.metadata_field_spec import (
+    ALL_KINDS,
+    INPUT_DATE,
+    INPUT_LIST,
+    INPUT_MULTILINE,
+    INPUT_NUMBER,
+    PRINT_KINDS,
+    SECTION_ARTWORK,
+    SECTION_INTERNAL,
+    SECTION_ITEM,
+    SECTION_PUBLISHING,
+    SECTION_REGIONAL,
+    SECTION_RELATIONS,
+    SECTION_TECHNICAL,
+    TRAILER_KINDS,
+    VALUE_TYPE_INTEGER,
+    VALUE_TYPE_LINK_LIST,
+    VALUE_TYPE_PARTIAL_DATE,
+    VALUE_TYPE_STRING,
+    VALUE_TYPE_STRING_LIST,
+    VIDEO_KINDS,
+    MetadataFieldSpec,
 )
-# Print kinds (page count, imprint, series group).
-PRINT_KINDS: frozenset[ItemKind] = PRINT_GROUPING_KINDS
-# Kinds that have trailers (video + interactive).
-TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
-# Every configured kind (genres applies to all of them).
-ALL_KINDS: frozenset[ItemKind] = frozenset(ItemKind)
-
-
-@dataclass(frozen=True)
-class MetadataFieldSpec:
-    """One canonical metadata field."""
-
-    key: str
-    value_type: str
-    label: str
-    #: ``True`` for normalized fields shared by every kind (cover/format/audience).
-    common: bool = False
-    #: ``True`` when the field maps to a typed canonical kind table column.
-    typed: bool = False
-    #: ``True`` when the field participates in metadata validation.
-    normalized: bool = False
-    #: ``True`` when the field is rendered in the user-facing edit panel.
-    editable: bool = True
-    #: Edit-panel section grouping (one of the ``SECTION_*`` constants).
-    section: str = SECTION_ITEM
-    #: Edit-panel widget hint (one of the ``INPUT_*`` constants).
-    input: str = INPUT_TEXT
-    #: Kinds that expose a non-common field. Ignored for common fields.
-    kinds: frozenset[ItemKind] = field(default_factory=frozenset)
-
-    def applies_to(self, kind: ItemKind) -> bool:
-        if self.key == "physical_format" and kind == ItemKind.music:
-            return False
-        return self.common or kind in self.kinds
-
-    def scope_for_kind(self, kind: ItemKind) -> str:
-        return _scope_for_kind(kind, self.key)
-
-    def write_target_for_kind(self, kind: ItemKind) -> str:
-        return _field_write_target(self.key, kind)
-
-    def source_entity_type_for_kind(self, kind: ItemKind) -> str:
-        return _field_source_entity_type(self.key, kind)
-
-    def source_table_for_kind(self, kind: ItemKind) -> str:
-        return _field_source_table(self.key, kind)
+from app.models.base import ItemKind
 
 _INTERNAL_DERIVED_KEYS = {
     "format_templateimage",
@@ -398,42 +348,6 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
                       section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=TRAILER_KINDS),
     MetadataFieldSpec("external_links", VALUE_TYPE_LINK_LIST, "External links",
                       section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=ALL_KINDS),
-    # Music fields belong to a concrete Catalog Item, not a release-group or
-    # release node.
-    MetadataFieldSpec("artist", VALUE_TYPE_STRING, "Artist",
-                      section=SECTION_ITEM, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("sort_title", VALUE_TYPE_STRING, "Sort title",
-                      section=SECTION_ITEM, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("label", VALUE_TYPE_STRING, "Label",
-                      section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("format", VALUE_TYPE_STRING, "Format",
-                      section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("original_release_date", VALUE_TYPE_PARTIAL_DATE, "Original release date",
-                      section=SECTION_ITEM, input=INPUT_DATE, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("recording_date", VALUE_TYPE_PARTIAL_DATE, "Recording date",
-                      section=SECTION_ITEM, input=INPUT_DATE, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("packaging", VALUE_TYPE_STRING, "Packaging",
-                      section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("studios", VALUE_TYPE_STRING_LIST, "Studio",
-                      section=SECTION_ITEM, input=INPUT_LIST, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("is_live", "boolean", "Is live",
-                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("sound_types", VALUE_TYPE_STRING_LIST, "Sound",
-                      section=SECTION_TECHNICAL, input=INPUT_LIST, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("vinyl_color", VALUE_TYPE_STRING, "Vinyl color",
-                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("vinyl_weight", VALUE_TYPE_STRING, "Vinyl weight",
-                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("rpm", VALUE_TYPE_INTEGER, "RPM",
-                      section=SECTION_TECHNICAL, input=INPUT_NUMBER, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("extra", VALUE_TYPE_STRING, "Extra",
-                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("spars", VALUE_TYPE_STRING, "SPARS",
-                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("box_set", VALUE_TYPE_STRING, "Box set",
-                      section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.music})),
-    MetadataFieldSpec("tracks", "object_list", "Tracks",
-                      section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=frozenset({ItemKind.music})),
 )
 
 #: The canonical registry, ordered (normalized common first, then kind-scoped,
@@ -444,6 +358,7 @@ METADATA_FIELDS: tuple[MetadataFieldSpec, ...] = (
     + _EDITABLE_COMMON_FIELDS
     + _KIND_FIELDS
     + _EDITORIAL_FIELDS
+    + _MUSIC_FIELDS
 )
 
 _FIELD_BY_KEY: dict[str, MetadataFieldSpec] = {spec.key: spec for spec in METADATA_FIELDS}

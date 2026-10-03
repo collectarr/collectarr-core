@@ -881,20 +881,6 @@ class AdminCatalogService:
             )
         return config
 
-    def _primary_edition_model(self, item: Any) -> Any | None:
-        editions = list(item.editions or [])
-        return editions[0] if editions else None
-
-    def _primary_variant_model(self, item: Any) -> Any | None:
-        for edition in item.editions or []:
-            variants = list(edition.variants or [])
-            primary = next((variant for variant in variants if variant.is_primary), None)
-            if primary is not None:
-                return primary
-            if variants:
-                return variants[0]
-        return None
-
     async def _entity_tag_names(
         self,
         entity_type: str,

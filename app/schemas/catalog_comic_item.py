@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -14,6 +14,70 @@ class CatalogComicItemIdentifierResponse(BaseModel):
     value: str
     normalized_value: str
     is_primary: bool = False
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+class CatalogComicCreatorResponse(BaseModel):
+    id: str | None = None
+    person_id: str | None = None
+    artist_id: str | None = None
+    name: str | None = None
+    role: str | None = None
+    role_id: str | None = None
+    sequence: int | None = None
+    credited_name: str | None = None
+    join_phrase: str | None = None
+    image_url: str | None = None
+    sort_name: str | None = None
+    instrument: str | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+class CatalogComicCharacterResponse(BaseModel):
+    id: str | None = None
+    character_id: str | None = None
+    name: str | None = None
+    aliases: list[str] | None = None
+    role: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+class CatalogComicStoryArcResponse(BaseModel):
+    id: str | None = None
+    story_arc_id: str | None = None
+    name: str | None = None
+    description: str | None = None
+    publisher: str | None = None
+    start_date: dict[str, int] | str | None = None
+    end_date: dict[str, int] | str | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+class CatalogComicLinkResponse(BaseModel):
+    id: str | None = None
+    label: str | None = None
+    title: str | None = None
+    url: str | None = None
+    site: str | None = None
+    name: str | None = None
+    kind: str | None = None
+    description: str | None = None
+    position: int | None = None
+    link_type: str | None = None
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+
+class CatalogComicKeyEventResponse(BaseModel):
+    type: str
+    character_or_subject: str
+    description: str | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
@@ -30,18 +94,18 @@ class CatalogComicItemResponse(BaseModel):
     barcode: str | None = None
     catalog_number: str | None = None
     cover_date: dict[str, int] | str | None = None
-    characters: list[dict[str, Any] | str] | None = None
-    character_details: list[dict[str, Any] | str] | None = None
-    contributors: list[dict[str, Any] | str] | None = None
+    characters: list[CatalogComicCharacterResponse | str] | None = None
+    character_details: list[CatalogComicCharacterResponse] | None = None
+    contributors: list[CatalogComicCreatorResponse | str] | None = None
     country: str | None = None
     cover_image_url: str | None = None
     cover_price_cents: int | None = None
-    creators: list[dict[str, Any] | str] | None = None
+    creators: list[CatalogComicCreatorResponse | str] | None = None
     crossover: str | None = None
     currency: str | None = None
     description: str | None = None
     edition_title: str | None = None
-    external_links: list[dict[str, Any]] | None = None
+    external_links: list[CatalogComicLinkResponse] | None = None
     genres: list[str] | None = None
     imprint: str | None = None
     issue_number: str | None = None
@@ -63,7 +127,7 @@ class CatalogComicItemResponse(BaseModel):
     series_group: str | None = None
     series_tags: list[str] | None = None
     series_title: str | None = None
-    story_arcs: list[dict[str, Any] | str] | None = None
+    story_arcs: list[CatalogComicStoryArcResponse | str] | None = None
     subtitle: str | None = None
     synopsis: str | None = None
     thumbnail_image_url: str | None = None
@@ -72,7 +136,7 @@ class CatalogComicItemResponse(BaseModel):
     volume_name: str | None = None
     volume_number: str | None = None
     identifiers: list[CatalogComicItemIdentifierResponse | str] | None = None
-    key_events: list[dict[str, str | None]] | None = None
+    key_events: list[CatalogComicKeyEventResponse] | None = None
     variant_description: str | None = None
     volume_start_year: int | None = None
 

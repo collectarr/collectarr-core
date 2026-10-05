@@ -6,26 +6,39 @@ from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class CatalogMusicTrackResponse(BaseModel):
     id: UUID
-    position: str = Field(min_length=1, max_length=16)
+    position: str = Field(default="", max_length=16)
     position_order: int = Field(ge=0)
     title: str = Field(min_length=1, max_length=255)
     artist: str | None = None
     duration_ms: int | None = Field(default=None, ge=0)
+    is_header: bool = False
+    parent_header_id: UUID | None = None
+    indent_level: int = Field(default=0, ge=0, le=8)
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("title", "position")
+    @field_validator("title")
     @classmethod
     def validate_required_text(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("Track title and position must not be empty")
+            raise ValueError("Track title must not be empty")
         return value
+
+    @model_validator(mode="after")
+    def validate_row_type(self) -> CatalogMusicTrackResponse:
+        self.position = self.position.strip()
+        if self.is_header:
+            if self.position or self.artist is not None or self.duration_ms is not None:
+                raise ValueError("Headers must not have a position, artist, or duration")
+        elif not self.position:
+            raise ValueError("Track position must not be empty")
+        return self
 
 
 class CatalogMusicDiscResponse(BaseModel):
@@ -45,9 +58,26 @@ class CatalogMusicDiscResponse(BaseModel):
             raise ValueError("Track IDs must be unique within a disc")
         if len({track.position_order for track in tracks}) != len(tracks):
             raise ValueError("Track order must be unique within a disc")
-        if len({track.position.casefold() for track in tracks}) != len(tracks):
+        playable = [track for track in tracks if not track.is_header]
+        if len({track.position.casefold() for track in playable}) != len(playable):
             raise ValueError("Track positions must be unique within a disc")
-        return sorted(tracks, key=lambda track: track.position_order)
+        ordered = sorted(tracks, key=lambda track: track.position_order)
+        active_headers: dict[int, CatalogMusicTrackResponse] = {}
+        for track in ordered:
+            if track.parent_header_id is None:
+                if track.indent_level != 0:
+                    raise ValueError("Rows without a parent header must have indent_level zero")
+            else:
+                parent = active_headers.get(track.indent_level - 1)
+                if parent is None or parent.id != track.parent_header_id:
+                    raise ValueError("Parent must be an active preceding header in the same disc")
+            if track.is_header:
+                active_headers = {
+                    level: header for level, header in active_headers.items()
+                    if level < track.indent_level
+                }
+                active_headers[track.indent_level] = track
+        return ordered
 
 
 def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -60,7 +90,9 @@ def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if not isinstance(position_order, int) or isinstance(position_order, bool):
                 position_order = index
             position = track.get("position")
-            if position is None or not str(position).strip():
+            if track.get("is_header") is True:
+                position = "" if position is None else str(position)
+            elif position is None or not str(position).strip():
                 position = str(position_order + 1)
             tracks.append(
                 CatalogMusicTrackResponse.model_validate(

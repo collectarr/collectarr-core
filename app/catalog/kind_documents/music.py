@@ -73,29 +73,13 @@ FIELD_SPECS = (
 
 
 def _validate_discs(values: list[Mapping[str, Any]], path: str) -> None:
-    numbers: set[int] = set()
-    ids: set[str] = set()
-    track_ids: set[str] = set()
-    for index, value in enumerate(values):
-        number = value.get("disc_number")
-        if not isinstance(number, int) or isinstance(number, bool) or number < 1:
-            raise ValueError(f"{path}[{index}].disc_number must be a positive integer")
-        if number in numbers:
-            raise ValueError(f"{path}[{index}].disc_number must be unique")
-        numbers.add(number)
-        disc_id = value.get("id")
-        if disc_id is not None:
-            if str(disc_id) in ids:
-                raise ValueError(f"{path}[{index}].id must be unique")
-            ids.add(str(disc_id))
-        for track_index, track in enumerate(value.get("tracks", [])):
-            track_id = track.get("id")
-            if track_id is not None and str(track_id) in track_ids:
-                raise ValueError(
-                    f"{path}[{index}].tracks[{track_index}].id must be unique within the album"
-                )
-            if track_id is not None:
-                track_ids.add(str(track_id))
+    from app.schemas.catalog_music_item import normalize_music_discs
+
+    # Proposals and persisted documents share Music's component/hierarchy rules.
+    try:
+        normalize_music_discs([dict(value) for value in values])
+    except ValueError as error:
+        raise ValueError(f"{path}: {error}") from error
 
 
 TRACK = ChildObjectShape(
@@ -106,12 +90,16 @@ TRACK = ChildObjectShape(
         "title": STRING,
         "artist": STRING,
         "duration_ms": INTEGER,
+        "is_header": BOOLEAN,
+        "parent_header_id": STRING,
+        "indent_level": INTEGER,
     },
     required=frozenset({"title"}),
     non_empty=frozenset({"title"}),
     nullable=frozenset(
         {
             "id", "position", "position_order", "artist", "duration_ms",
+            "parent_header_id",
         }
     ),
 )

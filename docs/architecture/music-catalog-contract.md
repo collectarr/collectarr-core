@@ -10,9 +10,13 @@ Music metadata-field ownership now points to `catalog_music_item` / `music_items
 
 - Core owns canonical album-edition fields, discs, tracks, credits, identifiers, and catalog links.
 - The v1 canonical track document contains ID, display position/order, title,
-  artist, and duration. A disc contains its ID/number, title, matrix numbers,
-  and ordered tracks. Provider recording IDs, track headers, playback/file
-  details, disc TOC data, storage placement, and other local-only fields are
+  artist, duration, and structural rows (`is_header`, `parent_header_id`,
+  `indent_level`). Headers have a title and order but no position, artist, or
+  duration. Parent headers must precede their children in the same disc;
+  indentation is limited to 0?8 and must match the active parent depth.
+  A disc contains its ID/number, title, matrix numbers, and ordered rows.
+  Provider recording IDs, playback/file details, disc TOC data, storage
+  placement, and other local-only fields are
   not accepted or returned by Core.
 - User copies, media condition, storage device and slot, owned images, listening history, and other personal data remain in App and Sync.
 - Music has no synopsis field. Synopsis remains available for kinds that define it.
@@ -34,7 +38,7 @@ CI runs `python -m scripts.export_contract_bundle --check` to compare the commit
 contains ordered discs and their tracks. Component UUIDs remain in the document;
 there are no standalone disc/track entities or foreign keys. Typed validation
 checks positive unique disc numbers, component IDs, non-negative track order and
-duration, and required track titles/positions. Reads return the same nested API
+duration, required row titles, playable track positions, and header hierarchy. Reads return the same nested API
 shape. Writers replace the whole validated document; in-place nested JSON edits
 are not a supported persistence path. Album revision/timestamps track document
 changes. Search indexes album metadata; track search remains local to the App.

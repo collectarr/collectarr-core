@@ -131,6 +131,8 @@ class AdminCatalogService:
                 tracks: list[dict[str, Any]] = []
                 for disc in entity.discs:
                     for track in disc["tracks"]:
+                        if track.get("is_header", False):
+                            continue
                         tracks.append({
                             "position": track["position"],
                             "title": track["title"],
@@ -483,6 +485,10 @@ class AdminCatalogService:
                 "artist": track.get("artist"),
                 "disc_number": disc["disc_number"],
                 "position": track["position"],
+                "id": track["id"],
+                "is_header": track.get("is_header", False),
+                "parent_header_id": track.get("parent_header_id"),
+                "indent_level": track.get("indent_level", 0),
                 "duration_seconds": (
                     track["duration_ms"] // 1000 if track.get("duration_ms") is not None else None
                 ),
@@ -548,14 +554,26 @@ class AdminCatalogService:
             replacement_discs: list[dict[str, Any]] = []
             for disc_number, rows in sorted(tracks_by_disc.items()):
                 old_disc = old_discs.get(disc_number, {})
-                old_tracks = {track["position"]: track for track in old_disc.get("tracks", [])}
+                old_tracks_by_id = {
+                    str(track["id"]): track for track in old_disc.get("tracks", [])
+                }
+                old_tracks = {
+                    track["position"]: track for track in old_disc.get("tracks", [])
+                    if not track.get("is_header", False)
+                }
                 tracks = []
                 for index, row in enumerate(rows):
                     duration = row.get("duration_seconds")
-                    position = str(row.get("position", index + 1))
-                    old_track = old_tracks.pop(position, {})
+                    old_track = old_tracks_by_id.get(str(row.get("id")), {})
+                    is_header = row.get("is_header", old_track.get("is_header", False))
+                    position = "" if is_header else str(row.get("position", index + 1))
+                    if not old_track and not is_header:
+                        old_track = old_tracks.pop(position, {})
                     tracks.append({
-                        "id": old_track.get("id") or uuid4(),
+                        "id": row.get("id") or old_track.get("id") or uuid4(),
+                        "is_header": is_header,
+                        "parent_header_id": row.get("parent_header_id", old_track.get("parent_header_id")),
+                        "indent_level": row.get("indent_level", old_track.get("indent_level", 0)),
                         "position": position, "position_order": index,
                         "title": row["title"], "artist": row.get("artist"),
                         "duration_ms": duration * 1000 if isinstance(duration, int) else None,
@@ -1108,6 +1126,9 @@ class AdminCatalogService:
             if not title:
                 continue
             track: dict[str, Any] = {"title": title}
+            for field in ("id", "is_header", "parent_header_id", "indent_level"):
+                if field in raw:
+                    track[field] = raw[field]
             position = raw.get("position")
             if isinstance(position, (int, str)) and str(position).strip():
                 track["position"] = str(position).strip()

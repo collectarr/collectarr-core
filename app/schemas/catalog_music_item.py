@@ -47,6 +47,12 @@ class CatalogMusicDiscResponse(BaseModel):
     id: UUID
     disc_number: int = Field(ge=1)
     title: str | None = None
+    format: str | None = None
+    sound_types: list[str] = Field(default_factory=list)
+    vinyl_color: str | None = None
+    vinyl_weight: str | None = None
+    rpm: int | None = None
+    spars: str | None = None
     matrix_number_side_a: str | None = None
     matrix_number_side_b: str | None = None
     tracks: list[CatalogMusicTrackResponse]

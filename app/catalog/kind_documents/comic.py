@@ -5,11 +5,12 @@ from app.catalog.document_shape import (
     CHARACTER,
     INTEGER,
     PARTIAL_DATE,
+    PERSON,
     STRING,
     ChildObjectShape,
     KindDocumentShape,
 )
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_NUMBER,
     SECTION_ARTWORK,
@@ -22,21 +23,34 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
-        "imprint", VALUE_TYPE_STRING, "Imprint",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.comic}),
-    ),
-    MetadataFieldSpec(
-        "series_group", VALUE_TYPE_STRING, "Series group",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.comic}),
-    ),
-    MetadataFieldSpec(
-        "page_count", VALUE_TYPE_INTEGER, "Page count",
-        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        "imprint",
+        VALUE_TYPE_STRING,
+        "Imprint",
+        section=SECTION_PUBLISHING,
         kinds=frozenset({ItemKind.comic}),
     ),
-    MetadataFieldSpec("crossover", VALUE_TYPE_STRING, "Crossover",
-                      section=SECTION_ARTWORK,
-                      kinds=frozenset({ItemKind.comic})),
+    MetadataFieldSpec(
+        "series_group",
+        VALUE_TYPE_STRING,
+        "Series group",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.comic}),
+    ),
+    MetadataFieldSpec(
+        "page_count",
+        VALUE_TYPE_INTEGER,
+        "Page count",
+        section=SECTION_PUBLISHING,
+        input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.comic}),
+    ),
+    MetadataFieldSpec(
+        "crossover",
+        VALUE_TYPE_STRING,
+        "Crossover",
+        section=SECTION_ARTWORK,
+        kinds=frozenset({ItemKind.comic}),
+    ),
 )
 
 KEY_EVENT = ChildObjectShape(
@@ -61,17 +75,17 @@ COMIC_CHARACTER_DETAIL = ChildObjectShape(
     nullable=COMIC_CHARACTER.nullable,
 )
 
+COMIC_PERSON = ChildObjectShape(
+    fields={**PERSON.fields, "join_phrase": STRING},
+    nested=PERSON.nested,
+    required=PERSON.required,
+    non_empty=PERSON.non_empty,
+    nullable=PERSON.nullable | frozenset({"join_phrase"}),
+    allow_string_value=PERSON.allow_string_value,
+)
+
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset(
-        {
-            "creators", "contributors", "description", "characters", "character_details",
-            "story_arcs", "identifiers", "series_title", "volume_name", "issue_number",
-            "cover_price_cents", "currency", "key_comic", "key_reason",
-            "cover_date", "variant_description", "key_events", "volume_number",
-            "volume_start_year",
-        }
-    ),
-    root_value_types={
+    root_fields={
         "description": STRING,
         "series_title": STRING,
         "volume_name": STRING,
@@ -86,7 +100,9 @@ DOCUMENT = KindDocumentShape(
         "volume_start_year": INTEGER,
     },
     children={
-        **COMMON_ROOT_CHILDREN,
+        **common_root_children("identifiers", "external_links", "story_arcs"),
+        "creators": COMIC_PERSON,
+        "contributors": COMIC_PERSON,
         "characters": COMIC_CHARACTER,
         "character_details": COMIC_CHARACTER_DETAIL,
         "key_events": KEY_EVENT,

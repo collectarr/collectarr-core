@@ -5,7 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.catalog.grouping_models import GroupingModel
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
 
@@ -24,7 +23,6 @@ class MediaTypeResponse(BaseModel):
     plural_label: str
     route_segments: list[str]
     is_top_level: bool = True
-    grouping_model: GroupingModel
     physical_formats: list[PhysicalFormatResponse] = Field(default_factory=list)
 
 
@@ -40,31 +38,16 @@ class MetadataNormalizedManifestResponse(BaseModel):
     value_types: dict[str, str]
 
 
-class MetadataFieldOwnershipResponse(BaseModel):
-    """The authoritative source boundary for one kind-specific field view."""
-
-    scope: str
-    source_entity_type: str
-    source_table: str
-    write_target: str
-
-
 class MetadataFieldSpecResponse(BaseModel):
     """A single editable canonical metadata field, rendered from the registry."""
 
     key: str
     value_type: str
     label: str
-    common: bool
-    typed: bool
-    normalized: bool
     editable: bool
     section: str
     input: str
     kinds: list[ItemKind] = Field(default_factory=list)
-    ownership_by_kind: dict[ItemKind, MetadataFieldOwnershipResponse] = Field(
-        default_factory=dict
-    )
 
 
 class MetadataFieldSchemaResponse(BaseModel):
@@ -165,6 +148,7 @@ class CharacterFacetResponse(BaseModel):
     item_count: int = 0
     entity_ids: list[UUID] = Field(default_factory=list)
     role_counts: dict[str, int] = Field(default_factory=dict)
+
 
 class FacetEntityIdsRequest(BaseModel):
     entity_ids: list[UUID] = Field(default_factory=list)

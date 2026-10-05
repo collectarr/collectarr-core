@@ -13,7 +13,10 @@ from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.catalog_music_item import MusicItem
-from app.schemas.catalog_music_item import CatalogMusicItemResponse
+from app.schemas.catalog_music_item import (
+    CatalogMusicItemResponse,
+    CatalogMusicItemSearchPage,
+)
 
 
 class CatalogMusicItemService:
@@ -119,7 +122,7 @@ class CatalogMusicItemService:
         year: int | None = None,
         limit: int,
         offset: int,
-    ) -> list[CatalogMusicItemResponse]:
+    ) -> CatalogMusicItemSearchPage:
         stmt = select(MusicItem)
         if barcode and barcode.strip():
             stmt = stmt.where(MusicItem.barcode == barcode.strip())
@@ -131,7 +134,7 @@ class CatalogMusicItemService:
                     MusicItem.artist.ilike(term),
                     MusicItem.subtitle.ilike(term),
                     MusicItem.label.ilike(term),
-                    MusicItem.catalog_number.ilike(term),
+                    MusicItem.catalog_number == query.strip(),
                     MusicItem.barcode == query.strip(),
                 )
             )
@@ -144,9 +147,7 @@ class CatalogMusicItemService:
         if country and country.strip():
             stmt = stmt.where(MusicItem.country.ilike(f"%{country.strip()}%"))
         if catalog_number and catalog_number.strip():
-            stmt = stmt.where(
-                MusicItem.catalog_number.ilike(f"%{catalog_number.strip()}%")
-            )
+            stmt = stmt.where(MusicItem.catalog_number == catalog_number.strip())
         if year is not None:
             stmt = stmt.where(
                 or_(
@@ -157,19 +158,25 @@ class CatalogMusicItemService:
             )
         stmt = (
             stmt.order_by(
-                MusicItem.sort_title.asc().nullslast(), MusicItem.title.asc(), MusicItem.id.asc()
+                MusicItem.sort_title.asc().nullslast(),
+                MusicItem.title.asc(),
+                MusicItem.id.asc(),
             )
             .offset(offset)
-            .limit(limit)
+            .limit(limit + 1)
         )
         result = await self.db.execute(stmt)
-        return [CatalogMusicItemResponse.model_validate(item) for item in result.scalars().unique()]
+        rows = list(result.scalars().unique())
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        return CatalogMusicItemSearchPage(
+            items=[CatalogMusicItemResponse.model_validate(item) for item in rows],
+            next_offset=offset + len(rows) if has_more else None,
+            has_more=has_more,
+        )
 
     async def get(self, item_id: UUID) -> CatalogMusicItemResponse:
-        result = await self.db.execute(
-            select(MusicItem)
-            .where(MusicItem.id == item_id)
-        )
+        result = await self.db.execute(select(MusicItem).where(MusicItem.id == item_id))
         item = result.scalar_one_or_none()
         if item is None:
             raise ApiHTTPException(

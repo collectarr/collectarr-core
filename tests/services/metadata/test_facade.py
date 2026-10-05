@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+
 import pytest
 
 from app.models.base import ItemKind
+from app.schemas.metadata_shared import CatalogSearchPage
 from app.services.facade import MetadataFacade
 
 
 @pytest.mark.asyncio
 async def test_metadata_facade_routes_search_to_composed_service() -> None:
     facade = MetadataFacade(db=SimpleNamespace())
-    result = [SimpleNamespace(kind="book", title="The Hobbit")]
+    result = CatalogSearchPage(items=[], next_offset=None, has_more=False)
 
     async def fake_search(*args, **kwargs):
         assert kwargs["query"] == "hobbit"

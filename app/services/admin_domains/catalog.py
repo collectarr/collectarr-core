@@ -10,6 +10,7 @@ from app.catalog.catalog_item_schema import (
     catalog_item_payload_contract,
     validate_catalog_item_payload,
 )
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
     is_video_item_kind,
@@ -22,22 +23,15 @@ from app.metadata_normalized import (
     typed_metadata_payload,
 )
 from app.models import (
-    AnimeItem,
-    BoardGameItem,
-    BookItem,
     Character,
-    ComicItem,
     EntityAlias,
     EntityLink,
-    GameItem,
-    MangaItem,
     MovieItem,
     MusicItem,
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
     StoryArc,
-    TvItem,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -103,7 +97,7 @@ class AdminCatalogService:
             offset=0,
         )
         responses: list[Any] = []
-        for result in results:
+        for result in results.items:
             entity = await self._load_native_catalog_entity(result.kind, result.id)
             if entity is None:
                 continue
@@ -133,15 +127,18 @@ class AdminCatalogService:
                     for track in disc["tracks"]:
                         if track.get("is_header", False):
                             continue
-                        tracks.append({
-                            "position": track["position"],
-                            "title": track["title"],
-                            "artist": track.get("artist"),
-                            "duration_seconds": (
-                                track["duration_ms"] // 1000
-                                if track.get("duration_ms") is not None else None
-                            ),
-                        })
+                        tracks.append(
+                            {
+                                "position": track["position"],
+                                "title": track["title"],
+                                "artist": track.get("artist"),
+                                "duration_seconds": (
+                                    track["duration_ms"] // 1000
+                                    if track.get("duration_ms") is not None
+                                    else None
+                                ),
+                            }
+                        )
                 if tracks:
                     metadata["tracks"] = tracks
                     metadata["track_count"] = len(tracks)
@@ -220,15 +217,16 @@ class AdminCatalogService:
             for entity in rows:
                 _record(entity_type, entity, kind)
 
-        await _scan(BookItem, ItemKind.book, "book_item")
-        await _scan(ComicItem, ItemKind.comic, "catalog_comic_item")
-        await _scan(MusicItem, ItemKind.music, "catalog_music_item")
-        await _scan(GameItem, ItemKind.game, "catalog_game_item")
-        await _scan(MovieItem, ItemKind.movie, "catalog_movie_item")
-        await _scan(TvItem, ItemKind.tv, "catalog_tv_item")
-        await _scan(BoardGameItem, ItemKind.boardgame, "catalog_boardgame_item")
+        for definition in CATALOG_KIND_DEFINITIONS:
+            await _scan(
+                definition.model,
+                definition.kind,
+                definition.entity_type,
+            )
 
-        schema_issue_count = sum(count for issue, count in issue_counts.items() if issue in schema_issue_keys)
+        schema_issue_count = sum(
+            count for issue, count in issue_counts.items() if issue in schema_issue_keys
+        )
         blocking_issue_count = sum(
             count for issue, count in issue_counts.items() if issue not in schema_issue_keys
         )
@@ -273,27 +271,28 @@ class AdminCatalogService:
             return await self._update_music_catalog_item(entity, payload)
         if kind == ItemKind.movie and isinstance(entity, MovieItem):
             return await self._update_movie_catalog_item(entity, payload)
-        flat_kind_by_type = {
-            BookItem: ItemKind.book,
-            ComicItem: ItemKind.comic,
-            MangaItem: ItemKind.manga,
-            AnimeItem: ItemKind.anime,
-            GameItem: ItemKind.game,
-            BoardGameItem: ItemKind.boardgame,
-            TvItem: ItemKind.tv,
-        }
-        flat_kind = next(
-            (root_kind for model, root_kind in flat_kind_by_type.items() if isinstance(entity, model)),
+        flat_definition = next(
+            (
+                definition
+                for definition in CATALOG_KIND_DEFINITIONS
+                if isinstance(entity, definition.model)
+                and definition.kind not in {ItemKind.music, ItemKind.movie}
+            ),
             None,
         )
-        if flat_kind is not None:
-            return await self._update_flat_catalog_item(entity, flat_kind, payload)
+        if flat_definition is not None:
+            return await self._update_flat_catalog_item(
+                entity,
+                flat_definition.kind,
+                payload,
+            )
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
             ItemKind.anime: "catalog_anime_item",
             ItemKind.music: "catalog_music_item",
         }[kind]
+
         def _current_value(key: str) -> Any:
             value = getattr(entity, key, None)
             if isinstance(value, list):
@@ -399,17 +398,22 @@ class AdminCatalogService:
                         )
                     )
 
-
         if "title" in update_data and payload.title is not None:
             _set_named_field(entity, "title", payload.title)
         if "sort_key" in update_data:
             _set_named_field(entity, "sort_title", self._normalize_optional_text(payload.sort_key))
         if "title_extension" in update_data:
-            _set_named_field(entity, "subtitle", self._normalize_optional_text(payload.title_extension))
+            _set_named_field(
+                entity, "subtitle", self._normalize_optional_text(payload.title_extension)
+            )
         if "original_title" in update_data:
-            _set_metadata_value("original_title", self._normalize_optional_text(payload.original_title))
+            _set_metadata_value(
+                "original_title", self._normalize_optional_text(payload.original_title)
+            )
         if "localized_title" in update_data:
-            _set_metadata_value("localized_title", self._normalize_optional_text(payload.localized_title))
+            _set_metadata_value(
+                "localized_title", self._normalize_optional_text(payload.localized_title)
+            )
         if "search_aliases" in update_data:
             await _replace_aliases(payload.search_aliases)
         if "synopsis" in update_data:
@@ -419,7 +423,9 @@ class AdminCatalogService:
         if "plot_summary" in update_data:
             _set_metadata_value("plot_summary", self._normalize_optional_text(payload.plot_summary))
         if "plot_description" in update_data:
-            _set_metadata_value("plot_description", self._normalize_optional_text(payload.plot_description))
+            _set_metadata_value(
+                "plot_description", self._normalize_optional_text(payload.plot_description)
+            )
 
         if "audience_rating" in update_data and kind not in {ItemKind.comic, ItemKind.music}:
             _set_named_field(entity, "audience_rating", payload.audience_rating)
@@ -427,7 +433,9 @@ class AdminCatalogService:
         if "trailer_urls" in update_data or "external_links" in update_data:
             await _replace_links(
                 payload.trailer_urls if "trailer_urls" in update_data else before["trailer_urls"],
-                payload.external_links if "external_links" in update_data else before["external_links"],
+                payload.external_links
+                if "external_links" in update_data
+                else before["external_links"],
             )
 
         self._audit_recorder(
@@ -445,7 +453,9 @@ class AdminCatalogService:
         self.db.expire_all()
         loaded_entity = await self._load_native_catalog_entity(kind, entity.id)
         if loaded_entity is not None:
-            await SearchClient().index_documents_best_effort([catalog_search_document(loaded_entity)])
+            await SearchClient().index_documents_best_effort(
+                [catalog_search_document(loaded_entity)]
+            )
         return await self._item_response_loader(loaded_entity)
 
     async def _update_music_catalog_item(
@@ -455,12 +465,33 @@ class AdminCatalogService:
     ) -> Any:
         update_data = payload.model_dump(exclude_unset=True)
         supported_fields = {
-            "title", "sort_title", "subtitle", "artist", "release_date",
-            "original_release_date", "recording_date", "label", "format",
-            "barcode", "catalog_number", "genres", "packaging", "studios",
-            "country", "is_live", "sound_types", "vinyl_color",
-            "vinyl_weight", "rpm", "extra", "spars", "box_set", "tracks",
-            "external_links", "cover_image_url", "thumbnail_image_url",
+            "title",
+            "sort_title",
+            "subtitle",
+            "artist",
+            "release_date",
+            "original_release_date",
+            "recording_date",
+            "label",
+            "format",
+            "barcode",
+            "catalog_number",
+            "genres",
+            "packaging",
+            "studios",
+            "country",
+            "is_live",
+            "sound_types",
+            "vinyl_color",
+            "vinyl_weight",
+            "rpm",
+            "extra",
+            "spars",
+            "box_set",
+            "tracks",
+            "external_links",
+            "cover_image_url",
+            "thumbnail_image_url",
             "back_cover_image_url",
         }
         unsupported = sorted(set(update_data) - supported_fields)
@@ -469,16 +500,11 @@ class AdminCatalogService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="music_correction_fields_unsupported",
                 detail=(
-                    "Unsupported Music Catalog Item correction fields: "
-                    f"{', '.join(unsupported)}"
+                    f"Unsupported Music Catalog Item correction fields: {', '.join(unsupported)}"
                 ),
             )
 
-        before = {
-            key: getattr(item, key, None)
-            for key in update_data
-            if key != "tracks"
-        }
+        before = {key: getattr(item, key, None) for key in update_data if key != "tracks"}
         before["tracks"] = [
             {
                 "title": track["title"],
@@ -498,10 +524,25 @@ class AdminCatalogService:
         ]
 
         for field in (
-            "title", "artist", "sort_title", "subtitle", "label", "format",
-            "barcode", "catalog_number", "packaging", "country",
-            "is_live", "vinyl_color", "vinyl_weight", "rpm", "extra", "spars",
-            "box_set", "cover_image_url", "thumbnail_image_url",
+            "title",
+            "artist",
+            "sort_title",
+            "subtitle",
+            "label",
+            "format",
+            "barcode",
+            "catalog_number",
+            "packaging",
+            "country",
+            "is_live",
+            "vinyl_color",
+            "vinyl_weight",
+            "rpm",
+            "extra",
+            "spars",
+            "box_set",
+            "cover_image_url",
+            "thumbnail_image_url",
             "back_cover_image_url",
         ):
             if field not in update_data:
@@ -516,7 +557,9 @@ class AdminCatalogService:
                         detail="Music Catalog Item title must not be empty",
                     )
             elif isinstance(value, str) and field not in {
-                "cover_image_url", "thumbnail_image_url", "back_cover_image_url"
+                "cover_image_url",
+                "thumbnail_image_url",
+                "back_cover_image_url",
             }:
                 value = self._normalize_optional_text(value)
             setattr(item, field, value)
@@ -554,11 +597,10 @@ class AdminCatalogService:
             replacement_discs: list[dict[str, Any]] = []
             for disc_number, rows in sorted(tracks_by_disc.items()):
                 old_disc = old_discs.get(disc_number, {})
-                old_tracks_by_id = {
-                    str(track["id"]): track for track in old_disc.get("tracks", [])
-                }
+                old_tracks_by_id = {str(track["id"]): track for track in old_disc.get("tracks", [])}
                 old_tracks = {
-                    track["position"]: track for track in old_disc.get("tracks", [])
+                    track["position"]: track
+                    for track in old_disc.get("tracks", [])
                     if not track.get("is_header", False)
                 }
                 tracks = []
@@ -569,23 +611,33 @@ class AdminCatalogService:
                     position = "" if is_header else str(row.get("position", index + 1))
                     if not old_track and not is_header:
                         old_track = old_tracks.pop(position, {})
-                    tracks.append({
-                        "id": row.get("id") or old_track.get("id") or uuid4(),
-                        "is_header": is_header,
-                        "parent_header_id": row.get("parent_header_id", old_track.get("parent_header_id")),
-                        "indent_level": row.get("indent_level", old_track.get("indent_level", 0)),
-                        "position": position, "position_order": index,
-                        "title": row["title"], "artist": row.get("artist"),
-                        "duration_ms": duration * 1000 if isinstance(duration, int) else None,
-                    })
-                replacement_discs.append({
-                    "id": old_disc.get("id") or uuid4(),
-                    "disc_number": disc_number,
-                    "title": old_disc.get("title"),
-                    "matrix_number_side_a": old_disc.get("matrix_number_side_a"),
-                    "matrix_number_side_b": old_disc.get("matrix_number_side_b"),
-                    "tracks": tracks,
-                })
+                    tracks.append(
+                        {
+                            "id": row.get("id") or old_track.get("id") or uuid4(),
+                            "is_header": is_header,
+                            "parent_header_id": row.get(
+                                "parent_header_id", old_track.get("parent_header_id")
+                            ),
+                            "indent_level": row.get(
+                                "indent_level", old_track.get("indent_level", 0)
+                            ),
+                            "position": position,
+                            "position_order": index,
+                            "title": row["title"],
+                            "artist": row.get("artist"),
+                            "duration_ms": duration * 1000 if isinstance(duration, int) else None,
+                        }
+                    )
+                replacement_discs.append(
+                    {
+                        "id": old_disc.get("id") or uuid4(),
+                        "disc_number": disc_number,
+                        "title": old_disc.get("title"),
+                        "matrix_number_side_a": old_disc.get("matrix_number_side_a"),
+                        "matrix_number_side_b": old_disc.get("matrix_number_side_b"),
+                        "tracks": tracks,
+                    }
+                )
             item.discs = replacement_discs
 
         self._audit_recorder(
@@ -629,8 +681,7 @@ class AdminCatalogService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 code="movie_correction_fields_unsupported",
                 detail=(
-                    "Unsupported Movie Catalog Item correction fields: "
-                    f"{', '.join(unsupported)}"
+                    f"Unsupported Movie Catalog Item correction fields: {', '.join(unsupported)}"
                 ),
             )
 
@@ -663,9 +714,7 @@ class AdminCatalogService:
         item.title = title
         item.sort_key = self._normalize_optional_text(projected.pop("sort_key", None))
         item.barcode = self._normalize_optional_text(projected.pop("barcode", None))
-        item.catalog_number = self._normalize_optional_text(
-            projected.pop("catalog_number", None)
-        )
+        item.catalog_number = self._normalize_optional_text(projected.pop("catalog_number", None))
         projected.pop("title", None)
         item.details = projected
 
@@ -689,9 +738,7 @@ class AdminCatalogService:
                 code="metadata_item_not_found",
                 detail="Movie Catalog Item not found after correction",
             )
-        await SearchClient().index_documents_best_effort(
-            [catalog_search_document(loaded_item)]
-        )
+        await SearchClient().index_documents_best_effort([catalog_search_document(loaded_item)])
         return await self._item_response_loader(loaded_item)
 
     async def _update_flat_catalog_item(
@@ -704,9 +751,7 @@ class AdminCatalogService:
         if not update_data:
             return await self._item_response_loader(item)
 
-        contract_fields = set(
-            catalog_item_payload_contract()["kinds"][kind.value]["properties"]
-        )
+        contract_fields = set(catalog_item_payload_contract()["kinds"][kind.value]["properties"])
         unsupported = sorted(set(update_data) - contract_fields)
         if unsupported:
             raise ApiHTTPException(
@@ -733,9 +778,7 @@ class AdminCatalogService:
                 if row.get("credit_type") == "creator"
             ]
             before_payload["contributors"] = [
-                row.get("name")
-                for row in credits
-                if row.get("credit_type") == "contributor"
+                row.get("name") for row in credits if row.get("credit_type") == "contributor"
             ]
         try:
             projected = validate_catalog_item_payload(
@@ -760,16 +803,18 @@ class AdminCatalogService:
         item.title = title
         item.sort_key = self._normalize_optional_text(projected.pop("sort_key", None))
         item.barcode = self._normalize_optional_text(projected.pop("barcode", None))
-        item.catalog_number = self._normalize_optional_text(
-            projected.pop("catalog_number", None)
-        )
+        item.catalog_number = self._normalize_optional_text(projected.pop("catalog_number", None))
         projected.pop("title", None)
 
         if "identifiers" in update_data:
             existing_identifiers = {
                 (
                     row.get("identifier_type", "value"),
-                    "".join(character for character in row.get("value", "").casefold() if character.isalnum()),
+                    "".join(
+                        character
+                        for character in row.get("value", "").casefold()
+                        if character.isalnum()
+                    ),
                 ): row.get("id")
                 for row in item.details.get("identifiers", [])
                 if isinstance(row, dict)
@@ -784,9 +829,7 @@ class AdminCatalogService:
                 else:
                     identifier_type, value = "value", raw_value
                 normalized_value = "".join(
-                    character
-                    for character in value.casefold()
-                    if character.isalnum()
+                    character for character in value.casefold() if character.isalnum()
                 )
                 if not normalized_value:
                     continue
@@ -824,24 +867,28 @@ class AdminCatalogService:
                         name = self._normalize_optional_text(creator.name)
                         if not name:
                             continue
-                        retained_credits.append({
-                            "id": str(uuid4()),
-                            "credit_type": "creator",
-                            "name": name,
-                            "role": self._normalize_optional_text(creator.role),
-                            "sequence": sequence,
-                        })
+                        retained_credits.append(
+                            {
+                                "id": str(uuid4()),
+                                "credit_type": "creator",
+                                "name": name,
+                                "role": self._normalize_optional_text(creator.role),
+                                "sequence": sequence,
+                            }
+                        )
                 if "contributors" in update_data:
                     for sequence, raw_name in enumerate(
                         self._normalize_text_values(payload.contributors),
                         start=1,
                     ):
-                        retained_credits.append({
-                            "id": str(uuid4()),
-                            "credit_type": "contributor",
-                            "name": raw_name,
-                            "sequence": sequence,
-                        })
+                        retained_credits.append(
+                            {
+                                "id": str(uuid4()),
+                                "credit_type": "contributor",
+                                "name": raw_name,
+                                "sequence": sequence,
+                            }
+                        )
                 projected["credits"] = retained_credits
             else:
                 projected["credits"] = list(item.details.get("credits", []))
@@ -1056,7 +1103,6 @@ class AdminCatalogService:
             )
         )
 
-
     async def _get_or_create_person(self, name: str) -> Person:
         person = await self.db.scalar(select(Person).where(Person.name == name))
         if person is None:
@@ -1169,19 +1215,9 @@ class AdminCatalogService:
         return None
 
     async def _load_native_catalog_entity(self, kind: ItemKind, entity_id: UUID) -> Any | None:
-        model_by_kind = {
-            ItemKind.book: BookItem,
-            ItemKind.comic: ComicItem,
-            ItemKind.manga: MangaItem,
-            ItemKind.anime: AnimeItem,
-            ItemKind.movie: MovieItem,
-            ItemKind.tv: TvItem,
-            ItemKind.music: MusicItem,
-            ItemKind.game: GameItem,
-            ItemKind.boardgame: BoardGameItem,
-        }
-        model = model_by_kind.get(kind)
-        if model is None:
+        try:
+            model = catalog_kind_for(kind).model
+        except ValueError:
             return None
         stmt = select(model).where(model.id == entity_id)
         return await self.db.scalar(stmt)

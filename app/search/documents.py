@@ -3,17 +3,11 @@ from typing import Any
 from sqlalchemy import inspect
 from sqlalchemy.orm.attributes import NO_VALUE
 
+from app.catalog.kind_registry import CATALOG_KINDS_BY_MODEL
 from app.catalog.physical_formats import is_video_item_kind, physical_format_for_id
 from app.models import MusicItem
 from app.models.base import ItemKind
-from app.models.catalog_anime_item import AnimeItem
-from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_comic_item import ComicItem
-from app.models.catalog_game_item import GameItem
-from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
-from app.models.catalog_tv_item import TvItem
 from app.models.partial_date import PartialDateValue
 
 
@@ -173,13 +167,12 @@ def movie_item_search_document(item: MovieItem) -> dict[str, Any]:
     date_value = details.get("release_date_parts") or details.get("release_date")
     try:
         release_date_parts = PartialDateValue.model_validate(date_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         release_date_parts = None
     release_date = release_date_parts.iso_string if release_date_parts else None
 
     creators = _unique(
-        _catalog_names(details.get("creators"))
-        + _catalog_names(details.get("contributors"))
+        _catalog_names(details.get("creators")) + _catalog_names(details.get("contributors"))
     )
     characters = _catalog_names(details.get("characters"))
     physical_format = _optional_text(details.get("physical_format"))
@@ -256,23 +249,10 @@ def music_item_search_document(item: MusicItem) -> dict[str, Any]:
 
 
 def catalog_search_document(entity: Any) -> dict[str, Any]:
-    if isinstance(entity, MovieItem):
-        return movie_item_search_document(entity)
-    flat_root_kinds = (
-        (AnimeItem, ItemKind.anime),
-        (BoardGameItem, ItemKind.boardgame),
-        (BookItem, ItemKind.book),
-        (ComicItem, ItemKind.comic),
-        (GameItem, ItemKind.game),
-        (MangaItem, ItemKind.manga),
-        (TvItem, ItemKind.tv),
-    )
-    for model, kind in flat_root_kinds:
-        if isinstance(entity, model):
-            return flat_catalog_item_search_document(entity, kind)
-    if isinstance(entity, MusicItem):
-        return music_item_search_document(entity)
-    raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
+    definition = CATALOG_KINDS_BY_MODEL.get(type(entity))
+    if definition is None:
+        raise TypeError(f"Unsupported catalog entity type: {type(entity)!r}")
+    return definition.search_document(entity)
 
 
 def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, Any]:
@@ -281,7 +261,7 @@ def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, An
     date_value = details.get("release_date_parts") or details.get("release_date")
     try:
         release_date_parts = PartialDateValue.model_validate(date_value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         release_date_parts = None
     release_date = release_date_parts.iso_string if release_date_parts else None
 
@@ -309,18 +289,14 @@ def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, An
         "id": str(item.id),
         "kind": kind.value,
         "title": item.title,
-        "item_number": _optional_text(
-            details.get("item_number") or details.get("issue_number")
-        ),
+        "item_number": _optional_text(details.get("item_number") or details.get("issue_number")),
         "runtime_minutes": details.get("runtime_minutes"),
         "cover_image_url": _optional_text(details.get("cover_image_url")),
         "thumbnail_image_url": _optional_text(details.get("thumbnail_image_url")),
         "publisher": _optional_text(details.get("publisher") or details.get("label")),
         "release_date": release_date,
         "region": _optional_text(
-            details.get("country")
-            or details.get("release_region")
-            or details.get("region")
+            details.get("country") or details.get("release_region") or details.get("region")
         ),
         "release_year": release_date_parts.year if release_date_parts else None,
         "barcode": barcode,

@@ -7,7 +7,7 @@ from app.catalog.document_shape import (
     ChildObjectShape,
     KindDocumentShape,
 )
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_NUMBER,
     SECTION_ARTWORK,
@@ -20,16 +20,25 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
-        "imprint", VALUE_TYPE_STRING, "Imprint",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.manga}),
+        "imprint",
+        VALUE_TYPE_STRING,
+        "Imprint",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.manga}),
     ),
     MetadataFieldSpec(
-        "series_group", VALUE_TYPE_STRING, "Series group",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.manga}),
+        "series_group",
+        VALUE_TYPE_STRING,
+        "Series group",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.manga}),
     ),
     MetadataFieldSpec(
-        "page_count", VALUE_TYPE_INTEGER, "Page count",
-        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        "page_count",
+        VALUE_TYPE_INTEGER,
+        "Page count",
+        section=SECTION_PUBLISHING,
+        input=INPUT_NUMBER,
         kinds=frozenset({ItemKind.manga}),
     ),
     MetadataFieldSpec(
@@ -63,24 +72,7 @@ MANGA_CHAPTER = ChildObjectShape(
 )
 
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset(
-        {
-            "creators",
-            "contributors",
-            "description",
-            "characters",
-            "chapters",
-            "character_details",
-            "identifiers",
-            "series_title",
-            "volume_name",
-            "volume_number",
-            "isbn",
-            "isbn10",
-            "isbn13",
-        }
-    ),
-    root_value_types={
+    root_fields={
         "description": STRING,
         "series_title": STRING,
         "volume_name": STRING,
@@ -89,5 +81,15 @@ DOCUMENT = KindDocumentShape(
         "isbn10": STRING,
         "isbn13": STRING,
     },
-    children={**COMMON_ROOT_CHILDREN, "chapters": MANGA_CHAPTER},
+    children={
+        **common_root_children(
+            "creators",
+            "contributors",
+            "identifiers",
+            "external_links",
+            "characters",
+            "character_details",
+        ),
+        "chapters": MANGA_CHAPTER,
+    },
 )

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 from typing import Any
 from uuid import UUID
@@ -11,60 +10,16 @@ from fastapi import status
 from sqlalchemy import extract, func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.kind_registry import (
+    CATALOG_KIND_DEFINITIONS,
+    CATALOG_KINDS_BY_ID,
+    CatalogKindDefinition,
+)
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.catalog_anime_item import AnimeItem
-from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_comic_item import ComicItem
-from app.models.catalog_game_item import GameItem
-from app.models.catalog_manga_item import MangaItem
-from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_music_item import MusicItem
-from app.models.catalog_tv_item import TvItem
 from app.models.partial_date import PartialDateValue
-from app.schemas.catalog_anime_item import CatalogAnimeItemResponse
-from app.schemas.catalog_boardgame_item import CatalogBoardGameItemResponse
-from app.schemas.catalog_book_item import CatalogBookItemResponse
-from app.schemas.catalog_comic_item import CatalogComicItemResponse
-from app.schemas.catalog_game_item import CatalogGameItemResponse
-from app.schemas.catalog_manga_item import CatalogMangaItemResponse
-from app.schemas.catalog_movie_item import CatalogMovieItemResponse
-from app.schemas.catalog_music_item import CatalogMusicItemResponse
-from app.schemas.catalog_tv_item import CatalogTvItemResponse
-from app.schemas.metadata_shared import CatalogSearchItemEnvelope
-
-
-@dataclass(frozen=True)
-class _CatalogRoot:
-    kind: ItemKind
-    model: type
-    sort_column: Any | None = None
-
-
-_ROOTS = (
-    _CatalogRoot(ItemKind.anime, AnimeItem),
-    _CatalogRoot(ItemKind.boardgame, BoardGameItem),
-    _CatalogRoot(ItemKind.book, BookItem),
-    _CatalogRoot(ItemKind.comic, ComicItem),
-    _CatalogRoot(ItemKind.game, GameItem),
-    _CatalogRoot(ItemKind.manga, MangaItem),
-    _CatalogRoot(ItemKind.movie, MovieItem),
-    _CatalogRoot(ItemKind.music, MusicItem, sort_column=MusicItem.sort_title),
-    _CatalogRoot(ItemKind.tv, TvItem),
-)
-_ROOT_BY_KIND = {root.kind: root for root in _ROOTS}
-_KIND_FIELDS = {
-    ItemKind.anime: CatalogAnimeItemResponse.model_fields,
-    ItemKind.boardgame: CatalogBoardGameItemResponse.model_fields,
-    ItemKind.book: CatalogBookItemResponse.model_fields,
-    ItemKind.comic: CatalogComicItemResponse.model_fields,
-    ItemKind.game: CatalogGameItemResponse.model_fields,
-    ItemKind.manga: CatalogMangaItemResponse.model_fields,
-    ItemKind.movie: CatalogMovieItemResponse.model_fields,
-    ItemKind.music: CatalogMusicItemResponse.model_fields,
-    ItemKind.tv: CatalogTvItemResponse.model_fields,
-}
+from app.schemas.metadata_shared import CatalogSearchItemEnvelope, CatalogSearchPage
 
 
 class CatalogItemSearchService:
@@ -93,7 +48,7 @@ class CatalogItemSearchService:
         barcode: str | None = None,
         limit: int = 25,
         offset: int = 0,
-    ) -> list[CatalogSearchItemEnvelope]:
+    ) -> CatalogSearchPage:
         if not any(
             value is not None and str(value).strip()
             for value in (
@@ -113,11 +68,15 @@ class CatalogItemSearchService:
                 barcode,
             )
         ):
-            return []
+            return CatalogSearchPage(items=[], next_offset=None, has_more=False)
 
-        roots = [root for root in _ROOTS if kind is None or root.kind is kind]
+        roots = [
+            definition
+            for definition in CATALOG_KIND_DEFINITIONS
+            if kind is None or definition.kind is kind
+        ]
         if not roots:
-            return []
+            return CatalogSearchPage(items=[], next_offset=None, has_more=False)
 
         arguments = {
             "query": query,
@@ -138,7 +97,7 @@ class CatalogItemSearchService:
         candidates = union_all(
             *(self._candidate_query(root, arguments) for root in roots)
         ).subquery("catalog_item_search_candidates")
-        page = (
+        selected_rows = (
             await self.db.execute(
                 select(candidates.c.kind, candidates.c.item_id)
                 .order_by(
@@ -148,11 +107,14 @@ class CatalogItemSearchService:
                     candidates.c.item_id,
                 )
                 .offset(offset)
-                .limit(limit)
+                .limit(limit + 1)
             )
         ).all()
-        if not page:
-            return []
+        if not selected_rows:
+            return CatalogSearchPage(items=[], next_offset=None, has_more=False)
+
+        has_more = len(selected_rows) > limit
+        page = selected_rows[:limit]
 
         ids_by_kind: dict[ItemKind, list[UUID]] = {}
         for kind_value, item_id in page:
@@ -167,14 +129,19 @@ class CatalogItemSearchService:
             rows = (await self.db.execute(statement)).scalars().unique().all()
             items_by_kind[root.kind] = {item.id: item for item in rows}
 
-        return [
+        items = [
             self._to_search_envelope(
-                root=_ROOT_BY_KIND[ItemKind(kind_value)],
+                root=CATALOG_KINDS_BY_ID[ItemKind(kind_value)],
                 item=items_by_kind.get(ItemKind(kind_value), {}).get(item_id),
             )
             for kind_value, item_id in page
             if items_by_kind.get(ItemKind(kind_value), {}).get(item_id) is not None
         ]
+        return CatalogSearchPage(
+            items=items,
+            next_offset=offset + len(page) if has_more else None,
+            has_more=has_more,
+        )
 
     async def lookup_barcode(
         self,
@@ -186,15 +153,19 @@ class CatalogItemSearchService:
             barcode=barcode,
             limit=1,
         )
-        if results:
-            return results[0]
+        if results.items:
+            return results.items[0]
         raise ApiHTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             code="barcode_not_found",
             detail="Barcode not found",
         )
 
-    def _candidate_query(self, root: _CatalogRoot, arguments: dict[str, Any]):
+    def _candidate_query(
+        self,
+        root: CatalogKindDefinition,
+        arguments: dict[str, Any],
+    ):
         model = root.model
         query = _trim(arguments.get("query"))
         barcode = _trim(arguments.get("barcode"))
@@ -264,16 +235,12 @@ class CatalogItemSearchService:
         catalog_number = _trim(arguments.get("catalog_number"))
         if catalog_number:
             if root.kind is ItemKind.music:
-                predicates.append(
-                    MusicItem.catalog_number.ilike(f"%{catalog_number}%")
-                )
+                predicates.append(MusicItem.catalog_number == catalog_number)
             else:
                 predicates.append(
                     or_(
                         model.catalog_number == catalog_number,
-                        model.details.contains(
-                            {"catalog_number": catalog_number}
-                        ),
+                        model.details.contains({"catalog_number": catalog_number}),
                     )
                 )
 
@@ -286,10 +253,8 @@ class CatalogItemSearchService:
                         extract("year", MusicItem.original_release_date) == year,
                         extract("year", MusicItem.recording_date) == year,
                         MusicItem.release_date_parts["year"].as_integer() == year,
-                        MusicItem.original_release_date_parts["year"].as_integer()
-                        == year,
-                        MusicItem.recording_date_parts["year"].as_integer()
-                        == year,
+                        MusicItem.original_release_date_parts["year"].as_integer() == year,
+                        MusicItem.recording_date_parts["year"].as_integer() == year,
                     )
                 )
             else:
@@ -297,9 +262,7 @@ class CatalogItemSearchService:
                 predicates.append(
                     or_(
                         model.details.contains({"year_published": year}),
-                        model.details.contains(
-                            {"release_date_parts": {"year": year}}
-                        ),
+                        model.details.contains({"release_date_parts": {"year": year}}),
                         model.details.contains({"release_date": year_text}),
                     )
                 )
@@ -316,23 +279,21 @@ class CatalogItemSearchService:
         return statement
 
     @staticmethod
-    def _sort_column(root: _CatalogRoot):
-        if root.sort_column is not None:
-            return root.sort_column
+    def _sort_column(root: CatalogKindDefinition):
+        if root.search_sort_column is not None:
+            return root.search_sort_column
         return root.model.sort_key
 
     @staticmethod
-    def _identifier_match(root: _CatalogRoot, value: str):
-        if root.kind in {ItemKind.music, ItemKind.movie}:
+    def _identifier_match(root: CatalogKindDefinition, value: str):
+        if not hasattr(root.model, "details") or "identifiers" not in root.document.children:
             return literal(False)
         normalized = _normalize_identifier(value)
-        return root.model.details.contains(
-            {"identifiers": [{"normalized_value": normalized}]}
-        )
+        return root.model.details.contains({"identifiers": [{"normalized_value": normalized}]})
 
     @staticmethod
     def _to_search_envelope(
-        root: _CatalogRoot,
+        root: CatalogKindDefinition,
         item: Any,
     ) -> CatalogSearchItemEnvelope:
         details = {} if root.kind is ItemKind.music else item.details
@@ -345,12 +306,8 @@ class CatalogItemSearchService:
         if date_parts_value is None:
             date_parts_value = details.get("release_date")
         date_parts = _partial_date(date_parts_value)
-        cover = getattr(item, "cover_image_url", None) or details.get(
-            "cover_image_url"
-        )
-        thumbnail = getattr(item, "thumbnail_image_url", None) or details.get(
-            "thumbnail_image_url"
-        )
+        cover = getattr(item, "cover_image_url", None) or details.get("cover_image_url")
+        thumbnail = getattr(item, "thumbnail_image_url", None) or details.get("thumbnail_image_url")
         kind_data: dict[str, Any] = {"title": item.title}
 
         def add(name: str, value: Any) -> None:
@@ -363,7 +320,7 @@ class CatalogItemSearchService:
                 field_name = "label"
             elif root.kind is ItemKind.music and name == "physical_format":
                 field_name = "format"
-            if field_name in _KIND_FIELDS[root.kind] and field_name not in {
+            if field_name in root.response_model.model_fields and field_name not in {
                 "id",
                 "kind",
             }:
@@ -466,7 +423,7 @@ def _partial_date(value: Any) -> PartialDateValue | None:
         return None
     try:
         result = PartialDateValue.model_validate(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     return None if result.is_empty else result
 

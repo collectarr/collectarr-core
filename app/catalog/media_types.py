@@ -1,7 +1,9 @@
+"""Public media navigation config derived from Catalog Kind definitions."""
+
 from dataclasses import dataclass
 
-from app.catalog.grouping_models import GroupingModel, grouping_model_for_kind
-from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_formats
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
+from app.catalog.physical_formats import PhysicalFormatConfig
 from app.models.base import ItemKind
 
 
@@ -14,88 +16,35 @@ class MediaTypeConfig:
     item_number_sort_padding: int | None = None
     is_top_level: bool = True
     physical_formats: tuple[PhysicalFormatConfig, ...] = ()
-    grouping_model: GroupingModel = GroupingModel.catalog_item
 
     @property
     def primary_route_segment(self) -> str:
         return self.route_segments[0] if self.route_segments else ""
 
 
+_CATALOG_MEDIA_TYPES = tuple(
+    MediaTypeConfig(
+        kind=definition.kind,
+        singular_label=definition.singular_label,
+        plural_label=definition.plural_label,
+        route_segments=definition.route_segments,
+        item_number_sort_padding=definition.item_number_sort_padding,
+        physical_formats=definition.physical_formats,
+    )
+    for definition in CATALOG_KIND_DEFINITIONS
+)
+
+_COLLECTION_MEDIA_TYPE = MediaTypeConfig(
+    kind=ItemKind.collection,
+    singular_label="Collection",
+    plural_label="Collections",
+    route_segments=("collections", "collection"),
+    is_top_level=False,
+)
+
 media_types: tuple[MediaTypeConfig, ...] = (
-    MediaTypeConfig(
-        kind=ItemKind.comic,
-        singular_label="Comic",
-        plural_label="Comics",
-        route_segments=("comics", "comic"),
-        item_number_sort_padding=6,
-        grouping_model=grouping_model_for_kind(ItemKind.comic),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.manga,
-        singular_label="Manga",
-        plural_label="Manga",
-        route_segments=("manga",),
-        grouping_model=grouping_model_for_kind(ItemKind.manga),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.anime,
-        singular_label="Anime",
-        plural_label="Anime",
-        route_segments=("anime",),
-        physical_formats=video_physical_formats,
-        grouping_model=grouping_model_for_kind(ItemKind.anime),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.movie,
-        singular_label="Movie",
-        plural_label="Movies",
-        route_segments=("movies", "movie"),
-        physical_formats=video_physical_formats,
-        grouping_model=grouping_model_for_kind(ItemKind.movie),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.tv,
-        singular_label="TV Show",
-        plural_label="TV Shows",
-        route_segments=("tv", "shows", "series"),
-        physical_formats=video_physical_formats,
-        grouping_model=grouping_model_for_kind(ItemKind.tv),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.game,
-        singular_label="Game",
-        plural_label="Games",
-        route_segments=("games", "game"),
-        grouping_model=grouping_model_for_kind(ItemKind.game),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.boardgame,
-        singular_label="Board Game",
-        plural_label="Board Games",
-        route_segments=("board-games", "boardgames", "boardgame"),
-        grouping_model=grouping_model_for_kind(ItemKind.boardgame),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.book,
-        singular_label="Book",
-        plural_label="Books",
-        route_segments=("books", "book"),
-        grouping_model=grouping_model_for_kind(ItemKind.book),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.music,
-        singular_label="Music Release",
-        plural_label="Music Releases",
-        route_segments=("music",),
-        grouping_model=grouping_model_for_kind(ItemKind.music),
-    ),
-    MediaTypeConfig(
-        kind=ItemKind.collection,
-        singular_label="Collection",
-        plural_label="Collections",
-        route_segments=("collections", "collection"),
-        is_top_level=False,
-    ),
+    *_CATALOG_MEDIA_TYPES,
+    _COLLECTION_MEDIA_TYPE,
 )
 
 top_level_media_types: tuple[MediaTypeConfig, ...] = tuple(

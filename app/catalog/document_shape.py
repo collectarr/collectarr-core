@@ -24,10 +24,12 @@ class ChildObjectShape:
 class KindDocumentShape:
     """Kind-owned root fields and contained-object schemas."""
 
-    root_fields: frozenset[str]
-    root_value_types: Mapping[str, str]
+    # Additional scalar root fields not already declared by the edit-field
+    # registry. Their mapping key is the field name and value is its schema
+    # value type.
+    root_fields: Mapping[str, str]
     children: Mapping[str, ChildObjectShape]
-    explicit_root_fields: frozenset[str] | None = None
+    allowed_root_fields: frozenset[str] | None = None
     validate_document: Callable[[Mapping[str, Any], str], None] | None = None
 
 
@@ -44,18 +46,15 @@ PERSON = ChildObjectShape(
     fields={
         "id": STRING,
         "person_id": STRING,
-        "artist_id": STRING,
         "name": STRING,
         "role": STRING,
         "role_id": STRING,
         "sequence": INTEGER,
         "credited_name": STRING,
-        "join_phrase": STRING,
         "image_url": STRING,
         "sort_name": STRING,
-        "instrument": STRING,
     },
-    nullable=frozenset({"id", "person_id", "artist_id", "sequence"}),
+    nullable=frozenset({"id", "person_id", "sequence"}),
     allow_string_value=True,
 )
 

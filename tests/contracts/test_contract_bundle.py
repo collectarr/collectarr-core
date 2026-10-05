@@ -24,10 +24,11 @@ def test_contract_bundle_exports_versioned_snapshot(tmp_path):
         for row in field_schema["fields"]
         if row["key"] == "release_date" and row["kind"] == "book"
     )
-    assert book_release_date["scope"] == "catalog_item"
-    assert book_release_date["writeTarget"] == "core_canonical"
-    assert book_release_date["sourceEntityType"] == "catalog_book_item"
-    assert book_release_date["sourceTable"] == "book_items"
+    assert book_release_date["editable"] is True
+    assert book_release_date["valueType"] == "date"
+    assert not {"scope", "writeTarget", "sourceEntityType", "sourceTable"}.intersection(
+        book_release_date
+    )
 
     assert "collection" not in active_kinds["kinds"]
     assert len(active_kinds["kinds"]) == 9

@@ -21,7 +21,6 @@ class CatalogComicItemIdentifierResponse(BaseModel):
 class CatalogComicCreatorResponse(BaseModel):
     id: str | None = None
     person_id: str | None = None
-    artist_id: str | None = None
     name: str | None = None
     role: str | None = None
     role_id: str | None = None
@@ -30,7 +29,6 @@ class CatalogComicCreatorResponse(BaseModel):
     join_phrase: str | None = None
     image_url: str | None = None
     sort_name: str | None = None
-    instrument: str | None = None
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 

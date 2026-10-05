@@ -4,8 +4,14 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
-from app.catalog.document_shape import INTEGER, STRING, ChildObjectShape, KindDocumentShape
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.document_shape import (
+    INTEGER,
+    PERSON,
+    STRING,
+    ChildObjectShape,
+    KindDocumentShape,
+)
+from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_NUMBER,
     SECTION_ITEM,
@@ -20,50 +26,83 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
-        "display_title", VALUE_TYPE_STRING, "Display title",
-        section=SECTION_ITEM, kinds=frozenset({ItemKind.movie}),
-    ),
-    MetadataFieldSpec(
-        "original_language", VALUE_TYPE_STRING, "Original language",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.movie}),
-    ),
-    MetadataFieldSpec(
-        "studio", VALUE_TYPE_STRING, "Studio",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.movie}),
-    ),
-    MetadataFieldSpec(
-        "production_companies", VALUE_TYPE_STRING_LIST, "Production companies",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.movie}),
-    ),
-    MetadataFieldSpec(
-        "color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.movie}),
-    ),
-    MetadataFieldSpec(
-        "runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
-        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        "display_title",
+        VALUE_TYPE_STRING,
+        "Display title",
+        section=SECTION_ITEM,
         kinds=frozenset({ItemKind.movie}),
     ),
     MetadataFieldSpec(
-        "nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
-        section=SECTION_TECHNICAL, input=INPUT_NUMBER,
+        "original_language",
+        VALUE_TYPE_STRING,
+        "Original language",
+        section=SECTION_PUBLISHING,
         kinds=frozenset({ItemKind.movie}),
     ),
     MetadataFieldSpec(
-        "screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.movie}),
+        "studio",
+        VALUE_TYPE_STRING,
+        "Studio",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.movie}),
     ),
     MetadataFieldSpec(
-        "audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.movie}),
+        "production_companies",
+        VALUE_TYPE_STRING_LIST,
+        "Production companies",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.movie}),
     ),
     MetadataFieldSpec(
-        "subtitles", VALUE_TYPE_STRING, "Subtitles",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.movie}),
+        "color",
+        VALUE_TYPE_STRING,
+        "Color",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.movie}),
     ),
     MetadataFieldSpec(
-        "layers", VALUE_TYPE_STRING, "Layers",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.movie}),
+        "runtime_minutes",
+        VALUE_TYPE_INTEGER,
+        "Runtime minutes",
+        section=SECTION_PUBLISHING,
+        input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.movie}),
+    ),
+    MetadataFieldSpec(
+        "nr_discs",
+        VALUE_TYPE_INTEGER,
+        "Number of discs",
+        section=SECTION_TECHNICAL,
+        input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.movie}),
+    ),
+    MetadataFieldSpec(
+        "screen_ratio",
+        VALUE_TYPE_STRING,
+        "Screen ratio",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.movie}),
+    ),
+    MetadataFieldSpec(
+        "audio_tracks",
+        VALUE_TYPE_STRING,
+        "Audio tracks",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.movie}),
+    ),
+    MetadataFieldSpec(
+        "subtitles",
+        VALUE_TYPE_STRING,
+        "Subtitles",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.movie}),
+    ),
+    MetadataFieldSpec(
+        "layers",
+        VALUE_TYPE_STRING,
+        "Layers",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.movie}),
     ),
 )
 
@@ -114,28 +153,18 @@ def _validate_media(values: list[Mapping[str, Any]], path: str) -> None:
 
 MEDIA = replace(MOVIE_MEDIA, validate_collection=_validate_media)
 MOVIE_PERSON = ChildObjectShape(
-    fields={**COMMON_ROOT_CHILDREN["contributors"].fields, "character": STRING},
-    nested=COMMON_ROOT_CHILDREN["contributors"].nested,
-    required=COMMON_ROOT_CHILDREN["contributors"].required,
-    non_empty=COMMON_ROOT_CHILDREN["contributors"].non_empty,
-    nullable=COMMON_ROOT_CHILDREN["contributors"].nullable | frozenset({"character"}),
-    allow_string_value=COMMON_ROOT_CHILDREN["contributors"].allow_string_value,
+    fields={**PERSON.fields, "character": STRING},
+    nested=PERSON.nested,
+    required=PERSON.required,
+    non_empty=PERSON.non_empty,
+    nullable=PERSON.nullable | frozenset({"character"}),
+    allow_string_value=PERSON.allow_string_value,
 )
 
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset(
-        {
-            "description",
-            "creators",
-            "contributors",
-            "characters",
-            "character_details",
-            "media",
-        }
-    ),
-    root_value_types={"description": STRING},
+    root_fields={"description": STRING},
     children={
-        **COMMON_ROOT_CHILDREN,
+        **common_root_children("external_links", "trailer_urls"),
         "creators": MOVIE_PERSON,
         "contributors": MOVIE_PERSON,
         "media": MEDIA,

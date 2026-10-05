@@ -1,57 +1,28 @@
 """Single source of truth for canonical metadata fields.
 
-Historically the catalog metadata fields were declared in many uncoordinated
-places: the core normalization lookups (``_KIND_ALLOWED_KEYS``,
-``_NORMALIZED_VALUE_TYPES``, ``TYPED_KIND_METADATA_KEYS``), the admin correction
-request schema, and the Flutter app's ``kAdminMetadataScalarFields`` contract.
-Adding a field meant editing every copy and forgetting one silently broke
-manual catalog editing and correction (see the color metadata regression).
-
-Each kind declares its own fields as :class:`MetadataFieldSpec` values. This
-module composes those declarations with shared bookkeeping and truly common
-fields, then derives every lookup from the registry. It is the schema that the
-admin edit panel and the Flutter app edit dialog render from (exposed at
-``GET /api/v1/metadata/field-schema``), so the two surfaces can no longer drift
-apart.
-
-Two concerns are modelled by a single spec:
-
-* **Normalization** — the subset of fields flagged ``normalized=True`` feed the
-  ``app.metadata_normalized`` allow-lists / value-type / typed-column lookups.
-  These derivations are intentionally scoped so editorial fields can be added
-  without changing field validation behaviour.
-* **Editing UI** — every ``editable=True`` field is rendered in the edit panel,
-  grouped by :attr:`MetadataFieldSpec.section` and rendered with the widget hint
-  in :attr:`MetadataFieldSpec.input`.
+Each kind declares edit fields with :class:`MetadataFieldSpec`. Normalized
+storage rules live in a separate registry below; root table, entity type, and
+canonical write ownership are resolved once from the Catalog Kind registry.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Iterable
+from dataclasses import replace
 
 from app.catalog.common_metadata_fields import (
     _EDITABLE_COMMON_FIELDS,
     _EDITORIAL_FIELDS,
     _INTERNAL_COMMON_FIELDS,
 )
-from app.catalog.kind_documents import (
-    anime,
-    boardgame,
-    book,
-    comic,
-    game,
-    manga,
-    movie,
-    music,
-    tv,
-)
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
 from app.catalog.metadata_field_spec import (
-    ALL_KINDS,
+    CATALOG_KINDS,
     INPUT_LIST,
     SECTION_RELATIONS,
     VALUE_TYPE_STRING_LIST,
     MetadataFieldSpec,
+    NormalizedFieldSpec,
 )
 from app.models.base import ItemKind
 
@@ -74,98 +45,19 @@ _INTERNAL_DERIVED_KEYS = {
     "cover_storage",
 }
 
-
-# Canonical source matrix. Item-contained values are stored on each kind root.
-CANONICAL_ENTITY_MATRIX: dict[ItemKind, dict[str, tuple[str, str]]] = {
-    ItemKind.book: {
-        "catalog_item": ("catalog_book_item", "book_items"),
-    },
-    ItemKind.comic: {
-        "catalog_item": ("catalog_comic_item", "comic_items"),
-    },
-    ItemKind.manga: {
-        "catalog_item": ("catalog_manga_item", "manga_items"),
-    },
-    ItemKind.anime: {
-        "catalog_item": ("catalog_anime_item", "anime_items"),
-    },
-    ItemKind.movie: {
-        "catalog_item": ("catalog_movie_item", "movie_items"),
-    },
-    ItemKind.tv: {
-        "catalog_item": ("catalog_tv_item", "tv_items"),
-    },
-    ItemKind.game: {
-        "catalog_item": ("catalog_game_item", "game_items"),
-    },
-    ItemKind.boardgame: {
-        "catalog_item": ("catalog_boardgame_item", "boardgame_items"),
-    },
-    ItemKind.music: {
-        "catalog_item": ("catalog_music_item", "music_items"),
-    },
-}
-
-
-def _scope_for_kind(kind: ItemKind, key: str) -> str:
-    if key in _INTERNAL_DERIVED_KEYS:
-        return "internal"
-    if kind not in CANONICAL_ENTITY_MATRIX:
-        raise KeyError(f"No canonical field ownership is declared for {kind.value}/{key}.")
-    return "catalog_item"
-
-
-@dataclass(frozen=True)
-class CanonicalFieldOwnership:
-    """Authoritative source and write boundary for one kind field."""
-
-    scope: str
-    entity_type: str
-    source_table: str
-    write_target: str
-
-
-def _field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
-    scope = _scope_for_kind(kind, key)
-    # Derived display fields read their inputs from the same typed root.
-    source_scope = "catalog_item"
-    try:
-        entity_type, source_table = CANONICAL_ENTITY_MATRIX[kind][source_scope]
-    except KeyError as exc:
-        raise KeyError(
-            f"Canonical field ownership points to an undeclared source "
-            f"entity: {kind.value}/{key} -> {scope}."
-        ) from exc
-    return CanonicalFieldOwnership(
-        scope=scope,
-        entity_type=entity_type,
-        source_table=source_table,
-        write_target=_field_write_target(key, kind),
-    )
-
-
-def _field_source_entity_type(key: str, kind: ItemKind) -> str:
-    return _field_ownership(kind, key).entity_type
-
-
-def _field_source_table(key: str, kind: ItemKind) -> str:
-    return _field_ownership(kind, key).source_table
-
-
-def _field_write_target(key: str, kind: ItemKind) -> str:
-    if key in _INTERNAL_DERIVED_KEYS:
-        return "readonly_computed"
-    return "core_canonical"
+METADATA_FIELD_SCHEMA_VERSION = 1
 
 
 def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, object]]:
-    active_kinds = tuple(kinds or (kind for kind in ItemKind if kind != ItemKind.collection))
+    active_kinds = (
+        tuple(kinds)
+        if kinds is not None
+        else tuple(definition.kind for definition in CATALOG_KIND_DEFINITIONS)
+    )
     rows: list[dict[str, object]] = []
     for spec in METADATA_FIELDS:
         applicable_kinds = tuple(kind for kind in active_kinds if spec.applies_to(kind))
-        if not spec.common and not applicable_kinds:
-            continue
-        if spec.common and not applicable_kinds:
+        if not applicable_kinds:
             continue
         for kind in applicable_kinds:
             rows.append(
@@ -177,13 +69,6 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
                     "section": spec.section,
                     "input": spec.input,
                     "editable": spec.editable,
-                    "normalized": spec.normalized,
-                    "common": spec.common,
-                    "typed": spec.typed,
-                    "scope": spec.scope_for_kind(kind),
-                    "writeTarget": spec.write_target_for_kind(kind),
-                    "sourceEntityType": spec.source_entity_type_for_kind(kind),
-                    "sourceTable": spec.source_table_for_kind(kind),
                 }
             )
     return rows
@@ -200,9 +85,6 @@ def _coalesce_identical_specs(
             spec.key,
             spec.value_type,
             spec.label,
-            spec.common,
-            spec.typed,
-            spec.normalized,
             spec.editable,
             spec.section,
             spec.input,
@@ -215,93 +97,61 @@ def _coalesce_identical_specs(
     return tuple(ordered.values())
 
 
-def _specs_for_keys(
-    modules: Sequence[object],
-    keys: set[str],
-) -> tuple[MetadataFieldSpec, ...]:
-    return _coalesce_identical_specs(
-        spec
-        for module in modules
-        for spec in module.FIELD_SPECS
-        if spec.key in keys
-    )
-
-
-_PRINT_KEYS = {"imprint", "series_group", "page_count"}
-_VIDEO_KEYS = {
-    "color",
-    "runtime_minutes",
-    "nr_discs",
-    "screen_ratio",
-    "audio_tracks",
-    "subtitles",
-    "layers",
-}
-_GAME_SHARED_KEYS = {"platforms", "identifiers"}
-
-# Keep the established field-schema order while the declarations live in their
-# owning kind modules. This order controls Admin presentation only.
-_KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
+_SHARED_KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
     MetadataFieldSpec(
         "genres",
         VALUE_TYPE_STRING_LIST,
         "Genres",
-        typed=True,
-        normalized=True,
+        kinds=CATALOG_KINDS,
         section=SECTION_RELATIONS,
         input=INPUT_LIST,
-        kinds=ALL_KINDS,
     ),
-    *_specs_for_keys((game, boardgame), _GAME_SHARED_KEYS),
-    *_specs_for_keys((book,), {spec.key for spec in book.FIELD_SPECS} - _PRINT_KEYS),
-    *_specs_for_keys((game,), {spec.key for spec in game.FIELD_SPECS} - _GAME_SHARED_KEYS),
-    *_specs_for_keys(
-        (boardgame,),
-        {spec.key for spec in boardgame.FIELD_SPECS} - _GAME_SHARED_KEYS,
-    ),
-    *_specs_for_keys((movie,), {spec.key for spec in movie.FIELD_SPECS} - _VIDEO_KEYS),
-    *_specs_for_keys((anime, movie, tv), {"color"}),
 )
 
+_KIND_FIELDS = _coalesce_identical_specs(
+    spec for definition in CATALOG_KIND_DEFINITIONS for spec in definition.field_specs
+)
 
-def _editorial_fields_in_schema_order() -> tuple[MetadataFieldSpec, ...]:
-    print_fields = _specs_for_keys((book, comic, manga), _PRINT_KEYS)
-    runtime_field = _specs_for_keys((anime, movie, tv), {"runtime_minutes"})
-    video_technical_fields = _specs_for_keys(
-        (anime, movie, tv), _VIDEO_KEYS - {"color", "runtime_minutes"}
-    )
-    comic_and_manga_fields = _specs_for_keys((comic, manga), {"crossover"})
-    insert_after = {
-        "publisher": tuple(spec for spec in print_fields if spec.key == "imprint"),
-        "subtitle": tuple(spec for spec in print_fields if spec.key == "series_group"),
-        "variant_name": (
-            *tuple(spec for spec in print_fields if spec.key == "page_count"),
-            *runtime_field,
-        ),
-        "release_status": video_technical_fields,
-        "synopsis": comic_and_manga_fields,
-    }
-    ordered: list[MetadataFieldSpec] = []
-    for spec in _EDITORIAL_FIELDS:
-        ordered.append(spec)
-        ordered.extend(insert_after.get(spec.key, ()))
-    return tuple(ordered)
-
-#: The canonical registry, ordered (normalized common first, then kind-scoped,
-#: then editorial). Internal bookkeeping fields come first so the normalized
-#: derivations keep their historical ordering semantics.
+# Shared declarations are followed by the fields composed directly from each
+# kind definition, then by editorial-only fields.
 METADATA_FIELDS: tuple[MetadataFieldSpec, ...] = (
     _INTERNAL_COMMON_FIELDS
     + _EDITABLE_COMMON_FIELDS
+    + _SHARED_KIND_FIELDS
     + _KIND_FIELDS
-    + _editorial_fields_in_schema_order()
-    + music.FIELD_SPECS
+    + _EDITORIAL_FIELDS
 )
 
 _FIELDS_BY_KEY: dict[str, tuple[MetadataFieldSpec, ...]] = {
     key: tuple(spec for spec in METADATA_FIELDS if spec.key == key)
     for key in {spec.key for spec in METADATA_FIELDS}
 }
+
+_NORMALIZED_FIELD_KEYS = {
+    *(_INTERNAL_DERIVED_KEYS),
+    "genres",
+    "audience_rating",
+    "color",
+    "platforms",
+}
+NORMALIZED_FIELD_SPECS: tuple[NormalizedFieldSpec, ...] = tuple(
+    NormalizedFieldSpec(
+        key=key,
+        kinds=(
+            CATALOG_KINDS
+            if key in _INTERNAL_DERIVED_KEYS or key == "genres"
+            else next(spec.kinds for spec in _FIELDS_BY_KEY[key] if spec.kinds)
+        ),
+        typed=key not in _INTERNAL_DERIVED_KEYS,
+        common=key in _INTERNAL_DERIVED_KEYS,
+    )
+    for key in sorted(_NORMALIZED_FIELD_KEYS)
+)
+_NORMALIZED_FIELDS_BY_KEY = {spec.key: spec for spec in NORMALIZED_FIELD_SPECS}
+
+
+def normalized_field_spec(key: str) -> NormalizedFieldSpec | None:
+    return _NORMALIZED_FIELDS_BY_KEY.get(key)
 
 
 def field_spec(key: str, kind: ItemKind | None = None) -> MetadataFieldSpec | None:
@@ -313,14 +163,14 @@ def field_spec(key: str, kind: ItemKind | None = None) -> MetadataFieldSpec | No
 
 def common_field_keys() -> set[str]:
     """Return normalized fields shared by every canonical kind."""
-    return {spec.key for spec in METADATA_FIELDS if spec.normalized and spec.common}
+    return {spec.key for spec in NORMALIZED_FIELD_SPECS if spec.common}
 
 
 def kind_allowed_keys() -> dict[ItemKind, set[str]]:
     """Per-kind set of non-common normalized field keys."""
-    result: dict[ItemKind, set[str]] = {kind: set() for kind in ItemKind}
-    for spec in METADATA_FIELDS:
-        if not spec.normalized or spec.common:
+    result: dict[ItemKind, set[str]] = {kind: set() for kind in CATALOG_KINDS}
+    for spec in NORMALIZED_FIELD_SPECS:
+        if spec.common:
             continue
         for kind in spec.kinds:
             result[kind].add(spec.key)
@@ -329,12 +179,17 @@ def kind_allowed_keys() -> dict[ItemKind, set[str]]:
 
 def value_types() -> dict[str, str]:
     """Normalized field value types (mirrors ``_NORMALIZED_VALUE_TYPES``)."""
-    return {spec.key: spec.value_type for spec in METADATA_FIELDS if spec.normalized}
+    field_specs = {spec.key: spec for spec in METADATA_FIELDS}
+    return {
+        spec.key: field_specs[spec.key].value_type
+        for spec in NORMALIZED_FIELD_SPECS
+        if spec.key in field_specs
+    }
 
 
 def typed_field_keys() -> set[str]:
     """Normalized fields backed by a typed canonical kind table column."""
-    return {spec.key for spec in METADATA_FIELDS if spec.normalized and spec.typed}
+    return {spec.key for spec in NORMALIZED_FIELD_SPECS if spec.typed}
 
 
 def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[MetadataFieldSpec]:
@@ -344,25 +199,6 @@ def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[Meta
         for spec in METADATA_FIELDS
         if spec.applies_to(kind) and (not editable_only or spec.editable)
     ]
-
-
-# Materialize the ownership matrix once so every consumer reads the same root
-# ownership answer. An applicable field without a declared kind root is an
-# error rather than an implicit fallback.
-FIELD_OWNERSHIP_MATRIX: dict[ItemKind, dict[str, CanonicalFieldOwnership]] = {
-    kind: {spec.key: _field_ownership(kind, spec.key) for spec in fields_for_kind(kind)}
-    for kind in ItemKind
-    if kind != ItemKind.collection
-}
-
-
-def canonical_field_ownership(kind: ItemKind, key: str) -> CanonicalFieldOwnership:
-    """Return the exact ownership declaration for ``kind``/``key``."""
-
-    try:
-        return FIELD_OWNERSHIP_MATRIX[kind][key]
-    except KeyError as exc:
-        raise KeyError(f"No canonical field ownership is declared for {kind.value}/{key}.") from exc
 
 
 def editable_fields() -> list[MetadataFieldSpec]:
@@ -381,9 +217,7 @@ def canonical_correction_field_spec(kind: ItemKind, key: str) -> MetadataFieldSp
     spec = field_spec(key, kind)
     if spec is None or not spec.editable:
         return None
-    if spec.write_target_for_kind(kind) != "core_canonical":
-        return None
-    if spec.scope_for_kind(kind) == "internal":
+    if key in _INTERNAL_DERIVED_KEYS:
         return None
     return spec
 
@@ -399,10 +233,7 @@ def canonical_correction_target(
         spec = canonical_correction_field_spec(kind, key)
         if spec is None:
             return None
-        current = (
-            spec.scope_for_kind(kind),
-            spec.source_entity_type_for_kind(kind),
-        )
+        current = ("catalog_item", catalog_kind_for(kind).entity_type)
         if target is None:
             target = current
         elif target != current:
@@ -413,5 +244,9 @@ def canonical_correction_target(
 def canonical_entity_type_for_scope(kind: ItemKind, scope: str) -> str | None:
     """Return the canonical entity type for a structural correction scope."""
 
-    target = CANONICAL_ENTITY_MATRIX.get(kind, {}).get(scope)
-    return target[0] if target is not None else None
+    if scope != "catalog_item":
+        return None
+    try:
+        return catalog_kind_for(kind).entity_type
+    except ValueError:
+        return None

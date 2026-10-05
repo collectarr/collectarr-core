@@ -30,6 +30,7 @@ class CatalogBoardGameItemResponse(BaseModel):
     barcode: str | None = None
     catalog_number: str | None = None
     categories: list[str] | None = None
+    characters: list[dict[str, Any] | str] | None = None
     contributors: list[dict[str, Any] | str] | None = None
     country: str | None = None
     cover_image_url: str | None = None

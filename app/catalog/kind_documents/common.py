@@ -9,7 +9,7 @@ from app.catalog.document_shape import (
     ChildObjectShape,
 )
 
-COMMON_ROOT_CHILDREN = {
+_COMMON_CHILD_SHAPES = {
     "creators": PERSON,
     "contributors": PERSON,
     "identifiers": IDENTIFIER,
@@ -23,6 +23,15 @@ COMMON_ROOT_CHILDREN = {
     "story_arcs": STORY_ARC,
 }
 
-__all__ = [
-    "COMMON_ROOT_CHILDREN",
-]
+def common_root_children(*names: str) -> dict[str, ChildObjectShape]:
+    """Compose only child shapes explicitly supported by a kind document."""
+
+    try:
+        return {name: _COMMON_CHILD_SHAPES[name] for name in names}
+    except KeyError as error:
+        raise ValueError(
+            f"Unknown shared Catalog Item child shape: {error.args[0]}"
+        ) from error
+
+
+__all__ = ["common_root_children"]

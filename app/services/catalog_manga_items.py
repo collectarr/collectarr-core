@@ -87,11 +87,9 @@ class CatalogMangaItemService:
             statement = statement.where(
                 or_(
                     MangaItem.barcode == exact,
-                    MangaItem.details["isbn10"].as_string() == exact,
-                    MangaItem.details["isbn13"].as_string() == exact,
-                    MangaItem.details.contains(
-                        {"identifiers": [{"normalized_value": normalized}]}
-                    ),
+                    MangaItem.details.contains({"isbn10": exact}),
+                    MangaItem.details.contains({"isbn13": exact}),
+                    MangaItem.details.contains({"identifiers": [{"normalized_value": normalized}]}),
                 )
             )
         elif query and query.strip():
@@ -103,8 +101,8 @@ class CatalogMangaItemService:
                     MangaItem.sort_key.ilike(term),
                     MangaItem.barcode == exact,
                     MangaItem.catalog_number == exact,
-                    MangaItem.details["isbn10"].as_string() == exact,
-                    MangaItem.details["isbn13"].as_string() == exact,
+                    MangaItem.details.contains({"isbn10": exact}),
+                    MangaItem.details.contains({"isbn13": exact}),
                     MangaItem.details.contains(
                         {"identifiers": [{"normalized_value": _normalize(exact)}]}
                     ),
@@ -123,10 +121,7 @@ class CatalogMangaItemService:
         return [_response(item) for item in result.scalars().unique()]
 
     async def get(self, item_id: UUID) -> CatalogMangaItemResponse:
-        result = await self.db.execute(
-            select(MangaItem)
-            .where(MangaItem.id == item_id)
-        )
+        result = await self.db.execute(select(MangaItem).where(MangaItem.id == item_id))
         item = result.scalar_one_or_none()
         if item is None:
             raise ApiHTTPException(
@@ -170,7 +165,11 @@ def _identifier(value: Any) -> dict[str, Any] | None:
     if not raw_value:
         return None
     try:
-        identifier_id = str(UUID(str(value.get("id")))) if isinstance(value, Mapping) and value.get("id") else str(uuid4())
+        identifier_id = (
+            str(UUID(str(value.get("id"))))
+            if isinstance(value, Mapping) and value.get("id")
+            else str(uuid4())
+        )
     except ValueError as error:
         raise ValueError("Manga identifier id must be a UUID") from error
     return {

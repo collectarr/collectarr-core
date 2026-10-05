@@ -16,10 +16,10 @@ from app.models import (
     MangaItem,
     MusicItem,
 )
+from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_game_item import GameItem
-from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_tv_item import TvItem
 from app.schemas.admin import (

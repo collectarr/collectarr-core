@@ -7,25 +7,17 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     BundleRelease,
     Character,
-    MusicItem,
     Organization,
     Person,
     StoryArc,
     Tag,
 )
 from app.models.base import ItemKind
-from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_comic_item import ComicItem
 from app.models.catalog_book_series import BookSeries
-from app.models.catalog_game_item import GameItem
-from app.models.catalog_anime_item import AnimeItem
-from app.models.catalog_manga_item import MangaItem
-from app.models.catalog_movie_item import MovieItem
-from app.models.catalog_tv_item import TvItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
@@ -42,23 +34,19 @@ class EntitySummary:
 
 
 ENTITY_MODEL_BY_TYPE: dict[str, type[Any]] = {
-    "catalog_anime_item": AnimeItem,
-    "catalog_boardgame_item": BoardGameItem,
-    "catalog_book_item": BookItem,
-    "book_series": BookSeries,
-    "bundle_release": BundleRelease,
-    "character": Character,
-    "catalog_comic_item": ComicItem,
-    "catalog_game_item": GameItem,
-    "catalog_manga_item": MangaItem,
-    "catalog_movie_item": MovieItem,
-    "catalog_music_item": MusicItem,
-    "catalog_tv_item": TvItem,
-    "organization": Organization,
-    "person": Person,
-    "story_arc": StoryArc,
-    "tag": Tag,
+    definition.entity_type: definition.model for definition in CATALOG_KIND_DEFINITIONS
 }
+ENTITY_MODEL_BY_TYPE.update(
+    {
+        "book_series": BookSeries,
+        "bundle_release": BundleRelease,
+        "character": Character,
+        "organization": Organization,
+        "person": Person,
+        "story_arc": StoryArc,
+        "tag": Tag,
+    }
+)
 
 _TITLE_FIELDS = ("title", "display_title", "chapter_title", "episode_title", "name", "series_title")
 _NUMBER_FIELDS = (
@@ -136,9 +124,7 @@ async def load_entity_summaries(
     summaries: dict[tuple[str, UUID], EntitySummary] = {}
     for model_cls, model_refs in refs_by_model.items():
         ids = [entity_id for _, entity_id in model_refs]
-        rows = (
-            await db.execute(select(model_cls).where(model_cls.id.in_(ids)))
-        ).scalars().all()
+        rows = (await db.execute(select(model_cls).where(model_cls.id.in_(ids)))).scalars().all()
         rows_by_id = {row.id: row for row in rows}
         for entity_type, entity_id in model_refs:
             entity = rows_by_id.get(entity_id)

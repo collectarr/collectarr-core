@@ -6,11 +6,12 @@ from typing import Any
 from app.catalog.document_shape import (
     INTEGER,
     PARTIAL_DATE,
+    PERSON,
     STRING,
     ChildObjectShape,
     KindDocumentShape,
 )
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_NUMBER,
     SECTION_PUBLISHING,
@@ -23,40 +24,61 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
-        "color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
-    ),
-    MetadataFieldSpec(
-        "runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
-        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        "color",
+        VALUE_TYPE_STRING,
+        "Color",
+        section=SECTION_TECHNICAL,
         kinds=frozenset({ItemKind.tv}),
     ),
     MetadataFieldSpec(
-        "nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
-        section=SECTION_TECHNICAL, input=INPUT_NUMBER,
+        "runtime_minutes",
+        VALUE_TYPE_INTEGER,
+        "Runtime minutes",
+        section=SECTION_PUBLISHING,
+        input=INPUT_NUMBER,
         kinds=frozenset({ItemKind.tv}),
     ),
     MetadataFieldSpec(
-        "screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+        "nr_discs",
+        VALUE_TYPE_INTEGER,
+        "Number of discs",
+        section=SECTION_TECHNICAL,
+        input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.tv}),
     ),
     MetadataFieldSpec(
-        "audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+        "screen_ratio",
+        VALUE_TYPE_STRING,
+        "Screen ratio",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.tv}),
     ),
     MetadataFieldSpec(
-        "subtitles", VALUE_TYPE_STRING, "Subtitles",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+        "audio_tracks",
+        VALUE_TYPE_STRING,
+        "Audio tracks",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.tv}),
     ),
     MetadataFieldSpec(
-        "layers", VALUE_TYPE_STRING, "Layers",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.tv}),
+        "subtitles",
+        VALUE_TYPE_STRING,
+        "Subtitles",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.tv}),
+    ),
+    MetadataFieldSpec(
+        "layers",
+        VALUE_TYPE_STRING,
+        "Layers",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.tv}),
     ),
 )
 
 TV_PERSON = ChildObjectShape(
-    fields={**COMMON_ROOT_CHILDREN["creators"].fields, "character": STRING},
-    nullable=COMMON_ROOT_CHILDREN["creators"].nullable | frozenset({"character"}),
+    fields={**PERSON.fields, "character": STRING},
+    nullable=PERSON.nullable | frozenset({"character"}),
     allow_string_value=True,
 )
 
@@ -181,23 +203,13 @@ def _validate_media_references(document: Mapping[str, Any], path: str) -> None:
 
 
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset(
-        {
-            "description",
-            "creators",
-            "contributors",
-            "characters",
-            "character_details",
-            "identifiers",
-            "seasons",
-            "episodes",
-            "media",
-            "series_title",
-        }
-    ),
-    root_value_types={"description": STRING, "series_title": STRING},
+    root_fields={"description": STRING, "series_title": STRING},
     children={
-        **COMMON_ROOT_CHILDREN,
+        **common_root_children(
+            "identifiers",
+            "external_links",
+            "trailer_urls",
+        ),
         "creators": TV_PERSON,
         "contributors": TV_PERSON,
         "media": TV_MEDIA,

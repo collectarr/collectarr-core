@@ -66,8 +66,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "duplicate_review_details",
             "metadata_proposal_values",
             "music_items",
-            "music_item_discs",
-            "music_item_tracks",
         }.issubset(tables)
         assert {
             "game_works",

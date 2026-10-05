@@ -30,7 +30,7 @@ async def test_catalog_service_catalog_items_uses_loader_for_each_result(monkeyp
 
         async def search(self, **filters):
             seen["filters"] = filters
-            return results
+            return SimpleNamespace(items=results)
 
     responses = []
 
@@ -123,7 +123,9 @@ def test_support_service_retry_helpers_cover_retryable_and_non_retryable_errors(
     service = AdminSupportService(db=object(), actor_user_id=None, actor_email=None)
 
     retryable_error = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="busy")
-    non_retryable_error = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="bad request")
+    non_retryable_error = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="bad request"
+    )
 
     assert service.backoff_delay(1).total_seconds() == 5
     assert service.backoff_delay(7).total_seconds() == 300

@@ -209,16 +209,19 @@ for current cutover status. Music is grounded in the saved CLZ Music Edit form;
 exact CLZ parity for the other eight kinds remains unverified pending their
 Edit-form captures.
 
+For the live repository state, search contract, and verification limits, see
+[docs/current-status.md](docs/current-status.md). Search index definitions are
+tracked in [the catalog search audit](docs/architecture/catalog-search-and-index-audit.md).
+
 ## 🗺️ Roadmap
 
 See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.
 
 Current active tracks:
 
-- move scalar editable field definitions from Core's shared metadata registry into kind-owned modules
-- finish App's typed metadata and personal-data model while preserving its established UI
-- finish the coordinated App/Sync payload cutover; Sync remains personal-data-only
-- regenerate and pin the Core contract bundle after the field ownership changes
+- confirm the identifier query plans with PostgreSQL `EXPLAIN` against an isolated test database
+- finish the remaining App typed-metadata and personal-data cleanup while preserving its established UI
+- keep Sync personal-data-only and aligned with the final local-entry payload
 - expand duplicate review, keeping merge disabled until personal references can be remapped safely
 - continue public-deployment hardening for internet-facing setups
 - keep the interactive schema explorer clearer by separating general tables from kind-specific tables

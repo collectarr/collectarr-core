@@ -6,6 +6,7 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
 from app.schemas.catalog_boardgame_item import CatalogBoardGameItemResponse
+from app.schemas.metadata_shared import CatalogItemPage, catalog_item_page
 from app.services.catalog_boardgame_items import CatalogBoardGameItemService
 
 router = APIRouter(tags=["metadata"])
@@ -13,7 +14,7 @@ router = APIRouter(tags=["metadata"])
 
 @router.get(
     "/metadata/boardgames/items",
-    response_model=list[CatalogBoardGameItemResponse],
+    response_model=CatalogItemPage[CatalogBoardGameItemResponse],
 )
 async def search_boardgame_items(
     db: DbSession,
@@ -21,13 +22,14 @@ async def search_boardgame_items(
     barcode: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-) -> list[CatalogBoardGameItemResponse]:
-    return await CatalogBoardGameItemService(db).search(
+) -> CatalogItemPage[CatalogBoardGameItemResponse]:
+    rows = await CatalogBoardGameItemService(db).search(
         query=q,
         barcode=barcode,
-        limit=limit,
+        limit=limit + 1,
         offset=offset,
     )
+    return catalog_item_page(rows, limit=limit, offset=offset)
 
 
 @router.get(

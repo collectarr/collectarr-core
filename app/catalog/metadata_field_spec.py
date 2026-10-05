@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.catalog.grouping_models import PRINT_GROUPING_KINDS
 from app.models.base import ItemKind
 
 VALUE_TYPE_STRING = "string"
@@ -29,47 +28,36 @@ INPUT_DATE = "date"
 INPUT_LIST = "list"
 
 VIDEO_KINDS: frozenset[ItemKind] = frozenset({ItemKind.anime, ItemKind.movie, ItemKind.tv})
-PRINT_KINDS: frozenset[ItemKind] = PRINT_GROUPING_KINDS
+PRINT_KINDS: frozenset[ItemKind] = frozenset({ItemKind.book, ItemKind.comic, ItemKind.manga})
 TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
 ALL_KINDS: frozenset[ItemKind] = frozenset(ItemKind)
+CATALOG_KINDS: frozenset[ItemKind] = ALL_KINDS - {ItemKind.collection}
 
 
 @dataclass(frozen=True)
 class MetadataFieldSpec:
-    """One canonical field's schema and presentation hints."""
+    """Kind-owned field identity, type, applicability, and UI hints."""
 
     key: str
     value_type: str
     label: str
-    common: bool = False
-    typed: bool = False
-    normalized: bool = False
     editable: bool = True
     section: str = SECTION_ITEM
     input: str = INPUT_TEXT
     kinds: frozenset[ItemKind] = field(default_factory=frozenset)
 
     def applies_to(self, kind: ItemKind) -> bool:
-        if self.key == "physical_format" and kind is ItemKind.music:
-            return False
-        return self.common or kind in self.kinds
+        return kind in self.kinds
 
-    def scope_for_kind(self, kind: ItemKind) -> str:
-        from app.catalog.metadata_fields import _scope_for_kind
 
-        return _scope_for_kind(kind, self.key)
+@dataclass(frozen=True)
+class NormalizedFieldSpec:
+    """Persistence-normalization behavior separate from edit-field metadata."""
 
-    def write_target_for_kind(self, kind: ItemKind) -> str:
-        from app.catalog.metadata_fields import _field_write_target
+    key: str
+    kinds: frozenset[ItemKind]
+    typed: bool = False
+    common: bool = False
 
-        return _field_write_target(self.key, kind)
-
-    def source_entity_type_for_kind(self, kind: ItemKind) -> str:
-        from app.catalog.metadata_fields import _field_source_entity_type
-
-        return _field_source_entity_type(self.key, kind)
-
-    def source_table_for_kind(self, kind: ItemKind) -> str:
-        from app.catalog.metadata_fields import _field_source_table
-
-        return _field_source_table(self.key, kind)
+    def applies_to(self, kind: ItemKind) -> bool:
+        return kind in self.kinds

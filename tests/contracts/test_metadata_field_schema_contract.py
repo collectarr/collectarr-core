@@ -8,26 +8,25 @@ applicable kinds) is a deliberate, reviewed edit rather than silent drift.
 
 import json
 
-import pytest
-
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
 from app.catalog.metadata_fields import (
-    FIELD_OWNERSHIP_MATRIX,
     METADATA_FIELDS,
-    canonical_field_ownership,
     common_field_keys,
     editable_fields,
     field_spec,
     fields_for_kind,
     kind_allowed_keys,
+    normalized_field_spec,
     typed_field_keys,
     value_types,
 )
-from app.models.base import Base, ItemKind
+from app.models.base import ItemKind
 from scripts.export_contract_bundle import CONTRACT_VERSION, write_contract_bundle
 
 VIDEO = ("anime", "movie", "tv")
 PRINT = ("book", "comic", "manga")
-ALL = tuple(sorted(k.value for k in ItemKind))
+ALL = tuple(sorted(definition.kind.value for definition in CATALOG_KIND_DEFINITIONS))
+NO_MUSIC = tuple(kind for kind in ALL if kind != "music")
 
 # key -> (value_type, normalized, editable, section, sorted kinds) snapshot.
 EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
@@ -49,7 +48,7 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     "cover_status": ("string", True, False, "internal", ()),
     "cover_storage": ("string", True, False, "internal", ()),
     # Editable normalized common.
-    "audience_rating": ("string", True, True, "regional", ()),
+    "audience_rating": ("string", True, True, "regional", NO_MUSIC),
     "physical_format": ("string", False, True, "publishing", ()),
     # Editable normalized kind-scoped.
     "genres": ("string_list", True, True, "relations", ALL),
@@ -99,7 +98,10 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {
     "plot_summary": ("string", False, True, "artwork", ALL),
     "plot_description": ("string", False, True, "artwork", ALL),
     "trailer_urls": (
-        "link_list", False, True, "relations",
+        "link_list",
+        False,
+        True,
+        "relations",
         ("anime", "game", "movie", "tv"),
     ),
     "external_links": ("link_list", False, True, "relations", ALL),
@@ -110,7 +112,10 @@ def test_metadata_field_registry_matches_golden_contract():
     actual = {
         spec.key: (
             spec.value_type,
-            spec.normalized,
+            (
+                normalized_field_spec(spec.key) is not None
+                and spec.kinds.issubset(normalized_field_spec(spec.key).kinds)
+            ),
             spec.editable,
             spec.section,
             tuple(sorted(k.value for k in spec.kinds)),
@@ -123,14 +128,28 @@ def test_metadata_field_registry_matches_golden_contract():
 def test_normalized_derivations_are_byte_for_byte_stable():
     """The normalization lookups must not change when editorial fields are added."""
     assert common_field_keys() == {
-        "associated_image_id", "audience_rating", "audiencerating_templateimage", "audio_templateimage",
-        "country_scaledimage", "cover_delivery_url", "cover_policy", "cover_source_url", "cover_status",
-        "cover_storage", "format_scaledimage", "format_templateimage", "language_scaledimage",
-        "physical_format_label", "physical_format_media_family", "physical_format_variant_type",
+        "associated_image_id",
+        "audiencerating_templateimage",
+        "audio_templateimage",
+        "country_scaledimage",
+        "cover_delivery_url",
+        "cover_policy",
+        "cover_source_url",
+        "cover_status",
+        "cover_storage",
+        "format_scaledimage",
+        "format_templateimage",
+        "language_scaledimage",
+        "physical_format_label",
+        "physical_format_media_family",
+        "physical_format_variant_type",
         "region_scaledimage",
     }
     assert typed_field_keys() == {
-        "audience_rating", "genres", "platforms", "color",
+        "audience_rating",
+        "genres",
+        "platforms",
+        "color",
     }
     vt = value_types()
     assert vt["genres"] == "string_list"
@@ -157,62 +176,21 @@ def test_fields_for_kind_is_common_plus_kind_scoped():
         assert len(keys) == len(set(keys))
         for key in EXPECTED_FIELDS:
             spec = next(s for s in METADATA_FIELDS if s.key == key)
-            should_apply = spec.common or kind in spec.kinds
+            should_apply = kind in spec.kinds
             assert (key in keys) is should_apply
 
 
-def test_game_and_boardgame_fields_route_to_dedicated_tables():
-    assert field_spec("platforms").source_entity_type_for_kind(ItemKind.game) == "game_work"
-    assert field_spec("platforms").source_table_for_kind(ItemKind.game) == "game_platforms"
-    assert field_spec("identifiers").source_entity_type_for_kind(ItemKind.game) == "game_work"
-    assert field_spec("identifiers").source_table_for_kind(ItemKind.game) == "game_identifiers"
-    assert field_spec("company_roles").source_entity_type_for_kind(ItemKind.game) == "game_work"
-    assert field_spec("company_roles").source_table_for_kind(ItemKind.game) == "game_company_roles"
-    assert field_spec("age_rating").source_entity_type_for_kind(ItemKind.game) == "game_work"
-    assert field_spec("age_rating").source_table_for_kind(ItemKind.game) == "game_age_ratings"
+def test_kind_definitions_own_root_models_documents_and_route_metadata():
+    assert len(CATALOG_KIND_DEFINITIONS) == 9
+    for definition in CATALOG_KIND_DEFINITIONS:
+        assert definition.model.__tablename__
+        assert definition.document is not None
+        assert definition.entity_type.startswith("catalog_")
+        assert catalog_kind_for(definition.kind) is definition
 
-    assert field_spec("identifiers").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("identifiers").source_table_for_kind(ItemKind.boardgame) == "boardgame_identifiers"
-    assert field_spec("contributors").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("contributors").source_table_for_kind(ItemKind.boardgame) == "boardgame_contributions"
-    assert field_spec("mechanics").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("mechanics").source_table_for_kind(ItemKind.boardgame) == "boardgame_mechanics"
-    assert field_spec("categories").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("categories").source_table_for_kind(ItemKind.boardgame) == "boardgame_categories"
-    assert field_spec("families").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("families").source_table_for_kind(ItemKind.boardgame) == "boardgame_families"
-    assert field_spec("expansions").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("expansions").source_table_for_kind(ItemKind.boardgame) == "boardgame_expansions"
-    assert field_spec("rankings").source_entity_type_for_kind(ItemKind.boardgame) == "boardgame_work"
-    assert field_spec("rankings").source_table_for_kind(ItemKind.boardgame) == "boardgame_rankings_snapshot"
-
-
-def test_field_ownership_matrix_is_total_and_does_not_rebind_scopes():
-    for kind, fields in FIELD_OWNERSHIP_MATRIX.items():
-        scopes = {ownership.scope for ownership in fields.values()}
-        if kind in {ItemKind.book, ItemKind.comic, ItemKind.movie, ItemKind.music}:
-            assert "catalog_item" in scopes
-            assert not scopes.intersection({"work", "release"})
-        else:
-            assert {"work", "release"} <= scopes
-        for key, ownership in fields.items():
-            assert canonical_field_ownership(kind, key) == ownership
-            assert ownership.entity_type
-            assert ownership.source_table
-            assert ownership.write_target
-
-    assert canonical_field_ownership(ItemKind.book, "title").scope == "catalog_item"
-    assert canonical_field_ownership(ItemKind.book, "title").entity_type == "catalog_book_item"
-    assert canonical_field_ownership(ItemKind.book, "physical_format").scope == "catalog_item"
-    assert canonical_field_ownership(ItemKind.book, "physical_format").entity_type == "catalog_book_item"
-    assert canonical_field_ownership(ItemKind.comic, "item_number").scope == "catalog_item"
-    assert canonical_field_ownership(ItemKind.comic, "item_number").entity_type == "catalog_comic_item"
-    assert canonical_field_ownership(ItemKind.comic, "variant_name").entity_type == "catalog_comic_item"
-    assert canonical_field_ownership(ItemKind.game, "age_rating").entity_type == "game_work"
-    assert canonical_field_ownership(ItemKind.movie, "runtime_minutes").entity_type == "catalog_movie_item"
-
-    with pytest.raises(KeyError, match="No canonical field ownership"):
-        canonical_field_ownership(ItemKind.book, "not_a_canonical_field")
+    assert field_spec("age_rating", ItemKind.game) is not None
+    assert field_spec("runtime_minutes", ItemKind.movie) is not None
+    assert field_spec("runtime_minutes", ItemKind.game) is None
 
 
 def test_contract_bundle_metadata_field_schema_contract(tmp_path):
@@ -223,21 +201,23 @@ def test_contract_bundle_metadata_field_schema_contract(tmp_path):
     assert field_schema["fields"]
 
     for row in field_schema["fields"]:
-        assert row["scope"]
-        assert row["writeTarget"]
-        assert row["sourceEntityType"]
-        assert row["sourceTable"]
+        assert {"key", "kind", "valueType", "label", "section", "input", "editable"} <= row.keys()
+        assert not {
+            "scope",
+            "writeTarget",
+            "sourceEntityType",
+            "sourceTable",
+            "normalized",
+            "typed",
+            "common",
+        }.intersection(row)
 
 
-def test_exported_field_schema_tables_exist_in_metadata(tmp_path):
+def test_exported_field_schema_only_describes_fields_and_applicability(tmp_path):
     write_contract_bundle(tmp_path)
-    field_schema = json.loads(
-        (tmp_path / "metadata-field-schema.json").read_text(encoding="utf-8")
+    field_schema = json.loads((tmp_path / "metadata-field-schema.json").read_text(encoding="utf-8"))
+    active_kinds = {definition.kind.value for definition in CATALOG_KIND_DEFINITIONS}
+    assert {row["kind"] for row in field_schema["fields"]} <= active_kinds
+    assert all(
+        row["key"] in {spec.key for spec in METADATA_FIELDS} for row in field_schema["fields"]
     )
-    source_tables = {
-        row["sourceTable"]
-        for row in field_schema["fields"]
-        if row.get("sourceTable")
-    }
-
-    assert source_tables <= set(Base.metadata.tables)

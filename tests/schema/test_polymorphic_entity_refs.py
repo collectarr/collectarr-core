@@ -9,8 +9,6 @@ from app.models import (
     MovieItem,
     MovieItemMedia,
     MusicItem,
-    MusicItemDisc,
-    MusicItemTrack,
 )
 from app.models.base import ItemKind
 from app.models.catalog_game_item import GameItem
@@ -26,8 +24,8 @@ def _entity_table(entity_type: str) -> str:
 
 def test_music_entity_refs_target_the_flat_catalog():
     assert _entity_table("catalog_music_item") == "music_items"
-    assert _entity_table("music_item_disc") == "music_item_discs"
-    assert _entity_table("music_item_track") == "music_item_tracks"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_item_disc")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_item_track")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_release_group")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_release")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_medium")
@@ -70,7 +68,9 @@ async def _assert_rows_reference_existing_entities(
             text(f"select 1 from {table_name} where id = :entity_id limit 1"),
             {"entity_id": entity_id},
         )
-        assert exists.first() is not None, f"missing {entity_type} row for {source_table}.entity_id={entity_id}"
+        assert exists.first() is not None, (
+            f"missing {entity_type} row for {source_table}.entity_id={entity_id}"
+        )
 
 
 @pytest.mark.asyncio
@@ -110,8 +110,7 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
             media_number=1,
             details={"media_type": "disc"},
         )
-        music_disc = MusicItemDisc(music_item_id=music_item.id, disc_number=1)
-        db.add_all([movie_media, tv_media, music_disc])
+        db.add_all([movie_media, tv_media])
         await db.flush()
 
         tv_episode = TvItemEpisode(
@@ -122,13 +121,7 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
             title="Pilot",
             details={},
         )
-        music_track = MusicItemTrack(
-            disc_id=music_disc.id,
-            position="1",
-            position_order=1,
-            title="Track 1",
-        )
-        db.add_all([tv_episode, music_track])
+        db.add(tv_episode)
         await db.flush()
 
         db.add_all(
@@ -150,9 +143,9 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="music_item_track",
-                    entity_id=music_track.id,
-                    role="track",
+                    entity_type="catalog_music_item",
+                    entity_id=music_item.id,
+                    role="item",
                     sequence_number=3,
                 ),
                 BundleReleaseComponent(

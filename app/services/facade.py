@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.base import ItemKind
-from app.schemas.metadata_shared import CatalogSearchItemEnvelope
+from app.schemas.metadata_shared import CatalogSearchItemEnvelope, CatalogSearchPage
 from app.services.catalog_item_search import CatalogItemSearchService
 from app.services.metadata.metadata_read_service import MetadataReadService
 
@@ -37,7 +37,7 @@ class MetadataFacade(MetadataReadService):
         barcode: str | None = None,
         limit: int = 25,
         offset: int = 0,
-    ) -> list[CatalogSearchItemEnvelope]:
+    ) -> CatalogSearchPage:
         return await self.search_service.search(
             query=query,
             kind=kind,

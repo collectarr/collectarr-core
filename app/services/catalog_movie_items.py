@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Mapping
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -30,6 +32,7 @@ class CatalogMovieItemService:
 
         media_payload = item_payload.get("media", []) or []
         item_payload["media"] = _contained_media(media_payload)
+        item_payload["identifiers"] = _normalize_identifiers(item_payload.get("identifiers", []))
         item = MovieItem(
             title=title.strip(),
             sort_key=_optional_string(item_payload.get("sort_key")),
@@ -75,10 +78,7 @@ class CatalogMovieItemService:
         return [_response(item) for item in result.scalars().unique()]
 
     async def get(self, item_id: UUID) -> CatalogMovieItemResponse:
-        result = await self.db.execute(
-            select(MovieItem)
-            .where(MovieItem.id == item_id)
-        )
+        result = await self.db.execute(select(MovieItem).where(MovieItem.id == item_id))
         item = result.scalar_one_or_none()
         if item is None:
             raise ApiHTTPException(
@@ -140,3 +140,47 @@ def _contained_media(values: Any) -> list[dict[str, Any]]:
         item["media_number"] = media_number
         media.append(item)
     return sorted(media, key=lambda item: item["media_number"])
+
+
+def _normalize_identifiers(values: Any) -> list[dict[str, Any]]:
+    """Normalize Movie identifiers for exact, GIN-indexed lookup."""
+    if not isinstance(values, list):
+        return []
+    identifiers: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for value in values:
+        if isinstance(value, str):
+            identifier_type = "other"
+            raw_value = value.strip()
+            supplied_normalized = None
+            supplied_id = None
+            is_primary = False
+        elif isinstance(value, Mapping):
+            identifier_type = _optional_string(value.get("identifier_type")) or "other"
+            raw_value = _optional_string(value.get("value")) or ""
+            supplied_normalized = _optional_string(value.get("normalized_value"))
+            supplied_id = value.get("id")
+            is_primary = value.get("is_primary") is True
+        else:
+            continue
+        if not raw_value:
+            continue
+        normalized = supplied_normalized or re.sub(r"[^a-z0-9]", "", raw_value.casefold())
+        identity = identifier_type, normalized
+        if identity in seen:
+            raise ValueError("Movie identifiers must be unique by type and normalized value")
+        seen.add(identity)
+        try:
+            identifier_id = str(UUID(str(supplied_id))) if supplied_id else str(uuid4())
+        except ValueError as error:
+            raise ValueError("Movie identifier id must be a UUID") from error
+        identifiers.append(
+            {
+                "id": identifier_id,
+                "identifier_type": identifier_type,
+                "value": raw_value,
+                "normalized_value": normalized,
+                "is_primary": is_primary,
+            }
+        )
+    return identifiers

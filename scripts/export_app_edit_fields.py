@@ -18,7 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.catalog.metadata_fields import METADATA_FIELDS  # noqa: E402
+from app.catalog.metadata_fields import (  # noqa: E402
+    METADATA_FIELDS,
+    normalized_field_spec,
+)
 
 # Core editable fields rendered by dedicated app widgets instead of a scalar
 # text field. They are intentionally excluded from the generated list.
@@ -33,6 +36,7 @@ _VALUE_TYPE = {
     "string": "text",
     "string_list": "stringList",
     "integer": "integer",
+    "number": "number",
     "boolean": "boolean",
     "date": "date",
     "partial_date": "partialDate",
@@ -64,9 +68,7 @@ def main() -> None:
         raise SystemExit(f"App metadata directory not found: {out.parent}")
 
     specs = [
-        spec
-        for spec in METADATA_FIELDS
-        if spec.editable and spec.key not in _APP_HANDLED_SPECIALLY
+        spec for spec in METADATA_FIELDS if spec.editable and spec.key not in _APP_HANDLED_SPECIALLY
     ]
 
     lines = [
@@ -91,7 +93,12 @@ def main() -> None:
         "const List<GeneratedMetadataField> kGeneratedMetadataFields = [",
     ]
     for spec in specs:
-        normalized = spec.value_type if spec.normalized else None
+        normalization = normalized_field_spec(spec.key)
+        normalized = (
+            spec.value_type
+            if normalization is not None and spec.kinds.issubset(normalization.kinds)
+            else None
+        )
         lines.append(
             "  ("
             f"key: {_dart_str(spec.key)}, "

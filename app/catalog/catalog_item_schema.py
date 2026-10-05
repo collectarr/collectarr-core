@@ -17,7 +17,7 @@ from app.catalog.document_shape import (
     KindDocumentShape,
     partial_date_schema,
 )
-from app.catalog.kind_documents.registry import document_for
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
 from app.catalog.metadata_fields import MetadataFieldSpec, fields_for_kind
 from app.models.base import ItemKind
 
@@ -25,10 +25,9 @@ from app.models.base import ItemKind
 def catalog_item_payload_contract() -> dict[str, Any]:
     """Return the v1 JSON Schema for each kind's proposal document."""
     kinds: dict[str, Any] = {}
-    for kind in ItemKind:
-        if kind is ItemKind.collection:
-            continue
-        document = document_for(kind)
+    for definition in CATALOG_KIND_DEFINITIONS:
+        kind = definition.kind
+        document = definition.document
         field_specs = {spec.key: spec for spec in fields_for_kind(kind, editable_only=True)}
         root_fields = _root_fields_for_kind(document, field_specs)
         properties = {
@@ -67,7 +66,7 @@ def validate_catalog_item_payload(
     if not isinstance(payload, Mapping):
         raise ValueError("catalog_item must be an object")
 
-    document = document_for(kind)
+    document = catalog_kind_for(kind).document
     field_specs = {spec.key: spec for spec in fields_for_kind(kind, editable_only=True)}
     projected = _project_object(
         payload,
@@ -85,9 +84,14 @@ def _root_fields_for_kind(
     document: KindDocumentShape,
     field_specs: Mapping[str, MetadataFieldSpec],
 ) -> set[str]:
-    if document.explicit_root_fields is not None:
-        return set(document.explicit_root_fields)
-    return {"release_date_parts", *field_specs, *document.root_fields}
+    if document.allowed_root_fields is not None:
+        return set(document.allowed_root_fields)
+    return {
+        "release_date_parts",
+        *field_specs,
+        *document.root_fields,
+        *document.children,
+    }
 
 
 def _root_field_schema(
@@ -106,7 +110,7 @@ def _root_field_schema(
             }
         )
     spec = field_specs.get(key)
-    value_type = spec.value_type if spec is not None else document.root_value_types.get(key)
+    value_type = spec.value_type if spec is not None else document.root_fields.get(key)
     return _nullable(_value_schema(value_type, document))
 
 
@@ -182,7 +186,7 @@ def _project_object(
         child_shape = document.children.get(key)
         if child_shape is None:
             spec = field_specs.get(key) if field_specs is not None else None
-            value_type = spec.value_type if spec is not None else document.root_value_types.get(key)
+            value_type = spec.value_type if spec is not None else document.root_fields.get(key)
             _validate_value(child, field_path, value_type)
             projected[key] = child
             continue

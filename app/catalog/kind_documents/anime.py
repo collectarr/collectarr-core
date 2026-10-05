@@ -7,7 +7,7 @@ from app.catalog.document_shape import (
     ChildObjectShape,
     KindDocumentShape,
 )
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_NUMBER,
     SECTION_PUBLISHING,
@@ -20,34 +20,55 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
-        "color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.anime}),
-    ),
-    MetadataFieldSpec(
-        "runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
-        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        "color",
+        VALUE_TYPE_STRING,
+        "Color",
+        section=SECTION_TECHNICAL,
         kinds=frozenset({ItemKind.anime}),
     ),
     MetadataFieldSpec(
-        "nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
-        section=SECTION_TECHNICAL, input=INPUT_NUMBER,
+        "runtime_minutes",
+        VALUE_TYPE_INTEGER,
+        "Runtime minutes",
+        section=SECTION_PUBLISHING,
+        input=INPUT_NUMBER,
         kinds=frozenset({ItemKind.anime}),
     ),
     MetadataFieldSpec(
-        "screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.anime}),
+        "nr_discs",
+        VALUE_TYPE_INTEGER,
+        "Number of discs",
+        section=SECTION_TECHNICAL,
+        input=INPUT_NUMBER,
+        kinds=frozenset({ItemKind.anime}),
     ),
     MetadataFieldSpec(
-        "audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.anime}),
+        "screen_ratio",
+        VALUE_TYPE_STRING,
+        "Screen ratio",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.anime}),
     ),
     MetadataFieldSpec(
-        "subtitles", VALUE_TYPE_STRING, "Subtitles",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.anime}),
+        "audio_tracks",
+        VALUE_TYPE_STRING,
+        "Audio tracks",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.anime}),
     ),
     MetadataFieldSpec(
-        "layers", VALUE_TYPE_STRING, "Layers",
-        section=SECTION_TECHNICAL, kinds=frozenset({ItemKind.anime}),
+        "subtitles",
+        VALUE_TYPE_STRING,
+        "Subtitles",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.anime}),
+    ),
+    MetadataFieldSpec(
+        "layers",
+        VALUE_TYPE_STRING,
+        "Layers",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.anime}),
     ),
 )
 
@@ -137,23 +158,17 @@ ANIME_SEASON = ChildObjectShape(
 )
 
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset(
-        {
-            "description",
+    root_fields={"description": STRING, "series_title": STRING},
+    children={
+        **common_root_children(
             "creators",
             "contributors",
+            "identifiers",
+            "external_links",
+            "trailer_urls",
             "characters",
             "character_details",
-            "identifiers",
-            "seasons",
-            "episodes",
-            "media",
-            "series_title",
-        }
-    ),
-    root_value_types={"description": STRING, "series_title": STRING},
-    children={
-        **COMMON_ROOT_CHILDREN,
+        ),
         "media": ANIME_MEDIA,
         "episodes": ANIME_EPISODE,
         "seasons": ANIME_SEASON,

@@ -8,22 +8,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
+from app.catalog.kind_registry import catalog_kind_for
 from app.core.errors import ApiHTTPException
 from app.models import AdminAuditLog, CatalogItemProposal
-from app.models.base import ItemKind
 from app.schemas.catalog_item_proposals import (
     CatalogItemProposalCreate,
     CatalogItemProposalResponse,
     CatalogItemProposalUpdate,
 )
-from app.services.catalog_boardgame_items import CatalogBoardGameItemService
-from app.services.catalog_book_items import CatalogBookItemService
-from app.services.catalog_comic_items import CatalogComicItemService
-from app.services.catalog_game_items import CatalogGameItemService
-from app.services.catalog_manga_items import CatalogMangaItemService
-from app.services.catalog_movie_items import CatalogMovieItemService
-from app.services.catalog_music_items import CatalogMusicItemService
-from app.services.catalog_series_items import CatalogAnimeItemService, CatalogTvItemService
 
 
 class CatalogItemProposalService:
@@ -96,46 +88,9 @@ class CatalogItemProposalService:
 
     async def approve(self, proposal_id: UUID) -> CatalogItemProposalResponse:
         proposal = await self._pending(proposal_id)
-        if proposal.kind is ItemKind.anime:
-            await CatalogAnimeItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.tv:
-            await CatalogTvItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.movie:
-            await CatalogMovieItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.book:
-            await CatalogBookItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.boardgame:
-            await CatalogBoardGameItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.game:
-            await CatalogGameItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.manga:
-            await CatalogMangaItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.comic:
-            await CatalogComicItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        elif proposal.kind is ItemKind.music:
-            await CatalogMusicItemService(self.db).create_from_proposal(
-                proposal.catalog_item
-            )
-        else:
-            # Keep the proposal pending until its kind has a flattened root
-            # writer. Marking it approved without publishing a catalog item
-            # would silently lose the user's contribution.
+        try:
+            writer = catalog_kind_for(proposal.kind).proposal_writer
+        except ValueError as error:
             raise ApiHTTPException(
                 status_code=409,
                 code="catalog_item_kind_not_ready_for_approval",
@@ -143,7 +98,8 @@ class CatalogItemProposalService:
                     f"Catalog Item approval is not available for {proposal.kind.value} yet. "
                     "The proposal remains pending."
                 ),
-            )
+            ) from error
+        await writer(self.db).create_from_proposal(proposal.catalog_item)
 
         proposal.status = "approved"
         self._record_review("metadata_proposal.approve", proposal.id)

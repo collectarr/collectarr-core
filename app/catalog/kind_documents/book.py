@@ -11,7 +11,7 @@ from app.catalog.document_shape import (
     ChildObjectShape,
     KindDocumentShape,
 )
-from app.catalog.kind_documents.common import COMMON_ROOT_CHILDREN
+from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_DATE,
     INPUT_LIST,
@@ -32,16 +32,25 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
-        "imprint", VALUE_TYPE_STRING, "Imprint",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.book}),
+        "imprint",
+        VALUE_TYPE_STRING,
+        "Imprint",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
     ),
     MetadataFieldSpec(
-        "series_group", VALUE_TYPE_STRING, "Series group",
-        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.book}),
+        "series_group",
+        VALUE_TYPE_STRING,
+        "Series group",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
     ),
     MetadataFieldSpec(
-        "page_count", VALUE_TYPE_INTEGER, "Page count",
-        section=SECTION_PUBLISHING, input=INPUT_NUMBER,
+        "page_count",
+        VALUE_TYPE_INTEGER,
+        "Page count",
+        section=SECTION_PUBLISHING,
+        input=INPUT_NUMBER,
         kinds=frozenset({ItemKind.book}),
     ),
     MetadataFieldSpec(
@@ -174,36 +183,7 @@ BOOK_SERIES_MEMBERSHIP = ChildObjectShape(
 )
 
 DOCUMENT = KindDocumentShape(
-    root_fields=frozenset(
-        {
-            "creators",
-            "contributors",
-            "description",
-            "identifiers",
-            "printings",
-            "series_memberships",
-            "series_title",
-            "volume_name",
-            "volume_number",
-            "isbn",
-            "isbn10",
-            "isbn13",
-            "original_language",
-            "first_publication_date",
-            "original_publication_date",
-            "subjects",
-            "distributor",
-            "region",
-            "edition_statement",
-            "dimensions",
-            "first_edition",
-            "audio_length_minutes",
-            "binding",
-            "characters",
-            "back_cover_image_url",
-        }
-    ),
-    root_value_types={
+    root_fields={
         "description": STRING,
         "series_title": STRING,
         "volume_name": STRING,
@@ -225,7 +205,7 @@ DOCUMENT = KindDocumentShape(
         "back_cover_image_url": STRING,
     },
     children={
-        **COMMON_ROOT_CHILDREN,
+        **common_root_children("identifiers", "external_links"),
         "creators": _BOOK_PERSON,
         "contributors": _BOOK_PERSON,
         "printings": BOOK_PRINTING,

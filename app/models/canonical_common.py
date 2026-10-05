@@ -13,10 +13,9 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
-    and_,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import (
     Base,

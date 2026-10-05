@@ -20,11 +20,12 @@ documents inside that kind's root JSONB document. Reusable groupings such as
 Book series may keep independent identity; they are not required editable
 parents.
 
-Typed Catalog Item APIs and proposals exist for all nine kinds. The App cutover
-is still in progress, so this repository does not yet claim that every older
-per-kind route and table has been removed. Music's field contract is grounded in
-the saved CLZ Music Edit form. Exact CLZ parity for the other eight kinds remains
-unverified until their Edit-form captures are available.
+Typed Catalog Item APIs and proposals exist for all nine kinds. Core's active
+ORM and metadata routes use flat Catalog Item roots; the nine kind definitions
+compose their model, document, field declarations, response schema, proposal
+writer, and routes. Music's field contract is grounded in the saved CLZ Music
+Edit form. Exact CLZ parity for the other eight kinds remains unverified until
+their Edit-form captures are available.
 
 Admin catalog search, item detail, root-level correction, per-kind item counts,
 and search reindex include flat Catalog Item roots for all nine kinds. Comic,
@@ -40,7 +41,10 @@ the active schema.
 
 The shared field contract is exported from Core schemas and pinned by App.
 Regenerate it with `python -m scripts.export_contract_bundle`; review any
-intentional contract change together with the App pin.
+intentional contract change together with the App pin. The metadata field
+schema describes field identity, type, applicability, and editor hints. Root
+table and write ownership come from the kind registry instead of repeated
+per-field scope and table claims.
 
 ## Fresh database baseline
 
@@ -58,15 +62,16 @@ baseline. Never reset a deployed database as part of implementation work.
 
 ## Search and storage
 
-PostgreSQL is the source of truth. The Add search route queries the flattened
-Catalog Item roots directly and accepts `limit` and `offset`. Exact identifier
-matches use the kind root's indexed JSONB details document, plus indexed root
-barcode and catalog-number columns. Free-text matching is limited to
-indexed title/sort fields (and indexed Music artist, label, and subtitle
-fields); explicit filters inspect their named kind fields instead of casting
-the entire JSON document to text.
+PostgreSQL is the source of truth. Shared and kind-specific Catalog Item search
+routes return `items`, `next_offset`, and `has_more`. Cross-kind search merges
+all selected kinds before pagination and orders by normalized sort title,
+normalized title, kind, and ID. Exact identifier matches use the kind root's
+indexed JSONB details document, plus indexed root barcode and catalog-number
+columns. Free-text matching uses indexed title/sort fields and indexed Music
+artist, label, and subtitle fields; search does not cast the entire JSON
+document to text.
 
-Search and barcode responses use the Catalog Item envelope shape
-`{id, kind, kind_data}`. Search projections are filtered through the response
-schema for the result's kind, so catalog fields such as title, synopsis, dates,
-and images are never emitted as shared top-level metadata.
+The shared search route uses the Catalog Item envelope shape
+`{id, kind, kind_data}`. Music's kind-specific page includes its typed disc and
+track response because album contents are needed by Add. Other kind-specific
+search pages retain their typed response model.

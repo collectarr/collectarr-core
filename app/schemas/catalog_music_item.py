@@ -8,6 +8,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.metadata_shared import CatalogItemPage
+
 
 class CatalogMusicTrackResponse(BaseModel):
     id: UUID
@@ -53,7 +55,9 @@ class CatalogMusicDiscResponse(BaseModel):
 
     @field_validator("tracks")
     @classmethod
-    def validate_track_identity(cls, tracks: list[CatalogMusicTrackResponse]) -> list[CatalogMusicTrackResponse]:
+    def validate_track_identity(
+        cls, tracks: list[CatalogMusicTrackResponse]
+    ) -> list[CatalogMusicTrackResponse]:
         if len({track.id for track in tracks}) != len(tracks):
             raise ValueError("Track IDs must be unique within a disc")
         if len({track.position_order for track in tracks}) != len(tracks):
@@ -73,7 +77,8 @@ class CatalogMusicDiscResponse(BaseModel):
                     raise ValueError("Parent must be an active preceding header in the same disc")
             if track.is_header:
                 active_headers = {
-                    level: header for level, header in active_headers.items()
+                    level: header
+                    for level, header in active_headers.items()
                     if level < track.indent_level
                 }
                 active_headers[track.indent_level] = track
@@ -104,9 +109,15 @@ def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     }
                 )
             )
-        discs.append(CatalogMusicDiscResponse.model_validate({
-            **raw, "id": raw.get("id") or uuid4(), "tracks": tracks,
-        }))
+        discs.append(
+            CatalogMusicDiscResponse.model_validate(
+                {
+                    **raw,
+                    "id": raw.get("id") or uuid4(),
+                    "tracks": tracks,
+                }
+            )
+        )
     if len({disc.disc_number for disc in discs}) != len(discs):
         raise ValueError("Disc numbers must be unique within an album")
     if len({disc.id for disc in discs}) != len(discs):
@@ -114,7 +125,9 @@ def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
     track_ids = [track.id for disc in discs for track in disc.tracks]
     if len(set(track_ids)) != len(track_ids):
         raise ValueError("Track IDs must be unique within an album")
-    return [disc.model_dump(mode="json") for disc in sorted(discs, key=lambda disc: disc.disc_number)]
+    return [
+        disc.model_dump(mode="json") for disc in sorted(discs, key=lambda disc: disc.disc_number)
+    ]
 
 
 class CatalogMusicItemResponse(BaseModel):
@@ -164,3 +177,7 @@ class CatalogMusicItemResponse(BaseModel):
     discs: list[CatalogMusicDiscResponse]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CatalogMusicItemSearchPage(CatalogItemPage[CatalogMusicItemResponse]):
+    """A stable page of detailed Music Catalog Item search results."""

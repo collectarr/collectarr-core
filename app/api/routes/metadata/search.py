@@ -4,13 +4,13 @@ from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
 from app.models.base import ItemKind
-from app.schemas.metadata_shared import CatalogSearchItemEnvelope
+from app.schemas.metadata_shared import CatalogSearchItemEnvelope, CatalogSearchPage
 from app.services.facade import MetadataFacade as MetadataService
 
 router = APIRouter(tags=["metadata"])
 
 
-@router.get("/search", response_model=list[CatalogSearchItemEnvelope])
+@router.get("/search", response_model=CatalogSearchPage)
 async def search(
     db: DbSession,
     q: str | None = Query(default=None, min_length=1),
@@ -30,7 +30,7 @@ async def search(
     barcode: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-) -> list[CatalogSearchItemEnvelope]:
+) -> CatalogSearchPage:
     return await MetadataService(db).search(
         query=q,
         kind=kind,

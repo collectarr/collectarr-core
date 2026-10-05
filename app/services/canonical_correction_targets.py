@@ -10,39 +10,21 @@ from uuid import UUID
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.kind_registry import CATALOG_KINDS_BY_ID, catalog_kind_for
 from app.catalog.metadata_fields import (
     canonical_correction_field_spec,
     canonical_entity_type_for_scope,
     fields_for_kind,
 )
 from app.core.errors import ApiHTTPException
-from app.models import (
-    AnimeItem,
-    ComicItem,
-    MangaItem,
-    MusicItem,
-)
 from app.models.base import ItemKind
-from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_game_item import GameItem
-from app.models.catalog_movie_item import MovieItem
-from app.models.catalog_tv_item import TvItem
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
     CanonicalCorrectionTargetResponse,
 )
 
 _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
-    "catalog_anime_item": AnimeItem,
-    "catalog_boardgame_item": BoardGameItem,
-    "catalog_book_item": BookItem,
-    "catalog_comic_item": ComicItem,
-    "catalog_manga_item": MangaItem,
-    "catalog_game_item": GameItem,
-    "catalog_movie_item": MovieItem,
-    "catalog_music_item": MusicItem,
-    "catalog_tv_item": TvItem,
+    definition.entity_type: definition.model for definition in CATALOG_KINDS_BY_ID.values()
 }
 
 
@@ -84,6 +66,7 @@ def canonical_snapshot_hash(
 
 
 def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | None:
+    columns = inspect(model).columns
     direct = {
         "title": ("title", "display_title"),
         "sort_title": ("sort_title",),
@@ -91,7 +74,13 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "localized_title": ("localized_title",),
         "title_extension": ("title_extension",),
         "sort_key": ("sort_key", "sort_title"),
-        "item_number": ("issue_number", "volume_number", "season_number", "episode_number", "chapter_number"),
+        "item_number": (
+            "issue_number",
+            "volume_number",
+            "season_number",
+            "episode_number",
+            "chapter_number",
+        ),
         "edition_title": ("display_title", "title"),
         "physical_format": ("physical_format", "format"),
         "format": ("format",),
@@ -128,11 +117,11 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "audience_rating": ("audience_rating",),
     }
     for candidate in direct.get(key, ()):
-        if candidate in inspect(model).columns:
+        if candidate in columns:
             return candidate
-    if key == "identifiers" and model in {BookItem, ComicItem, MangaItem, AnimeItem, TvItem, GameItem, BoardGameItem}:
+    if key == "identifiers" and "details" in columns:
         return None
-    if model in {BookItem, ComicItem, MangaItem, AnimeItem, TvItem, MovieItem, GameItem, BoardGameItem} and "details" in inspect(model).columns:
+    if "details" in columns:
         return "details"
     return None
 
@@ -166,7 +155,7 @@ def _parse_partial_date_parts(value: Any) -> dict[str, int] | None:
             return None
         try:
             parts[key] = int(raw)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
     year = parts.get("year")
     month = parts.get("month")
@@ -226,21 +215,22 @@ class CanonicalCorrectionTargetService:
         model = self._model_for_target(kind, entity_type, scope)
         if lock:
             entity = (
-                await self.db.execute(
-                    select(model).where(model.id == entity_id).with_for_update()
-                )
+                await self.db.execute(select(model).where(model.id == entity_id).with_for_update())
             ).scalar_one_or_none()
         else:
             entity = await self.db.get(model, entity_id)
         if entity is None:
-            raise ApiHTTPException(status_code=404, code="canonical_target_not_found", detail=f"Canonical target {entity_type}/{entity_id} was not found.")
+            raise ApiHTTPException(
+                status_code=404,
+                code="canonical_target_not_found",
+                detail=f"Canonical target {entity_type}/{entity_id} was not found.",
+            )
         fields = self._field_specs(kind, entity_type, scope, model)
         values = {
             field.key: (
                 _music_partial_date_parts(entity, field.key)
                 if entity_type == "catalog_music_item"
-                and field.key
-                in {"release_date", "original_release_date", "recording_date"}
+                and field.key in {"release_date", "original_release_date", "recording_date"}
                 else _json_value(
                     getattr(entity, field.column).get(field.json_key)
                     if field.json_key is not None
@@ -256,9 +246,24 @@ class CanonicalCorrectionTargetService:
             entity_id=entity_id,
             scope=scope,
             revision=revision,
-            hash=canonical_snapshot_hash(entity_type=entity_type, entity_id=entity_id, scope=scope, revision=revision, fields=values),
+            hash=canonical_snapshot_hash(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                scope=scope,
+                revision=revision,
+                fields=values,
+            ),
             fields=values,
-            field_schema=[CanonicalCorrectionFieldResponse(key=field.key, label=field.label, value_type=field.value_type, scope=scope, entity_type=entity_type) for field in fields],
+            field_schema=[
+                CanonicalCorrectionFieldResponse(
+                    key=field.key,
+                    label=field.label,
+                    value_type=field.value_type,
+                    scope=scope,
+                    entity_type=entity_type,
+                )
+                for field in fields
+            ],
         )
 
     async def current_and_diff(
@@ -281,26 +286,55 @@ class CanonicalCorrectionTargetService:
         allowed = {field.key for field in current.field_schema}
         unknown = sorted(set(proposed_fields) - allowed)
         if unknown:
-            raise ApiHTTPException(status_code=422, code="unsupported_canonical_field", detail=f"Fields are not writable on {entity_type}: {unknown}")
-        diff = {key: {"before": current.fields.get(key), "after": value} for key, value in proposed_fields.items() if _canonical_json(current.fields.get(key)) != _canonical_json(value)}
+            raise ApiHTTPException(
+                status_code=422,
+                code="unsupported_canonical_field",
+                detail=f"Fields are not writable on {entity_type}: {unknown}",
+            )
+        diff = {
+            key: {"before": current.fields.get(key), "after": value}
+            for key, value in proposed_fields.items()
+            if _canonical_json(current.fields.get(key)) != _canonical_json(value)
+        }
         if not diff:
-            raise ApiHTTPException(status_code=422, code="canonical_correction_noop", detail="The proposed canonical values do not change the current target.")
+            raise ApiHTTPException(
+                status_code=422,
+                code="canonical_correction_noop",
+                detail="The proposed canonical values do not change the current target.",
+            )
         return current, diff
 
-    async def apply(self, *, kind: ItemKind, entity_type: str, entity_id: UUID, scope: str, fields: dict[str, Any]) -> CanonicalCorrectionTargetResponse:
+    async def apply(
+        self,
+        *,
+        kind: ItemKind,
+        entity_type: str,
+        entity_id: UUID,
+        scope: str,
+        fields: dict[str, Any],
+    ) -> CanonicalCorrectionTargetResponse:
         model = self._model_for_target(kind, entity_type, scope)
         entity = await self.db.get(model, entity_id)
         if entity is None:
-            raise ApiHTTPException(status_code=404, code="canonical_target_not_found", detail=f"Canonical target {entity_type}/{entity_id} was not found.")
+            raise ApiHTTPException(
+                status_code=404,
+                code="canonical_target_not_found",
+                detail=f"Canonical target {entity_type}/{entity_id} was not found.",
+            )
         specs = {field.key: field for field in self._field_specs(kind, entity_type, scope, model)}
         for key, value in fields.items():
             field = specs.get(key)
             if field is None:
-                raise ApiHTTPException(status_code=422, code="unsupported_canonical_field", detail=f"Field '{key}' is not writable on {entity_type}.")
-            if (
-                entity_type == "catalog_music_item"
-                and key in {"release_date", "original_release_date", "recording_date"}
-            ):
+                raise ApiHTTPException(
+                    status_code=422,
+                    code="unsupported_canonical_field",
+                    detail=f"Field '{key}' is not writable on {entity_type}.",
+                )
+            if entity_type == "catalog_music_item" and key in {
+                "release_date",
+                "original_release_date",
+                "recording_date",
+            }:
                 parts = _parse_partial_date_parts(value)
                 if value is not None and parts is None:
                     raise ApiHTTPException(
@@ -329,22 +363,40 @@ class CanonicalCorrectionTargetService:
             column = getattr(model, field.column).property.columns[0]
             setattr(entity, field.column, self._coerce(value, column))
         await self.db.flush()
-        return await self.snapshot(kind=kind, entity_type=entity_type, entity_id=entity_id, scope=scope)
+        return await self.snapshot(
+            kind=kind, entity_type=entity_type, entity_id=entity_id, scope=scope
+        )
 
     def _model_for_target(self, kind: ItemKind, entity_type: str, scope: str) -> type[Any]:
+        definition = catalog_kind_for(kind)
         model = _MODEL_BY_ENTITY_TYPE.get(entity_type)
-        if model is None:
-            raise ApiHTTPException(status_code=422, code="unknown_canonical_target", detail=f"Unknown canonical entity type: {entity_type}")
-        if not any(field.scope_for_kind(kind) == scope and field.source_entity_type_for_kind(kind) == entity_type and field.write_target_for_kind(kind) == "core_canonical" for field in fields_for_kind(kind, editable_only=True)):
-            raise ApiHTTPException(status_code=422, code="invalid_canonical_correction_target", detail=f"{entity_type} is not a canonical writable target for {kind.value}/{scope}.")
+        if model is None or entity_type != definition.entity_type or scope != "catalog_item":
+            raise ApiHTTPException(
+                status_code=422,
+                code="unknown_canonical_target",
+                detail=f"Unknown canonical entity type: {entity_type}",
+            )
+        if not any(
+            canonical_correction_field_spec(kind, field.key) is not None
+            for field in fields_for_kind(kind, editable_only=True)
+        ):
+            raise ApiHTTPException(
+                status_code=422,
+                code="invalid_canonical_correction_target",
+                detail=f"{entity_type} is not a canonical writable target for {kind.value}/{scope}.",
+            )
         return model
 
     @staticmethod
-    def _field_specs(kind: ItemKind, entity_type: str, scope: str, model: type[Any]) -> list[CanonicalField]:
+    def _field_specs(
+        kind: ItemKind, entity_type: str, scope: str, model: type[Any]
+    ) -> list[CanonicalField]:
         result: list[CanonicalField] = []
+        if scope != "catalog_item" or catalog_kind_for(kind).entity_type != entity_type:
+            return result
         for field in fields_for_kind(kind, editable_only=True):
             spec = canonical_correction_field_spec(kind, field.key)
-            if spec is None or spec.scope_for_kind(kind) != scope or spec.source_entity_type_for_kind(kind) != entity_type:
+            if spec is None:
                 continue
             column = _column_for_field(entity_type, field.key, model)
             if column is not None:
@@ -356,8 +408,7 @@ class CanonicalCorrectionTargetService:
                         column,
                         json_key=(
                             field.key
-                            if model in {BookItem, ComicItem, MangaItem, AnimeItem, TvItem, MovieItem, GameItem, BoardGameItem}
-                            and column == "details"
+                            if column == "details" and "details" in inspect(model).columns
                             else None
                         ),
                     )
@@ -368,7 +419,11 @@ class CanonicalCorrectionTargetService:
     def _revision(entity: Any) -> str:
         updated_at = getattr(entity, "updated_at", None)
         if not isinstance(updated_at, datetime):
-            raise ApiHTTPException(status_code=500, code="canonical_target_missing_revision", detail="Canonical target does not expose an authoritative revision.")
+            raise ApiHTTPException(
+                status_code=500,
+                code="canonical_target_missing_revision",
+                detail="Canonical target does not expose an authoritative revision.",
+            )
         return updated_at.isoformat()
 
     @staticmethod

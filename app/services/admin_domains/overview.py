@@ -5,10 +5,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     AdminAuditLog,
     AnimeItem,
@@ -181,32 +182,18 @@ class AdminOverviewService:
         total = 0
         for model, fields in counts.items():
             length = sum(
-                func.coalesce(func.jsonb_array_length(model.details[field]), 0)
-                for field in fields
+                func.coalesce(func.jsonb_array_length(model.details[field]), 0) for field in fields
             )
             total += int(
-                await self.db.scalar(
-                    select(func.coalesce(func.sum(length), 0)).select_from(model)
-                )
+                await self.db.scalar(select(func.coalesce(func.sum(length), 0)).select_from(model))
                 or 0
             )
         return total
 
     async def _item_counts_by_kind(self) -> dict[str, int]:
         counts = {kind.value: 0 for kind in ItemKind}
-        native_counts: dict[ItemKind, type] = {
-            ItemKind.book: BookItem,
-            ItemKind.comic: ComicItem,
-            ItemKind.manga: MangaItem,
-            ItemKind.anime: AnimeItem,
-            ItemKind.movie: MovieItem,
-            ItemKind.tv: TvItem,
-            ItemKind.music: MusicItem,
-            ItemKind.game: GameItem,
-            ItemKind.boardgame: BoardGameItem,
-        }
-        for kind, model in native_counts.items():
-            counts[kind.value] = await self._count(model)
+        for definition in CATALOG_KIND_DEFINITIONS:
+            counts[definition.kind.value] = await self._count(definition.model)
         return counts
 
     async def _count_image_assets(self) -> int:
@@ -224,25 +211,16 @@ class AdminOverviewService:
 
     async def _count_missing_cover_items(self) -> int:
         total = 0
-        for model in (
-            BookItem,
-            ComicItem,
-            MangaItem,
-            AnimeItem,
-            MovieItem,
-            TvItem,
-            GameItem,
-            BoardGameItem,
-        ):
+        for definition in CATALOG_KIND_DEFINITIONS:
+            model = definition.model
+            if definition.kind is ItemKind.music:
+                continue
             has_cover = or_(
                 model.details["cover_image_url"].as_string().is_not(None),
                 model.details["thumbnail_image_url"].as_string().is_not(None),
             )
             total += int(
-                await self.db.scalar(
-                    select(func.count()).select_from(model).where(~has_cover)
-                )
-                or 0
+                await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0
             )
         total += await self._count_missing_cover_items_for_root(
             MusicItem,
@@ -257,31 +235,15 @@ class AdminOverviewService:
         cover_fields: tuple[str, str] = ("cover_image_url", "cover_image_key"),
     ) -> int:
         has_cover = or_(*[getattr(model, field).is_not(None) for field in cover_fields])
-        return int(await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0)
+        return int(
+            await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0
+        )
 
     async def _search_documents(self) -> list[dict[str, Any]]:
         documents: list[dict[str, Any]] = []
-
-        music_result = await self.db.execute(
-            select(MusicItem)
-        )
-        documents.extend(catalog_search_document(item) for item in music_result.scalars().unique())
-
-        for item_model in (
-            BookItem,
-            ComicItem,
-            MangaItem,
-            AnimeItem,
-            MovieItem,
-            TvItem,
-            GameItem,
-            BoardGameItem,
-        ):
-            result = await self.db.execute(select(item_model))
-            documents.extend(
-                catalog_search_document(item)
-                for item in result.scalars().unique()
-            )
+        for definition in CATALOG_KIND_DEFINITIONS:
+            result = await self.db.execute(select(definition.model))
+            documents.extend(catalog_search_document(item) for item in result.scalars().unique())
 
         return documents
 

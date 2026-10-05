@@ -10,26 +10,11 @@ from PIL import Image
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.models import (
-    ImageAsset,
-    MusicItem,
-)
-from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_game_item import GameItem
-from app.models.catalog_comic_item import ComicItem
-from app.models.catalog_movie_item import MovieItem
-from app.models.catalog_manga_item import MangaItem
-from app.models.catalog_anime_item import AnimeItem
-from app.models.catalog_tv_item import TvItem
+from app.models import ImageAsset
 from app.search.client import SearchClient
-from app.search.documents import (
-    catalog_search_document,
-    movie_item_search_document,
-    music_item_search_document,
-)
 from app.storage.client import ObjectStorage
 
 logger = logging.getLogger(__name__)
@@ -39,10 +24,8 @@ logger = logging.getLogger(__name__)
 class CatalogFingerprint:
     item_count: int
     item_updated_at: datetime | None
-    edition_count: int
-    edition_updated_at: datetime | None
-    variant_count: int
-    variant_updated_at: datetime | None
+    contained_value_count: int
+    contained_value_updated_at: datetime | None
 
 
 def _compute_phash(image_data: bytes) -> str:
@@ -51,97 +34,56 @@ def _compute_phash(image_data: bytes) -> str:
 
 
 async def catalog_fingerprint(db: AsyncSession) -> CatalogFingerprint:
-    root_tables = (
-        BookItem,
-        ComicItem,
-        MangaItem,
-        AnimeItem,
-        MovieItem,
-        TvItem,
-        GameItem,
-        BoardGameItem,
-        MusicItem,
-    )
-    nested_fields = {
-        BookItem: ("printings", "credits", "identifiers", "series_memberships"),
-        ComicItem: ("identifiers",),
-        MangaItem: ("identifiers",),
-        AnimeItem: ("media", "episodes", "identifiers"),
-        MovieItem: ("media",),
-        TvItem: ("seasons", "media", "episodes", "identifiers"),
-        GameItem: ("identifiers",),
-        BoardGameItem: ("identifiers",),
-        MusicItem: ("discs",),
-    }
     item_count = 0
     item_updated_at: datetime | None = None
-    edition_count = 0
-    edition_updated_at: datetime | None = None
+    contained_value_count = 0
+    contained_value_updated_at: datetime | None = None
 
-    for table in root_tables:
+    for definition in CATALOG_KIND_DEFINITIONS:
+        table = definition.model
         count = await db.scalar(select(func.count()).select_from(table))
         updated_at = await db.scalar(select(func.max(table.updated_at)))
         item_count += count or 0
         if updated_at and (item_updated_at is None or updated_at > item_updated_at):
             item_updated_at = updated_at
 
-    for model, fields in nested_fields.items():
+    for definition in CATALOG_KIND_DEFINITIONS:
+        if not definition.contained_count_fields:
+            continue
+        model = definition.model
+        fields = definition.contained_count_fields
+        details = getattr(model, "details", None)
         lengths = [
-            func.coalesce(func.jsonb_array_length(model.details[field]), 0)
+            func.coalesce(
+                func.jsonb_array_length(
+                    details[field] if details is not None else getattr(model, field)
+                ),
+                0,
+            )
             for field in fields
         ]
-        count = await db.scalar(
-            select(func.coalesce(func.sum(sum(lengths)), 0)).select_from(model)
-        )
+        count = await db.scalar(select(func.coalesce(func.sum(sum(lengths)), 0)).select_from(model))
         updated_at = await db.scalar(select(func.max(model.updated_at)))
-        edition_count += count or 0
-        if updated_at and (edition_updated_at is None or updated_at > edition_updated_at):
-            edition_updated_at = updated_at
+        contained_value_count += count or 0
+        if updated_at and (
+            contained_value_updated_at is None or updated_at > contained_value_updated_at
+        ):
+            contained_value_updated_at = updated_at
 
     return CatalogFingerprint(
         item_count=item_count,
         item_updated_at=item_updated_at,
-        edition_count=edition_count,
-        edition_updated_at=edition_updated_at,
-        variant_count=0,
-        variant_updated_at=None,
+        contained_value_count=contained_value_count,
+        contained_value_updated_at=contained_value_updated_at,
     )
 
 
 async def index_once(search: SearchClient) -> None:
     async with AsyncSessionLocal() as db:
         documents = []
-        book_rows = await db.execute(select(BookItem))
-        documents.extend(catalog_search_document(row) for row in book_rows.scalars().unique())
-
-        comic_rows = await db.execute(select(ComicItem))
-        documents.extend(catalog_search_document(row) for row in comic_rows.scalars().unique())
-
-        manga_rows = await db.execute(select(MangaItem))
-        documents.extend(catalog_search_document(row) for row in manga_rows.scalars().unique())
-
-        movie_rows = await db.execute(select(MovieItem))
-        documents.extend(movie_item_search_document(row) for row in movie_rows.scalars().unique())
-
-        tv_rows = await db.execute(select(TvItem))
-        documents.extend(catalog_search_document(row) for row in tv_rows.scalars().unique())
-
-        game_rows = await db.execute(select(GameItem))
-        documents.extend(catalog_search_document(row) for row in game_rows.scalars().unique())
-
-        boardgame_rows = await db.execute(select(BoardGameItem))
-        documents.extend(catalog_search_document(row) for row in boardgame_rows.scalars().unique())
-
-        anime_rows = await db.execute(select(AnimeItem))
-        documents.extend(catalog_search_document(row) for row in anime_rows.scalars().unique())
-
-        music_rows = await db.execute(
-            select(MusicItem)
-        )
-        documents.extend(
-            music_item_search_document(item)
-            for item in music_rows.scalars().unique()
-        )
+        for definition in CATALOG_KIND_DEFINITIONS:
+            rows = await db.execute(select(definition.model))
+            documents.extend(definition.search_document(item) for item in rows.scalars().unique())
         await search.index_documents(documents)
 
 
@@ -158,19 +100,17 @@ async def index_changed_catalog(
         await index_once(search)
     except Exception as exc:
         logger.exception(
-            "worker_index_failed items=%s editions=%s variants=%s error=%s",
+            "worker_index_failed items=%s contained_values=%s error=%s",
             current_fingerprint.item_count,
-            current_fingerprint.edition_count,
-            current_fingerprint.variant_count,
+            current_fingerprint.contained_value_count,
             exc,
         )
         return last_fingerprint
 
     logger.info(
-        "worker_index_finished items=%s editions=%s variants=%s",
+        "worker_index_finished items=%s contained_values=%s",
         current_fingerprint.item_count,
-        current_fingerprint.edition_count,
-        current_fingerprint.variant_count,
+        current_fingerprint.contained_value_count,
     )
     return current_fingerprint
 
@@ -195,9 +135,7 @@ async def backfill_cover_phashes(limit: int = 50) -> int:
 
             for asset in assets:
                 try:
-                    body, _ = await asyncio.to_thread(
-                        storage.get_object, asset.storage_key
-                    )
+                    body, _ = await asyncio.to_thread(storage.get_object, asset.storage_key)
                     asset.phash = await asyncio.to_thread(_compute_phash, body)
                     updated += 1
                 except Exception:

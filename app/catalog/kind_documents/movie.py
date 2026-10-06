@@ -16,6 +16,7 @@ from app.catalog.metadata_field_spec import (
     INPUT_NUMBER,
     SECTION_ITEM,
     SECTION_PUBLISHING,
+    SECTION_REGIONAL,
     SECTION_TECHNICAL,
     VALUE_TYPE_INTEGER,
     VALUE_TYPE_STRING,
@@ -36,7 +37,7 @@ FIELD_SPECS = (
         "original_language",
         VALUE_TYPE_STRING,
         "Original language",
-        section=SECTION_PUBLISHING,
+        section=SECTION_REGIONAL,
         kinds=frozenset({ItemKind.movie}),
     ),
     MetadataFieldSpec(

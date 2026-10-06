@@ -88,5 +88,5 @@ def test_user_proposals_project_only_kind_owned_catalog_data() -> None:
     )
     assert accepted_with_local_fields.catalog_item == projected
 
-    with pytest.raises(ValidationError):
-        CatalogItemProposalUpdate(catalog_item={"purchase_date": "2026-01-01"})
+    with pytest.raises(ValueError):
+        validate_catalog_item_payload(ItemKind.book, {"purchase_date": "2026-01-01"})

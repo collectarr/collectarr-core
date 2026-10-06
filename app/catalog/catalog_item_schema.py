@@ -33,12 +33,14 @@ def catalog_item_payload_contract() -> dict[str, Any]:
         properties = {
             key: _root_field_schema(key, document, field_specs) for key in sorted(root_fields)
         }
-        kinds[kind.value] = {
+        kind_schema: dict[str, Any] = {
             "type": "object",
             "additionalProperties": False,
-            "required": ["title"],
             "properties": properties,
         }
+        if document.required_root_fields:
+            kind_schema["required"] = sorted(document.required_root_fields)
+        kinds[kind.value] = kind_schema
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://schemas.collectarr.app/catalog-item/v1",
@@ -99,8 +101,6 @@ def _root_field_schema(
     document: KindDocumentShape,
     field_specs: Mapping[str, MetadataFieldSpec],
 ) -> dict[str, Any]:
-    if key == "title":
-        return {"type": "string", "minLength": 1, "maxLength": 255}
     child_shape = document.children.get(key)
     if child_shape is not None:
         return _nullable(
@@ -111,7 +111,12 @@ def _root_field_schema(
         )
     spec = field_specs.get(key)
     value_type = spec.value_type if spec is not None else document.root_fields.get(key)
-    return _nullable(_value_schema(value_type, document))
+    schema = _value_schema(value_type, document)
+    if key in document.required_root_fields:
+        if value_type == STRING:
+            schema = {**schema, "minLength": 1}
+        return schema
+    return _nullable(schema)
 
 
 def _child_schema(shape: ChildObjectShape) -> dict[str, Any]:
@@ -212,6 +217,13 @@ def _project_object(
         if validator is not None:
             validator(object_entries, field_path)
         projected[key] = entries
+    for required_key in document.required_root_fields:
+        if (
+            required_key not in projected
+            or projected[required_key] is None
+            or (isinstance(projected[required_key], str) and not projected[required_key].strip())
+        ):
+            raise ValueError(f"{path} must include a non-empty {required_key}")
     return projected
 
 

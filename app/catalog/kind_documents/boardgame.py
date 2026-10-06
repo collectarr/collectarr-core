@@ -235,4 +235,5 @@ DOCUMENT = KindDocumentShape(
         "external_links",
         "characters",
     ),
+    required_root_fields=frozenset({"title"}),
 )

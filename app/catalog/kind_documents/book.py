@@ -212,6 +212,7 @@ DOCUMENT = KindDocumentShape(
         "series_memberships": BOOK_SERIES_MEMBERSHIP,
         "characters": CHARACTER,
     },
+    required_root_fields=frozenset({"title"}),
 )
 
 __all__ = ["DOCUMENT", "FIELD_SPECS"]

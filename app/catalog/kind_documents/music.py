@@ -328,4 +328,5 @@ DOCUMENT = KindDocumentShape(
             "discs",
         }
     ),
+    required_root_fields=frozenset({"title"}),
 )

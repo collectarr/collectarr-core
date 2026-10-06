@@ -169,4 +169,5 @@ DOCUMENT = KindDocumentShape(
         "contributors": MOVIE_PERSON,
         "media": MEDIA,
     },
+    required_root_fields=frozenset({"title"}),
 )

@@ -27,11 +27,6 @@ class CatalogItemProposalCreate(BaseModel):
         if self.kind is ItemKind.collection:
             raise ValueError("Collection is not a Catalog Item kind")
         self.catalog_item = validate_catalog_item_payload(self.kind, self.catalog_item)
-        title = self.catalog_item.get("title")
-        if not isinstance(title, str) or not title.strip():
-            raise ValueError("catalog_item must include a non-empty title")
-        if len(title.strip()) > 255:
-            raise ValueError("catalog_item title must be at most 255 characters")
         return self
 
 
@@ -52,13 +47,3 @@ class CatalogItemProposalUpdate(BaseModel):
     review_note: str | None = Field(default=None, max_length=2000)
 
     model_config = {"extra": "forbid"}
-
-    @field_validator("catalog_item")
-    @classmethod
-    def validate_catalog_item_title(cls, value: JsonObject) -> JsonObject:
-        title = value.get("title")
-        if not isinstance(title, str) or not title.strip():
-            raise ValueError("catalog_item must include a non-empty title")
-        if len(title.strip()) > 255:
-            raise ValueError("catalog_item title must be at most 255 characters")
-        return value

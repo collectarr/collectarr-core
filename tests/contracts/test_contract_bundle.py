@@ -25,7 +25,7 @@ def test_contract_bundle_exports_versioned_snapshot(tmp_path):
         if row["key"] == "release_date" and row["kind"] == "book"
     )
     assert book_release_date["editable"] is True
-    assert book_release_date["valueType"] == "date"
+    assert book_release_date["valueType"] == "partial_date"
     assert not {"scope", "writeTarget", "sourceEntityType", "sourceTable"}.intersection(
         book_release_date
     )

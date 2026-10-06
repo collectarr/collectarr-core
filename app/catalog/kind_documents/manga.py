@@ -92,4 +92,5 @@ DOCUMENT = KindDocumentShape(
         ),
         "chapters": MANGA_CHAPTER,
     },
+    required_root_fields=frozenset({"title"}),
 )

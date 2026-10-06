@@ -92,22 +92,42 @@ async def _reset_public_schema_objects(connection: asyncpg.Connection) -> None:
     await connection.execute("create schema public")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def schema_database() -> None:
-    database_url = os.environ["DATABASE_URL"]
+def _is_db_available() -> bool:
+    database_url = os.environ.get("DATABASE_URL", "")
+    if not database_url:
+        return False
     url = make_url(database_url)
     host = url.host or "localhost"
     port = url.port or 5432
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(1)
-        if sock.connect_ex((host, port)) != 0:
-            pytest.skip(f"PostgreSQL test database is not available at {host}:{port}")
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
+            return sock.connect_ex((host, port)) == 0
+    except OSError:
+        return False
+
+
+_DB_AVAILABLE = _is_db_available()
+
+
+@pytest.fixture(scope="session")
+def schema_database() -> None:
+    if not _DB_AVAILABLE:
+        pytest.skip("PostgreSQL test database is not available")
+    database_url = os.environ["DATABASE_URL"]
     asyncio.run(_ensure_test_database(database_url))
     asyncio.run(_create_schema())
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def clean_database() -> AsyncIterator[None]:
+async def clean_database(request: pytest.FixtureRequest) -> AsyncIterator[None]:
+    if not _DB_AVAILABLE:
+        if "client" in request.fixturenames or request.node.get_closest_marker("db"):
+            pytest.skip("PostgreSQL test database is not available")
+        yield
+        return
+
+    request.getfixturevalue("schema_database")
     reset_rate_limits()
     table_names = ", ".join(f'"{table.name}"' for table in reversed(Base.metadata.sorted_tables))
     async with AsyncSessionLocal() as db:

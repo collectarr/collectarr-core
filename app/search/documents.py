@@ -288,7 +288,8 @@ def flat_catalog_item_search_document(item: Any, kind: ItemKind) -> dict[str, An
     return {
         "id": str(item.id),
         "kind": kind.value,
-        "title": item.title,
+        "title": getattr(item, "title", None),
+        "primary_label": getattr(item, "title", None) or getattr(item, "sort_key", None) or str(item.id),
         "item_number": _optional_text(details.get("item_number") or details.get("issue_number")),
         "runtime_minutes": details.get("runtime_minutes"),
         "cover_image_url": _optional_text(details.get("cover_image_url")),

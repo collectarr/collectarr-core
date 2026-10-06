@@ -1,5 +1,5 @@
 from app.db.session import AsyncSessionLocal
-from app.models.catalog_comic_item import ComicItem, ComicItemIdentifier
+from app.models.catalog_comic_item import ComicItem
 
 
 async def seed_comic() -> str:
@@ -19,17 +19,17 @@ async def seed_comic() -> str:
                 "release_date": "1963-03-01",
                 "cover_image_url": "https://cdn.example/standard.jpg",
                 "description": "Peter Parker swings into action.",
+                "identifiers": [
+                    {
+                        "identifier_type": "barcode",
+                        "value": "75960604716100111",
+                        "normalized_value": "75960604716100111",
+                        "is_primary": True,
+                    }
+                ],
             },
         )
         db.add(item)
-        await db.flush()
-        db.add(ComicItemIdentifier(
-            comic_item_id=item.id,
-            identifier_type="barcode",
-            value="75960604716100111",
-            normalized_value="75960604716100111",
-            is_primary=True,
-        ))
         await db.commit()
         return str(item.id)
 

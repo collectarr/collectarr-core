@@ -107,4 +107,5 @@ DOCUMENT = KindDocumentShape(
         "character_details": COMIC_CHARACTER_DETAIL,
         "key_events": KEY_EVENT,
     },
+    required_root_fields=frozenset({"title"}),
 )

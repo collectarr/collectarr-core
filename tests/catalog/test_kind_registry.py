@@ -1,4 +1,4 @@
-from app.api.routes.metadata import router as metadata_router
+from app.api.routes.metadata import search as metadata_search
 from app.catalog.kind_documents.registry import DOCUMENTS
 from app.catalog.kind_registry import (
     CATALOG_KIND_DEFINITIONS,
@@ -37,7 +37,7 @@ def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
 
 def test_metadata_search_uses_a_paged_contract():
     assert CatalogSearchPage.model_fields.keys() == {"items", "next_offset", "has_more"}
-    assert any(route.path.endswith("/search") for route in metadata_router.routes)
+    assert any(getattr(route, "path", "").endswith("/search") for route in metadata_search.router.routes)
 
 
 def test_flat_catalog_contract_has_no_generic_grouping_model():

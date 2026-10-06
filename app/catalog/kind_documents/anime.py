@@ -173,4 +173,5 @@ DOCUMENT = KindDocumentShape(
         "episodes": ANIME_EPISODE,
         "seasons": ANIME_SEASON,
     },
+    required_root_fields=frozenset({"title"}),
 )

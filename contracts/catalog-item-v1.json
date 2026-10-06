@@ -2,13 +2,13 @@
   "$id": "https://schemas.collectarr.app/catalog-item/v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contractVersion": "1.0.0",
-  "coreCommit": "1ab2055a5dfd99d65a412bf72344fa4055457cfe",
+  "coreCommit": "7113b720495e3a55c509d9e9efe62701ffbd935d",
   "description": "Source-neutral Catalog Item documents. Fields are validated and projected using the schema owned by the declared kind.",
   "fieldStatus": {
     "music": "grounded_in_saved_clz_music_edit_form",
     "other_kinds": "provisional_clz_parity_unverified_without_edit_form_captures"
   },
-  "generatedAt": "2026-10-05T20:45:16.827735Z",
+  "generatedAt": "2026-10-06T14:02:37.302212Z",
   "kinds": {
     "anime": {
       "additionalProperties": false,
@@ -1388,7 +1388,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -2335,7 +2334,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -3397,7 +3395,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -4450,7 +4447,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -5179,7 +5175,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -6150,7 +6145,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -6967,7 +6961,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -8401,7 +8394,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },
@@ -9760,7 +9752,6 @@
           ]
         },
         "title": {
-          "maxLength": 255,
           "minLength": 1,
           "type": "string"
         },

@@ -98,4 +98,5 @@ DOCUMENT = KindDocumentShape(
         "external_links",
         "trailer_urls",
     ),
+    required_root_fields=frozenset({"title"}),
 )

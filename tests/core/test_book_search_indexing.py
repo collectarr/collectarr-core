@@ -4,7 +4,7 @@ import pytest
 
 from app.db.session import AsyncSessionLocal
 from app.models import Person
-from app.models.catalog_book_item import BookItem, BookItemCredit
+from app.models.catalog_book_item import BookItem
 from app.worker.main import index_once
 
 
@@ -17,20 +17,18 @@ async def test_index_once_eager_loads_flat_book_item_credits():
 
         item = BookItem(
             title="The Fellowship of the Ring",
-            details={"release_date": date(1954, 7, 29).isoformat()},
+            details={
+                "release_date": date(1954, 7, 29).isoformat(),
+                "creators": [
+                    {
+                        "name": "J.R.R. Tolkien",
+                        "role": "author",
+                        "sequence": 1,
+                    }
+                ],
+            },
         )
         db.add(item)
-        await db.flush()
-        db.add(
-            BookItemCredit(
-                book_item_id=item.id,
-                credit_type="creator",
-                person_id=person.id,
-                name=person.name,
-                role="author",
-                sequence=1,
-            )
-        )
         await db.commit()
 
     class RecordingSearch:

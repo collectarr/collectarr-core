@@ -217,4 +217,5 @@ DOCUMENT = KindDocumentShape(
         "seasons": TV_SEASON,
     },
     validate_document=_validate_media_references,
+    required_root_fields=frozenset({"title"}),
 )

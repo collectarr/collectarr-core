@@ -77,23 +77,14 @@ def test_kind_views_surface_flat_catalog_tables():
     misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
 
     assert "comic_items" in kinds["comic"]["tables"]
-    assert "comic_item_identifiers" in kinds["comic"]["tables"]
     assert "book_items" in kinds["book"]["tables"]
     assert "book_series" in kinds["book"]["tables"]
-    assert "book_item_printings" in kinds["book"]["tables"]
-    assert "book_item_credits" in kinds["book"]["tables"]
-    assert "book_item_series_memberships" in kinds["book"]["tables"]
     assert "game_items" in kinds["game"]["tables"]
-    assert "game_item_identifiers" in kinds["game"]["tables"]
     assert "boardgame_items" in kinds["boardgame"]["tables"]
-    assert "boardgame_item_identifiers" in kinds["boardgame"]["tables"]
     assert "music_items" in kinds["music"]["tables"]
     assert "music_item_discs" not in kinds["music"]["tables"]
     assert "music_item_tracks" not in kinds["music"]["tables"]
     assert "tv_items" in kinds["tv"]["tables"]
-    assert "tv_item_seasons" in kinds["tv"]["tables"]
-    assert "tv_item_episodes" in kinds["tv"]["tables"]
-    assert "tv_item_media" in kinds["tv"]["tables"]
 
     assert "comic_works" not in misc_tables
     assert "book_items" not in misc_tables

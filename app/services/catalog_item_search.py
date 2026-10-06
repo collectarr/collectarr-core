@@ -173,24 +173,26 @@ class CatalogItemSearchService:
 
         if query:
             pattern = f"%{query}%"
-            predicates.append(
-                or_(
-                    model.title.ilike(pattern),
-                    self._sort_column(root).ilike(pattern),
-                    self._identifier_match(root, query),
-                    model.barcode == query,
-                    model.catalog_number == query,
-                    *(
-                        [
-                            MusicItem.artist.ilike(pattern),
-                            MusicItem.label.ilike(pattern),
-                            MusicItem.subtitle.ilike(pattern),
-                        ]
-                        if root.kind is ItemKind.music
-                        else []
-                    ),
+            matchers = []
+            if hasattr(model, "title"):
+                matchers.append(model.title.ilike(pattern))
+            sort_col = self._sort_column(root)
+            if sort_col is not None:
+                matchers.append(sort_col.ilike(pattern))
+            matchers.append(self._identifier_match(root, query))
+            if hasattr(model, "barcode"):
+                matchers.append(model.barcode == query)
+            if hasattr(model, "catalog_number"):
+                matchers.append(model.catalog_number == query)
+            if root.kind is ItemKind.music:
+                matchers.extend(
+                    [
+                        MusicItem.artist.ilike(pattern),
+                        MusicItem.label.ilike(pattern),
+                        MusicItem.subtitle.ilike(pattern),
+                    ]
                 )
-            )
+            predicates.append(or_(*matchers))
         if barcode:
             predicates.append(
                 or_(
@@ -268,11 +270,13 @@ class CatalogItemSearchService:
                 )
 
         sort_column = self._sort_column(root)
+        primary_expr = sort_column if sort_column is not None else (model.title if hasattr(model, "title") else model.id)
+        title_expr = model.title if hasattr(model, "title") else (sort_column if sort_column is not None else literal(""))
         statement = select(
             literal(root.kind.value).label("kind"),
             model.id.label("item_id"),
-            func.lower(func.coalesce(sort_column, model.title)).label("sort_value"),
-            func.lower(model.title).label("title_value"),
+            func.lower(func.coalesce(primary_expr, literal(""))).label("sort_value"),
+            func.lower(func.coalesce(title_expr, literal(""))).label("title_value"),
         )
         if predicates:
             statement = statement.where(*predicates)
@@ -282,7 +286,7 @@ class CatalogItemSearchService:
     def _sort_column(root: CatalogKindDefinition):
         if root.search_sort_column is not None:
             return root.search_sort_column
-        return root.model.sort_key
+        return getattr(root.model, "sort_key", None)
 
     @staticmethod
     def _identifier_match(root: CatalogKindDefinition, value: str):
@@ -308,7 +312,9 @@ class CatalogItemSearchService:
         date_parts = _partial_date(date_parts_value)
         cover = getattr(item, "cover_image_url", None) or details.get("cover_image_url")
         thumbnail = getattr(item, "thumbnail_image_url", None) or details.get("thumbnail_image_url")
-        kind_data: dict[str, Any] = {"title": item.title}
+        kind_data: dict[str, Any] = {}
+        if hasattr(item, "title") and getattr(item, "title", None) is not None:
+            kind_data["title"] = item.title
 
         def add(name: str, value: Any) -> None:
             if value is None:

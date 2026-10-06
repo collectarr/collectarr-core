@@ -7,12 +7,11 @@ from app.models import (
     BundleReleaseComponent,
     ComicItem,
     MovieItem,
-    MovieItemMedia,
     MusicItem,
 )
 from app.models.base import ItemKind
 from app.models.catalog_game_item import GameItem
-from app.models.catalog_tv_item import TvItem, TvItemEpisode, TvItemMedia
+from app.models.catalog_tv_item import TvItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 

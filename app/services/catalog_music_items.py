@@ -73,7 +73,6 @@ class CatalogMusicItemService:
             release_date_parts=item_payload.get("release_date_parts")
             or item_payload.get("release_date"),
             label=_optional_string(item_payload.get("label")),
-            format=_optional_string(item_payload.get("format")),
             barcode=_optional_string(item_payload.get("barcode")),
             catalog_number=_optional_string(item_payload.get("catalog_number")),
             genres=_string_values(item_payload.get("genres")),
@@ -83,12 +82,8 @@ class CatalogMusicItemService:
             is_live=item_payload.get("is_live")
             if isinstance(item_payload.get("is_live"), bool)
             else None,
-            sound_types=_string_values(item_payload.get("sound_types")),
-            vinyl_color=_optional_string(item_payload.get("vinyl_color")),
-            vinyl_weight=_optional_string(item_payload.get("vinyl_weight")),
-            rpm=item_payload.get("rpm") if isinstance(item_payload.get("rpm"), int) else None,
             extra=_optional_string(item_payload.get("extra")),
-            spars=_optional_string(item_payload.get("spars")),
+            spars_code=_optional_string(item_payload.get("spars_code")),
             box_set=_optional_string(item_payload.get("box_set")),
             composers=credits["composers"],
             conductors=credits["conductors"],
@@ -249,7 +244,7 @@ def _partial_date(value: Any) -> date | None:
                 return date(year, month, day)
             except ValueError:
                 return None
-        return None
+            return None
     if isinstance(value, str):
         try:
             return date.fromisoformat(value)

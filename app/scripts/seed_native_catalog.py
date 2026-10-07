@@ -155,10 +155,6 @@ def _apply_seed_metadata(
         "media_type": "disc" if kind in {ItemKind.movie, ItemKind.tv} else None,
         "format": "Blu-ray" if kind == ItemKind.movie else None,
         "packaging": "digipak" if kind == ItemKind.music else None,
-        "sound_type": "stereo" if kind == ItemKind.music else None,
-        "vinyl_color": "black" if kind == ItemKind.music else None,
-        "vinyl_weight": "180g" if kind == ItemKind.music else None,
-        "rpm": 33 if kind == ItemKind.music else None,
     }
 
     for attr, value in values.items():
@@ -566,11 +562,9 @@ async def _seed_music(
         "day": entry.release_date.day,
     }
     item.label = entry.publisher
-    item.format = "CD"
     item.catalog_number = f"SEED-MUSIC-CAT-{index:03d}"
     item.genres = [entry.tag] if entry.tag else []
     item.packaging = "digipak"
-    item.sound_types = ["stereo"]
     item.cover_image_url = cover_url
     item.thumbnail_image_url = thumbnail_url
     await db.flush()
@@ -578,7 +572,12 @@ async def _seed_music(
     existing = item.discs[0] if item.discs else {}
     existing_track = (existing.get("tracks") or [{}])[0]
     item.discs = [{
-        **existing, "disc_number": 1, "title": "Disc 1",
+        **existing,
+        "disc_number": 1,
+        "title": "Disc 1",
+        "format_family": "cd",
+        "format": "CD",
+        "sound_types": ["stereo"],
         "tracks": [{
             **existing_track, "position": "1", "position_order": 0,
             "title": f"{entry.title} Track 1", "artist": entry.creator[0],

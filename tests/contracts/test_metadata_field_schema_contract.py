@@ -223,7 +223,6 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {'age
  'families': ('string_list', False, True, 'relations', ('boardgame',)),
  'first_edition': ('boolean', False, True, 'item', ('book',)),
  'first_publication_date': ('partial_date', False, True, 'publishing', ('book',)),
- 'format': ('string', False, True, 'publishing', ('music',)),
  'format_scaledimage': ('string',
                         True,
                         False,
@@ -393,7 +392,6 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {'age
                     True,
                     'technical',
                     ('anime', 'boardgame', 'book', 'comic', 'game', 'manga', 'movie', 'tv')),
- 'rpm': ('integer', False, True, 'technical', ('music',)),
  'runtime_minutes': ('integer', False, True, 'publishing', ('anime', 'movie', 'tv')),
  'screen_ratio': ('string', False, True, 'technical', ('anime', 'movie', 'tv')),
  'search_aliases': ('string_list',
@@ -418,8 +416,7 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {'age
               'item',
               ('anime', 'boardgame', 'book', 'comic', 'game', 'manga', 'movie', 'tv')),
  'sort_title': ('string', False, True, 'item', ('music',)),
- 'sound_types': ('string_list', False, True, 'technical', ('music',)),
- 'spars': ('string', False, True, 'technical', ('music',)),
+ 'spars_code': ('string', False, True, 'technical', ('music',)),
  'studio': ('string', False, True, 'publishing', ('movie',)),
  'studios': ('string_list', False, True, 'item', ('music',)),
  'subjects': ('string_list', False, True, 'relations', ('book',)),
@@ -466,9 +463,7 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {'age
                   False,
                   True,
                   'publishing',
-                  ('anime', 'boardgame', 'book', 'comic', 'game', 'manga', 'movie', 'tv')),
- 'vinyl_color': ('string', False, True, 'technical', ('music',)),
- 'vinyl_weight': ('string', False, True, 'technical', ('music',))}
+                  ('anime', 'boardgame', 'book', 'comic', 'game', 'manga', 'movie', 'tv'))}
 
 def test_metadata_field_registry_matches_golden_contract():
     actual = {

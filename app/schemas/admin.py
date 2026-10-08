@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.base import ItemKind, UserRole
 from app.models.partial_date import PartialDateValue
@@ -11,6 +11,22 @@ from app.models.partial_date import PartialDateValue
 class AdminMetadataCreditInput(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     role: str | None = Field(default=None, max_length=64)
+
+
+class AdminMusicTrackCorrection(BaseModel):
+    id: UUID
+    disc_id: UUID
+    disc_number: int = Field(ge=1, strict=True)
+    position: str = Field(max_length=16, strict=True)
+    position_order: int = Field(ge=0, strict=True)
+    title: str = Field(min_length=1, max_length=255, strict=True)
+    artist: str | None = Field(default=None, strict=True)
+    duration_seconds: int | None = Field(default=None, ge=0, strict=True)
+    is_header: bool
+    parent_header_id: UUID | None
+    indent_level: int = Field(ge=0, le=8, strict=True)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class AdminMetadataCorrectionRequest(BaseModel):
@@ -48,7 +64,7 @@ class AdminMetadataCorrectionRequest(BaseModel):
     families: list[str] | None = None
     expansions: list[str] | None = None
     rankings: list[str] | None = None
-    tracks: list[dict[str, Any]] | None = None
+    tracks: list[AdminMusicTrackCorrection] | None = None
     creators: list[AdminMetadataCreditInput] | None = None
     characters: list[str] | None = None
     story_arcs: list[str] | None = None

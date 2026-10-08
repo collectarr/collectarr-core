@@ -96,6 +96,6 @@ class MusicItem(UuidMixin, TimestampMixin, Base):
     @validates("discs")
     def validate_discs(self, _key: str, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Validate and replace the full document so SQLAlchemy tracks edits."""
-        from app.schemas.catalog_music_item import normalize_music_discs
+        from app.schemas.catalog_music_item import validate_music_discs
 
-        return normalize_music_discs(value)
+        return validate_music_discs(value)

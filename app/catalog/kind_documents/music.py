@@ -124,11 +124,11 @@ FIELD_SPECS = (
 
 
 def _validate_discs(values: list[Mapping[str, Any]], path: str) -> None:
-    from app.schemas.catalog_music_item import normalize_music_discs
+    from app.schemas.catalog_music_item import validate_music_discs
 
     # Proposals and persisted documents share Music's component/hierarchy rules.
     try:
-        normalize_music_discs([dict(value) for value in values])
+        validate_music_discs([dict(value) for value in values])
     except ValueError as error:
         raise ValueError(f"{path}: {error}") from error
 

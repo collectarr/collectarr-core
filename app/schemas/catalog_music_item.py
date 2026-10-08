@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -162,39 +162,11 @@ class CatalogMusicDiscResponse(BaseModel):
         return self
 
 
-def normalize_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Build validated JSON-safe discs, preserving supplied component IDs."""
+def validate_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Validate canonical discs without inventing identities or track data."""
     discs: list[CatalogMusicDiscResponse] = []
     for raw in value:
-        tracks: list[CatalogMusicTrackResponse] = []
-        for index, track in enumerate(raw.get("tracks") or []):
-            position_order = track.get("position_order")
-            if not isinstance(position_order, int) or isinstance(position_order, bool):
-                position_order = index
-            position = track.get("position")
-            if track.get("is_header") is True:
-                position = "" if position is None else str(position)
-            elif position is None or not str(position).strip():
-                position = str(position_order + 1)
-            tracks.append(
-                CatalogMusicTrackResponse.model_validate(
-                    {
-                        **track,
-                        "id": track.get("id") or uuid4(),
-                        "position": str(position),
-                        "position_order": position_order,
-                    }
-                )
-            )
-        discs.append(
-            CatalogMusicDiscResponse.model_validate(
-                {
-                    **raw,
-                    "id": raw.get("id") or uuid4(),
-                    "tracks": tracks,
-                }
-            )
-        )
+        discs.append(CatalogMusicDiscResponse.model_validate(raw))
     if len({disc.disc_number for disc in discs}) != len(discs):
         raise ValueError("Disc numbers must be unique within an album")
     if len({disc.id for disc in discs}) != len(discs):

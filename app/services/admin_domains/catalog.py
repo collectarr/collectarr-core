@@ -579,47 +579,40 @@ class AdminCatalogService:
             )
 
         if "tracks" in update_data:
-            old_discs = {disc["disc_number"]: disc for disc in item.discs}
+            if payload.tracks is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_tracks",
+                    detail="Music track corrections must be a list of complete track rows",
+                )
+            old_discs = {str(disc["id"]): disc for disc in item.discs}
             tracks_by_disc: dict[int, list[dict[str, Any]]] = {}
-            for row in self._normalize_tracks(payload.tracks):
-                disc_number = row.get("disc_number", 1)
-                if disc_number < 1:
-                    raise ApiHTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        code="invalid_music_disc_number",
-                        detail="Track disc_number must be greater than zero",
-                    )
+            for track in payload.tracks:
+                row = track.model_dump(mode="python")
+                disc_number = row["disc_number"]
                 tracks_by_disc.setdefault(disc_number, []).append(row)
 
             replacement_discs: list[dict[str, Any]] = []
             for disc_number, rows in sorted(tracks_by_disc.items()):
-                old_disc = old_discs.get(disc_number, {})
-                old_tracks_by_id = {str(track["id"]): track for track in old_disc.get("tracks", [])}
-                old_tracks = {
-                    track["position"]: track
-                    for track in old_disc.get("tracks", [])
-                    if not track.get("is_header", False)
-                }
+                disc_id = rows[0]["disc_id"]
+                if any(row["disc_id"] != disc_id for row in rows):
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        code="invalid_music_disc_identity",
+                        detail="Tracks on one disc must carry the same disc_id",
+                    )
+                old_disc = old_discs.get(str(disc_id), {})
                 tracks = []
-                for index, row in enumerate(rows):
+                for row in rows:
                     duration = row.get("duration_seconds")
-                    old_track = old_tracks_by_id.get(str(row.get("id")), {})
-                    is_header = row.get("is_header", old_track.get("is_header", False))
-                    position = "" if is_header else str(row.get("position", index + 1))
-                    if not old_track and not is_header:
-                        old_track = old_tracks.pop(position, {})
                     tracks.append(
                         {
-                            "id": row.get("id") or old_track.get("id") or uuid4(),
-                            "is_header": is_header,
-                            "parent_header_id": row.get(
-                                "parent_header_id", old_track.get("parent_header_id")
-                            ),
-                            "indent_level": row.get(
-                                "indent_level", old_track.get("indent_level", 0)
-                            ),
-                            "position": position,
-                            "position_order": index,
+                            "id": row["id"],
+                            "is_header": row["is_header"],
+                            "parent_header_id": row["parent_header_id"],
+                            "indent_level": row["indent_level"],
+                            "position": row["position"],
+                            "position_order": row["position_order"],
                             "title": row["title"],
                             "artist": row.get("artist"),
                             "duration_ms": duration * 1000 if isinstance(duration, int) else None,
@@ -627,7 +620,7 @@ class AdminCatalogService:
                     )
                 replacement_discs.append(
                     {
-                        "id": old_disc.get("id") or uuid4(),
+                        "id": disc_id,
                         "disc_number": disc_number,
                         "title": old_disc.get("title"),
                         "format_family": old_disc.get("format_family"),
@@ -1166,33 +1159,6 @@ class AdminCatalogService:
             return None
         upper = normalized.upper()
         return upper if _REGION_RE.match(upper) else None
-
-    def _normalize_tracks(self, values: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
-        normalized: list[dict[str, Any]] = []
-        for raw in values or []:
-            if not isinstance(raw, dict):
-                continue
-            title = " ".join(str(raw.get("title") or "").split()).strip()
-            if not title:
-                continue
-            track: dict[str, Any] = {"title": title}
-            for field in ("id", "is_header", "parent_header_id", "indent_level"):
-                if field in raw:
-                    track[field] = raw[field]
-            position = raw.get("position")
-            if isinstance(position, (int, str)) and str(position).strip():
-                track["position"] = str(position).strip()
-            duration_seconds = raw.get("duration_seconds")
-            if isinstance(duration_seconds, int):
-                track["duration_seconds"] = duration_seconds
-            artist = " ".join(str(raw.get("artist") or "").split()).strip()
-            if artist:
-                track["artist"] = artist
-            disc_number = raw.get("disc_number")
-            if isinstance(disc_number, int):
-                track["disc_number"] = disc_number
-            normalized.append(track)
-        return normalized
 
     def _normalize_admin_tags(self, tags: list[str]) -> list[str]:
         normalized: list[str] = []

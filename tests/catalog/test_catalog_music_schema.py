@@ -9,7 +9,7 @@ from app.schemas.catalog_music_item import (
     CatalogMusicItemResponse,
     CatalogMusicTrackResponse,
     MusicDiscFormatFamily,
-    normalize_music_discs,
+    validate_music_discs,
 )
 
 
@@ -125,7 +125,7 @@ def test_disc_semantics_optical_allows_matrix_number():
     assert disc.matrix_number == "CD-RUNOUT-1234"
 
 
-def test_normalize_music_discs_preserves_ids_and_orders():
+def test_validate_music_discs_preserves_ids_and_orders():
     disc_id = uuid4()
     track_id = uuid4()
     raw = [
@@ -144,7 +144,7 @@ def test_normalize_music_discs_preserves_ids_and_orders():
             ],
         }
     ]
-    normalized = normalize_music_discs(raw)
+    normalized = validate_music_discs(raw)
     assert len(normalized) == 1
     assert normalized[0]["id"] == str(disc_id)
     assert normalized[0]["format_family"] == "cd"

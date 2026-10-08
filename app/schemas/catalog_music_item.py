@@ -162,27 +162,41 @@ def validate_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 class CatalogMusicArtistCreditResponse(BaseModel):
-    id: str = Field(min_length=1)
-    name: str = Field(min_length=1)
-    sort_name: str | None = None
-    artist_id: str | None = None
-    sequence: int = Field(ge=1)
-    join_phrase: str | None = None
+    id: str = Field(min_length=1, strict=True)
+    name: str = Field(min_length=1, strict=True)
+    sort_name: str | None = Field(default=None, strict=True)
+    artist_id: str | None = Field(default=None, strict=True)
+    sequence: int = Field(ge=1, strict=True)
+    join_phrase: str | None = Field(default=None, strict=True)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("id", "name", "sort_name", "artist_id", "join_phrase")
+    @classmethod
+    def validate_credit_text(cls, value: str | None) -> str | None:
+        if value is not None and (not value or value != value.strip()):
+            raise ValueError("Music artist credit text must be non-empty trimmed text")
+        return value
 
 
 class CatalogMusicRoleCreditResponse(BaseModel):
-    id: str = Field(min_length=1)
-    name: str = Field(min_length=1)
-    person_id: str = Field(min_length=1)
-    role_id: str | None = None
-    sequence: int = Field(ge=1)
-    sort_name: str | None = None
-    image_url: str | None = None
-    instrument: str | None = None
+    id: str = Field(min_length=1, strict=True)
+    name: str = Field(min_length=1, strict=True)
+    person_id: str = Field(min_length=1, strict=True)
+    role_id: str | None = Field(default=None, strict=True)
+    sequence: int = Field(ge=1, strict=True)
+    sort_name: str | None = Field(default=None, strict=True)
+    image_url: str | None = Field(default=None, strict=True)
+    instrument: str | None = Field(default=None, strict=True)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("id", "name", "person_id", "role_id", "sort_name", "image_url", "instrument")
+    @classmethod
+    def validate_credit_text(cls, value: str | None) -> str | None:
+        if value is not None and (not value or value != value.strip()):
+            raise ValueError("Music role credit text must be non-empty trimmed text")
+        return value
 
 
 class CatalogMusicExternalLinkResponse(BaseModel):

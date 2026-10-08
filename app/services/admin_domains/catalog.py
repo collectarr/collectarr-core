@@ -604,7 +604,6 @@ class AdminCatalogService:
                 old_disc = old_discs.get(str(disc_id), {})
                 tracks = []
                 for row in rows:
-                    duration = row.get("duration_seconds")
                     tracks.append(
                         {
                             "id": row["id"],
@@ -615,7 +614,7 @@ class AdminCatalogService:
                             "position_order": row["position_order"],
                             "title": row["title"],
                             "artist": row.get("artist"),
-                            "duration_ms": duration * 1000 if isinstance(duration, int) else None,
+                            "duration_ms": row.get("duration_ms"),
                         }
                     )
                 replacement_discs.append(

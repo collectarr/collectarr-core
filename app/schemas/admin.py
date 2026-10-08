@@ -21,7 +21,7 @@ class AdminMusicTrackCorrection(BaseModel):
     position_order: int = Field(ge=0, strict=True)
     title: str = Field(min_length=1, max_length=255, strict=True)
     artist: str | None = Field(default=None, strict=True)
-    duration_seconds: int | None = Field(default=None, ge=0, strict=True)
+    duration_ms: int | None = Field(default=None, ge=0, strict=True)
     is_header: bool
     parent_header_id: UUID | None
     indent_level: int = Field(ge=0, le=8, strict=True)

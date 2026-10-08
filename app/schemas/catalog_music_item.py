@@ -171,7 +171,7 @@ class CatalogMusicArtistCreditResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    @field_validator("id", "name", "sort_name", "artist_id", "join_phrase")
+    @field_validator("id", "name", "sort_name", "artist_id")
     @classmethod
     def validate_credit_text(cls, value: str | None) -> str | None:
         if value is not None and (not value or value != value.strip()):

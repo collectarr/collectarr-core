@@ -1378,7 +1378,7 @@
             "title": "Disc Number",
             "type": "integer"
           },
-          "duration_seconds": {
+          "duration_ms": {
             "anyOf": [
               {
                 "minimum": 0.0,
@@ -1388,7 +1388,7 @@
                 "type": "null"
               }
             ],
-            "title": "Duration Seconds"
+            "title": "Duration Ms"
           },
           "id": {
             "format": "uuid",

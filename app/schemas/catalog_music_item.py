@@ -119,6 +119,13 @@ class CatalogMusicDiscResponse(BaseModel):
                 active_headers[track.indent_level] = track
         return ordered
 
+    @field_validator("sound_types")
+    @classmethod
+    def validate_sound_types(cls, values: list[str]) -> list[str]:
+        if any(not value or value != value.strip() for value in values):
+            raise ValueError("Music disc sound_types must be non-empty trimmed text")
+        return values
+
     @model_validator(mode="after")
     def validate_disc_semantics(self) -> CatalogMusicDiscResponse:
         if self.vinyl_weight_grams is not None:

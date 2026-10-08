@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date
 from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import CatalogItemPage
 
 
@@ -215,12 +215,9 @@ class CatalogMusicItemResponse(BaseModel):
     subtitle: str | None = None
     artist: str | None = None
     artist_credits: list[dict[str, Any]]
-    original_release_date: date | None = None
-    original_release_date_parts: dict[str, int] | str | None = None
-    recording_date: date | None = None
-    recording_date_parts: dict[str, int] | str | None = None
-    release_date: date | None = None
-    release_date_parts: dict[str, int] | str | None = None
+    original_release_date: PartialDateValue | None = None
+    recording_date: PartialDateValue | None = None
+    release_date: PartialDateValue | None = None
     label: str | None = None
     barcode: str | None = None
     catalog_number: str | None = None

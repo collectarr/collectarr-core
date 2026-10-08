@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
-from sqlalchemy import Boolean, Date, Index, Integer, String, Text
+from sqlalchemy import Boolean, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
@@ -60,12 +59,9 @@ class MusicItem(UuidMixin, TimestampMixin, Base):
     artist_credits: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list
     )
-    original_release_date: Mapped[date | None] = mapped_column(Date)
-    original_release_date_parts: Mapped[dict[str, int] | str | None] = mapped_column(JSONB)
-    recording_date: Mapped[date | None] = mapped_column(Date)
-    recording_date_parts: Mapped[dict[str, int] | str | None] = mapped_column(JSONB)
-    release_date: Mapped[date | None] = mapped_column(Date)
-    release_date_parts: Mapped[dict[str, int] | str | None] = mapped_column(JSONB)
+    original_release_date: Mapped[dict[str, int] | None] = mapped_column(JSONB)
+    recording_date: Mapped[dict[str, int] | None] = mapped_column(JSONB)
+    release_date: Mapped[dict[str, int] | None] = mapped_column(JSONB)
     label: Mapped[str | None] = mapped_column(String(255))
     barcode: Mapped[str | None] = mapped_column(String(100))
     catalog_number: Mapped[str | None] = mapped_column(String(100))

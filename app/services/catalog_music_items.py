@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import extract, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.catalog_music_item import MusicItem
+from app.models.partial_date import PartialDateValue
 from app.schemas.catalog_music_item import (
     CatalogMusicItemResponse,
     CatalogMusicItemSearchPage,
@@ -56,22 +56,9 @@ class CatalogMusicItemService:
             subtitle=_optional_string(item_payload.get("subtitle")),
             artist=artist,
             artist_credits=credits["artist_credits"],
-            original_release_date=_partial_date(
-                item_payload.get("original_release_date_parts")
-                or item_payload.get("original_release_date")
-            ),
-            original_release_date_parts=item_payload.get("original_release_date_parts")
-            or item_payload.get("original_release_date"),
-            recording_date=_partial_date(
-                item_payload.get("recording_date_parts") or item_payload.get("recording_date")
-            ),
-            recording_date_parts=item_payload.get("recording_date_parts")
-            or item_payload.get("recording_date"),
-            release_date=_partial_date(
-                item_payload.get("release_date_parts") or item_payload.get("release_date")
-            ),
-            release_date_parts=item_payload.get("release_date_parts")
-            or item_payload.get("release_date"),
+            original_release_date=_partial_date(item_payload.get("original_release_date")),
+            recording_date=_partial_date(item_payload.get("recording_date")),
+            release_date=_partial_date(item_payload.get("release_date")),
             label=_optional_string(item_payload.get("label")),
             barcode=_optional_string(item_payload.get("barcode")),
             catalog_number=_optional_string(item_payload.get("catalog_number")),
@@ -146,9 +133,9 @@ class CatalogMusicItemService:
         if year is not None:
             stmt = stmt.where(
                 or_(
-                    extract("year", MusicItem.release_date) == year,
-                    extract("year", MusicItem.original_release_date) == year,
-                    extract("year", MusicItem.recording_date) == year,
+                    MusicItem.release_date["year"].as_integer() == year,
+                    MusicItem.original_release_date["year"].as_integer() == year,
+                    MusicItem.recording_date["year"].as_integer() == year,
                 )
             )
         stmt = (
@@ -236,18 +223,10 @@ def _optional_string(value: Any) -> str | None:
     return trimmed or None
 
 
-def _partial_date(value: Any) -> date | None:
-    if isinstance(value, dict):
-        year, month, day = value.get("year"), value.get("month"), value.get("day")
-        if isinstance(year, int) and isinstance(month, int) and isinstance(day, int):
-            try:
-                return date(year, month, day)
-            except ValueError:
-                return None
-            return None
-    if isinstance(value, str):
-        try:
-            return date.fromisoformat(value)
-        except ValueError:
-            return None
-    return None
+def _partial_date(value: Any) -> dict[str, int] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Music dates must be partial-date objects")
+    parsed = PartialDateValue.model_validate(value)
+    return None if parsed.is_empty else parsed.model_dump(exclude_none=True)

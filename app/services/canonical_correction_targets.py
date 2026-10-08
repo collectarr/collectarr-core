@@ -18,6 +18,7 @@ from app.catalog.metadata_fields import (
 )
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
     CanonicalCorrectionTargetResponse,
@@ -123,46 +124,21 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
 
 
 def _music_partial_date_parts(entity: Any, key: str) -> dict[str, int] | None:
-    raw_parts = getattr(entity, f"{key}_parts", None)
-    if raw_parts is not None:
-        return _parse_partial_date_parts(raw_parts)
-    value = getattr(entity, key, None)
-    if isinstance(value, date):
-        return {"year": value.year, "month": value.month, "day": value.day}
-    return None
+    return _parse_partial_date_parts(getattr(entity, key, None))
 
 
 def _parse_partial_date_parts(value: Any) -> dict[str, int] | None:
-    if isinstance(value, str):
-        text = value.strip().split("T", 1)[0]
-        if not text:
-            return None
-        values = text.split("-")
-        value = dict(zip(("year", "month", "day"), values, strict=False))
     if not isinstance(value, dict):
         return None
-
-    parts: dict[str, int] = {}
-    for key in ("year", "month", "day"):
-        raw = value.get(key)
-        if raw is None or raw == "":
-            continue
-        if isinstance(raw, bool):
-            return None
-        try:
-            parts[key] = int(raw)
-        except TypeError, ValueError:
-            return None
-    year = parts.get("year")
-    month = parts.get("month")
-    day = parts.get("day")
-    if year is None or year < 1 or (day is not None and month is None):
+    if set(value) - {"year", "month", "day"}:
+        return None
+    if any(not isinstance(part, int) or isinstance(part, bool) for part in value.values()):
         return None
     try:
-        date(year, month or 1, day or 1)
+        parsed = PartialDateValue.model_validate(value)
     except ValueError:
         return None
-    return parts
+    return None if parsed.is_empty else parsed.model_dump(exclude_none=True)
 
 
 class CanonicalField:
@@ -331,25 +307,14 @@ class CanonicalCorrectionTargetService:
                 "original_release_date",
                 "recording_date",
             }:
-                parts = _parse_partial_date_parts(value)
-                if value is not None and parts is None:
+                partial_date = _parse_partial_date_parts(value)
+                if value is not None and partial_date is None:
                     raise ApiHTTPException(
                         status_code=422,
                         code="invalid_partial_date",
-                        detail=f"Field '{key}' must be a year, partial date, or date object.",
+                        detail=f"Field '{key}' must be a partial-date object.",
                     )
-                setattr(entity, f"{key}_parts", parts)
-                setattr(
-                    entity,
-                    key,
-                    date(
-                        parts["year"],
-                        parts.get("month", 1),
-                        parts.get("day", 1),
-                    )
-                    if parts is not None
-                    else None,
-                )
+                setattr(entity, key, partial_date)
                 continue
             if field.json_key is not None:
                 details = dict(getattr(entity, field.column) or {})

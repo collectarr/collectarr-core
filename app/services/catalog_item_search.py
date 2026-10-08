@@ -251,12 +251,9 @@ class CatalogItemSearchService:
             if root.kind is ItemKind.music:
                 predicates.append(
                     or_(
-                        extract("year", MusicItem.release_date) == year,
-                        extract("year", MusicItem.original_release_date) == year,
-                        extract("year", MusicItem.recording_date) == year,
-                        MusicItem.release_date_parts["year"].as_integer() == year,
-                        MusicItem.original_release_date_parts["year"].as_integer() == year,
-                        MusicItem.recording_date_parts["year"].as_integer() == year,
+                        MusicItem.release_date["year"].as_integer() == year,
+                        MusicItem.original_release_date["year"].as_integer() == year,
+                        MusicItem.recording_date["year"].as_integer() == year,
                     )
                 )
             else:

@@ -11,15 +11,18 @@ from app.catalog.document_shape import (
     INTEGER_LIST,
     INTEGER_OR_STRING,
     PARTIAL_DATE,
+    PARTIAL_DATE_OBJECT,
     STRING,
     STRING_LIST,
     ChildObjectShape,
     KindDocumentShape,
     partial_date_schema,
+    partial_date_object_schema,
 )
 from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
 from app.catalog.metadata_fields import MetadataFieldSpec, fields_for_kind
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 
 
 def catalog_item_payload_contract() -> dict[str, Any]:
@@ -69,6 +72,10 @@ def validate_catalog_item_payload(
         raise ValueError("catalog_item must be an object")
 
     document = catalog_kind_for(kind).document
+    rejected_fields = document.rejected_root_fields.intersection(payload)
+    if rejected_fields:
+        names = ", ".join(sorted(rejected_fields))
+        raise ValueError(f"catalog_item contains unsupported {kind.value} fields: {names}")
     field_specs = {spec.key: spec for spec in fields_for_kind(kind, editable_only=True)}
     projected = _project_object(
         payload,
@@ -92,6 +99,7 @@ def _root_fields_for_kind(
         "release_date_parts",
         *field_specs,
         *document.root_fields,
+        *document.root_field_overrides,
         *document.children,
     }
 
@@ -110,7 +118,9 @@ def _root_field_schema(
             }
         )
     spec = field_specs.get(key)
-    value_type = spec.value_type if spec is not None else document.root_fields.get(key)
+    value_type = document.root_field_overrides.get(key)
+    if value_type is None:
+        value_type = spec.value_type if spec is not None else document.root_fields.get(key)
     schema = _value_schema(value_type, document)
     if key in document.required_root_fields:
         if value_type == STRING:
@@ -161,6 +171,8 @@ def _value_schema(
         return {"type": "array", "items": {"type": "integer"}}
     if value_type == PARTIAL_DATE:
         return partial_date_schema()
+    if value_type == PARTIAL_DATE_OBJECT:
+        return partial_date_object_schema(allow_empty=False)
     if value_type == INTEGER_OR_STRING:
         return {"anyOf": [{"type": "integer"}, {"type": "string"}]}
     if value_type == "link_list":
@@ -191,7 +203,9 @@ def _project_object(
         child_shape = document.children.get(key)
         if child_shape is None:
             spec = field_specs.get(key) if field_specs is not None else None
-            value_type = spec.value_type if spec is not None else document.root_fields.get(key)
+            value_type = document.root_field_overrides.get(key)
+            if value_type is None:
+                value_type = spec.value_type if spec is not None else document.root_fields.get(key)
             _validate_value(child, field_path, value_type)
             projected[key] = child
             continue
@@ -300,8 +314,13 @@ def _validate_value(value: Any, path: str, value_type: str | None) -> None:
         if not isinstance(value, (int, str)) or isinstance(value, bool):
             raise ValueError(f"{path} must be an integer or string")
         return
-    if value_type == PARTIAL_DATE:
-        _validate_partial_date(value, path)
+    if value_type in {PARTIAL_DATE, PARTIAL_DATE_OBJECT}:
+        _validate_partial_date(
+            value,
+            path,
+            allow_string=value_type == PARTIAL_DATE,
+            allow_empty=value_type == PARTIAL_DATE,
+        )
         return
     if isinstance(value, Mapping):
         _validate_partial_date(value, path)
@@ -309,11 +328,25 @@ def _validate_value(value: Any, path: str, value_type: str | None) -> None:
         raise ValueError(f"{path} contains an undeclared object value")
 
 
-def _validate_partial_date(value: Any, path: str) -> None:
-    if isinstance(value, str):
+def _validate_partial_date(
+    value: Any,
+    path: str,
+    *,
+    allow_string: bool = True,
+    allow_empty: bool = True,
+) -> None:
+    if allow_string and isinstance(value, str):
         return
     if isinstance(value, Mapping) and set(value).issubset({"year", "month", "day"}):
         if any(not isinstance(part, int) or isinstance(part, bool) for part in value.values()):
             raise ValueError(f"{path} date components must be integers")
+        if not allow_empty and not value:
+            raise ValueError(f"{path} must contain at least one date component")
+        try:
+            PartialDateValue.model_validate(value)
+        except ValueError as error:
+            raise ValueError(f"{path} contains an invalid partial date") from error
         return
-    raise ValueError(f"{path} must be a partial date string or object")
+    if allow_string:
+        raise ValueError(f"{path} must be a partial date string or object")
+    raise ValueError(f"{path} must be a partial date object")

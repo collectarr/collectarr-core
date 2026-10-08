@@ -29,6 +29,8 @@ class KindDocumentShape:
     # value type.
     root_fields: Mapping[str, str]
     children: Mapping[str, ChildObjectShape]
+    root_field_overrides: Mapping[str, str] = field(default_factory=dict)
+    rejected_root_fields: frozenset[str] = frozenset()
     allowed_root_fields: frozenset[str] | None = None
     validate_document: Callable[[Mapping[str, Any], str], None] | None = None
     required_root_fields: frozenset[str] = frozenset()
@@ -40,6 +42,7 @@ BOOLEAN = "boolean"
 STRING_LIST = "string_list"
 INTEGER_LIST = "integer_list"
 PARTIAL_DATE = "partial_date"
+PARTIAL_DATE_OBJECT = "partial_date_object"
 INTEGER_OR_STRING = "integer_or_string"
 
 
@@ -132,14 +135,21 @@ def partial_date_schema() -> dict[str, Any]:
     return {
         "anyOf": [
             {"type": "string"},
-            {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "year": {"type": "integer"},
-                    "month": {"type": "integer"},
-                    "day": {"type": "integer"},
-                },
-            },
+            partial_date_object_schema(),
         ]
     }
+
+
+def partial_date_object_schema(*, allow_empty: bool = True) -> dict[str, Any]:
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "year": {"type": "integer", "minimum": 1, "maximum": 9999},
+            "month": {"type": "integer", "minimum": 1, "maximum": 12},
+            "day": {"type": "integer", "minimum": 1, "maximum": 31},
+        },
+    }
+    if not allow_empty:
+        schema["minProperties"] = 1
+    return schema

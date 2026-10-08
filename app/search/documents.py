@@ -213,7 +213,11 @@ def movie_item_search_document(item: MovieItem) -> dict[str, Any]:
 
 
 def music_item_search_document(item: MusicItem) -> dict[str, Any]:
-    release_date = item.release_date or item.original_release_date or item.recording_date
+    date_value = item.release_date or item.original_release_date or item.recording_date
+    release_date_parts = (
+        PartialDateValue.model_validate(date_value) if date_value is not None else None
+    )
+    release_date = release_date_parts.iso_string if release_date_parts else None
     return {
         "id": str(item.id),
         "kind": ItemKind.music.value,
@@ -223,9 +227,9 @@ def music_item_search_document(item: MusicItem) -> dict[str, Any]:
         "cover_image_url": item.cover_image_url,
         "thumbnail_image_url": item.thumbnail_image_url or item.cover_image_url,
         "publisher": item.label,
-        "release_date": release_date.isoformat() if release_date else None,
+        "release_date": release_date,
         "region": item.country,
-        "release_year": release_date.year if release_date else None,
+        "release_year": release_date_parts.year if release_date_parts else None,
         "barcode": item.barcode,
         "barcodes": [item.barcode] if item.barcode else [],
         "variant": item.format,

@@ -569,8 +569,13 @@ class AdminCatalogService:
                 continue
             value = getattr(payload, field)
             parsed = PartialDateValue.model_validate(value) if value is not None else None
-            setattr(item, f"{field}_parts", partial_date_storage(parsed))
-            setattr(item, field, parsed.as_date if parsed is not None else None)
+            setattr(
+                item,
+                field,
+                parsed.model_dump(exclude_none=True)
+                if parsed is not None and not parsed.is_empty
+                else None,
+            )
 
         if "tracks" in update_data:
             old_discs = {disc["disc_number"]: disc for disc in item.discs}

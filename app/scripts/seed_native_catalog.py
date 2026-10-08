@@ -555,8 +555,7 @@ async def _seed_music(
     item.sort_title = _slug(entry.title)
     item.artist = entry.creator[0]
     item.artist_credits = [{"name": entry.creator[0]}]
-    item.release_date = entry.release_date
-    item.release_date_parts = {
+    item.release_date = {
         "year": entry.release_date.year,
         "month": entry.release_date.month,
         "day": entry.release_date.day,

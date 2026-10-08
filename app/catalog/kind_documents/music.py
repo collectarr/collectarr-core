@@ -164,6 +164,23 @@ def _validate_music_role_credits(values: list[Mapping[str, Any]], path: str) -> 
         seen_sequences.add(credit.sequence)
 
 
+_STRING_LIST_FIELDS = frozenset(
+    {"genres", "studios", "extra", "choruses", "compositions", "orchestras"}
+)
+
+
+def _validate_music_document(value: Mapping[str, Any], path: str) -> None:
+    for key, field_value in value.items():
+        field_path = f"{path}.{key}"
+        if isinstance(field_value, str):
+            if not field_value or field_value != field_value.strip():
+                raise ValueError(f"{field_path} must be non-empty trimmed text")
+        elif key in _STRING_LIST_FIELDS and isinstance(field_value, list):
+            for index, entry in enumerate(field_value):
+                if not entry or entry != entry.strip():
+                    raise ValueError(f"{field_path}[{index}] must be non-empty trimmed text")
+
+
 TRACK = ChildObjectShape(
     fields={
         "id": STRING,
@@ -340,4 +357,5 @@ DOCUMENT = KindDocumentShape(
         }
     ),
     required_root_fields=frozenset({"title"}),
+    validate_document=_validate_music_document,
 )

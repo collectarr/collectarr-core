@@ -64,7 +64,7 @@ class AdminMetadataCorrectionRequest(BaseModel):
     families: list[str] | None = None
     expansions: list[str] | None = None
     rankings: list[str] | None = None
-    tracks: list[AdminMusicTrackCorrection] | None = None
+    tracks: list[AdminMusicTrackCorrection] = Field(default_factory=list)
     creators: list[AdminMetadataCreditInput] | None = None
     characters: list[str] | None = None
     story_arcs: list[str] | None = None

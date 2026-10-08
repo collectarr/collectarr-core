@@ -540,29 +540,22 @@ class AdminCatalogService:
                 continue
             value = getattr(payload, field)
             if field == "title":
-                value = self._normalize_optional_text(value)
                 if value is None:
                     raise ApiHTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         code="music_title_required",
                         detail="Music Catalog Item title must not be empty",
                     )
-            elif isinstance(value, str) and field not in {
-                "cover_image_url",
-                "thumbnail_image_url",
-                "back_cover_image_url",
-            }:
-                value = self._normalize_optional_text(value)
+            if isinstance(value, str):
+                value = self._strict_music_correction_text(field, value)
             setattr(item, field, value)
 
         if "genres" in update_data:
-            item.genres = self._normalize_text_values(payload.genres)
+            item.genres = self._strict_music_correction_values("genres", payload.genres)
         if "studios" in update_data:
-            item.studios = self._normalize_text_values(payload.studios)
+            item.studios = self._strict_music_correction_values("studios", payload.studios)
         if "extra" in update_data:
-            item.extra = self._normalize_text_values(payload.extra)
-        if "sound_types" in update_data:
-            item.sound_types = self._normalize_text_values(payload.sound_types)
+            item.extra = self._strict_music_correction_values("extra", payload.extra)
         if "external_links" in update_data:
             item.external_links = self._current_link_values(payload.external_links)
 
@@ -580,12 +573,6 @@ class AdminCatalogService:
             )
 
         if "tracks" in update_data:
-            if payload.tracks is None:
-                raise ApiHTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    code="invalid_music_tracks",
-                    detail="Music track corrections must be a list of complete track rows",
-                )
             old_discs = {str(disc["id"]): disc for disc in item.discs}
             tracks_by_disc: dict[int, list[dict[str, Any]]] = {}
             for track in payload.tracks:
@@ -1145,6 +1132,41 @@ class AdminCatalogService:
             seen.add(key)
             normalized.append(value)
         return normalized
+
+    @staticmethod
+    def _strict_music_correction_text(field: str, value: str) -> str:
+        if not value or value != value.strip():
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="invalid_music_text",
+                detail=f"Music {field} must be non-empty trimmed text or null",
+            )
+        return value
+
+    @staticmethod
+    def _strict_music_correction_values(
+        field: str,
+        values: list[str] | None,
+    ) -> list[str]:
+        if values is None:
+            return []
+        seen: set[str] = set()
+        for index, value in enumerate(values):
+            if not value or value != value.strip():
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_values",
+                    detail=f"Music {field}[{index}] must be non-empty trimmed text",
+                )
+            normalized = value.casefold()
+            if normalized in seen:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="duplicate_music_value",
+                    detail=f"Music {field} must not contain duplicate values",
+                )
+            seen.add(normalized)
+        return list(values)
 
     def _normalize_optional_text(self, value: str | None) -> str | None:
         normalized = " ".join(str(value or "").split()).strip()

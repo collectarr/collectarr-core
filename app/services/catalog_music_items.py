@@ -26,8 +26,8 @@ class CatalogMusicItemService:
         """Publish an approved Music Add/Edit payload as one flat root item."""
         item_payload = validate_catalog_item_payload(ItemKind.music, payload)
         title = item_payload.get("title")
-        if not isinstance(title, str) or not title.strip():
-            raise ValueError("Music Catalog Item title must not be empty")
+        if not isinstance(title, str) or not title or title != title.strip():
+            raise ValueError("Music Catalog Item title must be non-empty trimmed text")
 
         credits = {
             key: _credit_documents(item_payload.get(key))
@@ -50,7 +50,7 @@ class CatalogMusicItemService:
             or None
         )
         item = MusicItem(
-            title=title.strip(),
+            title=title,
             sort_title=_optional_string(item_payload.get("sort_title")),
             subtitle=_optional_string(item_payload.get("subtitle")),
             artist=artist,
@@ -65,9 +65,7 @@ class CatalogMusicItemService:
             packaging=_optional_string(item_payload.get("packaging")),
             studios=_string_values(item_payload.get("studios")),
             country=_optional_string(item_payload.get("country")),
-            is_live=item_payload.get("is_live")
-            if isinstance(item_payload.get("is_live"), bool)
-            else None,
+            is_live=item_payload.get("is_live"),
             extra=_string_values(item_payload.get("extra")),
             spars_code=_optional_string(item_payload.get("spars_code")),
             box_set=_optional_string(item_payload.get("box_set")),
@@ -177,22 +175,27 @@ def _credit_documents(value: Any) -> list[dict[str, Any]]:
 
 
 def _string_values(value: Any) -> list[str]:
-    if not isinstance(value, list):
+    if value is None:
         return []
-    return [entry.strip() for entry in value if isinstance(entry, str) and entry.strip()]
+    if not isinstance(value, list) or any(not isinstance(entry, str) for entry in value):
+        raise ValueError("Music values must be lists of strings")
+    return list(value)
 
 
 def _object_values(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
+    if value is None:
         return []
-    return [dict(entry) for entry in value if isinstance(entry, dict)]
+    if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):
+        raise ValueError("Music object values must be a list of objects")
+    return [dict(entry) for entry in value]
 
 
 def _optional_string(value: Any) -> str | None:
-    if not isinstance(value, str):
+    if value is None:
         return None
-    trimmed = value.strip()
-    return trimmed or None
+    if not isinstance(value, str):
+        raise ValueError("Music text values must be strings or null")
+    return value
 
 
 def _partial_date(value: Any) -> dict[str, int] | None:

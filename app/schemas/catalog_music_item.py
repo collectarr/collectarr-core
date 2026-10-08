@@ -24,14 +24,14 @@ class MusicDiscFormatFamily(str, Enum):
 
 class CatalogMusicTrackResponse(BaseModel):
     id: UUID
-    position: str = Field(default="", max_length=16)
-    position_order: int = Field(ge=0)
-    title: str = Field(min_length=1, max_length=255)
-    artist: str | None = None
-    duration_ms: int | None = Field(default=None, ge=0)
-    is_header: bool = False
+    position: str = Field(max_length=16, strict=True)
+    position_order: int = Field(ge=0, strict=True)
+    title: str = Field(min_length=1, max_length=255, strict=True)
+    artist: str | None = Field(default=None, strict=True)
+    duration_ms: int | None = Field(default=None, ge=0, strict=True)
+    is_header: bool = Field(strict=True)
     parent_header_id: UUID | None = None
-    indent_level: int = Field(default=0, ge=0, le=8)
+    indent_level: int = Field(ge=0, le=8, strict=True)
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
@@ -56,7 +56,7 @@ class CatalogMusicTrackResponse(BaseModel):
 
 class CatalogMusicDiscResponse(BaseModel):
     id: UUID
-    disc_number: int = Field(ge=1)
+    disc_number: int = Field(ge=1, strict=True)
     title: str | None = None
     format_family: MusicDiscFormatFamily | None = None
     format: str | None = None

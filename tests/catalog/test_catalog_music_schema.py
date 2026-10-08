@@ -33,6 +33,8 @@ def test_catalog_music_disc_validation_success():
                 position="A1",
                 position_order=0,
                 title="First Song",
+                is_header=False,
+                indent_level=0,
             )
         ],
     )
@@ -142,6 +144,8 @@ def test_validate_music_discs_preserves_ids_and_orders():
                     "position": "1",
                     "position_order": 0,
                     "title": "Track 1",
+                    "is_header": False,
+                    "indent_level": 0,
                 }
             ],
         }

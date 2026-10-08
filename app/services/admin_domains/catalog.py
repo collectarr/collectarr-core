@@ -40,6 +40,7 @@ from app.schemas.admin import (
     AdminNormalizedMetadataDriftReportResponse,
     AdminNormalizedMetadataDriftSample,
 )
+from app.schemas.catalog_music_item import validate_music_discs
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
 from app.services.catalog_item_search import CatalogItemSearchService
@@ -634,6 +635,14 @@ class AdminCatalogService:
                         "tracks": tracks,
                     }
                 )
+            try:
+                replacement_discs = validate_music_discs(replacement_discs)
+            except ValueError as error:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_tracks",
+                    detail=str(error),
+                ) from error
             item.discs = replacement_discs
 
         self._audit_recorder(

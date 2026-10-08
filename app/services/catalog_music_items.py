@@ -69,7 +69,7 @@ class CatalogMusicItemService:
             is_live=item_payload.get("is_live")
             if isinstance(item_payload.get("is_live"), bool)
             else None,
-            extra=_optional_string(item_payload.get("extra")),
+            extra=_string_values(item_payload.get("extra")),
             spars_code=_optional_string(item_payload.get("spars_code")),
             box_set=_optional_string(item_payload.get("box_set")),
             composers=credits["composers"],

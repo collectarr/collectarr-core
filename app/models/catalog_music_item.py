@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import Boolean, Index, Integer, String, Text
+from sqlalchemy import Boolean, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
@@ -70,7 +70,7 @@ class MusicItem(UuidMixin, TimestampMixin, Base):
     studios: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     country: Mapped[str | None] = mapped_column(String(100))
     is_live: Mapped[bool | None] = mapped_column(Boolean)
-    extra: Mapped[str | None] = mapped_column(Text)
+    extra: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     spars_code: Mapped[str | None] = mapped_column(String(50))
     box_set: Mapped[str | None] = mapped_column(String(255))
     composers: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)

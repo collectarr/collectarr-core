@@ -16,6 +16,7 @@ from app.catalog.metadata_fields import (
     canonical_entity_type_for_scope,
     fields_for_kind,
 )
+from app.catalog.metadata_field_spec import VALUE_TYPE_STRING_LIST
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
@@ -302,6 +303,17 @@ class CanonicalCorrectionTargetService:
                     code="unsupported_canonical_field",
                     detail=f"Field '{key}' is not writable on {entity_type}.",
                 )
+            if field.value_type == VALUE_TYPE_STRING_LIST:
+                if value is None:
+                    value = []
+                elif not isinstance(value, list) or any(
+                    not isinstance(entry, str) for entry in value
+                ):
+                    raise ApiHTTPException(
+                        status_code=422,
+                        code="invalid_string_list",
+                        detail=f"Field '{key}' must be a list of strings.",
+                    )
             if entity_type == "catalog_music_item" and key in {
                 "release_date",
                 "original_release_date",

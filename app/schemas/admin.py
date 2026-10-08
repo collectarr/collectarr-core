@@ -72,7 +72,7 @@ class AdminMetadataCorrectionRequest(BaseModel):
     vinyl_color: str | None = Field(default=None, max_length=100)
     vinyl_weight: str | None = Field(default=None, max_length=100)
     rpm: int | None = Field(default=None, ge=0)
-    extra: str | None = None
+    extra: list[str] | None = None
     spars: str | None = Field(default=None, max_length=50)
     box_set: str | None = Field(default=None, max_length=255)
     original_release_date: PartialDateValue | date | None = None

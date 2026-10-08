@@ -219,7 +219,7 @@ EXPECTED_FIELDS: dict[str, tuple[str, bool, bool, str, tuple[str, ...]]] = {'age
                      'movie',
                      'music',
                      'tv')),
- 'extra': ('string', False, True, 'technical', ('music',)),
+ 'extra': ('string_list', False, True, 'technical', ('music',)),
  'families': ('string_list', False, True, 'relations', ('boardgame',)),
  'first_edition': ('boolean', False, True, 'item', ('book',)),
  'first_publication_date': ('partial_date', False, True, 'publishing', ('book',)),

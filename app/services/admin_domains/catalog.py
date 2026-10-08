@@ -529,7 +529,6 @@ class AdminCatalogService:
             "packaging",
             "country",
             "is_live",
-            "extra",
             "spars_code",
             "box_set",
             "cover_image_url",
@@ -559,6 +558,8 @@ class AdminCatalogService:
             item.genres = self._normalize_text_values(payload.genres)
         if "studios" in update_data:
             item.studios = self._normalize_text_values(payload.studios)
+        if "extra" in update_data:
+            item.extra = self._normalize_text_values(payload.extra)
         if "sound_types" in update_data:
             item.sound_types = self._normalize_text_values(payload.sound_types)
         if "external_links" in update_data:

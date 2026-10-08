@@ -226,7 +226,7 @@ class CatalogMusicItemResponse(BaseModel):
     studios: list[str]
     country: str | None = None
     is_live: bool | None = None
-    extra: str | None = None
+    extra: list[str]
     spars_code: str | None = None
     box_set: str | None = None
     composers: list[dict[str, Any]]

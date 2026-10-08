@@ -92,9 +92,10 @@ FIELD_SPECS = (
     ),
     MetadataFieldSpec(
         "extra",
-        VALUE_TYPE_STRING,
+        VALUE_TYPE_STRING_LIST,
         "Extra",
         section=SECTION_TECHNICAL,
+        input=INPUT_LIST,
         kinds=frozenset({ItemKind.music}),
     ),
     MetadataFieldSpec(
@@ -224,7 +225,7 @@ DOCUMENT = KindDocumentShape(
         "studios": STRING_LIST,
         "is_live": BOOLEAN,
         "packaging": STRING,
-        "extra": STRING,
+        "extra": STRING_LIST,
         "spars_code": STRING,
         "box_set": STRING,
         "cover_image_url": STRING,

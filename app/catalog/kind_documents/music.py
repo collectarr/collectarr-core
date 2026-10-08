@@ -6,7 +6,6 @@ from typing import Any
 from app.catalog.document_shape import (
     BOOLEAN,
     INTEGER,
-    INTEGER_OR_STRING,
     PARTIAL_DATE_OBJECT,
     STRING,
     STRING_LIST,
@@ -193,7 +192,7 @@ def _validate_music_document(value: Mapping[str, Any], path: str) -> None:
 TRACK = ChildObjectShape(
     fields={
         "id": STRING,
-        "position": INTEGER_OR_STRING,
+        "position": STRING,
         "position_order": INTEGER,
         "title": STRING,
         "artist": STRING,
@@ -202,13 +201,12 @@ TRACK = ChildObjectShape(
         "parent_header_id": STRING,
         "indent_level": INTEGER,
     },
-    required=frozenset({"title"}),
+    required=frozenset(
+        {"id", "position", "position_order", "title", "is_header", "indent_level"}
+    ),
     non_empty=frozenset({"title"}),
     nullable=frozenset(
         {
-            "id",
-            "position",
-            "position_order",
             "artist",
             "duration_ms",
             "parent_header_id",
@@ -232,10 +230,9 @@ DISC = ChildObjectShape(
         "matrix_number_side_b": STRING,
     },
     nested={"tracks": TRACK},
-    required=frozenset({"disc_number"}),
+    required=frozenset({"id", "disc_number", "tracks"}),
     nullable=frozenset(
         {
-            "id",
             "title",
             "format_family",
             "format",

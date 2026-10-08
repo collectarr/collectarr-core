@@ -1,4 +1,4 @@
-"""Tests for Music catalog response schemas, disc normalizer, and strict validation."""
+"""Tests for Music catalog response schemas and strict validation."""
 
 from uuid import uuid4
 import pytest
@@ -19,7 +19,7 @@ def test_catalog_music_disc_validation_success():
         disc_number=1,
         title="Side 1",
         format_family=MusicDiscFormatFamily.vinyl,
-        format="Vinyl (12\" LP)",
+        format='Vinyl (12" LP)',
         sound_types=["stereo"],
         color="Black",
         vinyl_weight_grams=180,
@@ -82,7 +82,9 @@ def test_catalog_music_item_extra_fields_forbidden():
 
 
 def test_disc_semantics_vinyl_weight_only_for_vinyl():
-    with pytest.raises(ValueError, match="vinyl_weight_grams is only allowed when format_family is vinyl"):
+    with pytest.raises(
+        ValueError, match="vinyl_weight_grams is only allowed when format_family is vinyl"
+    ):
         CatalogMusicDiscResponse(
             id=uuid4(),
             disc_number=1,

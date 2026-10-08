@@ -179,6 +179,30 @@ def validate_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+class CatalogMusicArtistCreditResponse(BaseModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    sort_name: str | None = None
+    artist_id: str | None = None
+    sequence: int = Field(ge=1)
+    join_phrase: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CatalogMusicRoleCreditResponse(BaseModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    person_id: str = Field(min_length=1)
+    role_id: str | None = None
+    sequence: int = Field(ge=1)
+    sort_name: str | None = None
+    image_url: str | None = None
+    instrument: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class CatalogMusicItemResponse(BaseModel):
     id: UUID
     kind: str = "music"
@@ -186,7 +210,7 @@ class CatalogMusicItemResponse(BaseModel):
     sort_title: str | None = None
     subtitle: str | None = None
     artist: str | None = None
-    artist_credits: list[dict[str, Any]]
+    artist_credits: list[CatalogMusicArtistCreditResponse]
     original_release_date: PartialDateValue | None = None
     recording_date: PartialDateValue | None = None
     release_date: PartialDateValue | None = None
@@ -201,15 +225,15 @@ class CatalogMusicItemResponse(BaseModel):
     extra: list[str]
     spars_code: str | None = None
     box_set: str | None = None
-    composers: list[dict[str, Any]]
-    conductors: list[dict[str, Any]]
+    composers: list[CatalogMusicRoleCreditResponse]
+    conductors: list[CatalogMusicRoleCreditResponse]
     choruses: list[str]
     compositions: list[str]
     orchestras: list[str]
-    songwriters: list[dict[str, Any]]
-    producers: list[dict[str, Any]]
-    engineers: list[dict[str, Any]]
-    musicians: list[dict[str, Any]]
+    songwriters: list[CatalogMusicRoleCreditResponse]
+    producers: list[CatalogMusicRoleCreditResponse]
+    engineers: list[CatalogMusicRoleCreditResponse]
+    musicians: list[CatalogMusicRoleCreditResponse]
     external_links: list[dict[str, Any]]
     cover_image_url: str | None = None
     back_cover_image_url: str | None = None

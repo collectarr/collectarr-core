@@ -37,7 +37,9 @@ def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
 
 def test_metadata_search_uses_a_paged_contract():
     assert CatalogSearchPage.model_fields.keys() == {"items", "next_offset", "has_more"}
-    assert any(getattr(route, "path", "").endswith("/search") for route in metadata_search.router.routes)
+    assert any(
+        getattr(route, "path", "").endswith("/search") for route in metadata_search.router.routes
+    )
 
 
 def test_flat_catalog_contract_has_no_generic_grouping_model():
@@ -54,8 +56,12 @@ def test_reusable_book_series_remains_a_book_specific_reference():
 
 
 def test_music_credit_fields_are_not_part_of_other_kind_documents():
-    music_credit = catalog_kind_for(ItemKind.music).document.children["artist_credits"]
-    assert {"artist_id", "join_phrase", "instrument"}.issubset(music_credit.fields)
+    music = catalog_kind_for(ItemKind.music).document
+    artist_credit = music.children["artist_credits"]
+    role_credit = music.children["composers"]
+    assert {"id", "name", "sequence", "artist_id", "join_phrase"}.issubset(artist_credit.fields)
+    assert {"id", "name", "sequence", "person_id", "instrument"}.issubset(role_credit.fields)
+    assert not artist_credit.allow_string_value
 
     for kind in (ItemKind.book, ItemKind.movie, ItemKind.tv):
         person = catalog_kind_for(kind).document.children["creators"]
@@ -65,9 +71,9 @@ def test_music_credit_fields_are_not_part_of_other_kind_documents():
     assert "join_phrase" in comic_creator.fields
     assert not {"artist_id", "instrument"}.intersection(comic_creator.fields)
 
-    comic_creator_fields = app.openapi()["components"]["schemas"][
-        "CatalogComicCreatorResponse"
-    ]["properties"]
+    comic_creator_fields = app.openapi()["components"]["schemas"]["CatalogComicCreatorResponse"][
+        "properties"
+    ]
     assert "join_phrase" in comic_creator_fields
     assert not {"artist_id", "instrument"}.intersection(comic_creator_fields)
 

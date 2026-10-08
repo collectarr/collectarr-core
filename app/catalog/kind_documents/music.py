@@ -9,7 +9,6 @@ from app.catalog.document_shape import (
     INTEGER_OR_STRING,
     LINK,
     PARTIAL_DATE_OBJECT,
-    PERSON,
     STRING,
     STRING_LIST,
     ChildObjectShape,
@@ -133,6 +132,38 @@ def _validate_discs(values: list[Mapping[str, Any]], path: str) -> None:
         raise ValueError(f"{path}: {error}") from error
 
 
+def _validate_music_artist_credits(values: list[Mapping[str, Any]], path: str) -> None:
+    from app.schemas.catalog_music_item import CatalogMusicArtistCreditResponse
+
+    seen_ids: set[str] = set()
+    seen_sequences: set[int] = set()
+    for index, value in enumerate(values):
+        try:
+            credit = CatalogMusicArtistCreditResponse.model_validate(value)
+        except ValueError as error:
+            raise ValueError(f"{path}[{index}]: {error}") from error
+        if credit.id in seen_ids or credit.sequence in seen_sequences:
+            raise ValueError(f"{path}[{index}] duplicates a credit identity or sequence")
+        seen_ids.add(credit.id)
+        seen_sequences.add(credit.sequence)
+
+
+def _validate_music_role_credits(values: list[Mapping[str, Any]], path: str) -> None:
+    from app.schemas.catalog_music_item import CatalogMusicRoleCreditResponse
+
+    seen_ids: set[str] = set()
+    seen_sequences: set[int] = set()
+    for index, value in enumerate(values):
+        try:
+            credit = CatalogMusicRoleCreditResponse.model_validate(value)
+        except ValueError as error:
+            raise ValueError(f"{path}[{index}]: {error}") from error
+        if credit.id in seen_ids or credit.sequence in seen_sequences:
+            raise ValueError(f"{path}[{index}] duplicates a credit identity or sequence")
+        seen_ids.add(credit.id)
+        seen_sequences.add(credit.sequence)
+
+
 TRACK = ChildObjectShape(
     fields={
         "id": STRING,
@@ -194,7 +225,6 @@ DISC = ChildObjectShape(
 )
 
 _CREDIT_ROLES = (
-    "artist_credits",
     "composers",
     "conductors",
     "songwriters",
@@ -203,15 +233,35 @@ _CREDIT_ROLES = (
     "musicians",
 )
 
-_MUSIC_CREDIT = ChildObjectShape(
+_MUSIC_ARTIST_CREDIT = ChildObjectShape(
     fields={
-        **PERSON.fields,
+        "id": STRING,
+        "name": STRING,
+        "sort_name": STRING,
         "artist_id": STRING,
+        "sequence": INTEGER,
         "join_phrase": STRING,
+    },
+    required=frozenset({"id", "name", "sequence"}),
+    non_empty=frozenset({"id", "name"}),
+    nullable=frozenset({"artist_id"}),
+    validate_collection=_validate_music_artist_credits,
+)
+
+_MUSIC_ROLE_CREDIT = ChildObjectShape(
+    fields={
+        "id": STRING,
+        "name": STRING,
+        "person_id": STRING,
+        "role_id": STRING,
+        "sequence": INTEGER,
+        "sort_name": STRING,
+        "image_url": STRING,
         "instrument": STRING,
     },
-    nullable=PERSON.nullable | frozenset({"artist_id"}),
-    allow_string_value=True,
+    required=frozenset({"id", "name", "person_id", "sequence"}),
+    non_empty=frozenset({"id", "name", "person_id"}),
+    validate_collection=_validate_music_role_credits,
 )
 
 DOCUMENT = KindDocumentShape(
@@ -245,7 +295,8 @@ DOCUMENT = KindDocumentShape(
         }
     ),
     children={
-        **dict.fromkeys(_CREDIT_ROLES, _MUSIC_CREDIT),
+        "artist_credits": _MUSIC_ARTIST_CREDIT,
+        **dict.fromkeys(_CREDIT_ROLES, _MUSIC_ROLE_CREDIT),
         "discs": DISC,
         "external_links": ChildObjectShape(
             fields=LINK.fields, nullable=frozenset(LINK.fields.keys())

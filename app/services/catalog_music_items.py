@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID, uuid4
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +30,7 @@ class CatalogMusicItemService:
             raise ValueError("Music Catalog Item title must not be empty")
 
         credits = {
-            key: _credit_objects(item_payload.get(key))
+            key: _credit_documents(item_payload.get(key))
             for key in (
                 "artist_credits",
                 "composers",
@@ -169,39 +168,12 @@ class CatalogMusicItemService:
         return CatalogMusicItemResponse.model_validate(item)
 
 
-def _credit_objects(value: Any) -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
-    if not isinstance(value, list):
-        return result
-    for entry in value:
-        if isinstance(entry, str) and entry.strip():
-            result.append({"id": str(uuid4()), "name": entry.strip()})
-        elif isinstance(entry, dict):
-            name = entry.get("name") or entry.get("credited_name")
-            if isinstance(name, str) and name.strip():
-                credit = {
-                    key: part
-                    for key, part in entry.items()
-                    if key
-                    in {
-                        "id",
-                        "artist_id",
-                        "role",
-                        "role_id",
-                        "sequence",
-                        "credited_name",
-                        "join_phrase",
-                        "instrument",
-                    }
-                }
-                raw_id = credit.get("id")
-                try:
-                    credit["id"] = str(UUID(str(raw_id))) if raw_id else str(uuid4())
-                except ValueError as error:
-                    raise ValueError("Music credit id must be a UUID") from error
-                credit["name"] = name.strip()
-                result.append(credit)
-    return result
+def _credit_documents(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):
+        raise ValueError("Music credits must be a list of complete credit objects")
+    return [dict(entry) for entry in value]
 
 
 def _string_values(value: Any) -> list[str]:

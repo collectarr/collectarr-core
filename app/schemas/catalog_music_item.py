@@ -38,14 +38,14 @@ class CatalogMusicTrackResponse(BaseModel):
     @field_validator("title")
     @classmethod
     def validate_required_text(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("Track title must not be empty")
+        if not value or value != value.strip():
+            raise ValueError("Track title must be non-empty trimmed text")
         return value
 
     @model_validator(mode="after")
     def validate_row_type(self) -> CatalogMusicTrackResponse:
-        self.position = self.position.strip()
+        if self.position != self.position.strip():
+            raise ValueError("Track position must be trimmed text")
         if self.is_header:
             if self.position or self.artist is not None or self.duration_ms is not None:
                 raise ValueError("Headers must not have a position, artist, or duration")
@@ -62,7 +62,7 @@ class CatalogMusicDiscResponse(BaseModel):
     format: str | None = None
     sound_types: list[str] = Field(default_factory=list)
     color: str | None = None
-    vinyl_weight_grams: int | None = Field(default=None, gt=0)
+    vinyl_weight_grams: int | None = Field(default=None, gt=0, strict=True)
     rpm: str | None = None
     matrix_number: str | None = None
     matrix_number_side_a: str | None = None
@@ -71,30 +71,11 @@ class CatalogMusicDiscResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
-    @field_validator("rpm", mode="before")
-    @classmethod
-    def coerce_rpm(cls, value: Any) -> str | None:
-        if value is None:
-            return None
-        s = str(value).strip()
-        return s or None
-
-    @field_validator("vinyl_weight_grams", mode="before")
-    @classmethod
-    def coerce_weight(cls, value: Any) -> int | None:
-        if value is None or value == "":
-            return None
-        if isinstance(value, str):
-            digits = "".join(c for c in value if c.isdigit())
-            if not digits:
-                return None
-            return int(digits)
-        return int(value)
-
     @field_validator(
         "title",
         "format",
         "color",
+        "rpm",
         "matrix_number",
         "matrix_number_side_a",
         "matrix_number_side_b",
@@ -103,8 +84,9 @@ class CatalogMusicDiscResponse(BaseModel):
     def clean_optional_strings(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        trimmed = value.strip()
-        return trimmed or None
+        if not value or value != value.strip():
+            raise ValueError("Optional Music disc text must be non-empty and trimmed")
+        return value
 
     @field_validator("tracks")
     @classmethod

@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.catalog_item_base import CatalogItemBaseResponse
+
 
 class CatalogBookItemPrintingResponse(BaseModel):
     id: UUID
@@ -62,12 +64,9 @@ class CatalogBookItemCharacterResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
 
-class CatalogBookItemResponse(BaseModel):
-    id: UUID
+class CatalogBookItemResponse(CatalogItemBaseResponse):
     kind: Literal["book"] = "book"
-    title: str
     sort_key: str | None = None
-    revision: int
 
     age_rating: str | None = None
     audience_rating: str | None = None

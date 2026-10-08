@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.catalog_item_base import CatalogItemBaseResponse
+
 
 class CatalogMovieItemMediaResponse(BaseModel):
     id: UUID
@@ -25,12 +27,9 @@ class CatalogMovieItemMediaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
-class CatalogMovieItemResponse(BaseModel):
-    id: UUID
+class CatalogMovieItemResponse(CatalogItemBaseResponse):
     kind: Literal["movie"] = "movie"
-    title: str
     sort_key: str | None = None
-    revision: int
     display_title: str | None = None
     original_language: str | None = None
     studio: str | None = None

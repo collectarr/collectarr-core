@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, model_validator
 
 from app.models.partial_date import PartialDateValue
+from app.schemas.catalog_item_base import CatalogItemBaseResponse
 from app.schemas.metadata_shared import CatalogItemPage
 
 
@@ -225,10 +226,8 @@ class CatalogMusicExternalLinkResponse(BaseModel):
         return value
 
 
-class CatalogMusicItemResponse(BaseModel):
-    id: UUID
+class CatalogMusicItemResponse(CatalogItemBaseResponse):
     kind: str = "music"
-    title: str
     sort_title: str | None = None
     subtitle: str | None = None
     artist: str | None = None
@@ -260,7 +259,6 @@ class CatalogMusicItemResponse(BaseModel):
     cover_image_url: str | None = None
     back_cover_image_url: str | None = None
     thumbnail_image_url: str | None = None
-    revision: int
     discs: list[CatalogMusicDiscResponse]
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")

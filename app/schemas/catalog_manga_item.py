@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.catalog_item_base import CatalogItemBaseResponse
+
 
 class CatalogMangaItemIdentifierResponse(BaseModel):
     id: UUID
@@ -18,12 +20,9 @@ class CatalogMangaItemIdentifierResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
 
-class CatalogMangaItemResponse(BaseModel):
-    id: UUID
+class CatalogMangaItemResponse(CatalogItemBaseResponse):
     kind: Literal["manga"] = "manga"
-    title: str
     sort_key: str | None = None
-    revision: int
 
     age_rating: str | None = None
     audience_rating: str | None = None

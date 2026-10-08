@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.catalog_item_base import CatalogItemBaseResponse
+
 
 class CatalogTvItemIdentifierResponse(BaseModel):
     id: UUID
@@ -46,12 +48,9 @@ class CatalogTvItemSeasonResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class CatalogTvItemResponse(BaseModel):
-    id: UUID
+class CatalogTvItemResponse(CatalogItemBaseResponse):
     kind: Literal["tv"] = "tv"
-    title: str
     sort_key: str | None = None
-    revision: int
 
     age_rating: str | None = None
     audience_rating: str | None = None

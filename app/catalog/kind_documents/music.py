@@ -7,7 +7,6 @@ from app.catalog.document_shape import (
     BOOLEAN,
     INTEGER,
     INTEGER_OR_STRING,
-    LINK,
     PARTIAL_DATE_OBJECT,
     STRING,
     STRING_LIST,
@@ -164,6 +163,16 @@ def _validate_music_role_credits(values: list[Mapping[str, Any]], path: str) -> 
         seen_sequences.add(credit.sequence)
 
 
+def _validate_music_external_links(values: list[Mapping[str, Any]], path: str) -> None:
+    from app.schemas.catalog_music_item import CatalogMusicExternalLinkResponse
+
+    for index, value in enumerate(values):
+        try:
+            CatalogMusicExternalLinkResponse.model_validate(value)
+        except ValueError as error:
+            raise ValueError(f"{path}[{index}]: {error}") from error
+
+
 _STRING_LIST_FIELDS = frozenset(
     {"genres", "studios", "extra", "choruses", "compositions", "orchestras"}
 )
@@ -316,7 +325,11 @@ DOCUMENT = KindDocumentShape(
         **dict.fromkeys(_CREDIT_ROLES, _MUSIC_ROLE_CREDIT),
         "discs": DISC,
         "external_links": ChildObjectShape(
-            fields=LINK.fields, nullable=frozenset(LINK.fields.keys())
+            fields={"url": STRING, "title": STRING, "description": STRING},
+            required=frozenset({"url"}),
+            non_empty=frozenset({"url", "title", "description"}),
+            nullable=frozenset({"title", "description"}),
+            validate_collection=_validate_music_external_links,
         ),
     },
     allowed_root_fields=frozenset(

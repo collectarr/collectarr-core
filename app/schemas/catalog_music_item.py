@@ -185,6 +185,21 @@ class CatalogMusicRoleCreditResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class CatalogMusicExternalLinkResponse(BaseModel):
+    url: str = Field(min_length=1, strict=True)
+    title: str | None = Field(default=None, strict=True)
+    description: str | None = Field(default=None, strict=True)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("url", "title", "description")
+    @classmethod
+    def validate_link_text(cls, value: str | None) -> str | None:
+        if value is not None and (not value or value != value.strip()):
+            raise ValueError("Music external link text must be non-empty trimmed text")
+        return value
+
+
 class CatalogMusicItemResponse(BaseModel):
     id: UUID
     kind: str = "music"
@@ -216,7 +231,7 @@ class CatalogMusicItemResponse(BaseModel):
     producers: list[CatalogMusicRoleCreditResponse]
     engineers: list[CatalogMusicRoleCreditResponse]
     musicians: list[CatalogMusicRoleCreditResponse]
-    external_links: list[dict[str, Any]]
+    external_links: list[CatalogMusicExternalLinkResponse]
     cover_image_url: str | None = None
     back_cover_image_url: str | None = None
     thumbnail_image_url: str | None = None

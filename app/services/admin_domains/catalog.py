@@ -557,7 +557,18 @@ class AdminCatalogService:
         if "extra" in update_data:
             item.extra = self._strict_music_correction_values("extra", payload.extra)
         if "external_links" in update_data:
-            item.external_links = self._current_link_values(payload.external_links)
+            try:
+                link_payload = validate_catalog_item_payload(
+                    ItemKind.music,
+                    {"title": item.title, "external_links": payload.external_links},
+                )
+            except (TypeError, ValueError) as error:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_external_links",
+                    detail=str(error),
+                ) from error
+            item.external_links = link_payload["external_links"]
 
         for field in ("release_date", "original_release_date", "recording_date"):
             if field not in update_data:

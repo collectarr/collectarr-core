@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, model_validator
 
 from app.models.partial_date import PartialDateValue
 from app.schemas.metadata_shared import CatalogItemPage
@@ -60,7 +60,7 @@ class CatalogMusicDiscResponse(BaseModel):
     title: str | None = None
     format_family: MusicDiscFormatFamily | None = None
     format: str | None = None
-    sound_types: list[str] = Field(default_factory=list)
+    sound_types: list[StrictStr]
     color: str | None = None
     vinyl_weight_grams: int | None = Field(default=None, gt=0, strict=True)
     rpm: str | None = None
@@ -97,10 +97,14 @@ class CatalogMusicDiscResponse(BaseModel):
             raise ValueError("Track IDs must be unique within a disc")
         if len({track.position_order for track in tracks}) != len(tracks):
             raise ValueError("Track order must be unique within a disc")
+        ordered = sorted(tracks, key=lambda track: track.position_order)
+        if [track.position_order for track in tracks] != [
+            track.position_order for track in ordered
+        ]:
+            raise ValueError("Tracks must be ordered by position_order")
         playable = [track for track in tracks if not track.is_header]
         if len({track.position.casefold() for track in playable}) != len(playable):
             raise ValueError("Track positions must be unique within a disc")
-        ordered = sorted(tracks, key=lambda track: track.position_order)
         active_headers: dict[int, CatalogMusicTrackResponse] = {}
         for track in ordered:
             if track.parent_header_id is None:
@@ -117,7 +121,7 @@ class CatalogMusicDiscResponse(BaseModel):
                     if level < track.indent_level
                 }
                 active_headers[track.indent_level] = track
-        return ordered
+        return tracks
 
     @field_validator("sound_types")
     @classmethod
@@ -152,20 +156,20 @@ class CatalogMusicDiscResponse(BaseModel):
 
 
 def validate_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Validate canonical discs without inventing identities or track data."""
+    """Validate canonical discs without reordering or inventing component data."""
     discs: list[CatalogMusicDiscResponse] = []
     for raw in value:
         discs.append(CatalogMusicDiscResponse.model_validate(raw))
     if len({disc.disc_number for disc in discs}) != len(discs):
         raise ValueError("Disc numbers must be unique within an album")
+    if [disc.disc_number for disc in discs] != sorted(disc.disc_number for disc in discs):
+        raise ValueError("Discs must be ordered by disc_number")
     if len({disc.id for disc in discs}) != len(discs):
         raise ValueError("Disc IDs must be unique within an album")
     track_ids = [track.id for disc in discs for track in disc.tracks]
     if len(set(track_ids)) != len(track_ids):
         raise ValueError("Track IDs must be unique within an album")
-    return [
-        disc.model_dump(mode="json") for disc in sorted(discs, key=lambda disc: disc.disc_number)
-    ]
+    return [disc.model_dump(mode="json", exclude_unset=True) for disc in discs]
 
 
 class CatalogMusicArtistCreditResponse(BaseModel):

@@ -15,10 +15,8 @@ from app.catalog.document_shape import (
 from app.catalog.metadata_field_spec import (
     INPUT_DATE,
     INPUT_LIST,
-    INPUT_MULTILINE,
     SECTION_ITEM,
     SECTION_PUBLISHING,
-    SECTION_RELATIONS,
     SECTION_TECHNICAL,
     VALUE_TYPE_PARTIAL_DATE,
     VALUE_TYPE_STRING,
@@ -109,14 +107,6 @@ FIELD_SPECS = (
         section=SECTION_TECHNICAL,
         kinds=frozenset({ItemKind.music}),
     ),
-    MetadataFieldSpec(
-        "tracks",
-        "object_list",
-        "Tracks",
-        section=SECTION_RELATIONS,
-        input=INPUT_MULTILINE,
-        kinds=frozenset({ItemKind.music}),
-    ),
 )
 
 
@@ -201,9 +191,7 @@ TRACK = ChildObjectShape(
         "parent_header_id": STRING,
         "indent_level": INTEGER,
     },
-    required=frozenset(
-        {"id", "position", "position_order", "title", "is_header", "indent_level"}
-    ),
+    required=frozenset({"id", "position", "position_order", "title", "is_header", "indent_level"}),
     non_empty=frozenset({"title"}),
     nullable=frozenset(
         {
@@ -230,7 +218,7 @@ DISC = ChildObjectShape(
         "matrix_number_side_b": STRING,
     },
     nested={"tracks": TRACK},
-    required=frozenset({"id", "disc_number", "tracks"}),
+    required=frozenset({"id", "disc_number", "sound_types", "tracks"}),
     nullable=frozenset(
         {
             "title",
@@ -366,6 +354,26 @@ DOCUMENT = KindDocumentShape(
             "discs",
         }
     ),
-    required_root_fields=frozenset({"title"}),
+    required_root_fields=frozenset(
+        {
+            "title",
+            "artist_credits",
+            "genres",
+            "studios",
+            "extra",
+            "composers",
+            "conductors",
+            "choruses",
+            "compositions",
+            "orchestras",
+            "songwriters",
+            "producers",
+            "engineers",
+            "musicians",
+            "external_links",
+            "discs",
+        }
+    ),
     validate_document=_validate_music_document,
+    reject_unknown_fields=True,
 )

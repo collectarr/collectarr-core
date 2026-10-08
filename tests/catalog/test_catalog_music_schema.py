@@ -4,6 +4,8 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.catalog.catalog_item_schema import validate_catalog_item_payload
+from app.models.base import ItemKind
 from app.schemas.catalog_music_item import (
     CatalogMusicDiscResponse,
     CatalogMusicItemResponse,
@@ -91,6 +93,7 @@ def test_disc_semantics_vinyl_weight_only_for_vinyl():
             id=uuid4(),
             disc_number=1,
             format_family=MusicDiscFormatFamily.cd,
+            sound_types=[],
             vinyl_weight_grams=180,
             tracks=[],
         )
@@ -102,6 +105,7 @@ def test_disc_semantics_rpm_only_for_rotating_media():
             id=uuid4(),
             disc_number=1,
             format_family=MusicDiscFormatFamily.cd,
+            sound_types=[],
             rpm="33",
             tracks=[],
         )
@@ -113,6 +117,7 @@ def test_disc_semantics_side_matrix_not_allowed_for_digital():
             id=uuid4(),
             disc_number=1,
             format_family=MusicDiscFormatFamily.cd,
+            sound_types=[],
             matrix_number_side_a="CD-SIDE-A",
             tracks=[],
         )
@@ -123,6 +128,7 @@ def test_disc_semantics_optical_allows_matrix_number():
         id=uuid4(),
         disc_number=1,
         format_family=MusicDiscFormatFamily.cd,
+        sound_types=[],
         matrix_number="CD-RUNOUT-1234",
         tracks=[],
     )
@@ -138,6 +144,7 @@ def test_validate_music_discs_preserves_ids_and_orders():
             "disc_number": 1,
             "format_family": "cd",
             "format": "CD",
+            "sound_types": [],
             "tracks": [
                 {
                     "id": track_id,
@@ -155,3 +162,84 @@ def test_validate_music_discs_preserves_ids_and_orders():
     assert normalized[0]["id"] == str(disc_id)
     assert normalized[0]["format_family"] == "cd"
     assert normalized[0]["tracks"][0]["id"] == str(track_id)
+
+
+def test_validate_music_discs_rejects_noncanonical_disc_order():
+    raw = [
+        {"id": str(uuid4()), "disc_number": 2, "sound_types": [], "tracks": []},
+        {"id": str(uuid4()), "disc_number": 1, "sound_types": [], "tracks": []},
+    ]
+
+    with pytest.raises(ValueError, match="Discs must be ordered by disc_number"):
+        validate_music_discs(raw)
+
+
+def test_music_disc_rejects_track_order_that_needs_sorting():
+    with pytest.raises(ValidationError, match="Tracks must be ordered by position_order"):
+        CatalogMusicDiscResponse.model_validate(
+            {
+                "id": str(uuid4()),
+                "disc_number": 1,
+                "sound_types": [],
+                "tracks": [
+                    {
+                        "id": str(uuid4()),
+                        "position": "2",
+                        "position_order": 1,
+                        "title": "Second",
+                        "is_header": False,
+                        "indent_level": 0,
+                    },
+                    {
+                        "id": str(uuid4()),
+                        "position": "1",
+                        "position_order": 0,
+                        "title": "First",
+                        "is_header": False,
+                        "indent_level": 0,
+                    },
+                ],
+            }
+        )
+
+
+def test_music_catalog_writes_require_explicit_collections():
+    with pytest.raises(ValueError, match="must include"):
+        validate_catalog_item_payload(ItemKind.music, {"title": "Album"})
+
+
+def test_music_catalog_writes_reject_unknown_root_and_nested_fields():
+    with pytest.raises(ValueError, match="unrecognized music fields"):
+        validate_catalog_item_payload(
+            ItemKind.music,
+            {"title": "Album", "format": "CD"},
+        )
+
+    payload = {
+        "title": "Album",
+        "artist_credits": [],
+        "genres": [],
+        "studios": [],
+        "extra": [],
+        "composers": [],
+        "conductors": [],
+        "choruses": [],
+        "compositions": [],
+        "orchestras": [],
+        "songwriters": [],
+        "producers": [],
+        "engineers": [],
+        "musicians": [],
+        "external_links": [],
+        "discs": [
+            {
+                "id": str(uuid4()),
+                "disc_number": 1,
+                "sound_types": [],
+                "tracks": [],
+                "legacy_format": "CD",
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="unrecognized fields"):
+        validate_catalog_item_payload(ItemKind.music, payload)

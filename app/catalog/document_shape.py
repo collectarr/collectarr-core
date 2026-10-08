@@ -34,6 +34,7 @@ class KindDocumentShape:
     allowed_root_fields: frozenset[str] | None = None
     validate_document: Callable[[Mapping[str, Any], str], None] | None = None
     required_root_fields: frozenset[str] = frozenset()
+    reject_unknown_fields: bool = False
 
 
 STRING = "string"

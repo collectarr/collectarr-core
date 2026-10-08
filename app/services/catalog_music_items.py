@@ -41,19 +41,11 @@ class CatalogMusicItemService:
                 "musicians",
             )
         }
-        artist = (
-            _optional_string(item_payload.get("artist"))
-            or "".join(
-                f"{credit['name']}{credit.get('join_phrase') or ''}"
-                for credit in credits["artist_credits"]
-            ).strip()
-            or None
-        )
         item = MusicItem(
             title=title,
             sort_title=_optional_string(item_payload.get("sort_title")),
             subtitle=_optional_string(item_payload.get("subtitle")),
-            artist=artist,
+            artist=_optional_string(item_payload.get("artist")),
             artist_credits=credits["artist_credits"],
             original_release_date=_partial_date(item_payload.get("original_release_date")),
             recording_date=_partial_date(item_payload.get("recording_date")),
@@ -82,7 +74,7 @@ class CatalogMusicItemService:
             cover_image_url=_optional_string(item_payload.get("cover_image_url")),
             back_cover_image_url=_optional_string(item_payload.get("back_cover_image_url")),
             thumbnail_image_url=_optional_string(item_payload.get("thumbnail_image_url")),
-            discs=item_payload.get("discs") or [],
+            discs=item_payload["discs"],
         )
         self.db.add(item)
         await self.db.flush()
@@ -167,24 +159,18 @@ class CatalogMusicItemService:
 
 
 def _credit_documents(value: Any) -> list[dict[str, Any]]:
-    if value is None:
-        return []
     if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):
         raise ValueError("Music credits must be a list of complete credit objects")
     return [dict(entry) for entry in value]
 
 
 def _string_values(value: Any) -> list[str]:
-    if value is None:
-        return []
     if not isinstance(value, list) or any(not isinstance(entry, str) for entry in value):
         raise ValueError("Music values must be lists of strings")
     return list(value)
 
 
 def _object_values(value: Any) -> list[dict[str, Any]]:
-    if value is None:
-        return []
     if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):
         raise ValueError("Music object values must be a list of objects")
     return [dict(entry) for entry in value]

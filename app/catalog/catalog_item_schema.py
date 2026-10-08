@@ -77,9 +77,10 @@ def validate_catalog_item_payload(
         names = ", ".join(sorted(rejected_fields))
         raise ValueError(f"catalog_item contains unsupported {kind.value} fields: {names}")
     field_specs = {spec.key: spec for spec in fields_for_kind(kind, editable_only=True)}
+    allowed_fields = _root_fields_for_kind(document, field_specs)
     projected = _project_object(
         payload,
-        _root_fields_for_kind(document, field_specs),
+        allowed_fields,
         "catalog_item",
         document=document,
         field_specs=field_specs,
@@ -195,6 +196,11 @@ def _project_object(
     document: KindDocumentShape,
     field_specs: Mapping[str, MetadataFieldSpec] | None = None,
 ) -> dict[str, Any]:
+    if document.reject_unknown_fields:
+        unknown_fields = set(value) - set(allowed_fields)
+        if unknown_fields:
+            names = ", ".join(sorted(unknown_fields))
+            raise ValueError(f"{path} contains unrecognized fields: {names}")
     projected: dict[str, Any] = {}
     for key, child in value.items():
         if key not in allowed_fields:
@@ -247,6 +253,12 @@ def _project_child(
     path: str,
     document: KindDocumentShape,
 ) -> dict[str, Any]:
+    if document.reject_unknown_fields:
+        known_fields = set(shape.fields) | set(shape.nested)
+        unknown_fields = set(value) - known_fields
+        if unknown_fields:
+            names = ", ".join(sorted(unknown_fields))
+            raise ValueError(f"{path} contains unrecognized fields: {names}")
     missing = shape.required - set(value)
     if missing:
         fields = ", ".join(sorted(missing))

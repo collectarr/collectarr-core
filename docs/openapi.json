@@ -6062,6 +6062,16 @@
           },
           "value_type": {
             "type": "string",
+            "enum": [
+              "string",
+              "integer",
+              "number",
+              "boolean",
+              "partial_date",
+              "string_list",
+              "link_list",
+              "object_list"
+            ],
             "title": "Value Type"
           },
           "scope": {

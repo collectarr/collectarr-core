@@ -13,7 +13,7 @@ from tests.helpers import register_and_login
 
 async def _register_and_login_admin(client, email: str = "admin@example.com") -> str:
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": email, "password": "password123", "display_name": "Admin"},
     )
     assert response.status_code == 201
@@ -33,7 +33,7 @@ async def test_add_entity_image_rejects_unknown_entity_type(client):
     token = await _register_and_login_admin(client)
 
     response = await client.post(
-        f"/images/entity/not-a-real-type/{uuid4()}",
+        f"/api/v1/images/entity/not-a-real-type/{uuid4()}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -50,7 +50,7 @@ async def test_add_entity_image_requires_admin(client):
     token = await register_and_login(client)
 
     response = await client.post(
-        f"/images/entity/item/{uuid4()}",
+        f"/api/v1/images/entity/item/{uuid4()}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -89,7 +89,7 @@ async def test_add_entity_image_allows_bundle_release_entity_type(client, monkey
     )
 
     response = await client.post(
-        f"/images/entity/bundle_release/{entity_id}",
+        f"/api/v1/images/entity/bundle_release/{entity_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -137,7 +137,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     )
 
     first = await client.post(
-        f"/images/entity/item/{entity_id}",
+        f"/api/v1/images/entity/item/{entity_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -145,7 +145,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
         },
     )
     second = await client.post(
-        f"/images/entity/item/{entity_id}",
+        f"/api/v1/images/entity/item/{entity_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -164,7 +164,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     async with AsyncSessionLocal() as db:
         rows = list(
             await db.scalars(
-                    select(ImageAsset).where(
+                select(ImageAsset).where(
                     ImageAsset.entity_type == "item",
                     ImageAsset.entity_id == entity_id,
                 )
@@ -193,7 +193,7 @@ async def test_delete_image_requires_admin(client):
         await db.commit()
 
     response = await client.delete(
-        f"/images/{image_id}",
+        f"/api/v1/images/{image_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -214,7 +214,7 @@ async def test_download_image_rejects_untracked_object_key(client, monkeypatch):
     monkeypatch.setattr("app.api.routes.images.ObjectStorage.shared", lambda: FakeStorage())
 
     response = await client.get(
-        "/images/download",
+        "/api/v1/images/download",
         headers={"Authorization": f"Bearer {token}"},
         params={"object_key": "private/config.env"},
     )
@@ -248,7 +248,7 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
     monkeypatch.setattr("app.api.routes.images.ObjectStorage.shared", lambda: FakeStorage())
 
     response = await client.get(
-        "/images/download",
+        "/api/v1/images/download",
         headers={"Authorization": f"Bearer {token}"},
         params={"object_key": object_key},
     )
@@ -285,7 +285,7 @@ async def test_batch_download_images_returns_none_for_untracked_keys(client, mon
     monkeypatch.setattr("app.api.routes.images.ObjectStorage.shared", lambda: FakeStorage())
 
     response = await client.post(
-        "/images/batch-download",
+        "/api/v1/images/batch-download",
         headers={"Authorization": f"Bearer {token}"},
         json=[allowed_key, blocked_key],
     )

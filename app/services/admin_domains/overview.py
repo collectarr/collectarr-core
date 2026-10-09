@@ -158,8 +158,15 @@ class AdminOverviewService:
             stmt.options(selectinload(AdminAuditLog.details)).limit(limit)
         )
         return [
-            AdminAuditLogResponse.model_validate(row).model_copy(
-                update={"details_json": materialize_typed_values(row.details)}
+            AdminAuditLogResponse(
+                id=row.id,
+                action=row.action,
+                actor_user_id=row.actor_user_id,
+                actor_email=row.actor_email,
+                entity_type=row.entity_type,
+                entity_id=row.entity_id,
+                details_json=materialize_typed_values(row.details),
+                created_at=row.created_at,
             )
             for row in result.scalars()
         ]

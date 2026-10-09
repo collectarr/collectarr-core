@@ -20,8 +20,7 @@ async def test_catalog_fingerprint_changes_when_catalog_changes():
 
     assert updated != initial
     assert updated.item_count == 1
-    assert updated.edition_count == 1
-    assert updated.variant_count == 1
+    assert updated.contained_value_count == 1
 
 
 @pytest.mark.asyncio

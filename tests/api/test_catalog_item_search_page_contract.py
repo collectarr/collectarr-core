@@ -5,7 +5,7 @@ import pytest
 from app.main import app
 
 SEARCH_PATHS = (
-    "/api/v1/metadata/search",
+    "/api/v1/search",
     "/api/v1/metadata/anime/items",
     "/api/v1/metadata/boardgames/items",
     "/api/v1/metadata/books/items",
@@ -38,7 +38,7 @@ def test_catalog_search_routes_expose_a_page_contract() -> None:
 
 @pytest.mark.asyncio
 async def test_empty_shared_and_music_searches_return_empty_pages(client) -> None:
-    shared = await client.get("/api/v1/metadata/search", params={"q": "missing"})
+    shared = await client.get("/api/v1/search", params={"q": "missing"})
     music = await client.get("/api/v1/metadata/music/items", params={"q": "missing"})
 
     assert shared.status_code == 200

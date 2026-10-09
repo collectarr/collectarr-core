@@ -671,7 +671,6 @@ class AdminCatalogService:
         update_data = payload.model_dump(exclude_unset=True, mode="json")
         if not update_data:
             return await self._item_response_loader(item)
-
         contract_fields = set(
             catalog_item_payload_contract()["kinds"][ItemKind.movie.value]["properties"]
         )
@@ -750,6 +749,7 @@ class AdminCatalogService:
         update_data = payload.model_dump(exclude_unset=True, mode="json")
         if not update_data:
             return await self._item_response_loader(item)
+        item_id = item.id
 
         contract_fields = set(catalog_item_payload_contract()["kinds"][kind.value]["properties"])
         unsupported = sorted(set(update_data) - contract_fields)
@@ -910,14 +910,14 @@ class AdminCatalogService:
         )
         await self.db.commit()
         self.db.expire_all()
-        loaded_item = await self._load_native_catalog_entity(kind, item.id)
+        loaded_item = await self._load_native_catalog_entity(kind, item_id)
         if loaded_item is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 code="metadata_item_not_found",
                 detail=f"{kind.value} Catalog Item not found after correction",
             )
-        await self._reindex_items({item.id})
+        await self._reindex_items({item_id})
         return await self._item_response_loader(loaded_item)
 
     def _validated_physical_format(

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import select, text
+import re
+
+import pytest
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.dialects import postgresql
 
 from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
@@ -9,20 +12,21 @@ from app.models.base import ItemKind
 from app.services.catalog_item_search import CatalogItemSearchService
 
 
-def _literal_sql(statement) -> str:
-    return str(
-        statement.compile(
-            dialect=postgresql.dialect(),
-            compile_kwargs={"literal_binds": True},
-        )
-    )
-
-
 async def _explain(db, statement) -> str:
-    rows = await db.execute(text(f"EXPLAIN (FORMAT TEXT) {_literal_sql(statement)}"))
+    compiled = statement.compile(dialect=postgresql.dialect(paramstyle="named"))
+    sql = re.sub(
+        r":([A-Za-z0-9_]+)::([A-Za-z0-9_]+)",
+        r"CAST(:\1 AS \2)",
+        str(compiled),
+    )
+    query = text(f"EXPLAIN (FORMAT TEXT) {sql}").bindparams(
+        *[bindparam(name, type_=compiled.binds[name].type) for name in compiled.params]
+    )
+    rows = await db.execute(query, compiled.params)
     return "\n".join(row[0] for row in rows)
 
 
+@pytest.mark.asyncio
 async def test_identifier_and_scalar_lookups_can_use_declared_indexes(
     schema_database,
 ) -> None:
@@ -43,7 +47,10 @@ async def test_identifier_and_scalar_lookups_can_use_declared_indexes(
             )
             assert f"ix_{model.__tablename__}_catalog_number" in catalog_number_plan
 
-            if definition.kind is ItemKind.music:
+            if (
+                definition.kind is ItemKind.music
+                or "identifiers" not in definition.document.children
+            ):
                 continue
             identifier_match = CatalogItemSearchService._identifier_match(
                 definition,

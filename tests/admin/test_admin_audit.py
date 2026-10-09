@@ -2,6 +2,7 @@ from uuid import UUID
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
@@ -15,7 +16,7 @@ async def admin_token(client, monkeypatch) -> str:
     settings = get_settings()
     monkeypatch.setattr(settings, "bootstrap_admin_emails", {"admin@example.com"})
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "admin@example.com", "password": "password123", "display_name": "Admin"},
     )
     assert response.status_code == 201
@@ -50,7 +51,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     body = logs.json()
     assert len(body) == 1
     assert body[0]["actor_email"] == "admin@example.com"
-    assert body[0]["entity_type"] == "catalog_comic_item"
+    assert body[0]["entity_type"] == "comic"
     assert body[0]["entity_id"] == item_id
     assert body[0]["details_json"]["fields"] == ["title"]
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
@@ -58,7 +59,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     item_logs = await client.get(
         "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
-        params={"entity_type": "catalog_comic_item", "entity_id": item_id},
+        params={"entity_type": "comic", "entity_id": item_id},
     )
 
     assert item_logs.status_code == 200
@@ -87,9 +88,7 @@ async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     async with AsyncSessionLocal() as db:
         remaining = list(
             await db.scalars(
-                select(ComicItem).where(
-                    ComicItem.id.in_([UUID(target_id), UUID(source_id)])
-                )
+                select(ComicItem).where(ComicItem.id.in_([UUID(target_id), UUID(source_id)]))
             )
         )
     assert {str(row.id) for row in remaining} == {target_id, source_id}
@@ -116,12 +115,14 @@ async def test_admin_duplicate_ignore_endpoint_records_audit_context(client, mon
 
     async with AsyncSessionLocal() as db:
         review_row = await db.scalar(
-            select(DuplicateReview).where(DuplicateReview.action == "ignore")
+            select(DuplicateReview)
+            .options(selectinload(DuplicateReview.entities))
+            .where(DuplicateReview.action == "ignore")
         )
 
     assert review_row is not None
     assert review_row.ignore_token is not None
-    assert review_row.entity_ids == item_ids
+    assert [str(row.entity_id) for row in review_row.entities] == item_ids
 
     logs = await client.get(
         "/api/v1/admin/audit/logs",

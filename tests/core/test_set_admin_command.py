@@ -9,7 +9,7 @@ from app.repositories.users import UserRepository
 @pytest.mark.asyncio
 async def test_set_user_role_grants_and_revokes_admin(client):
     await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "user@example.com", "password": "password123"},
     )
 

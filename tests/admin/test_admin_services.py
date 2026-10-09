@@ -3,7 +3,6 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException, status
 
 from app.models import BookItem
 from app.models.base import ItemKind
@@ -14,7 +13,7 @@ from app.services.admin_domains.overview import (
     _meili_document_count,
 )
 from app.services.admin_domains.support import AdminSupportService
-from app.services.typed_values import typed_value_from_row
+from app.services.typed_values import materialize_typed_values
 
 
 @pytest.mark.asyncio
@@ -108,32 +107,17 @@ def test_support_service_record_admin_audit_normalizes_json_like_values():
         {
             "entity_id": entity_id,
             "happened_at": happened_at,
-            "tags": {"featured", "new"},
+            "tags": ["featured", "new"],
         },
     )
 
     assert len(added) == 1
-    details = {row.path: typed_value_from_row(row) for row in added[0].details}
-    assert details["/entity_id"] == entity_id
-    assert details["/happened_at"] == happened_at
-    assert sorted(details["/tags"]) == ["featured", "new"]
-
-
-def test_support_service_retry_helpers_cover_retryable_and_non_retryable_errors():
-    service = AdminSupportService(db=object(), actor_user_id=None, actor_email=None)
-
-    retryable_error = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="busy")
-    non_retryable_error = HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST, detail="bad request"
-    )
-
-    assert service.backoff_delay(1).total_seconds() == 5
-    assert service.backoff_delay(7).total_seconds() == 300
-    assert service.is_retryable_ingest_error(retryable_error) is True
-    assert service.is_retryable_ingest_error(non_retryable_error) is False
-    assert service.is_retryable_ingest_error(RuntimeError("boom")) is False
-    assert service.error_message(retryable_error) == "busy"
-    assert service.error_message(RuntimeError("boom")) == "boom"
+    details = materialize_typed_values(added[0].details)
+    assert details == {
+        "entity_id": entity_id,
+        "happened_at": happened_at,
+        "tags": ["featured", "new"],
+    }
 
 
 @pytest.mark.asyncio

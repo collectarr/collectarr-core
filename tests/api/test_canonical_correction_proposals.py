@@ -141,7 +141,6 @@ async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_ta
             email="admin@example.test",
             password_hash="test",
             role=UserRole.admin,
-            entity_type="user",
         )
         db.add(actor)
         await db.commit()

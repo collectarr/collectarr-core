@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-from fastapi.routing import APIRoute
-
 from app.main import app
 
 
 def test_tv_catalog_item_routes_are_mounted_without_old_graph_routes():
-    paths = {
-        route.path
-        for route in app.routes
-        if isinstance(route, APIRoute)
-    }
+    paths = set(app.openapi()["paths"])
     required = {
         "/api/v1/metadata/tv/items",
         "/api/v1/metadata/tv/items/{item_id}",

@@ -1,6 +1,6 @@
 # Core Current Status
 
-Last reviewed: 2026-10-05.
+Last reviewed: 2026-10-09.
 
 ## Implemented
 
@@ -34,10 +34,11 @@ Last reviewed: 2026-10-05.
   Comics, Books, Movies, and Games remains unverified until their Edit captures
   are available. Manga, Anime, TV, and Board Game ledgers are provisional
   because CLZ has no dedicated product form for them.
-- PostgreSQL query-plan verification is represented by an isolated test but
-  has not yet been run in this implementation pass. Do not claim the planner
-  selected each index until the final test run confirms it.
+- The full Core suite passes 152 tests against the isolated local
+  `collectarr_test` database. This includes canonical schema/API contracts and
+  PostgreSQL `EXPLAIN` checks for declared identifier and scalar indexes;
+  `ruff check .` also passes.
 - Duplicate merge remains disabled until App-owned references can be remapped
   safely. No live database was reset, migrated, or deleted.
-- The final App/Core build and automated checks remain to be run after the
-  implementation and documentation pass is complete.
+- The final App Windows build and repository-wide architecture guard remain to
+  be run after the implementation and documentation pass is complete.

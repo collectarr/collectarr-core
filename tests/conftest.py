@@ -1,4 +1,3 @@
-import asyncio
 import os
 import socket
 from collections.abc import AsyncIterator
@@ -110,24 +109,26 @@ def _is_db_available() -> bool:
 _DB_AVAILABLE = _is_db_available()
 
 
-@pytest.fixture(scope="session")
-def schema_database() -> None:
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def schema_database() -> None:
     if not _DB_AVAILABLE:
-        pytest.skip("PostgreSQL test database is not available")
+        return
     database_url = os.environ["DATABASE_URL"]
-    asyncio.run(_ensure_test_database(database_url))
-    asyncio.run(_create_schema())
+    await _ensure_test_database(database_url)
+    await _create_schema()
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def clean_database(request: pytest.FixtureRequest) -> AsyncIterator[None]:
+async def clean_database(
+    request: pytest.FixtureRequest,
+    schema_database: None,
+) -> AsyncIterator[None]:
     if not _DB_AVAILABLE:
         if "client" in request.fixturenames or request.node.get_closest_marker("db"):
             pytest.skip("PostgreSQL test database is not available")
         yield
         return
 
-    request.getfixturevalue("schema_database")
     reset_rate_limits()
     table_names = ", ".join(f'"{table.name}"' for table in reversed(Base.metadata.sorted_tables))
     async with AsyncSessionLocal() as db:

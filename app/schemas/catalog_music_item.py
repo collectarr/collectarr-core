@@ -15,10 +15,8 @@ from app.schemas.metadata_shared import CatalogItemPage
 
 class MusicDiscFormatFamily(str, Enum):
     vinyl = "vinyl"
-    cd = "cd"
-    sacd = "sacd"
-    cassette = "cassette"
-    minidisc = "minidisc"
+    opticalDisc = "opticalDisc"
+    tape = "tape"
     digital = "digital"
     other = "other"
 
@@ -29,6 +27,7 @@ class CatalogMusicTrackResponse(BaseModel):
     position_order: int = Field(ge=0, strict=True)
     title: str = Field(min_length=1, max_length=255, strict=True)
     artist: str | None = Field(default=None, strict=True)
+    composition: str | None = Field(default=None, strict=True)
     duration_ms: int | None = Field(default=None, ge=0, strict=True)
     is_header: bool = Field(strict=True)
     parent_header_id: UUID | None = None
@@ -47,6 +46,10 @@ class CatalogMusicTrackResponse(BaseModel):
     def validate_row_type(self) -> CatalogMusicTrackResponse:
         if self.position != self.position.strip():
             raise ValueError("Track position must be trimmed text")
+        if self.composition is not None and (
+            not self.composition or self.composition != self.composition.strip()
+        ):
+            raise ValueError("Track composition must be non-empty trimmed text")
         if self.is_header:
             if self.position or self.artist is not None or self.duration_ms is not None:
                 raise ValueError("Headers must not have a position, artist, or duration")
@@ -62,12 +65,17 @@ class CatalogMusicDiscResponse(BaseModel):
     format_family: MusicDiscFormatFamily | None = None
     format: str | None = None
     sound_types: list[StrictStr]
+    recording_date: PartialDateValue | None = None
+    recording_locations: list[StrictStr]
+    is_live: bool | None = None
+    spars_code: str | None = None
     color: str | None = None
     vinyl_weight_grams: int | None = Field(default=None, gt=0, strict=True)
     rpm: str | None = None
     matrix_number: str | None = None
     matrix_number_side_a: str | None = None
     matrix_number_side_b: str | None = None
+    credits: list[CatalogMusicCreditResponse]
     tracks: list[CatalogMusicTrackResponse]
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
@@ -75,6 +83,7 @@ class CatalogMusicDiscResponse(BaseModel):
     @field_validator(
         "title",
         "format",
+        "spars_code",
         "color",
         "rpm",
         "matrix_number",
@@ -131,28 +140,41 @@ class CatalogMusicDiscResponse(BaseModel):
             raise ValueError("Music disc sound_types must be non-empty trimmed text")
         return values
 
+    @field_validator("recording_locations")
+    @classmethod
+    def validate_recording_locations(cls, values: list[str]) -> list[str]:
+        if any(not value or value != value.strip() for value in values):
+            raise ValueError("Music recording locations must be non-empty trimmed text")
+        return values
+
     @model_validator(mode="after")
     def validate_disc_semantics(self) -> CatalogMusicDiscResponse:
-        if self.vinyl_weight_grams is not None:
-            if self.format_family != MusicDiscFormatFamily.vinyl:
-                raise ValueError("vinyl_weight_grams is only allowed when format_family is vinyl")
-        if self.rpm is not None:
-            if self.format_family not in (
-                None,
-                MusicDiscFormatFamily.vinyl,
-                MusicDiscFormatFamily.other,
-            ):
-                raise ValueError(f"RPM is not allowed for {self.format_family.value} discs")
-        if self.matrix_number_side_a is not None or self.matrix_number_side_b is not None:
-            if self.format_family in (
-                MusicDiscFormatFamily.cd,
-                MusicDiscFormatFamily.sacd,
-                MusicDiscFormatFamily.minidisc,
-                MusicDiscFormatFamily.digital,
-            ):
-                raise ValueError(
-                    f"Side matrix numbers are not allowed for {self.format_family.value} discs"
-                )
+        credit_ids = [credit.id for credit in self.credits]
+        credit_sequences = [credit.sequence for credit in self.credits]
+        if len(set(credit_ids)) != len(credit_ids):
+            raise ValueError("Credit IDs must be unique within a disc")
+        if len(set(credit_sequences)) != len(credit_sequences):
+            raise ValueError("Credit sequence values must be unique within a disc")
+        if (
+            self.vinyl_weight_grams is not None
+            and self.format_family != MusicDiscFormatFamily.vinyl
+        ):
+            raise ValueError("vinyl_weight_grams is only allowed when format_family is vinyl")
+        if self.rpm is not None and self.format_family not in (
+            None,
+            MusicDiscFormatFamily.vinyl,
+            MusicDiscFormatFamily.other,
+        ):
+            raise ValueError(f"RPM is not allowed for {self.format_family.value} discs")
+        if (
+            self.matrix_number_side_a is not None or self.matrix_number_side_b is not None
+        ) and self.format_family in (
+            MusicDiscFormatFamily.opticalDisc,
+            MusicDiscFormatFamily.digital,
+        ):
+            raise ValueError(
+                f"Side matrix numbers are not allowed for {self.format_family.value} discs"
+            )
         return self
 
 
@@ -170,6 +192,9 @@ def validate_music_discs(value: list[dict[str, Any]]) -> list[dict[str, Any]]:
     track_ids = [track.id for disc in discs for track in disc.tracks]
     if len(set(track_ids)) != len(track_ids):
         raise ValueError("Track IDs must be unique within an album")
+    credit_ids = [credit.id for disc in discs for credit in disc.credits]
+    if len(set(credit_ids)) != len(credit_ids):
+        raise ValueError("Credit IDs must be unique within an album")
     return [disc.model_dump(mode="json", exclude_unset=True) for disc in discs]
 
 
@@ -191,24 +216,34 @@ class CatalogMusicArtistCreditResponse(BaseModel):
         return value
 
 
-class CatalogMusicRoleCreditResponse(BaseModel):
+class CatalogMusicCreditResponse(BaseModel):
     id: str = Field(min_length=1, strict=True)
+    contributor_id: UUID | None = None
     name: str = Field(min_length=1, strict=True)
-    person_id: str = Field(min_length=1, strict=True)
+    role: str = Field(min_length=1, strict=True)
     role_id: str | None = Field(default=None, strict=True)
     sequence: int = Field(ge=1, strict=True)
     sort_name: str | None = Field(default=None, strict=True)
-    image_url: str | None = Field(default=None, strict=True)
-    instrument: str | None = Field(default=None, strict=True)
+    instruments: list[StrictStr]
 
     model_config = ConfigDict(extra="forbid")
 
-    @field_validator("id", "name", "person_id", "role_id", "sort_name", "image_url", "instrument")
+    @field_validator("id", "name", "role", "role_id", "sort_name")
     @classmethod
     def validate_credit_text(cls, value: str | None) -> str | None:
         if value is not None and (not value or value != value.strip()):
-            raise ValueError("Music role credit text must be non-empty trimmed text")
+            raise ValueError("Music credit text must be non-empty trimmed text")
         return value
+
+    @field_validator("instruments")
+    @classmethod
+    def validate_instruments(cls, values: list[str]) -> list[str]:
+        if any(not value or value != value.strip() for value in values):
+            raise ValueError("Music credit instruments must be non-empty trimmed text")
+        return values
+
+
+CatalogMusicDiscResponse.model_rebuild()
 
 
 class CatalogMusicExternalLinkResponse(BaseModel):
@@ -233,28 +268,16 @@ class CatalogMusicItemResponse(CatalogItemBaseResponse):
     artist: str | None = None
     artist_credits: list[CatalogMusicArtistCreditResponse]
     original_release_date: PartialDateValue | None = None
-    recording_date: PartialDateValue | None = None
     release_date: PartialDateValue | None = None
     label: str | None = None
     barcode: str | None = None
     catalog_number: str | None = None
     genres: list[str]
     packaging: str | None = None
-    studios: list[str]
     country: str | None = None
-    is_live: bool | None = None
     extra: list[str]
-    spars_code: str | None = None
     box_set: str | None = None
-    composers: list[CatalogMusicRoleCreditResponse]
-    conductors: list[CatalogMusicRoleCreditResponse]
-    choruses: list[str]
-    compositions: list[str]
-    orchestras: list[str]
-    songwriters: list[CatalogMusicRoleCreditResponse]
-    producers: list[CatalogMusicRoleCreditResponse]
-    engineers: list[CatalogMusicRoleCreditResponse]
-    musicians: list[CatalogMusicRoleCreditResponse]
+    credits: list[CatalogMusicCreditResponse]
     external_links: list[CatalogMusicExternalLinkResponse]
     cover_image_url: str | None = None
     back_cover_image_url: str | None = None
@@ -262,6 +285,19 @@ class CatalogMusicItemResponse(CatalogItemBaseResponse):
     discs: list[CatalogMusicDiscResponse]
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+    @model_validator(mode="after")
+    def validate_credit_identity(self) -> CatalogMusicItemResponse:
+        album_ids = [credit.id for credit in self.credits]
+        album_sequences = [credit.sequence for credit in self.credits]
+        if len(set(album_sequences)) != len(album_sequences):
+            raise ValueError("Album credit sequence values must be unique")
+        credit_ids = album_ids + [
+            credit.id for disc in self.discs for credit in disc.credits
+        ]
+        if len(set(credit_ids)) != len(credit_ids):
+            raise ValueError("Credit IDs must be unique within an album")
+        return self
 
 
 class CatalogMusicItemSearchPage(CatalogItemPage[CatalogMusicItemResponse]):

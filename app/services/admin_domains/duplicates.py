@@ -400,17 +400,19 @@ class AdminDuplicateService:
         )
 
     def _entity_primary_publisher(self, entity: Any) -> str | None:
-        studios = getattr(entity, "studios", None)
         studio = getattr(entity, "studio", None)
-        if studio is None and isinstance(studios, list) and studios:
-            studio = studios[0]
         details = getattr(entity, "details", None)
         detail_publisher = (
             details.get("publisher") or details.get("label")
             if isinstance(details, dict)
             else None
         )
-        pub = getattr(entity, "publisher", None) or studio or detail_publisher
+        pub = (
+            getattr(entity, "publisher", None)
+            or getattr(entity, "label", None)
+            or studio
+            or detail_publisher
+        )
         if pub and str(pub).strip():
             return str(pub).strip().lower()
         return None

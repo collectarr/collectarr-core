@@ -11,12 +11,12 @@ from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.kind_registry import CATALOG_KINDS_BY_ID, catalog_kind_for
+from app.catalog.metadata_field_spec import VALUE_TYPE_STRING_LIST
 from app.catalog.metadata_fields import (
     canonical_correction_field_spec,
     canonical_entity_type_for_scope,
     fields_for_kind,
 )
-from app.catalog.metadata_field_spec import VALUE_TYPE_STRING_LIST
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
@@ -88,7 +88,6 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "format": ("format",),
         "release_date": ("release_date", "publication_date"),
         "original_release_date": ("original_release_date",),
-        "recording_date": ("recording_date",),
         "publisher": ("publisher",),
         "label": ("label",),
         "packaging": ("packaging",),
@@ -96,10 +95,7 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "subtitle": ("subtitle",),
         "artist": ("artist",),
         "genres": ("genres",),
-        "studios": ("studios",),
-        "is_live": ("is_live",),
         "extra": ("extra",),
-        "spars_code": ("spars_code", "spars"),
         "box_set": ("box_set",),
         "external_links": ("external_links",),
         "cover_image_url": ("cover_image_url",),
@@ -203,7 +199,7 @@ class CanonicalCorrectionTargetService:
             field.key: (
                 _music_partial_date_parts(entity, field.key)
                 if entity_type == "catalog_music_item"
-                and field.key in {"release_date", "original_release_date", "recording_date"}
+                and field.key in {"release_date", "original_release_date"}
                 else _json_value(
                     getattr(entity, field.column).get(field.json_key)
                     if field.json_key is not None
@@ -317,7 +313,6 @@ class CanonicalCorrectionTargetService:
             if entity_type == "catalog_music_item" and key in {
                 "release_date",
                 "original_release_date",
-                "recording_date",
             }:
                 partial_date = _parse_partial_date_parts(value)
                 if value is not None and partial_date is None:

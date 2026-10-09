@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import extract, func, literal, or_, select, union_all
+from sqlalchemy import func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.kind_registry import (
@@ -253,7 +253,7 @@ class CatalogItemSearchService:
                     or_(
                         MusicItem.release_date["year"].as_integer() == year,
                         MusicItem.original_release_date["year"].as_integer() == year,
-                        MusicItem.recording_date["year"].as_integer() == year,
+                        MusicItem.discs.contains([{"recording_date": {"year": year}}]),
                     )
                 )
             else:

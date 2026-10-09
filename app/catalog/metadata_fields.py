@@ -45,7 +45,7 @@ _INTERNAL_DERIVED_KEYS = {
     "cover_storage",
 }
 
-METADATA_FIELD_SCHEMA_VERSION = 1
+METADATA_FIELD_SCHEMA_VERSION = 2
 
 
 def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, object]]:

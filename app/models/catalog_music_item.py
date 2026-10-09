@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import Boolean, Index, Integer, String
+from sqlalchemy import Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
@@ -60,28 +60,16 @@ class MusicItem(UuidMixin, TimestampMixin, Base):
         JSONB, nullable=False, default=list
     )
     original_release_date: Mapped[dict[str, int] | None] = mapped_column(JSONB)
-    recording_date: Mapped[dict[str, int] | None] = mapped_column(JSONB)
     release_date: Mapped[dict[str, int] | None] = mapped_column(JSONB)
     label: Mapped[str | None] = mapped_column(String(255))
     barcode: Mapped[str | None] = mapped_column(String(100))
     catalog_number: Mapped[str | None] = mapped_column(String(100))
     genres: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     packaging: Mapped[str | None] = mapped_column(String(100))
-    studios: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     country: Mapped[str | None] = mapped_column(String(100))
-    is_live: Mapped[bool | None] = mapped_column(Boolean)
     extra: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    spars_code: Mapped[str | None] = mapped_column(String(50))
     box_set: Mapped[str | None] = mapped_column(String(255))
-    composers: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
-    conductors: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
-    choruses: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    compositions: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    orchestras: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    songwriters: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
-    producers: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
-    engineers: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
-    musicians: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    credits: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     external_links: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list
     )

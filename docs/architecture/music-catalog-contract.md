@@ -1,47 +1,30 @@
 # Music Catalog Contract
 
-The public Music catalog uses one `CatalogMusicItemResponse` for each concrete album edition. Detail reads use `/metadata/music/items/{id}`; search at `/metadata/music/items` returns a page with `items`, `next_offset`, and `has_more`. No response contains a Release Group → Release parent chain. Disc and track data are contained by the item and are described by `CatalogMusicDiscResponse` and `CatalogMusicTrackResponse`. The cross-kind `/search` and barcode lookup endpoints return `{id, kind, kind_data}` and keep Music fields, including the title, inside the Music-owned data map.
+The public Music catalog uses one `CatalogMusicItemResponse` for each concrete album edition. Detail reads use `/metadata/music/items/{id}`; search at `/metadata/music/items` returns a page with `items`, `next_offset`, and `has_more`. The cross-kind `/search` and barcode lookup endpoints return `{id, kind, kind_data}` and keep Music fields inside the Music-owned data map.
 
-The Core contract exporter derives `contracts/music-catalog-v1.json` from the same Pydantic response schemas used by the API. App pins this artifact and owns the kind-specific Dart DTO. `metadata-field-schema.json` remains the contract for editable metadata fields; it does not describe the contained disc and track structure.
+Core exports the strict v2 Music contract as `contracts/music-catalog-v2.json` and the kind payload schemas as `contracts/catalog-item-v2.json`. App pins these generated artifacts and owns the kind-specific Dart domain model. The v2 payload rejects the former album-level recording fields and role-specific credit arrays; there is no v1 adapter or fallback path.
 
-Music metadata-field ownership now points to `catalog_music_item` / `music_items`. Music no longer inherits Work/Release correction fields such as Edition title, Publisher, or Release status. The Admin catalog list, detail response, correction path, and reindexing read the flat `MusicItem` model; track corrections replace the contained JSONB document while retaining existing disc IDs, titles, matrix numbers, and matching track IDs.
+## Ownership
 
-## Field ownership
-
-- Core owns canonical album-edition fields, discs, tracks, credits, identifiers, and catalog links.
-- The v1 canonical track document contains ID, display position/order, title,
-  artist, duration, and structural rows (`is_header`, `parent_header_id`,
-  `indent_level`). Headers have a title and order but no position, artist, or
-  duration. Parent headers must precede their children in the same disc;
-  indentation is limited to 0?8 and must match the active parent depth.
-  A disc contains its ID/number, title, matrix numbers, and ordered rows.
-  Provider recording IDs, playback/file details, disc TOC data, storage
-  placement, and other local-only fields are
-  not accepted or returned by Core.
-- User copies, media condition, storage device and slot, owned images, listening history, and other personal data remain in App and Sync.
-- Music has no synopsis field. Synopsis remains available for kinds that define it.
+- Album edition fields stay at the root: title, artist credits, release and original release dates, label, country, barcode, catalog number, packaging, genres, box-set metadata, covers, and external links.
+- Generic `credits[]` belongs to the album. Each disc has its own `credits[]`, recording date, recording locations, live/studio state, and SPARS code. A credit has a stable ID, optional real `contributor_id`, credited name, role vocabulary value, optional role ID, instruments list, and sequence.
+- `CatalogMusicArtistCreditResponse` remains separate because it carries artist join-phrase and sequence semantics. Composition belongs to a track.
+- Each disc owns physical format and technical metadata. `format_family` has only `vinyl`, `opticalDisc`, `tape`, `digital`, and `other`; CD, SACD, and cassette are format names, not families.
+- Personal collection data, user copies, media condition, storage placement, owned images, and listening history remain in App and Sync.
 - A Music item has one catalog identity. Two editions with the same title remain separate items.
+
+## Strict nested documents
+
+Music v2 accepts `discs[]`, and each disc accepts ordered `tracks[]` and `credits[]`. Track rows retain IDs, display positions, order, title, artist, optional composition and duration, and hierarchy fields. Header rows have no position, artist, or duration. Parent headers must precede their children in the same disc; indentation must match the active parent depth.
+
+Core rejects unknown root and nested fields, duplicate disc/track/credit IDs, duplicate positions, and non-canonical component ordering. It does not infer format family from a format label or repair approximate payloads. Provider/import normalization belongs before the canonical write boundary.
 
 ## PostgreSQL baseline
 
-Core supports a fresh v1 schema created from the current SQLAlchemy models. There is no schema-upgrade path. Existing databases and backups are not rewritten by `bootstrap_schema`; retain them separately and use a new, empty database for this baseline.
+Core supports a fresh v2 schema created from the current SQLAlchemy models. There is no schema-upgrade path. Existing databases are not transformed by this change; bootstrap a new empty database for this baseline.
 
-## Export
+`music_items` is the only Music catalog table. Its non-null `discs` JSONB column contains ordered discs, credits, recording data, and tracks; album `credits` are stored as a separate JSONB collection. Component UUIDs remain in the document, with no standalone disc/track entities or foreign keys. Writers replace the full validated document. Album revision/timestamps track changes.
 
-From the Core repository, run `python -m scripts.export_contract_bundle`. The exporter builds the Music item, disc, and track schemas from the API response classes and includes the artifact hash in `contract-manifest.json`.
+## Contract generation
 
-CI runs `python -m scripts.export_contract_bundle --check` to compare the committed bundle with the current API schemas and verify the hashes in the manifest. The check ignores only the export timestamp and Core commit metadata, which change on each export.
-
-## Music document storage
-
-`music_items` is the only Music catalog table. Its non-null `discs` JSONB column
-contains ordered discs and their tracks. Component UUIDs remain in the document;
-there are no standalone disc/track entities or foreign keys. Typed validation
-checks positive unique disc numbers, component IDs, non-negative track order and
-duration, required row titles, playable track positions, and header hierarchy. Reads return the same nested API
-shape. Writers replace the whole validated document; in-place nested JSON edits
-are not a supported persistence path. Album revision/timestamps track document
-changes. Search indexes album metadata; track search remains local to the App.
-
-This is a fresh schema-v1 baseline, without migration or compatibility code.
-Existing databases are not reset or transformed by this change.
+From the Core repository, run `python -m scripts.export_contract_bundle`. The exporter derives the Music item, disc, credit, and track schemas from the API response classes and writes their hashes to `contract-manifest.json`. CI runs `python -m scripts.export_contract_bundle --check` to verify the generated artifacts and manifest hashes.

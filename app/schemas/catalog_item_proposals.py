@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.catalog.catalog_item_schema import (
     validate_catalog_item_payload,
@@ -16,7 +16,7 @@ from app.types import JsonObject
 
 
 class CatalogItemProposalCreate(BaseModel):
-    schema_version: Literal["v1"] = "v1"
+    schema_version: Literal["v2"] = "v2"
     kind: ItemKind
     catalog_item: JsonObject = Field(min_length=1)
 
@@ -32,7 +32,7 @@ class CatalogItemProposalCreate(BaseModel):
 
 class CatalogItemProposalResponse(BaseModel):
     id: UUID
-    schema_version: Literal["v1"] = "v1"
+    schema_version: Literal["v2"] = "v2"
     kind: ItemKind
     catalog_item: JsonObject
     status: str

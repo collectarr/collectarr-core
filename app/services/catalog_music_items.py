@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,47 +30,23 @@ class CatalogMusicItemService:
         if not isinstance(title, str) or not title or title != title.strip():
             raise ValueError("Music Catalog Item title must be non-empty trimmed text")
 
-        credits = {
-            key: _credit_documents(item_payload.get(key))
-            for key in (
-                "artist_credits",
-                "composers",
-                "conductors",
-                "songwriters",
-                "producers",
-                "engineers",
-                "musicians",
-            )
-        }
         item = MusicItem(
             title=title,
             sort_title=_optional_string(item_payload.get("sort_title")),
             subtitle=_optional_string(item_payload.get("subtitle")),
             artist=_optional_string(item_payload.get("artist")),
-            artist_credits=credits["artist_credits"],
+            artist_credits=_object_values(item_payload.get("artist_credits")),
             original_release_date=_partial_date(item_payload.get("original_release_date")),
-            recording_date=_partial_date(item_payload.get("recording_date")),
             release_date=_partial_date(item_payload.get("release_date")),
             label=_optional_string(item_payload.get("label")),
             barcode=_optional_string(item_payload.get("barcode")),
             catalog_number=_optional_string(item_payload.get("catalog_number")),
             genres=_string_values(item_payload.get("genres")),
             packaging=_optional_string(item_payload.get("packaging")),
-            studios=_string_values(item_payload.get("studios")),
             country=_optional_string(item_payload.get("country")),
-            is_live=item_payload.get("is_live"),
             extra=_string_values(item_payload.get("extra")),
-            spars_code=_optional_string(item_payload.get("spars_code")),
             box_set=_optional_string(item_payload.get("box_set")),
-            composers=credits["composers"],
-            conductors=credits["conductors"],
-            choruses=_string_values(item_payload.get("choruses")),
-            compositions=_string_values(item_payload.get("compositions")),
-            orchestras=_string_values(item_payload.get("orchestras")),
-            songwriters=credits["songwriters"],
-            producers=credits["producers"],
-            engineers=credits["engineers"],
-            musicians=credits["musicians"],
+            credits=_object_values(item_payload.get("credits")),
             external_links=_object_values(item_payload.get("external_links")),
             cover_image_url=_optional_string(item_payload.get("cover_image_url")),
             back_cover_image_url=_optional_string(item_payload.get("back_cover_image_url")),
@@ -124,7 +101,7 @@ class CatalogMusicItemService:
                 or_(
                     MusicItem.release_date["year"].as_integer() == year,
                     MusicItem.original_release_date["year"].as_integer() == year,
-                    MusicItem.recording_date["year"].as_integer() == year,
+                    MusicItem.discs.contains([{"recording_date": {"year": year}}]),
                 )
             )
         stmt = (
@@ -156,12 +133,6 @@ class CatalogMusicItemService:
                 detail="Music Catalog Item not found",
             )
         return CatalogMusicItemResponse.model_validate(item)
-
-
-def _credit_documents(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):
-        raise ValueError("Music credits must be a list of complete credit objects")
-    return [dict(entry) for entry in value]
 
 
 def _string_values(value: Any) -> list[str]:

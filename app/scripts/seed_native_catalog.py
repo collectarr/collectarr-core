@@ -554,7 +554,15 @@ async def _seed_music(
         db.add(item)
     item.sort_title = _slug(entry.title)
     item.artist = entry.creator[0]
-    item.artist_credits = [{"name": entry.creator[0]}]
+    artist_credit = item.artist_credits[0] if item.artist_credits else {}
+    item.artist_credits = [
+        {
+            **artist_credit,
+            "id": artist_credit.get("id") or str(uuid4()),
+            "name": entry.creator[0],
+            "sequence": 1,
+        }
+    ]
     item.release_date = {
         "year": entry.release_date.year,
         "month": entry.release_date.month,
@@ -572,13 +580,18 @@ async def _seed_music(
     existing_track = (existing.get("tracks") or [{}])[0]
     item.discs = [{
         **existing,
+        "id": existing.get("id") or str(uuid4()),
         "disc_number": 1,
         "title": "Disc 1",
-        "format_family": "cd",
+        "format_family": "opticalDisc",
         "format": "CD",
         "sound_types": ["stereo"],
+        "recording_locations": existing.get("recording_locations") or [],
+        "credits": existing.get("credits") or [],
         "tracks": [{
-            **existing_track, "position": "1", "position_order": 0,
+            **existing_track,
+            "id": existing_track.get("id") or str(uuid4()),
+            "position": "1", "position_order": 0,
             "title": f"{entry.title} Track 1", "artist": entry.creator[0],
             "duration_ms": 180000,
         }],

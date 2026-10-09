@@ -213,11 +213,38 @@ def movie_item_search_document(item: MovieItem) -> dict[str, Any]:
 
 
 def music_item_search_document(item: MusicItem) -> dict[str, Any]:
-    date_value = item.release_date or item.original_release_date or item.recording_date
-    release_date_parts = (
-        PartialDateValue.model_validate(date_value) if date_value is not None else None
-    )
+    discs = list(item.discs or [])
+    date_value = item.release_date or item.original_release_date
+    recording_dates = [
+        PartialDateValue.model_validate(disc["recording_date"])
+        for disc in discs
+        if disc.get("recording_date")
+    ]
+    release_date_parts = PartialDateValue.model_validate(date_value) if date_value else None
+    if release_date_parts is None and recording_dates:
+        release_date_parts = min(
+            recording_dates,
+            key=lambda value: (value.year or 9999, value.month or 1, value.day or 1),
+        )
     release_date = release_date_parts.iso_string if release_date_parts else None
+    formats = _unique([_optional_text(disc.get("format")) for disc in discs])
+    contributors = [item.artist] if item.artist else []
+    contributors.extend(
+        credit.get("name")
+        for credit in item.artist_credits or []
+        if credit.get("name")
+    )
+    contributors.extend(
+        credit.get("name")
+        for credit in item.credits or []
+        if credit.get("name")
+    )
+    contributors.extend(
+        credit.get("name")
+        for disc in discs
+        for credit in disc.get("credits", [])
+        if credit.get("name")
+    )
     return {
         "id": str(item.id),
         "kind": ItemKind.music.value,
@@ -232,14 +259,14 @@ def music_item_search_document(item: MusicItem) -> dict[str, Any]:
         "release_year": release_date_parts.year if release_date_parts else None,
         "barcode": item.barcode,
         "barcodes": [item.barcode] if item.barcode else [],
-        "variant": item.format,
-        "variant_names": [item.format] if item.format else [],
+        "variant": formats[0] if formats else None,
+        "variant_names": formats,
         "bundle_titles": [],
         "bundle_release_ids": [],
         "series_title": item.artist,
         "volume_name": None,
         "catalog_number": item.catalog_number,
-        "creators": [item.artist] if item.artist else [],
+        "creators": _unique(contributors),
         "characters": [],
         "story_arcs": [],
         "platforms": [],

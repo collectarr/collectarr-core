@@ -6,10 +6,7 @@ from app import models as app_models
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.catalog.metadata_fields import METADATA_FIELDS
 from app.models.base import Base, ItemKind
-from app.schemas.catalog_item_proposals import (
-    CatalogItemProposalCreate,
-    CatalogItemProposalUpdate,
-)
+from app.schemas.catalog_item_proposals import CatalogItemProposalCreate
 
 PERSONAL_FIELD_KEYS = {
     "collection_status",
@@ -90,3 +87,10 @@ def test_user_proposals_project_only_kind_owned_catalog_data() -> None:
 
     with pytest.raises(ValueError):
         validate_catalog_item_payload(ItemKind.book, {"purchase_date": "2026-01-01"})
+
+    with pytest.raises(ValidationError):
+        CatalogItemProposalCreate(
+            schema_version="v1",
+            kind=ItemKind.book,
+            catalog_item={"title": "Old proposal contract"},
+        )

@@ -472,17 +472,13 @@ class AdminCatalogService:
             "artist",
             "release_date",
             "original_release_date",
-            "recording_date",
             "label",
             "barcode",
             "catalog_number",
             "genres",
             "packaging",
-            "studios",
             "country",
-            "is_live",
             "extra",
-            "spars_code",
             "box_set",
             "tracks",
             "external_links",
@@ -529,8 +525,6 @@ class AdminCatalogService:
             "catalog_number",
             "packaging",
             "country",
-            "is_live",
-            "spars_code",
             "box_set",
             "cover_image_url",
             "thumbnail_image_url",
@@ -539,21 +533,18 @@ class AdminCatalogService:
             if field not in update_data:
                 continue
             value = getattr(payload, field)
-            if field == "title":
-                if value is None:
-                    raise ApiHTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        code="music_title_required",
-                        detail="Music Catalog Item title must not be empty",
-                    )
+            if field == "title" and value is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="music_title_required",
+                    detail="Music Catalog Item title must not be empty",
+                )
             if isinstance(value, str):
                 value = self._strict_music_correction_text(field, value)
             setattr(item, field, value)
 
         if "genres" in update_data:
             item.genres = self._strict_music_correction_values("genres", payload.genres)
-        if "studios" in update_data:
-            item.studios = self._strict_music_correction_values("studios", payload.studios)
         if "extra" in update_data:
             item.extra = self._strict_music_correction_values("extra", payload.extra)
         if "external_links" in update_data:
@@ -570,7 +561,7 @@ class AdminCatalogService:
                 ) from error
             item.external_links = link_payload["external_links"]
 
-        for field in ("release_date", "original_release_date", "recording_date"):
+        for field in ("release_date", "original_release_date"):
             if field not in update_data:
                 continue
             value = getattr(payload, field)
@@ -613,6 +604,7 @@ class AdminCatalogService:
                             "position_order": row["position_order"],
                             "title": row["title"],
                             "artist": row.get("artist"),
+                            "composition": row.get("composition"),
                             "duration_ms": row.get("duration_ms"),
                         }
                     )
@@ -624,12 +616,17 @@ class AdminCatalogService:
                         "format_family": old_disc.get("format_family"),
                         "format": old_disc.get("format"),
                         "sound_types": old_disc.get("sound_types") or [],
+                        "recording_date": old_disc.get("recording_date"),
+                        "recording_locations": old_disc.get("recording_locations") or [],
+                        "is_live": old_disc.get("is_live"),
+                        "spars_code": old_disc.get("spars_code"),
                         "color": old_disc.get("color"),
                         "vinyl_weight_grams": old_disc.get("vinyl_weight_grams"),
                         "rpm": old_disc.get("rpm"),
                         "matrix_number": old_disc.get("matrix_number"),
                         "matrix_number_side_a": old_disc.get("matrix_number_side_a"),
                         "matrix_number_side_b": old_disc.get("matrix_number_side_b"),
+                        "credits": old_disc.get("credits") or [],
                         "tracks": tracks,
                     }
                 )

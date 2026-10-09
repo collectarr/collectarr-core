@@ -102,27 +102,6 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
         db.add_all([movie_item, tv_item, music_item, comic_item, game_item, bundle])
         await db.flush()
 
-        movie_media = MovieItemMedia(movie_item_id=movie_item.id, media_number=1)
-        tv_media = TvItemMedia(
-            item=tv_item,
-            position=0,
-            media_number=1,
-            details={"media_type": "disc"},
-        )
-        db.add_all([movie_media, tv_media])
-        await db.flush()
-
-        tv_episode = TvItemEpisode(
-            item=tv_item,
-            position=0,
-            season_number=1,
-            episode_number=1,
-            title="Pilot",
-            details={},
-        )
-        db.add(tv_episode)
-        await db.flush()
-
         db.add_all(
             [
                 BundleReleaseComponent(
@@ -182,7 +161,7 @@ async def test_bundle_release_components_support_multiple_entity_types(schema_da
         assert [row[0] for row in rows] == [
             "catalog_movie_item",
             "catalog_tv_item",
-            "music_item_track",
+            "catalog_music_item",
             "catalog_comic_item",
             "catalog_game_item",
         ]

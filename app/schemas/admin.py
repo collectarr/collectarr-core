@@ -21,6 +21,7 @@ class AdminMusicTrackCorrection(BaseModel):
     position_order: int = Field(ge=0, strict=True)
     title: str = Field(min_length=1, max_length=255, strict=True)
     artist: str | None = Field(default=None, strict=True)
+    composition: str | None = Field(default=None, strict=True)
     duration_ms: int | None = Field(default=None, ge=0, strict=True)
     is_header: bool
     parent_header_id: UUID | None
@@ -82,8 +83,6 @@ class AdminMetadataCorrectionRequest(BaseModel):
     label: str | None = Field(default=None, max_length=255)
     format: str | None = Field(default=None, max_length=100)
     packaging: str | None = Field(default=None, max_length=100)
-    studios: list[str] | None = None
-    is_live: bool | None = None
     sound_types: list[str] | None = None
     vinyl_color: str | None = Field(default=None, max_length=100)
     vinyl_weight: str | None = Field(default=None, max_length=100)
@@ -92,7 +91,6 @@ class AdminMetadataCorrectionRequest(BaseModel):
     spars: str | None = Field(default=None, max_length=50)
     box_set: str | None = Field(default=None, max_length=255)
     original_release_date: PartialDateValue | date | None = None
-    recording_date: PartialDateValue | date | None = None
     release_status: str | None = Field(default=None, max_length=64)
     physical_format: str | None = Field(default=None, max_length=64)
     variant_name: str | None = Field(default=None, max_length=255)

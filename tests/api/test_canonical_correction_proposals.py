@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.models import CanonicalCorrectionProposal, User, UserRole
 from app.models.catalog_book_item import BookItem
+from app.models.catalog_music_item import MusicItem
 from app.schemas.canonical_corrections import CanonicalCorrectionProposalCreate
 from app.services.canonical_corrections import CanonicalCorrectionService
 
@@ -156,3 +157,184 @@ async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_ta
         entity = await db.get(BookItem, entity_id)
         assert entity is not None
         assert entity.title == "Changed elsewhere"
+
+
+@pytest.mark.asyncio
+async def test_music_nested_correction_fields_are_canonical_and_correction_only(client):
+    entity_id = uuid4()
+    disc_ids = [str(uuid4()), str(uuid4())]
+    from app.db.session import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            MusicItem(
+                id=entity_id,
+                title="Deluxe Edition",
+                artist_credits=[{"id": "artist-credit-1", "name": "The Band", "sequence": 1}],
+                credits=[
+                    {
+                        "id": "album-credit-1",
+                        "name": "John Example",
+                        "role": "Producer",
+                        "sequence": 1,
+                        "instruments": [],
+                    }
+                ],
+                discs=[
+                    {
+                        "id": disc_ids[0],
+                        "disc_number": 1,
+                        "format_family": "opticalDisc",
+                        "format": "CD",
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    },
+                    {
+                        "id": disc_ids[1],
+                        "disc_number": 2,
+                        "format_family": "opticalDisc",
+                        "format": "CD",
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    },
+                ],
+            )
+        )
+        await db.commit()
+
+    snapshot = await client.get(
+        f"/api/v1/metadata/correction-targets/music/{entity_id}",
+        params={"scope": "catalog_item"},
+    )
+    assert snapshot.status_code == 200
+    body = snapshot.json()
+    fields = {field["key"]: field for field in body["field_schema"]}
+    assert fields["artist_credits"]["value_type"] == "object_list"
+    assert fields["credits"]["value_type"] == "object_list"
+    assert fields["discs"]["value_type"] == "object_list"
+    assert [disc["id"] for disc in body["fields"]["discs"]] == disc_ids
+
+    metadata = await client.get("/api/v1/metadata/field-schema", params={"editable_only": "false"})
+    assert metadata.status_code == 200
+    metadata_body = metadata.json()
+    metadata_keys = {field["key"] for field in metadata_body["fields"]}
+    music_keys = set(metadata_body["kind_fields"]["music"])
+    assert not {"artist_credits", "credits", "discs"} & metadata_keys
+    assert not {"artist_credits", "credits", "discs"} & music_keys
+
+    proposal = await client.post(
+        "/api/v1/metadata/correction-proposals",
+        json={
+            "kind": "music",
+            "entity_type": "catalog_music_item",
+            "entity_id": str(entity_id),
+            "scope": "catalog_item",
+            "base_hash": body["hash"],
+            "proposed_fields": {
+                "credits": [
+                    {
+                        "id": "album-credit-1",
+                        "name": "John A. Example",
+                        "role": "Producer",
+                        "sequence": 1,
+                        "instruments": [],
+                    }
+                ],
+                "discs": [
+                    {
+                        "id": disc_ids[0],
+                        "disc_number": 1,
+                        "format_family": "opticalDisc",
+                        "format": "CD",
+                        "title": "First Disc",
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    },
+                    {
+                        "id": disc_ids[1],
+                        "disc_number": 2,
+                        "format_family": "opticalDisc",
+                        "format": "CD",
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    },
+                ],
+            },
+        },
+    )
+    assert proposal.status_code == 201
+    diff = proposal.json()["diff"]
+    assert diff["credits"]["before"][0]["id"] == "album-credit-1"
+    assert diff["credits"]["after"][0]["id"] == "album-credit-1"
+    assert [disc["id"] for disc in diff["discs"]["after"]] == disc_ids
+
+
+@pytest.mark.asyncio
+async def test_music_nested_correction_rejects_invalid_or_duplicate_component_ids(client):
+    entity_id = uuid4()
+    disc_id = str(uuid4())
+    from app.db.session import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        db.add(
+            MusicItem(
+                id=entity_id,
+                title="Album",
+                discs=[
+                    {
+                        "id": disc_id,
+                        "disc_number": 1,
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    }
+                ],
+            )
+        )
+        await db.commit()
+
+    snapshot = await client.get(
+        f"/api/v1/metadata/correction-targets/music/{entity_id}",
+        params={"scope": "catalog_item"},
+    )
+    proposal = await client.post(
+        "/api/v1/metadata/correction-proposals",
+        json={
+            "kind": "music",
+            "entity_type": "catalog_music_item",
+            "entity_id": str(entity_id),
+            "scope": "catalog_item",
+            "base_hash": snapshot.json()["hash"],
+            "proposed_fields": {
+                "discs": [
+                    {
+                        "id": disc_id,
+                        "disc_number": 1,
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    },
+                    {
+                        "id": disc_id,
+                        "disc_number": 2,
+                        "sound_types": [],
+                        "recording_locations": [],
+                        "credits": [],
+                        "tracks": [],
+                    },
+                ]
+            },
+        },
+    )
+    assert proposal.status_code == 422
+    assert proposal.json()["code"] == "invalid_canonical_music_payload"

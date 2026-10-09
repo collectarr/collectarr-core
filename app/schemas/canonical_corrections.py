@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -49,7 +50,16 @@ class CanonicalCorrectionProposalResponse(BaseModel):
 class CanonicalCorrectionFieldResponse(BaseModel):
     key: str
     label: str
-    value_type: str
+    value_type: Literal[
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "partial_date",
+        "string_list",
+        "link_list",
+        "object_list",
+    ]
     scope: str
     entity_type: str
     writable: bool = True

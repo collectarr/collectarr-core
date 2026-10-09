@@ -56,6 +56,8 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
     )
     rows: list[dict[str, object]] = []
     for spec in METADATA_FIELDS:
+        if spec.correction_only:
+            continue
         applicable_kinds = tuple(kind for kind in active_kinds if spec.applies_to(kind))
         if not applicable_kinds:
             continue
@@ -88,6 +90,7 @@ def _coalesce_identical_specs(
             spec.editable,
             spec.section,
             spec.input,
+            spec.correction_only,
         )
         existing = ordered.get(identity)
         if existing is None:
@@ -192,18 +195,25 @@ def typed_field_keys() -> set[str]:
     return {spec.key for spec in NORMALIZED_FIELD_SPECS if spec.typed}
 
 
-def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[MetadataFieldSpec]:
+def fields_for_kind(
+    kind: ItemKind,
+    *,
+    editable_only: bool = False,
+    include_correction_only: bool = False,
+) -> list[MetadataFieldSpec]:
     """Ordered specs for a kind (common + that kind's fields)."""
     return [
         spec
         for spec in METADATA_FIELDS
-        if spec.applies_to(kind) and (not editable_only or spec.editable)
+        if spec.applies_to(kind)
+        and (not editable_only or spec.editable)
+        and (include_correction_only or not spec.correction_only)
     ]
 
 
 def editable_fields() -> list[MetadataFieldSpec]:
     """All user-editable specs, in registry order."""
-    return [spec for spec in METADATA_FIELDS if spec.editable]
+    return [spec for spec in METADATA_FIELDS if spec.editable and not spec.correction_only]
 
 
 def editable_field_keys() -> set[str]:

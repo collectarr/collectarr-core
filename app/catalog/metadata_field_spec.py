@@ -12,6 +12,7 @@ VALUE_TYPE_INTEGER = "integer"
 VALUE_TYPE_BOOLEAN = "boolean"
 VALUE_TYPE_PARTIAL_DATE = "partial_date"
 VALUE_TYPE_LINK_LIST = "link_list"
+VALUE_TYPE_OBJECT_LIST = "object_list"
 
 SECTION_ITEM = "item"
 SECTION_PUBLISHING = "publishing"
@@ -45,6 +46,7 @@ class MetadataFieldSpec:
     section: str = SECTION_ITEM
     input: str = INPUT_TEXT
     kinds: frozenset[ItemKind] = field(default_factory=frozenset)
+    correction_only: bool = False
 
     def applies_to(self, kind: ItemKind) -> bool:
         return kind in self.kinds

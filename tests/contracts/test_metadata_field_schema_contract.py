@@ -473,8 +473,24 @@ def test_metadata_field_registry_matches_golden_contract():
             tuple(sorted(k.value for k in spec.kinds)),
         )
         for spec in METADATA_FIELDS
+        if not spec.correction_only
     }
     assert actual == EXPECTED_FIELDS
+
+
+def test_music_nested_fields_are_only_exposed_to_canonical_corrections():
+    nested_fields = {"artist_credits", "credits", "discs"}
+    registered = fields_for_kind(
+        ItemKind.music, editable_only=True, include_correction_only=True
+    )
+    assert nested_fields <= {field.key for field in registered}
+    assert nested_fields.isdisjoint(
+        field.key for field in fields_for_kind(ItemKind.music, editable_only=True)
+    )
+    assert nested_fields.isdisjoint(field.key for field in editable_fields())
+    assert all(
+        field.correction_only for field in registered if field.key in nested_fields
+    )
 
 
 def test_normalized_derivations_are_byte_for_byte_stable():

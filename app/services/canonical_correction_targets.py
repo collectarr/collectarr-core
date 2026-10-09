@@ -10,8 +10,9 @@ from uuid import UUID
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.catalog.kind_registry import CATALOG_KINDS_BY_ID, catalog_kind_for
-from app.catalog.metadata_field_spec import VALUE_TYPE_STRING_LIST
+from app.catalog.metadata_field_spec import VALUE_TYPE_OBJECT_LIST, VALUE_TYPE_STRING_LIST
 from app.catalog.metadata_fields import (
     canonical_correction_field_spec,
     canonical_entity_type_for_scope,
@@ -24,6 +25,7 @@ from app.schemas.canonical_corrections import (
     CanonicalCorrectionFieldResponse,
     CanonicalCorrectionTargetResponse,
 )
+from app.schemas.catalog_music_item import CatalogMusicItemResponse
 
 _MODEL_BY_ENTITY_TYPE: dict[str, type[Any]] = {
     definition.entity_type: definition.model for definition in CATALOG_KINDS_BY_ID.values()
@@ -94,7 +96,10 @@ def _column_for_field(entity_type: str, key: str, model: type[Any]) -> str | Non
         "imprint": ("imprint",),
         "subtitle": ("subtitle",),
         "artist": ("artist",),
+        "artist_credits": ("artist_credits",),
         "genres": ("genres",),
+        "credits": ("credits",),
+        "discs": ("discs",),
         "extra": ("extra",),
         "box_set": ("box_set",),
         "external_links": ("external_links",),
@@ -260,6 +265,11 @@ class CanonicalCorrectionTargetService:
                 code="unsupported_canonical_field",
                 detail=f"Fields are not writable on {entity_type}: {unknown}",
             )
+        if entity_type == "catalog_music_item":
+            model = self._model_for_target(kind, entity_type, scope)
+            entity = await self.db.get(model, entity_id)
+            if entity is not None:
+                proposed_fields = self._validated_music_fields(entity, proposed_fields)
         diff = {
             key: {"before": current.fields.get(key), "after": value}
             for key, value in proposed_fields.items()
@@ -290,6 +300,8 @@ class CanonicalCorrectionTargetService:
                 code="canonical_target_not_found",
                 detail=f"Canonical target {entity_type}/{entity_id} was not found.",
             )
+        if entity_type == "catalog_music_item":
+            fields = self._validated_music_fields(entity, fields)
         specs = {field.key: field for field in self._field_specs(kind, entity_type, scope, model)}
         for key, value in fields.items():
             field = specs.get(key)
@@ -310,6 +322,14 @@ class CanonicalCorrectionTargetService:
                         code="invalid_string_list",
                         detail=f"Field '{key}' must be a list of strings.",
                     )
+            if field.value_type == VALUE_TYPE_OBJECT_LIST and (
+                not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value)
+            ):
+                raise ApiHTTPException(
+                    status_code=422,
+                    code="invalid_object_list",
+                    detail=f"Field '{key}' must be a list of objects.",
+                )
             if entity_type == "catalog_music_item" and key in {
                 "release_date",
                 "original_release_date",
@@ -346,7 +366,7 @@ class CanonicalCorrectionTargetService:
             )
         if not any(
             canonical_correction_field_spec(kind, field.key) is not None
-            for field in fields_for_kind(kind, editable_only=True)
+            for field in fields_for_kind(kind, editable_only=True, include_correction_only=True)
         ):
             raise ApiHTTPException(
                 status_code=422,
@@ -362,7 +382,7 @@ class CanonicalCorrectionTargetService:
         result: list[CanonicalField] = []
         if scope != "catalog_item" or catalog_kind_for(kind).entity_type != entity_type:
             return result
-        for field in fields_for_kind(kind, editable_only=True):
+        for field in fields_for_kind(kind, editable_only=True, include_correction_only=True):
             spec = canonical_correction_field_spec(kind, field.key)
             if spec is None:
                 continue
@@ -382,6 +402,24 @@ class CanonicalCorrectionTargetService:
                     )
                 )
         return result
+
+    @staticmethod
+    def _validated_music_fields(entity: Any, fields: dict[str, Any]) -> dict[str, Any]:
+        if not fields:
+            return fields
+        payload = CatalogMusicItemResponse.model_validate(entity).model_dump(
+            mode="json", exclude_none=True, exclude={"id", "kind", "revision"}
+        )
+        payload.update(fields)
+        try:
+            validated = validate_catalog_item_payload(ItemKind.music, payload)
+        except ValueError as error:
+            raise ApiHTTPException(
+                status_code=422,
+                code="invalid_canonical_music_payload",
+                detail=str(error),
+            ) from error
+        return {key: validated[key] for key in fields}
 
     @staticmethod
     def _revision(entity: Any) -> str:

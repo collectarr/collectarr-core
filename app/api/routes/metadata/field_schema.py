@@ -67,7 +67,11 @@ async def metadata_normalized_manifest() -> MetadataNormalizedManifestResponse:
 async def metadata_field_schema(
     editable_only: bool = Query(default=True),
 ) -> MetadataFieldSchemaResponse:
-    specs = [spec for spec in METADATA_FIELDS if spec.editable or not editable_only]
+    specs = [
+        spec
+        for spec in METADATA_FIELDS
+        if not spec.correction_only and (spec.editable or not editable_only)
+    ]
     fields = [_field_spec_response(spec) for spec in specs]
     kind_fields = {
         definition.kind: [

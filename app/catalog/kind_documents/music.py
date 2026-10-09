@@ -18,6 +18,7 @@ from app.catalog.metadata_field_spec import (
     SECTION_ITEM,
     SECTION_PUBLISHING,
     SECTION_TECHNICAL,
+    VALUE_TYPE_OBJECT_LIST,
     VALUE_TYPE_PARTIAL_DATE,
     VALUE_TYPE_STRING,
     VALUE_TYPE_STRING_LIST,
@@ -76,6 +77,30 @@ FIELD_SPECS = (
         "Box set",
         section=SECTION_TECHNICAL,
         kinds=frozenset({ItemKind.music}),
+    ),
+    MetadataFieldSpec(
+        "artist_credits",
+        VALUE_TYPE_OBJECT_LIST,
+        "Artist credits",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.music}),
+        correction_only=True,
+    ),
+    MetadataFieldSpec(
+        "credits",
+        VALUE_TYPE_OBJECT_LIST,
+        "Credits",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.music}),
+        correction_only=True,
+    ),
+    MetadataFieldSpec(
+        "discs",
+        VALUE_TYPE_OBJECT_LIST,
+        "Discs",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.music}),
+        correction_only=True,
     ),
 )
 

@@ -63,6 +63,24 @@ def test_music_correction_validation_preserves_nested_ids_and_order():
     assert validated["discs"][0]["title"] == "First Disc"
 
 
+def test_music_correction_validation_preserves_ids_when_discs_are_reordered():
+    item = _music_item()
+    proposed_discs = [dict(disc) for disc in reversed(item.discs)]
+    for number, disc in enumerate(proposed_discs, start=1):
+        disc["disc_number"] = number
+
+    validated = CanonicalCorrectionTargetService._validated_music_fields(
+        item, {"discs": proposed_discs}
+    )
+
+    assert [disc["id"] for disc in validated["discs"]] == [
+        disc["id"] for disc in reversed(item.discs)
+    ]
+    assert {disc["id"] for disc in validated["discs"]} == {
+        disc["id"] for disc in item.discs
+    }
+
+
 def test_music_correction_validation_rejects_duplicate_nested_ids():
     item = _music_item()
     duplicate_discs = [dict(disc) for disc in item.discs]

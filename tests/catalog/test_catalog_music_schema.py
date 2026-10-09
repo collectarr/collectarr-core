@@ -94,6 +94,33 @@ def test_catalog_music_disc_rejects_unknown_fields():
         CatalogMusicDiscResponse.model_validate(_disc(unexpected_field="disallowed"))
 
 
+def test_catalog_music_disc_requires_family_for_a_canonical_format():
+    with pytest.raises(ValidationError, match="format requires an explicit format_family"):
+        CatalogMusicDiscResponse.model_validate(_disc(format="custom silver disc"))
+
+
+def test_catalog_music_disc_accepts_custom_format_with_explicit_family():
+    disc = CatalogMusicDiscResponse.model_validate(
+        _disc(format="custom silver disc", format_family="other")
+    )
+    assert disc.format == "custom silver disc"
+    assert disc.format_family == MusicDiscFormatFamily.other
+
+
+def test_catalog_music_disc_json_schema_requires_family_for_non_null_format():
+    schema = CatalogMusicDiscResponse.model_json_schema()
+    condition = schema["allOf"][0]
+
+    assert condition["if"] == {
+        "properties": {"format": {"type": "string"}},
+        "required": ["format"],
+    }
+    assert condition["then"]["required"] == ["format_family"]
+    assert condition["then"]["properties"]["format_family"] == {
+        "not": {"type": "null"}
+    }
+
+
 def test_disc_vinyl_weight_is_limited_to_vinyl():
     with pytest.raises(ValidationError, match="vinyl_weight_grams is only allowed"):
         CatalogMusicDiscResponse.model_validate(

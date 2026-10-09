@@ -62,8 +62,14 @@ class CatalogMusicDiscResponse(BaseModel):
     id: UUID
     disc_number: int = Field(ge=1, strict=True)
     title: str | None = None
-    format_family: MusicDiscFormatFamily | None = None
-    format: str | None = None
+    format_family: MusicDiscFormatFamily | None = Field(
+        default=None,
+        description="Required and non-null whenever format has a value.",
+    )
+    format: str | None = Field(
+        default=None,
+        description="A custom value must be paired with an explicit format_family.",
+    )
     sound_types: list[StrictStr]
     recording_date: PartialDateValue | None = None
     recording_locations: list[StrictStr]
@@ -78,7 +84,26 @@ class CatalogMusicDiscResponse(BaseModel):
     credits: list[CatalogMusicCreditResponse]
     tracks: list[CatalogMusicTrackResponse]
 
-    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    model_config = ConfigDict(
+        from_attributes=True,
+        extra="forbid",
+        json_schema_extra={
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {"format": {"type": "string"}},
+                        "required": ["format"],
+                    },
+                    "then": {
+                        "properties": {
+                            "format_family": {"not": {"type": "null"}}
+                        },
+                        "required": ["format_family"],
+                    },
+                }
+            ]
+        },
+    )
 
     @field_validator(
         "title",
@@ -149,6 +174,8 @@ class CatalogMusicDiscResponse(BaseModel):
 
     @model_validator(mode="after")
     def validate_disc_semantics(self) -> CatalogMusicDiscResponse:
+        if self.format is not None and self.format_family is None:
+            raise ValueError("format requires an explicit format_family")
         credit_ids = [credit.id for credit in self.credits]
         credit_sequences = [credit.sequence for credit in self.credits]
         if len(set(credit_ids)) != len(credit_ids):

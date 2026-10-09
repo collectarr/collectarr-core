@@ -18,7 +18,7 @@ Core exports the strict v2 Music contract as `contracts/music-catalog-v2.json` a
 
 Music v2 accepts `discs[]`, and each disc accepts ordered `tracks[]` and `credits[]`. Track rows retain IDs, display positions, order, title, artist, optional composition and duration, and hierarchy fields. Header rows have no position, artist, or duration. Parent headers must precede their children in the same disc; indentation must match the active parent depth.
 
-Core rejects unknown root and nested fields, duplicate disc/track/credit IDs, duplicate positions, and non-canonical component ordering. It does not infer format family from a format label or repair approximate payloads. Provider/import normalization belongs before the canonical write boundary.
+Core rejects unknown root and nested fields, duplicate disc/track/credit IDs, duplicate positions, and non-canonical component ordering. Every non-null disc `format` requires an explicit, non-null coarse `format_family`, including custom vocabulary values. App format presets fill known families; custom formats require a user selection. Core does not infer family from a format label or repair approximate payloads. Provider/import normalization belongs before the canonical write boundary.
 
 ## PostgreSQL baseline
 

@@ -215,17 +215,7 @@ def movie_item_search_document(item: MovieItem) -> dict[str, Any]:
 def music_item_search_document(item: MusicItem) -> dict[str, Any]:
     discs = list(item.discs or [])
     date_value = item.release_date or item.original_release_date
-    recording_dates = [
-        PartialDateValue.model_validate(disc["recording_date"])
-        for disc in discs
-        if disc.get("recording_date")
-    ]
     release_date_parts = PartialDateValue.model_validate(date_value) if date_value else None
-    if release_date_parts is None and recording_dates:
-        release_date_parts = min(
-            recording_dates,
-            key=lambda value: (value.year or 9999, value.month or 1, value.day or 1),
-        )
     release_date = release_date_parts.iso_string if release_date_parts else None
     formats = _unique([_optional_text(disc.get("format")) for disc in discs])
     contributors = [item.artist] if item.artist else []

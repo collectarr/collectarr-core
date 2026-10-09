@@ -10,6 +10,7 @@ Core exports the strict v2 Music contract as `contracts/music-catalog-v2.json` a
 - Generic `credits[]` belongs to the album. Each disc has its own `credits[]`, recording date, recording locations, live/studio state, and SPARS code. A credit has a stable ID, optional real `contributor_id`, credited name, role vocabulary value, optional role ID, instruments list, and sequence.
 - `CatalogMusicArtistCreditResponse` remains separate because it carries artist join-phrase and sequence semantics. Composition belongs to a track.
 - Each disc owns physical format and technical metadata. `format_family` has only `vinyl`, `opticalDisc`, `tape`, `digital`, and `other`; CD, SACD, and cassette are format names, not families.
+- Search `release_date` and `release_year` come from the album's release or original release date. Disc recording dates stay separate and never fill a missing edition date.
 - Personal collection data, user copies, media condition, storage placement, owned images, and listening history remain in App and Sync.
 - A Music item has one catalog identity. Two editions with the same title remain separate items.
 

@@ -46,7 +46,7 @@ def _field_spec_response(spec: MetadataFieldSpec) -> MetadataFieldSpecResponse:
 @router.get("/metadata/media-types", response_model=MediaCatalogResponse)
 async def media_type_catalog() -> MediaCatalogResponse:
     return MediaCatalogResponse(
-        default_kind=ItemKind.comic,
+        default_kind=ItemKind.music,
         media_types=[_media_type_response(config) for config in top_level_media_types],
     )
 
@@ -70,7 +70,7 @@ async def metadata_field_schema(
     specs = [
         spec
         for spec in METADATA_FIELDS
-        if not spec.correction_only and (spec.editable or not editable_only)
+        if not spec.correction_only and spec.applies_to(ItemKind.music) and (spec.editable or not editable_only)
     ]
     fields = [_field_spec_response(spec) for spec in specs]
     kind_fields = {

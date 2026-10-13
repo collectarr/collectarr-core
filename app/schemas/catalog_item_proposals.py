@@ -11,13 +11,14 @@ from pydantic import BaseModel, Field, model_validator
 from app.catalog.catalog_item_schema import (
     validate_catalog_item_payload,
 )
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.models.base import ItemKind
 from app.types import JsonObject
 
 
 class CatalogItemProposalCreate(BaseModel):
-    schema_version: Literal["v2"] = "v2"
-    kind: ItemKind
+    schema_version: Literal["v1"] = "v1"
+    kind: ReleasedCatalogKind
     catalog_item: JsonObject = Field(min_length=1)
 
     model_config = {"extra": "forbid"}
@@ -32,8 +33,8 @@ class CatalogItemProposalCreate(BaseModel):
 
 class CatalogItemProposalResponse(BaseModel):
     id: UUID
-    schema_version: Literal["v2"] = "v2"
-    kind: ItemKind
+    schema_version: Literal["v1"] = "v1"
+    kind: ReleasedCatalogKind
     catalog_item: JsonObject
     status: str
     review_note: str | None = None

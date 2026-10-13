@@ -2,21 +2,13 @@ from app.models.base import ItemKind
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
-def test_entity_ref_registry_exposes_bundle_release_spec():
-    spec = DEFAULT_ENTITY_REF_REGISTRY.spec_for("bundle_release")
-
-    assert spec is not None
-    assert spec.table_name == "bundle_releases"
-    assert spec.display_name == "Bundle release"
-    assert DEFAULT_ENTITY_REF_REGISTRY.table_name("bundle_release") == "bundle_releases"
+def test_unreleased_entities_are_not_resolvable():
+    for entity in ("bundle_release", "catalog_book_item", "catalog_game_item", "catalog_tv_item", "character", "story_arc"):
+        assert DEFAULT_ENTITY_REF_REGISTRY.spec_for(entity) is None
 
 
-def test_entity_ref_registry_marks_active_entities_with_kind_metadata():
-    book_spec = DEFAULT_ENTITY_REF_REGISTRY.spec_for("catalog_book_item")
-    game_spec = DEFAULT_ENTITY_REF_REGISTRY.spec_for("catalog_game_item")
-
-    assert book_spec is not None and book_spec.kind == ItemKind.book
-    assert game_spec is not None and game_spec.kind == ItemKind.game
-    assert game_spec.table_name == "game_items"
-    assert DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_book_item")
-    assert "bundle_release" in DEFAULT_ENTITY_REF_REGISTRY.known_entity_types()
+def test_registry_exposes_music_and_its_shared_references():
+    spec = DEFAULT_ENTITY_REF_REGISTRY.spec_for("catalog_music_item")
+    assert spec is not None and spec.kind is ItemKind.music
+    assert spec.table_name == "music_items"
+    assert set(DEFAULT_ENTITY_REF_REGISTRY.known_entity_types()) == {"catalog_music_item", "organization", "person", "tag"}

@@ -651,9 +651,10 @@ class AdminCatalogService:
                 "after": update_data,
             },
         )
+        item_id = item.id
         await self.db.commit()
         self.db.expire_all()
-        loaded_item = await self._load_native_catalog_entity(ItemKind.music, item.id)
+        loaded_item = await self._load_native_catalog_entity(ItemKind.music, item_id)
         if loaded_item is None:
             raise ApiHTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from app.api.deps import DbSession
-from app.models.base import ItemKind
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.schemas.metadata_shared import CatalogSearchItemEnvelope, CatalogSearchPage
 from app.services.facade import MetadataFacade as MetadataService
 
@@ -14,7 +14,7 @@ router = APIRouter(tags=["metadata"])
 async def search(
     db: DbSession,
     q: str | None = Query(default=None, min_length=1),
-    kind: ItemKind | None = None,
+    kind: ReleasedCatalogKind | None = None,
     series: str | None = Query(default=None, min_length=1),
     issue_number: str | None = Query(default=None, min_length=1),
     publisher: str | None = Query(default=None, min_length=1),
@@ -56,6 +56,6 @@ async def search(
 async def lookup_barcode(
     barcode: str,
     db: DbSession,
-    kind: ItemKind | None = None,
+    kind: ReleasedCatalogKind | None = None,
 ) -> CatalogSearchItemEnvelope:
     return await MetadataService(db).lookup_barcode(barcode, kind)

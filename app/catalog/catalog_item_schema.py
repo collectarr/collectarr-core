@@ -26,7 +26,7 @@ from app.models.partial_date import PartialDateValue
 
 
 def catalog_item_payload_contract() -> dict[str, Any]:
-    """Return the v2 JSON Schema for each kind's proposal document."""
+    """Return the v1 JSON Schema for each kind's proposal document."""
     kinds: dict[str, Any] = {}
     for definition in CATALOG_KIND_DEFINITIONS:
         kind = definition.kind
@@ -46,16 +46,15 @@ def catalog_item_payload_contract() -> dict[str, Any]:
         kinds[kind.value] = kind_schema
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.collectarr.app/catalog-item/v2",
-        "title": "Collectarr Flattened Catalog Item v2 Proposal Payloads",
+        "$id": "https://schemas.collectarr.app/catalog-item/v1",
+        "title": "Collectarr Flattened Catalog Item v1 Proposal Payloads",
         "description": (
             "Source-neutral Catalog Item documents. Fields are validated and "
             "projected using the schema owned by the declared kind."
         ),
-        "schemaVersion": 2,
+        "schemaVersion": 1,
         "fieldStatus": {
             "music": "grounded_in_saved_clz_music_edit_form",
-            "other_kinds": "provisional_clz_parity_unverified_without_edit_form_captures",
         },
         "kinds": kinds,
     }

@@ -6,15 +6,7 @@ from app.main import app
 
 SEARCH_PATHS = (
     "/api/v1/search",
-    "/api/v1/metadata/anime/items",
-    "/api/v1/metadata/boardgames/items",
-    "/api/v1/metadata/books/items",
-    "/api/v1/metadata/comics/items",
-    "/api/v1/metadata/games/items",
-    "/api/v1/metadata/manga/items",
-    "/api/v1/metadata/movies/items",
     "/api/v1/metadata/music/items",
-    "/api/v1/metadata/tv/items",
 )
 
 

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.models.base import ItemKind
 
 
@@ -44,7 +45,7 @@ class CatalogSearchItemEnvelope(BaseModel):
     """A search hit with catalog fields owned by its kind."""
 
     id: UUID
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     kind_data: dict[str, Any]
 
     model_config = ConfigDict(extra="forbid")

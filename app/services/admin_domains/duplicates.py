@@ -7,21 +7,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.core.errors import ApiHTTPException
 from app.models import (
-    ComicItem,
     DuplicateReview,
     DuplicateReviewDetail,
     DuplicateReviewEntity,
-    MangaItem,
-    MusicItem,
 )
-from app.models.catalog_anime_item import AnimeItem
-from app.models.catalog_boardgame_item import BoardGameItem
-from app.models.catalog_book_item import BookItem
-from app.models.catalog_game_item import GameItem
-from app.models.catalog_movie_item import MovieItem
-from app.models.catalog_tv_item import TvItem
 from app.schemas.admin import (
     AdminDuplicateActionResponse,
     AdminDuplicateCandidateResponse,
@@ -31,34 +23,10 @@ from app.schemas.admin import (
 )
 from app.services.typed_values import flatten_typed_values, materialize_typed_values
 
-# Maps each native root model class to the entity_type string used in generic link tables.
-_ENTITY_TYPE: dict[type, str] = {
-    BookItem: "catalog_book_item",
-    ComicItem: "catalog_comic_item",
-    MangaItem: "catalog_manga_item",
-    AnimeItem: "catalog_anime_item",
-    MovieItem: "catalog_movie_item",
-    TvItem: "catalog_tv_item",
-    GameItem: "catalog_game_item",
-    BoardGameItem: "catalog_boardgame_item",
-    MusicItem: "catalog_music_item",
-}
-
-# Maps each native root model class to a human-readable kind label.
-_KIND_LABEL: dict[type, str] = {
-    BookItem: "book",
-    ComicItem: "comic",
-    MangaItem: "manga",
-    AnimeItem: "anime",
-    MovieItem: "movie",
-    TvItem: "tv",
-    GameItem: "game",
-    BoardGameItem: "boardgame",
-    MusicItem: "music",
-}
-
-# All native root model classes in scan order.
-_NATIVE_MODELS: list[type] = list(_ENTITY_TYPE.keys())
+# Release registrations own both scan models and their public identities.
+_ENTITY_TYPE = {definition.model: definition.entity_type for definition in CATALOG_KIND_DEFINITIONS}
+_KIND_LABEL = {definition.model: definition.kind.value for definition in CATALOG_KIND_DEFINITIONS}
+_NATIVE_MODELS = list(_ENTITY_TYPE)
 
 
 class AdminDuplicateService:

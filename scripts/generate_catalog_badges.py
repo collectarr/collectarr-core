@@ -12,14 +12,6 @@ from urllib import error, request
 
 KIND_SPECS = [
     ("total", "Catalog items", "catalog-total.svg", "#2f6feb"),
-    ("comic", "Comics", "catalog-comic.svg", "#d73a49"),
-    ("manga", "Manga", "catalog-manga.svg", "#fb8c00"),
-    ("anime", "Anime", "catalog-anime.svg", "#8e44ad"),
-    ("book", "Books", "catalog-book.svg", "#2da44e"),
-    ("game", "Games", "catalog-game.svg", "#0f766e"),
-    ("boardgame", "Board Games", "catalog-boardgame.svg", "#6f42c1"),
-    ("movie", "Movies", "catalog-movie.svg", "#c2410c"),
-    ("tv", "TV", "catalog-tv.svg", "#2563eb"),
     ("music", "Music", "catalog-music.svg", "#db2777"),
 ]
 LEFT_COLOR = "#555"

@@ -23,9 +23,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import app.models  # noqa: E402, F401
-from app.models.base import Base  # noqa: E402
 
 POSTGRES_DIALECT = postgresql.dialect()
+from app.db.schema_migrations import release_tables, schema_migrations  # noqa: E402
+
 DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
@@ -54,16 +55,15 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
         "title": "Catalog Spine",
-        "description": "Canonical kind-specific tables and polymorphic bundle composition.",
+        "description": "Canonical Music catalog tables.",
         "tables": [
-            "bundle_releases",
-            "bundle_release_components",
+            "music_items",
         ],
     },
     {
         "id": "editorial",
         "title": "Editorial and Taxonomy",
-        "description": "People, organizations, characters, story arcs, and shared tagging tables.",
+        "description": "People, organizations and shared tagging tables.",
         "tables": [
             "organizations",
             "persons",
@@ -106,16 +106,7 @@ TABLE_TO_DOMAIN = {
 }
 
 KIND_SPECS: list[dict[str, str]] = [
-    {"id": "comic", "title": "Comics", "description": "Comic-specific schema slice."},
-    {"id": "manga", "title": "Manga", "description": "Manga-specific schema slice."},
-    {"id": "anime", "title": "Anime", "description": "Anime-specific schema slice."},
-    {"id": "movie", "title": "Movies", "description": "Movie-specific schema slice."},
-    {"id": "tv", "title": "TV", "description": "TV-specific schema slice."},
-    {"id": "game", "title": "Games", "description": "Video game schema slice."},
-    {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
-    {"id": "book", "title": "Books", "description": "Book Catalog Item and reusable series grouping schema slice."},
-    {"id": "music", "title": "Music", "description": "Music schema slice."},
-    {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
+    {"id": "music", "title": "Music", "description": "Current Music schema at release baseline 1."},
 ]
 
 KIND_SHARED_TABLES = [
@@ -582,7 +573,7 @@ def build_schema_data() -> dict[str, Any]:
     enums: dict[str, dict[str, Any]] = {}
     relationships = []
 
-    for table in Base.metadata.sorted_tables:
+    for table in [*release_tables(), schema_migrations]:
         if table.name in HIDDEN_TABLE_NAMES:
             continue
         unique_by_column = collect_column_uniques(table)

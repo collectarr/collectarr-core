@@ -4,8 +4,8 @@ from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 from app.services.catalog_series_items import CatalogTvItemService
 
 
-def test_tv_catalog_item_is_the_only_registered_root():
-    assert DEFAULT_ENTITY_REF_REGISTRY.table_name("catalog_tv_item") == "tv_items"
+def test_unreleased_tv_root_is_not_registered():
+    assert DEFAULT_ENTITY_REF_REGISTRY.table_name("catalog_tv_item") is None
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("tv_series")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("tv_release")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("tv_episode")

@@ -1,44 +1,13 @@
-# Core Current Status
+# Core current status
 
-Last reviewed: 2026-10-09.
+Reviewed: 2026-10-13.
 
-## Implemented
+The release branch exposes Music only. The current album/disc/credit/track structures are unchanged and labelled schema/contract v1 and package 1.0.0. Public kinds, navigation, proposals, corrections, search and generated contracts are restricted to Music. Unreleased kind models remain source modules and are not included in release table creation.
 
-- Core stores one concrete Catalog Item root for each of the nine active kinds.
-- `CatalogKindDefinition` is the composition source for kind models, document
-  schemas, field declarations, response schemas, proposal writers, and metadata
-  routes. Media type and document registries are derived from it.
-- Proposal validation accepts only fields declared by the submitted kind.
-  Correction targets resolve the root model and entity type through the kind
-  definition.
-- Shared and kind-specific search routes return stable offset pages with
-  `items`, `next_offset`, and `has_more`. Cross-kind search orders results
-  before applying pagination. Music's detailed page retains discs and tracks.
-- Identifier matching uses indexed barcode and catalog-number columns or
-  JSONB containment supported by each non-Music root's GIN details index.
-  Manga ISBN lookups use JSONB containment rather than unindexed scalar JSON
-  extraction.
-- Catalog-root entity resolution and canonical correction model lookup derive
-  their nine root models from the kind composition registry.
-- The edit-field contract contains field semantics and UI hints. Table and
-  canonical write ownership are resolved through kind definitions.
-- Shared credit shapes contain only common person and role fields. Artist ID
-  and instrument are Music-specific. Music and Comic credit shapes support
-  join phrases; unrelated kinds do not.
-- Core's OpenAPI, field, active-kind, Music, and Catalog Item contracts were
-  regenerated from the active sources and copied into App's pinned bundle.
+Baseline 1 installs the current Music and shared support tables through an explicit, transactional migration entry point. Existing unversioned or unsupported databases are refused without reset. Future schema changes and new kinds require ordered, data-preserving migrations.
 
-## Remaining limits
+Core owns canonical catalog metadata; App/Sync own personal library copies and state. Stable IDs, scoped credits, instrument lists and partial dates retain their current strict contract. Regenerated Music JSON definitions were compared with the pre-reset definitions and are identical.
 
-- Music field decisions use the saved CLZ Music form. Exact CLZ parity for
-  Comics, Books, Movies, and Games remains unverified until their Edit captures
-  are available. Manga, Anime, TV, and Board Game ledgers are provisional
-  because CLZ has no dedicated product form for them.
-- The full Core suite passes 152 tests against the isolated local
-  `collectarr_test` database. This includes canonical schema/API contracts and
-  PostgreSQL `EXPLAIN` checks for declared identifier and scalar indexes;
-  `ruff check .` also passes.
-- Duplicate merge remains disabled until App-owned references can be remapped
-  safely. No live database was reset, migrated, or deleted.
-- The final App Windows build and repository-wide architecture guard remain to
-  be run after the implementation and documentation pass is complete.
+Verification: Ruff and the contract generator check pass. All 167 tests pass against an isolated PostgreSQL test container, including fresh physical schema checks, preserved rows, unsupported-version refusal, admin summaries on the Music-only schema, strict wire validation, correction/audit and serializable inactive-kind errors. Production/development databases were not opened or changed.
+
+The first release is being prepared, not published. Existing tags and Git history are preserved. Test-suite organization and database fixture runtime improvements are the next authorized stage.

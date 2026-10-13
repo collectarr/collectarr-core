@@ -51,46 +51,11 @@ def test_openapi_excludes_personal_fields() -> None:
     assert PERSONAL_FIELD_KEYS.isdisjoint(keys)
 
 
-def test_user_proposals_project_only_kind_owned_catalog_data() -> None:
-    accepted = CatalogItemProposalCreate(
-        kind=ItemKind.book,
-        catalog_item={
-            "title": "A source-neutral edition",
-            "contributors": [{"name": "A. Writer", "role": "author"}],
-        },
-    )
-    assert accepted.catalog_item["title"] == "A source-neutral edition"
-
-    submitted = {
-        "title": "A source-neutral edition",
-        "contributors": [
-            {
-                "name": "A. Writer",
-                "role": "author",
-                "unrecognized_identifiers": {"external": "1"},
-            }
-        ],
-        "owned_copy": {"condition": "mint"},
-        "purchase_date": "2026-01-01",
-        "external_catalog_reference": "external-1",
-    }
-    projected = validate_catalog_item_payload(ItemKind.book, submitted)
-    assert projected == {
-        "title": "A source-neutral edition",
-        "contributors": [{"name": "A. Writer", "role": "author"}],
-    }
-    accepted_with_local_fields = CatalogItemProposalCreate(
-        kind=ItemKind.book,
-        catalog_item=submitted,
-    )
-    assert accepted_with_local_fields.catalog_item == projected
-
-    with pytest.raises(ValueError):
-        validate_catalog_item_payload(ItemKind.book, {"purchase_date": "2026-01-01"})
-
+def test_music_user_proposals_reject_personal_and_unrecognized_data() -> None:
+    catalog = {"title": "A source-neutral edition", "artist": "Artist", "artist_credits": [{"id": "artist-credit", "name": "Artist", "sequence": 1}], "credits": [], "genres": [], "extra": [], "external_links": [], "discs": []}
+    assert CatalogItemProposalCreate(kind=ItemKind.music, catalog_item=catalog).catalog_item == catalog
+    for key in ("owned_copy", "purchase_date", "external_catalog_reference"):
+        with pytest.raises(ValueError, match="unrecognized fields"):
+            validate_catalog_item_payload(ItemKind.music, {**catalog, key: "private"})
     with pytest.raises(ValidationError):
-        CatalogItemProposalCreate(
-            schema_version="v1",
-            kind=ItemKind.book,
-            catalog_item={"title": "Old proposal contract"},
-        )
+        CatalogItemProposalCreate(schema_version="v2", kind=ItemKind.music, catalog_item=catalog)

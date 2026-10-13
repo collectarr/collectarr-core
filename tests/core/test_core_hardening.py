@@ -76,13 +76,13 @@ def test_production_requires_explicit_secret(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_metadata_errors_return_specific_codes(client):
-    unknown_barcode = await client.get("/api/v1/barcode/0000000000000", params={"kind": "comic"})
-    unknown_book = await client.get(f"/api/v1/metadata/books/items/{uuid4()}")
+    unknown_barcode = await client.get("/api/v1/barcode/0000000000000", params={"kind": "music"})
+    unknown_book = await client.get(f"/api/v1/metadata/music/items/{uuid4()}")
 
     assert unknown_barcode.status_code == 404
     assert unknown_barcode.json()["code"] == "barcode_not_found"
     assert unknown_book.status_code == 404
-    assert unknown_book.json()["code"] == "book_item_not_found"
+    assert unknown_book.json()["code"] == "music_item_not_found"
 
 
 @pytest.mark.asyncio
@@ -104,3 +104,12 @@ async def test_rate_limit_cleanup_removes_expired_client_buckets(monkeypatch):
     cleanup_rate_limits()
 
     assert rate_limit_bucket_count() == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["anime", "boardgame", "book", "comic", "game", "manga", "movie", "tv"])
+async def test_unreleased_kind_validation_returns_serializable_errors(client, kind):
+    response = await client.get("/api/v1/search", params={"kind": kind, "q": "test"})
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert response.json()["errors"][0]["ctx"]["error"] == "This kind is not included in the Music release"

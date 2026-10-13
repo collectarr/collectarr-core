@@ -1,17 +1,7 @@
 from app.catalog.media_types import top_level_media_types
 from app.models.base import ItemKind
 
-ACTIVE_PARITY_KINDS = {
-    ItemKind.comic,
-    ItemKind.manga,
-    ItemKind.anime,
-    ItemKind.book,
-    ItemKind.game,
-    ItemKind.boardgame,
-    ItemKind.movie,
-    ItemKind.tv,
-    ItemKind.music,
-}
+ACTIVE_PARITY_KINDS = {ItemKind.music}
 
 
 def test_active_top_level_kinds_match_parity_contract():

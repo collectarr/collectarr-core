@@ -15,11 +15,10 @@ def test_clean_normalized_metadata_applies_kind_specific_schema() -> None:
         "tracks": [{"title": "Theme"}],
     }
 
-    cleaned = clean_normalized_metadata(payload, kind=ItemKind.game)
+    cleaned = clean_normalized_metadata(payload, kind=ItemKind.music)
 
     assert cleaned == {
         "genres": ["Action"],
-        "platforms": ["PC"],
         "schema_version": NORMALIZED_SCHEMA_VERSION,
     }
 
@@ -45,7 +44,7 @@ def test_merge_normalized_metadata_rewrites_schema_version() -> None:
     merged = merge_normalized_metadata(
         {"normalized": {"genres": ["Sci-Fi"], "schema_version": 999}},
         {"genres": ["Sci-Fi", "Drama"]},
-        kind=ItemKind.movie,
+        kind=ItemKind.music,
     )
 
     assert merged["normalized"] == {

@@ -12,17 +12,9 @@ from sqlalchemy.orm import selectinload
 from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     AdminAuditLog,
-    AnimeItem,
-    BoardGameItem,
-    BookItem,
     CatalogItemProposal,
-    ComicItem,
-    GameItem,
     ImageAsset,
-    MangaItem,
-    MovieItem,
     MusicItem,
-    TvItem,
 )
 from app.models.base import ItemKind
 from app.schemas.admin import (
@@ -175,30 +167,19 @@ class AdminOverviewService:
         return int(await self.db.scalar(select(func.count()).select_from(model)) or 0)
 
     async def _count_contained_values(self) -> int:
-        counts = {
-            BookItem: ("printings", "credits", "identifiers", "series_memberships"),
-            ComicItem: ("identifiers",),
-            MangaItem: ("identifiers",),
-            AnimeItem: ("media", "episodes", "identifiers"),
-            MovieItem: ("media",),
-            TvItem: ("seasons", "media", "episodes", "identifiers"),
-            GameItem: ("identifiers",),
-            BoardGameItem: ("identifiers",),
-            MusicItem: ("discs",),
-        }
         total = 0
-        for model, fields in counts.items():
-            length = sum(
-                func.coalesce(func.jsonb_array_length(model.details[field]), 0) for field in fields
-            )
-            total += int(
-                await self.db.scalar(select(func.coalesce(func.sum(length), 0)).select_from(model))
-                or 0
-            )
+        for definition in CATALOG_KIND_DEFINITIONS:
+            model = definition.model
+            fields = definition.contained_count_fields
+            if not fields:
+                continue
+            values = [getattr(model, field) if hasattr(model, field) else model.details[field] for field in fields]
+            length = sum(func.coalesce(func.jsonb_array_length(value), 0) for value in values)
+            total += int(await self.db.scalar(select(func.coalesce(func.sum(length), 0)).select_from(model)) or 0)
         return total
 
     async def _item_counts_by_kind(self) -> dict[str, int]:
-        counts = {kind.value: 0 for kind in ItemKind}
+        counts = {definition.kind.value: 0 for definition in CATALOG_KIND_DEFINITIONS}
         for definition in CATALOG_KIND_DEFINITIONS:
             counts[definition.kind.value] = await self._count(definition.model)
         return counts

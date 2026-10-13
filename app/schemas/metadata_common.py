@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.base import ItemKind
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.models.partial_date import PartialDateValue
 
 
@@ -18,7 +18,7 @@ class PhysicalFormatResponse(BaseModel):
 
 
 class MediaTypeResponse(BaseModel):
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     singular_label: str
     plural_label: str
     route_segments: list[str]
@@ -27,14 +27,14 @@ class MediaTypeResponse(BaseModel):
 
 
 class MediaCatalogResponse(BaseModel):
-    default_kind: ItemKind
+    default_kind: ReleasedCatalogKind
     media_types: list[MediaTypeResponse]
 
 
 class MetadataNormalizedManifestResponse(BaseModel):
     schema_version: int
     common_fields: list[str]
-    kind_fields: dict[ItemKind, list[str]]
+    kind_fields: dict[ReleasedCatalogKind, list[str]]
     value_types: dict[str, str]
 
 
@@ -47,7 +47,7 @@ class MetadataFieldSpecResponse(BaseModel):
     editable: bool
     section: str
     input: str
-    kinds: list[ItemKind] = Field(default_factory=list)
+    kinds: list[ReleasedCatalogKind] = Field(default_factory=list)
 
 
 class MetadataFieldSchemaResponse(BaseModel):
@@ -55,7 +55,7 @@ class MetadataFieldSchemaResponse(BaseModel):
 
     schema_version: int
     fields: list[MetadataFieldSpecResponse]
-    kind_fields: dict[ItemKind, list[str]]
+    kind_fields: dict[ReleasedCatalogKind, list[str]]
     sections: list[str] = Field(default_factory=list)
 
 
@@ -89,7 +89,7 @@ class StoryArcItemResponse(BaseModel):
     entity_type: str
     entity_id: UUID
     ordinal: int | None = None
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     title: str
     item_number: str | None = None
     series_title: str | None = None
@@ -121,7 +121,7 @@ class CreatorCreditResponse(BaseModel):
     creator_id: UUID
     item_id: UUID
     role: str
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     title: str
     item_number: str | None = None
     series_title: str | None = None
@@ -159,7 +159,7 @@ class CharacterAppearanceResponse(BaseModel):
     entity_type: str
     entity_id: UUID
     role: str
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     title: str
     item_number: str | None = None
     series_title: str | None = None

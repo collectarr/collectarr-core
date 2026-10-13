@@ -2,15 +2,7 @@
   "generated_at": "2026-06-25T08:48:26.182069+00:00",
   "items": null,
   "items_by_kind": {
-    "anime": null,
-    "boardgame": null,
-    "book": null,
-    "comic": null,
-    "game": null,
-    "manga": null,
-    "movie": null,
-    "music": null,
-    "tv": null
+    "music": null
   },
   "mode": "placeholder"
 }

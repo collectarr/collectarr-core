@@ -33,7 +33,7 @@ class EntityRefRegistry:
         return tuple(sorted(self.specs_by_entity_type))
 
 
-DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry(
+_ENTITY_REF_REGISTRY = EntityRefRegistry(
     {
         "bundle_release": EntityRefSpec(
             "bundle_release",
@@ -114,3 +114,9 @@ DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry(
         "tag": EntityRefSpec("tag", "tags", "Tag", supports_aliases=True, supports_links=True),
     }
 )
+
+
+DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry({
+    entity_type: spec for entity_type, spec in _ENTITY_REF_REGISTRY.specs_by_entity_type.items()
+    if entity_type in {"catalog_music_item", "organization", "person", "tag"}
+})

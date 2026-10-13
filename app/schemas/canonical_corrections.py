@@ -5,14 +5,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.base import ItemKind
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.types import JsonObject
 
 
 class CanonicalCorrectionProposalCreate(BaseModel):
     """A source-neutral proposal against one canonical entity."""
 
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     entity_type: str = Field(min_length=1, max_length=64)
     entity_id: UUID
     scope: str = Field(min_length=1, max_length=64)
@@ -33,7 +33,7 @@ class CanonicalCorrectionProposalCreate(BaseModel):
 
 class CanonicalCorrectionProposalResponse(BaseModel):
     id: UUID
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     entity_type: str
     entity_id: UUID
     scope: str
@@ -68,7 +68,7 @@ class CanonicalCorrectionFieldResponse(BaseModel):
 class CanonicalCorrectionTargetResponse(BaseModel):
     """Authoritative snapshot for one exact canonical correction target."""
 
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     entity_type: str
     entity_id: UUID
     scope: str

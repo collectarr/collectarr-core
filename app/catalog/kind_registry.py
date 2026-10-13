@@ -1,4 +1,4 @@
-"""Composition point for the nine canonical Catalog Item kinds."""
+"""Release composition for canonical Music catalog items."""
 
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ class CatalogKindDefinition:
         return builder(item)
 
 
-CATALOG_KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
+_KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
     sorted(
         (
             CatalogKindDefinition(
@@ -248,6 +248,10 @@ CATALOG_KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
         ),
         key=lambda definition: definition.kind.value,
     )
+)
+
+CATALOG_KIND_DEFINITIONS = tuple(
+    definition for definition in _KIND_DEFINITIONS if definition.kind is ItemKind.music
 )
 
 CATALOG_KINDS_BY_ID = {definition.kind: definition for definition in CATALOG_KIND_DEFINITIONS}

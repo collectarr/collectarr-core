@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import BookItem
+from app.models import MusicItem
 from app.models.base import ItemKind
 from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.overview import (
@@ -136,12 +136,12 @@ async def test_support_service_item_response_uses_flat_book_loader(monkeypatch):
         return FakeResponse(item_id)
 
     monkeypatch.setattr(
-        "app.services.admin_domains.support.CatalogBookItemService.get",
+        "app.services.admin_domains.support.CatalogMusicItemService.get",
         fake_get_book_item,
     )
 
     service = AdminSupportService(db=object(), actor_user_id=None, actor_email=None)
-    item = BookItem(id=uuid4(), title="Dune", details={})
+    item = MusicItem(id=uuid4(), title="Dune")
 
     result = await service.item_response(item)
 
@@ -168,12 +168,12 @@ async def test_support_service_reindex_items_indexes_native_entities_only(monkey
             return self._values
 
     unknown_entity = SimpleNamespace(id=uuid4())
-    native_item = BookItem(id=uuid4(), title="Dune", details={})
+    native_item = MusicItem(id=uuid4(), title="Dune")
 
     class FakeDb:
         async def execute(self, stmt):
             entity = stmt.column_descriptions[0]["entity"]
-            if entity is BookItem:
+            if entity is MusicItem:
                 return FakeResult([native_item])
             return FakeResult([])
 
@@ -187,7 +187,7 @@ async def test_support_service_reindex_items_indexes_native_entities_only(monkey
 
     await service.reindex_items({unknown_entity.id, native_item.id})
 
-    assert captured == [{"id": str(native_item.id), "entity": "BookItem"}]
+    assert captured == [{"id": str(native_item.id), "entity": "MusicItem"}]
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,5 @@
 from app.api.routes.metadata import search as metadata_search
+from app.catalog.kind_documents import boardgame, book, comic, movie, tv
 from app.catalog.kind_documents.registry import DOCUMENTS
 from app.catalog.kind_registry import (
     CATALOG_KIND_DEFINITIONS,
@@ -17,7 +18,7 @@ from app.schemas.metadata_shared import CatalogSearchPage
 
 
 def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
-    assert len(CATALOG_KIND_DEFINITIONS) == 9
+    assert len(CATALOG_KIND_DEFINITIONS) == 1
     assert set(CATALOG_KINDS_BY_ID) == {definition.kind for definition in CATALOG_KIND_DEFINITIONS}
     assert set(DOCUMENTS) == set(CATALOG_KINDS_BY_ID)
     assert set(CATALOG_KINDS_BY_MODEL) == {
@@ -27,7 +28,7 @@ def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
     assert len(CATALOG_KINDS_BY_ROUTE) == sum(
         len(definition.route_segments) for definition in CATALOG_KIND_DEFINITIONS
     )
-    assert CATALOG_KINDS_BY_ID[ItemKind.book].model.__tablename__ == "book_items"
+    assert ItemKind.book not in CATALOG_KINDS_BY_ID
     assert CATALOG_KINDS_BY_ID[ItemKind.music].model.__tablename__ == "music_items"
     assert all(
         definition.route_module and definition.entity_type
@@ -71,22 +72,18 @@ def test_music_credit_fields_are_not_part_of_other_kind_documents():
     assert not artist_credit.allow_string_value
 
     for kind in (ItemKind.book, ItemKind.movie, ItemKind.tv):
-        person = catalog_kind_for(kind).document.children["creators"]
+        person = {ItemKind.book: book.DOCUMENT, ItemKind.movie: movie.DOCUMENT, ItemKind.tv: tv.DOCUMENT}[kind].children["creators"]
         assert not {"artist_id", "join_phrase", "instrument"}.intersection(person.fields)
 
-    comic_creator = catalog_kind_for(ItemKind.comic).document.children["creators"]
+    comic_creator = comic.DOCUMENT.children["creators"]
     assert "join_phrase" in comic_creator.fields
     assert not {"artist_id", "instrument"}.intersection(comic_creator.fields)
 
-    comic_creator_fields = app.openapi()["components"]["schemas"]["CatalogComicCreatorResponse"][
-        "properties"
-    ]
-    assert "join_phrase" in comic_creator_fields
-    assert not {"artist_id", "instrument"}.intersection(comic_creator_fields)
+    assert "CatalogComicCreatorResponse" not in app.openapi()["components"]["schemas"]
 
 
 def test_kind_child_shapes_and_responses_are_composed_once():
-    book_children = catalog_kind_for(ItemKind.book).document.children
+    book_children = book.DOCUMENT.children
     assert "characters" in book_children
     assert book_children["characters"].fields == {
         "id": "string",
@@ -98,6 +95,6 @@ def test_kind_child_shapes_and_responses_are_composed_once():
         "image_url": "string",
     }
 
-    boardgame_children = catalog_kind_for(ItemKind.boardgame).document.children
+    boardgame_children = boardgame.DOCUMENT.children
     assert "characters" in boardgame_children
     assert "characters" in CatalogBoardGameItemResponse.model_fields

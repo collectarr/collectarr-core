@@ -5,7 +5,7 @@ from app.worker.main import (
     catalog_fingerprint,
     index_changed_catalog,
 )
-from tests.helpers import seed_comic
+from tests.helpers import seed_music
 
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ async def test_catalog_fingerprint_changes_when_catalog_changes():
     async with AsyncSessionLocal() as db:
         initial = await catalog_fingerprint(db)
 
-    await seed_comic()
+    await seed_music()
 
     async with AsyncSessionLocal() as db:
         updated = await catalog_fingerprint(db)
@@ -32,7 +32,7 @@ async def test_index_changed_catalog_keeps_last_fingerprint_on_index_failure():
     async with AsyncSessionLocal() as db:
         initial = await catalog_fingerprint(db)
 
-    await seed_comic()
+    await seed_music()
 
     next_fingerprint = await index_changed_catalog(FailingSearch(), initial)
 

@@ -1,10 +1,10 @@
-from datetime import date
+from uuid import uuid4
 
 import pytest
 
 from app.db.session import AsyncSessionLocal
 from app.models import Person
-from app.models.catalog_book_item import BookItem
+from app.models.catalog_music_item import MusicItem
 from app.worker.main import index_once
 
 
@@ -15,18 +15,10 @@ async def test_index_once_eager_loads_flat_book_item_credits():
         db.add(person)
         await db.flush()
 
-        item = BookItem(
+        item = MusicItem(
             title="The Fellowship of the Ring",
-            details={
-                "release_date": date(1954, 7, 29).isoformat(),
-                "creators": [
-                    {
-                        "name": "J.R.R. Tolkien",
-                        "role": "author",
-                        "sequence": 1,
-                    }
-                ],
-            },
+            artist="J.R.R. Tolkien",
+            credits=[{"id": str(uuid4()), "name": "J.R.R. Tolkien", "role": "writer", "sequence": 1, "instruments": []}],
         )
         db.add(item)
         await db.commit()
@@ -41,6 +33,6 @@ async def test_index_once_eager_loads_flat_book_item_credits():
     search = RecordingSearch()
     await index_once(search)
 
-    book_documents = [document for document in search.documents if document["kind"] == "book"]
+    book_documents = [document for document in search.documents if document["kind"] == "music"]
     assert len(book_documents) == 1
     assert book_documents[0]["creators"] == ["J.R.R. Tolkien"]

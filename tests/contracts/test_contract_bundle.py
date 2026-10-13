@@ -19,16 +19,16 @@ def test_contract_bundle_exports_versioned_snapshot(tmp_path):
 
     assert field_schema["contractVersion"] == CONTRACT_VERSION
     assert field_schema["fields"]
-    book_release_date = next(
+    music_release_date = next(
         row
         for row in field_schema["fields"]
-        if row["key"] == "release_date" and row["kind"] == "book"
+        if row["key"] == "release_date" and row["kind"] == "music"
     )
-    assert book_release_date["editable"] is True
-    assert book_release_date["valueType"] == "partial_date"
+    assert music_release_date["editable"] is True
+    assert music_release_date["valueType"] == "partial_date"
     assert not {"scope", "writeTarget", "sourceEntityType", "sourceTable"}.intersection(
-        book_release_date
+        music_release_date
     )
 
     assert "collection" not in active_kinds["kinds"]
-    assert len(active_kinds["kinds"]) == 9
+    assert active_kinds["kinds"] == ["music"]

@@ -4,7 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.base import ItemKind, UserRole
+from app.catalog.release_scope import ReleasedCatalogKind
+from app.models.base import UserRole
 from app.models.partial_date import PartialDateValue
 
 
@@ -147,7 +148,7 @@ class AdminCatalogSummaryResponse(BaseModel):
 class AdminNormalizedMetadataDriftSample(BaseModel):
     entity_type: str
     entity_id: UUID
-    kind: ItemKind
+    kind: ReleasedCatalogKind
     issues: list[str] = Field(default_factory=list)
     normalized_keys: list[str] = Field(default_factory=list)
 

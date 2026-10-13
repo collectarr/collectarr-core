@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     AdminAuditLog,
     AdminAuditLogDetail,
@@ -100,10 +101,8 @@ class AdminSupportService:
         documents: list[dict[str, Any]] = []
         if not item_ids:
             return
-        for model in (
-            MusicItem, MovieItem,
-            BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
-        ):
+        for definition in CATALOG_KIND_DEFINITIONS:
+            model = definition.model
             statement = select(model).where(model.id.in_(item_ids))
             model_result = await self.db.execute(statement)
             documents.extend(

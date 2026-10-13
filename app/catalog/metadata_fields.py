@@ -45,7 +45,7 @@ _INTERNAL_DERIVED_KEYS = {
     "cover_storage",
 }
 
-METADATA_FIELD_SCHEMA_VERSION = 2
+METADATA_FIELD_SCHEMA_VERSION = 1
 
 
 def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, object]]:
@@ -133,9 +133,6 @@ _FIELDS_BY_KEY: dict[str, tuple[MetadataFieldSpec, ...]] = {
 _NORMALIZED_FIELD_KEYS = {
     *(_INTERNAL_DERIVED_KEYS),
     "genres",
-    "audience_rating",
-    "color",
-    "platforms",
 }
 NORMALIZED_FIELD_SPECS: tuple[NormalizedFieldSpec, ...] = tuple(
     NormalizedFieldSpec(

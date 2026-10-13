@@ -165,6 +165,8 @@ def _apply_seed_metadata(
 async def seed_catalog(db: AsyncSession, *, entries_per_kind: int) -> list[Any]:
     created: list[Any] = []
     for kind, entries in _ENTRIES.items():
+        if kind is not ItemKind.music:
+            continue
         for index, entry in enumerate(entries[:entries_per_kind], start=1):
             created.extend(await _seed_entry(db, kind, entry, index))
     await db.commit()

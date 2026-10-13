@@ -36,11 +36,11 @@ def test_synthetic_kind_document_shape_and_payload_validation():
 
     field_specs = {
         "specimen_code": MetadataFieldSpec(
-            "specimen_code", STRING, "Specimen Code", kinds=frozenset({ItemKind.comic})
+            "specimen_code", STRING, "Specimen Code", kinds=frozenset({ItemKind.music})
         ),
-        "epoch": MetadataFieldSpec("epoch", STRING, "Epoch", kinds=frozenset({ItemKind.comic})),
+        "epoch": MetadataFieldSpec("epoch", STRING, "Epoch", kinds=frozenset({ItemKind.music})),
         "curator": MetadataFieldSpec(
-            "curator", STRING, "Curator", kinds=frozenset({ItemKind.comic})
+            "curator", STRING, "Curator", kinds=frozenset({ItemKind.music})
         ),
     }
 
@@ -92,12 +92,12 @@ def test_synthetic_item_search_envelope_without_title():
     item.details = {"curator": "Dr. Ellie Sattler"}
 
     definition = MagicMock()
-    definition.kind = ItemKind.comic
+    definition.kind = ItemKind.music
     definition.response_model = MagicMock()
     definition.response_model.model_fields = {"specimen_code", "epoch", "curator"}
 
     envelope = CatalogItemSearchService._to_search_envelope(definition, item)
     assert envelope.id == synthetic_id
-    assert envelope.kind == ItemKind.comic
+    assert envelope.kind == ItemKind.music
     assert "title" not in envelope.kind_data
     assert isinstance(envelope, CatalogSearchItemEnvelope)

@@ -2,7 +2,7 @@
 
 The public Music catalog uses one `CatalogMusicItemResponse` for each concrete album edition. Detail reads use `/metadata/music/items/{id}`; search at `/metadata/music/items` returns a page with `items`, `next_offset`, and `has_more`. The cross-kind `/search` and barcode lookup endpoints return `{id, kind, kind_data}` and keep Music fields inside the Music-owned data map.
 
-Core exports the strict v2 Music contract as `contracts/music-catalog-v2.json` and the kind payload schemas as `contracts/catalog-item-v2.json`. App pins these generated artifacts and owns the kind-specific Dart domain model. The v2 payload rejects the former album-level recording fields and role-specific credit arrays; there is no v1 adapter or fallback path.
+Core exports the strict v2 Music contract as `contracts/music-catalog-v1.json` and the kind payload schemas as `contracts/catalog-item-v1.json`. App pins these generated artifacts and owns the kind-specific Dart domain model. The v2 payload rejects the former album-level recording fields and role-specific credit arrays; there is no v1 adapter or fallback path.
 
 ## Ownership
 

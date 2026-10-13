@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentAdmin, CurrentAdminReader, DbSession
-from app.models.base import ItemKind
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -61,7 +61,7 @@ async def catalog_items(
     db: DbSession,
     _reader: CurrentAdminReader,
     q: str | None = Query(default=None, min_length=1, max_length=255),
-    kind: ItemKind | None = None,
+    kind: ReleasedCatalogKind | None = None,
     publisher: str | None = Query(default=None, min_length=1, max_length=255),
     imprint: str | None = Query(default=None, min_length=1, max_length=255),
     subtitle: str | None = Query(default=None, min_length=1, max_length=255),
@@ -91,7 +91,7 @@ async def catalog_items(
 
 @router.patch("/catalog/items/{kind}/{item_id}", response_model=dict[str, Any])
 async def catalog_item_update(
-    kind: ItemKind,
+    kind: ReleasedCatalogKind,
     item_id: UUID,
     payload: AdminMetadataCorrectionRequest,
     db: DbSession,

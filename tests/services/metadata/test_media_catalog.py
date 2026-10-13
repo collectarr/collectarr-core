@@ -4,62 +4,23 @@ from app.catalog.media_types import (
     media_types,
     top_level_media_types,
 )
-from app.catalog.physical_formats import (
-    is_video_item_kind,
-    physical_format_for_id,
-    video_physical_formats,
-)
 from app.models.base import ItemKind
 
 
-def test_media_catalog_covers_all_item_kinds():
-    configured_kinds = {media_type.kind for media_type in media_types}
-
-    assert configured_kinds == set(ItemKind)
-
-
-def test_media_catalog_keeps_video_formats_within_active_top_level_routes():
-    top_level_kinds = {media_type.kind for media_type in top_level_media_types}
-    anime = media_type_for_kind(ItemKind.anime)
-    movies = media_type_for_kind(ItemKind.movie)
-    tv = media_type_for_kind(ItemKind.tv)
-
-    assert ItemKind.tv in top_level_kinds
-    assert ItemKind.anime in top_level_kinds
-    assert media_type_for_route("blu-ray") is None
-    assert media_type_for_route("bluray") is None
-    assert movies is not None
-    assert tv is not None
-    assert tv.is_top_level is True
-    assert [format.id for format in movies.physical_formats] == [
-        "dvd",
-        "blu-ray",
-        "4k-uhd",
-        "vhs",
-        "laserdisc",
-        "digital",
-    ]
-    assert movies.physical_formats == video_physical_formats
-    assert anime is not None
-    assert anime.physical_formats == video_physical_formats
-    assert tv.physical_formats == video_physical_formats
-    assert physical_format_for_id(" Blu-Ray ") is not None
-    assert physical_format_for_id("4K Blu-ray") is not None
-    assert is_video_item_kind(ItemKind.anime) is True
-    assert is_video_item_kind(ItemKind.movie) is True
-    assert is_video_item_kind(ItemKind.tv) is True
-    assert is_video_item_kind(ItemKind.comic) is False
+def test_media_catalog_exposes_music_and_internal_collections():
+    assert {item.kind for item in media_types} == {ItemKind.music, ItemKind.collection}
+    assert {item.kind for item in top_level_media_types} == {ItemKind.music}
 
 
-def test_media_catalog_maps_route_segments():
-    comics = media_type_for_route("comics")
-    manga = media_type_for_route("manga")
-    anime = media_type_for_route("anime")
-    games = media_type_for_kind(ItemKind.game)
+def test_unreleased_kind_routes_are_not_resolved():
+    for kind in ItemKind:
+        if kind not in {ItemKind.music, ItemKind.collection}:
+            assert media_type_for_kind(kind) is None
+    for route in ("comics", "books", "manga", "anime", "games", "movies", "tv", "blu-ray"):
+        assert media_type_for_route(route) is None
 
-    assert comics is not None
-    assert comics.kind == ItemKind.comic
-    assert manga is not None
-    assert anime is not None
-    assert games is not None
-    assert games.kind == ItemKind.game
+
+def test_music_route_preserves_its_catalog_labels():
+    music = media_type_for_route("music")
+    assert music is not None and music.kind is ItemKind.music
+    assert music.plural_label == "Music Releases"

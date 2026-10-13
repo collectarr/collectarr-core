@@ -23,8 +23,8 @@ from app.catalog.media_types import top_level_media_types  # noqa: E402
 from app.catalog.metadata_fields import contract_rows  # noqa: E402
 from app.main import app  # noqa: E402
 
-CONTRACT_VERSION = "2.2.0"
-CATALOG_ITEM_CONTRACT_VERSION = "2.0.0"
+CONTRACT_VERSION = "1.0.0"
+CATALOG_ITEM_CONTRACT_VERSION = "1.0.0"
 
 MUSIC_CATALOG_SCHEMAS = {
     "item": "CatalogMusicItemResponse",
@@ -86,9 +86,9 @@ def _music_catalog_contract(openapi: dict[str, Any], generated_at: str) -> dict[
 
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.collectarr.app/music-catalog/v2",
-        "title": "Collectarr Music Catalog Item v2",
-        "schemaVersion": 2,
+        "$id": "https://schemas.collectarr.app/music-catalog/v1",
+        "title": "Collectarr Music Catalog Item v1",
+        "schemaVersion": 1,
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
@@ -165,9 +165,9 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
     bundle = build_contract_bundle()
     outputs = {
         "openapi.json": bundle["openapi"],
-        "music-catalog-v2.json": bundle["music_catalog"],
+        "music-catalog-v1.json": bundle["music_catalog"],
         "metadata-field-schema.json": bundle["field_schema"],
-        "catalog-item-v2.json": bundle["catalog_item_schema"],
+        "catalog-item-v1.json": bundle["catalog_item_schema"],
         "active-kinds.json": bundle["active_kinds"],
     }
     hashes: dict[str, str] = {}
@@ -180,9 +180,9 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
         "generatedAt": bundle["generatedAt"],
         "coreCommit": bundle["coreCommit"],
         "openApiHash": hashes["openapi.json"],
-        "musicCatalogV2Hash": hashes["music-catalog-v2.json"],
+        "musicCatalogV1Hash": hashes["music-catalog-v1.json"],
         "fieldSchemaHash": hashes["metadata-field-schema.json"],
-        "catalogItemV2Hash": hashes["catalog-item-v2.json"],
+        "catalogItemV1Hash": hashes["catalog-item-v1.json"],
         "activeKindsHash": hashes["active-kinds.json"],
     }
     outputs["contract-manifest.json"] = manifest
@@ -211,9 +211,9 @@ def check_contract_bundle(contracts_dir: Path | None = None) -> None:
 
     hash_key_by_file = {
         "openapi.json": "openApiHash",
-        "music-catalog-v2.json": "musicCatalogV2Hash",
+        "music-catalog-v1.json": "musicCatalogV1Hash",
         "metadata-field-schema.json": "fieldSchemaHash",
-        "catalog-item-v2.json": "catalogItemV2Hash",
+        "catalog-item-v1.json": "catalogItemV1Hash",
         "active-kinds.json": "activeKindsHash",
     }
     errors: list[str] = []

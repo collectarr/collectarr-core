@@ -22,6 +22,7 @@ from app.catalog.metadata_fields import (  # noqa: E402
     METADATA_FIELDS,
     normalized_field_spec,
 )
+from app.models.base import ItemKind  # noqa: E402
 
 # Core editable fields rendered by dedicated app widgets instead of a scalar
 # text field. They are intentionally excluded from the generated list.
@@ -68,7 +69,7 @@ def main() -> None:
         raise SystemExit(f"App metadata directory not found: {out.parent}")
 
     specs = [
-        spec for spec in METADATA_FIELDS if spec.editable and spec.key not in _APP_HANDLED_SPECIALLY
+        spec for spec in METADATA_FIELDS if spec.editable and spec.applies_to(ItemKind.music) and not spec.correction_only and spec.key not in _APP_HANDLED_SPECIALLY
     ]
 
     lines = [

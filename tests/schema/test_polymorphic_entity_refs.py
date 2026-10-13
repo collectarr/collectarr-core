@@ -32,21 +32,21 @@ def test_music_entity_refs_target_the_flat_catalog():
 
 
 def test_movie_entity_refs_target_the_flat_catalog():
-    assert _entity_table("catalog_movie_item") == "movie_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_movie_item")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("movie_work")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("movie_release")
 
 
 def test_comic_entity_refs_target_the_flat_catalog():
-    assert _entity_table("catalog_comic_item") == "comic_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_comic_item")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_work")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_issue")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_variant")
 
 
 def test_game_and_board_game_entity_refs_target_flat_catalog_items():
-    assert _entity_table("catalog_game_item") == "game_items"
-    assert _entity_table("catalog_boardgame_item") == "boardgame_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_game_item")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_boardgame_item")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_work")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_release")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("boardgame_work")

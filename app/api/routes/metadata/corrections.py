@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.deps import CurrentAdmin, DbSession
-from app.models.base import ItemKind
+from app.catalog.release_scope import ReleasedCatalogKind
 from app.schemas.canonical_corrections import (
     CanonicalCorrectionApprovalResponse,
     CanonicalCorrectionProposalCreate,
@@ -23,7 +23,7 @@ router = APIRouter(tags=["metadata"])
     response_model=CanonicalCorrectionTargetResponse,
 )
 async def get_canonical_correction_target(
-    kind: ItemKind,
+    kind: ReleasedCatalogKind,
     entity_id: UUID,
     scope: str,
     db: DbSession,

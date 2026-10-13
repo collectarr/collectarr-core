@@ -26,6 +26,8 @@ async def _explain(db, statement) -> str:
     return "\n".join(row[0] for row in rows)
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_identifier_and_scalar_lookups_can_use_declared_indexes(
     schema_database,

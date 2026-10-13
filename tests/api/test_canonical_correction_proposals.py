@@ -9,6 +9,7 @@ from app.schemas.canonical_corrections import CanonicalCorrectionProposalCreate
 from app.services.canonical_corrections import CanonicalCorrectionService
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_canonical_correction_proposal_is_targeted_without_entity_resolution(client):
     entity_id = uuid4()
@@ -56,6 +57,7 @@ async def test_canonical_correction_proposal_is_targeted_without_entity_resoluti
         assert stored.entity_id == entity_id
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_canonical_correction_rejects_owned_and_provider_fields(client):
     base = {
@@ -103,6 +105,7 @@ def test_canonical_correction_requires_a_base_and_forbids_provider_metadata():
         )
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_target(client):
     entity_id = uuid4()
@@ -157,6 +160,7 @@ async def test_canonical_correction_rejects_stale_snapshot_and_approves_exact_ta
         assert entity.title == "Changed elsewhere"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_music_nested_correction_fields_are_canonical_and_correction_only(client):
     entity_id = uuid4()
@@ -275,6 +279,7 @@ async def test_music_nested_correction_fields_are_canonical_and_correction_only(
     assert [disc["id"] for disc in diff["discs"]["after"]] == disc_ids
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_music_nested_correction_rejects_invalid_or_duplicate_component_ids(client):
     entity_id = uuid4()

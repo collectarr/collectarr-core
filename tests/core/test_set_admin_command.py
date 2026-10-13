@@ -6,6 +6,7 @@ from app.models.base import UserRole
 from app.repositories.users import UserRepository
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_set_user_role_grants_and_revokes_admin(client):
     await client.post(
@@ -26,6 +27,8 @@ async def test_set_user_role_grants_and_revokes_admin(client):
         assert user.role == UserRole.viewer
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_set_user_role_reports_missing_user(capsys):
     assert await set_user_role("missing@example.com", UserRole.admin) == 1

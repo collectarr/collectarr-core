@@ -8,6 +8,8 @@ from app.worker.main import (
 from tests.helpers import seed_music
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_catalog_fingerprint_changes_when_catalog_changes():
     async with AsyncSessionLocal() as db:
@@ -23,6 +25,8 @@ async def test_catalog_fingerprint_changes_when_catalog_changes():
     assert updated.contained_value_count == 1
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_index_changed_catalog_keeps_last_fingerprint_on_index_failure():
     class FailingSearch:

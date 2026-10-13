@@ -23,6 +23,7 @@ async def admin_token(client, monkeypatch) -> str:
     return response.json()["access_token"]
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
@@ -66,6 +67,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     assert [row["id"] for row in item_logs.json()] == [body[0]["id"]]
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
@@ -94,6 +96,7 @@ async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     assert {str(row.id) for row in remaining} == {target_id, source_id}
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_admin_duplicate_ignore_endpoint_records_audit_context(client, monkeypatch):
     token = await admin_token(client, monkeypatch)

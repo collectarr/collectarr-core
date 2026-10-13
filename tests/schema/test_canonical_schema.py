@@ -5,10 +5,14 @@ from app.db.session import AsyncSessionLocal
 from app.models.base import Base
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 def test_schema_fixture_runs(schema_database):
     assert schema_database is None
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_canonical_catalog_schema_exists(schema_database):
     async with AsyncSessionLocal() as db:

@@ -106,29 +106,17 @@ def _is_db_available() -> bool:
         return False
 
 
-_DB_AVAILABLE = _is_db_available()
-
-
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def schema_database() -> None:
-    if not _DB_AVAILABLE:
-        return
+    if not _is_db_available():
+        pytest.skip("PostgreSQL test database is not available")
     database_url = os.environ["DATABASE_URL"]
     await _ensure_test_database(database_url)
     await _create_schema()
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def clean_database(
-    request: pytest.FixtureRequest,
-    schema_database: None,
-) -> AsyncIterator[None]:
-    if not _DB_AVAILABLE:
-        if "client" in request.fixturenames or request.node.get_closest_marker("db"):
-            pytest.skip("PostgreSQL test database is not available")
-        yield
-        return
-
+@pytest_asyncio.fixture
+async def clean_database(schema_database: None) -> AsyncIterator[None]:
     reset_rate_limits()
     table_names = ", ".join(f'"{table.name}"' for table in reversed(Base.metadata.sorted_tables))
     async with AsyncSessionLocal() as db:
@@ -139,7 +127,13 @@ async def clean_database(
 
 
 @pytest_asyncio.fixture
-async def client() -> AsyncIterator[AsyncClient]:
+async def client(clean_database: None) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as test_client:
         yield test_client
+
+
+@pytest_asyncio.fixture
+async def db_session(clean_database: None):
+    async with AsyncSessionLocal() as session:
+        yield session

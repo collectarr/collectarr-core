@@ -11,6 +11,7 @@ from app.core.rate_limit import (
 )
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_auth_errors_return_specific_codes(client):
     failed_login = await client.post(
@@ -36,6 +37,7 @@ async def test_auth_errors_return_specific_codes(client):
     assert duplicate.json()["code"] == "email_already_registered"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_auth_rate_limit_returns_retry_after(client, monkeypatch):
     settings = get_settings()
@@ -74,6 +76,7 @@ def test_production_requires_explicit_secret(monkeypatch):
     get_settings.cache_clear()
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_metadata_errors_return_specific_codes(client):
     unknown_barcode = await client.get("/api/v1/barcode/0000000000000", params={"kind": "music"})
@@ -106,6 +109,7 @@ async def test_rate_limit_cleanup_removes_expired_client_buckets(monkeypatch):
     assert rate_limit_bucket_count() == 0
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["anime", "boardgame", "book", "comic", "game", "manga", "movie", "tv"])
 async def test_unreleased_kind_validation_returns_serializable_errors(client, kind):

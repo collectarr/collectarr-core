@@ -28,6 +28,7 @@ def test_catalog_search_routes_expose_a_page_contract() -> None:
         assert body_schema["properties"]["items"]["type"] == "array", path
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_empty_shared_and_music_searches_return_empty_pages(client) -> None:
     shared = await client.get("/api/v1/search", params={"q": "missing"})

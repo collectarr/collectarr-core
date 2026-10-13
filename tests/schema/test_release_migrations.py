@@ -10,6 +10,8 @@ from app.models.catalog_music_item import MusicItem
 from app.services.admin import AdminMetadataService
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_current_music_shape_installs_once_at_baseline_one():
     schema = "release_baseline_" + uuid4().hex
@@ -35,6 +37,8 @@ async def test_current_music_shape_installs_once_at_baseline_one():
             await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("version", [None, 2])
 async def test_unsupported_existing_schema_keeps_its_tables_and_data(version):

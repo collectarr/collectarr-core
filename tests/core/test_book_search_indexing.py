@@ -8,6 +8,8 @@ from app.models.catalog_music_item import MusicItem
 from app.worker.main import index_once
 
 
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
 async def test_index_once_eager_loads_flat_book_item_credits():
     async with AsyncSessionLocal() as db:

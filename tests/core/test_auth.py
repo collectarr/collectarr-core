@@ -6,6 +6,7 @@ from app.models.base import UserRole
 from app.repositories.users import UserRepository
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_register_and_login(client):
     response = await client.post(
@@ -23,6 +24,7 @@ async def test_register_and_login(client):
     assert login.json()["access_token"]
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_current_user_returns_profile(client):
     response = await client.post(
@@ -42,6 +44,7 @@ async def test_current_user_returns_profile(client):
     assert current.json()["role"] == UserRole.viewer.value
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_current_user_requires_bearer_token(client):
     response = await client.get("/api/v1/auth/me")
@@ -50,6 +53,7 @@ async def test_current_user_requires_bearer_token(client):
     assert response.json()["code"] == "missing_bearer_token"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_bootstrap_admin_email_registers_admin(client, monkeypatch):
     settings = get_settings()
@@ -64,6 +68,7 @@ async def test_bootstrap_admin_email_registers_admin(client, monkeypatch):
     assert response.json()["user"]["role"] == UserRole.admin.value
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_login_does_not_downgrade_editor_role_without_admin_conflict(client):
     response = await client.post(

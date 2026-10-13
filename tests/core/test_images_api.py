@@ -28,6 +28,7 @@ async def _register_and_login_admin(client, email: str = "admin@example.com") ->
     return token
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_add_entity_image_rejects_unknown_entity_type(client):
     token = await _register_and_login_admin(client)
@@ -45,6 +46,7 @@ async def test_add_entity_image_rejects_unknown_entity_type(client):
     assert response.json()["code"] == "invalid_entity_type"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_add_entity_image_requires_admin(client):
     token = await register_and_login(client)
@@ -62,6 +64,7 @@ async def test_add_entity_image_requires_admin(client):
     assert response.json()["code"] == "admin_required"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_add_entity_image_allows_bundle_release_entity_type(client, monkeypatch):
     token = await _register_and_login_admin(client, email="bundle-image-admin@example.com")
@@ -101,6 +104,7 @@ async def test_add_entity_image_allows_bundle_release_entity_type(client, monkey
     assert response.json()["entity_type"] == "bundle_release"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     client,
@@ -175,6 +179,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     assert {row.source_url for row in rows} == set(source_urls)
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_delete_image_requires_admin(client):
     token = await register_and_login(client)
@@ -201,6 +206,7 @@ async def test_delete_image_requires_admin(client):
     assert response.json()["code"] == "admin_required"
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_download_image_rejects_untracked_object_key(client, monkeypatch):
     token = await register_and_login(client)
@@ -224,6 +230,7 @@ async def test_download_image_rejects_untracked_object_key(client, monkeypatch):
     assert requested == []
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_download_image_allows_authorized_image_asset_key(client, monkeypatch):
     token = await register_and_login(client)
@@ -258,6 +265,7 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
     assert response.headers["content-type"].startswith("image/webp")
 
 
+@pytest.mark.db
 @pytest.mark.asyncio
 async def test_batch_download_images_returns_none_for_untracked_keys(client, monkeypatch):
     token = await register_and_login(client)

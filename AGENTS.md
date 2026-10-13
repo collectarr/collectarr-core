@@ -92,3 +92,15 @@ Ruff, schema/OpenAPI/contract exports and tests against an isolated PostgreSQL
 test database. Core stores one Music catalog root with contained typed discs,
 tracks and credits. Do not restore a Work/Release graph or provider ingest
 subsystem. Publish only the active Music contract and synchronize App pins.
+
+## Test ownership and database lifecycle
+
+- Keep ordinary tests with the ownership of their production concept; reserve
+  architecture, contracts and support for explicit cross-cutting responsibilities.
+- Mark every database test with `pytest.mark.db`. Request `client`, `db_session`
+  or explicitly `clean_database`; pure tests must not initialize or truncate DBs.
+- Register markers and enforce `--strict-markers`. Run `pytest -m "not db"`
+  independently of PostgreSQL, and `pytest -m db` against a safe isolated test DB.
+- Keep timings visible with `--durations=20`; measure bottlenecks before sharding.
+- Keep helpers small and owned by auth/catalog/DB concerns. Shared scaffolding
+  must not hide kind-specific expectations or silently normalize invalid fixtures.

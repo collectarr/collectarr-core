@@ -27,3 +27,8 @@ Before this change the full 167-test suite took about 150 seconds locally.
 The final explicit split passes 116 fast tests in 1.00 seconds with PostgreSQL
 unavailable and 51 DB tests in 44.34 seconds on the isolated test instance.
 These are local measurements, not timing thresholds.
+
+CI uploads separate informational XML coverage reports for the fast and database
+suites. No global percentage gate is imposed; inspect uncovered critical contract
+and persistence paths when reviewing changes. Locally, add `--cov=app
+--cov-report=xml` to either command.

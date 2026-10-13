@@ -25,3 +25,7 @@ knowledge-*.md
 copilot-setup-steps.yml
 copilot-setup-steps*.yml
 ai-notes/
+
+# Informational correctness coverage
+.coverage
+coverage*.xml

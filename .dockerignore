@@ -1,0 +1,16 @@
+# Only source and runtime contracts enter the image.
+.git
+.github
+.env
+.env.*
+.venv
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+coverage*.xml
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+tests
+*.db

@@ -12,7 +12,8 @@ These guard the two failure modes that previously produced an empty / unparseabl
 
 import re
 
-from scripts.export_schema_site import build_schema_data
+from app.models.base import Base
+from scripts.export_schema_site import HIDDEN_TABLE_NAMES, build_schema_data
 
 _ATTR_LINE = re.compile(r"^\s{4}\S+\s+\w+(?P<keys>(?:\s+(?:PK|FK|UK)\b,?)*)\s*$")
 
@@ -70,40 +71,42 @@ def test_no_parallel_edges_between_same_entity_pair():
         assert not duplicates, f"{domain_id}: parallel edges must be merged: {duplicates}"
 
 
-def test_kind_views_surface_v1_work_tables():
+def test_kind_views_surface_flat_catalog_tables():
     data = build_schema_data()
     kinds = {kind["id"]: kind for kind in data["kinds"]}
     misc_tables = next(domain["tables"] for domain in data["domains"] if domain["id"] == "misc")
 
-    assert "comic_works" in kinds["comic"]["tables"]
-    assert "comic_volumes" in kinds["comic"]["tables"]
-    assert "book_works" in kinds["book"]["tables"]
+    assert "comic_items" in kinds["comic"]["tables"]
+    assert "book_items" in kinds["book"]["tables"]
     assert "book_series" in kinds["book"]["tables"]
-    assert "game_works" in kinds["game"]["tables"]
-    assert "game_releases" in kinds["game"]["tables"]
-    assert "boardgame_works" in kinds["boardgame"]["tables"]
-    assert "boardgame_editions" in kinds["boardgame"]["tables"]
-    assert "music_releases" in kinds["music"]["tables"]
-    assert "tv_releases" in kinds["tv"]["tables"]
+    assert "game_items" in kinds["game"]["tables"]
+    assert "boardgame_items" in kinds["boardgame"]["tables"]
+    assert "music_items" in kinds["music"]["tables"]
+    assert "music_item_discs" not in kinds["music"]["tables"]
+    assert "music_item_tracks" not in kinds["music"]["tables"]
+    assert "tv_items" in kinds["tv"]["tables"]
 
     assert "comic_works" not in misc_tables
-    assert "book_works" not in misc_tables
-    assert "game_works" not in misc_tables
-    assert "boardgame_works" not in misc_tables
-    assert "music_releases" not in misc_tables
-    assert "tv_releases" not in misc_tables
+    assert "book_items" not in misc_tables
+    assert "game_items" not in misc_tables
+    assert "boardgame_items" not in misc_tables
+    assert "music_items" not in misc_tables
+    assert "music_item_discs" not in misc_tables
+    assert "music_item_tracks" not in misc_tables
+    assert "tv_items" not in misc_tables
+    assert "tv_item_episodes" not in misc_tables
 
 
-def test_generic_tables_are_omitted_from_the_interactive_view():
+def test_schema_view_contains_only_declared_tables():
     data = build_schema_data()
     table_names = {table["name"] for table in data["tables"]}
-    deprecated_table = "item" + "_kind_metadata"
-    deprecated_taxonomy_table = "item" + "_kind_metadata_taxonomies"
-    assert "items" not in table_names
-    assert "editions" not in table_names
-    assert "variants" not in table_names
-    assert deprecated_table not in table_names
-    assert deprecated_taxonomy_table not in table_names
+    assert table_names == set(Base.metadata.tables) - HIDDEN_TABLE_NAMES
+    assert {
+        "game_works",
+        "game_releases",
+        "boardgame_works",
+        "boardgame_editions",
+    }.isdisjoint(table_names)
 
 
 def test_catalog_spine_marks_bundle_composition_tables():
@@ -111,8 +114,7 @@ def test_catalog_spine_marks_bundle_composition_tables():
     catalog = next(domain for domain in data["domains"] if domain["id"] == "catalog")
 
     assert catalog["title"] == "Catalog Spine"
-    assert "historical generic projection tables were removed" in catalog["description"].lower()
-    assert "all canonical metadata is kind-specific" in catalog["description"].lower()
+    assert "canonical kind-specific tables" in catalog["description"].lower()
     assert "bundle composition" in catalog["description"].lower()
     assert "bundle_releases" in catalog["tables"]
     assert "bundle_release_components" in catalog["tables"]

@@ -42,32 +42,6 @@ class ItemKind(str, enum.Enum):
     tv = "tv"
 
 
-class ExternalProvider(str, enum.Enum):
-    anilist = "anilist"
-    bgg = "bgg"
-    comicvine = "comicvine"
-    gcd = "gcd"
-    hardcover = "hardcover"
-    igdb = "igdb"
-    mangadex = "mangadex"
-    musicbrainz = "musicbrainz"
-    openlibrary = "openlibrary"
-    tmdb = "tmdb"
-
-
-class SeriesRelationType(str, enum.Enum):
-    sequel = "sequel"
-    prequel = "prequel"
-    side_story = "side_story"
-    spin_off = "spin_off"
-    parent = "parent"
-    adaptation = "adaptation"
-    alternative = "alternative"
-    summary = "summary"
-    compilation = "compilation"
-    other = "other"
-
-
 class UserRole(str, enum.Enum):
     viewer = "viewer"
     editor = "editor"

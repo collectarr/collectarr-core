@@ -8,29 +8,23 @@ from app.models.base import UserRole
 from app.repositories.users import UserRepository
 
 
-def _parse_bool(value: str) -> bool:
-    normalized = value.strip().lower()
-    if normalized in {"1", "true", "yes", "y", "on", "admin"}:
-        return True
-    if normalized in {"0", "false", "no", "n", "off", "user"}:
-        return False
-    raise argparse.ArgumentTypeError(
-        "expected one of true/false, yes/no, 1/0, admin/user"
-    )
+def _parse_role(value: str) -> UserRole:
+    try:
+        return UserRole(value.strip().lower())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected viewer, editor, or admin") from exc
 
 
-async def set_admin_status(email: str, is_admin: bool) -> int:
+async def set_user_role(email: str, role: UserRole) -> int:
     async with AsyncSessionLocal() as db:
         repo = UserRepository(db)
         user = await repo.get_by_email(email)
         if user is None:
             print(f"No user found for {email.lower()}", file=sys.stderr)
             return 1
-        user.is_admin = is_admin
-        user.role = UserRole.admin if is_admin else UserRole.viewer
+        user.role = role
         await db.commit()
-        role = "admin" if is_admin else "standard user"
-        print(f"{user.email} is now a {role}")
+        print(f"{user.email} is now a {role.value}")
         return 0
 
 
@@ -40,12 +34,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("email", help="Account email to update")
     parser.add_argument(
-        "is_admin",
-        type=_parse_bool,
-        help="true/false, yes/no, 1/0, admin/user",
+        "role",
+        type=_parse_role,
+        choices=tuple(UserRole),
+        help="viewer, editor, or admin",
     )
     args = parser.parse_args(argv)
-    return asyncio.run(set_admin_status(args.email, args.is_admin))
+    return asyncio.run(set_user_role(args.email, args.role))
 
 
 if __name__ == "__main__":

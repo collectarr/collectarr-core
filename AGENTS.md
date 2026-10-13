@@ -1,85 +1,39 @@
-# Collectarr Core — Codex Instructions
+# Collectarr Core Instructions
 
 ## Product boundary
-collectarr-core owns canonical catalog metadata, provider integrations, ingest, typed metadata contracts, admin metadata workflows, image/cache services, and contract exports for clients.
 
-collectarr-core must not model app-owned personal user data such as owned copies, wishlist state, tracking progress, reading queue, loans, personal notes, local location/storage, purchase/sale data, or custom user field values.
+Core owns source-neutral canonical catalog data and its read/write API. It must not own provider integrations, provider search or ingest runtime, or App-owned personal data such as owned copies, wishlist state, tracking progress, reading queues, loans, personal notes, local locations, purchase/sale data, or custom user-field values.
 
-## Canonical schema direction
-The schema is kind-first.
+## Flattened catalog architecture
 
-Canonical metadata writes for migrated kinds must go to kind-specific tables:
-- Books: book_works, book_editions, book_printings, book_contributions, book_identifiers, book_series_memberships
-- Games: game_works, game_releases
-- Board games: boardgame_works, boardgame_editions
-- Music: music_releases, music_media, music_tracks
-- Movies/TV/Comics/Manga/Anime: use their typed canonical slices
+Each kind has one root aggregate per concrete collectible edition, version, issue variant, or release. The root keeps item-level facts and repeated item contents in one kind-owned JSONB document. Do not add a generic Work-to-Release graph.
 
-items, editions, and variants are legacy compatibility/search/projection tables only. Do not add new canonical metadata semantics to them.
+Media, seasons, episodes, printings, credits, identifiers, discs, and tracks are typed values contained by their kind's root. They are not standalone catalog entities or relational child tables. Genuinely independent groupings such as `book_series`, and reusable people or organizations, may keep their own identities when active workflows need them.
+
+Music discs and tracks are contained JSONB documents on `music_items`, validated by Music-owned schemas and edited through the album root.
+
+Use separate typed root tables per kind. The planned roots are `music_items`, `tv_items`, `anime_items`, `movie_items`, `book_items`, `boardgame_items`, `game_items`, `manga_items`, and `comic_items`. A kind-local series may remain a grouping/reference, but it must not be a required editable parent in the catalog-item flow.
+
+## Provider boundary
+
+The project has no provider search, credentials, rate limiting, source-ID mapping, snapshots, ingest, or provider administration subsystem. Do not reintroduce those features, compatibility identifiers, provider envelopes, provider-support exports, or provider-specific IDs. User Catalog Item proposals remain source-neutral and contain only the kind fields accepted by manual Add/Edit.
 
 ## API and contracts
-Core exports the client contract bundle from contracts/:
-- openapi.json
-- metadata-field-schema.json
-- active-kinds.json
-- provider-support.json
-- contract-manifest.json
 
-When API schemas, metadata fields, active kinds, or provider support change:
-1. update the source registry/schema
-2. regenerate contracts
-3. update tests
-4. keep app compatibility in mind
+Prefer typed, kind-owned routes for flat roots and their contained documents. Export OpenAPI and the canonical field/identity contracts from their source schemas. Regenerate contracts after schema or route changes and keep the App's pinned contract in sync.
 
-Do not use docs/*.md as the machine contract source. The contracts/ JSON files are the machine-readable source for clients.
+## Database baseline
 
-## Metadata field schema
-Every exported metadata field should include:
-- key
-- kind or applicableKinds
-- valueType
-- scope
-- writeTarget
-- sourceEntityType
-- sourceTable
-- editable/searchable/filterable flags where applicable
+The supported database schema is created from the current typed SQLAlchemy models on a fresh, empty database. Runtime code does not transform existing schemas or archived payload formats. Existing databases and backups require an explicit external recovery decision; never reset or rewrite them as part of development work.
 
-Fields must distinguish canonical metadata from legacy projection fields.
-
-## Typed routes
-Prefer typed routes over generic metadata fallback routes.
-
-Do not add new features to:
-- /metadata/{kind}/{id}
-- /metadata/items/...
-unless the code is explicitly legacy compatibility.
-
-Prefer routes like:
-- /metadata/books/works/{id}
-- /metadata/books/editions/{id}
-- /metadata/games/works/{id}
-- /metadata/games/releases/{id}
-- /metadata/boardgames/works/{id}
-- /metadata/boardgames/editions/{id}
-- /metadata/music/releases/{id}
-
-## Refactor priorities
-Prefer extracting from the large MetadataService into focused modules:
-- typed reads
-- search
-- provider integration
-- proposal/admin workflow
-- facets
-- images
-- legacy projection
-- per-kind handlers
-
-Keep behavior-compatible tests when extracting.
+Keep local setup instructions explicit that the database must be new and empty. `create_all()` creates missing objects and does not reshape existing tables.
 
 ## Local checks
-Use the relevant local checks after changes:
-- python -m scripts.export_contract_bundle
-- python -m pytest
-- python -m ruff check .
 
-If a check cannot be run, state why.
+Use the relevant local checks after implementation changes:
+
+- `python -m scripts.export_contract_bundle`
+- `python -m pytest`
+- `python -m ruff check .`
+
+Keep schema and contract checks that protect active behavior. If a check cannot be run, state why.

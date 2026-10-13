@@ -1,81 +1,53 @@
-# 🗺️ Collectarr Core — Implementation Plan
+# Catalog Item Document Unification Status
 
-> Core owns the shared metadata server, provider integrations, image delivery, search, admin identity, audit logs, worker jobs, and the Admin Console.
+## Implemented in Core source
 
-## ✅ Done
+- One SQLAlchemy root table per concrete item for all nine kinds. Item-contained
+  media, seasons, episodes, printings, credits, identifiers, discs, and tracks
+  are stored in each root's `details` JSONB document.
+- Kind-owned document-shape modules define root keys, contained object fields,
+  nullability, required values, and collection validation. The common schema
+  module composes those kind contracts and projects accepted proposals.
+- Kind-only metadata field specifications now live beside each of the nine
+  kind document schemas. Shared field declarations remain in the common module;
+  the registry composes the kind declarations in the established Admin order.
+- Book series remain independent reusable groupings. People, organizations,
+  editorial links, and workflow records keep their independent identities.
+- Admin corrections, seed data, search, barcode/identifier lookup, reindex
+  fingerprints, and overview counts use the flattened root documents.
+- Movie media, Anime seasons, Music disc/track IDs and order, Book printing
+  data, and identifier lists are retained in the contained documents.
+- The canonical Music disc/track fields match the saved CLZ ledger. Core does
+  not accept or return App-local track headers, playback/file metadata, disc
+  TOC values, or copy-specific storage details.
+- Music is grounded in the saved CLZ Music Edit form. Exact CLZ parity for the
+  other eight kinds is unverified pending their Edit-form captures.
 
-### 🏗️ Infrastructure
-- Split from monorepo into `collectarr/collectarr-core`
-- CI runs Python lint/tests and Docker Compose validation
-- Single squashed Alembic migration with role-based user model
+## Remaining coordinated work
 
-### 🔌 Providers
-- 10 provider integrations: GCD, ComicVine, Hardcover, AniList, MangaDex, OpenLibrary, BGG, MusicBrainz, IGDB, TMDb
-- Search guardrails: cache, cooldown/backoff, rate limiting (Redis-backed)
-- Shared normalization: accent stripping, title aliases, issue sort keys
-- Smoke fixture tests for all 9 providers
-- Structured comic search context (series, issue number, year)
-- Provider candidates with typed comic identity fields (candidate_type, series_title, variant_name, etc.)
-- Short-lived hydrated preview caching avoids repeating upstream fetch/normalize work between preview and ingest
-- Preview/ingest flows preserve provider-native raw IDs while sharing hydrated provider data
-- Ingest persistence hardening for normalized metadata (`audience_rating`, `volume_number`) and comic-only story-arc fallback semantics
+1. Field ownership is organized between the shared common-field module and
+   each kind's document module. Keep new kind-only field specs beside their
+   owner's schema; `metadata_fields.py` remains the registry composition point.
+2. Re-export OpenAPI, the canonical contract bundle, and schema visualizations
+   after field ownership is complete; review and pin the final bundle in App.
+3. App now has kind-owned typed metadata and `*PersonalData` values in all nine
+   local entry aggregates. Still remove duplicate shared kind DTOs and generic
+   semantic readers, replace the generic `PersonalStateDraft` and flat entry
+   update facade with kind-owned edit bindings/commands, and preserve the
+   current workspace presentation and personal features.
+4. Finish the coordinated App/Sync reference and payload cutover. Sync continues
+   to mirror personal state only; it must never receive Core catalog documents.
+5. Update all repositories' current-status documents when the code and pinned
+   contracts have been synchronized.
 
-### 📚 Catalog
-- Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.
-- Bundle composition uses `bundle_release_components`.
-- MangaDex volume/chapter support through metadata volumes API
-- DB-backed ingest job queue with automatic worker processing
+## Database boundary
 
-### 🛠️ Admin Console
-- Provider health dashboard, ingest queue management, catalog inspector
-- Duplicate candidate detection with merge/ignore actions
-- User management with viewer/editor/admin roles + audit trail
-- Image cache stats + purge endpoints
-- Metadata proposals, cover inspection, search index history
+The supported Core schema is created from the current SQLAlchemy models on a
+new, empty PostgreSQL database. `create_all()` does not reshape an existing
+database. Keep existing databases and backups untouched; use a separate empty
+database for the v1 baseline.
 
-### 🖼️ Image Pipeline
-- External provider URLs as default delivery
-- Optional MinIO/S3 mirroring with WebP normalization
-- SHA256 dedup, LRU eviction, cache budget tracking
-- Admin visibility: stats endpoint + purge endpoint + UI panel
-- User-uploaded image mirroring uses content-addressed synthetic source URLs to avoid key collisions
-- Canonical image asset mutations are restricted to admins
-- Provider image mirroring can stay off the synchronous search hot path via cache-only reuse when assets are already mirrored
+## Checks
 
-### 📄 Contracts
-- OpenAPI auto-generated with tags (system, auth, metadata, admin)
-- Exported contract bundle: `contracts/openapi.json`, `contracts/metadata-field-schema.json`, `contracts/active-kinds.json`, `contracts/provider-support.json`, `contracts/contract-manifest.json`
-- `scripts/export_openapi.py` for versioned schema snapshots
-
-### 🔓 API Access
-- Read-only metadata endpoints (search, facets, series, seasons, volumes, bundle releases, provider search/preview) are public — no auth required
-- Write endpoints are kind-specific
-- Keeps App usable without login for browsing/searching metadata
-
-## 🔜 Active Roadmap
-
-### 🎯 Metadata Contract + Ingest Reliability
-- [x] Stabilize typed-per-kind metadata storage as canonical contract
-	- Typed per-kind fields now live in kind-specific canonical tables.
-	- Shared genre/platform classification now uses taxonomy link tables again instead of per-kind scalar columns.
-	- Keep admin drift diagnostics (`typed_*` issue keys) as the release gate.
-- [x] Split metadata service seams
-	- Typed reads, facets, search, providers, proposals, and legacy projection now have separate service entrypoints/helpers.
-- [ ] Continue per-media normalization depth
-	- Expand provider mapping where upstream data still exists for video, book/manga, and game metadata.
-
-### 🧭 Admin UX / Operations
-- [ ] Expand duplicate/merge operator workflow from confidence signals to full review queue
-	- Turn confidence factors/warnings into explicit queue decisions with richer audit context.
-- [ ] Continue public deployment hardening for internet-facing setups
-	- Keep tightening auth defaults, CORS, rate limits, job isolation, and secrets guidance.
-
-### 🗂️ Schema Explorer / Taxonomy Clarity
-- [ ] Keep the interactive schema explorer split into navigable domains and kind views
-	- Continue color-coding generic vs kind-specific areas so the table hierarchy is visually obvious.
-- [ ] Consider further pagination/collapse for very dense sections
-	- Add more progressive disclosure if the generated markdown or explorer still feels overloaded.
-
-### 🧩 Scan-to-Identify Boundary
-- [x] Re-evaluate whether Core needs any role in comics cover-photo recognition / scan-to-identify
-	- Keep the app local-first by default; Core stays on image storage/search primitives and does not own identify flows.
+Contract generation and schema export are implementation steps. Run automated
+tests only after the coordinated source and documentation changes are complete.

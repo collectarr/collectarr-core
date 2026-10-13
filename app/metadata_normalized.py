@@ -8,6 +8,7 @@ from app.catalog.metadata_fields import (
     value_types,
 )
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue
 
 NORMALIZED_SCHEMA_VERSION = 1
 
@@ -42,6 +43,12 @@ def _is_valid_normalized_value(key: str, value: Any) -> bool:
         return isinstance(value, list) and all(isinstance(entry, str) for entry in value)
     if value_type == "integer":
         return isinstance(value, int) and value >= 0
+    if value_type == "partial_date":
+        try:
+            PartialDateValue.model_validate(value)
+        except (TypeError, ValueError):
+            return False
+        return True
     return True
 
 
@@ -122,12 +129,12 @@ def clean_normalized_metadata(
 
 
 def set_normalized_metadata(
-    metadata_json: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
     normalized_values: Mapping[str, Any] | None,
     *,
     kind: ItemKind | None = None,
 ) -> dict[str, Any]:
-    metadata = dict(metadata_json or {})
+    metadata = dict(metadata or {})
     normalized = clean_normalized_metadata(normalized_values, kind=kind)
     if normalized:
         metadata["normalized"] = normalized
@@ -137,15 +144,15 @@ def set_normalized_metadata(
 
 
 def merge_normalized_metadata(
-    metadata_json: Mapping[str, Any] | None,
+    metadata: Mapping[str, Any] | None,
     updates: Mapping[str, Any] | None,
     *,
     kind: ItemKind | None = None,
 ) -> dict[str, Any]:
-    metadata = dict(metadata_json or {})
-    current = metadata.get("normalized")
+    result = dict(metadata or {})
+    current = result.get("normalized")
     merged = dict(current) if isinstance(current, dict) else {}
     merged.pop("schema_version", None)
     if isinstance(updates, Mapping):
         merged.update(dict(updates))
-    return set_normalized_metadata(metadata, merged, kind=kind)
+    return set_normalized_metadata(result, merged, kind=kind)

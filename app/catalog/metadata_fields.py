@@ -1,357 +1,65 @@
 """Single source of truth for canonical metadata fields.
 
-Historically the catalog metadata fields were declared in many uncoordinated
-places: the core normalization lookups (``_KIND_ALLOWED_KEYS``,
-``_NORMALIZED_VALUE_TYPES``, ``TYPED_KIND_METADATA_KEYS``), the admin correction
-request schema, and the Flutter app's ``kAdminMetadataScalarFields`` contract.
-Adding a field meant editing every copy and forgetting one silently broke
-ingest/correction (see the ``NormalizedItem.color`` regression).
-
-This module declares each editable field once as a :class:`MetadataFieldSpec`
-and derives every lookup from the registry. It is the schema that the admin edit
-panel and the Flutter app edit dialog render from (exposed at
-``GET /metadata/field-schema``), so the two surfaces can no longer drift apart.
-
-Two concerns are modelled by a single spec:
-
-* **Normalization** — the subset of fields flagged ``normalized=True`` feed the
-  ``app.metadata_normalized`` allow-lists / value-type / typed-column lookups.
-  These derivations are intentionally scoped so editorial fields can be added
-  without changing normalization behaviour.
-* **Editing UI** — every ``editable=True`` field is rendered in the edit panel,
-  grouped by :attr:`MetadataFieldSpec.section` and rendered with the widget hint
-  in :attr:`MetadataFieldSpec.input`.
+Each kind declares edit fields with :class:`MetadataFieldSpec`. Normalized
+storage rules live in a separate registry below; root table, entity type, and
+canonical write ownership are resolved once from the Catalog Kind registry.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import replace
 
-from app.catalog.grouping_models import PRINT_GROUPING_KINDS
-from app.catalog.metadata_legacy_projection import (
-    INTERNAL_BOOKKEEPING_KEYS,
-    LEGACY_PROJECTION_KEYS,
-    warn_if_legacy_projection_used,
+from app.catalog.common_metadata_fields import (
+    _EDITABLE_COMMON_FIELDS,
+    _EDITORIAL_FIELDS,
+    _INTERNAL_COMMON_FIELDS,
+)
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
+from app.catalog.metadata_field_spec import (
+    CATALOG_KINDS,
+    INPUT_LIST,
+    SECTION_RELATIONS,
+    VALUE_TYPE_STRING_LIST,
+    MetadataFieldSpec,
+    NormalizedFieldSpec,
 )
 from app.models.base import ItemKind
 
-# Value types understood by normalization/validation + the edit surfaces.
-VALUE_TYPE_STRING = "string"
-VALUE_TYPE_STRING_LIST = "string_list"
-VALUE_TYPE_INTEGER = "integer"
-VALUE_TYPE_DATE = "date"
-VALUE_TYPE_LINK_LIST = "link_list"
-
-# Edit-panel sections (mirror the app's SharedMetadataEditTab grouping).
-SECTION_ITEM = "item"
-SECTION_PUBLISHING = "publishing"
-SECTION_TECHNICAL = "technical"
-SECTION_REGIONAL = "regional"
-SECTION_ARTWORK = "artwork"
-SECTION_RELATIONS = "relations"
-SECTION_INTERNAL = "internal"
-
-# Widget hints for the edit surfaces.
-INPUT_TEXT = "text"
-INPUT_MULTILINE = "multiline"
-INPUT_NUMBER = "number"
-INPUT_DATE = "date"
-INPUT_LIST = "list"
-
-# Kinds that carry the physical video/disc spec fields.
-VIDEO_KINDS: frozenset[ItemKind] = frozenset(
-    {ItemKind.anime, ItemKind.movie, ItemKind.tv}
-)
-# Print kinds (page count, imprint, series group).
-PRINT_KINDS: frozenset[ItemKind] = PRINT_GROUPING_KINDS
-# Kinds that have trailers (video + interactive).
-TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
-# Every configured kind (genres applies to all of them).
-ALL_KINDS: frozenset[ItemKind] = frozenset(ItemKind)
-
-
-@dataclass(frozen=True)
-class MetadataFieldSpec:
-    """One canonical metadata field."""
-
-    key: str
-    value_type: str
-    label: str
-    #: ``True`` for normalized fields shared by every kind (cover/format/audience).
-    common: bool = False
-    #: ``True`` when the field maps to a typed canonical kind table column.
-    typed: bool = False
-    #: ``True`` when the field participates in metadata normalization/validation.
-    normalized: bool = False
-    #: ``True`` when the field is rendered in the user-facing edit panel.
-    editable: bool = True
-    #: Edit-panel section grouping (one of the ``SECTION_*`` constants).
-    section: str = SECTION_ITEM
-    #: Edit-panel widget hint (one of the ``INPUT_*`` constants).
-    input: str = INPUT_TEXT
-    #: Kinds that expose a non-common field. Ignored for common fields.
-    kinds: frozenset[ItemKind] = field(default_factory=frozenset)
-
-    def applies_to(self, kind: ItemKind) -> bool:
-        return self.common or kind in self.kinds
-
-    def scope_for_kind(self, kind: ItemKind) -> str:
-        return _scope_for_kind(kind, self.key)
-
-    def write_target_for_kind(self, kind: ItemKind) -> str:
-        return _field_write_target(self.key, kind)
-
-    def source_entity_type_for_kind(self, kind: ItemKind) -> str:
-        return _field_source_entity_type(self.key, kind)
-
-    def source_table_for_kind(self, kind: ItemKind) -> str:
-        return _field_source_table(self.key, kind)
-
-    @property
-    def scope(self) -> str:
-        if self.section == SECTION_INTERNAL:
-            return "internal"
-        if self.common:
-            return "common"
-        return "kind"
-
-    @property
-    def write_target(self) -> str:
-        if self.common or self.typed:
-            return "kind_specific_table"
-        return "canonical_kind_table"
-
-    @property
-    def source_entity_type(self) -> str:
-        if self.common or self.typed:
-            return "kind"
-        return "item"
-
-    @property
-    def source_table(self) -> str:
-        if self.common or self.typed:
-            return "kind_specific_table"
-        return "items"
-
-    @property
-    def is_legacy_projection(self) -> bool:
-        return not self.common and not self.typed and self.section != SECTION_INTERNAL
-
-
-_WORK_SCOPE_KEYS = {
-    "title",
-    "original_title",
-    "localized_title",
-    "title_extension",
-    "sort_key",
-    "search_aliases",
-    "item_number",
-    "genres",
-    "platforms",
-    "identifiers",
-    "company_roles",
-    "contributors",
-    "mechanics",
-    "categories",
-    "families",
-    "expansions",
-    "rankings",
+_INTERNAL_DERIVED_KEYS = {
+    "format_templateimage",
+    "format_scaledimage",
+    "country_scaledimage",
+    "language_scaledimage",
+    "audiencerating_templateimage",
+    "region_scaledimage",
+    "audio_templateimage",
+    "physical_format_label",
+    "physical_format_media_family",
+    "physical_format_variant_type",
+    "associated_image_id",
+    "cover_delivery_url",
+    "cover_policy",
+    "cover_source_url",
+    "cover_status",
+    "cover_storage",
 }
 
-_MEDIA_SCOPE_KEYS = {
-    "color",
-    "nr_discs",
-    "screen_ratio",
-    "audio_tracks",
-    "subtitles",
-    "layers",
-    "runtime_minutes",
-    "track_count",
-    "tracks",
-}
-
-_TRACK_SCOPE_KEYS = {"tracks"}
-
-_PROPOSAL_KEYS = {"physical_format", "trailer_urls", "external_links"}
-
-_KIND_SCOPE_ENTITY_TYPES: dict[ItemKind, dict[str, tuple[str, str]]] = {
-    ItemKind.book: {
-        "work": ("book_work", "book_works"),
-        "edition": ("book_edition", "book_editions"),
-        "media": ("book_edition", "book_editions"),
-        "track": ("book_edition", "book_editions"),
-    },
-    ItemKind.comic: {
-        "work": ("comic_work", "comic_works"),
-        "edition": ("comic_issue", "comic_issues"),
-        "media": ("comic_issue", "comic_issues"),
-        "track": ("comic_issue", "comic_issues"),
-    },
-    ItemKind.manga: {
-        "work": ("manga_work", "manga_works"),
-        "edition": ("manga_chapter", "manga_chapters"),
-        "media": ("manga_chapter", "manga_chapters"),
-        "track": ("manga_chapter", "manga_chapters"),
-    },
-    ItemKind.anime: {
-        "work": ("anime_series", "anime_series"),
-        "edition": ("anime_series", "anime_series"),
-        "episode": ("anime_episode", "anime_episodes"),
-        "release": ("anime_series", "anime_series"),
-        "media": ("anime_episode", "anime_episodes"),
-        "track": ("anime_episode", "anime_episodes"),
-    },
-    ItemKind.movie: {
-        "work": ("movie_work", "movie_works"),
-        "release": ("movie_release", "movie_releases"),
-        "media": ("movie_release_media", "movie_release_media"),
-        "track": ("movie_release_media", "movie_release_media"),
-    },
-    ItemKind.tv: {
-        "work": ("tv_release", "tv_releases"),
-        "release": ("tv_release", "tv_releases"),
-        "episode": ("tv_episode", "tv_episodes"),
-        "media": ("tv_release_media", "tv_release_media"),
-        "track": ("tv_release_media", "tv_release_media"),
-    },
-    ItemKind.game: {
-        "work": ("game_work", "game_works"),
-        "platform": ("game_work", "game_platforms"),
-        "identifier": ("game_work", "game_identifiers"),
-        "company_role": ("game_work", "game_company_roles"),
-        "age_rating": ("game_work", "game_age_ratings"),
-        "release": ("game_release", "game_releases"),
-        "media": ("game_release", "game_releases"),
-        "track": ("game_release", "game_releases"),
-        "series_membership": ("game_work", "game_series_memberships"),
-    },
-    ItemKind.boardgame: {
-        "work": ("boardgame_work", "boardgame_works"),
-        "edition": ("boardgame_edition", "boardgame_editions"),
-        "identifier": ("boardgame_work", "boardgame_identifiers"),
-        "contributor": ("boardgame_work", "boardgame_contributions"),
-        "mechanic": ("boardgame_work", "boardgame_mechanics"),
-        "category": ("boardgame_work", "boardgame_categories"),
-        "family": ("boardgame_work", "boardgame_families"),
-        "expansion": ("boardgame_work", "boardgame_expansions"),
-        "ranking": ("boardgame_work", "boardgame_rankings_snapshot"),
-        "player_count_vote": ("boardgame_edition", "boardgame_player_count_votes"),
-        "media": ("boardgame_edition", "boardgame_editions"),
-        "track": ("boardgame_edition", "boardgame_editions"),
-    },
-    ItemKind.music: {
-        "release": ("music_release", "music_releases"),
-        "media": ("music_media", "music_media"),
-        "track": ("music_track", "music_tracks"),
-        "work": ("music_release", "music_releases"),
-    },
-}
-
-
-def _default_entity_ref(kind: ItemKind) -> tuple[str, str]:
-    scope_map = _KIND_SCOPE_ENTITY_TYPES[kind]
-    for scope in ("work", "release", "edition", "episode", "media", "track"):
-        if scope in scope_map:
-            return scope_map[scope]
-    return next(iter(scope_map.values()))
-
-
-def _scope_for_kind(kind: ItemKind, key: str) -> str:
-    if key in INTERNAL_BOOKKEEPING_KEYS:
-        return "legacy_projection"
-    if key in LEGACY_PROJECTION_KEYS:
-        return "legacy_projection"
-    if key == "physical_format":
-        if kind in {ItemKind.book, ItemKind.boardgame}:
-            return "edition"
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return "issue"
-        if kind == ItemKind.music:
-            return "release"
-        return "release"
-    if key in _PROPOSAL_KEYS:
-        return "legacy_projection"
-    if key in _MEDIA_SCOPE_KEYS:
-        return "track" if key == "tracks" else "media"
-    if key == "edition_title":
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return "issue"
-        if kind in {ItemKind.book, ItemKind.boardgame}:
-            return "edition"
-        if kind == ItemKind.music:
-            return "release"
-        if kind == ItemKind.anime:
-            return "episode"
-        return "release"
-    if key in {"release_date", "publisher", "barcode", "catalog_number", "release_status", "country", "language", "age_rating", "variant_name", "page_count", "imprint", "subtitle", "series_group"}:
-        if kind == ItemKind.game and key == "age_rating":
-            return "age_rating"
-        if kind in {ItemKind.book, ItemKind.boardgame}:
-            return "edition"
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return "issue"
-        if kind == ItemKind.anime:
-            return "episode"
-        if kind == ItemKind.music:
-            return "release"
-        return "release"
-    if key == "platforms" and kind == ItemKind.game:
-        return "platform"
-    if key == "identifiers":
-        if kind == ItemKind.game:
-            return "identifier"
-        if kind == ItemKind.boardgame:
-            return "identifier"
-    if key == "company_roles" and kind == ItemKind.game:
-        return "company_role"
-    if key == "contributors" and kind == ItemKind.boardgame:
-        return "contributor"
-    if key == "mechanics" and kind == ItemKind.boardgame:
-        return "mechanic"
-    if key == "categories" and kind == ItemKind.boardgame:
-        return "category"
-    if key == "families" and kind == ItemKind.boardgame:
-        return "family"
-    if key == "expansions" and kind == ItemKind.boardgame:
-        return "expansion"
-    if key == "rankings" and kind == ItemKind.boardgame:
-        return "ranking"
-    if key in _WORK_SCOPE_KEYS:
-        return "work"
-    return "legacy_projection"
-
-
-def _field_source_entity_type(key: str, kind: ItemKind) -> str:
-    scope = _scope_for_kind(kind, key)
-    entity_type, _ = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, _default_entity_ref(kind))
-    return entity_type
-
-
-def _field_source_table(key: str, kind: ItemKind) -> str:
-    scope = _scope_for_kind(kind, key)
-    _, table_name = _KIND_SCOPE_ENTITY_TYPES[kind].get(scope, _default_entity_ref(kind))
-    return table_name
-
-
-def _field_write_target(key: str, kind: ItemKind) -> str:
-    if key in INTERNAL_BOOKKEEPING_KEYS:
-        return "readonly_computed"
-    if key in LEGACY_PROJECTION_KEYS:
-        return "legacy_projection"
-    if key in _PROPOSAL_KEYS:
-        return "core_admin_proposal"
-    return "core_canonical"
+METADATA_FIELD_SCHEMA_VERSION = 2
 
 
 def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, object]]:
-    active_kinds = tuple(kinds or (kind for kind in ItemKind if kind != ItemKind.collection))
+    active_kinds = (
+        tuple(kinds)
+        if kinds is not None
+        else tuple(definition.kind for definition in CATALOG_KIND_DEFINITIONS)
+    )
     rows: list[dict[str, object]] = []
     for spec in METADATA_FIELDS:
-        applicable_kinds = active_kinds if spec.common else tuple(kind for kind in active_kinds if kind in spec.kinds)
-        if not spec.common and not applicable_kinds:
+        if spec.correction_only:
             continue
-        if spec.common and not applicable_kinds:
+        applicable_kinds = tuple(kind for kind in active_kinds if spec.applies_to(kind))
+        if not applicable_kinds:
             continue
         for kind in applicable_kinds:
             rows.append(
@@ -363,208 +71,109 @@ def contract_rows(kinds: Iterable[ItemKind] | None = None) -> list[dict[str, obj
                     "section": spec.section,
                     "input": spec.input,
                     "editable": spec.editable,
-                    "normalized": spec.normalized,
-                    "common": spec.common,
-                    "typed": spec.typed,
-                    "scope": spec.scope_for_kind(kind),
-                    "writeTarget": spec.write_target_for_kind(kind),
-                    "sourceEntityType": spec.source_entity_type_for_kind(kind),
-                    "sourceTable": spec.source_table_for_kind(kind),
                 }
             )
-    warn_if_legacy_projection_used(
-        "metadata field schema",
-        (row["key"] for row in rows if row["scope"] == "legacy_projection"),
-    )
     return rows
 
 
-# --- Normalized common fields (shared by every kind) -------------------------
-# Internal cover/format bookkeeping that is never edited by hand.
-_INTERNAL_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    MetadataFieldSpec("physical_format_label", VALUE_TYPE_STRING, "Physical format label",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("physical_format_media_family", VALUE_TYPE_STRING,
-                      "Physical format media family", common=True, normalized=True,
-                      editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("physical_format_variant_type", VALUE_TYPE_STRING,
-                      "Physical format variant type", common=True, normalized=True,
-                      editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("format_templateimage", VALUE_TYPE_STRING, "Format template image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("format_scaledimage", VALUE_TYPE_STRING, "Format scaled image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("country_scaledimage", VALUE_TYPE_STRING, "Country scaled image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("language_scaledimage", VALUE_TYPE_STRING, "Language scaled image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("audiencerating_templateimage", VALUE_TYPE_STRING, "Audience rating template image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("region_scaledimage", VALUE_TYPE_STRING, "Region scaled image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("audio_templateimage", VALUE_TYPE_STRING, "Audio template image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("associated_image_id", VALUE_TYPE_STRING, "Associated image",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("cover_delivery_url", VALUE_TYPE_STRING, "Cover delivery URL",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("cover_policy", VALUE_TYPE_STRING, "Cover policy",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("cover_source_url", VALUE_TYPE_STRING, "Cover source URL",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("cover_status", VALUE_TYPE_STRING, "Cover status",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
-    MetadataFieldSpec("cover_storage", VALUE_TYPE_STRING, "Cover storage",
-                      common=True, normalized=True, editable=False, section=SECTION_INTERNAL),
+# --- Kind-owned field composition --------------------------------------------
+def _coalesce_identical_specs(
+    specs: Iterable[MetadataFieldSpec],
+) -> tuple[MetadataFieldSpec, ...]:
+    """Compose matching kind declarations without duplicating the API field."""
+    ordered: dict[tuple[object, ...], MetadataFieldSpec] = {}
+    for spec in specs:
+        identity = (
+            spec.key,
+            spec.value_type,
+            spec.label,
+            spec.editable,
+            spec.section,
+            spec.input,
+            spec.correction_only,
+        )
+        existing = ordered.get(identity)
+        if existing is None:
+            ordered[identity] = spec
+        else:
+            ordered[identity] = replace(existing, kinds=existing.kinds | spec.kinds)
+    return tuple(ordered.values())
+
+
+_SHARED_KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
+    MetadataFieldSpec(
+        "genres",
+        VALUE_TYPE_STRING_LIST,
+        "Genres",
+        kinds=CATALOG_KINDS,
+        section=SECTION_RELATIONS,
+        input=INPUT_LIST,
+    ),
 )
 
-# Editable normalized common fields.
-_EDITABLE_COMMON_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    MetadataFieldSpec("physical_format", VALUE_TYPE_STRING, "Physical format",
-                      common=True, normalized=False, section=SECTION_PUBLISHING),
+_KIND_FIELDS = _coalesce_identical_specs(
+    spec for definition in CATALOG_KIND_DEFINITIONS for spec in definition.field_specs
 )
 
-# --- Normalized kind-scoped, typed fields ------------------------------------
-_KIND_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    MetadataFieldSpec("genres", VALUE_TYPE_STRING_LIST, "Genres", typed=True, normalized=True,
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=ALL_KINDS),
-    MetadataFieldSpec("platforms", VALUE_TYPE_STRING_LIST, "Platforms", typed=True,
-                      normalized=True, section=SECTION_RELATIONS, input=INPUT_LIST,
-                      kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
-    MetadataFieldSpec("identifiers", VALUE_TYPE_STRING_LIST, "Identifiers",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.game, ItemKind.boardgame})),
-    MetadataFieldSpec("company_roles", VALUE_TYPE_STRING_LIST, "Company roles",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.game})),
-    MetadataFieldSpec("contributors", VALUE_TYPE_STRING_LIST, "Contributors",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("mechanics", VALUE_TYPE_STRING_LIST, "Mechanics",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("categories", VALUE_TYPE_STRING_LIST, "Categories",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("families", VALUE_TYPE_STRING_LIST, "Families",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("expansions", VALUE_TYPE_STRING_LIST, "Expansions",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("rankings", VALUE_TYPE_STRING_LIST, "Rankings",
-                      section=SECTION_RELATIONS, input=INPUT_LIST, kinds=frozenset({ItemKind.boardgame})),
-    MetadataFieldSpec("color", VALUE_TYPE_STRING, "Color", typed=True, normalized=True,
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-)
-
-# --- Editorial / release fields (not part of normalization) ------------------
-# These are edited by hand on the catalog work + release; they map to canonical
-# columns rather than the normalized metadata JSON, so ``normalized=False``.
-_EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
-    # Item identity.
-    MetadataFieldSpec("title", VALUE_TYPE_STRING, "Title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("original_title", VALUE_TYPE_STRING, "Original title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("localized_title", VALUE_TYPE_STRING, "Localized title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("title_extension", VALUE_TYPE_STRING, "Title extension",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("sort_key", VALUE_TYPE_STRING, "Sort key",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("search_aliases", VALUE_TYPE_STRING_LIST, "Search aliases",
-                      section=SECTION_ITEM, input=INPUT_LIST, kinds=ALL_KINDS),
-    MetadataFieldSpec("item_number", VALUE_TYPE_STRING, "Item number",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("edition_title", VALUE_TYPE_STRING, "Edition title",
-                      section=SECTION_ITEM, kinds=ALL_KINDS),
-    MetadataFieldSpec("release_date", VALUE_TYPE_DATE, "Release date",
-                      section=SECTION_ITEM, input=INPUT_DATE, kinds=ALL_KINDS),
-    # Publishing.
-    MetadataFieldSpec("publisher", VALUE_TYPE_STRING, "Publisher",
-                      section=SECTION_PUBLISHING, kinds=ALL_KINDS),
-    MetadataFieldSpec("imprint", VALUE_TYPE_STRING, "Imprint",
-                      section=SECTION_PUBLISHING, kinds=PRINT_KINDS),
-    MetadataFieldSpec("subtitle", VALUE_TYPE_STRING, "Subtitle",
-                      section=SECTION_PUBLISHING, kinds=ALL_KINDS),
-    MetadataFieldSpec("series_group", VALUE_TYPE_STRING, "Series group",
-                      section=SECTION_PUBLISHING, kinds=PRINT_KINDS),
-    MetadataFieldSpec("barcode", VALUE_TYPE_STRING, "Barcode",
-                      section=SECTION_PUBLISHING, kinds=ALL_KINDS),
-    MetadataFieldSpec("variant_name", VALUE_TYPE_STRING, "Primary variant",
-                      section=SECTION_PUBLISHING, kinds=ALL_KINDS),
-    MetadataFieldSpec("page_count", VALUE_TYPE_INTEGER, "Page count",
-                      section=SECTION_PUBLISHING, input=INPUT_NUMBER, kinds=PRINT_KINDS),
-    MetadataFieldSpec("runtime_minutes", VALUE_TYPE_INTEGER, "Runtime minutes",
-                      section=SECTION_PUBLISHING, input=INPUT_NUMBER, kinds=VIDEO_KINDS),
-    # Technical / release.
-    MetadataFieldSpec("catalog_number", VALUE_TYPE_STRING, "Catalog number",
-                      section=SECTION_TECHNICAL, kinds=ALL_KINDS),
-    MetadataFieldSpec("release_status", VALUE_TYPE_STRING, "Release status",
-                      section=SECTION_TECHNICAL, kinds=ALL_KINDS),
-    MetadataFieldSpec("nr_discs", VALUE_TYPE_INTEGER, "Number of discs",
-                      section=SECTION_TECHNICAL, input=INPUT_NUMBER, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("screen_ratio", VALUE_TYPE_STRING, "Screen ratio",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("audio_tracks", VALUE_TYPE_STRING, "Audio tracks",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("subtitles", VALUE_TYPE_STRING, "Subtitles",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    MetadataFieldSpec("layers", VALUE_TYPE_STRING, "Layers",
-                      section=SECTION_TECHNICAL, kinds=VIDEO_KINDS),
-    # Regional.
-    MetadataFieldSpec("country", VALUE_TYPE_STRING, "Country",
-                      section=SECTION_REGIONAL, kinds=ALL_KINDS),
-    MetadataFieldSpec("language", VALUE_TYPE_STRING, "Language",
-                      section=SECTION_REGIONAL, kinds=ALL_KINDS),
-    MetadataFieldSpec("age_rating", VALUE_TYPE_STRING, "Age rating",
-                      section=SECTION_REGIONAL, kinds=ALL_KINDS),
-    MetadataFieldSpec("audience_rating", VALUE_TYPE_STRING, "Audience rating",
-                      common=True, typed=True, normalized=True, section=SECTION_REGIONAL),
-    MetadataFieldSpec("series_tags", VALUE_TYPE_STRING_LIST, "Series tags",
-                      section=SECTION_REGIONAL, input=INPUT_LIST, kinds=ALL_KINDS),
-    # Artwork & copy.
-    MetadataFieldSpec("cover_image_url", VALUE_TYPE_STRING, "Cover URL",
-                      section=SECTION_ARTWORK, kinds=ALL_KINDS),
-    MetadataFieldSpec("thumbnail_image_url", VALUE_TYPE_STRING, "Thumbnail URL",
-                      section=SECTION_ARTWORK, kinds=ALL_KINDS),
-    MetadataFieldSpec("synopsis", VALUE_TYPE_STRING, "Synopsis",
-                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS),
-    MetadataFieldSpec("crossover", VALUE_TYPE_STRING, "Crossover",
-                      section=SECTION_ARTWORK,
-                      kinds=frozenset({ItemKind.comic, ItemKind.manga})),
-    MetadataFieldSpec("plot_summary", VALUE_TYPE_STRING, "Plot summary",
-                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS),
-    MetadataFieldSpec("plot_description", VALUE_TYPE_STRING, "Plot description",
-                      section=SECTION_ARTWORK, input=INPUT_MULTILINE, kinds=ALL_KINDS),
-    # Relations & lists.
-    MetadataFieldSpec("trailer_urls", VALUE_TYPE_LINK_LIST, "Trailer URLs",
-                      section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=TRAILER_KINDS),
-    MetadataFieldSpec("external_links", VALUE_TYPE_LINK_LIST, "External links",
-                      section=SECTION_RELATIONS, input=INPUT_MULTILINE, kinds=ALL_KINDS),
-)
-
-#: The canonical registry, ordered (normalized common first, then kind-scoped,
-#: then editorial). Internal bookkeeping fields come first so the normalized
-#: derivations keep their historical ordering semantics.
+# Shared declarations are followed by the fields composed directly from each
+# kind definition, then by editorial-only fields.
 METADATA_FIELDS: tuple[MetadataFieldSpec, ...] = (
     _INTERNAL_COMMON_FIELDS
     + _EDITABLE_COMMON_FIELDS
+    + _SHARED_KIND_FIELDS
     + _KIND_FIELDS
     + _EDITORIAL_FIELDS
 )
 
-_FIELD_BY_KEY: dict[str, MetadataFieldSpec] = {spec.key: spec for spec in METADATA_FIELDS}
+_FIELDS_BY_KEY: dict[str, tuple[MetadataFieldSpec, ...]] = {
+    key: tuple(spec for spec in METADATA_FIELDS if spec.key == key)
+    for key in {spec.key for spec in METADATA_FIELDS}
+}
+
+_NORMALIZED_FIELD_KEYS = {
+    *(_INTERNAL_DERIVED_KEYS),
+    "genres",
+    "audience_rating",
+    "color",
+    "platforms",
+}
+NORMALIZED_FIELD_SPECS: tuple[NormalizedFieldSpec, ...] = tuple(
+    NormalizedFieldSpec(
+        key=key,
+        kinds=(
+            CATALOG_KINDS
+            if key in _INTERNAL_DERIVED_KEYS or key == "genres"
+            else next(spec.kinds for spec in _FIELDS_BY_KEY[key] if spec.kinds)
+        ),
+        typed=key not in _INTERNAL_DERIVED_KEYS,
+        common=key in _INTERNAL_DERIVED_KEYS,
+    )
+    for key in sorted(_NORMALIZED_FIELD_KEYS)
+)
+_NORMALIZED_FIELDS_BY_KEY = {spec.key: spec for spec in NORMALIZED_FIELD_SPECS}
 
 
-def field_spec(key: str) -> MetadataFieldSpec | None:
-    return _FIELD_BY_KEY.get(key)
+def normalized_field_spec(key: str) -> NormalizedFieldSpec | None:
+    return _NORMALIZED_FIELDS_BY_KEY.get(key)
+
+
+def field_spec(key: str, kind: ItemKind | None = None) -> MetadataFieldSpec | None:
+    candidates = _FIELDS_BY_KEY.get(key, ())
+    if kind is not None:
+        return next((spec for spec in candidates if spec.applies_to(kind)), None)
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def common_field_keys() -> set[str]:
-    """Normalized common keys (mirrors the legacy ``_COMMON_ALLOWED_KEYS``)."""
-    return {spec.key for spec in METADATA_FIELDS if spec.normalized and spec.common}
+    """Return normalized fields shared by every canonical kind."""
+    return {spec.key for spec in NORMALIZED_FIELD_SPECS if spec.common}
 
 
 def kind_allowed_keys() -> dict[ItemKind, set[str]]:
     """Per-kind set of non-common normalized field keys."""
-    result: dict[ItemKind, set[str]] = {kind: set() for kind in ItemKind}
-    for spec in METADATA_FIELDS:
-        if not spec.normalized or spec.common:
+    result: dict[ItemKind, set[str]] = {kind: set() for kind in CATALOG_KINDS}
+    for spec in NORMALIZED_FIELD_SPECS:
+        if spec.common:
             continue
         for kind in spec.kinds:
             result[kind].add(spec.key)
@@ -573,28 +182,81 @@ def kind_allowed_keys() -> dict[ItemKind, set[str]]:
 
 def value_types() -> dict[str, str]:
     """Normalized field value types (mirrors ``_NORMALIZED_VALUE_TYPES``)."""
-    return {spec.key: spec.value_type for spec in METADATA_FIELDS if spec.normalized}
+    field_specs = {spec.key: spec for spec in METADATA_FIELDS}
+    return {
+        spec.key: field_specs[spec.key].value_type
+        for spec in NORMALIZED_FIELD_SPECS
+        if spec.key in field_specs
+    }
 
 
 def typed_field_keys() -> set[str]:
     """Normalized fields backed by a typed canonical kind table column."""
-    return {spec.key for spec in METADATA_FIELDS if spec.normalized and spec.typed}
+    return {spec.key for spec in NORMALIZED_FIELD_SPECS if spec.typed}
 
 
-def fields_for_kind(kind: ItemKind, *, editable_only: bool = False) -> list[MetadataFieldSpec]:
+def fields_for_kind(
+    kind: ItemKind,
+    *,
+    editable_only: bool = False,
+    include_correction_only: bool = False,
+) -> list[MetadataFieldSpec]:
     """Ordered specs for a kind (common + that kind's fields)."""
     return [
         spec
         for spec in METADATA_FIELDS
-        if spec.applies_to(kind) and (not editable_only or spec.editable)
+        if spec.applies_to(kind)
+        and (not editable_only or spec.editable)
+        and (include_correction_only or not spec.correction_only)
     ]
 
 
 def editable_fields() -> list[MetadataFieldSpec]:
     """All user-editable specs, in registry order."""
-    return [spec for spec in METADATA_FIELDS if spec.editable]
+    return [spec for spec in METADATA_FIELDS if spec.editable and not spec.correction_only]
 
 
 def editable_field_keys() -> set[str]:
     """Editable canonical field keys accepted by proposal/correction payloads."""
     return {spec.key for spec in editable_fields()}
+
+
+def canonical_correction_field_spec(kind: ItemKind, key: str) -> MetadataFieldSpec | None:
+    """Return *key* when it is valid for a canonical correction target."""
+
+    spec = field_spec(key, kind)
+    if spec is None or not spec.editable:
+        return None
+    if key in _INTERNAL_DERIVED_KEYS:
+        return None
+    return spec
+
+
+def canonical_correction_target(
+    kind: ItemKind,
+    keys: Iterable[str],
+) -> tuple[str, str] | None:
+    """Resolve one canonical scope/entity type for a proposal field set."""
+
+    target: tuple[str, str] | None = None
+    for key in keys:
+        spec = canonical_correction_field_spec(kind, key)
+        if spec is None:
+            return None
+        current = ("catalog_item", catalog_kind_for(kind).entity_type)
+        if target is None:
+            target = current
+        elif target != current:
+            return None
+    return target
+
+
+def canonical_entity_type_for_scope(kind: ItemKind, scope: str) -> str | None:
+    """Return the canonical entity type for a structural correction scope."""
+
+    if scope != "catalog_item":
+        return None
+    try:
+        return catalog_kind_for(kind).entity_type
+    except ValueError:
+        return None

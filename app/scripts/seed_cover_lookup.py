@@ -83,6 +83,86 @@ _PAGE_TITLE_OVERRIDES: dict[str, tuple[str, ...]] = {
 _SUMMARY_CACHE: dict[str, tuple[str | None, str | None]] = {}
 _RESOLUTION_CACHE: dict[str, tuple[str, str]] = {}
 
+# The native seed is intended to be deterministic.  Prefer known, title-specific
+# cover assets for the showcase records instead of asking Wikipedia to choose a
+# page at runtime (which can return a logo, an unrelated adaptation, or a
+# series cover for a release/issue).  The resolver below remains available for
+# entries without a curated asset.
+_CURATED_COVER_URLS: dict[tuple[ItemKind, str], tuple[str, str]] = {
+    (ItemKind.book, "dune"): (
+        "https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg",
+        "https://covers.openlibrary.org/b/isbn/9780441172719-M.jpg",
+    ),
+    (ItemKind.book, "dune-messiah"): (
+        "https://covers.openlibrary.org/b/isbn/9780441172696-L.jpg",
+        "https://covers.openlibrary.org/b/isbn/9780441172696-M.jpg",
+    ),
+    (ItemKind.comic, "the-amazing-spider-man"): (
+        "https://upload.wikimedia.org/wikipedia/en/5/54/AmazingSpider-Man1.jpg",
+        "https://upload.wikimedia.org/wikipedia/en/5/54/AmazingSpider-Man1.jpg",
+    ),
+    (ItemKind.comic, "batman"): (
+        "https://upload.wikimedia.org/wikipedia/en/4/4d/BatmanComicIssue1%2C1940.png",
+        "https://upload.wikimedia.org/wikipedia/en/4/4d/BatmanComicIssue1%2C1940.png",
+    ),
+    (ItemKind.manga, "chainsaw-man"): (
+        "https://upload.wikimedia.org/wikipedia/en/2/24/Chainsawman.jpg",
+        "https://upload.wikimedia.org/wikipedia/en/2/24/Chainsawman.jpg",
+    ),
+    (ItemKind.manga, "attack-on-titan"): (
+        "https://upload.wikimedia.org/wikipedia/en/d/d6/Shingeki_no_Kyojin_manga_volume_1.jpg",
+        "https://upload.wikimedia.org/wikipedia/en/d/d6/Shingeki_no_Kyojin_manga_volume_1.jpg",
+    ),
+    (ItemKind.anime, "cowboy-bebop"): (
+        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-GCsPm7waJ4kS.png",
+        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-GCsPm7waJ4kS.png",
+    ),
+    (ItemKind.anime, "fullmetal-alchemist-brotherhood"): (
+        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5114-nSWCgQlmOMtj.jpg",
+        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5114-nSWCgQlmOMtj.jpg",
+    ),
+    (ItemKind.movie, "batman-begins"): (
+        "https://upload.wikimedia.org/wikipedia/en/a/af/Batman_Begins_Poster.jpg",
+        "https://upload.wikimedia.org/wikipedia/en/a/af/Batman_Begins_Poster.jpg",
+    ),
+    (ItemKind.movie, "blade-runner-2049"): (
+        "https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+        "https://image.tmdb.org/t/p/w342/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+    ),
+    (ItemKind.tv, "breaking-bad"): (
+        "https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
+        "https://image.tmdb.org/t/p/w342/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
+    ),
+    (ItemKind.tv, "chernobyl"): (
+        "https://image.tmdb.org/t/p/w500/hlLXt2tOPT6RRnjiUmoxyG1LTFi.jpg",
+        "https://image.tmdb.org/t/p/w342/hlLXt2tOPT6RRnjiUmoxyG1LTFi.jpg",
+    ),
+    (ItemKind.music, "the-dark-side-of-the-moon"): (
+        "https://coverartarchive.org/release-group/f5093c06-23e3-404f-aeaa-40f72885ee3a/front-500",
+        "https://coverartarchive.org/release-group/f5093c06-23e3-404f-aeaa-40f72885ee3a/front-500",
+    ),
+    (ItemKind.music, "ok-computer"): (
+        "https://coverartarchive.org/release-group/b1392450-e666-3926-a536-22c65f834433/front-500",
+        "https://coverartarchive.org/release-group/b1392450-e666-3926-a536-22c65f834433/front-500",
+    ),
+    (ItemKind.game, "the-elder-scrolls-v-skyrim"): (
+        "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/72850/library_600x900.jpg",
+        "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/72850/library_600x900.jpg",
+    ),
+    (ItemKind.game, "dark-souls"): (
+        "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/211420/library_600x900.jpg",
+        "https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/211420/library_600x900.jpg",
+    ),
+    (ItemKind.boardgame, "catan"): (
+        "https://upload.wikimedia.org/wikipedia/en/a/a3/Catan-2015-boxart.jpg",
+        "https://upload.wikimedia.org/wikipedia/en/a/a3/Catan-2015-boxart.jpg",
+    ),
+    (ItemKind.boardgame, "pandemic"): (
+        "https://upload.wikimedia.org/wikipedia/en/3/36/Pandemic_game.jpg",
+        "https://upload.wikimedia.org/wikipedia/en/3/36/Pandemic_game.jpg",
+    ),
+}
+
 
 async def resolve_seed_cover_urls(
     *,
@@ -96,6 +176,13 @@ async def resolve_seed_cover_urls(
     cached = _RESOLUTION_CACHE.get(cache_key)
     if cached is not None:
         return cached
+
+    curated = _CURATED_COVER_URLS.get(
+        (kind, _slugify_seed_part(title)),
+    )
+    if curated is not None:
+        _RESOLUTION_CACHE[cache_key] = curated
+        return curated
 
     for page_title in _candidate_page_titles(kind=kind, slug=slug, title=title, series=series):
         cover_url, thumbnail_url = await _fetch_wikipedia_image_urls(page_title)

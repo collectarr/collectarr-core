@@ -15,65 +15,48 @@
 ## Architecture
 
 ### Database Hierarchy
-```
-Item → Edition → Variant (+ Release)
-```
-- Keep the canonical catalog on the item/release spine; prefer per-kind work/release structures where they exist.
-- Do not force shared legacy grouping layers onto kinds with native v1 models (music, boardgame, game).
-- Models in `app/models/canonical.py` (SQLAlchemy 2.x async, `mapped_column`)
-- Migrations: Alembic (`alembic/`). **Pre-2.0 policy: a single squashed baseline**
-  (`alembic/versions/20260624_1000_clean_schema_baseline.py`, which runs
-  `Base.metadata.create_all`). The server DB starts empty, so while the schema is
-  still evolving we regenerate the baseline and recreate the DB instead of adding
-  incremental migrations. `python -m app.scripts.bootstrap_alembic` builds a fresh
-  DB from the baseline. Do NOT stack new migration files until the schema
-  stabilizes — change the models and the baseline picks them up via `create_all`.
-- Schema integrity lives in the models: non-negative CHECKs, a one-primary-per-edition
-  partial unique index (`uq_variants_primary_per_edition`), and reverse foreign-key
-  indexes on the polymorphic `entity_*` link tables. (A matching
-  bundle membership is now modeled via `bundle_release_components`; update paths
-  should delete removed members before inserting the new primary, otherwise the
-  in-transaction primary swap trips the ordering invariant.)
 
-### 10 Metadata Providers (`app/providers/`)
-| Provider | File | Kinds | Auth |
-|----------|------|-------|------|
-| ComicVine | `comicvine.py` | comic, manga | API key |
-| GCD | `gcd.py` | comic | None |
-| Hardcover | `hardcover.py` | manga, book | API key |
-| AniList | `anilist.py` | anime, manga | None (GraphQL) |
-| MangaDex | `mangadex.py` | manga | None |
-| TMDB | `tmdb.py` | movie, tv, anime | API key |
-| OpenLibrary | `openlibrary.py` | book | None |
-| IGDB | `igdb.py` | game | Twitch creds |
-| BGG | `bgg.py` | boardgame | API token |
-| MusicBrainz | `musicbrainz.py` | music | None |
+```text
+Kind-specific Work -> Release -> Medium / Track
+```
 
-Each provider implements: `search()` → `get_item()` → `normalize()` → `NormalizedItem`
+- Keep canonical metadata in the kind-specific work/release tables described in
+  `AGENTS.md`; shared tables model typed relationships only.
+- Models live in `app/models/` and use SQLAlchemy 2.x async `mapped_column`.
+- The server schema is created with `python -m app.scripts.bootstrap_schema` from
+  `Base.metadata.create_all`; schema changes are applied by recreating the
+  development database.
+- Schema integrity lives in the models: non-negative CHECKs, typed unique
+  indexes, and reverse foreign-key indexes on polymorphic `entity_*` link tables.
+
+### Provider contract (`app/providers/`)
+
+Provider adapters and importers live in `collectarr-app`. Core owns the shared
+normalized envelope, provenance, attribution, image references, and typed
+canonical write contract. Keep provider-specific HTTP clients and credentials
+out of Core.
 
 ### Services (`app/services/`)
-- `metadata.py` — MetadataService: core search, provider coordination
-- `admin.py` — AdminMetadataService: ingest, upsert, image mirroring
-- `collection.py` — CollectionService: owned/wishlist CRUD
-- `sync.py` — SyncService: client sync protocol
+
+- metadata services - typed catalog reads, search, and canonical writes
+- admin services - corrections, duplicate review, image mirroring, and audit
 
 ### Image Pipeline (`app/storage/`)
-```
-Provider URL → ImageMirror (download, validate, resize 1280px, WebP q82)
-  → MinIO S3 (covers/{provider}/{id}/{hash}.webp)
-  → ImageCache (DB tracking, LRU eviction at 100GB)
-  → Public URL
+
+```text
+Metadata image source -> ImageMirror -> MinIO S3
+  -> ImageCache (DB tracking) -> Public URL
 ```
 
 ### API Routes (`app/api/routes/`)
-- `auth.py` — JWT register/login
-- `metadata.py` — search, volumes, provider candidates
-- `admin.py` — ingest, metadata corrections, image cache
-- `collection.py` — owned items, wishlist, sync, facets
+
+- `auth.py` - JWT register/login
+- `metadata.py` - typed catalog reads and normalized metadata submissions
+- `admin.py` - metadata corrections, image cache, and audit
 
 ## Git and Releases
 
-- Use conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `refactor:`).
+- Use semantic-release conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `refactor:`).
 - Branch: `feat/file-reorg-and-hardcover`.
 
 ## Code Style
@@ -82,18 +65,16 @@ Provider URL → ImageMirror (download, validate, resize 1280px, WebP q82)
 - All DB/HTTP operations async (`async def`, `await`).
 - SQLAlchemy 2.x `mapped_column` style.
 - Pydantic v2 for API schemas.
-- Provider methods follow pattern: `_cover_url()`, `_normalize_credits()`, `_build_editions()`.
 
 ## Configuration (`app/core/config.py`)
 
-Key env vars: `DATABASE_URL`, `REDIS_URL`, `MEILISEARCH_URL`, `S3_ENDPOINT_URL`, `COMICVINE_API_KEY`, `TMDB_API_KEY`, `TWITCH_CLIENT_ID/SECRET`, `MIRROR_PROVIDER_IMAGES`.
+Key env vars: `DATABASE_URL`, `REDIS_URL`, `MEILISEARCH_URL`, `S3_ENDPOINT_URL`, `MIRROR_PROVIDER_IMAGES`.
 
 ## Testing
 
 - Run: `pytest` (inside Docker container or with venv)
 - Test files in `tests/` mirror `app/` structure
-- Provider tests mock HTTP responses
-- Use `pytest -v tests/providers/test_musicbrainz_provider.py` for specific tests
+- Contract tests cover normalized envelopes and typed canonical writes
 
 ## Docker Commands (from Windows)
 

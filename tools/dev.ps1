@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet("start", "stop", "migrate", "seed", "seed-providers", "seed-showcase", "test", "check", "smoke-providers", "reset-stack", "clean-state")]
+    [ValidateSet("start", "stop", "schema", "seed", "test", "check", "reset-stack", "clean-state")]
     [string]$Command,
     [switch]$UseWslDocker,
     [switch]$WithSync
@@ -33,17 +33,11 @@ switch ($Command) {
     "stop" {
         Invoke-Compose @("down")
     }
-    "migrate" {
-        Invoke-CollectarrSchemaSetup -RepoRoot $Root -WithSync:$WithSync
+    "schema" {
+        Invoke-CollectarrSchemaSetup -WithSync:$WithSync
     }
     "seed" {
         Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_full", "--wipe")
-    }
-    "seed-providers" {
-        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_provider_catalog", "--profile", "smoke", "--skip-existing")
-    }
-    "seed-showcase" {
-        Invoke-Compose @("exec", "api", "python", "-m", "app.scripts.seed_provider_catalog", "--profile", "showcase", "--skip-existing")
     }
     "test" {
         python -m pytest
@@ -51,10 +45,7 @@ switch ($Command) {
     "check" {
         Invoke-Compose @("config", "--quiet")
         python -m ruff check .
-        python -m compileall app alembic tests
-    }
-    "smoke-providers" {
-        & "$Root\scripts\dev-smoke-providers.ps1" -UseWslDocker:$UseWslDocker
+        python -m compileall app tests
     }
     "reset-stack" {
         & "$Root\scripts\dev-reset-stack.ps1" -Force -UseWslDocker:$UseWslDocker -WithSync:$WithSync

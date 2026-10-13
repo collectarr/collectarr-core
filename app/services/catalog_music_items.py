@@ -1,0 +1,164 @@
+"""Read/search operations for flattened Music catalog items."""
+
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.catalog.catalog_item_schema import validate_catalog_item_payload
+from app.core.errors import ApiHTTPException
+from app.models.base import ItemKind
+from app.models.catalog_music_item import MusicItem
+from app.models.partial_date import PartialDateValue
+from app.schemas.catalog_music_item import (
+    CatalogMusicItemResponse,
+    CatalogMusicItemSearchPage,
+)
+
+
+class CatalogMusicItemService:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def create_from_proposal(self, payload: dict[str, Any]) -> CatalogMusicItemResponse:
+        """Publish an approved Music Add/Edit payload as one flat root item."""
+        item_payload = validate_catalog_item_payload(ItemKind.music, payload)
+        title = item_payload.get("title")
+        if not isinstance(title, str) or not title or title != title.strip():
+            raise ValueError("Music Catalog Item title must be non-empty trimmed text")
+
+        item = MusicItem(
+            title=title,
+            sort_title=_optional_string(item_payload.get("sort_title")),
+            subtitle=_optional_string(item_payload.get("subtitle")),
+            artist=_optional_string(item_payload.get("artist")),
+            artist_credits=_object_values(item_payload.get("artist_credits")),
+            original_release_date=_partial_date(item_payload.get("original_release_date")),
+            release_date=_partial_date(item_payload.get("release_date")),
+            label=_optional_string(item_payload.get("label")),
+            barcode=_optional_string(item_payload.get("barcode")),
+            catalog_number=_optional_string(item_payload.get("catalog_number")),
+            genres=_string_values(item_payload.get("genres")),
+            packaging=_optional_string(item_payload.get("packaging")),
+            country=_optional_string(item_payload.get("country")),
+            extra=_string_values(item_payload.get("extra")),
+            box_set=_optional_string(item_payload.get("box_set")),
+            credits=_object_values(item_payload.get("credits")),
+            external_links=_object_values(item_payload.get("external_links")),
+            cover_image_url=_optional_string(item_payload.get("cover_image_url")),
+            back_cover_image_url=_optional_string(item_payload.get("back_cover_image_url")),
+            thumbnail_image_url=_optional_string(item_payload.get("thumbnail_image_url")),
+            discs=item_payload["discs"],
+        )
+        self.db.add(item)
+        await self.db.flush()
+        return CatalogMusicItemResponse.model_validate(item)
+
+    async def search(
+        self,
+        *,
+        query: str | None,
+        barcode: str | None,
+        artist: str | None = None,
+        label: str | None = None,
+        subtitle: str | None = None,
+        country: str | None = None,
+        catalog_number: str | None = None,
+        year: int | None = None,
+        limit: int,
+        offset: int,
+    ) -> CatalogMusicItemSearchPage:
+        stmt = select(MusicItem)
+        if barcode and barcode.strip():
+            stmt = stmt.where(MusicItem.barcode == barcode.strip())
+        elif query and query.strip():
+            term = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    MusicItem.title.ilike(term),
+                    MusicItem.artist.ilike(term),
+                    MusicItem.subtitle.ilike(term),
+                    MusicItem.label.ilike(term),
+                    MusicItem.catalog_number == query.strip(),
+                    MusicItem.barcode == query.strip(),
+                )
+            )
+        if artist and artist.strip():
+            stmt = stmt.where(MusicItem.artist.ilike(f"%{artist.strip()}%"))
+        if label and label.strip():
+            stmt = stmt.where(MusicItem.label.ilike(f"%{label.strip()}%"))
+        if subtitle and subtitle.strip():
+            stmt = stmt.where(MusicItem.subtitle.ilike(f"%{subtitle.strip()}%"))
+        if country and country.strip():
+            stmt = stmt.where(MusicItem.country.ilike(f"%{country.strip()}%"))
+        if catalog_number and catalog_number.strip():
+            stmt = stmt.where(MusicItem.catalog_number == catalog_number.strip())
+        if year is not None:
+            stmt = stmt.where(
+                or_(
+                    MusicItem.release_date["year"].as_integer() == year,
+                    MusicItem.original_release_date["year"].as_integer() == year,
+                    MusicItem.discs.contains([{"recording_date": {"year": year}}]),
+                )
+            )
+        stmt = (
+            stmt.order_by(
+                MusicItem.sort_title.asc().nullslast(),
+                MusicItem.title.asc(),
+                MusicItem.id.asc(),
+            )
+            .offset(offset)
+            .limit(limit + 1)
+        )
+        result = await self.db.execute(stmt)
+        rows = list(result.scalars().unique())
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        return CatalogMusicItemSearchPage(
+            items=[CatalogMusicItemResponse.model_validate(item) for item in rows],
+            next_offset=offset + len(rows) if has_more else None,
+            has_more=has_more,
+        )
+
+    async def get(self, item_id: UUID) -> CatalogMusicItemResponse:
+        result = await self.db.execute(select(MusicItem).where(MusicItem.id == item_id))
+        item = result.scalar_one_or_none()
+        if item is None:
+            raise ApiHTTPException(
+                status_code=404,
+                code="music_item_not_found",
+                detail="Music Catalog Item not found",
+            )
+        return CatalogMusicItemResponse.model_validate(item)
+
+
+def _string_values(value: Any) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(entry, str) for entry in value):
+        raise ValueError("Music values must be lists of strings")
+    return list(value)
+
+
+def _object_values(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or any(not isinstance(entry, dict) for entry in value):
+        raise ValueError("Music object values must be a list of objects")
+    return [dict(entry) for entry in value]
+
+
+def _optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Music text values must be strings or null")
+    return value
+
+
+def _partial_date(value: Any) -> dict[str, int] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Music dates must be partial-date objects")
+    parsed = PartialDateValue.model_validate(value)
+    return None if parsed.is_empty else parsed.model_dump(exclude_none=True)

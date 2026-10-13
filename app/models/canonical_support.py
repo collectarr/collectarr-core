@@ -1,8 +1,9 @@
 import uuid
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any
+from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -11,60 +12,21 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
+    and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import (
     Base,
-    ExternalProvider,
     ItemKind,
-    SeriesRelationType,
     TimestampMixin,
     UuidMixin,
 )
-
-if TYPE_CHECKING:
-    from app.models import ComicSeries, MangaSeries
-
-
-class ExternalProviderId(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "external_provider_ids"
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_item_id", name="uq_provider_provider_item_id"),
-        Index("ix_external_entity", "entity_type", "entity_id"),
-    )
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    site_url: Mapped[str | None] = mapped_column(String(1024))
-    api_url: Mapped[str | None] = mapped_column(String(1024))
-
-
-class ProviderPayloadSnapshot(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "provider_payload_snapshots"
-    __table_args__ = (
-        Index("ix_provider_payload_snapshots_entity", "entity_type", "entity_id"),
-        Index("ix_provider_payload_snapshots_provider_item", "provider", "provider_item_id"),
-    )
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    source_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    normalized_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class Organization(UuidMixin, TimestampMixin, Base):
@@ -74,7 +36,6 @@ class Organization(UuidMixin, TimestampMixin, Base):
     type: Mapped[str | None] = mapped_column(String(64), index=True)
     country: Mapped[str | None] = mapped_column(String(64), index=True)
     parent_publisher: Mapped[str | None] = mapped_column(String(255), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class Person(UuidMixin, TimestampMixin, Base):
@@ -87,10 +48,6 @@ class Person(UuidMixin, TimestampMixin, Base):
     image_url: Mapped[str | None] = mapped_column(String(1024))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
     site_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    external_ids: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-
 class EntityOrganization(UuidMixin, TimestampMixin, Base):
     __tablename__ = "entity_organizations"
     __table_args__ = (
@@ -185,10 +142,11 @@ class StoryArc(UuidMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     publisher: Mapped[str | None] = mapped_column(String(255), index=True)
     start_date: Mapped[date | None] = mapped_column(Date)
+    start_date_parts: Mapped[str | None] = mapped_column(String(64))
     end_date: Mapped[date | None] = mapped_column(Date)
+    end_date_parts: Mapped[str | None] = mapped_column(String(64))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
     site_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class StoryArcItem(UuidMixin, TimestampMixin, Base):
@@ -214,7 +172,6 @@ class Character(UuidMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     canonical_name: Mapped[str | None] = mapped_column(String(255), index=True)
-    aliases: Mapped[list[str] | None] = mapped_column(JSONB)
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     api_detail_url: Mapped[str | None] = mapped_column(String(1024))
@@ -223,9 +180,15 @@ class Character(UuidMixin, TimestampMixin, Base):
     first_appearance_entity_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), index=True
     )
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-
+    alias_entries: Mapped[list["EntityAlias"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityAlias.entity_id) == Character.id,
+            EntityAlias.entity_type == "character",
+        ),
+        order_by="EntityAlias.position",
+        cascade="all, delete-orphan",
+    )
 class CharacterAppearance(UuidMixin, TimestampMixin, Base):
     __tablename__ = "character_appearances"
     __table_args__ = (
@@ -279,54 +242,11 @@ class ImageAsset(UuidMixin, TimestampMixin, Base):
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     thumbnail_storage_key: Mapped[str | None] = mapped_column(String(512))
     source_url: Mapped[str | None] = mapped_column(String(1024))
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
     attribution: Mapped[str | None] = mapped_column(Text)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     phash: Mapped[str | None] = mapped_column(String(128), index=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-
-class ImageCacheEntry(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "image_cache_entries"
-    __table_args__ = (
-        UniqueConstraint("object_key", name="uq_image_cache_object_key"),
-        Index("ix_image_cache_provider_source", "provider", "source_url"),
-        Index("ix_image_cache_last_accessed", "last_accessed_at"),
-    )
-
-    provider: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    source_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    object_key: Mapped[str] = mapped_column(String(512), nullable=False)
-    public_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    width: Mapped[int] = mapped_column(Integer, nullable=False)
-    height: Mapped[int] = mapped_column(Integer, nullable=False)
-    content_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    access_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-
-class ProviderIngestJob(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "provider_ingest_jobs"
-    __table_args__ = (
-        Index("ix_provider_ingest_jobs_status_next_run", "status", "next_run_at"),
-        Index("ix_provider_ingest_jobs_provider_item", "provider", "provider_item_id"),
-    )
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
-    )
-    provider_item_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
-    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    resolved_entity_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    resolved_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    last_error: Mapped[str | None] = mapped_column(Text)
 
 
 class AdminAuditLog(UuidMixin, TimestampMixin, Base):
@@ -343,7 +263,41 @@ class AdminAuditLog(UuidMixin, TimestampMixin, Base):
     actor_email: Mapped[str | None] = mapped_column(String(320), index=True)
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    details_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+    details: Mapped[list["AdminAuditLogDetail"]] = relationship(
+        back_populates="audit_log",
+        cascade="all, delete-orphan",
+        order_by="AdminAuditLogDetail.path",
+    )
+
+
+class TypedScalarValueMixin:
+    """Concrete storage for one scalar value in a structured workflow payload."""
+
+    value_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    string_value: Mapped[str | None] = mapped_column(Text)
+    integer_value: Mapped[int | None] = mapped_column(BigInteger)
+    decimal_value: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    boolean_value: Mapped[bool | None] = mapped_column(Boolean)
+    date_value: Mapped[date | None] = mapped_column(Date)
+    date_value_parts: Mapped[str | None] = mapped_column(String(64))
+    datetime_value: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    uuid_value: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class AdminAuditLogDetail(UuidMixin, TimestampMixin, TypedScalarValueMixin, Base):
+    __tablename__ = "admin_audit_log_details"
+    __table_args__ = (
+        UniqueConstraint("audit_log_id", "path", name="uq_admin_audit_log_details_path"),
+        Index("ix_admin_audit_log_details_audit_log", "audit_log_id"),
+    )
+
+    audit_log_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("admin_audit_logs.id", ondelete="CASCADE"), nullable=False
+    )
+    path: Mapped[str] = mapped_column(String(1024), nullable=False)
+
+    audit_log: Mapped[AdminAuditLog] = relationship(back_populates="details")
 
 
 class DuplicateReview(UuidMixin, TimestampMixin, Base):
@@ -358,130 +312,119 @@ class DuplicateReview(UuidMixin, TimestampMixin, Base):
     action: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    entity_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     ignore_token: Mapped[str | None] = mapped_column(String(128))
     target_entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
-    source_entity_ids: Mapped[list[str] | None] = mapped_column(JSONB)
     duplicate_score: Mapped[int | None] = mapped_column(Integer)
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
     actor_email: Mapped[str | None] = mapped_column(String(320), index=True)
     note: Mapped[str | None] = mapped_column(Text)
-    details_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
-
-class MetadataProposal(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "metadata_proposals"
-    __table_args__ = (Index("ix_metadata_proposals_status_provider", "status", "provider"),)
-
-    provider: Mapped[ExternalProvider] = mapped_column(
-        Enum(ExternalProvider, name="external_provider"), nullable=False, index=True
+    entities: Mapped[list["DuplicateReviewEntity"]] = relationship(
+        back_populates="review",
+        cascade="all, delete-orphan",
+        order_by="DuplicateReviewEntity.position",
     )
-    provider_item_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    query: Mapped[str] = mapped_column(String(255), nullable=False)
-    title: Mapped[str | None] = mapped_column(String(255))
-    summary: Mapped[str | None] = mapped_column(Text)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    metadata_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    details: Mapped[list["DuplicateReviewDetail"]] = relationship(
+        back_populates="review",
+        cascade="all, delete-orphan",
+        order_by="DuplicateReviewDetail.path",
+    )
 
 
-class AdminReleaseMediaMappingRule(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "admin_release_media_mapping_rules"
+class DuplicateReviewEntity(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "duplicate_review_entities"
     __table_args__ = (
+        UniqueConstraint("review_id", "role", "entity_id", name="uq_duplicate_review_entities"),
+        Index("ix_duplicate_review_entities_review_position", "review_id", "position"),
+    )
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("duplicate_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    review: Mapped[DuplicateReview] = relationship(back_populates="entities")
+
+
+class DuplicateReviewDetail(UuidMixin, TimestampMixin, TypedScalarValueMixin, Base):
+    __tablename__ = "duplicate_review_details"
+    __table_args__ = (
+        UniqueConstraint("review_id", "path", name="uq_duplicate_review_details_path"),
+        Index("ix_duplicate_review_details_review", "review_id"),
+    )
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("duplicate_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    path: Mapped[str] = mapped_column(String(1024), nullable=False)
+
+    review: Mapped[DuplicateReview] = relationship(back_populates="details")
+
+
+class CanonicalCorrectionProposal(UuidMixin, TimestampMixin, Base):
+    """Source-neutral correction proposal for one canonical entity."""
+
+    __tablename__ = "canonical_correction_proposals"
+    __table_args__ = (
+        CheckConstraint(
+            "base_revision IS NOT NULL OR base_hash IS NOT NULL",
+            name="ck_canonical_correction_proposals_base_present",
+        ),
         Index(
-            "ix_admin_release_media_mapping_rules_lookup",
-            "release_type",
-            "provider",
-            "is_active",
-            "priority",
+            "ix_canonical_correction_proposals_target",
+            "kind",
+            "entity_type",
+            "entity_id",
+        ),
+        Index(
+            "ix_canonical_correction_proposals_status_created",
+            "status",
+            "created_at",
         ),
     )
 
-    provider: Mapped[ExternalProvider | None] = mapped_column(
-        Enum(ExternalProvider, name="external_provider", create_type=False),
-        nullable=True,
-        index=True,
-    )
-    release_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    target_kind: Mapped[ItemKind] = mapped_column(
+    kind: Mapped[ItemKind] = mapped_column(
         Enum(ItemKind, name="item_kind", create_type=False), nullable=False, index=True
     )
-    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
-    notes: Mapped[str | None] = mapped_column(Text)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    scope: Mapped[str] = mapped_column(String(64), nullable=False)
+    base_revision: Mapped[str | None] = mapped_column(String(128))
+    base_hash: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+
+    values: Mapped[list["CanonicalCorrectionProposalValue"]] = relationship(
+        back_populates="proposal",
+        cascade="all, delete-orphan",
+        order_by="CanonicalCorrectionProposalValue.path",
+    )
 
 
-class MangaSeriesRelation(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "manga_series_relations"
+class CanonicalCorrectionProposalValue(
+    UuidMixin, TimestampMixin, TypedScalarValueMixin, Base
+):
+    __tablename__ = "canonical_correction_proposal_values"
     __table_args__ = (
         UniqueConstraint(
-            "source_series_id",
-            "target_series_id",
-            "relation_type",
-            name="uq_manga_series_relations_source_target_type",
+            "proposal_id",
+            "path",
+            name="uq_canonical_correction_proposal_values_path",
+        ),
+        Index(
+            "ix_canonical_correction_proposal_values_proposal",
+            "proposal_id",
         ),
     )
 
-    source_series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("manga_series.id", ondelete="CASCADE"), index=True
-    )
-    target_series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("manga_series.id", ondelete="CASCADE"), index=True
-    )
-    relation_type: Mapped[SeriesRelationType] = mapped_column(
-        Enum(SeriesRelationType, name="series_relation_type", create_type=False),
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("canonical_correction_proposals.id", ondelete="CASCADE"),
         nullable=False,
-        index=True,
     )
-    ordinal: Mapped[int | None] = mapped_column(Integer)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    start_year: Mapped[int | None] = mapped_column(Integer)
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    path: Mapped[str] = mapped_column(String(1024), nullable=False)
 
-    source_series: Mapped["MangaSeries"] = relationship(
-        foreign_keys=[source_series_id],
-    )
-    target_series: Mapped["MangaSeries"] = relationship(
-        foreign_keys=[target_series_id],
-    )
-
-
-class ComicSeriesRelation(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "comic_series_relations"
-    __table_args__ = (
-        UniqueConstraint(
-            "source_series_id",
-            "target_series_id",
-            "relation_type",
-            name="uq_comic_series_relations_source_target_type",
-        ),
-    )
-
-    source_series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("comic_series.id", ondelete="CASCADE"), index=True
-    )
-    target_series_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("comic_series.id", ondelete="CASCADE"), index=True
-    )
-    relation_type: Mapped[SeriesRelationType] = mapped_column(
-        Enum(SeriesRelationType, name="series_relation_type", create_type=False),
-        nullable=False,
-        index=True,
-    )
-    ordinal: Mapped[int | None] = mapped_column(Integer)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    start_year: Mapped[int | None] = mapped_column(Integer)
-    provider: Mapped[str | None] = mapped_column(String(64), index=True)
-    provider_id: Mapped[str | None] = mapped_column(String(255), index=True)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
-
-    source_series: Mapped["ComicSeries"] = relationship(
-        foreign_keys=[source_series_id],
-    )
-    target_series: Mapped["ComicSeries"] = relationship(
-        foreign_keys=[target_series_id],
-    )
+    proposal: Mapped[CanonicalCorrectionProposal] = relationship(back_populates="values")

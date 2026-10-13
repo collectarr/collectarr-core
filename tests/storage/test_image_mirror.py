@@ -19,12 +19,12 @@ def test_image_mirror_builds_stable_cover_key():
     mirror = ImageMirror(storage=None)
 
     key = mirror._cover_key(
-        provider="comicvine",
-        provider_item_id="4000-12345",
+        entity_type="item",
+        entity_id="4000-12345",
         source_url="https://comicvine.gamespot.com/a/uploads/scale_large/cover.jpg",
     )
 
-    assert key.startswith("covers/comicvine/4000-12345/")
+    assert key.startswith("covers/item/4000-12345/")
     assert key.endswith(".webp")
 
 
@@ -37,7 +37,7 @@ def test_image_mirror_creates_bounded_webp_cover():
 
     with Image.open(BytesIO(cover)) as image:
         assert image.format == "WEBP"
-        assert max(image.size) <= mirror.settings.provider_image_max_long_edge
+        assert max(image.size) <= mirror.settings.image_max_long_edge
 
 
 def test_normalized_cover_includes_phash():
@@ -71,26 +71,21 @@ async def test_image_mirror_stores_single_normalized_webp_cover(monkeypatch):
     source = BytesIO()
     Image.new("RGB", (900, 1400), color=(20, 80, 140)).save(source, format="PNG")
 
-    async def fake_download_image(source_url: str) -> bytes:
-        assert source_url == "https://example.test/cover.png"
-        return source.getvalue()
-
-    monkeypatch.setattr(mirror, "_download_image", fake_download_image)
-
-    result = await mirror.mirror_cover_best_effort(
-        "https://example.test/cover.png",
-        "comicvine",
-        "4000-12345",
+    result = await mirror.mirror_cover_bytes_best_effort(
+        source.getvalue(),
+        source_url="https://example.test/cover.png",
+        entity_type="item",
+        entity_id="4000-12345",
     )
 
     assert result is not None
     assert result.content_type == "image/webp"
     assert result.source_url == "https://example.test/cover.png"
-    assert result.provider == "comicvine"
-    assert result.provider_item_id == "4000-12345"
+    assert result.entity_type == "item"
+    assert result.entity_id == "4000-12345"
     assert result.size_bytes > 0
     assert result.width < 900
-    assert result.height == mirror.settings.provider_image_max_long_edge
+    assert result.height == mirror.settings.image_max_long_edge
     assert len(result.content_hash) == 64
     assert result.thumbnail_key is None
     assert result.thumbnail_url is None
@@ -124,6 +119,11 @@ def test_image_mirror_rejects_images_over_pixel_limit(monkeypatch):
 async def test_image_mirror_returns_none_for_missing_source_url():
     mirror = ImageMirror(storage=None)
 
-    result = await mirror.mirror_cover_best_effort(None, "comicvine", "4000-12345")
+    result = await mirror.mirror_cover_bytes_best_effort(
+        b"image-bytes",
+        source_url=None,
+        entity_type="item",
+        entity_id="4000-12345",
+    )
 
     assert result is None

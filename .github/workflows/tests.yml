@@ -50,6 +50,9 @@ jobs:
           python -m scripts.export_openapi
           git diff --exit-code -- docs/schema-data.json docs/schema-full.md docs/openapi.json
 
+      - name: Verify versioned contract bundle is current
+        run: python -m scripts.export_contract_bundle --check
+
       - name: Type check (informational)
         continue-on-error: true
         run: python -m mypy app

@@ -1,53 +1,45 @@
-from datetime import date
+from uuid import uuid4
 
 from app.db.session import AsyncSessionLocal
-from app.models import ComicIdentifier, ComicIssue, ComicWork
-from app.models.base import ExternalProvider
+from app.models.catalog_comic_item import ComicItem
 
 
-async def seed_comic() -> tuple[str, str, str]:
+async def seed_comic() -> str:
     async with AsyncSessionLocal() as db:
-        work = ComicWork(
-            title="The Amazing Spider-Man",
-            sort_title="amazing spider-man",
-            description="Peter Parker swings into action.",
-            original_language="en",
+        item = ComicItem(
+            title="The Amazing Spider-Man #1",
+            sort_key="amazing spider-man 1",
+            barcode="75960604716100111",
+            details={
+                "series_title": "The Amazing Spider-Man",
+                "issue_number": "1",
+                "publisher": "Marvel",
+                "imprint": "Marvel Knights",
+                "language": "en",
+                "country": "US",
+                "release_status": "released",
+                "release_date": "1963-03-01",
+                "cover_image_url": "https://cdn.example/standard.jpg",
+                "description": "Peter Parker swings into action.",
+                "identifiers": [
+                    {
+                        "id": str(uuid4()),
+                        "identifier_type": "barcode",
+                        "value": "75960604716100111",
+                        "normalized_value": "75960604716100111",
+                        "is_primary": True,
+                    }
+                ],
+            },
         )
-        db.add(work)
-        await db.flush()
-        issue = ComicIssue(
-            work_id=work.id,
-            issue_number="1",
-            display_title="The Spider Strikes",
-            publication_date=date(1963, 3, 1),
-            release_date=date(1963, 3, 1),
-            publisher="Marvel",
-            imprint="Marvel Knights",
-            language="en",
-            region="US",
-            release_status="released",
-            cover_image_url="https://cdn.example/standard.jpg",
-            description="Peter Parker swings into action.",
-        )
-        db.add(issue)
-        await db.flush()
-        db.add(
-            ComicIdentifier(
-                issue_id=issue.id,
-                identifier_type="barcode",
-                value="75960604716100111",
-                normalized_value="75960604716100111",
-                is_primary=True,
-                source_provider=ExternalProvider.comicvine,
-            )
-        )
+        db.add(item)
         await db.commit()
-        return str(work.id), str(issue.id), str(issue.id)
+        return str(item.id)
 
 
 async def register_and_login(client) -> str:
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "test@example.com", "password": "password123", "display_name": "Test"},
     )
     assert response.status_code == 201

@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.models import (
     Character,
@@ -16,7 +17,7 @@ from app.models import (
     Tag,
 )
 from app.schemas import MetadataCredit
-from app.services.metadata.metadata_helpers import _model_text_or_metadata
+from app.services.metadata.metadata_helpers import model_text
 
 
 async def enrich_item_metadata_facets(
@@ -42,9 +43,9 @@ async def enrich_item_metadata_facets(
             MetadataCredit(
                 name=person.name,
                 role=link.role,
-                api_detail_url=_model_text_or_metadata(person, "api_detail_url"),
-                site_detail_url=_model_text_or_metadata(person, "site_detail_url"),
-                image_url=_model_text_or_metadata(person, "image_url"),
+                api_detail_url=model_text(person, "api_detail_url"),
+                site_detail_url=model_text(person, "site_detail_url"),
+                image_url=model_text(person, "image_url"),
             )
             for link, person in creator_rows
         ]
@@ -57,6 +58,7 @@ async def enrich_item_metadata_facets(
                 CharacterAppearance.entity_type == entity_type,
                 CharacterAppearance.entity_id == entity_id,
             )
+            .options(selectinload(Character.alias_entries))
             .order_by(CharacterAppearance.role.asc(), Character.name.asc())
         )
     ).all()
@@ -65,7 +67,7 @@ async def enrich_item_metadata_facets(
             MetadataCredit(
                 name=character.name,
                 role=appearance.role,
-                aliases=[str(alias) for alias in (character.aliases or []) if str(alias).strip()],
+                aliases=[alias.alias for alias in character.alias_entries if alias.alias.strip()],
                 description=character.description,
                 image_url=character.image_url,
                 first_appearance_entity_type=character.first_appearance_entity_type,

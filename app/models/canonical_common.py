@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -14,10 +13,9 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
-    and_,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import (
     Base,
@@ -27,24 +25,16 @@ from app.models.base import (
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    AdminReleaseMediaMappingRule,
     Character,
     CharacterAppearance,
-    ComicSeriesRelation,
     EntityAlias,
     EntityLink,
     EntityOrganization,
     EntityPerson,
     EntityTag,
-    ExternalProviderId,
     ImageAsset,
-    ImageCacheEntry,
-    MangaSeriesRelation,
-    MetadataProposal,
     Organization,
     Person,
-    ProviderIngestJob,
-    ProviderPayloadSnapshot,
     StoryArc,
     StoryArcItem,
     Tag,
@@ -104,21 +94,14 @@ class BundleRelease(UuidMixin, TimestampMixin, Base):
     sku: Mapped[str | None] = mapped_column(String(100), index=True)
     barcode: Mapped[str | None] = mapped_column(String(32), index=True)
     release_date: Mapped[date | None] = mapped_column(Date, index=True)
+    release_date_parts: Mapped[str | None] = mapped_column(String(64))
     cover_image_key: Mapped[str | None] = mapped_column(String(512))
     cover_image_url: Mapped[str | None] = mapped_column(String(1024))
     thumbnail_image_key: Mapped[str | None] = mapped_column(String(512))
     thumbnail_image_url: Mapped[str | None] = mapped_column(String(1024))
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     components: Mapped[list["BundleReleaseComponent"]] = relationship(
         back_populates="bundle_release", cascade="all, delete-orphan"
-    )
-    provider_links: Mapped[list["ExternalProviderId"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(ExternalProviderId.entity_id) == BundleRelease.id,
-            ExternalProviderId.entity_type == "bundle_release",
-        ),
-        viewonly=True,
     )
 
 
@@ -154,6 +137,5 @@ class BundleReleaseComponent(UuidMixin, TimestampMixin, Base):
     disc_label: Mapped[str | None] = mapped_column(String(255))
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     bundle_release: Mapped[BundleRelease] = relationship(back_populates="components")

@@ -5,24 +5,19 @@ import asyncio
 import re
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
-from uuid import UUID
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.db.session import AsyncSessionLocal
 from app.models import (
-    ComicIdentifier,
-    ComicIssue,
-    ComicWork,
-    ExternalProviderId,
+    ComicItem,
 )
-from app.models.base import ExternalProvider, ItemKind
+from app.models.base import ItemKind
 from app.scripts.seed_cover_lookup import resolve_seed_cover_urls
 from app.search.client import SearchClient
-from app.search.documents import comic_work_search_document
+from app.search.documents import catalog_search_document
 
 
 @dataclass(frozen=True)
@@ -40,11 +35,6 @@ class SeedComicIssue:
     def sort_key(self) -> str:
         number = _issue_sort_segment(self.issue_number)
         return f"{self.slug}-{number}"
-
-    @property
-    def provider_id(self) -> str:
-        return f"seed-{self.slug}-{self.issue_number.lower().replace(' ', '-')}"
-
 
 SEED_COMICS = [
     SeedComicIssue(
@@ -162,7 +152,7 @@ SEED_COMICS = [
 
 
 def _issue_sort_segment(issue_number: str) -> str:
-    normalized = issue_number.lower().replace("#", "").replace(" ", "")
+    normalized = issue_number.casefold().replace("#", "").replace(" ", "")
     match = re.match(r"(?P<number>\d+)(?P<suffix>.*)", normalized)
     if match is None:
         return normalized
@@ -175,70 +165,27 @@ def _sort_key(value: str) -> str:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Seed v1 comic works and issues.")
+    parser = argparse.ArgumentParser(description="Seed Comic Catalog Items.")
     return parser.parse_args(argv)
 
 
 async def seed() -> None:
     async with AsyncSessionLocal() as db:
-        changed_work_ids: set[UUID] = set()
+        changed_items: list[ComicItem] = []
         for comic in SEED_COMICS:
-            work = await _get_or_create_work(db, comic)
-            await _upsert_issue(db, comic, work)
-            changed_work_ids.add(work.id)
+            changed_items.append(await _upsert_item(db, comic))
 
         await db.commit()
-        if not changed_work_ids:
-            return
-
-        result = await db.execute(
-            select(ComicWork)
-            .where(ComicWork.id.in_(changed_work_ids))
-            .options(
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.contributions),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships),
-            )
-        )
-        works = list(result.scalars().unique())
-        if works:
+        if changed_items:
             await SearchClient().index_documents_best_effort(
-                [comic_work_search_document(work) for work in works]
+                [catalog_search_document(item) for item in changed_items]
             )
 
 
-async def _get_or_create_work(db: AsyncSession, comic: SeedComicIssue) -> ComicWork:
-    result = await db.execute(select(ComicWork).where(ComicWork.title == comic.work_title))
-    work = result.scalar_one_or_none()
-    if work is None:
-        work = ComicWork(
-            title=comic.work_title,
-            sort_title=_sort_key(comic.work_title),
-            description=f"Seed data for {comic.work_title}.",
-            original_language="en",
-            first_publication_date=comic.release_date,
-        )
-        db.add(work)
-        await db.flush()
-        return work
-
-    work.sort_title = _sort_key(comic.work_title)
-    work.description = f"Seed data for {comic.work_title}."
-    work.original_language = "en"
-    if work.first_publication_date is None or comic.release_date < work.first_publication_date:
-        work.first_publication_date = comic.release_date
-    return work
-
-
-async def _upsert_issue(db: AsyncSession, comic: SeedComicIssue, work: ComicWork) -> ComicIssue:
-    result = await db.execute(
-        select(ComicIssue).where(
-            ComicIssue.work_id == work.id,
-            ComicIssue.issue_number == comic.issue_number,
-        )
-    )
-    issue = result.scalar_one_or_none()
+async def _upsert_item(db: AsyncSession, comic: SeedComicIssue) -> ComicItem:
+    item_title = f"{comic.work_title} #{comic.issue_number}"
+    result = await db.execute(select(ComicItem).where(ComicItem.title == item_title))
+    item = result.scalar_one_or_none()
     cover_url, _thumbnail_url = await resolve_seed_cover_urls(
         kind=ItemKind.comic,
         slug=comic.slug,
@@ -246,122 +193,59 @@ async def _upsert_issue(db: AsyncSession, comic: SeedComicIssue, work: ComicWork
         series=comic.work_title,
         fallback_key=f"collectarr-comic-{comic.slug}-{comic.issue_number}",
     )
-    metadata_json: dict[str, Any] = {
-        "provider": ExternalProvider.comicvine.value,
-        "provider_item_id": comic.provider_id,
-        "normalized": {
-            "title": comic.title,
-            "issue_number": comic.issue_number,
-            "release_date": comic.release_date.isoformat(),
-            "publisher": comic.publisher,
-        },
-    }
-    if issue is None:
-        issue = ComicIssue(
-            work=work,
-            issue_number=comic.issue_number,
-            display_title=comic.title,
-            publication_date=comic.release_date,
-            release_date=comic.release_date,
-            publisher=comic.publisher,
-            language="en",
-            region="US",
-            release_status="released",
-            cover_image_url=cover_url,
-            description=comic.synopsis,
-            metadata_json=metadata_json,
-        )
-        db.add(issue)
+    if item is None:
+        item = ComicItem(title=item_title, sort_key=comic.sort_key, details={})
+        db.add(item)
         await db.flush()
-    else:
-        issue.display_title = comic.title
-        issue.publication_date = comic.release_date
-        issue.release_date = comic.release_date
-        issue.publisher = comic.publisher
-        issue.language = "en"
-        issue.region = "US"
-        issue.release_status = "released"
-        issue.cover_image_url = cover_url
-        issue.description = comic.synopsis
-        issue.metadata_json = metadata_json
+    item.title = item_title
+    item.sort_key = comic.sort_key
+    item.barcode = comic.upc
+    item.catalog_number = None
+    item.details = {
+        **dict(item.details or {}),
+        "series_title": comic.work_title,
+        "issue_number": comic.issue_number,
+        "release_date": comic.release_date.isoformat(),
+        "release_date_parts": {
+            "year": comic.release_date.year,
+            "month": comic.release_date.month,
+            "day": comic.release_date.day,
+        },
+        "publisher": comic.publisher,
+        "language": "en",
+        "country": "US",
+        "release_status": "released",
+        "description": comic.synopsis,
+        "cover_image_url": cover_url,
+    }
 
-    await _ensure_identifier(
-        db,
-        issue,
-        identifier_type="provider_item_id",
-        value=comic.provider_id,
-        source_provider=ExternalProvider.comicvine,
-        is_primary=True,
-    )
     if comic.upc:
-        await _ensure_identifier(
-            db,
-            issue,
-            identifier_type="upc",
-            value=comic.upc,
-            source_provider=ExternalProvider.comicvine,
-            is_primary=False,
+        normalized_value = re.sub(r"\D+", "", comic.upc) or comic.upc.strip()
+        identifiers = list(item.details.get("identifiers") or [])
+        identifier = next(
+            (
+                value
+                for value in identifiers
+                if value.get("identifier_type") == "upc"
+                and value.get("normalized_value") == normalized_value
+            ),
+            None,
         )
-    await _ensure_provider_id(db, issue, comic.provider_id)
-    return issue
-
-
-async def _ensure_identifier(
-    db: AsyncSession,
-    issue: ComicIssue,
-    *,
-    identifier_type: str,
-    value: str,
-    source_provider: ExternalProvider | None,
-    is_primary: bool,
-) -> None:
-    normalized_value = re.sub(r"\D+", "", value) or value.strip()
-    result = await db.execute(
-        select(ComicIdentifier).where(
-            ComicIdentifier.issue_id == issue.id,
-            ComicIdentifier.identifier_type == identifier_type,
-            ComicIdentifier.normalized_value == normalized_value,
-        )
-    )
-    identifier = result.scalar_one_or_none()
-    if identifier is None:
-        db.add(
-            ComicIdentifier(
-                issue=issue,
-                identifier_type=identifier_type,
-                value=value,
-                normalized_value=normalized_value,
-                is_primary=is_primary,
-                source_provider=source_provider,
+        if identifier is None:
+            identifiers.append(
+                {
+                    "id": str(uuid4()),
+                    "identifier_type": "upc",
+                    "value": comic.upc,
+                    "normalized_value": normalized_value,
+                    "is_primary": False,
+                }
             )
-        )
-        return
-
-    identifier.value = value
-    identifier.normalized_value = normalized_value
-    identifier.is_primary = is_primary
-    identifier.source_provider = source_provider
-
-
-async def _ensure_provider_id(db: AsyncSession, issue: ComicIssue, provider_item_id: str) -> None:
-    result = await db.execute(
-        select(ExternalProviderId).where(
-            ExternalProviderId.provider == ExternalProvider.comicvine,
-            ExternalProviderId.provider_item_id == provider_item_id,
-            ExternalProviderId.entity_type == "comic_issue",
-        )
-    )
-    if result.scalar_one_or_none() is not None:
-        return
-
-    db.add(
-        ExternalProviderId(
-            provider=ExternalProvider.comicvine,
-            provider_item_id=provider_item_id,
-            entity_type="comic_issue",
-            entity_id=issue.id,
-        )
-    )
+        else:
+            identifier["value"] = comic.upc
+        item.details = {**item.details, "identifiers": identifiers}
+    await db.flush()
+    return item
 
 
 def main(argv: list[str] | None = None) -> None:

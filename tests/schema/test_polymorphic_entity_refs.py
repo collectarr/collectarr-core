@@ -5,20 +5,13 @@ from app.db.session import AsyncSessionLocal
 from app.models import (
     BundleRelease,
     BundleReleaseComponent,
-    ComicIssue,
-    ComicWork,
-    GameRelease,
-    GameWork,
-    MovieRelease,
-    MovieWork,
-    MusicMedia,
-    MusicRelease,
-    MusicTrack,
-    TVEpisode,
-    TVRelease,
-    TVReleaseMedia,
+    ComicItem,
+    MovieItem,
+    MusicItem,
 )
 from app.models.base import ItemKind
+from app.models.catalog_game_item import GameItem
+from app.models.catalog_tv_item import TvItem
 from app.models.entity_refs import DEFAULT_ENTITY_REF_REGISTRY
 
 
@@ -26,6 +19,38 @@ def _entity_table(entity_type: str) -> str:
     table_name = DEFAULT_ENTITY_REF_REGISTRY.table_name(entity_type)
     assert table_name is not None, f"unexpected entity_type {entity_type!r}"
     return table_name
+
+
+def test_music_entity_refs_target_the_flat_catalog():
+    assert _entity_table("catalog_music_item") == "music_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_item_disc")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_item_track")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_release_group")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_release")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_medium")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("music_track")
+
+
+def test_movie_entity_refs_target_the_flat_catalog():
+    assert _entity_table("catalog_movie_item") == "movie_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("movie_work")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("movie_release")
+
+
+def test_comic_entity_refs_target_the_flat_catalog():
+    assert _entity_table("catalog_comic_item") == "comic_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_work")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_issue")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_variant")
+
+
+def test_game_and_board_game_entity_refs_target_flat_catalog_items():
+    assert _entity_table("catalog_game_item") == "game_items"
+    assert _entity_table("catalog_boardgame_item") == "boardgame_items"
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_work")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_release")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("boardgame_work")
+    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("boardgame_edition")
 
 
 async def _assert_rows_reference_existing_entities(
@@ -42,100 +67,77 @@ async def _assert_rows_reference_existing_entities(
             text(f"select 1 from {table_name} where id = :entity_id limit 1"),
             {"entity_id": entity_id},
         )
-        assert exists.first() is not None, f"missing {entity_type} row for {source_table}.entity_id={entity_id}"
+        assert exists.first() is not None, (
+            f"missing {entity_type} row for {source_table}.entity_id={entity_id}"
+        )
 
 
 @pytest.mark.asyncio
-async def test_entity_aliases_reference_existing_entities(migrated_database):
+async def test_entity_aliases_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_aliases")
 
 
 @pytest.mark.asyncio
-async def test_entity_links_reference_existing_entities(migrated_database):
+async def test_entity_links_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_links")
 
 
 @pytest.mark.asyncio
-async def test_bundle_release_components_reference_existing_entities(migrated_database):
+async def test_bundle_release_components_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="bundle_release_components")
 
 
 @pytest.mark.asyncio
-async def test_bundle_release_components_support_multiple_entity_types(migrated_database):
+async def test_bundle_release_components_support_multiple_entity_types(schema_database):
     async with AsyncSessionLocal() as db:
-        movie_work = MovieWork(title="Movie Work")
-        tv_release = TVRelease(title="TV Release", format="DVD")
-        music_release = MusicRelease(title="Music Release")
-        comic_work = ComicWork(title="Comic Work")
-        game_work = GameWork(title="Game Work")
+        movie_item = MovieItem(title="Movie Item", details={})
+        tv_item = TvItem(title="TV Item", details={})
+        music_item = MusicItem(title="Music Item")
+        comic_item = ComicItem(title="Comic Item", details={})
+        game_item = GameItem(title="Game Item", details={})
         bundle = BundleRelease(kind=ItemKind.music, title="Mixed Bundle")
-        db.add_all([movie_work, tv_release, music_release, comic_work, game_work, bundle])
-        await db.flush()
-
-        movie_release = MovieRelease(work_id=movie_work.id, format="Blu-ray")
-        tv_media = TVReleaseMedia(release_id=tv_release.id, media_number=1, media_type="disc")
-        music_media = MusicMedia(release_id=music_release.id, media_number=1, media_type="CD")
-        comic_issue = ComicIssue(work_id=comic_work.id)
-        game_release = GameRelease(work_id=game_work.id)
-        db.add_all([movie_release, tv_media, music_media, comic_issue, game_release])
-        await db.flush()
-
-        tv_episode = TVEpisode(
-            release_id=tv_release.id,
-            media_id=tv_media.id,
-            series_title="TV Release",
-            season_number=1,
-            episode_number=1,
-            title="Pilot",
-        )
-        music_track = MusicTrack(
-            media_id=music_media.id,
-            release_id=music_release.id,
-            position="1",
-            title="Track 1",
-        )
-        db.add_all([tv_episode, music_track])
+        db.add_all([movie_item, tv_item, music_item, comic_item, game_item, bundle])
         await db.flush()
 
         db.add_all(
             [
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="movie_release",
-                    entity_id=movie_release.id,
-                    role="disc",
+                    entity_type="catalog_movie_item",
+                    entity_id=movie_item.id,
+                    role="edition",
                     sequence_number=1,
                     is_primary=True,
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="tv_episode",
-                    entity_id=tv_episode.id,
-                    role="episode",
+                    entity_type="catalog_tv_item",
+                    entity_id=tv_item.id,
+                    role="edition",
                     sequence_number=2,
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="music_track",
-                    entity_id=music_track.id,
-                    role="track",
+                    entity_type="catalog_music_item",
+                    entity_id=music_item.id,
+                    role="item",
                     sequence_number=3,
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="comic_issue",
-                    entity_id=comic_issue.id,
+                    entity_type="catalog_comic_item",
+                    entity_id=comic_item.id,
                     role="issue",
                     sequence_number=4,
                 ),
                 BundleReleaseComponent(
                     bundle_release_id=bundle.id,
-                    entity_type="game_release",
-                    entity_id=game_release.id,
-                    role="release",
+                    entity_type="catalog_game_item",
+                    entity_id=game_item.id,
+                    role="edition",
                     sequence_number=5,
                 ),
             ]
@@ -157,27 +159,27 @@ async def test_bundle_release_components_support_multiple_entity_types(migrated_
         ).all()
 
         assert [row[0] for row in rows] == [
-            "movie_release",
-            "tv_episode",
-            "music_track",
-            "comic_issue",
-            "game_release",
+            "catalog_movie_item",
+            "catalog_tv_item",
+            "catalog_music_item",
+            "catalog_comic_item",
+            "catalog_game_item",
         ]
 
 
 @pytest.mark.asyncio
-async def test_entity_organizations_reference_existing_entities(migrated_database):
+async def test_entity_organizations_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_organizations")
 
 
 @pytest.mark.asyncio
-async def test_entity_persons_reference_existing_entities(migrated_database):
+async def test_entity_persons_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_persons")
 
 
 @pytest.mark.asyncio
-async def test_entity_tags_reference_existing_entities(migrated_database):
+async def test_entity_tags_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_tags")

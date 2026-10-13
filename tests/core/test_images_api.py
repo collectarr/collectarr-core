@@ -13,7 +13,7 @@ from tests.helpers import register_and_login
 
 async def _register_and_login_admin(client, email: str = "admin@example.com") -> str:
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": email, "password": "password123", "display_name": "Admin"},
     )
     assert response.status_code == 201
@@ -22,7 +22,6 @@ async def _register_and_login_admin(client, email: str = "admin@example.com") ->
     async with AsyncSessionLocal() as db:
         user = await UserRepository(db).get_by_email(email)
         assert user is not None
-        user.is_admin = True
         user.role = UserRole.admin
         await db.commit()
 
@@ -34,7 +33,7 @@ async def test_add_entity_image_rejects_unknown_entity_type(client):
     token = await _register_and_login_admin(client)
 
     response = await client.post(
-        f"/images/entity/not-a-real-type/{uuid4()}",
+        f"/api/v1/images/entity/not-a-real-type/{uuid4()}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -51,7 +50,7 @@ async def test_add_entity_image_requires_admin(client):
     token = await register_and_login(client)
 
     response = await client.post(
-        f"/images/entity/item/{uuid4()}",
+        f"/api/v1/images/entity/item/{uuid4()}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -72,9 +71,9 @@ async def test_add_entity_image_allows_bundle_release_entity_type(client, monkey
         def public_object_url(self, object_key: str) -> str:
             return f"https://storage.example/{object_key}"
 
-    async def fake_mirror(self, image_bytes, *, source_url, provider, provider_item_id):
+    async def fake_mirror(self, image_bytes, *, source_url, entity_type, entity_id):
         class Mirrored:
-            key = f"covers/user/{provider_item_id}/bundle.webp"
+            key = f"covers/{entity_type}/{entity_id}/bundle.webp"
             width = 1200
             height = 1200
 
@@ -90,7 +89,7 @@ async def test_add_entity_image_allows_bundle_release_entity_type(client, monkey
     )
 
     response = await client.post(
-        f"/images/entity/bundle_release/{entity_id}",
+        f"/api/v1/images/entity/bundle_release/{entity_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -116,9 +115,9 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
         def public_object_url(self, object_key: str) -> str:
             return f"https://storage.example/{object_key}"
 
-    async def fake_mirror(self, image_bytes, *, source_url, provider, provider_item_id):
+    async def fake_mirror(self, image_bytes, *, source_url, entity_type, entity_id):
         source_urls.append(source_url)
-        storage_key = f"covers/user/{provider_item_id}/{source_url.rsplit('/', 1)[-1]}.webp"
+        storage_key = f"covers/{entity_type}/{entity_id}/{source_url.rsplit('/', 1)[-1]}.webp"
         mirrored_keys.append(storage_key)
 
         class Mirrored:
@@ -138,7 +137,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     )
 
     first = await client.post(
-        f"/images/entity/item/{entity_id}",
+        f"/api/v1/images/entity/item/{entity_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -146,7 +145,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
         },
     )
     second = await client.post(
-        f"/images/entity/item/{entity_id}",
+        f"/api/v1/images/entity/item/{entity_id}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "image_type": "front_cover",
@@ -165,7 +164,7 @@ async def test_add_entity_image_uses_content_hash_for_uploaded_source_url(
     async with AsyncSessionLocal() as db:
         rows = list(
             await db.scalars(
-                    select(ImageAsset).where(
+                select(ImageAsset).where(
                     ImageAsset.entity_type == "item",
                     ImageAsset.entity_id == entity_id,
                 )
@@ -188,14 +187,13 @@ async def test_delete_image_requires_admin(client):
                 entity_type="item",
                 entity_id=uuid4(),
                 image_type="front_cover",
-                storage_key="covers/user/item/front.webp",
-                provider="user",
+                storage_key="covers/item/item/front.webp",
             )
         )
         await db.commit()
 
     response = await client.delete(
-        f"/images/{image_id}",
+        f"/api/v1/images/{image_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -216,7 +214,7 @@ async def test_download_image_rejects_untracked_object_key(client, monkeypatch):
     monkeypatch.setattr("app.api.routes.images.ObjectStorage.shared", lambda: FakeStorage())
 
     response = await client.get(
-        "/images/download",
+        "/api/v1/images/download",
         headers={"Authorization": f"Bearer {token}"},
         params={"object_key": "private/config.env"},
     )
@@ -229,7 +227,7 @@ async def test_download_image_rejects_untracked_object_key(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_download_image_allows_authorized_image_asset_key(client, monkeypatch):
     token = await register_and_login(client)
-    object_key = "covers/comicvine/4000-1/cover.webp"
+    object_key = "covers/item/4000-1/cover.webp"
 
     async with AsyncSessionLocal() as db:
         db.add(
@@ -238,7 +236,6 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
                 entity_id=uuid4(),
                 image_type="front_cover",
                 storage_key=object_key,
-                provider="comicvine",
             )
         )
         await db.commit()
@@ -251,7 +248,7 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
     monkeypatch.setattr("app.api.routes.images.ObjectStorage.shared", lambda: FakeStorage())
 
     response = await client.get(
-        "/images/download",
+        "/api/v1/images/download",
         headers={"Authorization": f"Bearer {token}"},
         params={"object_key": object_key},
     )
@@ -264,7 +261,7 @@ async def test_download_image_allows_authorized_image_asset_key(client, monkeypa
 @pytest.mark.asyncio
 async def test_batch_download_images_returns_none_for_untracked_keys(client, monkeypatch):
     token = await register_and_login(client)
-    allowed_key = "covers/comicvine/4000-2/cover.webp"
+    allowed_key = "covers/item/4000-2/cover.webp"
     blocked_key = "backups/users.sql"
 
     async with AsyncSessionLocal() as db:
@@ -274,7 +271,6 @@ async def test_batch_download_images_returns_none_for_untracked_keys(client, mon
                 entity_id=uuid4(),
                 image_type="front_cover",
                 storage_key=allowed_key,
-                provider="comicvine",
             )
         )
         await db.commit()
@@ -289,7 +285,7 @@ async def test_batch_download_images_returns_none_for_untracked_keys(client, mon
     monkeypatch.setattr("app.api.routes.images.ObjectStorage.shared", lambda: FakeStorage())
 
     response = await client.post(
-        "/images/batch-download",
+        "/api/v1/images/batch-download",
         headers={"Authorization": f"Bearer {token}"},
         json=[allowed_key, blocked_key],
     )

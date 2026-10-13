@@ -29,23 +29,24 @@ POSTGRES_DIALECT = postgresql.dialect()
 DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
-LEGACY_TABLE_NAMES = {"items", "editions", "variants"}
-LEGACY_BRIDGE_TABLE_NAMES: set[str] = set()
 HIDDEN_TABLE_NAMES = {
     "item" + "_kind_metadata",
     "item" + "_kind_metadata_taxonomies",
 }
 SOURCE_MODULES = [
     "app/models/base.py",
-    "app/models/canonical_anime.py",
-    "app/models/canonical_board_games.py",
-    "app/models/canonical_books.py",
-    "app/models/canonical_comics.py",
     "app/models/canonical_common.py",
-    "app/models/canonical_games.py",
-    "app/models/canonical_manga.py",
+    "app/models/catalog_anime_item.py",
+    "app/models/catalog_boardgame_item.py",
+    "app/models/catalog_book_item.py",
+    "app/models/catalog_book_series.py",
+    "app/models/catalog_comic_item.py",
+    "app/models/catalog_game_item.py",
+    "app/models/catalog_manga_item.py",
+    "app/models/catalog_movie_item.py",
+    "app/models/catalog_music_item.py",
+    "app/models/catalog_tv_item.py",
     "app/models/canonical_support.py",
-    "app/models/canonical_video.py",
     "app/models/user.py",
 ]
 
@@ -53,7 +54,7 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
         "title": "Catalog Spine",
-        "description": "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific, and bundle composition is polymorphic.",
+        "description": "Canonical kind-specific tables and polymorphic bundle composition.",
         "tables": [
             "bundle_releases",
             "bundle_release_components",
@@ -81,22 +82,18 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     },
     {
         "id": "identity",
-        "title": "Identity and Source Mapping",
-        "description": "Users and external provider identifiers that map upstream ids back to catalog entities.",
-        "tables": [
-            "users",
-            "external_provider_ids",
-        ],
+        "title": "User Identity",
+        "description": "User accounts used for authentication and administration.",
+        "tables": ["users"],
     },
     {
         "id": "operations",
         "title": "Images and Operations",
-        "description": "Image storage, cache tracking, ingest jobs, admin audit trails, and proposal workflow tables.",
+        "description": "Image storage, admin audit trails, and catalog proposal workflow tables.",
         "tables": [
             "image_assets",
             "image_cache_entries",
-            "provider_ingest_jobs",
-            "metadata_proposals",
+            "catalog_item_proposals",
             "admin_audit_logs",
         ],
     },
@@ -116,7 +113,7 @@ KIND_SPECS: list[dict[str, str]] = [
     {"id": "tv", "title": "TV", "description": "TV-specific schema slice."},
     {"id": "game", "title": "Games", "description": "Video game schema slice."},
     {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
-    {"id": "book", "title": "Books", "description": "Books v1 work/edition schema slice."},
+    {"id": "book", "title": "Books", "description": "Book Catalog Item and reusable series grouping schema slice."},
     {"id": "music", "title": "Music", "description": "Music schema slice."},
     {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
 ]
@@ -130,85 +127,44 @@ KIND_SHARED_TABLES = [
     "entity_persons",
     "tags",
     "entity_tags",
-    "external_provider_ids",
-    "provider_payload_snapshots",
 ]
 
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "comic": [
-        "comic_volumes",
-        "comic_works",
-        "comic_issues",
-        "comic_contributions",
-        "comic_identifiers",
-        "comic_series_memberships",
-        "comic_story_arc_memberships",
-        "comic_character_appearances",
+        "comic_items",
         "characters",
         "character_appearances",
         "story_arcs",
         "story_arc_items",
     ],
     "manga": [
-        "manga_works",
-        "manga_chapters",
-        "manga_contributions",
-        "manga_identifiers",
-        "manga_character_appearances",
+        "manga_items",
         "characters",
         "character_appearances",
         "story_arcs",
         "story_arc_items",
     ],
     "anime": [
-        "anime_series",
-        "anime_episodes",
-        "anime_contributions",
-        "anime_identifiers",
-        "anime_character_appearances",
+        "anime_items",
     ],
     "movie": [
-        "movie_works",
-        "movie_releases",
-        "movie_release_media",
-        "movie_work_contributions",
-        "movie_work_identifiers",
-        "bundle_releases",
+        "movie_items",
     ],
     "tv": [
-        "tv_series",
-        "tv_seasons",
-        "tv_episodes",
-        "tv_release_media",
-        "tv_release_episode_map",
-        "tv_release_contributions",
-        "tv_release_identifiers",
-        "bundle_releases",
+        "tv_items",
     ],
     "game": [
-        "game_works",
-        "game_releases",
+        "game_items",
     ],
     "boardgame": [
-        "boardgame_works",
-        "boardgame_editions",
+        "boardgame_items",
     ],
     "book": [
         "book_series",
-        "book_works",
-        "book_editions",
-        "book_printings",
-        "book_contributions",
-        "book_identifiers",
-        "book_series_memberships",
+        "book_items",
     ],
     "music": [
-        "music_releases",
-        "music_media",
-        "music_tracks",
-        "music_release_contributions",
-        "music_release_identifiers",
-        "bundle_releases",
+        "music_items",
     ],
     "collection": [
         "bundle_releases",
@@ -221,15 +177,14 @@ POLYMORPHIC_LINK_TABLES = {
     "entity_organizations",
     "entity_persons",
     "entity_tags",
-    "external_provider_ids",
     "image_assets",
 }
 
 STATIC_NOTES = [
-    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and external_provider_ids deliberately use entity_type + entity_id instead of concrete foreign keys for every target entity.",
-    "Historical generic projection tables were removed from the canonical schema. All canonical metadata is kind-specific.",
+    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "Each Catalog Item's repeated kind data is stored in its validated JSONB details document; shared support tables model independent cross-cutting records.",
     "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
-    "For migration history and any constraints introduced outside model declarations, cross-check the Alembic revisions in alembic/versions.",
+    "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",
 ]
 
 
@@ -283,7 +238,7 @@ def collect_column_indexes(table: Table) -> dict[str, list[str]]:
     for column in table.columns:
         if column.index and not result[column.name]:
             result[column.name].append(column.name)
-    for column_name, indexes in result.items():
+    for _column_name, indexes in result.items():
         indexes.sort()
     return result
 
@@ -617,10 +572,6 @@ def render_markdown(data: dict[str, Any]) -> str:
                 lines.append("- Foreign keys: none")
             if table["polymorphic_note"]:
                 lines.append(f"- Note: {table['polymorphic_note']}")
-            if table["legacy_projection_note"]:
-                lines.append(f"- Note: {table['legacy_projection_note']}")
-            if table["legacy_bridge_note"]:
-                lines.append(f"- Note: {table['legacy_bridge_note']}")
             lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -660,16 +611,6 @@ def build_schema_data() -> dict[str, Any]:
             "polymorphic_note": (
                 "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
                 if table.name in POLYMORPHIC_LINK_TABLES
-                else None
-            ),
-            "legacy_projection_note": (
-                "Legacy compatibility / projection table for migrated kinds; canonical writes should target kind-specific tables."
-                if table.name in LEGACY_TABLE_NAMES
-                else None
-            ),
-            "legacy_bridge_note": (
-                "Bundle composition is polymorphic through entity_type + entity_id."
-                if table.name in LEGACY_BRIDGE_TABLE_NAMES
                 else None
             ),
         }
@@ -756,7 +697,6 @@ def build_schema_data() -> dict[str, Any]:
         "source_modules": SOURCE_MODULES,
         "notes": [
             *STATIC_NOTES,
-            "Legacy generic tables (`items`, `editions`, `variants`) are no longer part of the canonical schema or interactive view.",
         ],
         "domains": domains,
         "kinds": kinds,
@@ -776,7 +716,7 @@ def build_schema_data() -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export the interactive schema site.")
-    parser.add_argument("--watch", action="store_true", help="Rebuild when model or migration files change.")
+    parser.add_argument("--watch", action="store_true", help="Rebuild when model files change.")
     parser.add_argument("--interval", type=float, default=1.0, help="Polling interval for --watch mode.")
     args = parser.parse_args()
 
@@ -791,7 +731,7 @@ def main() -> None:
         write_outputs()
         return
 
-    watched_roots = [REPO_ROOT / "app" / "models", REPO_ROOT / "alembic" / "versions"]
+    watched_roots = [REPO_ROOT / "app" / "models"]
     watched_files = {REPO_ROOT / "scripts" / "export_schema_site.py", REPO_ROOT / "scripts" / "export_openapi.py"}
 
     def snapshot() -> dict[Path, float]:

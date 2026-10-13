@@ -1,13 +1,16 @@
 import re
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import status
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy import delete, select
 
+from app.catalog.catalog_item_schema import (
+    catalog_item_payload_contract,
+    validate_catalog_item_payload,
+)
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS, catalog_kind_for
 from app.catalog.physical_formats import (
     PhysicalFormatConfig,
     is_video_item_kind,
@@ -16,53 +19,31 @@ from app.catalog.physical_formats import (
 from app.core.errors import ApiHTTPException
 from app.metadata_normalized import (
     NORMALIZED_SCHEMA_VERSION,
-    merge_normalized_metadata,
     normalized_metadata_issues,
     typed_metadata_payload,
 )
 from app.models import (
-    AnimeSeries,
-    BoardGameEdition,
-    BoardGameWork,
-    BookContribution,
-    BookEdition,
-    BookSeriesMembership,
-    BookWork,
     Character,
-    ComicCharacterAppearance,
-    ComicContribution,
-    ComicIssue,
-    ComicStoryArcMembership,
-    ComicWork,
-    GameRelease,
-    GameWork,
-    MangaWork,
-    MovieRelease,
-    MovieWork,
-    MovieWorkContribution,
-    MusicMedia,
-    MusicRelease,
-    MusicReleaseContribution,
-    MusicTrack,
+    EntityAlias,
+    EntityLink,
+    MovieItem,
+    MusicItem,
     Person,
     PhysicalFormatRef,
     ReleaseStatus,
     StoryArc,
-    TVRelease,
-    TVReleaseContribution,
-    TVReleaseMedia,
-    TVSeason,
-    TVSeries,
 )
 from app.models.base import ItemKind
+from app.models.partial_date import PartialDateValue, partial_date_storage
 from app.schemas.admin import (
     AdminMetadataCorrectionRequest,
     AdminNormalizedMetadataDriftReportResponse,
     AdminNormalizedMetadataDriftSample,
 )
+from app.schemas.catalog_music_item import validate_music_discs
 from app.search.client import SearchClient
 from app.search.documents import catalog_search_document
-from app.services.facade import MetadataFacade as MetadataService
+from app.services.catalog_item_search import CatalogItemSearchService
 
 _LANGUAGE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 _REGION_RE = re.compile(r"^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$")
@@ -101,10 +82,9 @@ class AdminCatalogService:
         catalog_number: str | None = None,
         release_status: str | None = None,
     ) -> list[Any]:
-        results = await MetadataService(self.db).search(
+        results = await CatalogItemSearchService(self.db).search(
             query=query,
             kind=kind,
-            limit=limit,
             series=series_group,
             publisher=publisher,
             imprint=imprint,
@@ -114,9 +94,11 @@ class AdminCatalogService:
             age_rating=age_rating,
             catalog_number=catalog_number,
             release_status=self._normalize_release_status(release_status),
+            limit=limit,
+            offset=0,
         )
         responses: list[Any] = []
-        for result in results:
+        for result in results.items:
             entity = await self._load_native_catalog_entity(result.kind, result.id)
             if entity is None:
                 continue
@@ -139,37 +121,35 @@ class AdminCatalogService:
         typed_drifted_items = 0
 
         def _typed_source(entity: Any, kind: ItemKind) -> dict[str, Any]:
-            metadata = dict(getattr(entity, "metadata_json", None) or {})
-            metadata.pop("normalized", None)
+            metadata: dict[str, Any] = {}
             if kind == ItemKind.music:
                 tracks: list[dict[str, Any]] = []
-                for media in sorted(
-                    getattr(entity, "media", []) or [],
-                    key=lambda row: (getattr(row, "media_number", 0), str(getattr(row, "id", ""))),
-                ):
-                    for track in sorted(
-                        getattr(media, "tracks", []) or [],
-                        key=lambda row: (str(getattr(row, "position", "")), str(getattr(row, "id", ""))),
-                    ):
+                for disc in entity.discs:
+                    for track in disc["tracks"]:
+                        if track.get("is_header", False):
+                            continue
                         tracks.append(
                             {
-                                "position": int(track.position) if str(track.position).isdigit() else track.position,
-                                "title": track.title,
+                                "position": track["position"],
+                                "title": track["title"],
+                                "artist": track.get("artist"),
                                 "duration_seconds": (
-                                    track.duration_ms // 1000 if track.duration_ms is not None else None
+                                    track["duration_ms"] // 1000
+                                    if track.get("duration_ms") is not None
+                                    else None
                                 ),
                             }
                         )
                 if tracks:
                     metadata["tracks"] = tracks
-                    metadata["track_count"] = getattr(entity, "track_count", None) or len(tracks)
+                    metadata["track_count"] = len(tracks)
             primary_release = next(iter(getattr(entity, "releases", []) or []), None)
             primary_media = (
                 next(iter(getattr(primary_release, "media", []) or []), None)
                 if primary_release is not None
                 else None
             )
-            if kind in {ItemKind.movie, ItemKind.tv} and primary_media is not None:
+            if kind == ItemKind.movie and primary_media is not None:
                 for key in ("color", "audio_tracks", "subtitles", "layers", "screen_ratio"):
                     value = getattr(primary_media, key, None)
                     if value is not None:
@@ -185,12 +165,10 @@ class AdminCatalogService:
             nonlocal typed_scanned_items, typed_drifted_items
             scanned_entities += 1
             typed_scanned_items += 1
-            metadata_json = getattr(entity, "metadata_json", None)
-            if not isinstance(metadata_json, dict):
+            stored_normalized: dict[str, Any] | None = None
+            if stored_normalized is None:
                 return
-            normalized = metadata_json.get("normalized")
-            if not isinstance(normalized, dict):
-                return
+            normalized = stored_normalized
             entities_with_normalized += 1
             issues = normalized_metadata_issues(normalized, kind=kind)
             if issues:
@@ -233,22 +211,23 @@ class AdminCatalogService:
                     )
 
         async def _scan(model: Any, kind: ItemKind, entity_type: str) -> None:
-            stmt = select(model).options(*self._native_load_options(kind)).order_by(model.id.asc())
+            stmt = select(model).order_by(model.id.asc())
             if scan_limit is not None:
                 stmt = stmt.limit(scan_limit)
             rows = (await self.db.execute(stmt)).scalars()
             for entity in rows:
                 _record(entity_type, entity, kind)
 
-        await _scan(BookWork, ItemKind.book, "book_work")
-        await _scan(ComicWork, ItemKind.comic, "comic_work")
-        await _scan(MusicRelease, ItemKind.music, "music_release")
-        await _scan(GameWork, ItemKind.game, "game_work")
-        await _scan(MovieWork, ItemKind.movie, "movie_work")
-        await _scan(TVSeries, ItemKind.tv, "tv_series")
-        await _scan(BoardGameWork, ItemKind.boardgame, "boardgame_work")
+        for definition in CATALOG_KIND_DEFINITIONS:
+            await _scan(
+                definition.model,
+                definition.kind,
+                definition.entity_type,
+            )
 
-        schema_issue_count = sum(count for issue, count in issue_counts.items() if issue in schema_issue_keys)
+        schema_issue_count = sum(
+            count for issue, count in issue_counts.items() if issue in schema_issue_keys
+        )
         blocking_issue_count = sum(
             count for issue, count in issue_counts.items() if issue not in schema_issue_keys
         )
@@ -289,61 +268,155 @@ class AdminCatalogService:
                 detail="Item not found",
             )
 
+        if kind == ItemKind.music and isinstance(entity, MusicItem):
+            return await self._update_music_catalog_item(entity, payload)
+        if kind == ItemKind.movie and isinstance(entity, MovieItem):
+            return await self._update_movie_catalog_item(entity, payload)
+        flat_definition = next(
+            (
+                definition
+                for definition in CATALOG_KIND_DEFINITIONS
+                if isinstance(entity, definition.model)
+                and definition.kind not in {ItemKind.music, ItemKind.movie}
+            ),
+            None,
+        )
+        if flat_definition is not None:
+            return await self._update_flat_catalog_item(
+                entity,
+                flat_definition.kind,
+                payload,
+            )
+
         update_data = payload.model_dump(exclude_unset=True)
-        metadata = dict(getattr(entity, "metadata_json", None) or {})
+        entity_type = {
+            ItemKind.anime: "catalog_anime_item",
+            ItemKind.music: "catalog_music_item",
+        }[kind]
+
+        def _current_value(key: str) -> Any:
+            value = getattr(entity, key, None)
+            if isinstance(value, list):
+                return list(value)
+            return value
+
         before: dict[str, Any] = {
             "title": getattr(entity, "title", None),
             "sort_title": getattr(entity, "sort_title", None),
             "subtitle": getattr(entity, "subtitle", None),
             "description": getattr(entity, "description", None),
-            "search_aliases": list(metadata.get("search_aliases") or []),
-            "genres": list(metadata.get("genres") or []),
-            "platforms": list(metadata.get("platforms") or []),
-            "identifiers": list(metadata.get("identifiers") or []),
-            "company_roles": list(metadata.get("company_roles") or []),
-            "age_ratings": list(metadata.get("age_ratings") or []),
-            "contributors": list(metadata.get("contributors") or []),
-            "mechanics": list(metadata.get("mechanics") or []),
-            "categories": list(metadata.get("categories") or []),
-            "families": list(metadata.get("families") or []),
-            "expansions": list(metadata.get("expansions") or []),
-            "rankings": list(metadata.get("rankings") or []),
-            "tracks": list(metadata.get("tracks") or []),
-            "trailer_urls": list(metadata.get("trailer_urls") or []),
-            "external_links": list(metadata.get("external_links") or []),
+            "search_aliases": _current_value("search_aliases") or [],
+            "genres": _current_value("genres") or [],
+            "platforms": _current_value("platforms") or [],
+            "identifiers": _current_value("identifiers") or [],
+            "company_roles": _current_value("company_roles") or [],
+            "age_ratings": _current_value("age_ratings") or [],
+            "contributors": _current_value("contributors") or [],
+            "mechanics": _current_value("mechanics") or [],
+            "categories": _current_value("categories") or [],
+            "families": _current_value("families") or [],
+            "expansions": _current_value("expansions") or [],
+            "rankings": _current_value("rankings") or [],
+            "tracks": _current_value("tracks") or [],
+            "trailer_urls": self._current_link_payload(entity, "trailer_urls"),
+            "external_links": self._current_link_payload(entity, "external_links"),
         }
 
         def _set_metadata_value(key: str, value: Any) -> None:
-            if value is None or value == [] or value == {}:
-                metadata.pop(key, None)
-                return
-            metadata[key] = value
+            field_by_key = {
+                "original_title": "original_title",
+                "localized_title": "localized_title",
+                "crossover": "crossover",
+                "plot_summary": "plot_summary",
+                "plot_description": "plot_description",
+                "audience_rating": "audience_rating",
+            }
+            field = field_by_key.get(key, key)
+            if hasattr(entity, field):
+                setattr(entity, field, value or None)
 
         def _set_named_field(obj: Any, field: str, value: Any) -> None:
             if hasattr(obj, field):
                 setattr(obj, field, value)
 
-        async def _clear_existing(collection: list[Any]) -> None:
-            for row in list(collection):
-                await self.db.delete(row)
+        def _set_partial_date(obj: Any, field: str, value: Any) -> None:
+            """Persist one lossless partial date plus its concrete projection."""
+            parsed = None if value is None else PartialDateValue.model_validate(value)
+            if hasattr(obj, f"{field}_parts"):
+                setattr(obj, f"{field}_parts", partial_date_storage(parsed))
+            if hasattr(obj, field):
+                setattr(obj, field, parsed.as_date if parsed is not None else None)
 
-        primary_issue = next(iter(getattr(entity, "issues", []) or []), None)
-        primary_edition = next(iter(getattr(entity, "editions", []) or []), None)
-        primary_release = next(iter(getattr(entity, "releases", []) or []), None)
-        primary_media = next(iter(getattr(entity, "media", []) or []), None)
+        async def _replace_aliases(values: list[str] | None) -> None:
+            await self.db.execute(
+                delete(EntityAlias).where(
+                    EntityAlias.entity_type == entity_type,
+                    EntityAlias.entity_id == entity.id,
+                )
+            )
+            for position, value in enumerate(self._normalize_text_values(values)):
+                self.db.add(
+                    EntityAlias(
+                        entity_type=entity_type,
+                        entity_id=entity.id,
+                        alias=value,
+                        normalized_alias=value.casefold(),
+                        position=position,
+                    )
+                )
+
+        async def _replace_links(
+            trailer_urls: list[dict[str, Any]] | None,
+            external_links: list[dict[str, Any]] | None,
+        ) -> None:
+            await self.db.execute(
+                delete(EntityLink).where(
+                    EntityLink.entity_type == entity_type,
+                    EntityLink.entity_id == entity.id,
+                )
+            )
+            for link_type, values in (
+                ("trailer", trailer_urls or []),
+                ("external", external_links or []),
+            ):
+                for position, value in enumerate(values):
+                    if not isinstance(value, dict):
+                        continue
+                    url = self._normalize_optional_text(value.get("url"))
+                    if url is None:
+                        continue
+                    self.db.add(
+                        EntityLink(
+                            entity_type=entity_type,
+                            entity_id=entity.id,
+                            link_type=link_type,
+                            url=url,
+                            site=self._normalize_optional_text(value.get("site")),
+                            name=self._normalize_optional_text(value.get("name")),
+                            kind=self._normalize_optional_text(value.get("kind")),
+                            description=self._normalize_optional_text(value.get("description")),
+                            position=position,
+                        )
+                    )
 
         if "title" in update_data and payload.title is not None:
             _set_named_field(entity, "title", payload.title)
         if "sort_key" in update_data:
             _set_named_field(entity, "sort_title", self._normalize_optional_text(payload.sort_key))
         if "title_extension" in update_data:
-            _set_named_field(entity, "subtitle", self._normalize_optional_text(payload.title_extension))
+            _set_named_field(
+                entity, "subtitle", self._normalize_optional_text(payload.title_extension)
+            )
         if "original_title" in update_data:
-            _set_metadata_value("original_title", self._normalize_optional_text(payload.original_title))
+            _set_metadata_value(
+                "original_title", self._normalize_optional_text(payload.original_title)
+            )
         if "localized_title" in update_data:
-            _set_metadata_value("localized_title", self._normalize_optional_text(payload.localized_title))
+            _set_metadata_value(
+                "localized_title", self._normalize_optional_text(payload.localized_title)
+            )
         if "search_aliases" in update_data:
-            _set_metadata_value("search_aliases", self._normalize_text_values(payload.search_aliases))
+            await _replace_aliases(payload.search_aliases)
         if "synopsis" in update_data:
             _set_named_field(entity, "description", self._normalize_optional_text(payload.synopsis))
         if "crossover" in update_data:
@@ -351,424 +424,21 @@ class AdminCatalogService:
         if "plot_summary" in update_data:
             _set_metadata_value("plot_summary", self._normalize_optional_text(payload.plot_summary))
         if "plot_description" in update_data:
-            _set_metadata_value("plot_description", self._normalize_optional_text(payload.plot_description))
+            _set_metadata_value(
+                "plot_description", self._normalize_optional_text(payload.plot_description)
+            )
 
-        if kind == ItemKind.comic:
-            issue = primary_issue
-            if issue is None and any(key in update_data for key in ("item_number", "edition_title", "publisher")):
-                issue = ComicIssue(work_id=entity.id)
-                self.db.add(issue)
-                await self.db.flush()
-            if issue is not None:
-                before["item_number"] = issue.issue_number
-                before["edition_title"] = issue.display_title
-                before["publisher"] = issue.publisher
-                before["release_date"] = issue.release_date
-                before["imprint"] = issue.imprint
-                before["country"] = issue.region
-                before["language"] = issue.language
-                before["age_rating"] = issue.age_rating if hasattr(issue, "age_rating") else None
-                before["catalog_number"] = None
-                before["release_status"] = issue.release_status
-                before["page_count"] = issue.page_count
-                if "item_number" in update_data:
-                    issue.issue_number = payload.item_number
-                if "edition_title" in update_data:
-                    issue.display_title = payload.edition_title
-                if "publisher" in update_data:
-                    issue.publisher = payload.publisher
-                if "release_date" in update_data:
-                    issue.release_date = payload.release_date
-                if "imprint" in update_data:
-                    issue.imprint = payload.imprint
-                if "series_group" in update_data:
-                    _set_metadata_value("series_group", self._normalize_optional_text(payload.series_group))
-                if "country" in update_data:
-                    issue.region = self._normalize_region(payload.country)
-                if "language" in update_data:
-                    issue.language = self._normalize_language(payload.language)
-                if "age_rating" in update_data:
-                    _set_metadata_value("age_rating", payload.age_rating)
-                if "catalog_number" in update_data:
-                    _set_metadata_value("catalog_number", payload.catalog_number)
-                if "release_status" in update_data:
-                    issue.release_status = self._normalize_release_status(payload.release_status)
-                    if issue.release_status is not None:
-                        await self._ensure_release_status(issue.release_status)
-                if "page_count" in update_data:
-                    issue.page_count = payload.page_count
-                if "cover_image_url" in update_data:
-                    issue.cover_image_url = payload.cover_image_url
-                    issue.metadata_json = self._metadata_with_cover(issue.metadata_json, payload.cover_image_url, item_kind=kind)
-                if "barcode" in update_data:
-                    _set_metadata_value("barcode", payload.barcode)
-                if "creators" in update_data:
-                    await _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            ComicContribution(
-                                work_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-                if "characters" in update_data and issue is not None:
-                    await _clear_existing(list(getattr(issue, "character_appearances", []) or []))
-                    await self.db.flush()
-                    for name in self._normalize_text_values(payload.characters):
-                        character = await self._get_or_create_character(name)
-                        self.db.add(ComicCharacterAppearance(issue_id=issue.id, character_id=character.id, role="appears"))
-                if "story_arcs" in update_data and issue is not None:
-                    await _clear_existing(list(getattr(issue, "story_arc_memberships", []) or []))
-                    await self.db.flush()
-                    for index, name in enumerate(self._normalize_text_values(payload.story_arcs), start=1):
-                        story_arc = await self._get_or_create_story_arc(name)
-                        self.db.add(ComicStoryArcMembership(issue_id=issue.id, story_arc_id=story_arc.id, ordinal=index))
-                if "external_links" in update_data:
-                    _set_metadata_value("external_links", self._current_link_values(payload.external_links))
-                if "trailer_urls" in update_data:
-                    _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
-                if "genres" in update_data:
-                    _set_metadata_value("genres", self._normalize_text_values(payload.genres))
-                if "audience_rating" in update_data:
-                    _set_metadata_value("audience_rating", payload.audience_rating)
-
-        elif kind == ItemKind.music:
-            release = entity
-            if "subtitle" in update_data:
-                _set_metadata_value("subtitle", self._normalize_optional_text(payload.subtitle))
-            if "publisher" in update_data:
-                release.publisher = payload.publisher
-            if "release_date" in update_data:
-                release.release_date = payload.release_date
-            if "catalog_number" in update_data:
-                release.catalog_number = payload.catalog_number
-            if "barcode" in update_data:
-                release.barcode = payload.barcode
-            if "language" in update_data:
-                release.language = self._normalize_language(payload.language)
-            if "country" in update_data:
-                release.country_code = self._normalize_region(payload.country)
-            if "release_status" in update_data:
-                release.release_status = self._normalize_release_status(payload.release_status)
-            if "audience_rating" in update_data:
-                release.audience_rating = float(payload.audience_rating) if payload.audience_rating else None
-            if "genres" in update_data:
-                _set_metadata_value("genres", self._normalize_text_values(payload.genres))
-            if "tracks" in update_data:
-                tracks = self._normalize_tracks(payload.tracks)
-                media = primary_media
-                if media is None:
-                    media = MusicMedia(release_id=release.id, media_number=1)
-                    self.db.add(media)
-                    await self.db.flush()
-                await _clear_existing(list(getattr(media, "tracks", []) or []))
-                await self.db.flush()
-                for track in tracks:
-                    self.db.add(
-                        MusicTrack(
-                            release_id=release.id,
-                            media_id=media.id,
-                            position=str(track.get("position") or len(getattr(media, "tracks", []) or []) + 1),
-                            title=track["title"],
-                            duration_ms=(track.get("duration_seconds") * 1000) if track.get("duration_seconds") else None,
-                        )
-                    )
-                release.track_count = len(tracks)
-                media.track_count = len(tracks)
-                _set_metadata_value("tracks", tracks)
-                _set_metadata_value("track_count", len(tracks))
-            if "creators" in update_data:
-                await _clear_existing(list(getattr(release, "contributions", []) or []))
-                await self.db.flush()
-                for index, creator in enumerate(payload.creators or [], start=1):
-                    name = " ".join(str(creator.name or "").split()).strip()
-                    if not name:
-                        continue
-                    person = await self._get_or_create_person(name)
-                    self.db.add(
-                        MusicReleaseContribution(
-                            release_id=release.id,
-                            person_id=person.id,
-                            role=(creator.role or "creator").strip() or "creator",
-                            sequence=index,
-                        )
-                    )
-
-        elif kind == ItemKind.game:
-            release = primary_release
-            if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode")):
-                release = GameRelease(work_id=entity.id, release_title=payload.edition_title)
-                self.db.add(release)
-                await self.db.flush()
-            if release is not None:
-                before["edition_title"] = release.release_title
-                before["publisher"] = release.publisher
-                before["release_date"] = release.release_date
-                before["country"] = release.region_code
-                before["language"] = release.language
-                before["catalog_number"] = release.catalog_number
-                before["barcode"] = release.barcode
-                before["release_status"] = release.release_status
-                if "title" in update_data:
-                    entity.title = payload.title or entity.title
-                if "edition_title" in update_data:
-                    release.release_title = payload.edition_title
-                if "publisher" in update_data:
-                    release.publisher = payload.publisher
-                if "release_date" in update_data:
-                    release.release_date = payload.release_date
-                if "country" in update_data:
-                    release.region_code = self._normalize_region(payload.country)
-                if "language" in update_data:
-                    release.language = self._normalize_language(payload.language)
-                if "catalog_number" in update_data:
-                    release.catalog_number = payload.catalog_number
-                if "barcode" in update_data:
-                    release.barcode = payload.barcode
-                if "release_status" in update_data:
-                    release.release_status = self._normalize_release_status(payload.release_status)
-                if "physical_format" in update_data:
-                    physical_format = self._validated_physical_format(kind, payload.physical_format)
-                    await self._ensure_physical_format_ref(physical_format)
-                    release.format = physical_format.label
-                    release.metadata_json = self._metadata_with_physical_format(release.metadata_json, physical_format, item_kind=kind)
-                if "genres" in update_data:
-                    _set_metadata_value("genres", self._normalize_text_values(payload.genres))
-                if "platforms" in update_data:
-                    _set_metadata_value("platforms", self._normalize_text_values(payload.platforms))
-                if "identifiers" in update_data:
-                    _set_metadata_value("identifiers", self._normalize_text_values(payload.identifiers))
-                if "company_roles" in update_data:
-                    _set_metadata_value("company_roles", self._normalize_text_values(payload.company_roles))
-                if "age_ratings" in update_data:
-                    _set_metadata_value("age_ratings", self._normalize_text_values(payload.age_ratings))
-                if "trailer_urls" in update_data:
-                    _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
-                if "external_links" in update_data:
-                    _set_metadata_value("external_links", self._current_link_values(payload.external_links))
-                if "audience_rating" in update_data:
-                    entity.audience_rating = payload.audience_rating
-
-        elif kind in {ItemKind.movie, ItemKind.tv}:
-            release = primary_release if kind == ItemKind.movie else next(iter(getattr(entity, "releases", []) or []), None)
-            media = primary_media
-            if release is None and any(key in update_data for key in ("edition_title", "publisher", "barcode", "physical_format")):
-                if kind == ItemKind.movie:
-                    release = MovieRelease(work_id=entity.id, format=payload.physical_format or "digital")
-                    self.db.add(release)
-                else:
-                    release = TVRelease(series_id=entity.id, title=payload.edition_title or entity.title, format=payload.physical_format or "dvd")
-                    self.db.add(release)
-                    await self.db.flush()
-            if release is not None:
-                before["edition_title"] = getattr(release, "format", None)
-                before["publisher"] = getattr(release, "publisher", None)
-                before["release_date"] = getattr(release, "release_date", None)
-                before["catalog_number"] = getattr(release, "catalog_number", None) or getattr(release, "sku", None)
-                before["barcode"] = getattr(release, "barcode", None)
-                if "subtitle" in update_data:
-                    release.subtitle = self._normalize_optional_text(payload.subtitle)
-                if "publisher" in update_data:
-                    release.publisher = payload.publisher
-                if "release_date" in update_data:
-                    release.release_date = payload.release_date
-                if "country" in update_data and hasattr(release, "region_code"):
-                    release.region_code = self._normalize_region(payload.country)
-                if "language" in update_data and hasattr(release, "language_audio"):
-                    release.language_audio = [self._normalize_language(payload.language)] if payload.language else None
-                if "catalog_number" in update_data:
-                    if hasattr(release, "catalog_number"):
-                        release.catalog_number = payload.catalog_number
-                    if hasattr(release, "sku"):
-                        release.sku = payload.catalog_number
-                if "barcode" in update_data and hasattr(release, "barcode"):
-                    release.barcode = payload.barcode
-                if "release_status" in update_data and hasattr(release, "release_status"):
-                    release.release_status = self._normalize_release_status(payload.release_status)
-                if "color" in update_data and media is not None:
-                    media.color = payload.color
-                if "nr_discs" in update_data and media is not None and hasattr(media, "num_discs"):
-                    media.num_discs = payload.nr_discs
-                if "screen_ratio" in update_data and media is not None:
-                    if hasattr(media, "screen_ratio"):
-                        media.screen_ratio = payload.screen_ratio
-                    if hasattr(media, "aspect_ratio"):
-                        media.aspect_ratio = payload.screen_ratio
-                if "audio_tracks" in update_data and media is not None:
-                    media.audio_tracks = payload.audio_tracks
-                if "subtitles" in update_data and media is not None:
-                    media.subtitles = payload.subtitles
-                if "layers" in update_data and media is not None:
-                    media.layers = payload.layers
-                if "physical_format" in update_data:
-                    physical_format = self._validated_physical_format(kind, payload.physical_format)
-                    await self._ensure_physical_format_ref(physical_format)
-                    release.format = physical_format.label
-                    release.metadata_json = self._metadata_with_physical_format(release.metadata_json, physical_format, item_kind=kind)
-                    if media is not None:
-                        media.metadata_json = self._metadata_with_physical_format(media.metadata_json, physical_format, item_kind=kind)
-                if "cover_image_url" in update_data:
-                    release.cover_image_url = payload.cover_image_url
-                    release.metadata_json = self._metadata_with_cover(release.metadata_json, payload.cover_image_url, item_kind=kind)
-                if "thumbnail_image_url" in update_data and media is not None:
-                    media.metadata_json = self._metadata_with_cover(media.metadata_json, payload.thumbnail_image_url, item_kind=kind)
-                if "creators" in update_data and kind == ItemKind.movie:
-                    await _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            MovieWorkContribution(
-                                work_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-                if "creators" in update_data and kind == ItemKind.tv:
-                    await _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            TVReleaseContribution(
-                                release_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-
-        elif kind == ItemKind.book:
-            edition = primary_edition
-            if edition is None and any(key in update_data for key in ("edition_title", "publisher", "barcode")):
-                edition = BookEdition(work_id=entity.id)
-                self.db.add(edition)
-                await self.db.flush()
-            if edition is not None:
-                before["edition_title"] = edition.display_title
-                before["publisher"] = edition.publisher
-                before["release_date"] = edition.publication_date
-                before["imprint"] = edition.imprint
-                before["country"] = edition.region
-                before["language"] = edition.language
-                before["age_rating"] = edition.age_rating
-                before["catalog_number"] = None
-                before["release_status"] = edition.release_status
-                if "edition_title" in update_data:
-                    edition.display_title = payload.edition_title
-                if "publisher" in update_data:
-                    edition.publisher = payload.publisher
-                if "release_date" in update_data:
-                    edition.publication_date = payload.release_date
-                if "imprint" in update_data:
-                    edition.imprint = payload.imprint
-                if "subtitle" in update_data:
-                    entity.subtitle = payload.subtitle
-                if "country" in update_data:
-                    edition.region = self._normalize_region(payload.country)
-                if "language" in update_data:
-                    edition.language = self._normalize_language(payload.language)
-                if "age_rating" in update_data:
-                    edition.age_rating = payload.age_rating
-                if "catalog_number" in update_data:
-                    _set_metadata_value("catalog_number", payload.catalog_number)
-                if "release_status" in update_data:
-                    edition.release_status = self._normalize_release_status(payload.release_status)
-                if "page_count" in update_data:
-                    edition.page_count = payload.page_count
-                if "cover_image_url" in update_data:
-                    edition.cover_image_url = payload.cover_image_url
-                    edition.metadata_json = self._metadata_with_cover(edition.metadata_json, payload.cover_image_url, item_kind=kind)
-                if "creators" in update_data:
-                    _clear_existing(list(getattr(entity, "contributions", []) or []))
-                    await self.db.flush()
-                    for index, creator in enumerate(payload.creators or [], start=1):
-                        name = " ".join(str(creator.name or "").split()).strip()
-                        if not name:
-                            continue
-                        person = await self._get_or_create_person(name)
-                        self.db.add(
-                            BookContribution(
-                                work_id=entity.id,
-                                person_id=person.id,
-                                role=(creator.role or "creator").strip() or "creator",
-                                sequence=index,
-                            )
-                        )
-
-        elif kind == ItemKind.boardgame:
-            edition = primary_edition
-            if edition is None:
-                edition = BoardGameEdition(work_id=entity.id)
-                self.db.add(edition)
-                await self.db.flush()
-            if "edition_title" in update_data:
-                edition.edition_title = payload.edition_title
-            if "publisher" in update_data:
-                edition.publisher = payload.publisher
-            if "release_date" in update_data:
-                edition.release_date = payload.release_date
-            if "catalog_number" in update_data:
-                edition.catalog_number = payload.catalog_number
-            if "barcode" in update_data:
-                edition.barcode = payload.barcode
-            if "country" in update_data:
-                edition.country = self._normalize_region(payload.country)
-            if "language" in update_data:
-                edition.language = self._normalize_language(payload.language)
-            if "age_rating" in update_data:
-                edition.age_rating = payload.age_rating
-            if "audience_rating" in update_data:
-                edition.audience_rating = payload.audience_rating
-            if "release_status" in update_data:
-                edition.release_status = self._normalize_release_status(payload.release_status)
-            if "page_count" in update_data:
-                _set_metadata_value("page_count", payload.page_count)
-            if "genres" in update_data:
-                _set_metadata_value("genres", self._normalize_text_values(payload.genres))
-            if "platforms" in update_data:
-                _set_metadata_value("platforms", self._normalize_text_values(payload.platforms))
-            if "identifiers" in update_data:
-                _set_metadata_value("identifiers", self._normalize_text_values(payload.identifiers))
-            if "contributors" in update_data:
-                _set_metadata_value("contributors", self._normalize_text_values(payload.contributors))
-            if "mechanics" in update_data:
-                _set_metadata_value("mechanics", self._normalize_text_values(payload.mechanics))
-            if "categories" in update_data:
-                _set_metadata_value("categories", self._normalize_text_values(payload.categories))
-            if "families" in update_data:
-                _set_metadata_value("families", self._normalize_text_values(payload.families))
-            if "expansions" in update_data:
-                _set_metadata_value("expansions", self._normalize_text_values(payload.expansions))
-            if "rankings" in update_data:
-                _set_metadata_value("rankings", self._normalize_text_values(payload.rankings))
-            if "trailer_urls" in update_data:
-                _set_metadata_value("trailer_urls", self._current_link_values(payload.trailer_urls))
-            if "external_links" in update_data:
-                _set_metadata_value("external_links", self._current_link_values(payload.external_links))
-
-        if "search_aliases" in update_data:
-            _set_metadata_value("search_aliases", self._normalize_text_values(payload.search_aliases))
         if "audience_rating" in update_data and kind not in {ItemKind.comic, ItemKind.music}:
-            _set_metadata_value("audience_rating", payload.audience_rating)
+            _set_named_field(entity, "audience_rating", payload.audience_rating)
 
-        metadata["admin_corrected_at"] = datetime.now(UTC).isoformat()
-        metadata["admin_corrected_fields"] = sorted(update_data.keys())
-        entity.metadata_json = metadata
+        if "trailer_urls" in update_data or "external_links" in update_data:
+            await _replace_links(
+                payload.trailer_urls if "trailer_urls" in update_data else before["trailer_urls"],
+                payload.external_links
+                if "external_links" in update_data
+                else before["external_links"],
+            )
+
         self._audit_recorder(
             action="metadata.correction",
             entity_type=str(kind),
@@ -784,8 +454,471 @@ class AdminCatalogService:
         self.db.expire_all()
         loaded_entity = await self._load_native_catalog_entity(kind, entity.id)
         if loaded_entity is not None:
-            await SearchClient().index_documents_best_effort([catalog_search_document(loaded_entity)])
+            await SearchClient().index_documents_best_effort(
+                [catalog_search_document(loaded_entity)]
+            )
         return await self._item_response_loader(loaded_entity)
+
+    async def _update_music_catalog_item(
+        self,
+        item: MusicItem,
+        payload: AdminMetadataCorrectionRequest,
+    ) -> Any:
+        update_data = payload.model_dump(exclude_unset=True)
+        supported_fields = {
+            "title",
+            "sort_title",
+            "subtitle",
+            "artist",
+            "release_date",
+            "original_release_date",
+            "label",
+            "barcode",
+            "catalog_number",
+            "genres",
+            "packaging",
+            "country",
+            "extra",
+            "box_set",
+            "tracks",
+            "external_links",
+            "cover_image_url",
+            "thumbnail_image_url",
+            "back_cover_image_url",
+        }
+        unsupported = sorted(set(update_data) - supported_fields)
+        if unsupported:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="music_correction_fields_unsupported",
+                detail=(
+                    f"Unsupported Music Catalog Item correction fields: {', '.join(unsupported)}"
+                ),
+            )
+
+        before = {key: getattr(item, key, None) for key in update_data if key != "tracks"}
+        before["tracks"] = [
+            {
+                "title": track["title"],
+                "artist": track.get("artist"),
+                "disc_number": disc["disc_number"],
+                "position": track["position"],
+                "id": track["id"],
+                "is_header": track.get("is_header", False),
+                "parent_header_id": track.get("parent_header_id"),
+                "indent_level": track.get("indent_level", 0),
+                "duration_seconds": (
+                    track["duration_ms"] // 1000 if track.get("duration_ms") is not None else None
+                ),
+            }
+            for disc in item.discs
+            for track in disc["tracks"]
+        ]
+
+        for field in (
+            "title",
+            "artist",
+            "sort_title",
+            "subtitle",
+            "label",
+            "barcode",
+            "catalog_number",
+            "packaging",
+            "country",
+            "box_set",
+            "cover_image_url",
+            "thumbnail_image_url",
+            "back_cover_image_url",
+        ):
+            if field not in update_data:
+                continue
+            value = getattr(payload, field)
+            if field == "title" and value is None:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="music_title_required",
+                    detail="Music Catalog Item title must not be empty",
+                )
+            if isinstance(value, str):
+                value = self._strict_music_correction_text(field, value)
+            setattr(item, field, value)
+
+        if "genres" in update_data:
+            item.genres = self._strict_music_correction_values("genres", payload.genres)
+        if "extra" in update_data:
+            item.extra = self._strict_music_correction_values("extra", payload.extra)
+        if "external_links" in update_data:
+            try:
+                link_payload = validate_catalog_item_payload(
+                    ItemKind.music,
+                    {"title": item.title, "external_links": payload.external_links},
+                )
+            except (TypeError, ValueError) as error:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_external_links",
+                    detail=str(error),
+                ) from error
+            item.external_links = link_payload["external_links"]
+
+        for field in ("release_date", "original_release_date"):
+            if field not in update_data:
+                continue
+            value = getattr(payload, field)
+            parsed = PartialDateValue.model_validate(value) if value is not None else None
+            setattr(
+                item,
+                field,
+                parsed.model_dump(exclude_none=True)
+                if parsed is not None and not parsed.is_empty
+                else None,
+            )
+
+        if "tracks" in update_data:
+            old_discs = {str(disc["id"]): disc for disc in item.discs}
+            tracks_by_disc: dict[int, list[dict[str, Any]]] = {}
+            for track in payload.tracks:
+                row = track.model_dump(mode="python")
+                disc_number = row["disc_number"]
+                tracks_by_disc.setdefault(disc_number, []).append(row)
+
+            replacement_discs: list[dict[str, Any]] = []
+            for disc_number, rows in sorted(tracks_by_disc.items()):
+                disc_id = rows[0]["disc_id"]
+                if any(row["disc_id"] != disc_id for row in rows):
+                    raise ApiHTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        code="invalid_music_disc_identity",
+                        detail="Tracks on one disc must carry the same disc_id",
+                    )
+                old_disc = old_discs.get(str(disc_id), {})
+                tracks = []
+                for row in rows:
+                    tracks.append(
+                        {
+                            "id": row["id"],
+                            "is_header": row["is_header"],
+                            "parent_header_id": row["parent_header_id"],
+                            "indent_level": row["indent_level"],
+                            "position": row["position"],
+                            "position_order": row["position_order"],
+                            "title": row["title"],
+                            "artist": row.get("artist"),
+                            "composition": row.get("composition"),
+                            "duration_ms": row.get("duration_ms"),
+                        }
+                    )
+                replacement_discs.append(
+                    {
+                        "id": disc_id,
+                        "disc_number": disc_number,
+                        "title": old_disc.get("title"),
+                        "format_family": old_disc.get("format_family"),
+                        "format": old_disc.get("format"),
+                        "sound_types": old_disc.get("sound_types") or [],
+                        "recording_date": old_disc.get("recording_date"),
+                        "recording_locations": old_disc.get("recording_locations") or [],
+                        "is_live": old_disc.get("is_live"),
+                        "spars_code": old_disc.get("spars_code"),
+                        "color": old_disc.get("color"),
+                        "vinyl_weight_grams": old_disc.get("vinyl_weight_grams"),
+                        "rpm": old_disc.get("rpm"),
+                        "matrix_number": old_disc.get("matrix_number"),
+                        "matrix_number_side_a": old_disc.get("matrix_number_side_a"),
+                        "matrix_number_side_b": old_disc.get("matrix_number_side_b"),
+                        "credits": old_disc.get("credits") or [],
+                        "tracks": tracks,
+                    }
+                )
+            try:
+                replacement_discs = validate_music_discs(replacement_discs)
+            except ValueError as error:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_tracks",
+                    detail=str(error),
+                ) from error
+            item.discs = replacement_discs
+
+        self._audit_recorder(
+            action="metadata.correction",
+            entity_type=ItemKind.music.value,
+            entity_id=item.id,
+            details={
+                "kind": ItemKind.music.value,
+                "fields": sorted(update_data),
+                "before": before,
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+        self.db.expire_all()
+        loaded_item = await self._load_native_catalog_entity(ItemKind.music, item.id)
+        if loaded_item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Music Catalog Item not found after correction",
+            )
+        await SearchClient().index_documents_best_effort([catalog_search_document(loaded_item)])
+        return await self._item_response_loader(loaded_item)
+
+    async def _update_movie_catalog_item(
+        self,
+        item: MovieItem,
+        payload: AdminMetadataCorrectionRequest,
+    ) -> Any:
+        update_data = payload.model_dump(exclude_unset=True, mode="json")
+        if not update_data:
+            return await self._item_response_loader(item)
+        contract_fields = set(
+            catalog_item_payload_contract()["kinds"][ItemKind.movie.value]["properties"]
+        )
+        unsupported = sorted(set(update_data) - contract_fields)
+        if unsupported:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="movie_correction_fields_unsupported",
+                detail=(
+                    f"Unsupported Movie Catalog Item correction fields: {', '.join(unsupported)}"
+                ),
+            )
+
+        before_payload = {
+            **dict(item.details or {}),
+            "title": item.title,
+            "sort_key": item.sort_key,
+            "barcode": item.barcode,
+            "catalog_number": item.catalog_number,
+        }
+        try:
+            projected = validate_catalog_item_payload(
+                ItemKind.movie,
+                {**before_payload, **update_data},
+            )
+        except (TypeError, ValueError) as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="movie_correction_payload_invalid",
+                detail=str(exc),
+            ) from exc
+        title = self._normalize_optional_text(projected.get("title"))
+        if title is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="movie_title_required",
+                detail="Movie Catalog Item title must not be empty",
+            )
+
+        item.title = title
+        item.sort_key = self._normalize_optional_text(projected.pop("sort_key", None))
+        item.barcode = self._normalize_optional_text(projected.pop("barcode", None))
+        item.catalog_number = self._normalize_optional_text(projected.pop("catalog_number", None))
+        projected.pop("title", None)
+        item.details = projected
+
+        self._audit_recorder(
+            action="metadata.correction",
+            entity_type=ItemKind.movie.value,
+            entity_id=item.id,
+            details={
+                "kind": ItemKind.movie.value,
+                "fields": sorted(update_data),
+                "before": {key: before_payload.get(key) for key in update_data},
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+        self.db.expire_all()
+        loaded_item = await self._load_native_catalog_entity(ItemKind.movie, item.id)
+        if loaded_item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail="Movie Catalog Item not found after correction",
+            )
+        await SearchClient().index_documents_best_effort([catalog_search_document(loaded_item)])
+        return await self._item_response_loader(loaded_item)
+
+    async def _update_flat_catalog_item(
+        self,
+        item: Any,
+        kind: ItemKind,
+        payload: AdminMetadataCorrectionRequest,
+    ) -> Any:
+        update_data = payload.model_dump(exclude_unset=True, mode="json")
+        if not update_data:
+            return await self._item_response_loader(item)
+        item_id = item.id
+
+        contract_fields = set(catalog_item_payload_contract()["kinds"][kind.value]["properties"])
+        unsupported = sorted(set(update_data) - contract_fields)
+        if unsupported:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_correction_fields_unsupported",
+                detail=(
+                    f"Unsupported {kind.value} Catalog Item correction fields: "
+                    f"{', '.join(unsupported)}"
+                ),
+            )
+
+        before_payload = {
+            **dict(item.details or {}),
+            "title": item.title,
+            "sort_key": item.sort_key,
+            "barcode": item.barcode,
+            "catalog_number": item.catalog_number,
+        }
+        if kind == ItemKind.book:
+            credits = before_payload.get("credits", [])
+            before_payload["creators"] = [
+                {"name": row.get("name"), "role": row.get("role")}
+                for row in credits
+                if row.get("credit_type") == "creator"
+            ]
+            before_payload["contributors"] = [
+                row.get("name") for row in credits if row.get("credit_type") == "contributor"
+            ]
+        try:
+            projected = validate_catalog_item_payload(
+                kind,
+                {**before_payload, **update_data},
+            )
+        except (TypeError, ValueError) as exc:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_correction_payload_invalid",
+                detail=str(exc),
+            ) from exc
+
+        title = self._normalize_optional_text(projected.get("title"))
+        if title is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="catalog_title_required",
+                detail=f"{kind.value} Catalog Item title must not be empty",
+            )
+
+        item.title = title
+        item.sort_key = self._normalize_optional_text(projected.pop("sort_key", None))
+        item.barcode = self._normalize_optional_text(projected.pop("barcode", None))
+        item.catalog_number = self._normalize_optional_text(projected.pop("catalog_number", None))
+        projected.pop("title", None)
+
+        if "identifiers" in update_data:
+            existing_identifiers = {
+                (
+                    row.get("identifier_type", "value"),
+                    "".join(
+                        character
+                        for character in row.get("value", "").casefold()
+                        if character.isalnum()
+                    ),
+                ): row.get("id")
+                for row in item.details.get("identifiers", [])
+                if isinstance(row, dict)
+            }
+            identifiers = []
+            seen_identifiers: set[tuple[str, str]] = set()
+            for raw_value in self._normalize_text_values(payload.identifiers):
+                if ":" in raw_value:
+                    identifier_type, value = raw_value.split(":", 1)
+                    identifier_type = identifier_type.strip().lower() or "value"
+                    value = value.strip() or raw_value
+                else:
+                    identifier_type, value = "value", raw_value
+                normalized_value = "".join(
+                    character for character in value.casefold() if character.isalnum()
+                )
+                if not normalized_value:
+                    continue
+                identity = (identifier_type, normalized_value)
+                if identity in seen_identifiers:
+                    continue
+                seen_identifiers.add(identity)
+                identifiers.append(
+                    {
+                        "id": existing_identifiers.get(identity) or str(uuid4()),
+                        "identifier_type": identifier_type,
+                        "value": value,
+                        "normalized_value": normalized_value,
+                        "is_primary": not identifiers,
+                    }
+                )
+            projected["identifiers"] = identifiers
+
+        if kind == ItemKind.book:
+            if "creators" in update_data or "contributors" in update_data:
+                retained_credits = [
+                    row
+                    for row in item.details.get("credits", [])
+                    if isinstance(row, dict)
+                    if not (
+                        ("creators" in update_data and row.get("credit_type") == "creator")
+                        or (
+                            "contributors" in update_data
+                            and row.get("credit_type") == "contributor"
+                        )
+                    )
+                ]
+                if "creators" in update_data:
+                    for sequence, creator in enumerate(payload.creators or [], start=1):
+                        name = self._normalize_optional_text(creator.name)
+                        if not name:
+                            continue
+                        retained_credits.append(
+                            {
+                                "id": str(uuid4()),
+                                "credit_type": "creator",
+                                "name": name,
+                                "role": self._normalize_optional_text(creator.role),
+                                "sequence": sequence,
+                            }
+                        )
+                if "contributors" in update_data:
+                    for sequence, raw_name in enumerate(
+                        self._normalize_text_values(payload.contributors),
+                        start=1,
+                    ):
+                        retained_credits.append(
+                            {
+                                "id": str(uuid4()),
+                                "credit_type": "contributor",
+                                "name": raw_name,
+                                "sequence": sequence,
+                            }
+                        )
+                projected["credits"] = retained_credits
+            else:
+                projected["credits"] = list(item.details.get("credits", []))
+            projected.pop("creators", None)
+            projected.pop("contributors", None)
+
+        item.details = projected
+
+        self._audit_recorder(
+            action="metadata.correction",
+            entity_type=kind.value,
+            entity_id=item.id,
+            details={
+                "kind": kind.value,
+                "fields": sorted(update_data),
+                "before": {key: before_payload.get(key) for key in update_data},
+                "after": update_data,
+            },
+        )
+        await self.db.commit()
+        self.db.expire_all()
+        loaded_item = await self._load_native_catalog_entity(kind, item_id)
+        if loaded_item is None:
+            raise ApiHTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                code="metadata_item_not_found",
+                detail=f"{kind.value} Catalog Item not found after correction",
+            )
+        await self._reindex_items({item_id})
+        return await self._item_response_loader(loaded_item)
 
     def _validated_physical_format(
         self,
@@ -812,97 +945,6 @@ class AdminCatalogService:
                 detail="physical_format must be one of DVD, Blu-ray, 4K UHD, VHS, LaserDisc, or digital",
             )
         return config
-
-    def _apply_physical_format_to_edition(
-        self,
-        edition: Any,
-        physical_format: PhysicalFormatConfig,
-        *,
-        item_kind: ItemKind,
-    ) -> None:
-        edition.format = physical_format.label
-        edition.physical_format = physical_format.id
-        edition.physical_format_label = physical_format.label
-        edition.physical_format_media_family = physical_format.media_family
-        edition.physical_format_variant_type = physical_format.variant_type
-        edition.metadata_json = self._metadata_with_physical_format(
-            edition.metadata_json,
-            physical_format,
-            item_kind=item_kind,
-        )
-
-    def _apply_physical_format_to_variant(
-        self,
-        variant: Any,
-        physical_format: PhysicalFormatConfig,
-        *,
-        item_kind: ItemKind,
-    ) -> None:
-        variant.variant_type = physical_format.variant_type
-        variant.physical_format = physical_format.id
-        variant.physical_format_label = physical_format.label
-        variant.physical_format_media_family = physical_format.media_family
-        variant.physical_format_variant_type = physical_format.variant_type
-        variant.metadata_json = self._metadata_with_physical_format(
-            variant.metadata_json,
-            physical_format,
-            item_kind=item_kind,
-        )
-
-    def _metadata_with_physical_format(
-        self,
-        metadata_json: dict[str, Any] | None,
-        physical_format: PhysicalFormatConfig,
-        *,
-        item_kind: ItemKind,
-    ) -> dict[str, Any]:
-        return merge_normalized_metadata(
-            metadata_json,
-            {
-                "physical_format": physical_format.id,
-                "physical_format_label": physical_format.label,
-                "physical_format_media_family": physical_format.media_family,
-                "physical_format_variant_type": physical_format.variant_type,
-            },
-            kind=item_kind,
-        )
-
-    def _metadata_with_cover(
-        self,
-        metadata_json: dict[str, Any] | None,
-        source_url: str | None,
-        *,
-        item_kind: ItemKind,
-    ) -> dict[str, Any]:
-        return merge_normalized_metadata(
-            metadata_json,
-            {
-                "cover_status": "external_url" if source_url else "missing",
-                "cover_source_url": source_url,
-                "cover_delivery_url": source_url,
-                "cover_storage": (
-                    "provider_external_url" if source_url else "generated_client_fallback"
-                ),
-                "cover_policy": (
-                    "external_url_default" if source_url else "generated_cover_fallback"
-                ),
-            },
-            kind=item_kind,
-        )
-
-    def _primary_edition_model(self, item: Any) -> Any | None:
-        editions = list(item.editions or [])
-        return editions[0] if editions else None
-
-    def _primary_variant_model(self, item: Any) -> Any | None:
-        for edition in item.editions or []:
-            variants = list(edition.variants or [])
-            primary = next((variant for variant in variants if variant.is_primary), None)
-            if primary is not None:
-                return primary
-            if variants:
-                return variants[0]
-        return None
 
     async def _entity_tag_names(
         self,
@@ -1003,6 +1045,22 @@ class AdminCatalogService:
         return entries
 
     def _current_link_payload(self, item: Any, key: str) -> list[dict[str, Any]]:
+        link_type = "trailer" if key == "trailer_urls" else "external"
+        links = getattr(item, "entity_links", None)
+        if isinstance(links, list):
+            return self._current_link_values(
+                [
+                    {
+                        "url": link.url,
+                        "site": link.site,
+                        "name": link.name,
+                        "kind": link.kind,
+                        "description": link.description,
+                    }
+                    for link in links
+                    if link.link_type == link_type
+                ]
+            )
         values = getattr(item, key, None)
         if not isinstance(values, list):
             return []
@@ -1045,7 +1103,6 @@ class AdminCatalogService:
             )
         )
 
-
     async def _get_or_create_person(self, name: str) -> Person:
         person = await self.db.scalar(select(Person).where(Person.name == name))
         if person is None:
@@ -1084,6 +1141,41 @@ class AdminCatalogService:
             normalized.append(value)
         return normalized
 
+    @staticmethod
+    def _strict_music_correction_text(field: str, value: str) -> str:
+        if not value or value != value.strip():
+            raise ApiHTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="invalid_music_text",
+                detail=f"Music {field} must be non-empty trimmed text or null",
+            )
+        return value
+
+    @staticmethod
+    def _strict_music_correction_values(
+        field: str,
+        values: list[str] | None,
+    ) -> list[str]:
+        if values is None:
+            return []
+        seen: set[str] = set()
+        for index, value in enumerate(values):
+            if not value or value != value.strip():
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="invalid_music_values",
+                    detail=f"Music {field}[{index}] must be non-empty trimmed text",
+                )
+            normalized = value.casefold()
+            if normalized in seen:
+                raise ApiHTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="duplicate_music_value",
+                    detail=f"Music {field} must not contain duplicate values",
+                )
+            seen.add(normalized)
+        return list(values)
+
     def _normalize_optional_text(self, value: str | None) -> str | None:
         normalized = " ".join(str(value or "").split()).strip()
         return normalized or None
@@ -1105,30 +1197,6 @@ class AdminCatalogService:
             return None
         upper = normalized.upper()
         return upper if _REGION_RE.match(upper) else None
-
-    def _normalize_tracks(self, values: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
-        normalized: list[dict[str, Any]] = []
-        for raw in values or []:
-            if not isinstance(raw, dict):
-                continue
-            title = " ".join(str(raw.get("title") or "").split()).strip()
-            if not title:
-                continue
-            track: dict[str, Any] = {"title": title}
-            position = raw.get("position")
-            if isinstance(position, int):
-                track["position"] = position
-            duration_seconds = raw.get("duration_seconds")
-            if isinstance(duration_seconds, int):
-                track["duration_seconds"] = duration_seconds
-            artist = " ".join(str(raw.get("artist") or "").split()).strip()
-            if artist:
-                track["artist"] = artist
-            disc_number = raw.get("disc_number")
-            if isinstance(disc_number, int):
-                track["disc_number"] = disc_number
-            normalized.append(track)
-        return normalized
 
     def _normalize_admin_tags(self, tags: list[str]) -> list[str]:
         normalized: list[str] = []
@@ -1155,70 +1223,9 @@ class AdminCatalogService:
         return None
 
     async def _load_native_catalog_entity(self, kind: ItemKind, entity_id: UUID) -> Any | None:
-        model_by_kind = {
-            ItemKind.book: BookWork,
-            ItemKind.comic: ComicWork,
-            ItemKind.manga: MangaWork,
-            ItemKind.anime: AnimeSeries,
-            ItemKind.movie: MovieWork,
-            ItemKind.tv: TVSeries,
-            ItemKind.music: MusicRelease,
-            ItemKind.game: GameWork,
-            ItemKind.boardgame: BoardGameWork,
-        }
-        model = model_by_kind.get(kind)
-        if model is None:
+        try:
+            model = catalog_kind_for(kind).model
+        except ValueError:
             return None
-        stmt = select(model).where(model.id == entity_id).options(*self._native_load_options(kind))
+        stmt = select(model).where(model.id == entity_id)
         return await self.db.scalar(stmt)
-
-    def _native_load_options(self, kind: ItemKind) -> list[Any]:
-        if kind == ItemKind.book:
-            return [
-                selectinload(BookWork.editions).selectinload(BookEdition.contributions).selectinload(
-                    BookContribution.person
-                ),
-                selectinload(BookWork.editions).selectinload(BookEdition.identifiers),
-                selectinload(BookWork.contributions).selectinload(BookContribution.person),
-                selectinload(BookWork.series_memberships).selectinload(BookSeriesMembership.series),
-            ]
-        if kind in {ItemKind.comic, ItemKind.manga}:
-            return [
-                selectinload(ComicWork.issues).selectinload(ComicIssue.contributions).selectinload(
-                    ComicContribution.person
-                ),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.identifiers),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.character_appearances).selectinload(
-                    ComicCharacterAppearance.character
-                ),
-                selectinload(ComicWork.issues).selectinload(ComicIssue.story_arc_memberships).selectinload(
-                    ComicStoryArcMembership.story_arc
-                ),
-                selectinload(ComicWork.contributions).selectinload(ComicContribution.person),
-            ]
-        if kind == ItemKind.game:
-            return [selectinload(GameWork.releases)]
-        if kind == ItemKind.movie:
-            return [
-                selectinload(MovieWork.contributions).selectinload(MovieWorkContribution.person),
-                selectinload(MovieWork.identifiers),
-                selectinload(MovieWork.releases).selectinload(MovieRelease.media),
-            ]
-        if kind == ItemKind.music:
-            return [
-                selectinload(MusicRelease.media).selectinload(MusicMedia.tracks),
-                selectinload(MusicRelease.contributions).selectinload(MusicReleaseContribution.person),
-                selectinload(MusicRelease.identifiers),
-            ]
-        if kind == ItemKind.tv:
-            return [
-                selectinload(TVSeries.seasons).selectinload(TVSeason.episodes),
-                selectinload(TVSeries.releases).selectinload(TVRelease.media).selectinload(TVReleaseMedia.episodes),
-                selectinload(TVSeries.releases).selectinload(TVRelease.contributions).selectinload(
-                    TVReleaseContribution.person
-                ),
-                selectinload(TVSeries.releases).selectinload(TVRelease.identifiers),
-            ]
-        if kind == ItemKind.boardgame:
-            return [selectinload(BoardGameWork.editions)]
-        return []

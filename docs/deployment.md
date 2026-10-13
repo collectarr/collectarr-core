@@ -1,19 +1,5 @@
 # Deployment
 
-## Coordinated Catalog v1 Reset
-
-The coordinated all-kind Catalog Item v1 cutover is in progress. Core now
-exposes the source-neutral Catalog Item API for all nine kinds. App's local
-persistence, provider removal, and remaining legacy UI cleanup have not
-completed the new baseline. Do not deploy this working state or reset existing
-databases.
-The finished cutover replaces all old Work/Release roots together, starts Core
-and App from empty databases, and rebuilds Meilisearch. Existing databases and
-backups from the previous schemas will not be supported. Stop both services
-together, preserve old backups for archival recovery, then create the empty
-databases and bootstrap the final schemas. Never run Core's `create_all()`
-against an existing database expecting it to drop or reshape old tables.
-
 ## Single Machine
 
 Use Docker Compose for a self-hosted deployment on consumer hardware:
@@ -22,10 +8,8 @@ Use Docker Compose for a self-hosted deployment on consumer hardware:
 Copy-Item .env.example .env
 docker compose up --build -d
 docker compose exec api python -m app.scripts.bootstrap_schema
+docker compose exec api python -m app.scripts.seed_comics
 ```
-
-Core no longer creates a Work/Release sample catalog. Use the Catalog Item v1
-API to add canonical catalog data; owned copies are stored and backed up by App.
 
 For a personal unRAID deployment without a reverse proxy or public domain, see
 `docs/unraid.md`.
@@ -48,10 +32,11 @@ PostgreSQL logical backup:
 docker compose exec postgres pg_dump -U collectarr collectarr > collectarr-core.sql
 ```
 
-PostgreSQL restore into a stopped or fresh stack:
+Restore a backup only with the matching application and schema revision. The
+current baseline does not reshape older database files. To start the current
+baseline, use a new empty PostgreSQL database and bootstrap its schema:
 
 ```powershell
-Get-Content .\collectarr-core.sql | docker compose exec -T postgres psql -U collectarr collectarr
 docker compose exec api python -m app.scripts.bootstrap_schema
 ```
 
@@ -151,21 +136,21 @@ The default Compose stack is tuned for local development:
 - Checkpoint log lines are disabled.
 - API and sync access logs are disabled to avoid writing one Docker log line for every health/status request.
 - Docker JSON logs are rotated at `10m` with three retained files per service.
-- The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when Catalog Items changed.
+- The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when catalog tables changed.
+- Normalized metadata submissions are persisted by the API and indexed by the worker when the search index is enabled.
 - External image URLs are stored by default, without copying covers into MinIO.
 - Object storage bucket setup is cached per process, so repeated image uploads do not rewrite MinIO bucket policy each time.
 
 PostgreSQL checkpoint lines such as `wrote 331 buffers` are normal and usually small. The `write=33s` value means PostgreSQL spread the write work over that interval; the `sync` duration is the part that more directly reflects waiting for disk flushes.
 
-For a lower-write development stack, increase the search worker interval:
+For a lower-write development stack, keep this in `.env`:
 
 ```env
 WORKER_INDEX_INTERVAL_SECONDS=3600
 ```
 
-Catalog Item metadata can retain external image URLs. Images uploaded through
-the Core image API are normalized to WebP and stored in MinIO/S3; source URLs
-and processed-image cache entries remain source-neutral.
+External canonical image URLs remain external. Images uploaded through the
+catalog image API are normalized to WebP and stored in MinIO/S3.
 
 Auth endpoints and admin endpoints use a lightweight
 in-process rate limiter by default. Tune the request/window pairs if you expose
@@ -174,8 +159,6 @@ Core beyond a trusted LAN:
 ```env
 AUTH_RATE_LIMIT_REQUESTS=20
 AUTH_RATE_LIMIT_WINDOW_SECONDS=60
-IMAGE_UPLOAD_RATE_LIMIT_REQUESTS=30
-IMAGE_UPLOAD_RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
 When `REDIS_URL` is set, Core stores rate-limit windows in Redis so multiple API

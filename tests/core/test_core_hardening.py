@@ -14,7 +14,7 @@ from app.core.rate_limit import (
 @pytest.mark.asyncio
 async def test_auth_errors_return_specific_codes(client):
     failed_login = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": "missing@example.com", "password": "password123"},
     )
 
@@ -22,13 +22,13 @@ async def test_auth_errors_return_specific_codes(client):
     assert failed_login.json()["code"] == "invalid_credentials"
 
     registered = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "user@example.com", "password": "password123", "display_name": "User"},
     )
     assert registered.status_code == 201
 
     duplicate = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "user@example.com", "password": "password123", "display_name": "User"},
     )
 
@@ -43,11 +43,11 @@ async def test_auth_rate_limit_returns_retry_after(client, monkeypatch):
     monkeypatch.setattr(settings, "auth_rate_limit_window_seconds", 60)
 
     first = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": "missing@example.com", "password": "password123"},
     )
     limited = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": "missing@example.com", "password": "password123"},
     )
 
@@ -76,13 +76,13 @@ def test_production_requires_explicit_secret(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_metadata_errors_return_specific_codes(client):
-    unknown_barcode = await client.get("/barcode/0000000000000", params={"kind": "comic"})
-    unknown_type = await client.get(f"/api/v1/metadata/not-real/{uuid4()}")
+    unknown_barcode = await client.get("/api/v1/barcode/0000000000000", params={"kind": "comic"})
+    unknown_book = await client.get(f"/api/v1/metadata/books/items/{uuid4()}")
 
     assert unknown_barcode.status_code == 404
     assert unknown_barcode.json()["code"] == "barcode_not_found"
-    assert unknown_type.status_code == 404
-    assert unknown_type.json()["code"] == "media_type_not_found"
+    assert unknown_book.status_code == 404
+    assert unknown_book.json()["code"] == "book_item_not_found"
 
 
 @pytest.mark.asyncio

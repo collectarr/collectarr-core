@@ -2,48 +2,74 @@
 
 Collectarr splits data across three stores:
 
-- Core PostgreSQL stores shared, canonical catalog metadata only.
-- App Drift stores catalog cache, owned copies, and personal library state.
-- Optional `collectarr-sync` stores user-owned events for multi-device sync.
+- Central catalog server: PostgreSQL. Stores shared, canonical metadata only.
+- Flutter client: Drift/SQLite. Stores the user's personal library and local catalog cache.
+- Optional `collectarr-sync`: user-hosted event log for syncing a user's own devices.
 
-Core must not store owned copies, wishlist state, tracking progress, prices,
-condition, grades, notes, personal tags, personal images, or local locations.
-Provider search, credentials, source IDs, import history, and provenance are
-excluded from both Core and the target App. Core receives complete,
-source-neutral Catalog Items.
+The central server must not store owned items, wishlist state, reading progress, ratings,
+prices, condition, grading, notes, personal tags, or personal shelves. Shared editorial tags
+attached to catalog entities are allowed in Core.
 
-## Core Catalog
+## Central Catalog
 
-The v1 schema uses one `catalog_items` row for each concrete collectible
-edition, version, or release. Typed details and repeated contents are contained
-in that item. Music tracks retain album, disc number, and position; discs have
-no independent identity. Catalog Items do not require a Work/Release graph.
+The schema is kind-first. Each concrete catalog item has one typed root row with a stable
+identity, revision, and kind-owned `details` JSONB document. Repeated item data is typed and
+stored inside that root document instead of separate child tables. `book_series` remains an
+independent reusable grouping.
 
-App-owned state is stored outside Core. The generated
-[schema-full.md](schema-full.md) and [schema viewer](schema.html) describe the
-current SQLAlchemy schema. Refresh them with
-`python scripts/export_schema_site.py` after model changes.
+| Kind | Canonical tables |
+| --- | --- |
+| Music | `music_items` (discs and tracks are contained in `details`) |
+| Books | `book_items`, `book_series` (printings, credits, identifiers, and item membership are contained in `details`) |
+| Games | `game_items` (identifiers are contained in `details`) |
+| Board games | `boardgame_items` (identifiers are contained in `details`) |
+| Comics | `comic_items` (identifiers and issue details are contained in `details`) |
+| Manga | `manga_items` (identifiers and chapters are contained in `details`) |
+| Anime | `anime_items` (media, seasons, episodes, and identifiers are contained in `details`) |
+| Movies | `movie_items` (media is contained in `details`) |
+| TV | `tv_items` (media, seasons, episodes, and identifiers are contained in `details`) |
 
-## App Local Data
+Kind-owned document schemas validate each root's scalar fields and repeated values, including
+component identity and order where applicable. Shared editorial records such as people,
+organizations, aliases, links, and tags keep independent tables when they are reused across
+catalog items. Core search uses root columns and indexes over the JSONB documents.
 
-Every distinguishable physical copy has its own `OwnedCopyV1` record. A copy
-references its canonical catalog target and holds its own status, location,
-condition, owner, purchase/value fields, rating, notes, tags, and personal
-images. Listening and tracking activity is App data and may reference the
-canonical target and a specific owned copy.
+The full generated schema, including every column, enum, foreign key, index, and constraint,
+is available in [schema-full.md](schema-full.md) and the interactive [schema viewer](schema.html).
 
-## Sync
+## Shared Catalog Relations
 
-`collectarr-sync` stores only user-owned event data: current personal entity
-state, an append-only change log, device IDs, and client timestamps. It is
-separate from the canonical catalog API.
+Shared typed relation tables include:
 
-## Fresh v1 Reset
+- `organizations`: publishers, studios, developers, distributors, and labels.
+- `persons`: creators, writers, artists, directors, actors, authors, and musicians.
+- `entity_organizations` and `entity_persons`: role-bearing links to catalog entities.
+- `entity_aliases`: searchable alternate names.
+- `entity_links`: trailers and external links.
+- `entity_tags` and `tags`: shared editorial taxonomy assignments.
+- `image_assets`: cover/poster/banner/background image references in object storage.
 
-The coordinated release starts Core PostgreSQL and App Drift from their final
-v1 schemas. Core's active model registry no longer defines the old Work/Release
-graphs, but `create_all()` leaves old tables in an existing database.
-Existing databases and backups from the old formats are incompatible. Create
-empty databases and rebuild the search index from the new catalog. Core's
-`create_all()` creates missing tables but does not reshape old ones; see
-[deployment.md](deployment.md).
+## Workflow Relations
+
+Admin audit details, duplicate-review entity lists/details, and metadata proposal values are
+stored in child tables. Their values use a typed scalar representation with a path column and
+concrete value columns, so workflow history does not require a document column either.
+
+## Client Local Data
+
+Flutter owns personal data locally. The local catalog cache stores denormalized typed metadata
+needed for offline rendering; it is not the source of truth for shared catalog metadata.
+
+Personal fields include purchase date, purchase price, grade, condition, rating, notes,
+personal tags, location, quantity, signed-by, key item, and grading company.
+
+## Sync Service
+
+`collectarr-sync` is separate from the central catalog. It stores only user-owned event data:
+
+- current entity state for personal entities;
+- append-only change log;
+- device id and client timestamps.
+
+The sync schema is intentionally event-log-shaped so it can later move to PostgreSQL without
+changing the client sync contract.

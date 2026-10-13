@@ -18,15 +18,19 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from app.catalog.catalog_item_schema import catalog_item_payload_contract  # noqa: E402
+from app.catalog.media_types import top_level_media_types  # noqa: E402
+from app.catalog.metadata_fields import contract_rows  # noqa: E402
 from app.main import app  # noqa: E402
-from app.schemas.catalog_item_v1 import CATALOG_ITEM_DETAILS_BY_KIND  # noqa: E402
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "2.2.0"
+CATALOG_ITEM_CONTRACT_VERSION = "2.0.0"
 
-CATALOG_ITEM_SCHEMAS = {
-    "item": "CatalogItemV1",
-    "itemWrite": "CatalogItemWriteV1",
-    "itemSummary": "CatalogItemSummaryV1",
+MUSIC_CATALOG_SCHEMAS = {
+    "item": "CatalogMusicItemResponse",
+    "disc": "CatalogMusicDiscResponse",
+    "credit": "CatalogMusicCreditResponse",
+    "track": "CatalogMusicTrackResponse",
 }
 
 
@@ -56,15 +60,15 @@ def _git_commit() -> str:
             text=True,
             cwd=ROOT,
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return "unknown"
     return result.stdout.strip() or "unknown"
 
 
-def _catalog_item_contract(openapi: dict[str, Any], generated_at: str) -> dict[str, Any]:
+def _music_catalog_contract(openapi: dict[str, Any], generated_at: str) -> dict[str, Any]:
     component_schemas = openapi.get("components", {}).get("schemas", {})
     included: set[str] = set()
-    pending = list(CATALOG_ITEM_SCHEMAS.values())
+    pending = list(MUSIC_CATALOG_SCHEMAS.values())
 
     while pending:
         name = pending.pop()
@@ -72,24 +76,25 @@ def _catalog_item_contract(openapi: dict[str, Any], generated_at: str) -> dict[s
             continue
         schema = component_schemas.get(name)
         if schema is None:
-            raise KeyError(f"OpenAPI is missing Catalog Item schema {name}")
+            raise KeyError(f"OpenAPI is missing Music response schema {name}")
         included.add(name)
         _collect_component_refs(schema, pending)
 
-    definitions = {
-        name: _rewrite_component_refs(component_schemas[name]) for name in sorted(included)
-    }
+    definitions: dict[str, Any] = {}
+    for name in sorted(included):
+        definitions[name] = _rewrite_component_refs(component_schemas[name])
+
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$id": "https://schemas.collectarr.app/catalog-item/v1",
-        "title": "Collectarr Catalog Item API",
-        "schemaVersion": 1,
+        "$id": "https://schemas.collectarr.app/music-catalog/v2",
+        "title": "Collectarr Music Catalog Item v2",
+        "schemaVersion": 2,
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
         "roots": {
             name: {"$ref": f"#/$defs/{schema_name}"}
-            for name, schema_name in CATALOG_ITEM_SCHEMAS.items()
+            for name, schema_name in MUSIC_CATALOG_SCHEMAS.items()
         },
         "$defs": definitions,
     }
@@ -128,17 +133,30 @@ def _rewrite_component_refs(value: Any) -> Any:
 def build_contract_bundle() -> dict[str, Any]:
     generated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     openapi = app.openapi()
-    catalog_item = _catalog_item_contract(openapi, generated_at)
+    music_catalog = _music_catalog_contract(openapi, generated_at)
+    field_schema = {
+        "contractVersion": CONTRACT_VERSION,
+        "generatedAt": generated_at,
+        "fields": contract_rows(),
+    }
+    catalog_item_schema = {
+        **catalog_item_payload_contract(),
+        "contractVersion": CATALOG_ITEM_CONTRACT_VERSION,
+        "generatedAt": generated_at,
+        "coreCommit": _git_commit(),
+    }
     active_kinds = {
         "contractVersion": CONTRACT_VERSION,
         "generatedAt": generated_at,
-        "kinds": sorted(CATALOG_ITEM_DETAILS_BY_KIND),
+        "kinds": [media_type.kind.value for media_type in top_level_media_types],
     }
     return {
         "generatedAt": generated_at,
         "coreCommit": _git_commit(),
         "openapi": openapi,
-        "catalog_item": catalog_item,
+        "music_catalog": music_catalog,
+        "field_schema": field_schema,
+        "catalog_item_schema": catalog_item_schema,
         "active_kinds": active_kinds,
     }
 
@@ -147,7 +165,9 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
     bundle = build_contract_bundle()
     outputs = {
         "openapi.json": bundle["openapi"],
-        "catalog-item-v1.json": bundle["catalog_item"],
+        "music-catalog-v2.json": bundle["music_catalog"],
+        "metadata-field-schema.json": bundle["field_schema"],
+        "catalog-item-v2.json": bundle["catalog_item_schema"],
         "active-kinds.json": bundle["active_kinds"],
     }
     hashes: dict[str, str] = {}
@@ -160,7 +180,9 @@ def build_contract_outputs() -> tuple[dict[str, Any], dict[str, Any]]:
         "generatedAt": bundle["generatedAt"],
         "coreCommit": bundle["coreCommit"],
         "openApiHash": hashes["openapi.json"],
-        "catalogItemHash": hashes["catalog-item-v1.json"],
+        "musicCatalogV2Hash": hashes["music-catalog-v2.json"],
+        "fieldSchemaHash": hashes["metadata-field-schema.json"],
+        "catalogItemV2Hash": hashes["catalog-item-v2.json"],
         "activeKindsHash": hashes["active-kinds.json"],
     }
     outputs["contract-manifest.json"] = manifest
@@ -172,11 +194,7 @@ def write_contract_bundle(out_dir: Path | None = None) -> dict[str, str]:
     out_dir.mkdir(parents=True, exist_ok=True)
     outputs, hashes = build_contract_outputs()
     for filename, payload in outputs.items():
-        # Hashes are defined over LF encoded UTF-8 bytes. Avoid Windows
-        # newline translation so the manifest verifies byte-for-byte on every
-        # platform.
-        with (out_dir / filename).open("w", encoding="utf-8", newline="\n") as stream:
-            stream.write(_json_text(payload))
+        (out_dir / filename).write_text(_json_text(payload), encoding="utf-8", newline="\n")
     manifest_data = (out_dir / "contract-manifest.json").read_bytes()
     hashes["contract-manifest.json"] = hashlib.sha256(manifest_data).hexdigest()
     return hashes
@@ -193,7 +211,9 @@ def check_contract_bundle(contracts_dir: Path | None = None) -> None:
 
     hash_key_by_file = {
         "openapi.json": "openApiHash",
-        "catalog-item-v1.json": "catalogItemHash",
+        "music-catalog-v2.json": "musicCatalogV2Hash",
+        "metadata-field-schema.json": "fieldSchemaHash",
+        "catalog-item-v2.json": "catalogItemV2Hash",
         "active-kinds.json": "activeKindsHash",
     }
     errors: list[str] = []

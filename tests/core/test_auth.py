@@ -9,14 +9,14 @@ from app.repositories.users import UserRepository
 @pytest.mark.asyncio
 async def test_register_and_login(client):
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "user@example.com", "password": "password123", "display_name": "User"},
     )
     assert response.status_code == 201
     assert response.json()["token_type"] == "bearer"
 
     login = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": "user@example.com", "password": "password123"},
     )
     assert login.status_code == 200
@@ -26,14 +26,14 @@ async def test_register_and_login(client):
 @pytest.mark.asyncio
 async def test_current_user_returns_profile(client):
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "user@example.com", "password": "password123"},
     )
     assert response.status_code == 201
     token = response.json()["access_token"]
 
     current = await client.get(
-        "/auth/me",
+        "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -44,7 +44,7 @@ async def test_current_user_returns_profile(client):
 
 @pytest.mark.asyncio
 async def test_current_user_requires_bearer_token(client):
-    response = await client.get("/auth/me")
+    response = await client.get("/api/v1/auth/me")
 
     assert response.status_code == 401
     assert response.json()["code"] == "missing_bearer_token"
@@ -56,7 +56,7 @@ async def test_bootstrap_admin_email_registers_admin(client, monkeypatch):
     monkeypatch.setattr(settings, "bootstrap_admin_emails", {"admin@example.com"})
 
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "admin@example.com", "password": "password123", "display_name": "Admin"},
     )
 
@@ -67,7 +67,7 @@ async def test_bootstrap_admin_email_registers_admin(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_login_does_not_downgrade_editor_role_without_admin_conflict(client):
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "editor@example.com", "password": "password123"},
     )
     assert response.status_code == 201
@@ -79,7 +79,7 @@ async def test_login_does_not_downgrade_editor_role_without_admin_conflict(clien
         await db.commit()
 
     login = await client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": "editor@example.com", "password": "password123"},
     )
 

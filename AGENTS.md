@@ -1,65 +1,39 @@
-# Collectarr Core — Codex Instructions
+# Collectarr Core Instructions
 
 ## Product boundary
-collectarr-core owns canonical catalog metadata, source-neutral catalog writes, typed metadata contracts, catalog administration, image/cache services, and contract exports for clients.
 
-Provider search, API keys, rate limits, provider response mapping, provider IDs, raw snapshots, import jobs, and import history are outside both Core's and the target App's architecture. Core accepts source-neutral catalog objects and must not expose provider search or provider-ingest routes. The App cutover removes its legacy provider subsystem rather than relocating it into Core.
+Core owns source-neutral canonical catalog data and its read/write API. It must not own provider integrations, provider search or ingest runtime, or App-owned personal data such as owned copies, wishlist state, tracking progress, reading queues, loans, personal notes, local locations, purchase/sale data, or custom user-field values.
 
-Catalog Item create and update operations require an authenticated `editor` or `admin` account. `viewer` accounts retain catalog read/search access; personal collection writes belong in the App and do not grant shared catalog write access.
+## Flattened catalog architecture
 
-collectarr-core must not model app-owned personal user data such as owned copies, wishlist state, tracking progress, reading queue, loans, personal notes, local location/storage, purchase/sale data, or custom user field values.
+Each kind has one root aggregate per concrete collectible edition, version, issue variant, or release. The root keeps item-level facts and repeated item contents in one kind-owned JSONB document. Do not add a generic Work-to-Release graph.
 
-## Canonical schema direction
-The active target is the coordinated all-kind Catalog Item v1 cutover documented in `docs/catalog-item-v1-cutover.md`.
+Media, seasons, episodes, printings, credits, identifiers, discs, and tracks are typed values contained by their kind's root. They are not standalone catalog entities or relational child tables. Genuinely independent groupings such as `book_series`, and reusable people or organizations, may keep their own identities when active workflows need them.
 
-Every kind has one canonical Catalog Item per concrete collectible edition/version/issue variant/release. It may contain typed child data such as tracks, episodes, credits, components, and included editions, but these children do not form another editable Work/Release chain. Core stores only shared canonical catalog data; App-owned copies, provider provenance, tracking, and personal fields remain outside Core.
+Music discs and tracks are contained JSONB documents on `music_items`, validated by Music-owned schemas and edited through the album root.
 
-Do not add Work/Release graph semantics or compatibility aliases. The active ORM registry contains only the Catalog Item v1 schema. Do not deploy/reset a database until the App and Sync cutovers are complete together.
+Use separate typed root tables per kind. The planned roots are `music_items`, `tv_items`, `anime_items`, `movie_items`, `book_items`, `boardgame_items`, `game_items`, `manga_items`, and `comic_items`. A kind-local series may remain a grouping/reference, but it must not be a required editable parent in the catalog-item flow.
+
+## Provider boundary
+
+The project has no provider search, credentials, rate limiting, source-ID mapping, snapshots, ingest, or provider administration subsystem. Do not reintroduce those features, compatibility identifiers, provider envelopes, provider-support exports, or provider-specific IDs. User Catalog Item proposals remain source-neutral and contain only the kind fields accepted by manual Add/Edit.
 
 ## API and contracts
-Core's client contract bundle is exported from `contracts/` and contains the
-typed all-kind Catalog Item v1 contract and its active kind list:
-- openapi.json
-- catalog-item-v1.json
-- active-kinds.json
-- contract-manifest.json
 
-When API schemas or active kinds change:
-1. update the source registry/schema
-2. regenerate contracts
-3. update tests
-4. keep app compatibility in mind
+Prefer typed, kind-owned routes for flat roots and their contained documents. Export OpenAPI and the canonical field/identity contracts from their source schemas. Regenerate contracts after schema or route changes and keep the App's pinned contract in sync.
 
-Do not use docs/*.md as the machine contract source. The contracts/ JSON files are the machine-readable source for clients.
+## Database baseline
 
-## Typed routes
-Prefer typed routes over generic metadata fallback routes.
+The supported database schema is created from the current typed SQLAlchemy models on a fresh, empty database. Runtime code does not transform existing schemas or archived payload formats. Existing databases and backups require an explicit external recovery decision; never reset or rewrite them as part of development work.
 
-Do not add new features to:
-- /metadata/{kind}/{id}
-- /metadata/items/...
-unless the code is explicitly legacy compatibility.
-
-Prefer typed Catalog Item routes with kind-qualified details. Do not expose
-separate editable Work and Release roots for one collectible item.
-
-## Refactor priorities
-Prefer extracting from the large MetadataService into focused modules:
-- typed reads
-- search
-- source-neutral canonical writes
-- proposal/admin workflow
-- facets
-- images
-- legacy projection
-- per-kind handlers
-
-Keep behavior-compatible tests when extracting.
+Keep local setup instructions explicit that the database must be new and empty. `create_all()` creates missing objects and does not reshape existing tables.
 
 ## Local checks
-Use the relevant local checks after changes:
-- python -m scripts.export_contract_bundle
-- python -m pytest
-- python -m ruff check .
 
-If a check cannot be run, state why.
+Use the relevant local checks after implementation changes:
+
+- `python -m scripts.export_contract_bundle`
+- `python -m pytest`
+- `python -m ruff check .`
+
+Keep schema and contract checks that protect active behavior. If a check cannot be run, state why.

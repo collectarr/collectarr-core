@@ -43,6 +43,15 @@ class PartialDateValue(BaseModel):
             return {"year": parsed.year, "month": parsed.month, "day": parsed.day}
         return value
 
+    @model_validator(mode="after")
+    def validate_complete_date(self) -> PartialDateValue:
+        if self.year is not None and self.month is not None and self.day is not None:
+            try:
+                date(self.year, self.month, self.day)
+            except ValueError as error:
+                raise ValueError("day is not valid for the given month and year") from error
+        return self
+
     @property
     def is_empty(self) -> bool:
         return self.year is None and self.month is None and self.day is None

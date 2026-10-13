@@ -1,9 +1,37 @@
 from typing import Any
 from uuid import UUID
 
+from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AdminAuditLog, AdminAuditLogDetail
+from app.models import (
+    AdminAuditLog,
+    AdminAuditLogDetail,
+    AnimeItem,
+    BoardGameItem,
+    BookItem,
+    ComicItem,
+    GameItem,
+    MangaItem,
+    MovieItem,
+    MusicItem,
+    Tag,
+    TvItem,
+)
+from app.search.client import SearchClient
+from app.search.documents import catalog_search_document
+from app.services.catalog_boardgame_items import CatalogBoardGameItemService
+from app.services.catalog_book_items import CatalogBookItemService
+from app.services.catalog_comic_items import CatalogComicItemService
+from app.services.catalog_game_items import CatalogGameItemService
+from app.services.catalog_manga_items import CatalogMangaItemService
+from app.services.catalog_movie_items import CatalogMovieItemService
+from app.services.catalog_music_items import CatalogMusicItemService
+from app.services.catalog_series_items import (
+    CatalogAnimeItemService,
+    CatalogTvItemService,
+)
 from app.services.typed_values import flatten_typed_values
 
 
@@ -18,6 +46,36 @@ class AdminSupportService:
         self.db = db
         self.actor_user_id = actor_user_id
         self.actor_email = actor_email
+
+    async def get_or_create_tag(self, kind: str, name: str) -> Tag:
+        result = await self.db.execute(select(Tag).where(Tag.kind == kind, Tag.name == name))
+        tag = result.scalar_one_or_none()
+        if tag is None:
+            tag = Tag(kind=kind, name=name)
+            self.db.add(tag)
+            await self.db.flush()
+        return tag
+
+    async def item_response(self, item: Any) -> Any:
+        native_response = await self._native_item_response(item)
+        if native_response is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Native catalog entity response unavailable",
+            )
+        return native_response
+
+    async def item_responses(self, items: list[Any]) -> list[Any]:
+        responses: list[Any] = []
+        for item in items:
+            native_response = await self._native_item_response(item)
+            if native_response is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Native catalog entity response unavailable",
+                )
+            responses.append(native_response)
+        return responses
 
     def record_admin_audit(
         self,
@@ -37,3 +95,50 @@ class AdminSupportService:
             AdminAuditLogDetail(**row) for row in flatten_typed_values(details or {})
         ]
         self.db.add(audit_log)
+
+    async def reindex_items(self, item_ids: set[UUID]) -> None:
+        documents: list[dict[str, Any]] = []
+        if not item_ids:
+            return
+        for model in (
+            MusicItem, MovieItem,
+            BookItem, ComicItem, MangaItem, AnimeItem, GameItem, BoardGameItem, TvItem,
+        ):
+            statement = select(model).where(model.id.in_(item_ids))
+            model_result = await self.db.execute(statement)
+            documents.extend(
+                catalog_search_document(entity)
+                for entity in model_result.scalars().unique()
+            )
+        if documents:
+            await SearchClient().index_documents_best_effort(documents)
+
+    async def _native_item_response(self, item: Any) -> Any | None:
+        if isinstance(item, MusicItem):
+            response = await CatalogMusicItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, MovieItem):
+            response = await CatalogMovieItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, BookItem):
+            response = await CatalogBookItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, ComicItem):
+            response = await CatalogComicItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, MangaItem):
+            response = await CatalogMangaItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, AnimeItem):
+            response = await CatalogAnimeItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, GameItem):
+            response = await CatalogGameItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, BoardGameItem):
+            response = await CatalogBoardGameItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        if isinstance(item, TvItem):
+            response = await CatalogTvItemService(self.db).get(item.id)
+            return response.model_dump(mode="json")
+        return None

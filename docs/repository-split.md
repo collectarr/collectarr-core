@@ -15,18 +15,13 @@ traceability.
 `collectarr-core` owns shared metadata and operations:
 
 - canonical catalog schema and schema bootstrap
-- source-neutral canonical write contracts and catalog persistence
+- normalized metadata submission contracts and canonical writes
 - search, indexing, and worker processes
 - image references, optional MinIO/S3 image cache, generated fallback covers,
   and cover inspection/replacement operations
 - admin identity, permissions, audit logs, destructive-operation guardrails, and
   Core Admin Console
 - Core deployment and operations docs
-
-Provider search, credentials, mapping, source IDs, import history, snapshots,
-and provider-specific ingest orchestration are excluded from both repositories.
-Core receives canonical Catalog Items and does not expose provider routes or
-persist provider provenance.
 
 `collectarr-sync` owns optional personal sync:
 
@@ -41,7 +36,7 @@ persist provider provenance.
 - local Drift database
 - local catalog snapshots used for offline-first browsing
 - owned/wishlist/personal fields
-- App catalog search, Catalog Item editing, and Owned Copy management
+- CSV import/export and barcode scanning with manual Core search
 - barcode scanning/manual fallback UX
 - sync client, pairing UX, conflict review/actions, and local retry queue
 
@@ -50,9 +45,9 @@ persist provider provenance.
 Core publishes:
 
 - OpenAPI schema for metadata/admin/auth endpoints
-- all-kind Catalog Item v1 contract (Music is the `music` details branch)
-- active-kind list and contract hash manifest
-- versioned compatibility notes for API changes
+- media catalog contract for `/api/v1/metadata/media-types`
+- canonical catalog snapshot schema used by the app
+- versioned API contract change notes
 
 Sync publishes:
 
@@ -64,8 +59,8 @@ Sync publishes:
 App consumes:
 
 - Core metadata/admin/auth APIs
-- pinned Catalog Item v1 schema and active-kind list
 - Sync protocol schema
+- Core catalog search, catalog item write, and Catalog Item proposal contracts
 
 ## Future Devstack Decision
 

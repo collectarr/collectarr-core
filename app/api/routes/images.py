@@ -15,7 +15,7 @@ from app.api.deps import CurrentAdmin, DbSession
 from app.core.config import get_settings
 from app.core.errors import ApiHTTPException
 from app.core.rate_limit import image_upload_rate_limit
-from app.models import ImageAsset, ImageCacheEntry
+from app.models import ImageAsset
 from app.storage.client import ObjectStorage
 from app.storage.images import ImageMirror
 
@@ -24,6 +24,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/images", tags=["images"])
 
 _IMAGE_TYPES = {"front_cover", "back_cover", "auxiliary"}
+_ENTITY_TYPES = {
+    "franchise",
+    "series",
+    "volume",
+    "item",
+    "edition",
+    "variant",
+    "bundle_release",
+}
+
+
 # ---------------------------------------------------------------------------
 # Single image download — returns raw bytes from MinIO
 # ---------------------------------------------------------------------------
@@ -102,12 +113,14 @@ async def batch_download_images(
 def _asset_dict(asset: ImageAsset, storage: ObjectStorage) -> dict:
     return {
         "id": str(asset.id),
-        "catalog_item_id": str(asset.catalog_item_id),
+        "entity_type": asset.entity_type,
+        "entity_id": str(asset.entity_id),
         "image_type": asset.image_type,
         "storage_key": asset.storage_key,
         "public_url": storage.public_object_url(asset.storage_key),
         "thumbnail_storage_key": asset.thumbnail_storage_key,
         "source_url": asset.source_url,
+        "attribution": asset.attribution,
         "width": asset.width,
         "height": asset.height,
         "phash": asset.phash,
@@ -116,16 +129,28 @@ def _asset_dict(asset: ImageAsset, storage: ObjectStorage) -> dict:
     }
 
 
+def _validated_entity_type(entity_type: str) -> str:
+    normalized = entity_type.strip().lower()
+    if normalized in _ENTITY_TYPES:
+        return normalized
+    raise ApiHTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        code="invalid_entity_type",
+        detail=f"entity_type must be one of {sorted(_ENTITY_TYPES)}",
+    )
+
+
 async def _upload_source_url(
     *,
-    catalog_item_id: UUID,
+    entity_type: str,
+    entity_id: UUID,
     image_type: str,
     image_bytes: bytes,
 ) -> str:
     content_hash = (
         await asyncio.to_thread(lambda: hashlib.sha256(image_bytes).hexdigest())
     )[:16]
-    return f"upload://catalog_item/{catalog_item_id}/{image_type}/{content_hash}"
+    return f"upload://{entity_type}/{entity_id}/{image_type}/{content_hash}"
 
 
 async def _authorized_image_object_keys(db: DbSession, object_keys: list[str]) -> set[str]:
@@ -152,22 +177,21 @@ async def _authorized_image_object_keys(db: DbSession, object_keys: list[str]) -
         if thumbnail_storage_key in normalized:
             authorized.add(thumbnail_storage_key)
 
-    cache_rows = await db.scalars(
-        select(ImageCacheEntry.object_key).where(ImageCacheEntry.object_key.in_(normalized))
-    )
-    authorized.update(cache_rows)
     return authorized
 
 
-@router.get("/catalog-items/{catalog_item_id}")
-async def list_catalog_item_images(
+@router.get("/entity/{entity_type}/{entity_id}")
+async def list_entity_images(
     db: DbSession,
-    catalog_item_id: UUID = Path(),
+    entity_type: str = Path(min_length=1, max_length=64),
+    entity_id: UUID = Path(),
 ) -> list[dict]:
+    entity_type = _validated_entity_type(entity_type)
     result = await db.scalars(
         select(ImageAsset)
         .where(
-            ImageAsset.catalog_item_id == catalog_item_id,
+            ImageAsset.entity_type == entity_type,
+            ImageAsset.entity_id == entity_id,
         )
         .order_by(ImageAsset.is_primary.desc(), ImageAsset.created_at)
     )
@@ -176,19 +200,22 @@ async def list_catalog_item_images(
 
 
 @router.post(
-    "/catalog-items/{catalog_item_id}",
+    "/entity/{entity_type}/{entity_id}",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(image_upload_rate_limit)],
 )
-async def add_catalog_item_image(
+async def add_entity_image(
     db: DbSession,
     user: CurrentAdmin,
-    catalog_item_id: UUID = Path(),
+    entity_type: str = Path(min_length=1, max_length=64),
+    entity_id: UUID = Path(),
     image_type: str = Body(default="front_cover"),
     image_data_base64: str = Body(min_length=1),
     source_url: str | None = Body(default=None),
+    attribution: str | None = Body(default=None),
     is_primary: bool = Body(default=False),
 ) -> dict:
+    entity_type = _validated_entity_type(entity_type)
     if image_type not in _IMAGE_TYPES:
         raise ApiHTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -214,28 +241,32 @@ async def add_catalog_item_image(
             detail=f"Image exceeds maximum allowed size of {settings.max_image_bytes} bytes",
         )
 
-    # Enforce per-item image count limit.
+    # Enforce per-entity image count limit
     existing_count = await db.scalar(
         select(func.count()).where(
-            ImageAsset.catalog_item_id == catalog_item_id,
+            ImageAsset.entity_type == entity_type,
+            ImageAsset.entity_id == entity_id,
         )
     )
-    if (existing_count or 0) >= settings.image_max_per_catalog_item:
+    if (existing_count or 0) >= settings.image_max_per_entity:
         raise ApiHTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            code="catalog_item_image_limit_reached",
-            detail=f"Catalog Item already has {existing_count} images (max {settings.image_max_per_catalog_item})",
+            code="entity_image_limit_reached",
+            detail=f"Entity already has {existing_count} images (max {settings.image_max_per_entity})",
         )
 
     mirror = ImageMirror()
     effective_source_url = source_url or await _upload_source_url(
-        catalog_item_id=catalog_item_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
         image_type=image_type,
         image_bytes=image_bytes,
     )
     mirrored = await mirror.mirror_cover_bytes_best_effort(
         image_bytes,
         source_url=effective_source_url,
+        entity_type=entity_type,
+        entity_id=str(entity_id),
     )
     if mirrored is None:
         raise ApiHTTPException(
@@ -247,7 +278,8 @@ async def add_catalog_item_image(
     # Content-hash dedup: check if identical image already attached to this entity
     existing = await db.scalar(
         select(ImageAsset).where(
-            ImageAsset.catalog_item_id == catalog_item_id,
+            ImageAsset.entity_type == entity_type,
+            ImageAsset.entity_id == entity_id,
             ImageAsset.storage_key == mirrored.key,
         )
     )
@@ -260,7 +292,8 @@ async def add_catalog_item_image(
         await db.execute(
             update(ImageAsset)
             .where(
-                ImageAsset.catalog_item_id == catalog_item_id,
+                ImageAsset.entity_type == entity_type,
+                ImageAsset.entity_id == entity_id,
                 ImageAsset.image_type == image_type,
                 ImageAsset.is_primary.is_(True),
             )
@@ -268,10 +301,12 @@ async def add_catalog_item_image(
         )
 
     asset = ImageAsset(
-        catalog_item_id=catalog_item_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
         image_type=image_type,
         storage_key=mirrored.key,
         source_url=effective_source_url,
+        attribution=attribution,
         width=mirrored.width,
         height=mirrored.height,
         phash=getattr(mirrored, "phash", None),
@@ -299,8 +334,7 @@ async def delete_image(
             code="image_not_found",
             detail="Image asset not found",
         )
-    # Don't delete the S3 object — it may be referenced by ImageCacheEntry or
-    # another entity.  Orphan cleanup can be done separately.
+    # Keep the object for retention; orphan cleanup can be handled separately.
     await db.delete(asset)
     await db.commit()
 
@@ -321,7 +355,8 @@ async def set_image_primary(
     # Clear existing primary of same type for same entity
     result = await db.scalars(
         select(ImageAsset).where(
-            ImageAsset.catalog_item_id == asset.catalog_item_id,
+            ImageAsset.entity_type == asset.entity_type,
+            ImageAsset.entity_id == asset.entity_id,
             ImageAsset.image_type == asset.image_type,
             ImageAsset.is_primary.is_(True),
             ImageAsset.id != asset.id,

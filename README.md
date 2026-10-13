@@ -1,234 +1,187 @@
 # Collectarr Core
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![GitHub Release](https://img.shields.io/github/v/release/collectarr/collectarr-core)
+[![GitHub Release](https://img.shields.io/github/v/release/collectarr/collectarr-core)](https://github.com/collectarr/collectarr-core/releases)
 [![Issues](https://img.shields.io/github/issues/collectarr/collectarr-core)](https://github.com/collectarr/collectarr-core/issues)
-![Made with Python](https://img.shields.io/badge/Made%20with-Python-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
-![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.14+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 
-![Catalog items](docs/badges/catalog-total.svg)
-![Comics](docs/badges/catalog-comic.svg)
-![Manga](docs/badges/catalog-manga.svg)
-![Anime](docs/badges/catalog-anime.svg)
-![Books](docs/badges/catalog-book.svg)
-![Games](docs/badges/catalog-game.svg)
-![Board Games](docs/badges/catalog-boardgame.svg)
-![Movies](docs/badges/catalog-movie.svg)
-![TV](docs/badges/catalog-tv.svg)
-![Music](docs/badges/catalog-music.svg)
+Collectarr Core owns the **source-neutral canonical catalog**: typed metadata,
+catalog search, proposals/corrections, image delivery and administration. It
+serves the nine kinds Music, Book, Comic, Manga, Movie, TV, Anime, Game and Board
+Game. The Flutter app owns complete local entries; Sync carries personal library
+snapshots between devices.
 
-> Shared metadata engine for Collectarr: canonical catalog, typed catalog APIs, image delivery, admin tooling, and search infrastructure.
+## Catalog architecture
 
-Collectarr Core owns the shared catalog and source-neutral metadata contracts.
-The target product has no provider adapters or provider importers. App users
-search and edit canonical Catalog Items through Core. Personal library state
-such as owned copies, grades, notes, wishlists, and local tags stays in
-`collectarr-app` and can optionally sync through `collectarr-sync`.
+Each kind has a separate typed root table and one aggregate per concrete
+collectible edition/version/variant. Kind-specific repeated contents are typed
+values in that root's JSONB document, not a generic Work/Release graph or
+standalone disc/track/episode tables.
 
-> **Coordinated all-kind Catalog Item v1 cutover in progress:** Core's active
-> API, ORM models, and contracts now use Catalog Item v1 for all nine kinds.
-> The App's active library pages use Catalog Item and Owned Copy v1 flows, but
-> legacy App persistence and provider-dependent code are still being removed.
-> Do not deploy this cross-repository working state or reset databases yet. The
-> completed release will require stopping App and Core together, preserving old
-> backups only for archival recovery, creating empty Core and App databases,
-> running `python -m app.scripts.bootstrap_schema`, and rebuilding the search
-> index. The old database and backup formats will not be supported by the final
-> v1 baseline; `create_all()` will not reshape them.
+`CatalogKindDefinition` composes the model, document schemas, field declarations,
+responses, proposal writers and routes. Truly independent reusable people,
+organizations and groupings can retain identities where active workflows need them.
 
----
+Music v2 keeps edition details and artist attribution on the album. Discs own
+recording date, recording locations, Live/Studio, SPARS, technical data, credits
+and tracks. Generic role credits can belong to album or disc; Composition is
+track metadata. Format family is coarse, with an explicit family for a format.
+Canonical APIs validate the declared shape and reject unsupported fields rather
+than guessing old payload semantics.
 
-## ✨ Features
+Core has no provider-search/ingest runtime. User proposals contain the kind-owned
+catalog fields accepted by Add/Edit. Personal status, copies, purchases, loans,
+tracking, private notes and custom-field values belong to App/Sync.
 
-### 📚 Canonical Catalog
+## Services
 
-- Multi-media catalog covering comics, manga, anime, books, games, board games, movies, TV, and music
-- One Catalog Item per specific collectible edition/version/release, with typed contained data
-- Typed kind-aware Catalog Item/search/admin responses generated from the versioned v1 contract
-- Shared editorial metadata that complements local-first personal data in the app
+- FastAPI API and worker, with PostgreSQL for typed catalog persistence.
+- Meilisearch catalog indexing/query support and a scheduled index worker.
+- Redis-backed infrastructure where configured.
+- MinIO/S3 image storage, uploads, derived variants and admin cache diagnostics.
+- Authentication, catalog review, duplicate inspection and audit/admin routes.
+- Generated OpenAPI, field/identity contracts and database schema documentation.
 
-### 🔌 Metadata Contract And Search Infrastructure
+Search supports stable offset pages (`items`, `next_offset`, `has_more`) and
+kind-owned identifier matching. Duplicate merge is not available until references
+can be remapped safely. Exact UI parity with CLZ is not a guarantee of this API.
 
-- Versioned source-neutral catalog contracts generated from the API schemas
-- Canonical catalog writes for complete objects prepared by the app
-- Optional Meilisearch indexing for fast catalog queries and richer search previews
+## Start the local Docker stack
 
-### 🖼️ Image And Storage Infrastructure
-
-- External image URLs by default, with optional MinIO / S3 mirroring for controlled hosting
-- Image URL normalization, cache budgeting, and origin tracking
-- Content-addressed image handling for uploaded assets and derived media variants
-- Image cache health surfaced through admin tooling instead of ad hoc scripts
-
-### 🛠️ Admin And Operations
-
-- Admin dashboard in the Collectarr desktop app for catalog review, duplicate handling, user management, image cache stats, and audit logs
-- Role-based access with viewer / editor / admin permissions
-- OpenAPI docs at `/docs` for API exploration and schema-backed integration work
-- Daily-refreshable catalog badges and machine-readable contract snapshots
-
----
-
-## 🧱 Database Schema
-
-The generated schema docs stay in sync with SQLAlchemy metadata and include
-columns, enums, indexes, defaults, unique constraints, and cross-domain
-references.
-
-- [Open interactive schema explorer](https://collectarr.github.io/collectarr-core/schema.html)
-- [Open generated markdown snapshot](docs/schema-full.md)
-- Refresh locally with `python -m scripts.export_schema_site` or keep it live with `python -m scripts.export_schema_site --watch`.
-
-### Schema bootstrap
-
-The server database is created directly from the typed SQLAlchemy models. When
-the schema changes, recreate the development database and run
-`python -m app.scripts.bootstrap_schema`.
-
----
-
-## 🚀 Quick Start
-
-### Start the Docker stack
+Docker Compose is the easiest way to run the services together. Configure a
+**new, empty PostgreSQL database** for this model baseline. `create_all()` creates
+missing objects; it does not reshape existing tables.
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up --build -d
 docker compose exec api python -m app.scripts.bootstrap_schema
+
+# Optional deterministic development entries for all nine kinds:
+docker compose exec api python -m app.scripts.seed_all_libraries
 ```
 
-### Run local development tooling
+The seed also reindexes search unless `--skip-search-reindex` is supplied.
+Use it in development, not against an existing user catalog. Preserve existing
+databases/backups; there is no runtime schema conversion.
+
+| Service | Local address |
+| --- | --- |
+| Core API | http://localhost:8010 |
+| Swagger / OpenAPI | http://localhost:8010/docs / http://localhost:8010/openapi.json |
+| Meilisearch | http://localhost:7700 |
+| MinIO API / console | http://localhost:9000 / http://localhost:9001 |
+
+Sync is **not** in the default Compose stack. To include its sibling checkout:
 
 ```powershell
-python -m pip install -e .[dev]
+$env:SYNC_PYTHON_BASE_IMAGE='python:3.14-slim'
+.\tools\dev.ps1 start -WithSync
+```
+
+Review [docker-compose.devstack.yml](docker-compose.devstack.yml) for Sync's port,
+volume and environment configuration.
+
+## Configuration
+
+[app/core/config.py](app/core/config.py) is the active configuration contract.
+Important environment settings include:
+
+| Settings | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Async PostgreSQL connection |
+| `SECRET_KEY`, `ENVIRONMENT`, `BOOTSTRAP_ADMIN_EMAILS` | Authentication and environment setup |
+| `CORS_ORIGINS` | Allowed browser origins (JSON array) |
+| `REDIS_URL`, `REDIS_TIMEOUT_SECONDS` | Redis connection/timeout |
+| `MEILI_URL`, `MEILI_MASTER_KEY` | Search connection |
+| `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_PUBLIC_URL`, S3 credentials | Image storage and public image base |
+| `IMAGE_MAX_LONG_EDGE`, `IMAGE_QUALITY`, `MAX_IMAGE_BYTES`, `MAX_IMAGE_PIXELS` | Image processing bounds |
+| `WORKER_INDEX_INTERVAL_SECONDS` | Index refresh interval |
+
+Use Docker service hostnames inside the Compose network and localhost/LAN hosts
+for tools running outside it. Set production secrets and public image URLs for
+your deployment. See [deployment](docs/deployment.md),
+[HTTPS and secrets](docs/https-and-secrets.md), [image pipeline](docs/image-pipeline.md)
+and [unRAID setup](docs/unraid.md).
+
+## Local development and checks
+
+Use **Python 3.14+**, matching the package and CI configuration:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+python -m pip check
 python -m ruff check .
+python -m scripts.export_contract_bundle --check
+```
+
+Tests require an isolated PostgreSQL database. Point `DATABASE_URL` at that
+existing test database, not your development/production catalog:
+
+```powershell
+$env:ENVIRONMENT='test'
+$env:SECRET_KEY='test-secret'
+$env:DATABASE_URL='postgresql+asyncpg://collectarr:collectarr@localhost:5432/collectarr_test'
 python -m pytest
 ```
 
-### Common helper commands
+CI runs contract checks and PostgreSQL tests; its mypy step is informational.
+See [.github/workflows/tests.yml](.github/workflows/tests.yml) for the exact gate.
+
+## Generated contracts and schema docs
+
+The authoritative bundle is [contracts](contracts): OpenAPI, active kinds,
+metadata field schema, Catalog Item v2, Music v2 and a hash/version manifest.
+Generate from source after changing a schema/route, then pin the bundle in App:
 
 ```powershell
-.\tools\dev.ps1 start            # Start Docker stack
-.\tools\dev.ps1 start -WithSync  # Start Core + collectarr-sync dev stack
-.\tools\dev.ps1 schema           # Create the schema from SQLAlchemy models
-.\tools\dev.ps1 test             # Run test suite
-.\tools\dev.ps1 check            # Lint + type check
-.\tools\dev.ps1 reset-stack      # Clean reset of containers and volumes
+python -m scripts.export_contract_bundle
+python -m scripts.export_contract_bundle --check
+python -m scripts.export_schema_site
+python -m scripts.export_openapi
 ```
 
----
+App's `tool/update_core_contracts.ps1` copies and verifies the bundle. Shared
+contracts come from Core sources, not hand-maintained frontend allowlists.
 
-## 🧩 Extending Metadata For New Libraries
+- [Generated database snapshot](docs/schema-full.md).
+- [Interactive schema explorer](https://collectarr.github.io/collectarr-core/schema.html).
+- [Field schema](docs/field-schema.md).
+- [Music canonical contract](docs/architecture/music-catalog-contract.md).
+- [Search/index audit](docs/architecture/catalog-search-and-index-audit.md).
+- [Current status](docs/current-status.md).
 
-Core is the canonical source of cross-library metadata. The target app has no
-external metadata-provider search, credentials, provider mapping, import
-history, or source identifiers. It sends Core a complete Catalog Item that is
-ready to validate and persist.
+Historical status reports are dated evidence, not a substitute for current
+source definitions or the active contract manifest.
 
-1. Add the typed field to the source-neutral canonical request and response schema.
-2. Keep it in the corresponding typed kind details schema and Catalog Item JSON document.
-3. Add it to Meilisearch documents when it should affect search.
-4. Export the contract bundle and update the pinned app artifact deliberately.
+## Releases and catalog badges
 
-Core and App do not retain provider-native payloads, provenance, provider IDs,
-snapshots, or provider import jobs.
+Pushes to `main` run CI. Container/release publication is triggered by
+`workflow_dispatch` or a published GitHub release. The workflow supports build-only
+and existing-release publication modes; see
+[release.yml](.github/workflows/release.yml). Published images use
+`ghcr.io/collectarr/collectarr-core`; choose an actual version from
+[GitHub Releases](https://github.com/collectarr/collectarr-core/releases).
 
----
+Catalog count badges are generated under [docs/badges](docs/badges).
+[catalog-badges.yml](.github/workflows/catalog-badges.yml) can refresh them daily
+or manually using the configured Core base URL and authorized credentials. They
+are snapshots, not live counts embedded in this README.
 
-## 🌐 Local URLs
+## Related repositories and user documentation
 
-| Service | URL |
-|---------|-----|
-| API | http://localhost:8010 |
-| API docs (Swagger) | http://localhost:8010/docs |
-| Sync service | http://localhost:8020 |
-| Meilisearch | http://localhost:7700 |
-| MinIO console | http://localhost:9001 |
+| Repository | Responsibility |
+| --- | --- |
+| [collectarr-app](https://github.com/collectarr/collectarr-app) | Local entry storage, collection UI, editing, attachments and activity |
+| [collectarr-sync](https://github.com/collectarr/collectarr-sync) | Optional complete-entry personal sync and explicit collection publications |
+| `collectarr-site` | Product website and shared end-user manual, prepared in a separate local repo |
 
----
-
-## 🔄 Releases
-
-Release publishing is manual-only. The `Release` GitHub Actions workflow uses
-`workflow_dispatch`; pushing to `main` runs CI only and never auto-publishes.
-
-Current beta release: `v0.2.0`
-
-Current backend image tags:
-
-- `ghcr.io/collectarr/collectarr-core:v0.2.0`
-- `ghcr.io/collectarr/collectarr-core:latest`
-
-Release docs and container tags are kept in sync with the GitHub release state
-before publishing.
-
-When a releasable version is detected, the workflow publishes a GitHub Release
-and pushes the backend container image to `ghcr.io/collectarr/collectarr-core`
-with both the semantic version tag and `latest`.
-
-The first published GHCR package defaults to `private`. After the first real
-release, open the package page in the `collectarr` organization and switch
-`collectarr-core` to `public` before expecting anonymous `docker pull`
-operations to work:
-
-- `https://github.com/orgs/collectarr/packages/container/package/collectarr-core`
-
-For personal LAN deployment on unRAID with Docker Compose, see
-[docs/unraid.md](docs/unraid.md).
-
----
-
-## 📈 Catalog Badges
-
-The repo includes snapshot badges for total catalog items and per-kind item
-counts. `.github/workflows/catalog-badges.yml` refreshes them on a daily
-schedule or manual dispatch.
-
-To switch from placeholder badges to live counts, configure:
-
-- `COLLECTARR_BADGES_BASE_URL` for the public Core base URL (e.g., `COLLECTARR_BADGES_BASE_URL=http://localhost:8010`)
-- `COLLECTARR_BADGES_TOKEN` for bearer-token access to `/api/v1/admin/catalog/summary`
-
-Or, instead of a static token:
-
-- `COLLECTARR_BADGES_EMAIL`
-- `COLLECTARR_BADGES_PASSWORD`
-
-The workflow logs in through `/api/v1/auth/login` when a bearer token is not provided.
-
----
-
-## 🔗 Related Repos
-
-| Repo | Purpose |
-|------|---------|
-| `collectarr-app` | Flutter client for local-first collection browsing, editing, and admin-facing UX |
-| `collectarr-sync` | Optional personal sync service for multi-device shelf state |
-
-## 🧭 Library Parity Contract
-
-See [docs/library-parity-contract.md](docs/library-parity-contract.md) for the
-cross-repository Catalog Item and Owned Copy boundaries.
-
-## 🗺️ Roadmap
-
-See [docs/implementation-plan.md](docs/implementation-plan.md) for the full roadmap.
-
-Current active tracks:
-
-- stabilize typed-per-kind metadata storage as the canonical contract
-- deepen typed field coverage while keeping catalog and owned-copy fields separate
-- improve duplicate review using Catalog Item references
-- continue public-deployment hardening for internet-facing setups
-- keep the interactive schema explorer clearer by separating general tables from kind-specific tables
-- keep comic cover-photo recognition / scan-to-identify local-first in the app; Core only provides image search/storage primitives
-
----
+The user manual is opened by **Help → User Manual** in App. Initial site
+publication is pending; Core's API/schema documentation remains separate.
 
 ## Support
 
-If Collectarr is useful to you, you can support ongoing development on Ko-fi:
-
-[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/saitatter)
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/saitatter)

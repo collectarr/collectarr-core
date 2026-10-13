@@ -1,23 +1,17 @@
 import asyncio
 import hashlib
 import logging
+import re
 from dataclasses import dataclass
 from io import BytesIO
-from urllib.parse import urlparse
 
-import httpx
 import imagehash
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import get_settings
 from app.storage.client import ObjectStorage
 
-_SUPPORTED_IMAGE_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/gif",
-}
+_SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9._-]+")
 _NORMALIZED_COVER_CONTENT_TYPE = "image/webp"
 logger = logging.getLogger(__name__)
 
@@ -28,6 +22,8 @@ class MirroredImage:
     url: str
     content_type: str
     source_url: str
+    entity_type: str
+    entity_id: str
     size_bytes: int
     width: int
     height: int
@@ -58,45 +54,33 @@ class ImageMirror:
         self.settings = get_settings()
         self.storage = storage or ObjectStorage()
 
-    async def mirror_cover_best_effort(self, source_url: str | None) -> MirroredImage | None:
-        if not source_url:
-            return None
-        try:
-            image_bytes = await self._download_image(source_url)
-        except Exception:
-            logger.warning(
-                "Failed to mirror image %s",
-                source_url,
-                exc_info=True,
-            )
-            return None
-        return await self.mirror_cover_bytes_best_effort(
-            image_bytes,
-            source_url=source_url,
-        )
-
     async def mirror_cover_bytes_best_effort(
         self,
         image_bytes: bytes | None,
         *,
         source_url: str | None,
+        entity_type: str,
+        entity_id: str,
         existing_content_hash: str | None = None,
     ) -> MirroredImage | None:
         if not image_bytes or not source_url:
             return None
         try:
+            await asyncio.to_thread(self._validate_image_bytes, image_bytes)
             cover = await asyncio.to_thread(self._normalized_cover, image_bytes)
             # Content-hash dedup: skip upload if identical bytes already stored.
             if existing_content_hash and cover.content_hash == existing_content_hash:
                 return None
-            key = self._cover_key(source_url)
+            key = self._cover_key(entity_type, entity_id, source_url)
             public_url = await asyncio.to_thread(
                 self.storage.put_object, key, cover.body, _NORMALIZED_COVER_CONTENT_TYPE
             )
         except Exception:
             logger.warning(
-                "Failed to process image bytes for %s",
+                "Failed to store uploaded catalog cover bytes %s for %s:%s",
                 source_url,
+                entity_type,
+                entity_id,
                 exc_info=True,
             )
             return None
@@ -105,6 +89,8 @@ class ImageMirror:
             url=public_url,
             content_type=_NORMALIZED_COVER_CONTENT_TYPE,
             source_url=source_url,
+            entity_type=entity_type,
+            entity_id=entity_id,
             size_bytes=cover.size_bytes,
             width=cover.width,
             height=cover.height,
@@ -112,32 +98,7 @@ class ImageMirror:
             phash=cover.phash,
         )
 
-    async def _download_image(self, source_url: str) -> bytes:
-        parsed = urlparse(source_url)
-        if parsed.scheme not in {"http", "https"}:
-            raise ValueError("Unsupported image URL scheme")
-
-        async with httpx.AsyncClient(
-            timeout=self.settings.image_download_timeout_seconds
-        ) as client, client.stream("GET", source_url, follow_redirects=True) as response:
-            response.raise_for_status()
-            content_type = (
-                response.headers.get("content-type", "").split(";")[0].strip().lower()
-            )
-            if content_type not in _SUPPORTED_IMAGE_TYPES:
-                raise ValueError("Downloaded content is not a supported image")
-
-            image_bytes = bytearray()
-            async for chunk in response.aiter_bytes():
-                image_bytes.extend(chunk)
-                if len(image_bytes) > self.settings.max_image_bytes:
-                    raise ValueError("Image exceeds configured max size")
-
-        downloaded = bytes(image_bytes)
-        self._validate_image_bytes(downloaded)
-        return downloaded
-
-    def _cover_key(self, source_url: str) -> str:
+    def _cover_key(self, entity_type: str, entity_id: str, source_url: str) -> str:
         cache_identity = "|".join(
             [
                 source_url,
@@ -147,7 +108,9 @@ class ImageMirror:
             ]
         )
         digest = hashlib.sha256(cache_identity.encode("utf-8")).hexdigest()[:16]
-        return f"covers/{digest}.webp"
+        type_segment = self._safe_segment(entity_type)
+        item_segment = self._safe_segment(entity_id)
+        return f"covers/{type_segment}/{item_segment}/{digest}.webp"
 
     def _normalized_cover_bytes(self, image_bytes: bytes) -> bytes:
         return self._normalized_cover(image_bytes).body
@@ -203,3 +166,7 @@ class ImageMirror:
                 image.verify()
         except UnidentifiedImageError as exc:
             raise ValueError("Downloaded content is not a valid image") from exc
+
+    def _safe_segment(self, value: str) -> str:
+        cleaned = _SAFE_SEGMENT_RE.sub("-", value.strip()).strip("-._")
+        return cleaned or "unknown"

@@ -8,7 +8,7 @@ from app.db.session import AsyncSessionLocal
 from app.models import ImageAsset
 from app.models.base import UserRole
 from app.repositories.users import UserRepository
-from tests.helpers import register_and_login
+from tests.support.auth import register_and_login
 
 
 async def _register_and_login_admin(client, email: str = "admin@example.com") -> str:

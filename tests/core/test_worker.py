@@ -5,7 +5,7 @@ from app.worker.main import (
     catalog_fingerprint,
     index_changed_catalog,
 )
-from tests.helpers import seed_music
+from tests.support.catalog import seed_music
 
 
 @pytest.mark.db

@@ -9,7 +9,7 @@ from app.db.session import AsyncSessionLocal
 from app.models import DuplicateReview
 from app.models.catalog_music_item import MusicItem
 from app.search.client import SearchClient
-from tests.helpers import seed_music
+from tests.support.catalog import seed_music
 
 
 async def admin_token(client, monkeypatch) -> str:

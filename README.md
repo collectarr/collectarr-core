@@ -1,4 +1,4 @@
-# ?? Collectarr Core
+# 🎼 Collectarr Core
 
 A self-hosted Music catalog for Collectarr: discover albums, keep edition details
 consistent and review improvements to shared catalog information.
@@ -6,7 +6,7 @@ consistent and review improvements to shared catalog information.
 **Version 1 supports Music only.** The current Music schema and API are preserved
 as the v1 baseline. Other kinds and their tables arrive in later releases.
 
-## ? A catalog built around real releases
+## ✨ A catalog built around real releases
 
 - Search Music releases using titles, artists and supported identifiers.
 - Keep edition details, artist credits, discs, tracks and artwork together.
@@ -18,19 +18,19 @@ as the v1 baseline. Other kinds and their tables arrive in later releases.
 Core contains catalog facts. Your collection status, notes, loans, purchases,
 listening history and custom values belong to the App and optional Sync service.
 
-## ?? A look inside
+## 📸 A look inside
 
-> **Screenshot placeholder ? Add from Core:** searching for a Music album.
+> **Screenshot placeholder — Add from Core:** searching for a Music album.
 >
-> **Screenshot placeholder ? Catalog review:** proposed details and corrections.
+> **Screenshot placeholder — Catalog review:** proposed details and corrections.
 
-## ?? An independent CLZ-inspired project
+## 🧭 An independent CLZ-inspired project
 
 Core is part of Collectarr's independent **clean-room implementation inspired by
 CLZ Music workflows**. Collectarr is not affiliated with or endorsed by CLZ.
 No CLZ catalog dataset, implementation code or proprietary assets are bundled.
 
-## ?? Stable data, explicit upgrades
+## 🔒 Stable data, explicit upgrades
 
 The initial release creates only the Music catalog and the shared infrastructure
 it needs. This is the current model labelled v1, not a historical schema rollback.
@@ -40,7 +40,7 @@ pre-creating unused schemas or replacing existing databases.
 
 Do not reset a live database, user backup or catalog as part of development.
 
-## ?? Use it with Collectarr
+## 🚀 Use it with Collectarr
 
 Pair Core with [Collectarr App](https://github.com/collectarr/collectarr-app).
 Personal-device synchronization is provided separately by

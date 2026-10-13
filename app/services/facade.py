@@ -1,0 +1,66 @@
+from __future__ import annotations
+
+import logging
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.models.base import ItemKind
+from app.schemas.metadata_shared import CatalogSearchItemEnvelope, CatalogSearchPage
+from app.services.catalog_item_search import CatalogItemSearchService
+from app.services.metadata.metadata_read_service import MetadataReadService
+
+
+class MetadataFacade(MetadataReadService):
+    def __init__(self, db: AsyncSession) -> None:
+        self.db: AsyncSession = db
+        self.settings = get_settings()
+        self.logger = logging.getLogger(__name__)
+        self.search_service = CatalogItemSearchService(db)
+
+    async def search(
+        self,
+        query: str | None = None,
+        kind: ItemKind | None = None,
+        series: str | None = None,
+        issue_number: str | None = None,
+        publisher: str | None = None,
+        imprint: str | None = None,
+        subtitle: str | None = None,
+        series_group: str | None = None,
+        language: str | None = None,
+        country: str | None = None,
+        age_rating: str | None = None,
+        catalog_number: str | None = None,
+        release_status: str | None = None,
+        year: int | None = None,
+        barcode: str | None = None,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> CatalogSearchPage:
+        return await self.search_service.search(
+            query=query,
+            kind=kind,
+            series=series,
+            issue_number=issue_number,
+            publisher=publisher,
+            imprint=imprint,
+            subtitle=subtitle,
+            series_group=series_group,
+            language=language,
+            country=country,
+            age_rating=age_rating,
+            catalog_number=catalog_number,
+            release_status=release_status,
+            year=year,
+            barcode=barcode,
+            limit=limit,
+            offset=offset,
+        )
+
+    async def lookup_barcode(
+        self,
+        barcode: str,
+        kind: ItemKind | None = None,
+    ) -> CatalogSearchItemEnvelope:
+        return await self.search_service.lookup_barcode(barcode, kind)

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -7,8 +5,10 @@ from decimal import Decimal
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
+    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -16,50 +16,237 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    and_,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin, UuidMixin
+from app.models.base import (
+    Base,
+    ItemKind,
+    TimestampMixin,
+    UuidMixin,
+)
+
+
+class Organization(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "organizations"
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    type: Mapped[str | None] = mapped_column(String(64), index=True)
+    country: Mapped[str | None] = mapped_column(String(64), index=True)
+    parent_publisher: Mapped[str | None] = mapped_column(String(255), index=True)
+
+
+class Person(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "persons"
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sort_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    biography: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
+class EntityOrganization(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_organizations"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "organization_id",
+            "role",
+            name="uq_entity_organization_role",
+        ),
+        Index("ix_entity_organizations_entity", "entity_type", "entity_id"),
+        Index("ix_entity_organizations_organization", "organization_id"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    organization: Mapped["Organization"] = relationship()
+
+
+class EntityPerson(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_persons"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "person_id",
+            "role",
+            name="uq_entity_person_role",
+        ),
+        Index("ix_entity_persons_entity", "entity_type", "entity_id"),
+        Index("ix_entity_persons_person", "person_id"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    person_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    person: Mapped["Person"] = relationship()
+
+
+class EntityAlias(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_aliases"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "normalized_alias",
+            name="uq_entity_aliases_entity_normalized_alias",
+        ),
+        Index("ix_entity_aliases_entity_position", "entity_type", "entity_id", "position"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    alias: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_alias: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+class EntityLink(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_links"
+    __table_args__ = (
+        CheckConstraint(
+            "link_type IN ('trailer', 'external')",
+            name="ck_entity_links_link_type_valid",
+        ),
+        Index("ix_entity_links_entity_type_position", "entity_type", "entity_id", "link_type", "position"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    link_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    site: Mapped[str | None] = mapped_column(String(255))
+    name: Mapped[str | None] = mapped_column(String(255))
+    kind: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+class StoryArc(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "story_arcs"
+    __table_args__ = (UniqueConstraint("name", "publisher", name="uq_story_arcs_name_publisher"),)
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    publisher: Mapped[str | None] = mapped_column(String(255), index=True)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    start_date_parts: Mapped[str | None] = mapped_column(String(64))
+    end_date: Mapped[date | None] = mapped_column(Date)
+    end_date_parts: Mapped[str | None] = mapped_column(String(64))
+    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
+
+
+class StoryArcItem(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "story_arc_items"
+    __table_args__ = (
+        UniqueConstraint("story_arc_id", "entity_type", "entity_id", name="uq_story_arc_item"),
+        Index("ix_story_arc_items_story_arc", "story_arc_id"),
+        Index("ix_story_arc_items_entity", "entity_type", "entity_id"),
+    )
+
+    story_arc_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("story_arcs.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    ordinal: Mapped[int | None] = mapped_column(Integer)
+
+    story_arc: Mapped["StoryArc"] = relationship()
+
+
+class Character(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "characters"
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    canonical_name: Mapped[str | None] = mapped_column(String(255), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
+    first_appearance_entity_type: Mapped[str | None] = mapped_column(String(64), index=True)
+    first_appearance_entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), index=True
+    )
+
+    alias_entries: Mapped[list["EntityAlias"]] = relationship(
+        primaryjoin=lambda: and_(
+            foreign(EntityAlias.entity_id) == Character.id,
+            EntityAlias.entity_type == "character",
+        ),
+        order_by="EntityAlias.position",
+        cascade="all, delete-orphan",
+    )
+class CharacterAppearance(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "character_appearances"
+    __table_args__ = (
+        UniqueConstraint("character_id", "entity_type", "entity_id", name="uq_character_appearance"),
+        Index("ix_character_appearances_character", "character_id"),
+        Index("ix_character_appearances_entity", "entity_type", "entity_id"),
+    )
+
+    character_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+
+    character: Mapped["Character"] = relationship()
+
+
+class Tag(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "tags"
+    __table_args__ = (UniqueConstraint("kind", "name", name="uq_tags_kind_name"),)
+
+    kind: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+
+
+class EntityTag(UuidMixin, TimestampMixin, Base):
+    __tablename__ = "entity_tags"
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_id", "tag_id", name="uq_entity_tag"),
+        Index("ix_entity_tags_entity", "entity_type", "entity_id"),
+        Index("ix_entity_tags_tag", "tag_id"),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    tag_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tags.id", ondelete="CASCADE"), nullable=False
+    )
+
+    tag: Mapped["Tag"] = relationship()
 
 
 class ImageAsset(UuidMixin, TimestampMixin, Base):
     __tablename__ = "image_assets"
-    __table_args__ = (Index("ix_image_assets_catalog_item", "catalog_item_id"),)
+    __table_args__ = (Index("ix_image_assets_entity", "entity_type", "entity_id"),)
 
-    catalog_item_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("catalog_items.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     image_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     thumbnail_storage_key: Mapped[str | None] = mapped_column(String(512))
     source_url: Mapped[str | None] = mapped_column(String(1024))
+    attribution: Mapped[str | None] = mapped_column(Text)
     width: Mapped[int | None] = mapped_column(Integer)
     height: Mapped[int | None] = mapped_column(Integer)
     phash: Mapped[str | None] = mapped_column(String(128), index=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
-
-class ImageCacheEntry(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "image_cache_entries"
-    __table_args__ = (
-        UniqueConstraint("object_key", name="uq_image_cache_object_key"),
-        Index("ix_image_cache_source_url", "source_url"),
-        Index("ix_image_cache_last_accessed", "last_accessed_at"),
-    )
-
-    source_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    object_key: Mapped[str] = mapped_column(String(512), nullable=False)
-    public_url: Mapped[str] = mapped_column(String(1024), nullable=False)
-    mime_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    width: Mapped[int] = mapped_column(Integer, nullable=False)
-    height: Mapped[int] = mapped_column(Integer, nullable=False)
-    content_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    access_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    last_accessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class AdminAuditLog(UuidMixin, TimestampMixin, Base):
@@ -77,7 +264,7 @@ class AdminAuditLog(UuidMixin, TimestampMixin, Base):
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
 
-    details: Mapped[list[AdminAuditLogDetail]] = relationship(
+    details: Mapped[list["AdminAuditLogDetail"]] = relationship(
         back_populates="audit_log",
         cascade="all, delete-orphan",
         order_by="AdminAuditLogDetail.path",
@@ -85,7 +272,7 @@ class AdminAuditLog(UuidMixin, TimestampMixin, Base):
 
 
 class TypedScalarValueMixin:
-    """Store a scalar value from an audit or duplicate review detail."""
+    """Concrete storage for one scalar value in a structured workflow payload."""
 
     value_type: Mapped[str] = mapped_column(String(16), nullable=False)
     string_value: Mapped[str | None] = mapped_column(Text)
@@ -134,12 +321,12 @@ class DuplicateReview(UuidMixin, TimestampMixin, Base):
     actor_email: Mapped[str | None] = mapped_column(String(320), index=True)
     note: Mapped[str | None] = mapped_column(Text)
 
-    entities: Mapped[list[DuplicateReviewEntity]] = relationship(
+    entities: Mapped[list["DuplicateReviewEntity"]] = relationship(
         back_populates="review",
         cascade="all, delete-orphan",
         order_by="DuplicateReviewEntity.position",
     )
-    details: Mapped[list[DuplicateReviewDetail]] = relationship(
+    details: Mapped[list["DuplicateReviewDetail"]] = relationship(
         back_populates="review",
         cascade="all, delete-orphan",
         order_by="DuplicateReviewDetail.path",
@@ -176,3 +363,68 @@ class DuplicateReviewDetail(UuidMixin, TimestampMixin, TypedScalarValueMixin, Ba
     path: Mapped[str] = mapped_column(String(1024), nullable=False)
 
     review: Mapped[DuplicateReview] = relationship(back_populates="details")
+
+
+class CanonicalCorrectionProposal(UuidMixin, TimestampMixin, Base):
+    """Source-neutral correction proposal for one canonical entity."""
+
+    __tablename__ = "canonical_correction_proposals"
+    __table_args__ = (
+        CheckConstraint(
+            "base_revision IS NOT NULL OR base_hash IS NOT NULL",
+            name="ck_canonical_correction_proposals_base_present",
+        ),
+        Index(
+            "ix_canonical_correction_proposals_target",
+            "kind",
+            "entity_type",
+            "entity_id",
+        ),
+        Index(
+            "ix_canonical_correction_proposals_status_created",
+            "status",
+            "created_at",
+        ),
+    )
+
+    kind: Mapped[ItemKind] = mapped_column(
+        Enum(ItemKind, name="item_kind", create_type=False), nullable=False, index=True
+    )
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    scope: Mapped[str] = mapped_column(String(64), nullable=False)
+    base_revision: Mapped[str | None] = mapped_column(String(128))
+    base_hash: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+
+    values: Mapped[list["CanonicalCorrectionProposalValue"]] = relationship(
+        back_populates="proposal",
+        cascade="all, delete-orphan",
+        order_by="CanonicalCorrectionProposalValue.path",
+    )
+
+
+class CanonicalCorrectionProposalValue(
+    UuidMixin, TimestampMixin, TypedScalarValueMixin, Base
+):
+    __tablename__ = "canonical_correction_proposal_values"
+    __table_args__ = (
+        UniqueConstraint(
+            "proposal_id",
+            "path",
+            name="uq_canonical_correction_proposal_values_path",
+        ),
+        Index(
+            "ix_canonical_correction_proposal_values_proposal",
+            "proposal_id",
+        ),
+    )
+
+    proposal_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("canonical_correction_proposals.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    path: Mapped[str] = mapped_column(String(1024), nullable=False)
+
+    proposal: Mapped[CanonicalCorrectionProposal] = relationship(back_populates="values")

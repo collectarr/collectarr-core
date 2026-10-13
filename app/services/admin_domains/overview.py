@@ -5,17 +5,26 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     AdminAuditLog,
+    AnimeItem,
+    BoardGameItem,
+    BookItem,
+    CatalogItemProposal,
+    ComicItem,
+    GameItem,
     ImageAsset,
-    ImageCacheEntry,
+    MangaItem,
+    MovieItem,
+    MusicItem,
+    TvItem,
 )
 from app.models.base import ItemKind
-from app.models.canonical_catalog_items import CanonicalCatalogItem
 from app.schemas.admin import (
     AdminAuditLogResponse,
     AdminCatalogSummaryResponse,
@@ -24,7 +33,7 @@ from app.schemas.admin import (
     AdminSearchStatusResponse,
 )
 from app.search.client import SearchClient
-from app.search.catalog_item_documents import catalog_item_search_document
+from app.search.documents import catalog_search_document
 from app.services.typed_values import materialize_typed_values
 
 _SEARCH_HISTORY: deque[AdminSearchHistoryEntry] = deque(maxlen=20)
@@ -71,8 +80,12 @@ class AdminOverviewService:
         return AdminCatalogSummaryResponse(
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
+            series=0,
+            volumes=0,
+            editions=0,
+            variants=await self._count_contained_values(),
             image_assets=await self._count_image_assets(),
-            image_cache_entries=await self._count(ImageCacheEntry),
+            pending_proposals=await self._count_pending_proposals(),
             missing_cover_items=await self._count_missing_cover_items(),
             duplicate_candidate_groups=duplicate_groups,
         )
@@ -145,8 +158,15 @@ class AdminOverviewService:
             stmt.options(selectinload(AdminAuditLog.details)).limit(limit)
         )
         return [
-            AdminAuditLogResponse.model_validate(row).model_copy(
-                update={"details_json": materialize_typed_values(row.details)}
+            AdminAuditLogResponse(
+                id=row.id,
+                action=row.action,
+                actor_user_id=row.actor_user_id,
+                actor_email=row.actor_email,
+                entity_type=row.entity_type,
+                entity_id=row.entity_id,
+                details_json=materialize_typed_values(row.details),
+                created_at=row.created_at,
             )
             for row in result.scalars()
         ]
@@ -154,49 +174,85 @@ class AdminOverviewService:
     async def _count(self, model: type) -> int:
         return int(await self.db.scalar(select(func.count()).select_from(model)) or 0)
 
+    async def _count_contained_values(self) -> int:
+        counts = {
+            BookItem: ("printings", "credits", "identifiers", "series_memberships"),
+            ComicItem: ("identifiers",),
+            MangaItem: ("identifiers",),
+            AnimeItem: ("media", "episodes", "identifiers"),
+            MovieItem: ("media",),
+            TvItem: ("seasons", "media", "episodes", "identifiers"),
+            GameItem: ("identifiers",),
+            BoardGameItem: ("identifiers",),
+            MusicItem: ("discs",),
+        }
+        total = 0
+        for model, fields in counts.items():
+            length = sum(
+                func.coalesce(func.jsonb_array_length(model.details[field]), 0) for field in fields
+            )
+            total += int(
+                await self.db.scalar(select(func.coalesce(func.sum(length), 0)).select_from(model))
+                or 0
+            )
+        return total
+
     async def _item_counts_by_kind(self) -> dict[str, int]:
         counts = {kind.value: 0 for kind in ItemKind}
-        result = await self.db.execute(
-            select(CanonicalCatalogItem.kind, func.count()).group_by(CanonicalCatalogItem.kind)
-        )
-        for kind, count in result.all():
-            if kind in counts:
-                counts[kind] = int(count)
+        for definition in CATALOG_KIND_DEFINITIONS:
+            counts[definition.kind.value] = await self._count(definition.model)
         return counts
 
     async def _count_image_assets(self) -> int:
         return await self._count(ImageAsset)
 
+    async def _count_pending_proposals(self) -> int:
+        return int(
+            await self.db.scalar(
+                select(func.count())
+                .select_from(CatalogItemProposal)
+                .where(CatalogItemProposal.status == "pending")
+            )
+            or 0
+        )
+
     async def _count_missing_cover_items(self) -> int:
-        details_rows = await self.db.scalars(select(CanonicalCatalogItem.details))
-        missing = 0
-        for details in details_rows:
-            direct_cover = details.get("cover_image_url")
-            if isinstance(direct_cover, str) and direct_cover.strip():
+        total = 0
+        for definition in CATALOG_KIND_DEFINITIONS:
+            model = definition.model
+            if definition.kind is ItemKind.music:
                 continue
-            images = details.get("images")
-            if isinstance(images, list) and any(
-                isinstance(image, dict)
-                and any(
-                    isinstance(image.get(field), str) and image[field].strip()
-                    for field in ("url", "image_key")
-                )
-                for image in images
-            ):
-                continue
-            missing += 1
-        return missing
+            has_cover = or_(
+                model.details["cover_image_url"].as_string().is_not(None),
+                model.details["thumbnail_image_url"].as_string().is_not(None),
+            )
+            total += int(
+                await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0
+            )
+        total += await self._count_missing_cover_items_for_root(
+            MusicItem,
+            cover_fields=("cover_image_url", "thumbnail_image_url"),
+        )
+        return total
+
+    async def _count_missing_cover_items_for_root(
+        self,
+        model: type,
+        *,
+        cover_fields: tuple[str, str] = ("cover_image_url", "cover_image_key"),
+    ) -> int:
+        has_cover = or_(*[getattr(model, field).is_not(None) for field in cover_fields])
+        return int(
+            await self.db.scalar(select(func.count()).select_from(model).where(~has_cover)) or 0
+        )
 
     async def _search_documents(self) -> list[dict[str, Any]]:
-        rows = await self.db.scalars(
-            select(CanonicalCatalogItem).order_by(
-                CanonicalCatalogItem.kind.asc(),
-                CanonicalCatalogItem.sort_title.asc().nullslast(),
-                CanonicalCatalogItem.title.asc(),
-                CanonicalCatalogItem.id.asc(),
-            )
-        )
-        return [catalog_item_search_document(item) for item in rows]
+        documents: list[dict[str, Any]] = []
+        for definition in CATALOG_KIND_DEFINITIONS:
+            result = await self.db.execute(select(definition.model))
+            documents.extend(catalog_search_document(item) for item in result.scalars().unique())
+
+        return documents
 
     def _record_search_history(self, response: AdminSearchReindexResponse) -> None:
         _SEARCH_HISTORY.appendleft(

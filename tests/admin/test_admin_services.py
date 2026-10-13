@@ -4,14 +4,85 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.canonical_catalog_items import CanonicalCatalogItem
+from app.models import BookItem
+from app.models.base import ItemKind
+from app.services.admin_domains.catalog import AdminCatalogService
 from app.services.admin_domains.overview import (
     _SEARCH_HISTORY,
     AdminOverviewService,
     _meili_document_count,
 )
 from app.services.admin_domains.support import AdminSupportService
-from app.services.typed_values import typed_value_from_row
+from app.services.typed_values import materialize_typed_values
+
+
+@pytest.mark.asyncio
+async def test_catalog_service_catalog_items_uses_loader_for_each_result(monkeypatch):
+    seen: dict[str, object] = {}
+    work = SimpleNamespace(id=uuid4(), kind=ItemKind.book)
+    comic = SimpleNamespace(id=uuid4(), kind=ItemKind.comic)
+    results = [work, comic]
+
+    class FakeCatalogItemSearchService:
+        def __init__(self, db):
+            seen["db"] = db
+
+        async def search(self, **filters):
+            seen["filters"] = filters
+            return SimpleNamespace(items=results)
+
+    responses = []
+
+    async def fake_item_response_loader(item):
+        responses.append(item.id)
+        return {"id": str(item.id)}
+
+    async def fake_load(kind, entity_id):
+        seen.setdefault("loaded", []).append((kind, entity_id))
+        return SimpleNamespace(id=entity_id)
+
+    monkeypatch.setattr(
+        "app.services.admin_domains.catalog.CatalogItemSearchService",
+        FakeCatalogItemSearchService,
+    )
+
+    service = AdminCatalogService(
+        db=SimpleNamespace(),
+        item_response_loader=fake_item_response_loader,
+        audit_recorder=lambda *args, **kwargs: None,
+        reindex_items=lambda item_ids: None,
+        sort_key_builder=lambda kind, title, item_number: "sort-key",
+        get_or_create_tag=lambda kind, name: None,
+    )
+    service._load_native_catalog_entity = fake_load
+
+    result = await service.catalog_items(
+        query="batman",
+        limit=7,
+        publisher="DC",
+        imprint="Black Label",
+        catalog_number="ABS-1",
+    )
+
+    assert seen["db"] is not None
+    assert seen["filters"] == {
+        "query": "batman",
+        "kind": None,
+        "limit": 7,
+        "series": None,
+        "publisher": "DC",
+        "imprint": "Black Label",
+        "subtitle": None,
+        "country": None,
+        "language": None,
+        "age_rating": None,
+        "catalog_number": "ABS-1",
+        "release_status": None,
+        "offset": 0,
+    }
+    assert responses == [work.id, comic.id]
+    assert [entity_id for _, entity_id in seen["loaded"]] == [work.id, comic.id]
+    assert result == [{"id": str(work.id)}, {"id": str(comic.id)}]
 
 
 def test_support_service_record_admin_audit_normalizes_json_like_values():
@@ -36,15 +107,87 @@ def test_support_service_record_admin_audit_normalizes_json_like_values():
         {
             "entity_id": entity_id,
             "happened_at": happened_at,
-            "tags": {"featured", "new"},
+            "tags": ["featured", "new"],
         },
     )
 
     assert len(added) == 1
-    details = {row.path: typed_value_from_row(row) for row in added[0].details}
-    assert details["/entity_id"] == entity_id
-    assert details["/happened_at"] == happened_at
-    assert sorted(details["/tags"]) == ["featured", "new"]
+    details = materialize_typed_values(added[0].details)
+    assert details == {
+        "entity_id": entity_id,
+        "happened_at": happened_at,
+        "tags": ["featured", "new"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_support_service_item_response_uses_flat_book_loader(monkeypatch):
+    called = {}
+
+    class FakeResponse:
+        def __init__(self, item_id):
+            self.item_id = item_id
+
+        def model_dump(self, mode="json"):
+            return {"id": str(self.item_id), "kind": "book"}
+
+    async def fake_get_book_item(self, item_id):
+        called["item_id"] = item_id
+        return FakeResponse(item_id)
+
+    monkeypatch.setattr(
+        "app.services.admin_domains.support.CatalogBookItemService.get",
+        fake_get_book_item,
+    )
+
+    service = AdminSupportService(db=object(), actor_user_id=None, actor_email=None)
+    item = BookItem(id=uuid4(), title="Dune", details={})
+
+    result = await service.item_response(item)
+
+    assert result == {"id": str(item.id), "kind": "book"}
+    assert called["item_id"] == item.id
+
+
+@pytest.mark.asyncio
+async def test_support_service_reindex_items_indexes_native_entities_only(monkeypatch):
+    captured: list[dict[str, object]] = []
+
+    class FakeSearchClient:
+        async def index_documents_best_effort(self, documents):
+            captured.extend(documents)
+
+    class FakeResult:
+        def __init__(self, values):
+            self._values = values
+
+        def scalars(self):
+            return self
+
+        def unique(self):
+            return self._values
+
+    unknown_entity = SimpleNamespace(id=uuid4())
+    native_item = BookItem(id=uuid4(), title="Dune", details={})
+
+    class FakeDb:
+        async def execute(self, stmt):
+            entity = stmt.column_descriptions[0]["entity"]
+            if entity is BookItem:
+                return FakeResult([native_item])
+            return FakeResult([])
+
+    monkeypatch.setattr("app.services.admin_domains.support.SearchClient", FakeSearchClient)
+    monkeypatch.setattr(
+        "app.services.admin_domains.support.catalog_search_document",
+        lambda entity: {"id": str(entity.id), "entity": entity.__class__.__name__},
+    )
+
+    service = AdminSupportService(db=FakeDb(), actor_user_id=None, actor_email=None)
+
+    await service.reindex_items({unknown_entity.id, native_item.id})
+
+    assert captured == [{"id": str(native_item.id), "entity": "BookItem"}]
 
 
 @pytest.mark.parametrize(
@@ -123,42 +266,22 @@ async def test_overview_reindex_search_replaces_documents_and_records_history(mo
     async def fake_duplicate_group_count():
         return 0
 
-    catalog_item = CanonicalCatalogItem(
-        id=uuid4(),
-        kind="book",
-        title="Dune",
-        sort_title="Dune",
-        details={
-            "kind": "book",
-            "title": "Dune",
-            "publisher": "Chilton",
-            "publication_date": {"year": 1965},
-            "identifiers": [{"identifier_type": "isbn", "value": "9780441172719"}],
-        },
-    )
-
-    class FakeDb:
-        async def scalars(self, statement):
-            return [catalog_item]
-
     service = AdminOverviewService(
-        db=FakeDb(),
+        db=object(),
         duplicate_group_count=fake_duplicate_group_count,
     )
+
+    async def fake_search_documents():
+        return [{"id": "1"}, {"id": "2"}]
+
+    monkeypatch.setattr(service, "_search_documents", fake_search_documents)
 
     result = await service.reindex_search()
 
     assert result.ok is True
     assert result.index_name == "admin-items"
-    assert result.indexed_documents == 1
-    assert seen["configured"] is True
-    document = seen["documents"][0]
-    assert document["id"] == str(catalog_item.id)
-    assert document["kind"] == "book"
-    assert document["title"] == "Dune"
-    assert document["publisher"] == "Chilton"
-    assert document["release_year"] == 1965
-    assert document["barcodes"] == []
+    assert result.indexed_documents == 2
+    assert seen == {"configured": True, "documents": [{"id": "1"}, {"id": "2"}]}
     assert len(service.search_history()) == 1
     assert service.search_history()[0].ok is True
     assert service.search_history()[0].indexed_documents == 2

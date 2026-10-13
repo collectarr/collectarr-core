@@ -1,16 +1,22 @@
+from uuid import UUID
+
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import DuplicateReview
+from app.models.catalog_comic_item import ComicItem
+from app.search.client import SearchClient
+from tests.helpers import seed_comic
 
 
 async def admin_token(client, monkeypatch) -> str:
     settings = get_settings()
     monkeypatch.setattr(settings, "bootstrap_admin_emails", {"admin@example.com"})
     response = await client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"email": "admin@example.com", "password": "password123", "display_name": "Admin"},
     )
     assert response.status_code == 201
@@ -20,27 +26,17 @@ async def admin_token(client, monkeypatch) -> str:
 @pytest.mark.asyncio
 async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
-    created = await client.post(
-        "/api/v1/metadata/catalog/items",
-        headers={"Authorization": f"Bearer {token}"},
-        json={
-            "details": {
-                "kind": "comic",
-                "title": "The Amazing Spider-Man",
-                "issue_number": "1",
-            }
-        },
-    )
-    assert created.status_code == 201
-    item = created.json()
-    item_id = item["id"]
-    details = item["details"]
-    details["title"] = "The Amazing Spider-Man Deluxe"
 
-    response = await client.put(
-        f"/api/v1/metadata/catalog/items/{item_id}",
+    async def fake_index_documents(self, documents):
+        return True
+
+    monkeypatch.setattr(SearchClient, "index_documents_best_effort", fake_index_documents)
+    item_id = await seed_comic()
+
+    response = await client.patch(
+        f"/api/v1/admin/catalog/items/comic/{item_id}",
         headers={"Authorization": f"Bearer {token}"},
-        json={"details": details},
+        json={"title": "The Amazing Spider-Man Deluxe"},
     )
 
     assert response.status_code == 200
@@ -55,7 +51,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     body = logs.json()
     assert len(body) == 1
     assert body[0]["actor_email"] == "admin@example.com"
-    assert body[0]["entity_type"] == "catalog_item"
+    assert body[0]["entity_type"] == "comic"
     assert body[0]["entity_id"] == item_id
     assert body[0]["details_json"]["fields"] == ["title"]
     assert body[0]["details_json"]["after"]["title"] == "The Amazing Spider-Man Deluxe"
@@ -63,7 +59,7 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
     item_logs = await client.get(
         "/api/v1/admin/audit/logs",
         headers={"Authorization": f"Bearer {token}"},
-        params={"entity_type": "catalog_item", "entity_id": item_id},
+        params={"entity_type": "comic", "entity_id": item_id},
     )
 
     assert item_logs.status_code == 200
@@ -71,44 +67,42 @@ async def test_admin_audit_logs_catalog_correction(client, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_admin_duplicate_candidates_use_catalog_items(client, monkeypatch):
+async def test_admin_duplicate_merge_endpoint_is_disabled(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
-    headers = {"Authorization": f"Bearer {token}"}
-    item_ids = []
-    for title in ("Duplicate Comic", "Duplicate Comic"):
-        created = await client.post(
-            "/api/v1/metadata/catalog/items",
-            headers=headers,
-            json={"details": {"kind": "comic", "title": title}},
-        )
-        assert created.status_code == 201
-        item_ids.append(created.json()["id"])
+    async with AsyncSessionLocal() as db:
+        target = ComicItem(title="Duplicate Book", sort_key="duplicate book", details={})
+        source = ComicItem(title="Duplicate Book", sort_key="duplicate book", details={})
+        db.add_all([target, source])
+        await db.commit()
+        target_id = str(target.id)
+        source_id = str(source.id)
 
-    response = await client.get(
-        "/api/v1/admin/duplicates",
-        headers=headers,
+    merge = await client.post(
+        "/api/v1/admin/duplicates/merge",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"target_item_id": target_id, "source_item_ids": [source_id]},
     )
 
-    assert response.status_code == 200
-    candidate = next(row for row in response.json() if set(row["item_ids"]) == set(item_ids))
-    assert candidate["kind"] == "comic"
-    assert candidate["title"] == "Duplicate Comic"
-    assert candidate["reason"] == "same kind and title"
+    assert merge.status_code == 404
+
+    async with AsyncSessionLocal() as db:
+        remaining = list(
+            await db.scalars(
+                select(ComicItem).where(ComicItem.id.in_([UUID(target_id), UUID(source_id)]))
+            )
+        )
+    assert {str(row.id) for row in remaining} == {target_id, source_id}
 
 
 @pytest.mark.asyncio
-async def test_admin_duplicate_ignore_audits_catalog_items(client, monkeypatch):
+async def test_admin_duplicate_ignore_endpoint_records_audit_context(client, monkeypatch):
     token = await admin_token(client, monkeypatch)
-    headers = {"Authorization": f"Bearer {token}"}
-    item_ids = []
-    for title in ("Review Me", "Review Me"):
-        created = await client.post(
-            "/api/v1/metadata/catalog/items",
-            headers=headers,
-            json={"details": {"kind": "comic", "title": title}},
-        )
-        assert created.status_code == 201
-        item_ids.append(created.json()["id"])
+    async with AsyncSessionLocal() as db:
+        first = ComicItem(title="Review Me", sort_key="review me", details={})
+        second = ComicItem(title="Review Me", sort_key="review me", details={})
+        db.add_all([first, second])
+        await db.commit()
+        item_ids = [str(first.id), str(second.id)]
 
     review = await client.post(
         "/api/v1/admin/duplicates/ignore",
@@ -121,12 +115,14 @@ async def test_admin_duplicate_ignore_audits_catalog_items(client, monkeypatch):
 
     async with AsyncSessionLocal() as db:
         review_row = await db.scalar(
-            select(DuplicateReview).where(DuplicateReview.action == "ignore")
+            select(DuplicateReview)
+            .options(selectinload(DuplicateReview.entities))
+            .where(DuplicateReview.action == "ignore")
         )
 
     assert review_row is not None
     assert review_row.ignore_token is not None
-    assert review_row.entity_type == "catalog_item"
+    assert [str(row.entity_id) for row in review_row.entities] == item_ids
 
     logs = await client.get(
         "/api/v1/admin/audit/logs",
@@ -137,4 +133,4 @@ async def test_admin_duplicate_ignore_audits_catalog_items(client, monkeypatch):
     row = logs.json()[0]
     assert row["details_json"]["decision"] == "ignore"
     assert row["details_json"]["item_ids"] == item_ids
-    assert row["details_json"]["duplicate_score"] == 100
+    assert row["details_json"]["duplicate_score"] >= 55

@@ -1,41 +1,46 @@
+from datetime import date
+
 import pytest
 
 from app.db.session import AsyncSessionLocal
-from app.models.canonical_catalog_items import CanonicalCatalogItem
+from app.models import Person
+from app.models.catalog_book_item import BookItem
 from app.worker.main import index_once
 
 
 @pytest.mark.asyncio
-async def test_index_once_indexes_catalog_item_v1_documents():
+async def test_index_once_eager_loads_flat_book_item_credits():
     async with AsyncSessionLocal() as db:
-        db.add(
-            CanonicalCatalogItem(
-                kind="book",
-                title="The Fellowship of the Ring",
-                sort_title="Fellowship of the Ring, The",
-                identifier_search="",
-                details={
-                    "kind": "book",
-                    "title": "The Fellowship of the Ring",
-                    "creators": [{"name": "J.R.R. Tolkien"}],
-                    "publication_date": {"year": 1954, "month": 7, "day": 29},
-                },
-            )
+        person = Person(name="J.R.R. Tolkien")
+        db.add(person)
+        await db.flush()
+
+        item = BookItem(
+            title="The Fellowship of the Ring",
+            details={
+                "release_date": date(1954, 7, 29).isoformat(),
+                "creators": [
+                    {
+                        "name": "J.R.R. Tolkien",
+                        "role": "author",
+                        "sequence": 1,
+                    }
+                ],
+            },
         )
+        db.add(item)
         await db.commit()
 
     class RecordingSearch:
-        def __init__(self) -> None:
-            self.documents: list[dict] = []
+        def __init__(self):
+            self.documents = []
 
-        async def replace_documents(self, documents: list[dict]) -> None:
-            self.documents = documents
+        async def index_documents(self, documents):
+            self.documents.extend(documents)
 
     search = RecordingSearch()
     await index_once(search)
 
-    book_documents = [
-        document for document in search.documents if document["kind"] == "book"
-    ]
+    book_documents = [document for document in search.documents if document["kind"] == "book"]
     assert len(book_documents) == 1
     assert book_documents[0]["creators"] == ["J.R.R. Tolkien"]

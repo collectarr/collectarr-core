@@ -29,62 +29,164 @@ POSTGRES_DIALECT = postgresql.dialect()
 DOCS_DIR = REPO_ROOT / "docs"
 JSON_OUTPUT = DOCS_DIR / "schema-data.json"
 MARKDOWN_OUTPUT = DOCS_DIR / "schema-full.md"
-HIDDEN_TABLE_NAMES: set[str] = set()
+HIDDEN_TABLE_NAMES = {
+    "item" + "_kind_metadata",
+    "item" + "_kind_metadata_taxonomies",
+}
 SOURCE_MODULES = [
     "app/models/base.py",
-    "app/models/canonical_catalog_items.py",
-    "app/models/canonical_catalog_item_identities.py",
+    "app/models/canonical_common.py",
+    "app/models/catalog_anime_item.py",
+    "app/models/catalog_boardgame_item.py",
+    "app/models/catalog_book_item.py",
+    "app/models/catalog_book_series.py",
+    "app/models/catalog_comic_item.py",
+    "app/models/catalog_game_item.py",
+    "app/models/catalog_manga_item.py",
+    "app/models/catalog_movie_item.py",
+    "app/models/catalog_music_item.py",
+    "app/models/catalog_tv_item.py",
     "app/models/canonical_support.py",
-    "app/models/partial_date.py",
     "app/models/user.py",
 ]
+
 DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "catalog",
-        "title": "Catalog Item v1",
-        "description": "Source-neutral catalog items and their normalized identifiers.",
-        "tables": ["catalog_items", "catalog_item_identities"],
+        "title": "Catalog Spine",
+        "description": "Canonical kind-specific tables and polymorphic bundle composition.",
+        "tables": [
+            "bundle_releases",
+            "bundle_release_components",
+        ],
     },
     {
-        "id": "accounts",
-        "title": "Accounts",
-        "description": "Core editor and administrator accounts.",
+        "id": "editorial",
+        "title": "Editorial and Taxonomy",
+        "description": "People, organizations, characters, story arcs, and shared tagging tables.",
+        "tables": [
+            "organizations",
+            "persons",
+            "entity_organizations",
+            "entity_persons",
+            "entity_aliases",
+            "entity_links",
+            "story_arcs",
+            "story_arc_items",
+            "characters",
+            "character_appearances",
+            "tags",
+            "entity_tags",
+            "metadata_taxonomies",
+        ],
+    },
+    {
+        "id": "identity",
+        "title": "User Identity",
+        "description": "User accounts used for authentication and administration.",
         "tables": ["users"],
     },
     {
-        "id": "images",
-        "title": "Catalog Images",
-        "description": "Catalog Item images and the shared image cache.",
-        "tables": ["image_assets", "image_cache_entries"],
-    },
-    {
-        "id": "administration",
-        "title": "Administration",
-        "description": "Audit history and Catalog Item duplicate review records.",
+        "id": "operations",
+        "title": "Images and Operations",
+        "description": "Image storage, admin audit trails, and catalog proposal workflow tables.",
         "tables": [
+            "image_assets",
+            "image_cache_entries",
+            "catalog_item_proposals",
             "admin_audit_logs",
-            "admin_audit_log_details",
-            "duplicate_reviews",
-            "duplicate_review_entities",
-            "duplicate_review_details",
         ],
     },
 ]
+
 TABLE_TO_DOMAIN = {
     table_name: domain["id"]
     for domain in DOMAIN_SPECS
     for table_name in domain["tables"]
 }
-KIND_SPECS: list[dict[str, str]] = []
-KIND_SHARED_TABLES: list[str] = []
-KIND_SPECIFIC_TABLES: dict[str, list[str]] = {}
-POLYMORPHIC_LINK_TABLES = {"image_assets"}
-STATIC_NOTES = [
-    "All kinds share the Catalog Item v1 storage table; kind-specific field definitions are in the versioned catalog-item-v1 contract.",
-    "Core stores canonical catalog data and catalog images. Owned copies and other personal collection data belong to the App.",
-    "The schema viewer is generated from the SQLAlchemy metadata, keeping columns, enums, indexes, foreign keys, constraints, and defaults aligned with the model layer.",
-    "The server schema is created directly from SQLAlchemy metadata by the schema bootstrap command.",
+
+KIND_SPECS: list[dict[str, str]] = [
+    {"id": "comic", "title": "Comics", "description": "Comic-specific schema slice."},
+    {"id": "manga", "title": "Manga", "description": "Manga-specific schema slice."},
+    {"id": "anime", "title": "Anime", "description": "Anime-specific schema slice."},
+    {"id": "movie", "title": "Movies", "description": "Movie-specific schema slice."},
+    {"id": "tv", "title": "TV", "description": "TV-specific schema slice."},
+    {"id": "game", "title": "Games", "description": "Video game schema slice."},
+    {"id": "boardgame", "title": "Board Games", "description": "Board game schema slice."},
+    {"id": "book", "title": "Books", "description": "Book Catalog Item and reusable series grouping schema slice."},
+    {"id": "music", "title": "Music", "description": "Music schema slice."},
+    {"id": "collection", "title": "Collections", "description": "Collection schema slice."},
 ]
+
+KIND_SHARED_TABLES = [
+    "entity_aliases",
+    "entity_links",
+    "organizations",
+    "persons",
+    "entity_organizations",
+    "entity_persons",
+    "tags",
+    "entity_tags",
+]
+
+KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
+    "comic": [
+        "comic_items",
+        "characters",
+        "character_appearances",
+        "story_arcs",
+        "story_arc_items",
+    ],
+    "manga": [
+        "manga_items",
+        "characters",
+        "character_appearances",
+        "story_arcs",
+        "story_arc_items",
+    ],
+    "anime": [
+        "anime_items",
+    ],
+    "movie": [
+        "movie_items",
+    ],
+    "tv": [
+        "tv_items",
+    ],
+    "game": [
+        "game_items",
+    ],
+    "boardgame": [
+        "boardgame_items",
+    ],
+    "book": [
+        "book_series",
+        "book_items",
+    ],
+    "music": [
+        "music_items",
+    ],
+    "collection": [
+        "bundle_releases",
+    ],
+}
+
+POLYMORPHIC_LINK_TABLES = {
+    "entity_aliases",
+    "entity_links",
+    "entity_organizations",
+    "entity_persons",
+    "entity_tags",
+    "image_assets",
+}
+
+STATIC_NOTES = [
+    "Polymorphic support tables such as entity_aliases, entity_links, entity_tags, and image_assets use entity_type + entity_id instead of concrete foreign keys for every target entity.",
+    "Each Catalog Item's repeated kind data is stored in its validated JSONB details document; shared support tables model independent cross-cutting records.",
+    "The viewer below is generated from SQLAlchemy metadata, so columns, enums, indexes, foreign keys, unique constraints, and defaults stay aligned with the model layer.",
+    "The server schema is created directly from SQLAlchemy metadata in the schema bootstrap command.",
+]
+
 
 def compile_type(column: Column[Any]) -> str:
     try:

@@ -1,48 +1,171 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.base import UserRole
-
-
-class CanonicalCatalogWriteResponse(BaseModel):
-    """Result of a source-neutral write into the canonical catalog."""
-
-    item_id: UUID
-    kind: str
-    created: bool
-    item: object | None = None
+from app.models.base import ItemKind, UserRole
+from app.models.partial_date import PartialDateValue
 
 
-class AdminDeleteResponse(BaseModel):
-    deleted: bool
+class AdminMetadataCreditInput(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    role: str | None = Field(default=None, max_length=64)
+
+
+class AdminMusicTrackCorrection(BaseModel):
+    id: UUID
+    disc_id: UUID
+    disc_number: int = Field(ge=1, strict=True)
+    position: str = Field(max_length=16, strict=True)
+    position_order: int = Field(ge=0, strict=True)
+    title: str = Field(min_length=1, max_length=255, strict=True)
+    artist: str | None = Field(default=None, strict=True)
+    composition: str | None = Field(default=None, strict=True)
+    duration_ms: int | None = Field(default=None, ge=0, strict=True)
+    is_header: bool
+    parent_header_id: UUID | None
+    indent_level: int = Field(ge=0, le=8, strict=True)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class AdminMetadataCorrectionRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    title_extension: str | None = Field(default=None, max_length=255)
+    sort_key: str | None = Field(default=None, max_length=255)
+    original_title: str | None = Field(default=None, max_length=255)
+    localized_title: str | None = Field(default=None, max_length=255)
+    search_aliases: list[str] | None = None
+    item_number: str | None = Field(default=None, max_length=64)
+    synopsis: str | None = None
+    crossover: str | None = Field(default=None, max_length=255)
+    plot_summary: str | None = None
+    plot_description: str | None = None
+    edition_title: str | None = Field(default=None, max_length=255)
+    page_count: int | None = Field(default=None, ge=0)
+    runtime_minutes: int | None = Field(default=None, ge=0)
+    publisher: str | None = Field(default=None, max_length=255)
+    release_date: PartialDateValue | date | None = None
+    imprint: str | None = Field(default=None, max_length=255)
+    subtitle: str | None = Field(default=None, max_length=255)
+    series_group: str | None = Field(default=None, max_length=255)
+    country: str | None = Field(default=None, max_length=64)
+    language: str | None = Field(default=None, max_length=32)
+    age_rating: str | None = Field(default=None, max_length=64)
+    audience_rating: str | None = Field(default=None, max_length=32)
+    genres: list[str] | None = None
+    platforms: list[str] | None = None
+    identifiers: list[str] | None = None
+    company_roles: list[str] | None = None
+    age_ratings: list[str] | None = None
+    contributors: list[str] | None = None
+    mechanics: list[str] | None = None
+    categories: list[str] | None = None
+    families: list[str] | None = None
+    expansions: list[str] | None = None
+    rankings: list[str] | None = None
+    tracks: list[AdminMusicTrackCorrection] = Field(default_factory=list)
+    creators: list[AdminMetadataCreditInput] | None = None
+    characters: list[str] | None = None
+    story_arcs: list[str] | None = None
+    color: str | None = Field(default=None, max_length=64)
+    nr_discs: int | None = Field(default=None, ge=0)
+    screen_ratio: str | None = Field(default=None, max_length=64)
+    audio_tracks: str | None = Field(default=None, max_length=255)
+    subtitles: str | None = Field(default=None, max_length=255)
+    layers: str | None = Field(default=None, max_length=64)
+    trailer_urls: list[dict[str, Any]] | None = None
+    external_links: list[dict[str, Any]] | None = None
+    catalog_number: str | None = Field(default=None, max_length=100)
+    artist: str | None = Field(default=None, max_length=500)
+    sort_title: str | None = Field(default=None, max_length=255)
+    label: str | None = Field(default=None, max_length=255)
+    format: str | None = Field(default=None, max_length=100)
+    packaging: str | None = Field(default=None, max_length=100)
+    sound_types: list[str] | None = None
+    vinyl_color: str | None = Field(default=None, max_length=100)
+    vinyl_weight: str | None = Field(default=None, max_length=100)
+    rpm: int | None = Field(default=None, ge=0)
+    extra: list[str] | None = None
+    spars: str | None = Field(default=None, max_length=50)
+    box_set: str | None = Field(default=None, max_length=255)
+    original_release_date: PartialDateValue | date | None = None
+    release_status: str | None = Field(default=None, max_length=64)
+    physical_format: str | None = Field(default=None, max_length=64)
+    variant_name: str | None = Field(default=None, max_length=255)
+    barcode: str | None = Field(default=None, max_length=32)
+    cover_image_url: str | None = Field(default=None, max_length=1024)
+    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+    back_cover_image_url: str | None = Field(default=None, max_length=1024)
+
+    model_config = {"extra": "forbid"}
+
+
+class AdminBundleReleaseMemberUpdateRequest(BaseModel):
+    id: UUID | None = None
+    item_id: UUID | None = None
+    role: str = Field(min_length=1, max_length=32)
+    sequence_number: int | None = Field(default=None, ge=1)
+    disc_number: int | None = Field(default=None, ge=1)
+    disc_label: str | None = Field(default=None, max_length=255)
+    quantity: int = Field(default=1, ge=1)
+    is_primary: bool = False
+
+
+class AdminBundleReleaseCorrectionRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    bundle_type: str | None = Field(default=None, max_length=64)
+    format: str | None = Field(default=None, max_length=64)
+    variant_type: str | None = Field(default=None, max_length=64)
+    packaging_type: str | None = Field(default=None, max_length=64)
+    region: str | None = Field(default=None, max_length=32)
+    language: str | None = Field(default=None, max_length=32)
+    publisher: str | None = Field(default=None, max_length=255)
+    sku: str | None = Field(default=None, max_length=100)
+    barcode: str | None = Field(default=None, max_length=32)
+    release_date: PartialDateValue | date | None = None
+    release_date_parts: PartialDateValue | None = None
+    cover_image_url: str | None = Field(default=None, max_length=1024)
+    thumbnail_image_url: str | None = Field(default=None, max_length=1024)
+    members: list[AdminBundleReleaseMemberUpdateRequest] | None = None
 
 
 class AdminCatalogSummaryResponse(BaseModel):
     items: int
     items_by_kind: dict[str, int] = Field(default_factory=dict)
+    series: int
+    volumes: int
+    editions: int
+    variants: int
     image_assets: int
-    image_cache_entries: int
+    pending_proposals: int
     missing_cover_items: int
     duplicate_candidate_groups: int
 
 
-class AdminCatalogItemIntegritySample(BaseModel):
-    item_id: UUID
-    kind: str
+class AdminNormalizedMetadataDriftSample(BaseModel):
+    entity_type: str
+    entity_id: UUID
+    kind: ItemKind
     issues: list[str] = Field(default_factory=list)
-    detail_keys: list[str] = Field(default_factory=list)
+    normalized_keys: list[str] = Field(default_factory=list)
 
 
-class AdminCatalogItemIntegrityResponse(BaseModel):
+class AdminNormalizedMetadataDriftReportResponse(BaseModel):
+    expected_schema_version: int
     scan_limit: int | None = None
     scan_limited: bool = False
-    scanned_items: int = 0
-    invalid_items: int = 0
+    scanned_entities: int = 0
+    entities_with_normalized: int = 0
+    drifted_entities: int = 0
+    typed_scanned_items: int = 0
+    typed_drifted_items: int = 0
+    schema_issue_count: int = 0
+    blocking_issue_count: int = 0
+    release_gate_ok: bool = True
     issue_counts: dict[str, int] = Field(default_factory=dict)
-    samples: list[AdminCatalogItemIntegritySample] = Field(default_factory=list)
+    samples: list[AdminNormalizedMetadataDriftSample] = Field(default_factory=list)
 
 
 class AdminSearchStatusResponse(BaseModel):
@@ -131,6 +254,13 @@ class AdminDuplicateActionResponse(BaseModel):
     affected_items: int
 
 
+class CatalogItemProposalSummaryResponse(BaseModel):
+    pending: int
+    approved: int
+    rejected: int
+    total: int
+
+
 class UserResponse(BaseModel):
     id: UUID
     email: str
@@ -147,16 +277,3 @@ class UserUpdateRequest(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
     display_name: str | None = None
-
-
-class ImageCacheStatsResponse(BaseModel):
-    total_entries: int
-    total_size_bytes: int
-    max_size_bytes: int
-    usage_percent: float
-    cache_enabled: bool
-
-
-class ImageCachePurgeResponse(BaseModel):
-    deleted_entries: int
-    freed_bytes: int

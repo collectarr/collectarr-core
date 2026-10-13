@@ -12391,6 +12391,32 @@
         "title": "CatalogMusicCreditResponse"
       },
       "CatalogMusicDiscResponse": {
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "format": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "format"
+              ]
+            },
+            "then": {
+              "properties": {
+                "format_family": {
+                  "not": {
+                    "type": "null"
+                  }
+                }
+              },
+              "required": [
+                "format_family"
+              ]
+            }
+          }
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -12421,7 +12447,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Required and non-null whenever format has a value."
           },
           "format": {
             "anyOf": [
@@ -12432,7 +12459,8 @@
                 "type": "null"
               }
             ],
-            "title": "Format"
+            "title": "Format",
+            "description": "A custom value must be paired with an explicit format_family."
           },
           "sound_types": {
             "items": {

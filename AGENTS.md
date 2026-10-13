@@ -1,39 +1,94 @@
-# Collectarr Core Instructions
+# Collectarr contributor instructions
 
-## Product boundary
+## Product and release scope
 
-Core owns source-neutral canonical catalog data and its read/write API. It must not own provider integrations, provider search or ingest runtime, or App-owned personal data such as owned copies, wishlist state, tracking progress, reading queues, loans, personal notes, local locations, purchase/sale data, or custom user-field values.
+- The first public release is Music only. Keep the current Music schema, API,
+  canonical payloads and behavior intact; marking them v1 is a version reset,
+  never a rollback to a historical v1 implementation.
+- Packages/public baseline markers start at 1.0.0/v1. Do not reset dependency
+  versions, rewrite Git history or delete historical release tags implicitly.
+- Unreleased kinds may remain isolated in source for future development. They
+  must not appear in release UI/API/contracts or create database tables.
+- New kinds are added deliberately with their own schema/tables and migrations;
+  do not pre-create eight dormant kinds in the first release database.
 
-## Flattened catalog architecture
+## Ownership and implementation
 
-Each kind has one root aggregate per concrete collectible edition, version, issue variant, or release. The root keeps item-level facts and repeated item contents in one kind-owned JSONB document. Do not add a generic Work-to-Release graph.
+- Core owns canonical catalog data. App owns personal library entries, notes,
+  purchases/sales, loans, locations, listening data and custom field values.
+  Sync synchronizes personal snapshots and sharing; it is not a catalog service.
+- Keep kind semantics in kind modules/capabilities. Shared code renders or
+  orchestrates contributions. Avoid central kind switches and duplicated
+  field/export/search/filter/sort capability flags.
+- Field metadata owns id, label, type, one/many cardinality, source/path,
+  capabilities and vocabulary. Many-valued grouping/filtering uses contained
+  values; scalar sorts require explicit reducers with deterministic date rules.
+- Music edition metadata stays at album scope; physical/recording metadata,
+  technical capabilities and tracks belong to discs. Credits have stable IDs,
+  optional real contributor references, role vocabulary and instrument lists.
+- Derived workspace facts are immutable, deduplicated and non-persistent.
+  Build once per projection; never traverse discs in sorting comparators.
+- Canonical APIs validate strict typed payloads and reject obsolete fields.
+  Import normalization belongs to import workflows, never hidden API repairs.
+- No legacy compatibility layers, deprecated aliases, speculative abstractions,
+  dead helpers or DTO fallbacks. Remove confirmed unused code completely.
 
-Media, seasons, episodes, printings, credits, identifiers, discs, and tracks are typed values contained by their kind's root. They are not standalone catalog entities or relational child tables. Genuinely independent groupings such as `book_series`, and reusable people or organizations, may keep their own identities when active workflows need them.
+## Persistence and migrations
 
-Music discs and tracks are contained JSONB documents on `music_items`, validated by Music-owned schemas and edited through the album root.
+- Fresh installations start at schema baseline 1 using the current Music
+  structure. Existing development databases remain untouched and must never
+  be opened through a lower-version baseline connection.
+- The current Music implementation is frozen as the initial v1 baseline.
+  After release, every persistent schema change requires an explicit ordered
+  migration. Do not reset databases, replace schemas with fresh bases or drop
+  personal data to make an upgrade work.
+- Keep migration versions monotonic after the v1 freeze. Adding a kind requires
+  a migration creating its tables; changing existing tables requires a tested
+  data-preserving migration. Test upgrades from supported prior schemas and
+  fresh installation of the current schema.
+- Never reset, migrate or rewrite a live database or backup during development
+  without the user's explicit authorization. Use isolated test databases.
 
-Use separate typed root tables per kind. The planned roots are `music_items`, `tv_items`, `anime_items`, `movie_items`, `book_items`, `boardgame_items`, `game_items`, `manga_items`, and `comic_items`. A kind-local series may remain a grouping/reference, but it must not be a required editable parent in the catalog-item flow.
+## UI and reference comparisons
 
-## Provider boundary
+- Collectarr is implemented independently as a clean-room recreation inspired
+  by familiar CLZ workflows. Do not copy proprietary implementation code,
+  datasets, artwork, paid font/icon files or brand assets into repositories.
+  Do not claim CLZ affiliation, endorsement or official compatibility.
+- Verify visual/behavior changes with the real application and reference
+  screenshots/computed styles where available. Compare geometry, alignment,
+  fonts/weights, icons, panels, hover/cursors, menus, resize and animation.
+- Preserve Collectarr kind accents rather than CLZ blue selection highlights.
+  Use semantic AppIcons and shared palette/geometry/control primitives.
+- Keep all normal field controls aligned and equally tall; caret and active
+  colors come from the current kind. Menus are anchored overlays with hover
+  and pointer cursors. Share inspector renderers across side/fullscreen views.
+- Do not bundle Gilroy. Use the open-source fallback and the existing optional
+  local font loader. CLZ normal 400 corresponds to Gilroy Medium, not Regular.
 
-The project has no provider search, credentials, rate limiting, source-ID mapping, snapshots, ingest, or provider administration subsystem. Do not reintroduce those features, compatibility identifiers, provider envelopes, provider-support exports, or provider-specific IDs. User Catalog Item proposals remain source-neutral and contain only the kind fields accepted by manual Add/Edit.
+## Work and verification
 
-## API and contracts
+- Work autonomously within the user's authorized scope. User instructions
+  override these guidelines, including the old pre-release fresh-base policy.
+- Preserve concurrent user changes and running applications. Prefer isolated
+  worktrees for integration/release work. Never force-push main or reintroduce
+  rejected cutover changes through a careless merge.
+- Use conventional semantic-release commit titles and substantial bodies:
+  concrete change, reason, behavior, validation and relevant limitations.
+- Review remaining PRs against current main. Merge relevant updates only after
+  meaningful checks; close already-covered updates and remove their branches
+  after integration/closure. Preserve archived stage history when needed.
+- Regenerate contracts/pins and DB/code artifacts from their source. Require
+  clean generator checks, lint/analyze, architecture/contracts, relevant tests,
+  native integration and platform builds before release. Fix CI failures.
+- Keep README feature-oriented with restrained emoji, real capabilities,
+  screenshot placeholders and clear independent CLZ clean-room positioning.
+  Put detailed deployment/architecture instructions in linked documentation.
 
-Prefer typed, kind-owned routes for flat roots and their contained documents. Export OpenAPI and the canonical field/identity contracts from their source schemas. Regenerate contracts after schema or route changes and keep the App's pinned contract in sync.
+## Core checks
 
-## Database baseline
-
-The supported database schema is created from the current typed SQLAlchemy models on a fresh, empty database. Runtime code does not transform existing schemas or archived payload formats. Existing databases and backups require an explicit external recovery decision; never reset or rewrite them as part of development work.
-
-Keep local setup instructions explicit that the database must be new and empty. `create_all()` creates missing objects and does not reshape existing tables.
-
-## Local checks
-
-Use the relevant local checks after implementation changes:
-
-- `python -m scripts.export_contract_bundle`
-- `python -m pytest`
-- `python -m ruff check .`
-
-Keep schema and contract checks that protect active behavior. If a check cannot be run, state why.
+Use the declared Python 3.14 dependencies, including SQLAlchemy asyncio. Run
+Ruff, schema/OpenAPI/contract exports and tests against an isolated PostgreSQL
+test database. Core stores one Music catalog root with contained typed discs,
+tracks and credits. Do not restore a Work/Release graph or provider ingest
+subsystem. Publish only the active Music contract and synchronize App pins.

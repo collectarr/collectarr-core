@@ -9,6 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
+from app.catalog.sort_titles import resolve_sort_title
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.catalog_music_item import MusicItem
@@ -32,7 +33,9 @@ class CatalogMusicItemService:
 
         item = MusicItem(
             title=title,
-            sort_title=_optional_string(item_payload.get("sort_title")),
+            sort_title=resolve_sort_title(
+                title, _optional_string(item_payload.get("sort_title"))
+            ),
             subtitle=_optional_string(item_payload.get("subtitle")),
             artist=_optional_string(item_payload.get("artist")),
             artist_credits=_object_values(item_payload.get("artist_credits")),

@@ -18,6 +18,7 @@ from app.catalog.metadata_fields import (
     canonical_entity_type_for_scope,
     fields_for_kind,
 )
+from app.catalog.sort_titles import follow_title_change, resolve_sort_title
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue
@@ -302,6 +303,8 @@ class CanonicalCorrectionTargetService:
             )
         if entity_type == "catalog_music_item":
             fields = self._validated_music_fields(entity, fields)
+        previous_title = getattr(entity, "title", None)
+        previous_sort_title = getattr(entity, "sort_title", None)
         specs = {field.key: field for field in self._field_specs(kind, entity_type, scope, model)}
         for key, value in fields.items():
             field = specs.get(key)
@@ -350,6 +353,13 @@ class CanonicalCorrectionTargetService:
                 continue
             column = getattr(model, field.column).property.columns[0]
             setattr(entity, field.column, self._coerce(value, column))
+        if entity_type == "catalog_music_item":
+            if "sort_title" in fields:
+                entity.sort_title = resolve_sort_title(entity.title, entity.sort_title)
+            elif "title" in fields and previous_title is not None:
+                entity.sort_title = follow_title_change(
+                    previous_title, entity.title, previous_sort_title
+                )
         await self.db.flush()
         return await self.snapshot(
             kind=kind, entity_type=entity_type, entity_id=entity_id, scope=scope

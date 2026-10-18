@@ -74,11 +74,14 @@ def test_synthetic_kind_document_shape_and_payload_validation():
 
     # 3. Root field schema does not enforce minLength on non-required fields
     schema_epoch = _root_field_schema("epoch", shape, field_specs)
-    assert schema_epoch == {"anyOf": [{"type": "string"}, {"type": "null"}]}
+    assert schema_epoch == {
+        "title": "Epoch",
+        "anyOf": [{"type": "string"}, {"type": "null"}],
+    }
 
     # 4. Required root field schema is non-nullable with minLength
     schema_code = _root_field_schema("specimen_code", shape, field_specs)
-    assert schema_code == {"type": "string", "minLength": 1}
+    assert schema_code == {"title": "Specimen Code", "type": "string", "minLength": 1}
 
 
 def test_synthetic_item_search_envelope_without_title():

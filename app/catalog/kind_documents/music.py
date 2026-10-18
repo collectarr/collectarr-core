@@ -183,6 +183,7 @@ def _validate_music_document(value: Mapping[str, Any], path: str) -> None:
 
 
 TRACK = ChildObjectShape(
+    label="Tracks",
     fields={
         "id": STRING,
         "position": STRING,
@@ -201,6 +202,7 @@ TRACK = ChildObjectShape(
 )
 
 CREDIT = ChildObjectShape(
+    label="Credits",
     fields={
         "id": STRING,
         "contributor_id": STRING,
@@ -218,6 +220,7 @@ CREDIT = ChildObjectShape(
 )
 
 DISC = ChildObjectShape(
+    label="Discs",
     fields={
         "id": STRING,
         "disc_number": INTEGER,
@@ -260,6 +263,7 @@ DISC = ChildObjectShape(
 )
 
 _MUSIC_ARTIST_CREDIT = ChildObjectShape(
+    label="Artist credits",
     fields={
         "id": STRING,
         "name": STRING,
@@ -314,6 +318,7 @@ DOCUMENT = KindDocumentShape(
         "credits": CREDIT,
         "discs": DISC,
         "external_links": ChildObjectShape(
+            label="External links",
             fields={"url": STRING, "title": STRING, "description": STRING},
             required=frozenset({"url"}),
             non_empty=frozenset({"url", "title", "description"}),

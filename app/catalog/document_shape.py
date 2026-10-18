@@ -13,6 +13,8 @@ class ChildObjectShape:
 
     fields: Mapping[str, str]
     nested: Mapping[str, ChildObjectShape] = field(default_factory=dict)
+    # Display name of a list of these objects, published as its schema title.
+    label: str | None = None
     required: frozenset[str] = frozenset()
     non_empty: frozenset[str] = frozenset()
     nullable: frozenset[str] = frozenset()

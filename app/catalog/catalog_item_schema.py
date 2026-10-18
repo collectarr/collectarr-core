@@ -109,42 +109,42 @@ def _root_field_schema(
     document: KindDocumentShape,
     field_specs: Mapping[str, MetadataFieldSpec],
 ) -> dict[str, Any]:
+    spec = field_specs.get(key)
     child_shape = document.children.get(key)
     if child_shape is not None:
-        return _nullable(
-            {
-                "type": "array",
-                "items": _child_schema(child_shape),
-            }
-        )
-    spec = field_specs.get(key)
+        label = spec.label if spec is not None else child_shape.label
+        return _titled(_nullable(_child_list_schema(child_shape)), label)
     value_type = document.root_field_overrides.get(key)
     if value_type is None:
         value_type = spec.value_type if spec is not None else document.root_fields.get(key)
     schema = _value_schema(value_type, document)
+    label = spec.label if spec is not None else None
     if key in document.required_root_fields:
         if value_type == STRING:
             schema = {**schema, "minLength": 1}
-        return schema
-    return _nullable(schema)
+        return _titled(schema, label)
+    return _titled(_nullable(schema), label)
 
 
 def _child_schema(shape: ChildObjectShape) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     for key, value_type in shape.fields.items():
         if key in shape.nested:
-            child_schema = {
-                "type": "array",
-                "items": _child_schema(shape.nested[key]),
-            }
+            child_schema = _child_list_schema(shape.nested[key])
         else:
             child_schema = _value_schema(value_type)
         if key in shape.non_empty and value_type == STRING:
             child_schema["minLength"] = 1
-        properties[key] = child_schema if key not in shape.nullable else _nullable(child_schema)
+        if key in shape.nullable:
+            child_schema = _nullable(child_schema)
+        if key in shape.nested:
+            child_schema = _titled(child_schema, shape.nested[key].label)
+        properties[key] = child_schema
     for key, nested_shape in shape.nested.items():
         if key not in properties:
-            properties[key] = _nullable({"type": "array", "items": _child_schema(nested_shape)})
+            properties[key] = _titled(
+                _nullable(_child_list_schema(nested_shape)), nested_shape.label
+            )
     schema: dict[str, Any] = {
         "type": "object",
         "additionalProperties": False,
@@ -155,6 +155,14 @@ def _child_schema(shape: ChildObjectShape) -> dict[str, Any]:
     if shape.allow_string_value:
         return {"anyOf": [{"type": "string"}, schema]}
     return schema
+
+
+def _child_list_schema(shape: ChildObjectShape) -> dict[str, Any]:
+    return {"type": "array", "items": _child_schema(shape)}
+
+
+def _titled(schema: dict[str, Any], label: str | None) -> dict[str, Any]:
+    return {"title": label, **schema} if label else schema
 
 
 def _value_schema(

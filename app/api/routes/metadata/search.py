@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Query
+from pydantic import TypeAdapter, ValidationError
 
 from app.api.deps import DbSession
 from app.catalog.release_scope import ReleasedCatalogKind
+from app.core.errors import ApiHTTPException
 from app.schemas.metadata_shared import CatalogSearchItemEnvelope, CatalogSearchPage
 from app.services.facade import MetadataFacade as MetadataService
 
@@ -30,9 +32,15 @@ async def search(
     barcode: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    field_filters: str | None = Query(default=None, max_length=20000, description="JSON object mapping catalog-owned filter fields to selected string values"),
 ) -> CatalogSearchPage:
+    try:
+        filters = TypeAdapter(dict[str, list[str]]).validate_json(field_filters) if field_filters is not None else None
+    except ValidationError as exc:
+        raise ApiHTTPException(status_code=422, code="invalid_catalog_filters", detail="Search filters must be a JSON object of string lists") from exc
     return await MetadataService(db).search(
         query=q,
+        field_filters=filters,
         kind=kind,
         series=series,
         issue_number=issue_number,

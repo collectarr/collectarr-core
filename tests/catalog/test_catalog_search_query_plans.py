@@ -43,11 +43,12 @@ async def test_identifier_and_scalar_lookups_can_use_declared_indexes(
             )
             assert f"ix_{model.__tablename__}_barcode" in barcode_plan
 
-            catalog_number_plan = await _explain(
-                db,
-                select(model.id).where(model.catalog_number == "CAT-0001"),
-            )
-            assert f"ix_{model.__tablename__}_catalog_number" in catalog_number_plan
+            if "catalog_number" in definition.response_model.model_fields:
+                catalog_number_plan = await _explain(
+                    db,
+                    select(model.id).where(model.catalog_number == "CAT-0001"),
+                )
+                assert f"ix_{model.__tablename__}_catalog_number" in catalog_number_plan
 
             if (
                 definition.kind is ItemKind.music

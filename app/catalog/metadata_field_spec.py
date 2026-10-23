@@ -30,8 +30,12 @@ INPUT_LIST = "list"
 
 VIDEO_KINDS: frozenset[ItemKind] = frozenset({ItemKind.anime, ItemKind.movie, ItemKind.tv})
 PRINT_KINDS: frozenset[ItemKind] = frozenset({ItemKind.book, ItemKind.comic, ItemKind.manga})
-TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({ItemKind.game})
-ALL_KINDS: frozenset[ItemKind] = frozenset({ItemKind.music, ItemKind.collection})
+TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({
+    ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy,
+})
+ALL_KINDS: frozenset[ItemKind] = frozenset({
+    ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy, ItemKind.collection,
+})
 CATALOG_KINDS: frozenset[ItemKind] = ALL_KINDS - {ItemKind.collection}
 
 

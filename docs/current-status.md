@@ -1,13 +1,19 @@
 # Core current status
 
-Reviewed: 2026-10-13.
+The release exposes Music and Games in navigation. Games, Hardware and Toys
+have independent catalog roots, tables, response models and proposal writers.
+Hardware/Toy are registered catalog kinds without separate top-level navigation.
+Canonical Hardware excludes serial numbers; personal copy state belongs to
+App/Sync. Toys never accepts Hardware platform/type or Games progress fields.
 
-The release branch exposes Music only. The current album/disc/credit/track structures are unchanged and labelled schema/contract v1 and package 1.0.0. Public kinds, navigation, proposals, corrections, search and generated contracts are restricted to Music. Unreleased kind models remain source modules and are not included in release table creation.
+Baseline 1 installs Music and shared support tables. Ordered migration 2 adds
+`game_items`, `game_hardware_items` and `game_toy_items`, and the two new enum
+values. Existing Music rows are preserved. Migration history and physical
+schema must match; unversioned or unsupported databases are refused without
+reset. No Games rows are reinterpreted as Hardware or Toys.
 
-Baseline 1 installs the current Music and shared support tables through an explicit, transactional migration entry point. Existing unversioned or unsupported databases are refused without reset. Future schema changes and new kinds require ordered, data-preserving migrations.
-
-Core owns canonical catalog metadata; App/Sync own personal library copies and state. Stable IDs, scoped credits, instrument lists and partial dates retain their current strict contract. Regenerated Music JSON definitions were compared with the pre-reset definitions and are identical.
-
-Verification: Ruff and the contract generator check pass. All 167 tests pass against an isolated PostgreSQL test container, including fresh physical schema checks, preserved rows, unsupported-version refusal, admin summaries on the Music-only schema, strict wire validation, correction/audit and serializable inactive-kind errors. Production/development databases were not opened or changed.
-
-The first release is being prepared, not published. Existing tags and Git history are preserved. Test-suite organization and database fixture runtime improvements are the next authorized stage.
+Verification uses isolated PostgreSQL storage: fresh install, baseline upgrade,
+preservation, idempotence, strict wire validation, typed inventory create/read,
+search, correction targets and the full test suite. Live databases and backups
+were not opened or changed. The living UI comparison is maintained in the App
+repository at `docs/clz-parity.md`.

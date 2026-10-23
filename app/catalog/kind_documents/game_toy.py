@@ -1,0 +1,27 @@
+"""Toys-to-life fields, with their own strict document boundary."""
+
+from app.catalog.document_shape import PARTIAL_DATE_OBJECT, STRING, KindDocumentShape
+from app.catalog.kind_documents.common import common_root_children
+from app.catalog.metadata_field_spec import VALUE_TYPE_STRING, MetadataFieldSpec
+from app.models.base import ItemKind
+
+FIELD_SPECS = tuple(
+    MetadataFieldSpec(key, VALUE_TYPE_STRING, label, kinds=frozenset({ItemKind.game_toy}))
+    for key, label in (("toy_type", "Type"), ("toy_subtype", "Subtype"))
+)
+
+DOCUMENT = KindDocumentShape(
+    root_fields={"toy_type": STRING, "toy_subtype": STRING, "description": STRING,
+                 "release_date_parts": PARTIAL_DATE_OBJECT},
+    children=common_root_children("external_links", "trailer_urls"),
+    allowed_root_fields=frozenset({
+        "title", "sort_key", "barcode", "release_date_parts", "series_title",
+        "toy_type", "toy_subtype", "description", "cover_image_url", "external_links", "trailer_urls",
+    }),
+    rejected_root_fields=frozenset({"platform", "platforms", "hardware_type", "serial_number",
+                                   "developers", "genres", "completed", "storage_device"}),
+    required_root_fields=frozenset({"title"}),
+    reject_unknown_fields=True,
+)
+
+SEARCH_FILTER_FIELDS = ('toy_type', 'toy_subtype')

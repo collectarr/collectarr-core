@@ -37,9 +37,11 @@ class MetadataFacade(MetadataReadService):
         barcode: str | None = None,
         limit: int = 25,
         offset: int = 0,
+        field_filters: dict[str, list[str]] | None = None,
     ) -> CatalogSearchPage:
         return await self.search_service.search(
             query=query,
+            field_filters=field_filters,
             kind=kind,
             series=series,
             issue_number=issue_number,

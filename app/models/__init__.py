@@ -6,7 +6,9 @@ from app.models.catalog_boardgame_item import *  # noqa: F401,F403
 from app.models.catalog_book_item import *  # noqa: F401,F403
 from app.models.catalog_book_series import *  # noqa: F401,F403
 from app.models.catalog_comic_item import *  # noqa: F401,F403
+from app.models.catalog_game_hardware_item import *  # noqa: F401,F403
 from app.models.catalog_game_item import *  # noqa: F401,F403
+from app.models.catalog_game_toy_item import *  # noqa: F401,F403
 from app.models.catalog_item_proposal import *  # noqa: F401,F403
 from app.models.catalog_manga_item import *  # noqa: F401,F403
 from app.models.catalog_movie_item import *  # noqa: F401,F403

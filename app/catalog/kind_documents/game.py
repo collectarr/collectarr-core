@@ -5,9 +5,9 @@ from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
     INPUT_LIST,
     INPUT_TEXT,
-    SECTION_ITEM,
     SECTION_REGIONAL,
     SECTION_RELATIONS,
+    VALUE_TYPE_OBJECT_LIST,
     VALUE_TYPE_STRING,
     VALUE_TYPE_STRING_LIST,
     MetadataFieldSpec,
@@ -15,6 +15,10 @@ from app.catalog.metadata_field_spec import (
 from app.models.base import ItemKind
 
 FIELD_SPECS = (
+    MetadataFieldSpec("creators", VALUE_TYPE_OBJECT_LIST, "Creators",
+                      kinds=frozenset({ItemKind.game})),
+    MetadataFieldSpec("contributors", VALUE_TYPE_OBJECT_LIST, "Contributors",
+                      kinds=frozenset({ItemKind.game})),
     MetadataFieldSpec(
         "platforms",
         VALUE_TYPE_STRING_LIST,
@@ -29,22 +33,6 @@ FIELD_SPECS = (
         "Identifiers",
         section=SECTION_RELATIONS,
         input=INPUT_LIST,
-        kinds=frozenset({ItemKind.game}),
-    ),
-    MetadataFieldSpec(
-        "toy_subtype",
-        VALUE_TYPE_STRING,
-        "Toy subtype",
-        section=SECTION_ITEM,
-        input=INPUT_TEXT,
-        kinds=frozenset({ItemKind.game}),
-    ),
-    MetadataFieldSpec(
-        "toy_type",
-        VALUE_TYPE_STRING,
-        "Toy type",
-        section=SECTION_ITEM,
-        input=INPUT_TEXT,
         kinds=frozenset({ItemKind.game}),
     ),
     MetadataFieldSpec(
@@ -88,8 +76,6 @@ DOCUMENT = KindDocumentShape(
         "series_title": STRING,
         "release_region": STRING,
         "physical_format_label": STRING,
-        "toy_subtype": STRING,
-        "toy_type": STRING,
     },
     children=common_root_children(
         "creators",
@@ -99,4 +85,5 @@ DOCUMENT = KindDocumentShape(
         "trailer_urls",
     ),
     required_root_fields=frozenset({"title"}),
+    rejected_root_fields=frozenset({"toy_type", "toy_subtype", "hardware_type", "serial_number"}),
 )

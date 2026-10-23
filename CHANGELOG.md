@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Features
+- Games, Hardware and Toys have independent catalog tables, strict contracts, search, proposal and correction routes.
+
+### Refactors
+- Ordered migration 2 adds Games inventories while preserving the Music baseline and refusing unsupported databases.
+
 ## What's Changed
 
 ### ✨ Features

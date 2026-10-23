@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.models import Base
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 # Shared catalog support and administration plus the sole released kind.
-RELEASE_TABLE_NAMES = frozenset({
+BASELINE_TABLE_NAMES = frozenset({
     "users", "music_items", "organizations", "persons",
     "entity_organizations", "entity_persons", "entity_aliases", "entity_links",
     "tags", "entity_tags", "image_assets", "metadata_taxonomies",
@@ -19,6 +19,8 @@ RELEASE_TABLE_NAMES = frozenset({
     "duplicate_review_entities", "duplicate_review_details",
     "canonical_correction_proposals", "canonical_correction_proposal_values",
 })
+GAMES_TABLE_NAMES = frozenset({"game_items", "game_hardware_items", "game_toy_items"})
+RELEASE_TABLE_NAMES = BASELINE_TABLE_NAMES | GAMES_TABLE_NAMES
 
 MIGRATION_METADATA = MetaData()
 schema_migrations = Table(
@@ -28,9 +30,9 @@ schema_migrations = Table(
 )
 
 
-def release_tables() -> list[Table]:
-    tables = [table for table in Base.metadata.sorted_tables if table.name in RELEASE_TABLE_NAMES]
-    missing = RELEASE_TABLE_NAMES - {table.name for table in tables}
+def release_tables(names: frozenset[str] = RELEASE_TABLE_NAMES) -> list[Table]:
+    tables = [table for table in Base.metadata.sorted_tables if table.name in names]
+    missing = names - {table.name for table in tables}
     if missing:
         raise RuntimeError(f"Release table definitions are missing: {sorted(missing)}")
     for table in tables:
@@ -41,12 +43,7 @@ def release_tables() -> list[Table]:
 
 
 async def migrate_schema(connection: AsyncConnection) -> None:
-    """Install the current shape at baseline 1, or verify a versioned database.
-
-    Future versions add explicit steps here. This function never drops data,
-    guesses an unversioned schema, or imports a historical v1 implementation.
-    The caller owns the transaction.
-    """
+    """Install baseline 1, then run ordered upgrades in the caller's transaction."""
     await connection.execute(text("SELECT pg_advisory_xact_lock(83412701)"))
     schema = (await connection.execute(text("SELECT current_schema()"))).scalar_one()
     existing = set(await connection.run_sync(lambda conn: inspect(conn).get_table_names(schema=schema)))
@@ -55,15 +52,31 @@ async def migrate_schema(connection: AsyncConnection) -> None:
             raise RuntimeError("Existing unversioned database left untouched; use a new release database.")
         await connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         metadata = MetaData()
-        for table in release_tables():
+        for table in release_tables(BASELINE_TABLE_NAMES):
             table.to_metadata(metadata, schema=schema)
         await connection.run_sync(metadata.create_all)
         await connection.run_sync(MIGRATION_METADATA.create_all)
         await connection.execute(schema_migrations.insert().values(version=1))
-        return
+        existing = BASELINE_TABLE_NAMES | {"schema_migrations"}
     versions = list((await connection.execute(select(schema_migrations.c.version).order_by(schema_migrations.c.version))).scalars())
-    if versions != [1]:
+    if (not versions or versions[-1] > CURRENT_SCHEMA_VERSION
+            or versions != list(range(1, versions[-1] + 1))):
         raise RuntimeError(f"Unsupported schema migration history: {versions}")
-    expected = RELEASE_TABLE_NAMES | {"schema_migrations"}
+    expected = BASELINE_TABLE_NAMES | {"schema_migrations"}
+    if versions[-1] >= 2:
+        expected |= GAMES_TABLE_NAMES
     if existing != expected:
         raise RuntimeError("Versioned database tables differ from the released schema; database left untouched.")
+    if versions[-1] < 2:
+        # Independent catalog inventories. No Game row is reinterpreted as a
+        # Hardware/Toy row and no existing table or record is replaced.
+        quoted_schema = '"' + schema.replace('"', '""') + '"'
+        for value in ("game_hardware", "game_toy"):
+            await connection.execute(text(
+                f"ALTER TYPE {quoted_schema}.item_kind ADD VALUE IF NOT EXISTS '{value}'"
+            ))
+        metadata = MetaData()
+        for table in release_tables(GAMES_TABLE_NAMES):
+            table.to_metadata(metadata, schema=schema)
+        await connection.run_sync(metadata.create_all)
+        await connection.execute(schema_migrations.insert().values(version=2))

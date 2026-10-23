@@ -22,6 +22,8 @@ independent reusable grouping.
 | Music | `music_items` (discs and tracks are contained in `details`) |
 | Books | `book_items`, `book_series` (printings, credits, identifiers, and item membership are contained in `details`) |
 | Games | `game_items` (identifiers are contained in `details`) |
+| Hardware | `game_hardware_items` (edition fields only; serial numbers are personal) |
+| Toys | `game_toy_items` (type and subtype belong to Toys) |
 | Board games | `boardgame_items` (identifiers are contained in `details`) |
 | Comics | `comic_items` (identifiers and issue details are contained in `details`) |
 | Manga | `manga_items` (identifiers and chapters are contained in `details`) |
@@ -36,6 +38,13 @@ catalog items. Core search uses root columns and indexes over the JSONB document
 
 The full generated schema, including every column, enum, foreign key, index, and constraint,
 is available in [schema-full.md](schema-full.md) and the interactive [schema viewer](schema.html).
+
+## Release migrations
+
+Baseline 1 contains Music and shared support tables. Ordered migration 2 adds
+Games, Hardware and Toys as independent catalog roots. Other kind tables listed
+above remain unreleased. Existing rows are preserved; migrations never infer
+Hardware/Toy identity from a Game title or reset an existing database.
 
 ## Shared Catalog Relations
 

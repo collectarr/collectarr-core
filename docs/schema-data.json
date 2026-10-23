@@ -109,11 +109,14 @@
         "duplicate_review_details",
         "duplicate_review_entities",
         "duplicate_reviews",
+        "game_hardware_items",
+        "game_items",
+        "game_toy_items",
         "physical_format_refs",
         "release_statuses",
         "schema_migrations"
       ],
-      "diagram": "erDiagram\n  ADMIN_AUDIT_LOG_DETAILS {\n    UUID audit_log_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    VARCHAR_64 date_value_parts\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  CANONICAL_CORRECTION_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    VARCHAR_64 date_value_parts\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  CANONICAL_CORRECTION_PROPOSALS {\n    item_kind kind\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_64 scope\n    VARCHAR_128 base_revision\n    VARCHAR_128 base_hash\n    VARCHAR_32 status\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEW_DETAILS {\n    UUID review_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    VARCHAR_64 date_value_parts\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  DUPLICATE_REVIEW_ENTITIES {\n    UUID review_id FK\n    VARCHAR_32 role\n    UUID entity_id\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SCHEMA_MIGRATIONS {\n    INTEGER version PK\n    TIMESTAMP_WITH_TIME_ZONE applied_at\n  }\n  CANONICAL_CORRECTION_PROPOSALS ||--o{ CANONICAL_CORRECTION_PROPOSAL_VALUES : proposal_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_DETAILS : review_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_ENTITIES : review_id",
+      "diagram": "erDiagram\n  ADMIN_AUDIT_LOG_DETAILS {\n    UUID audit_log_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    VARCHAR_64 date_value_parts\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  CANONICAL_CORRECTION_PROPOSAL_VALUES {\n    UUID proposal_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    VARCHAR_64 date_value_parts\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  CANONICAL_CORRECTION_PROPOSALS {\n    item_kind kind\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_64 scope\n    VARCHAR_128 base_revision\n    VARCHAR_128 base_hash\n    VARCHAR_32 status\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEW_DETAILS {\n    UUID review_id FK\n    VARCHAR_1024 path\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n    VARCHAR_16 value_type\n    TEXT string_value\n    BIGINT integer_value\n    NUMERIC_20__8 decimal_value\n    BOOLEAN boolean_value\n    DATE date_value\n    VARCHAR_64 date_value_parts\n    TIMESTAMP_WITH_TIME_ZONE datetime_value\n    UUID uuid_value\n  }\n  DUPLICATE_REVIEW_ENTITIES {\n    UUID review_id FK\n    VARCHAR_32 role\n    UUID entity_id\n    INTEGER position\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  DUPLICATE_REVIEWS {\n    VARCHAR_32 action\n    VARCHAR_64 entity_type\n    UUID entity_id\n    VARCHAR_128 ignore_token\n    UUID target_entity_id\n    INTEGER duplicate_score\n    UUID actor_user_id FK\n    VARCHAR_320 actor_email\n    TEXT note\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_HARDWARE_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    VARCHAR_100 catalog_number\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  GAME_TOY_ITEMS {\n    VARCHAR_255 title\n    VARCHAR_255 sort_key\n    VARCHAR_100 barcode\n    JSONB details\n    INTEGER revision\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  PHYSICAL_FORMAT_REFS {\n    VARCHAR_64 id PK\n    VARCHAR_64 label\n    VARCHAR_64 media_family\n    VARCHAR_64 variant_type\n    BOOLEAN is_active\n    BOOLEAN is_system\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  RELEASE_STATUSES {\n    VARCHAR_64 code UK\n    VARCHAR_128 label\n    BOOLEAN is_active\n    BOOLEAN is_system\n    UUID id PK\n    TIMESTAMP_WITH_TIME_ZONE created_at\n    TIMESTAMP_WITH_TIME_ZONE updated_at\n  }\n  SCHEMA_MIGRATIONS {\n    INTEGER version PK\n    TIMESTAMP_WITH_TIME_ZONE applied_at\n  }\n  CANONICAL_CORRECTION_PROPOSALS ||--o{ CANONICAL_CORRECTION_PROPOSAL_VALUES : proposal_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_DETAILS : review_id\n  DUPLICATE_REVIEWS ||--o{ DUPLICATE_REVIEW_ENTITIES : review_id",
       "external_references": [
         {
           "from_table": "admin_audit_log_details",
@@ -763,6 +766,574 @@
         ]
       },
       "polymorphic_note": "Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key."
+    },
+    {
+      "name": "game_hardware_items",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_hardware_items_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_key",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_hardware_items_sort_key"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_hardware_items_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "details",
+          "type": "JSONB",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_hardware_items_details_gin"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "revision",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "1",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_game_hardware_items_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_hardware_items_details_gin",
+            "columns": [
+              "details"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_hardware_items_sort_key",
+            "columns": [
+              "sort_key"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_hardware_items_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "game_items",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_items_title",
+            "ix_game_items_title_trgm"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_key",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_items_sort_key",
+            "ix_game_items_sort_key_trgm"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_items_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "catalog_number",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_items_catalog_number"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "details",
+          "type": "JSONB",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_items_details_gin"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "revision",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "1",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_game_items_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_catalog_number",
+            "columns": [
+              "catalog_number"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_details_gin",
+            "columns": [
+              "details"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_sort_key",
+            "columns": [
+              "sort_key"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_sort_key_trgm",
+            "columns": [
+              "sort_key"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_items_title_trgm",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
+    },
+    {
+      "name": "game_toy_items",
+      "domain": "misc",
+      "columns": [
+        {
+          "name": "title",
+          "type": "VARCHAR(255)",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_toy_items_title"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "sort_key",
+          "type": "VARCHAR(255)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_toy_items_sort_key"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "barcode",
+          "type": "VARCHAR(100)",
+          "nullable": true,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_toy_items_barcode"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "details",
+          "type": "JSONB",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": true,
+          "indexes": [
+            "ix_game_toy_items_details_gin"
+          ],
+          "default": null,
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "revision",
+          "type": "INTEGER",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "1",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "id",
+          "type": "UUID",
+          "nullable": false,
+          "primary_key": true,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:uuid.uuid4",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "nullable": false,
+          "primary_key": false,
+          "unique": false,
+          "unique_constraint": null,
+          "index": false,
+          "indexes": [],
+          "default": "python:app.models.base.TimestampMixin.<lambda>",
+          "server_default": null,
+          "autoincrement": true,
+          "foreign_keys": [],
+          "enum": null
+        }
+      ],
+      "constraints": {
+        "primary_key": {
+          "name": null,
+          "columns": [
+            "id"
+          ]
+        },
+        "foreign_keys": [],
+        "unique_constraints": [],
+        "check_constraints": [],
+        "indexes": [
+          {
+            "name": "ix_game_toy_items_barcode",
+            "columns": [
+              "barcode"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_toy_items_details_gin",
+            "columns": [
+              "details"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_toy_items_sort_key",
+            "columns": [
+              "sort_key"
+            ],
+            "unique": false
+          },
+          {
+            "name": "ix_game_toy_items_title",
+            "columns": [
+              "title"
+            ],
+            "unique": false
+          }
+        ]
+      },
+      "polymorphic_note": null
     },
     {
       "name": "image_assets",
@@ -4837,6 +5408,8 @@
         "collection",
         "comic",
         "game",
+        "game_hardware",
+        "game_toy",
         "manga",
         "movie",
         "music",
@@ -4975,10 +5548,10 @@
     }
   ],
   "summary": {
-    "tables": 23,
-    "columns": 219,
+    "tables": 26,
+    "columns": 244,
     "foreign_keys": 10,
-    "indexes": 66,
+    "indexes": 81,
     "unique_constraints": 12,
     "check_constraints": 3
   }

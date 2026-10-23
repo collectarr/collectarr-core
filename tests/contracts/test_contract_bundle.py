@@ -31,4 +31,4 @@ def test_contract_bundle_exports_versioned_snapshot(tmp_path):
     )
 
     assert "collection" not in active_kinds["kinds"]
-    assert active_kinds["kinds"] == ["music"]
+    assert active_kinds["kinds"] == ["game", "music"]

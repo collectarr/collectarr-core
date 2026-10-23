@@ -13,6 +13,8 @@ from app.catalog.kind_documents import (
     book,
     comic,
     game,
+    game_hardware,
+    game_toy,
     manga,
     movie,
     music,
@@ -25,7 +27,9 @@ from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_comic_item import ComicItem
+from app.models.catalog_game_hardware_item import GameHardwareItem
 from app.models.catalog_game_item import GameItem
+from app.models.catalog_game_toy_item import GameToyItem
 from app.models.catalog_manga_item import MangaItem
 from app.models.catalog_movie_item import MovieItem
 from app.models.catalog_music_item import MusicItem
@@ -55,6 +59,8 @@ class CatalogKindDefinition:
     search_document_function: str = "flat_catalog_item_search_document"
     search_document_uses_kind: bool = True
     contained_count_fields: tuple[str, ...] = ()
+    is_top_level: bool = True
+    search_filter_fields: tuple[str, ...] = ()
 
     @property
     def table_name(self) -> str:
@@ -206,6 +212,31 @@ _KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
                 contained_count_fields=("identifiers",),
             ),
             CatalogKindDefinition(
+                kind=ItemKind.game_hardware, document=game_hardware.DOCUMENT,
+                model=GameHardwareItem,
+                response_model_module="app.schemas.catalog_game_hardware_item",
+                response_model_name="CatalogGameHardwareItemResponse",
+                proposal_writer_module="app.services.catalog_game_hardware_items",
+                proposal_writer_name="CatalogGameHardwareItemService",
+                route_module="app.api.routes.metadata.catalog_game_hardware_items",
+                entity_type="catalog_game_hardware_item", singular_label="Hardware",
+                plural_label="Hardware", route_segments=("game-hardware",),
+                field_specs=game_hardware.FIELD_SPECS, is_top_level=False,
+                search_filter_fields=game_hardware.SEARCH_FILTER_FIELDS,
+            ),
+            CatalogKindDefinition(
+                kind=ItemKind.game_toy, document=game_toy.DOCUMENT, model=GameToyItem,
+                response_model_module="app.schemas.catalog_game_toy_item",
+                response_model_name="CatalogGameToyItemResponse",
+                proposal_writer_module="app.services.catalog_game_toy_items",
+                proposal_writer_name="CatalogGameToyItemService",
+                route_module="app.api.routes.metadata.catalog_game_toy_items",
+                entity_type="catalog_game_toy_item", singular_label="Toy",
+                plural_label="Toys", route_segments=("game-toys",),
+                field_specs=game_toy.FIELD_SPECS, is_top_level=False,
+                search_filter_fields=game_toy.SEARCH_FILTER_FIELDS,
+            ),
+            CatalogKindDefinition(
                 kind=ItemKind.book,
                 document=book.DOCUMENT,
                 model=BookItem,
@@ -251,7 +282,8 @@ _KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
 )
 
 CATALOG_KIND_DEFINITIONS = tuple(
-    definition for definition in _KIND_DEFINITIONS if definition.kind is ItemKind.music
+    definition for definition in _KIND_DEFINITIONS
+    if definition.kind in {ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy}
 )
 
 CATALOG_KINDS_BY_ID = {definition.kind: definition for definition in CATALOG_KIND_DEFINITIONS}

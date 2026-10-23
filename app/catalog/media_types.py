@@ -30,6 +30,7 @@ _CATALOG_MEDIA_TYPES = tuple(
         route_segments=definition.route_segments,
         item_number_sort_padding=definition.item_number_sort_padding,
         physical_formats=definition.physical_formats,
+        is_top_level=definition.is_top_level,
     )
     for definition in CATALOG_KIND_DEFINITIONS
 )

@@ -48,8 +48,20 @@ class CatalogItemSearchService:
         barcode: str | None = None,
         limit: int = 25,
         offset: int = 0,
+        field_filters: dict[str, list[str]] | None = None,
     ) -> CatalogSearchPage:
-        if not any(
+        if field_filters:
+            root = CATALOG_KINDS_BY_ID.get(kind)
+            if root is None or not set(field_filters).issubset(root.search_filter_fields):
+                raise ApiHTTPException(status_code=422, code="invalid_catalog_filters",
+                                       detail="Search filters must belong to the selected catalog kind")
+            if len(field_filters) > 16 or any(
+                len(values) > 20 or any(not value.strip() or len(value) > 200 for value in values)
+                for values in field_filters.values()
+            ):
+                raise ApiHTTPException(status_code=422, code="invalid_catalog_filters",
+                                       detail="Search filter values exceed the supported bounds")
+        if not field_filters and not any(
             value is not None and str(value).strip()
             for value in (
                 query,
@@ -80,6 +92,7 @@ class CatalogItemSearchService:
 
         arguments = {
             "query": query,
+            "field_filters": field_filters or {},
             "series": series,
             "issue_number": issue_number,
             "publisher": publisher,
@@ -170,6 +183,11 @@ class CatalogItemSearchService:
         query = _trim(arguments.get("query"))
         barcode = _trim(arguments.get("barcode"))
         predicates = []
+        for field, values in arguments.get("field_filters", {}).items():
+            # Registrations choose the searchable detail fields. Within a
+            # field selected values are ORed; separate fields are ANDed.
+            predicates.append(or_(*(model.details.contains({field: value}) for value in values))
+                              if values else literal(False))
 
         if query:
             pattern = f"%{query}%"
@@ -238,13 +256,16 @@ class CatalogItemSearchService:
         if catalog_number:
             if root.kind is ItemKind.music:
                 predicates.append(MusicItem.catalog_number == catalog_number)
-            else:
+            elif hasattr(model, "catalog_number"):
                 predicates.append(
                     or_(
                         model.catalog_number == catalog_number,
                         model.details.contains({"catalog_number": catalog_number}),
                     )
                 )
+
+            else:
+                predicates.append(literal(False))
 
         year = arguments.get("year")
         if year is not None:
@@ -381,6 +402,11 @@ class CatalogItemSearchService:
         add("subtitle", _text(getattr(item, "subtitle", None) or details.get("subtitle")))
         add("series_group", _text(details.get("series_group")))
 
+        # Each registered response owns the permitted catalog fields. Preserve
+        # its typed detail values when the shared search summary has no value.
+        for key in root.response_model.model_fields:
+            if key in details and key not in {"id", "kind", "revision"}:
+                kind_data.setdefault(key, details[key])
         return CatalogSearchItemEnvelope(
             id=item.id,
             kind=root.kind,

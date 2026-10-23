@@ -70,7 +70,7 @@ async def metadata_field_schema(
     specs = [
         spec
         for spec in METADATA_FIELDS
-        if not spec.correction_only and spec.applies_to(ItemKind.music) and (spec.editable or not editable_only)
+        if not spec.correction_only and any(spec.applies_to(definition.kind) for definition in CATALOG_KIND_DEFINITIONS) and (spec.editable or not editable_only)
     ]
     fields = [_field_spec_response(spec) for spec in specs]
     kind_fields = {

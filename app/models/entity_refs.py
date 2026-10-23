@@ -82,6 +82,14 @@ _ENTITY_REF_REGISTRY = EntityRefRegistry(
             supports_aliases=True,
             supports_links=True,
         ),
+        "catalog_game_hardware_item": EntityRefSpec(
+            "catalog_game_hardware_item", "game_hardware_items", "Hardware Catalog Item",
+            kind=ItemKind.game_hardware, supports_aliases=True, supports_links=True,
+        ),
+        "catalog_game_toy_item": EntityRefSpec(
+            "catalog_game_toy_item", "game_toy_items", "Toy Catalog Item",
+            kind=ItemKind.game_toy, supports_aliases=True, supports_links=True,
+        ),
         "catalog_manga_item": EntityRefSpec(
             "catalog_manga_item",
             "manga_items",
@@ -118,5 +126,6 @@ _ENTITY_REF_REGISTRY = EntityRefRegistry(
 
 DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry({
     entity_type: spec for entity_type, spec in _ENTITY_REF_REGISTRY.specs_by_entity_type.items()
-    if entity_type in {"catalog_music_item", "organization", "person", "tag"}
+    if entity_type in {"catalog_music_item", "catalog_game_item", "catalog_game_hardware_item",
+                       "catalog_game_toy_item", "organization", "person", "tag"}
 })

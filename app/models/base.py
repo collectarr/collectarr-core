@@ -36,6 +36,8 @@ class ItemKind(str, enum.Enum):
     collection = "collection"
     comic = "comic"
     game = "game"
+    game_hardware = "game_hardware"
+    game_toy = "game_toy"
     manga = "manga"
     movie = "movie"
     music = "music"

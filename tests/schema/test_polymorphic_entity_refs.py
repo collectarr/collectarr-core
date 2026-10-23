@@ -45,7 +45,9 @@ def test_comic_entity_refs_target_the_flat_catalog():
 
 
 def test_game_and_board_game_entity_refs_target_flat_catalog_items():
-    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_game_item")
+    assert _entity_table("catalog_game_item") == "game_items"
+    assert _entity_table("catalog_game_hardware_item") == "game_hardware_items"
+    assert _entity_table("catalog_game_toy_item") == "game_toy_items"
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_boardgame_item")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_work")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("game_release")

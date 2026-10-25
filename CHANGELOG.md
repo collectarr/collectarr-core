@@ -2,16 +2,37 @@
 
 ## Unreleased
 
+## 1.1.0 - 2026-10-25
+
+The Games catalog inventory baseline, automatic Music sort titles, and strict catalog schema enhancements for Collectarr Core.
+
 ### Features
 - Games, Hardware and Toys have independent catalog tables, strict contracts, search, proposal and correction routes, added via ordered migration 2.
 - Derive automatic sort titles for Music items when not explicitly entered.
 - Title every field and contained list in the Catalog Item schema.
 
-### Docs
-- Align agent contributing rules and token efficiency guidance with Collectarr standards.
+### Fixes
+- Dynamically resolve the active PostgreSQL schema for enum type migrations during test isolation.
+
+### Refactors
+- Removed the Anime catalog kind in favor of the unified catalog architecture.
 
 ### CI & Build
 - Bump actions/upload-artifact from 4 to 7.
+
+### Docs
+- Align agent contributing rules and token efficiency guidance with Collectarr standards.
+- Refresh catalog badges and document ordered migration baseline 2.
+
+### Tests
+- Validated ordered release migrations from baseline v1.0.0 to v1.1.0 on isolated PostgreSQL schemas.
+- Contract parity, OpenAPI schemas, and documentation generation verified across all endpoints.
+
+### Docker
+- `ghcr.io/collectarr/collectarr-core:1.1.0`
+- Platforms: `linux/amd64`, `linux/arm64`.
+
+**Full Changelog**: https://github.com/collectarr/collectarr-core/compare/v1.0.0...v1.1.0
 
 ## 1.0.0 - 2026-10-13
 

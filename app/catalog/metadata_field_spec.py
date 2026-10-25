@@ -28,7 +28,7 @@ INPUT_NUMBER = "number"
 INPUT_DATE = "date"
 INPUT_LIST = "list"
 
-VIDEO_KINDS: frozenset[ItemKind] = frozenset({ItemKind.anime, ItemKind.movie, ItemKind.tv})
+VIDEO_KINDS: frozenset[ItemKind] = frozenset({ItemKind.movie, ItemKind.tv})
 PRINT_KINDS: frozenset[ItemKind] = frozenset({ItemKind.book, ItemKind.comic, ItemKind.manga})
 TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({
     ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy,

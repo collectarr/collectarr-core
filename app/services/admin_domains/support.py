@@ -9,7 +9,6 @@ from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     AdminAuditLog,
     AdminAuditLogDetail,
-    AnimeItem,
     BoardGameItem,
     BookItem,
     ComicItem,
@@ -30,7 +29,6 @@ from app.services.catalog_manga_items import CatalogMangaItemService
 from app.services.catalog_movie_items import CatalogMovieItemService
 from app.services.catalog_music_items import CatalogMusicItemService
 from app.services.catalog_series_items import (
-    CatalogAnimeItemService,
     CatalogTvItemService,
 )
 from app.services.typed_values import flatten_typed_values
@@ -127,9 +125,6 @@ class AdminSupportService:
             return response.model_dump(mode="json")
         if isinstance(item, MangaItem):
             response = await CatalogMangaItemService(self.db).get(item.id)
-            return response.model_dump(mode="json")
-        if isinstance(item, AnimeItem):
-            response = await CatalogAnimeItemService(self.db).get(item.id)
             return response.model_dump(mode="json")
         if isinstance(item, GameItem):
             response = await CatalogGameItemService(self.db).get(item.id)

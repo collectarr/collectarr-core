@@ -16,7 +16,6 @@ payload in that page because Add needs album contents while searching.
 
 | Kind | Exact barcode | Exact catalog number | Additional identifiers | Index path |
 | --- | --- | --- | --- | --- |
-| Anime | `barcode` | `catalog_number` | Normalized identifier objects | B-tree columns; `details @>` with GIN |
 | Board Game | `barcode` | `catalog_number` | Normalized identifier objects | B-tree columns; `details @>` with GIN |
 | Book | `barcode` | `catalog_number` | ISBN values and normalized identifier objects | B-tree columns; `details @>` with GIN |
 | Comic | `barcode` | `catalog_number` | Normalized identifier objects | B-tree columns; `details @>` with GIN |

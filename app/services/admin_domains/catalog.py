@@ -290,7 +290,6 @@ class AdminCatalogService:
 
         update_data = payload.model_dump(exclude_unset=True)
         entity_type = {
-            ItemKind.anime: "catalog_anime_item",
             ItemKind.music: "catalog_music_item",
         }[kind]
 

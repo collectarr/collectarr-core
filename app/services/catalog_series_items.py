@@ -1,4 +1,4 @@
-"""Read and write Anime and TV catalog documents with contained values."""
+"""Read and write TV catalog documents with contained values."""
 
 from __future__ import annotations
 
@@ -13,9 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_tv_item import TvItem
-from app.schemas.catalog_anime_item import CatalogAnimeItemResponse
 from app.schemas.catalog_tv_item import CatalogTvItemResponse
 
 
@@ -49,9 +47,9 @@ class _CatalogSeriesItemService:
         payload["media"] = media
         payload["episodes"] = episodes
         payload["identifiers"] = identifiers
-        # Seasons are item-contained values for both series kinds. Anime may
-        # omit them, but preserving a submitted season list avoids discarding
-        # valid catalog details while normalizing its episodes.
+        # Seasons are item-contained values; preserving a submitted season
+        # list avoids discarding valid catalog details while normalizing its
+        # episodes.
         payload["seasons"] = seasons
 
         item = self.item_model(
@@ -121,14 +119,6 @@ class _CatalogSeriesItemService:
                 detail=f"{self.error_label} Catalog Item not found",
             )
         return _response(item, self.response_model, self.kind)
-
-
-class CatalogAnimeItemService(_CatalogSeriesItemService):
-    kind = ItemKind.anime
-    item_model = AnimeItem
-    response_model = CatalogAnimeItemResponse
-    error_code = "anime_item_not_found"
-    error_label = "Anime"
 
 
 class CatalogTvItemService(_CatalogSeriesItemService):

@@ -3,7 +3,6 @@
   "source_modules": [
     "app/models/base.py",
     "app/models/canonical_common.py",
-    "app/models/catalog_anime_item.py",
     "app/models/catalog_boardgame_item.py",
     "app/models/catalog_book_item.py",
     "app/models/catalog_book_series.py",
@@ -5402,7 +5401,6 @@
     "item_kind": {
       "name": "item_kind",
       "values": [
-        "anime",
         "boardgame",
         "book",
         "collection",

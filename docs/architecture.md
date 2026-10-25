@@ -34,7 +34,7 @@ their old Work/Release-style roots and related read paths have been removed.
 Admin corrections update the relevant kind-owned root document while preserving
 unrelated component identities. Structured contents such as printings, media,
 discs, seasons, and episodes remain kind-owned values inside that document.
-Anime and TV each use one flat Catalog Item root with contained media,
+TV uses one flat Catalog Item root with contained media,
 seasons, episodes, and identifiers; TV's former
 series/release routes, models, services, and database tables are removed from
 the active schema.

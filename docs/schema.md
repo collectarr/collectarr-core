@@ -27,7 +27,6 @@ independent reusable grouping.
 | Board games | `boardgame_items` (identifiers are contained in `details`) |
 | Comics | `comic_items` (identifiers and issue details are contained in `details`) |
 | Manga | `manga_items` (identifiers and chapters are contained in `details`) |
-| Anime | `anime_items` (media, seasons, episodes, and identifiers are contained in `details`) |
 | Movies | `movie_items` (media is contained in `details`) |
 | TV | `tv_items` (media, seasons, episodes, and identifiers are contained in `details`) |
 

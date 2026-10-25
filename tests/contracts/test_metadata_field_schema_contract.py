@@ -23,7 +23,7 @@ from app.catalog.metadata_fields import (
 from app.models.base import ItemKind
 from scripts.export_contract_bundle import CONTRACT_VERSION, write_contract_bundle
 
-VIDEO = ("anime", "movie", "tv")
+VIDEO = ("movie", "tv")
 PRINT = ("book", "comic", "manga")
 ALL = tuple(sorted(definition.kind.value for definition in CATALOG_KIND_DEFINITIONS))
 NO_MUSIC = tuple(kind for kind in ALL if kind != "music")

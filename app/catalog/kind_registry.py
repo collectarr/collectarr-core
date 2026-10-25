@@ -8,7 +8,6 @@ from typing import Any
 
 from app.catalog.document_shape import KindDocumentShape
 from app.catalog.kind_documents import (
-    anime,
     boardgame,
     book,
     comic,
@@ -23,7 +22,6 @@ from app.catalog.kind_documents import (
 from app.catalog.metadata_field_spec import MetadataFieldSpec
 from app.catalog.physical_formats import PhysicalFormatConfig, video_physical_formats
 from app.models.base import ItemKind
-from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_comic_item import ComicItem
@@ -125,23 +123,6 @@ _KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
                 route_segments=("manga",),
                 field_specs=manga.FIELD_SPECS,
                 contained_count_fields=("identifiers",),
-            ),
-            CatalogKindDefinition(
-                kind=ItemKind.anime,
-                document=anime.DOCUMENT,
-                model=AnimeItem,
-                response_model_module="app.schemas.catalog_anime_item",
-                response_model_name="CatalogAnimeItemResponse",
-                proposal_writer_module="app.services.catalog_series_items",
-                proposal_writer_name="CatalogAnimeItemService",
-                route_module="app.api.routes.metadata.catalog_anime_items",
-                entity_type="catalog_anime_item",
-                singular_label="Anime",
-                plural_label="Anime",
-                route_segments=("anime",),
-                field_specs=anime.FIELD_SPECS,
-                physical_formats=video_physical_formats,
-                contained_count_fields=("media", "episodes", "identifiers"),
             ),
             CatalogKindDefinition(
                 kind=ItemKind.movie,

@@ -42,7 +42,6 @@ _ENTITY_REF_REGISTRY = EntityRefRegistry(
             supports_aliases=True,
             supports_links=True,
         ),
-        "catalog_anime_item": EntityRefSpec("catalog_anime_item", "anime_items", "Anime Catalog Item", kind=ItemKind.anime, supports_aliases=True, supports_links=True),
         "catalog_boardgame_item": EntityRefSpec(
             "catalog_boardgame_item",
             "boardgame_items",

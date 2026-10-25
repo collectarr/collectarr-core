@@ -113,14 +113,6 @@ _CURATED_COVER_URLS: dict[tuple[ItemKind, str], tuple[str, str]] = {
         "https://upload.wikimedia.org/wikipedia/en/d/d6/Shingeki_no_Kyojin_manga_volume_1.jpg",
         "https://upload.wikimedia.org/wikipedia/en/d/d6/Shingeki_no_Kyojin_manga_volume_1.jpg",
     ),
-    (ItemKind.anime, "cowboy-bebop"): (
-        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-GCsPm7waJ4kS.png",
-        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-GCsPm7waJ4kS.png",
-    ),
-    (ItemKind.anime, "fullmetal-alchemist-brotherhood"): (
-        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5114-nSWCgQlmOMtj.jpg",
-        "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5114-nSWCgQlmOMtj.jpg",
-    ),
     (ItemKind.movie, "batman-begins"): (
         "https://upload.wikimedia.org/wikipedia/en/a/af/Batman_Begins_Poster.jpg",
         "https://upload.wikimedia.org/wikipedia/en/a/af/Batman_Begins_Poster.jpg",

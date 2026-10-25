@@ -18,7 +18,7 @@ def test_unreleased_kind_routes_are_not_resolved():
     for kind in ItemKind:
         if kind not in {ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy, ItemKind.collection}:
             assert media_type_for_kind(kind) is None
-    for route in ("comics", "books", "manga", "anime", "movies", "tv", "blu-ray"):
+    for route in ("comics", "books", "manga", "movies", "tv", "blu-ray"):
         assert media_type_for_route(route) is None
 
 

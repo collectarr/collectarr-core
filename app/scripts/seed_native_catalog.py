@@ -17,7 +17,6 @@ from app.models import (
     Tag,
 )
 from app.models.base import ItemKind
-from app.models.catalog_anime_item import AnimeItem
 from app.models.catalog_boardgame_item import BoardGameItem
 from app.models.catalog_book_item import BookItem
 from app.models.catalog_book_series import BookSeries
@@ -58,10 +57,6 @@ _ENTRIES: dict[ItemKind, list[_Entry]] = {
         _Entry(ItemKind.manga, "Chainsaw Man", "Chainsaw Man", "Shueisha", date(2018, 12, 3), ("Tatsuki Fujimoto", "mangaka"), "Denji", "shonen"),
         _Entry(ItemKind.manga, "Attack on Titan", "Attack on Titan", "Kodansha", date(2009, 9, 9), ("Hajime Isayama", "mangaka"), "Eren Yeager", "dark fantasy"),
     ],
-    ItemKind.anime: [
-        _Entry(ItemKind.anime, "Cowboy Bebop", "Cowboy Bebop", "Sunrise", date(1998, 4, 3), ("Shinichiro Watanabe", "director"), "Spike Spiegel", "sci-fi"),
-        _Entry(ItemKind.anime, "Fullmetal Alchemist: Brotherhood", "Fullmetal Alchemist: Brotherhood", "Bones", date(2009, 4, 5), ("Hiromu Arakawa", "creator"), "Edward Elric", "adventure"),
-    ],
     ItemKind.movie: [
         _Entry(ItemKind.movie, "Batman Begins", "The Dark Knight Trilogy", "Warner Bros.", date(2005, 6, 15), ("Christopher Nolan", "director"), "Bruce Wayne", "superhero"),
         _Entry(ItemKind.movie, "Blade Runner 2049", "Blade Runner", "Warner Bros.", date(2017, 10, 6), ("Denis Villeneuve", "director"), "Officer K", "sci-fi"),
@@ -94,8 +89,6 @@ def _seed_age_rating(kind: ItemKind) -> str | None:
         return "PG-13"
     if kind == ItemKind.tv:
         return "TV-MA"
-    if kind == ItemKind.anime:
-        return "TV-14"
     if kind == ItemKind.game:
         return "Teen"
     if kind == ItemKind.boardgame:
@@ -108,8 +101,6 @@ def _seed_runtime_minutes(kind: ItemKind) -> int | None:
         return 120
     if kind == ItemKind.tv:
         return 42
-    if kind == ItemKind.anime:
-        return 24
     return None
 
 
@@ -146,7 +137,7 @@ def _apply_seed_metadata(
         "backdrop_url": thumbnail_url,
         "runtime_minutes": _seed_runtime_minutes(kind),
         "media_count": _seed_media_count(kind),
-        "episode_count": 1 if kind in {ItemKind.tv, ItemKind.anime} else None,
+        "episode_count": 1 if kind == ItemKind.tv else None,
         "season_count": 1 if kind == ItemKind.tv else None,
         "track_count": 1 if kind == ItemKind.music else None,
         "catalog_number": f"SEED-{kind.value.upper()}-{index:03d}",
@@ -188,8 +179,6 @@ async def _seed_entry(db: AsyncSession, kind: ItemKind, entry: _Entry, index: in
         created.extend(await _seed_comic(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.manga:
         created.extend(await _seed_manga(db, entry, cover_url, thumbnail_url, index))
-    elif kind == ItemKind.anime:
-        created.extend(await _seed_anime(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.movie:
         created.extend(await _seed_movie(db, entry, cover_url, thumbnail_url, index))
     elif kind == ItemKind.tv:
@@ -362,65 +351,6 @@ async def _seed_manga(db: AsyncSession, entry: _Entry, cover_url: str | None, th
         item.id,
         entry.character,
         entity_type="catalog_manga_item",
-    )
-    return [item]
-
-
-async def _seed_anime(db: AsyncSession, entry: _Entry, cover_url: str | None, thumbnail_url: str | None, index: int) -> list[Any]:
-    item = (
-        await db.execute(select(AnimeItem).where(AnimeItem.title == entry.title))
-    ).scalar_one_or_none()
-    if item is None:
-        item = AnimeItem(title=entry.title, sort_key=_slug(entry.title), details={})
-        db.add(item)
-        await db.flush()
-    item.sort_key = _slug(entry.title)
-    item.barcode = f"SEED-ANIME-{index:03d}"
-    item.catalog_number = f"SEED-ANIME-{index:03d}"
-    item.details = {
-        **dict(item.details or {}),
-        "series_title": entry.series_title,
-        "item_number": str(index),
-        "release_date": entry.release_date.isoformat(),
-        "release_date_parts": {
-            "year": entry.release_date.year,
-            "month": entry.release_date.month,
-            "day": entry.release_date.day,
-        },
-        "publisher": entry.publisher,
-        "country": "JP",
-        "language": "ja",
-        "genres": [entry.tag] if entry.tag else [],
-        "creators": [{"name": entry.creator[0], "role": entry.creator[1]}],
-        "characters": [entry.character] if entry.character else [],
-        "release_status": "completed",
-        "description": f"Seed data for {entry.title}.",
-        "cover_image_url": cover_url,
-        "thumbnail_image_url": thumbnail_url,
-    }
-    if not item.details.get("media"):
-        item.details["media"] = [{"id": str(uuid4()), "position": 0, "media_number": 1}]
-    if not item.details.get("episodes"):
-        item.details["episodes"] = [{
-            "id": str(uuid4()),
-            "position": 0,
-            "episode_number": index,
-            "title": entry.title,
-            "episode_title": entry.title,
-            "air_date": entry.release_date.isoformat(),
-            "description": entry.series_title,
-            "runtime_minutes": 24,
-            "cover_image_url": cover_url,
-        }]
-    item.details = dict(item.details)
-    await _ensure_person_link(db, item.id, "catalog_anime_item", entry.creator, "creator")
-    await _ensure_tag_link(db, item.id, "catalog_anime_item", entry.tag)
-    await _ensure_story_arc_link(db, item.id, "catalog_anime_item", entry.story_arc)
-    await _ensure_character_appearance(
-        db,
-        item.id,
-        entry.character,
-        entity_type="catalog_anime_item",
     )
     return [item]
 
@@ -719,8 +649,6 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
         kwargs["country"] = "US"
     if hasattr(model, "original_language"):
         kwargs["original_language"] = "en"
-    if hasattr(model, "anime_type"):
-        kwargs["anime_type"] = "tv"
     if hasattr(model, "episode_count"):
         kwargs["episode_count"] = 12
     row = model(**kwargs)
@@ -753,7 +681,6 @@ async def _ensure_tag_link(db: AsyncSession, entity_id: Any, entity_type: str, t
     if not tag_name:
         return
     tag_kind = {
-        "catalog_anime_item": "anime",
         "catalog_book_item": "book",
         "catalog_comic_item": "comic",
         "catalog_manga_item": "manga",

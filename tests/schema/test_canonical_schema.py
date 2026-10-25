@@ -59,7 +59,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "canonical_correction_proposal_values",
         }
         canonical_kind_tables = {
-            "anime_items",
             "boardgame_items",
             "book_items",
             "comic_items",
@@ -84,11 +83,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "manga_editions",
             "manga_chapters",
             "manga_series",
-            "anime_series",
-            "anime_releases",
-            "anime_episodes",
-            "anime_release_media",
-            "anime_release_episode_map",
             "book_item_printings",
             "book_item_credits",
             "book_item_identifiers",
@@ -96,9 +90,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
             "game_item_identifiers",
             "boardgame_item_identifiers",
             "manga_item_identifiers",
-            "anime_item_media",
-            "anime_item_episodes",
-            "anime_item_identifiers",
             "tv_item_seasons",
             "tv_item_episodes",
             "tv_item_media",
@@ -142,7 +133,6 @@ async def test_canonical_catalog_schema_exists(schema_database):
         assert {
             "comic",
             "manga",
-            "anime",
             "movie",
             "tv",
             "game",

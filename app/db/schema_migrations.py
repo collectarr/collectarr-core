@@ -70,11 +70,18 @@ async def migrate_schema(connection: AsyncConnection) -> None:
     if versions[-1] < 2:
         # Independent catalog inventories. No Game row is reinterpreted as a
         # Hardware/Toy row and no existing table or record is replaced.
-        quoted_schema = '"' + schema.replace('"', '""') + '"'
-        for value in ("game_hardware", "game_toy"):
-            await connection.execute(text(
-                f"ALTER TYPE {quoted_schema}.item_kind ADD VALUE IF NOT EXISTS '{value}'"
-            ))
+        type_schema = (await connection.execute(text(
+            "SELECT n.nspname FROM pg_type t "
+            "JOIN pg_namespace n ON n.oid = t.typnamespace "
+            "WHERE t.typname = 'item_kind' "
+            "ORDER BY CASE WHEN n.nspname = :schema THEN 0 ELSE 1 END LIMIT 1"
+        ), {"schema": schema})).scalar_one_or_none()
+        if type_schema is not None:
+            quoted_target = '"' + type_schema.replace('"', '""') + '"'
+            for value in ("game_hardware", "game_toy"):
+                await connection.execute(text(
+                    f"ALTER TYPE {quoted_target}.item_kind ADD VALUE IF NOT EXISTS '{value}'"
+                ))
         metadata = MetaData()
         for table in release_tables(GAMES_TABLE_NAMES):
             table.to_metadata(metadata, schema=schema)

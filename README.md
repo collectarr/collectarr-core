@@ -1,41 +1,46 @@
 # 🎼 Collectarr Core
 
-A self-hosted Music catalog for Collectarr: discover albums, keep edition details
-consistent and review improvements to shared catalog information.
+A self-hosted Music and Games catalog for Collectarr: discover albums and games,
+keep edition details consistent and review improvements to shared catalog information.
 
-**Version 1 supports Music only.** The current Music schema and API are preserved
-as the v1 baseline. Other kinds and their tables arrive in later releases.
+**Current release supports Music and Games.** Baseline 1 established the Music
+baseline and shared catalog infrastructure. Ordered migration 2 introduced independent
+Games inventory catalogs (Games, Hardware and Toys). Other kinds arrive in future
+versioned migrations.
 
 ## ✨ A catalog built around real releases
 
-- Search Music releases using titles, artists and supported identifiers.
-- Keep edition details, artist credits, discs, tracks and artwork together.
+- Search Music and Games releases using titles, creators, platforms and supported identifiers.
+- Keep edition details, credits, discs, tracks, media and artwork together.
+- Derive automatic sort titles for releases (e.g. "The Wall" -> "Wall, The").
+- Manage independent inventories for Games, Hardware and Toys without mixing personal copy state.
 - Describe recording details and credits at the correct album/disc scope.
 - Submit new catalog entries and propose corrections for review.
 - Let administrators review submissions and manage catalog quality.
-- Give the App a consistent contract for searching, adding and editing albums.
+- Give the App a consistent contract for searching, adding and editing items.
 
 Core contains catalog facts. Your collection status, notes, loans, purchases,
-listening history and custom values belong to the App and optional Sync service.
+listening/playing history and custom values belong to the App and optional Sync service.
 
 ## 📸 A look inside
 
-> **Screenshot placeholder — Add from Core:** searching for a Music album.
+> **Screenshot placeholder — Add from Core:** searching for a catalog release.
 >
 > **Screenshot placeholder — Catalog review:** proposed details and corrections.
 
 ## 🧭 An independent CLZ-inspired project
 
 Core is part of Collectarr's independent **clean-room implementation inspired by
-CLZ Music workflows**. Collectarr is not affiliated with or endorsed by CLZ.
+CLZ workflows**. Collectarr is not affiliated with or endorsed by CLZ.
 No CLZ catalog dataset, implementation code or proprietary assets are bundled.
 
 ## 🔒 Stable data, explicit upgrades
 
-The initial release creates only the Music catalog and the shared infrastructure
-it needs. This is the current model labelled v1, not a historical schema rollback.
-After v1, all persistent schema changes require explicit versioned migrations.
-Adding another kind introduces its tables through a migration rather than
+The initial release created only the Music catalog and the shared infrastructure
+it needs as the v1 baseline. Ordered migration 2 added independent tables for Games,
+Hardware and Toys while preserving the Music baseline.
+All persistent schema changes require explicit versioned migrations.
+Adding another kind introduces its tables through an ordered migration rather than
 pre-creating unused schemas or replacing existing databases.
 
 Do not reset a live database, user backup or catalog as part of development.

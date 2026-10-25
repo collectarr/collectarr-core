@@ -7585,23 +7585,6 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "ItemKind": {
-        "type": "string",
-        "enum": [
-          "boardgame",
-          "book",
-          "collection",
-          "comic",
-          "game",
-          "game_hardware",
-          "game_toy",
-          "manga",
-          "movie",
-          "music",
-          "tv"
-        ],
-        "title": "ItemKind"
-      },
       "JsonObject-Input": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue-Input"

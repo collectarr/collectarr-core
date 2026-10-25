@@ -8,6 +8,9 @@
 ### Refactors
 - Ordered migration 2 adds Games inventories while preserving the Music baseline and refusing unsupported databases.
 
+### Docs
+- Align agent contributing rules and token efficiency guidance with Collectarr standards.
+
 ## What's Changed
 
 ### ✨ Features

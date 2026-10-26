@@ -42,7 +42,7 @@ jobs:
 
       - name: Preview release version
         id: semantic_preview
-        uses: cycjimmy/semantic-release-action@v6
+        uses: cycjimmy/semantic-release-action@v8
         with:
           dry_run: true
           extra_plugins: |
@@ -127,7 +127,7 @@ jobs:
 
       - name: Release
         if: steps.release_mode.outputs.publish_release == 'true' && !inputs.force_publish_existing && github.event_name != 'release'
-        uses: cycjimmy/semantic-release-action@v6
+        uses: cycjimmy/semantic-release-action@v8
         with:
           extra_plugins: |
             conventional-changelog-conventionalcommits@8

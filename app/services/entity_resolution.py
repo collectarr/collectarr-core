@@ -10,10 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
 from app.models import (
     BundleRelease,
-    Character,
     Organization,
-    Person,
-    StoryArc,
     Tag,
 )
 from app.models.base import ItemKind
@@ -40,10 +37,7 @@ ENTITY_MODEL_BY_TYPE.update(
     {
         "book_series": BookSeries,
         "bundle_release": BundleRelease,
-        "character": Character,
         "organization": Organization,
-        "person": Person,
-        "story_arc": StoryArc,
         "tag": Tag,
     }
 )

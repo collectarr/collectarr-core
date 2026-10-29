@@ -3,7 +3,6 @@ from uuid import uuid4
 import pytest
 
 from app.db.session import AsyncSessionLocal
-from app.models import Person
 from app.models.catalog_music_item import MusicItem
 from app.worker.main import index_once
 
@@ -13,10 +12,6 @@ from app.worker.main import index_once
 @pytest.mark.asyncio
 async def test_index_once_eager_loads_flat_book_item_credits():
     async with AsyncSessionLocal() as db:
-        person = Person(name="J.R.R. Tolkien")
-        db.add(person)
-        await db.flush()
-
         item = MusicItem(
             title="The Fellowship of the Ring",
             artist="J.R.R. Tolkien",

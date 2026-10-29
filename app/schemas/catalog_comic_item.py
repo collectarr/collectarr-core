@@ -48,7 +48,6 @@ class CatalogComicCharacterResponse(BaseModel):
 
 class CatalogComicStoryArcResponse(BaseModel):
     id: str | None = None
-    story_arc_id: str | None = None
     name: str | None = None
     description: str | None = None
     publisher: str | None = None

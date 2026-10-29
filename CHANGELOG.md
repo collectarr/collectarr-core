@@ -7,6 +7,9 @@
 ### Features
 - Add a Comics catalog with distinct publication fields and partial dates, one creator list and one character list per issue, upgrading existing Music/Games databases through ordered migration 3.
 
+### Refactors
+- Keep credits as names on each item: ordered migration 3 drops the unused person records, the person ids on Game credits and the `/creators` browse endpoints.
+
 ### CI & Build
 - Release notes list every merged pull request, direct commit and closed issue, and record new release summaries in the repository.
 - Simplify self-hosting to standard Docker Compose, removing Unraid-specific deployment.

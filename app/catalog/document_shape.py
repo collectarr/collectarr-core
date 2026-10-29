@@ -52,7 +52,6 @@ INTEGER_OR_STRING = "integer_or_string"
 PERSON = ChildObjectShape(
     fields={
         "id": STRING,
-        "person_id": STRING,
         "name": STRING,
         "role": STRING,
         "role_id": STRING,
@@ -61,7 +60,7 @@ PERSON = ChildObjectShape(
         "image_url": STRING,
         "sort_name": STRING,
     },
-    nullable=frozenset({"id", "person_id", "sequence"}),
+    nullable=frozenset({"id", "sequence"}),
     allow_string_value=True,
 )
 
@@ -98,28 +97,26 @@ LINK = ChildObjectShape(
 CHARACTER = ChildObjectShape(
     fields={
         "id": STRING,
-        "character_id": STRING,
         "name": STRING,
         "aliases": STRING_LIST,
         "role": STRING,
         "description": STRING,
         "image_url": STRING,
     },
-    nullable=frozenset({"id", "character_id", "aliases"}),
+    nullable=frozenset({"id", "aliases"}),
     allow_string_value=True,
 )
 
 STORY_ARC = ChildObjectShape(
     fields={
         "id": STRING,
-        "story_arc_id": STRING,
         "name": STRING,
         "description": STRING,
         "publisher": STRING,
         "start_date": PARTIAL_DATE,
         "end_date": PARTIAL_DATE,
     },
-    nullable=frozenset({"id", "story_arc_id", "start_date", "end_date"}),
+    nullable=frozenset({"id", "start_date", "end_date"}),
     allow_string_value=True,
 )
 

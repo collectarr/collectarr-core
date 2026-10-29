@@ -21,26 +21,6 @@ def public_item_kind(kind: Any) -> ItemKind | None:
     return kind if isinstance(kind, ItemKind) else None
 
 
-class MetadataCredit(BaseModel):
-    name: str
-    role: str | None = None
-    api_detail_url: str | None = None
-    site_detail_url: str | None = None
-    image_url: str | None = None
-
-    model_config = {"extra": "allow"}
-
-
-class ContributorResponse(BaseModel):
-    person_id: UUID
-    name: str
-    role: str
-    sequence: int | None = None
-    image_url: str | None = None
-
-    model_config = {"from_attributes": True}
-
-
 class CatalogSearchItemEnvelope(BaseModel):
     """A search hit with catalog fields owned by its kind."""
 

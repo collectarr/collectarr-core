@@ -31,9 +31,9 @@ independent reusable grouping.
 | TV | `tv_items` (media, seasons, episodes, and identifiers are contained in `details`) |
 
 Kind-owned document schemas validate each root's scalar fields and repeated values, including
-component identity and order where applicable. Shared editorial records such as people,
-organizations, aliases, links, and tags keep independent tables when they are reused across
-catalog items. Core search uses root columns and indexes over the JSONB documents.
+component identity and order where applicable. Credits, characters and story arcs are names
+inside each item's document. Shared editorial records such as organizations, aliases, links,
+and tags keep independent tables when they are reused across catalog items. Core search uses root columns and indexes over the JSONB documents.
 
 The full generated schema, including every column, enum, foreign key, index, and constraint,
 is available in [schema-full.md](schema-full.md) and the interactive [schema viewer](schema.html).
@@ -41,8 +41,10 @@ is available in [schema-full.md](schema-full.md) and the interactive [schema vie
 ## Release migrations
 
 Baseline 1 contains Music and shared support tables. Ordered migration 2 adds
-Games, Hardware and Toys as independent catalog roots. Other kind tables listed
-above remain unreleased. Existing rows are preserved; migrations never infer
+Games, Hardware and Toys as independent catalog roots. Ordered migration 3 adds
+Comics and drops the baseline `persons` and `entity_persons` tables, with the
+aliases, links, tags, images, reviews and corrections that pointed at a person.
+Other kind tables listed above remain unreleased. Existing rows are preserved; migrations never infer
 Hardware/Toy identity from a Game title or reset an existing database.
 
 ## Shared Catalog Relations
@@ -50,8 +52,7 @@ Hardware/Toy identity from a Game title or reset an existing database.
 Shared typed relation tables include:
 
 - `organizations`: publishers, studios, developers, distributors, and labels.
-- `persons`: creators, writers, artists, directors, actors, authors, and musicians.
-- `entity_organizations` and `entity_persons`: role-bearing links to catalog entities.
+- `entity_organizations`: role-bearing organization links to catalog entities.
 - `entity_aliases`: searchable alternate names.
 - `entity_links`: trailers and external links.
 - `entity_tags` and `tags`: shared editorial taxonomy assignments.

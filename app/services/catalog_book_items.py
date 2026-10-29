@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
-from app.models.canonical_support import Person
 from app.models.catalog_book_item import (
     BookItem,
 )
@@ -46,20 +45,6 @@ class CatalogBookItemService:
             for credit in (_credit("contributor", value) for value in contributors)
             if credit is not None
         ]
-        person_ids = {
-            UUID(credit["person_id"])
-            for credit in credits
-            if credit.get("person_id") is not None
-        }
-        if person_ids:
-            result = await self.db.execute(select(Person.id).where(Person.id.in_(person_ids)))
-            found_person_ids = set(result.scalars())
-            missing_person_ids = person_ids - found_person_ids
-            if missing_person_ids:
-                raise ValueError(
-                    "Book credit person_id does not refer to a known catalog person: "
-                    + ", ".join(sorted(str(value) for value in missing_person_ids))
-                )
         identifier_rows = [
             identifier
             for identifier in (_identifier(value) for value in identifiers)
@@ -254,12 +239,6 @@ def _credit(credit_type: str, value: Any) -> dict[str, Any] | None:
     name = _optional_string(value.get("name"))
     if name is None:
         return None
-    person_id = value.get("person_id")
-    if person_id is not None:
-        try:
-            person_id = UUID(str(person_id))
-        except ValueError as error:
-            raise ValueError("Book credit person_id must be a UUID") from error
     try:
         credit_id = str(UUID(str(value.get("id")))) if value.get("id") else str(uuid4())
     except ValueError as error:
@@ -267,7 +246,6 @@ def _credit(credit_type: str, value: Any) -> dict[str, Any] | None:
     return {
         "id": credit_id,
         "credit_type": credit_type,
-        "person_id": str(person_id) if person_id is not None else None,
         "name": name,
         "role": _optional_string(value.get("role")),
         "role_id": _optional_string(value.get("role_id")),

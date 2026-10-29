@@ -23,15 +23,12 @@ from app.metadata_normalized import (
     typed_metadata_payload,
 )
 from app.models import (
-    Character,
     EntityAlias,
     EntityLink,
     MovieItem,
     MusicItem,
-    Person,
     PhysicalFormatRef,
     ReleaseStatus,
-    StoryArc,
 )
 from app.models.base import ItemKind
 from app.models.partial_date import PartialDateValue, partial_date_storage
@@ -998,52 +995,6 @@ class AdminCatalogService:
             self.db.add(EntityTag(entity_type=entity_type, entity_id=entity_id, tag_id=tag.id))
         await self.db.flush()
 
-    def _current_creators(self, item: Any) -> list[dict[str, Any]]:
-        entries: list[dict[str, Any]] = []
-        for link in list(getattr(item, "creator_links", []) or []):
-            person = getattr(link, "person", None)
-            name = getattr(person, "name", None)
-            if not isinstance(name, str) or not name.strip():
-                continue
-            role = getattr(link, "role", None)
-            entry: dict[str, Any] = {"name": name.strip()}
-            if isinstance(role, str) and role.strip():
-                entry["role"] = role.strip()
-            entries.append(entry)
-        return entries
-
-    def _current_characters(self, item: Any) -> list[str]:
-        entries: list[str] = []
-        for link in list(getattr(item, "character_appearances", []) or []):
-            character = getattr(link, "character", None)
-            name = getattr(character, "name", None)
-            if not isinstance(name, str):
-                continue
-            value = name.strip()
-            if value:
-                entries.append(value)
-        return entries
-
-    def _current_story_arcs(self, item: Any) -> list[str]:
-        rows = sorted(
-            getattr(item, "story_arc_items", []) or [],
-            key=lambda row: (
-                getattr(row, "ordinal", None) is None,
-                getattr(row, "ordinal", None),
-                str(getattr(row, "id", "")),
-            ),
-        )
-        entries: list[str] = []
-        for row in rows:
-            story_arc = getattr(row, "story_arc", None)
-            name = getattr(story_arc, "name", None)
-            if not isinstance(name, str):
-                continue
-            value = name.strip()
-            if value:
-                entries.append(value)
-        return entries
-
     def _current_link_payload(self, item: Any, key: str) -> list[dict[str, Any]]:
         link_type = "trailer" if key == "trailer_urls" else "external"
         links = getattr(item, "entity_links", None)
@@ -1102,30 +1053,6 @@ class AdminCatalogService:
                 variant_type=config.variant_type,
             )
         )
-
-    async def _get_or_create_person(self, name: str) -> Person:
-        person = await self.db.scalar(select(Person).where(Person.name == name))
-        if person is None:
-            person = Person(name=name)
-            self.db.add(person)
-            await self.db.flush()
-        return person
-
-    async def _get_or_create_character(self, name: str) -> Character:
-        character = await self.db.scalar(select(Character).where(Character.name == name))
-        if character is None:
-            character = Character(name=name, canonical_name=name.casefold())
-            self.db.add(character)
-            await self.db.flush()
-        return character
-
-    async def _get_or_create_story_arc(self, name: str) -> StoryArc:
-        story_arc = await self.db.scalar(select(StoryArc).where(StoryArc.name == name))
-        if story_arc is None:
-            story_arc = StoryArc(name=name)
-            self.db.add(story_arc)
-            await self.db.flush()
-        return story_arc
 
     def _normalize_text_values(self, values: list[str] | None) -> list[str]:
         normalized: list[str] = []

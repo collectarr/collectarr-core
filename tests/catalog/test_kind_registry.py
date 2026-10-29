@@ -87,7 +87,6 @@ def test_kind_child_shapes_and_responses_are_composed_once():
     assert "characters" in book_children
     assert book_children["characters"].fields == {
         "id": "string",
-        "character_id": "string",
         "name": "string",
         "aliases": "string_list",
         "role": "string",

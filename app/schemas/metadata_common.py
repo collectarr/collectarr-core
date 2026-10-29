@@ -1,12 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
-from uuid import UUID
-
 from pydantic import BaseModel, Field
 
 from app.catalog.release_scope import ReleasedCatalogKind
-from app.models.partial_date import PartialDateValue
 
 
 class PhysicalFormatResponse(BaseModel):
@@ -57,111 +53,3 @@ class MetadataFieldSchemaResponse(BaseModel):
     fields: list[MetadataFieldSpecResponse]
     kind_fields: dict[ReleasedCatalogKind, list[str]]
     sections: list[str] = Field(default_factory=list)
-
-
-class StoryArcResponse(BaseModel):
-    id: UUID
-    name: str
-    description: str | None = None
-    publisher: str | None = None
-    start_date: date | None = None
-    start_date_parts: PartialDateValue | None = None
-    end_date: date | None = None
-    end_date_parts: PartialDateValue | None = None
-    item_count: int = 0
-
-
-class StoryArcFacetResponse(BaseModel):
-    id: UUID
-    name: str
-    description: str | None = None
-    publisher: str | None = None
-    start_date: date | None = None
-    start_date_parts: PartialDateValue | None = None
-    end_date: date | None = None
-    end_date_parts: PartialDateValue | None = None
-    item_count: int = 0
-    entity_ids: list[UUID] = Field(default_factory=list)
-
-
-class StoryArcItemResponse(BaseModel):
-    story_arc_id: UUID
-    entity_type: str
-    entity_id: UUID
-    ordinal: int | None = None
-    kind: ReleasedCatalogKind
-    title: str
-    item_number: str | None = None
-    series_title: str | None = None
-    volume_name: str | None = None
-    cover_image_url: str | None = None
-
-
-class CreatorResponse(BaseModel):
-    id: UUID
-    name: str
-    description: str | None = None
-    image_url: str | None = None
-    api_detail_url: str | None = None
-    site_detail_url: str | None = None
-    item_count: int = 0
-
-
-class CreatorFacetResponse(BaseModel):
-    id: UUID
-    name: str
-    description: str | None = None
-    image_url: str | None = None
-    item_count: int = 0
-    entity_ids: list[UUID] = Field(default_factory=list)
-    role_counts: dict[str, int] = Field(default_factory=dict)
-
-
-class CreatorCreditResponse(BaseModel):
-    creator_id: UUID
-    item_id: UUID
-    role: str
-    kind: ReleasedCatalogKind
-    title: str
-    item_number: str | None = None
-    series_title: str | None = None
-    volume_name: str | None = None
-    cover_image_url: str | None = None
-
-
-class CharacterResponse(BaseModel):
-    id: UUID
-    name: str
-    aliases: list[str] = Field(default_factory=list)
-    description: str | None = None
-    image_url: str | None = None
-    first_appearance_entity_type: str | None = None
-    first_appearance_entity_id: UUID | None = None
-    appearance_count: int = 0
-
-
-class CharacterFacetResponse(BaseModel):
-    id: UUID
-    name: str
-    aliases: list[str] = Field(default_factory=list)
-    image_url: str | None = None
-    item_count: int = 0
-    entity_ids: list[UUID] = Field(default_factory=list)
-    role_counts: dict[str, int] = Field(default_factory=dict)
-
-
-class FacetEntityIdsRequest(BaseModel):
-    entity_ids: list[UUID] = Field(default_factory=list)
-
-
-class CharacterAppearanceResponse(BaseModel):
-    character_id: UUID
-    entity_type: str
-    entity_id: UUID
-    role: str
-    kind: ReleasedCatalogKind
-    title: str
-    item_number: str | None = None
-    series_title: str | None = None
-    volume_name: str | None = None
-    cover_image_url: str | None = None

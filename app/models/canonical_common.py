@@ -25,18 +25,12 @@ from app.models.base import (
 )
 from app.models.canonical_support import (  # noqa: F401
     AdminAuditLog,
-    Character,
-    CharacterAppearance,
     EntityAlias,
     EntityLink,
     EntityOrganization,
-    EntityPerson,
     EntityTag,
     ImageAsset,
     Organization,
-    Person,
-    StoryArc,
-    StoryArcItem,
     Tag,
 )
 

@@ -7,14 +7,18 @@ from collections.abc import Mapping
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import or_, select
+from sqlalchemy import Integer, and_, case, func, or_, select
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
+from app.catalog.kind_registry import catalog_kind_for
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.catalog_comic_item import ComicItem
-from app.schemas.catalog_comic_item import CatalogComicItemResponse
+from app.schemas.catalog_comic_item import CatalogComicItemResponse, CatalogComicSeriesResponse
+from app.schemas.metadata_shared import CatalogSearchItemEnvelope
+from app.services.catalog_item_search import CatalogItemSearchService
 
 
 class CatalogComicItemService:
@@ -98,6 +102,73 @@ class CatalogComicItemService:
         result = await self.db.execute(statement)
         return [_response(item) for item in result.scalars().unique()]
 
+    async def search_series(self, *, query: str, limit: int) -> list[CatalogComicSeriesResponse]:
+        """Series whose title contains [query]; an exact title sorts first."""
+        series, publisher, volume = _series_columns()
+        year = ComicItem.details["release_date_parts"]["year"].astext.cast(Integer)
+        cover = ComicItem.details["cover_image_url"].astext
+        exact = query.strip()
+        rows = (
+            await self.db.execute(
+                select(
+                    series,
+                    publisher,
+                    volume,
+                    func.min(year),
+                    func.max(year),
+                    func.count(),
+                    func.array_agg(aggregate_order_by(cover, *_issue_order())).filter(cover.isnot(None))[1],
+                )
+                .where(series.ilike(f"%{exact}%"))
+                .group_by(series, publisher, volume)
+                .order_by(
+                    case((func.lower(series) == exact.lower(), 0), else_=1),
+                    func.lower(series),
+                    volume.asc().nullsfirst(),
+                    func.lower(publisher).asc().nullsfirst(),
+                )
+                .limit(limit)
+            )
+        ).all()
+        return [
+            CatalogComicSeriesResponse(
+                series_title=title,
+                publisher=publisher_value,
+                volume_start_year=volume_value,
+                first_year=first_year,
+                last_year=last_year,
+                issue_count=count,
+                cover_image_url=cover_value,
+            )
+            for title, publisher_value, volume_value, first_year, last_year, count, cover_value in rows
+        ]
+
+    async def series_issues(
+        self,
+        *,
+        series_title: str,
+        publisher: str | None,
+        volume_start_year: int | None,
+    ) -> list[CatalogSearchItemEnvelope]:
+        """Every issue and variant of one series, in issue order."""
+        series, publisher_column, volume = _series_columns()
+        rows = (
+            await self.db.execute(
+                select(ComicItem)
+                .where(
+                    and_(
+                        series == series_title,
+                        publisher_column.is_(None) if publisher is None else publisher_column == publisher,
+                        volume.is_(None) if volume_start_year is None else volume == volume_start_year,
+                    )
+                )
+                .order_by(*_issue_order())
+                .limit(_SERIES_ISSUE_LIMIT)
+            )
+        ).scalars().all()
+        root = catalog_kind_for(ItemKind.comic)
+        return [CatalogItemSearchService.to_search_envelope(root, item) for item in rows]
+
     async def get(self, item_id: UUID) -> CatalogComicItemResponse:
         result = await self.db.execute(
             select(ComicItem)
@@ -111,6 +182,32 @@ class CatalogComicItemService:
                 detail="Comic Catalog Item not found",
             )
         return _response(item)
+
+
+# A series lists all its issues at once; this bounds a malformed catalog.
+_SERIES_ISSUE_LIMIT = 2000
+
+
+def _series_columns():
+    details = ComicItem.details
+    return (
+        details["series_title"].astext,
+        details["publisher"].astext,
+        details["volume_start_year"].astext.cast(Integer),
+    )
+
+
+def _issue_order():
+    """Numeric issue numbers in value order, then text numbers, then variants."""
+    issue = ComicItem.details["issue_number"].astext
+    numeric = func.substring(issue, r"^\d+").cast(Integer)
+    return (
+        numeric.asc().nullslast(),
+        issue.asc().nullslast(),
+        ComicItem.details["variant"].astext.asc().nullsfirst(),
+        ComicItem.title.asc(),
+        ComicItem.id.asc(),
+    )
 
 
 def _response(item: ComicItem) -> CatalogComicItemResponse:

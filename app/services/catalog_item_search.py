@@ -143,7 +143,7 @@ class CatalogItemSearchService:
             items_by_kind[root.kind] = {item.id: item for item in rows}
 
         items = [
-            self._to_search_envelope(
+            self.to_search_envelope(
                 root=CATALOG_KINDS_BY_ID[ItemKind(kind_value)],
                 item=items_by_kind.get(ItemKind(kind_value), {}).get(item_id),
             )
@@ -314,7 +314,7 @@ class CatalogItemSearchService:
         return root.model.details.contains({"identifiers": [{"normalized_value": normalized}]})
 
     @staticmethod
-    def _to_search_envelope(
+    def to_search_envelope(
         root: CatalogKindDefinition,
         item: Any,
     ) -> CatalogSearchItemEnvelope:

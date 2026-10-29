@@ -14,7 +14,12 @@ from app.db.schema_migrations import (
     schema_migrations,
 )
 from app.db.session import engine
-from app.models import CanonicalCorrectionProposal, CanonicalCorrectionProposalValue, EntityAlias
+from app.models import (
+    CanonicalCorrectionProposal,
+    CanonicalCorrectionProposalValue,
+    CatalogItemProposal,
+    EntityAlias,
+)
 from app.models.base import ItemKind
 from app.models.catalog_game_item import GameItem
 from app.models.catalog_music_item import MusicItem
@@ -77,8 +82,25 @@ async def test_released_baseline_upgrade_preserves_music_and_games(baseline_vers
                 {"version": version} for version in range(1, baseline_version + 1)
             ])
             album_id = uuid4()
+            artist = {"id": "a1", "name": "Artist", "sequence": 1}
+            credit = {"id": "c1", "name": "Producer", "role": "Producer", "instruments": [], "sequence": 1}
             await connection.execute(MusicItem.__table__.insert().values(
-                id=album_id, title="Keep this album"))
+                id=album_id, title="Keep this album",
+                artist_credits=[{**artist, "artist_id": "x"}],
+                credits=[{**credit, "contributor_id": str(uuid4())}],
+                discs=[{"id": "d1", "credits": [{**credit, "contributor_id": None}]}]))
+            proposal_id = uuid4()
+            await connection.execute(CatalogItemProposal.__table__.insert().values(
+                id=proposal_id, kind=ItemKind.music,
+                catalog_item={"title": "Proposed", "artist_credits": [{**artist, "artist_id": "x"}]}))
+            correction_id = uuid4()
+            await connection.execute(CanonicalCorrectionProposal.__table__.insert().values(
+                id=correction_id, kind=ItemKind.music, entity_type="catalog_music_item",
+                entity_id=album_id, scope="catalog", base_hash="before", status="pending"))
+            await connection.execute(CanonicalCorrectionProposalValue.__table__.insert(), [
+                {"id": uuid4(), "proposal_id": correction_id, "path": path, "value_type": "string"}
+                for path in ("/title", "/artist_credits/0/artist_id", "/discs/0/credits/0/contributor_id")
+            ])
             person_id = uuid4()
             await connection.execute(text("INSERT INTO persons VALUES (:id, 'Retired person')"), {"id": person_id})
             await connection.execute(text(
@@ -113,6 +135,15 @@ async def test_released_baseline_upgrade_preserves_music_and_games(baseline_vers
                 assert (await connection.execute(select(CanonicalCorrectionProposalValue.path).where(
                     CanonicalCorrectionProposalValue.proposal_id == game_correction_id))).scalars().all() == ["/title"]
             assert (await connection.execute(select(EntityAlias.alias))).scalars().all() == ["Kept"]
+            album = (await connection.execute(select(
+                MusicItem.artist_credits, MusicItem.credits, MusicItem.discs).where(MusicItem.id == album_id))).one()
+            assert album.artist_credits == [artist]
+            assert album.credits == [credit]
+            assert album.discs == [{"id": "d1", "credits": [credit]}]
+            assert (await connection.execute(select(CatalogItemProposal.catalog_item).where(
+                CatalogItemProposal.id == proposal_id))).scalar_one()["artist_credits"] == [artist]
+            assert (await connection.execute(select(CanonicalCorrectionProposalValue.path).where(
+                CanonicalCorrectionProposalValue.proposal_id == correction_id))).scalars().all() == ["/title"]
             names = set(await connection.run_sync(
                 lambda conn: inspect(conn).get_table_names(schema=schema)))
             assert names == RELEASE_TABLE_NAMES | {"schema_migrations"}

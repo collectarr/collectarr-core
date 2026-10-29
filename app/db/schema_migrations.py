@@ -124,6 +124,21 @@ async def migrate_schema(connection: AsyncConnection) -> None:
             await _delete_correction_values(
                 connection, quoted_schema, "game", "^/(creators|contributors)/[0-9]+/person_id(/|$)"
             )
+            # Music credits are names too: strip the artist and contributor ids.
+            for column, strip in (
+                ("artist_credits", lambda rows: _without_key(rows, "artist_id")),
+                ("credits", lambda rows: _without_key(rows, "contributor_id")),
+                ("discs", _without_disc_contributor_ids),
+            ):
+                await _strip_json(connection, quoted_schema, "music_items", column, strip)
+            await _strip_json(
+                connection, quoted_schema, "catalog_item_proposals", "catalog_item",
+                _without_music_credit_ids, where="kind = 'music'",
+            )
+            await _delete_correction_values(
+                connection, quoted_schema, "music",
+                "^/(artist_credits/[0-9]+/artist_id|(discs/[0-9]+/)?credits/[0-9]+/contributor_id)(/|$)",
+            )
         # Add Comics from the released schema 2 without replacing existing data.
         metadata = MetaData()
         for table in release_tables(COMICS_TABLE_NAMES):
@@ -144,6 +159,27 @@ def _without_game_person_ids(document: dict[str, Any]) -> dict[str, Any]:
         key: _without_key(value, "person_id") if key in ("creators", "contributors") else value
         for key, value in document.items()
     }
+
+
+def _without_disc_contributor_ids(discs: Any) -> Any:
+    if not isinstance(discs, list):
+        return discs
+    return [
+        {**disc, "credits": _without_key(disc["credits"], "contributor_id")}
+        if isinstance(disc, dict) and "credits" in disc else disc
+        for disc in discs
+    ]
+
+
+def _without_music_credit_ids(document: dict[str, Any]) -> dict[str, Any]:
+    result = dict(document)
+    if "artist_credits" in result:
+        result["artist_credits"] = _without_key(result["artist_credits"], "artist_id")
+    if "credits" in result:
+        result["credits"] = _without_key(result["credits"], "contributor_id")
+    if "discs" in result:
+        result["discs"] = _without_disc_contributor_ids(result["discs"])
+    return result
 
 
 async def _strip_json(

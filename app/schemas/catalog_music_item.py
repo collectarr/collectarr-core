@@ -229,13 +229,12 @@ class CatalogMusicArtistCreditResponse(BaseModel):
     id: str = Field(min_length=1, strict=True)
     name: str = Field(min_length=1, strict=True)
     sort_name: str | None = Field(default=None, strict=True)
-    artist_id: str | None = Field(default=None, strict=True)
     sequence: int = Field(ge=1, strict=True)
     join_phrase: str | None = Field(default=None, strict=True)
 
     model_config = ConfigDict(extra="forbid")
 
-    @field_validator("id", "name", "sort_name", "artist_id")
+    @field_validator("id", "name", "sort_name")
     @classmethod
     def validate_credit_text(cls, value: str | None) -> str | None:
         if value is not None and (not value or value != value.strip()):
@@ -245,7 +244,6 @@ class CatalogMusicArtistCreditResponse(BaseModel):
 
 class CatalogMusicCreditResponse(BaseModel):
     id: str = Field(min_length=1, strict=True)
-    contributor_id: UUID | None = None
     name: str = Field(min_length=1, strict=True)
     role: str = Field(min_length=1, strict=True)
     role_id: str | None = Field(default=None, strict=True)

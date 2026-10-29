@@ -9,6 +9,7 @@
 
 ### Refactors
 - Keep credits as names on each item: ordered migration 3 drops the unused person records, the person ids on Game credits and the `/creators` browse endpoints.
+- Music artist credits and credits no longer carry artist or contributor ids; ordered migration 3 removes them from stored albums and proposals.
 
 ### CI & Build
 - Release notes list every merged pull request, direct commit and closed issue, and record new release summaries in the repository.

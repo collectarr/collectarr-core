@@ -7705,17 +7705,6 @@
             ],
             "title": "Sort Name"
           },
-          "artist_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Artist Id"
-          },
           "sequence": {
             "type": "integer",
             "minimum": 1.0,
@@ -7748,18 +7737,6 @@
             "type": "string",
             "minLength": 1,
             "title": "Id"
-          },
-          "contributor_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Contributor Id"
           },
           "name": {
             "type": "string",

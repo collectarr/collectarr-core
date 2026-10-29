@@ -768,8 +768,8 @@
   "$id": "https://schemas.collectarr.app/music-catalog/v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contractVersion": "1.0.0",
-  "coreCommit": "6414e54065e15a3ce988a8abf1356f4ca5feebbf",
-  "generatedAt": "2026-10-29T08:50:47.390228Z",
+  "coreCommit": "e507e20fc9a33190052c17b42428a8ca1051b73e",
+  "generatedAt": "2026-10-29T09:06:33.879629Z",
   "roots": {
     "credit": {
       "$ref": "#/$defs/CatalogMusicCreditResponse"

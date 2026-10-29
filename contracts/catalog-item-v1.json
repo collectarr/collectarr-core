@@ -2,12 +2,12 @@
   "$id": "https://schemas.collectarr.app/catalog-item/v1",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contractVersion": "1.0.0",
-  "coreCommit": "6414e54065e15a3ce988a8abf1356f4ca5feebbf",
+  "coreCommit": "e507e20fc9a33190052c17b42428a8ca1051b73e",
   "description": "Source-neutral Catalog Item documents. Fields are validated and projected using the schema owned by the declared kind.",
   "fieldStatus": {
     "music": "grounded_in_saved_clz_music_edit_form"
   },
-  "generatedAt": "2026-10-29T08:50:47.390228Z",
+  "generatedAt": "2026-10-29T09:06:33.879629Z",
   "kinds": {
     "game": {
       "additionalProperties": false,

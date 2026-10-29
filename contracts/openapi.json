@@ -4305,6 +4305,23 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ItemKind": {
+        "enum": [
+          "boardgame",
+          "book",
+          "collection",
+          "comic",
+          "game",
+          "game_hardware",
+          "game_toy",
+          "manga",
+          "movie",
+          "music",
+          "tv"
+        ],
+        "title": "ItemKind",
+        "type": "string"
+      },
       "JsonObject-Input": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue-Input"
@@ -4948,7 +4965,7 @@
     }
   },
   "info": {
-    "description": "Collectarr metadata and library backend API",
+    "description": "Collectarr metadata and library backend API. Source code (AGPL-3.0-only): https://github.com/collectarr/collectarr-core",
     "title": "Collectarr",
     "version": "1.0.0"
   },

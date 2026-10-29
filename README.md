@@ -3,6 +3,10 @@
 A self-hosted Music and Games catalog for Collectarr: discover albums and games,
 keep edition details consistent and review improvements to shared catalog information.
 
+**License:** [GNU AGPLv3 only](LICENSE) (`AGPL-3.0-only`). See the
+[contribution guide](CONTRIBUTING.md) for development and licensing terms,
+including the historical MIT notice.
+
 **Current release supports Music and Games.** Baseline 1 established the Music
 baseline and shared catalog infrastructure. Ordered migration 2 introduced independent
 Games inventory catalogs (Games, Hardware and Toys). Other kinds arrive in future

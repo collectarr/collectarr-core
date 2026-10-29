@@ -14,7 +14,7 @@ docker compose exec api python -m app.scripts.seed_comics
 Back up:
 
 - PostgreSQL volume or logical `pg_dump`
-- MinIO bucket data
+- SeaweedFS data directory, including object and metadata files
 - `.env` secrets outside the repository.
 
 ## Backup And Restore
@@ -37,17 +37,18 @@ baseline, use a new empty PostgreSQL database and bootstrap its schema:
 docker compose exec api python -m app.scripts.bootstrap_schema
 ```
 
-MinIO backup for the default local bucket:
+SeaweedFS keeps both objects and filer/master metadata under `/data`. Back up
+that entire directory while image writes and the storage service are stopped:
 
 ```powershell
-docker compose cp minio:/data/collectarr-images ./collectarr-images-backup
+docker compose stop api worker seaweedfs
+docker compose cp seaweedfs:/data ./seaweedfs-backup
+docker compose start seaweedfs api worker
 ```
 
-MinIO restore:
-
-```powershell
-docker compose cp ./collectarr-images-backup/. minio:/data/collectarr-images
-```
+Restore into a new, empty SeaweedFS volume with the same image revision. Stop
+API, worker and SeaweedFS, copy `./seaweedfs-backup/.` into `seaweedfs:/data`,
+then start the services. Copying only a bucket directory is insufficient.
 
 Personal sync backup and restore recipes live in [sync.md](sync.md). Back up
 the sync SQLite file, any `-wal`/`-shm` sidecars, and the `SYNC_API_KEY` used by
@@ -63,7 +64,7 @@ environment.
 ## Corporate Networks Without Docker Hub
 
 The Compose stack references public base/service images for PostgreSQL, Redis,
-Meilisearch, MinIO, and the Python build images used by the backend and sync
+Meilisearch, SeaweedFS, and the Python build images used by the backend and sync
 Dockerfiles. In networks where Docker Hub is blocked, do not rely on first-run
 pulls during deployment.
 
@@ -77,22 +78,18 @@ Recommended options:
 
 GitHub Container Registry is a viable mirror target when `ghcr.io` is allowed by
 the corporate network, but the Docker Hub image names are not automatically
-available there. This repository includes a `Mirror Container Images` GitHub
-Actions workflow that copies the required Docker Hub images into GHCR under the
-repository owner. After it runs, set values such as:
+available there. Copy approved upstream images into your own registry using
+your image mirroring tooling, preserving the upstream digest. Set values such as:
 
 ```env
 POSTGRES_IMAGE=ghcr.io/your-org/collectarr-postgres:16-alpine
 REDIS_IMAGE=ghcr.io/your-org/collectarr-redis:7-alpine
 MEILI_IMAGE=ghcr.io/your-org/collectarr-meilisearch:v1.13
-MINIO_IMAGE=ghcr.io/your-org/collectarr-minio:RELEASE.2025-04-22T22-12-26Z
+SEAWEEDFS_IMAGE=ghcr.io/your-org/collectarr-seaweedfs:4.38
 API_PYTHON_BASE_IMAGE=ghcr.io/your-org/collectarr-python:3.14-slim
 SYNC_PYTHON_BASE_IMAGE=ghcr.io/your-org/collectarr-python:3.12-slim
 ```
 
-Run it manually from GitHub Actions after the workflow is on the default branch.
-If Docker Hub rate limits become a problem, add `DOCKERHUB_USERNAME` and
-`DOCKERHUB_TOKEN` repository secrets; the workflow will use them automatically.
 For local pulls from private GHCR packages, log in with a token that has
 `read:packages`, or make the mirrored packages public in GitHub Packages.
 
@@ -123,7 +120,7 @@ Before the first public release, local schema changes may be destructive. If the
 .\scripts\dev-reset-stack.ps1 -WithSync
 ```
 
-Use `-KeepImages` to preserve MinIO data, or `-KeepSearchIndex` to preserve Meilisearch data.
+Use `-KeepImages` to preserve SeaweedFS data, or `-KeepSearchIndex` to preserve Meilisearch data.
 
 ## SSD And Logs
 
@@ -135,8 +132,8 @@ The default Compose stack is tuned for local development:
 - Docker JSON logs are rotated at `10m` with three retained files per service.
 - The metadata worker polls every `WORKER_INDEX_INTERVAL_SECONDS` seconds and only rebuilds the Meilisearch index when catalog tables changed.
 - Normalized metadata submissions are persisted by the API and indexed by the worker when the search index is enabled.
-- External image URLs are stored by default, without copying covers into MinIO.
-- Object storage bucket setup is cached per process, so repeated image uploads do not rewrite MinIO bucket policy each time.
+- External image URLs are stored by default, without copying covers into SeaweedFS.
+- Object storage bucket setup is cached per process, so repeated image uploads do not rewrite SeaweedFS bucket policy each time.
 
 PostgreSQL checkpoint lines such as `wrote 331 buffers` are normal and usually small. The `write=33s` value means PostgreSQL spread the write work over that interval; the `sync` duration is the part that more directly reflects waiting for disk flushes.
 
@@ -147,7 +144,7 @@ WORKER_INDEX_INTERVAL_SECONDS=3600
 ```
 
 External canonical image URLs remain external. Images uploaded through the
-catalog image API are normalized to WebP and stored in MinIO/S3.
+catalog image API are normalized to WebP and stored in SeaweedFS/S3.
 
 Auth endpoints and admin endpoints use a lightweight
 in-process rate limiter by default. Tune the request/window pairs if you expose
@@ -164,4 +161,10 @@ empty, Core falls back to in-process state so local development can continue.
 
 ## Readiness
 
-The Compose stack uses health checks for PostgreSQL, Redis, Meilisearch, and MinIO. The API exposes `/api/v1/health`, which checks all backing services and returns `degraded` when one is unavailable.
+The Compose stack waits for PostgreSQL, Redis and SeaweedFS health checks.
+SeaweedFS uses its S3 `/status` endpoint; its password-protected admin UI is on
+port 9001. The single-node `mini` deployment suits personal libraries; it has
+no storage redundancy. Keep separate backups. The API health response names
+object storage `s3`, independent of the configured provider. The API exposes
+`/api/v1/health`, which checks all backing services and returns `degraded` when
+one is unavailable.

@@ -58,7 +58,7 @@ Configure the proxy with the generated `.pem` files.
 | `DATABASE_URL` | PostgreSQL connection string | Restart API + worker |
 | `REDIS_URL` | Redis connection string | Restart API + worker |
 | `MEILI_MASTER_KEY` | Meilisearch admin key | Restart API + worker, re-index |
-| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | MinIO/S3 credentials | Restart API + worker |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | SeaweedFS/S3 credentials | Recreate storage + restart API and worker |
 | `SYNC_API_KEY` | Sync service auth | Re-pair all devices |
 
 ## Secrets Rotation
@@ -88,9 +88,10 @@ docker compose up -d api worker
 2. Update `DATABASE_URL` in `.env`.
 3. Restart API and worker.
 
-### 3. MinIO/S3 credentials
+### 3. SeaweedFS/S3 credentials
 
-1. Create new access keys in the MinIO console or your S3 provider.
+1. Create new access keys in your S3 provider. For bundled SeaweedFS, update its
+   configured credentials and recreate the storage service as well.
 2. Update `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` in `.env`.
 3. Restart API and worker.
 4. Revoke the old key.

@@ -10,6 +10,23 @@ permissions:
   contents: read
 
 jobs:
+  storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install package
+        run: pip install -e .[dev]
+      - name: Verify SeaweedFS storage with Docker Compose
+        env:
+          RUN_SEAWEEDFS_TESTS: "1"
+          DATABASE_URL: postgresql+asyncpg://collectarr:collectarr@localhost:1/collectarr_test
+          SECRET_KEY: test-secret
+          ENVIRONMENT: test
+        run: python -m pytest tests/storage/test_seaweedfs_integration.py -q
+
   fast:
     runs-on: ubuntu-latest
     steps:

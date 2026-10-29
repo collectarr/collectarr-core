@@ -205,7 +205,6 @@ CREDIT = ChildObjectShape(
     label="Credits",
     fields={
         "id": STRING,
-        "contributor_id": STRING,
         "name": STRING,
         "sort_name": STRING,
         "role": STRING,
@@ -215,7 +214,7 @@ CREDIT = ChildObjectShape(
     },
     required=frozenset({"id", "name", "role", "instruments", "sequence"}),
     non_empty=frozenset({"id", "name", "role"}),
-    nullable=frozenset({"contributor_id", "sort_name", "role_id"}),
+    nullable=frozenset({"sort_name", "role_id"}),
     validate_collection=_validate_music_credits,
 )
 
@@ -268,13 +267,12 @@ _MUSIC_ARTIST_CREDIT = ChildObjectShape(
         "id": STRING,
         "name": STRING,
         "sort_name": STRING,
-        "artist_id": STRING,
         "sequence": INTEGER,
         "join_phrase": STRING,
     },
     required=frozenset({"id", "name", "sequence"}),
     non_empty=frozenset({"id", "name"}),
-    nullable=frozenset({"artist_id", "sort_name", "join_phrase"}),
+    nullable=frozenset({"sort_name", "join_phrase"}),
     validate_collection=_validate_music_artist_credits,
 )
 

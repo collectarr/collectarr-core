@@ -60,15 +60,16 @@ def test_music_credit_fields_are_not_part_of_other_kind_documents():
     music = catalog_kind_for(ItemKind.music).document
     artist_credit = music.children["artist_credits"]
     role_credit = music.children["credits"]
-    assert {"id", "name", "sequence", "artist_id", "join_phrase"}.issubset(artist_credit.fields)
+    assert {"id", "name", "sequence", "join_phrase"}.issubset(artist_credit.fields)
+    assert "artist_id" not in artist_credit.fields
     assert {
         "id",
         "name",
         "sequence",
-        "contributor_id",
         "role",
         "instruments",
     }.issubset(role_credit.fields)
+    assert "contributor_id" not in role_credit.fields
     assert not artist_credit.allow_string_value
 
     for kind in (ItemKind.book, ItemKind.movie, ItemKind.tv):

@@ -23,6 +23,10 @@ from app.models.base import ItemKind
 
 FIELD_SPECS = (
     MetadataFieldSpec(
+        "publication_age", VALUE_TYPE_STRING, "Age",
+        section=SECTION_PUBLISHING, kinds=frozenset({ItemKind.comic}),
+    ),
+    MetadataFieldSpec(
         "imprint",
         VALUE_TYPE_STRING,
         "Imprint",
@@ -88,6 +92,7 @@ DOCUMENT = KindDocumentShape(
     root_fields={
         "description": STRING,
         "series_title": STRING,
+        "publication_age": STRING,
         "volume_name": STRING,
         "issue_number": STRING,
         "cover_price_cents": INTEGER,

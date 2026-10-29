@@ -9,7 +9,7 @@ API. Core validates, normalizes, and stores uploaded bytes in object storage.
 - `external_url`: Core stores a canonical source URL and clients render it
   directly.
 - `uploaded`: Core normalizes uploaded bytes to WebP and stores the asset in
-  MinIO/S3. The image record points to the stored object.
+  SeaweedFS/S3. The image record points to the stored object.
 - `missing`: Core stores no image URL. The client renders a deterministic
   generated cover.
 

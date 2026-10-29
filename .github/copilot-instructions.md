@@ -9,7 +9,7 @@
 
 - **collectarr-core** is a Python 3.14+ FastAPI backend for managing physical media collections.
 - Serves the collectarr-app Flutter client via REST API.
-- Runs in Docker Compose (WSL2 Ubuntu) with PostgreSQL 16, Redis 7, Meilisearch v1.13, MinIO S3.
+- Runs in Docker Compose (WSL2 Ubuntu) with PostgreSQL 16, Redis 7, Meilisearch v1.13, SeaweedFS S3.
 - Entry point: `app/main.py`.
 
 ## Architecture
@@ -44,7 +44,7 @@ out of Core.
 ### Image Pipeline (`app/storage/`)
 
 ```text
-Metadata image source -> ImageMirror -> MinIO S3
+Metadata image source -> ImageMirror -> SeaweedFS S3
   -> ImageCache (DB tracking) -> Public URL
 ```
 

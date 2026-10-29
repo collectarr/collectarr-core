@@ -14,7 +14,7 @@ frontend/.flutter-plugins-dependencies
 
 postgres_data/
 meili_data/
-minio_data/
+seaweedfs_data/
 sync_data/
 sync_service/*.db
 .github/skills/

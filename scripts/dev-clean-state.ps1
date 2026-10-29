@@ -72,7 +72,7 @@ function Remove-DirectoryIfPresent {
 $selected = @()
 if ($CoreDb) { $selected += "Postgres volume" }
 if ($SearchIndex) { $selected += "Meilisearch volume" }
-if ($Images) { $selected += "MinIO image volume" }
+if ($Images) { $selected += "SeaweedFS image volume" }
 if ($Logs) { $selected += ".dev logs" }
 
 if (-not $Force) {
@@ -99,7 +99,7 @@ if ($StopStack -or $CoreDb -or $SearchIndex -or $Images) {
 $volumes = @()
 if ($CoreDb) { $volumes += "collectarr_postgres_data" }
 if ($SearchIndex) { $volumes += "collectarr_meili_data" }
-if ($Images) { $volumes += "collectarr_minio_data" }
+if ($Images) { $volumes += "collectarr_seaweedfs_data" }
 
 foreach ($volume in $volumes) {
   $existing = Invoke-DockerText @("volume", "ls", "--quiet", "--filter", "name=^$volume$")

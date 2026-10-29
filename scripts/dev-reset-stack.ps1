@@ -20,7 +20,7 @@ Initialize-CollectarrDocker -UseWslDocker:$UseWslDocker
 
 if (-not $Force) {
   Write-Host "This will stop Collectarr and delete the local PostgreSQL dev volume." -ForegroundColor Yellow
-  Write-Host "Use -KeepImages to preserve MinIO images and -KeepSearchIndex to preserve Meilisearch data."
+  Write-Host "Use -KeepImages to preserve SeaweedFS images and -KeepSearchIndex to preserve Meilisearch data."
   $answer = Read-Host "Type RESET to continue"
   if ($answer -ne "RESET") {
     Write-Host "Cancelled."
@@ -49,7 +49,7 @@ if (-not $KeepSearchIndex) {
   $volumes += "collectarr_meili_data"
 }
 if (-not $KeepImages) {
-  $volumes += "collectarr_minio_data"
+  $volumes += "collectarr_seaweedfs_data"
 }
 if ($WithSync) {
   $volumes += "collectarr_sync_data"
@@ -69,7 +69,7 @@ if (-not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"
 }
 
-Invoke-Compose @("up", "--build", "-d", "postgres", "redis", "meilisearch", "minio")
+Invoke-Compose @("up", "--build", "-d", "postgres", "redis", "meilisearch", "seaweedfs")
 Invoke-CollectarrSchemaSetup -RepoRoot $repoRoot -WithSync:$WithSync
 Invoke-Compose @("run", "--rm", "api", "python", "-m", "app.scripts.seed_comics")
 Invoke-Compose @("up", "--build", "-d")

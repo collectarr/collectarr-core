@@ -36,7 +36,7 @@ _ENTITY_TYPES = {
 
 
 # ---------------------------------------------------------------------------
-# Single image download — returns raw bytes from MinIO
+# Single image download — returns raw bytes from SeaweedFS
 # ---------------------------------------------------------------------------
 
 

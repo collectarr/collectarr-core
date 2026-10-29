@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     meili_timeout_seconds: float = Field(default=5.0, ge=0.1)
 
     s3_endpoint_url: str = "http://localhost:9000"
-    s3_access_key_id: str = "minioadmin"
-    s3_secret_access_key: str = "minioadmin"
+    s3_access_key_id: str = "collectarr"
+    s3_secret_access_key: str = "collectarr-dev-secret"
     s3_bucket: str = "collectarr-images"
     s3_public_url: str = "http://localhost:9000/collectarr-images"
     s3_manage_public_read_policy: bool = True

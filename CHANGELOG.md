@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Restore fresh installations with public SeaweedFS image storage instead of unavailable MinIO images.
+
 ### CI & Build
 - Release notes list every merged pull request, direct commit and closed issue, and record new release summaries in the repository.
 - Simplify self-hosting to standard Docker Compose, removing Unraid-specific deployment.

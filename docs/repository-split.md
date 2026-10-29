@@ -17,7 +17,7 @@ traceability.
 - canonical catalog schema and schema bootstrap
 - normalized metadata submission contracts and canonical writes
 - search, indexing, and worker processes
-- image references, optional MinIO/S3 image cache, generated fallback covers,
+- image references, optional SeaweedFS/S3 image cache, generated fallback covers,
   and cover inspection/replacement operations
 - admin identity, permissions, audit logs, destructive-operation guardrails, and
   Core Admin Console
@@ -65,7 +65,7 @@ App consumes:
 ## Future Devstack Decision
 
 For MVP, Core keeps its own local Docker Compose stack because it owns the
-services it depends on: Postgres, Redis, Meilisearch, MinIO, API, and worker.
+services it depends on: Postgres, Redis, Meilisearch, SeaweedFS, API, and worker.
 
 Cross-repo orchestration now lives as a lightweight overlay on top of that stack:
 `docker-compose.devstack.yml` plus `./tools/dev.ps1 start -WithSync` start Core

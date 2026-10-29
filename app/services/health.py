@@ -19,7 +19,7 @@ class HealthService:
             "postgres": await self._postgres(),
             "redis": await self._redis(),
             "meilisearch": await self._meilisearch(),
-            "minio": await self._minio(),
+            "s3": await self._s3(),
         }
         status = "ok" if all(check["ok"] for check in checks.values()) else "degraded"
         return {"status": status, "checks": checks}
@@ -50,7 +50,7 @@ class HealthService:
         except Exception as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def _minio(self) -> dict[str, Any]:
+    async def _s3(self) -> dict[str, Any]:
         try:
             ObjectStorage().client.list_buckets()
             return {"ok": True}

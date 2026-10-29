@@ -27,8 +27,8 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_started
-      minio:
-        condition: service_started
+      seaweedfs:
+        condition: service_healthy
 
   worker:
     build:
@@ -48,8 +48,8 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_started
-      minio:
-        condition: service_started
+      seaweedfs:
+        condition: service_healthy
 
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16-alpine}
@@ -103,21 +103,35 @@ services:
       - meili_data:/meili_data
     logging: *default-logging
 
-  minio:
-    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z}
+  seaweedfs:
+    image: ${SEAWEEDFS_IMAGE:-chrislusf/seaweedfs:4.38@sha256:e1ee85a3089d96c4f3df699a0944468557813f5df306819c9d368c4039070ddf}
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command:
+      - mini
+      - -dir=/data
+      - -ip=seaweedfs
+      - -s3.port=9000
+      - -s3.port.iceberg=0
+      - -webdav=false
+      - -admin.user=${S3_ACCESS_KEY_ID:-collectarr}
+      - -admin.password=${S3_SECRET_ACCESS_KEY:-collectarr-dev-secret}
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-collectarr}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-collectarr-dev-secret}
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "9001:23646"
     volumes:
-      - minio_data:/data
+      - seaweedfs_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9000/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     logging: *default-logging
 
 volumes:
   postgres_data:
   meili_data:
-  minio_data:
+  seaweedfs_data:

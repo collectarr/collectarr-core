@@ -11,3 +11,7 @@ def test_v1_composition_root_exposes_canonical_routes() -> None:
     assert f"{API_V1_PREFIX}/metadata/correction-targets/{{kind}}/{{entity_id}}" in paths
     assert f"{API_V1_PREFIX}/metadata/correction-proposals" in paths
     assert f"{API_V1_PREFIX}/metadata/correction-proposals/{{proposal_id}}/approve" in paths
+
+
+def test_api_docs_link_to_agpl_source() -> None:
+    assert "https://github.com/collectarr/collectarr-core" in app.openapi()["info"]["description"]

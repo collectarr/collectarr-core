@@ -4948,7 +4948,7 @@
     }
   },
   "info": {
-    "description": "Collectarr metadata and library backend API",
+    "description": "Collectarr metadata and library backend API. Source code (AGPL-3.0-only): https://github.com/collectarr/collectarr-core",
     "title": "Collectarr",
     "version": "1.0.0"
   },

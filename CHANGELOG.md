@@ -4,6 +4,7 @@
 
 ### Docs
 - Present releases with Collectarr artwork, editorial summaries, contributor credits and automatic change lists.
+- Publish API source links and current schema contracts alongside the AGPL licensing guidance.
 
 ## 1.1.0 - 2026-10-25
 

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Collectarr",
-    "description": "Collectarr metadata and library backend API",
+    "description": "Collectarr metadata and library backend API. Source code (AGPL-3.0-only): https://github.com/collectarr/collectarr-core",
     "version": "1.0.0"
   },
   "paths": {

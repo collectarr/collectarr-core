@@ -99,7 +99,7 @@ def test_synthetic_item_search_envelope_without_title():
     definition.response_model = MagicMock()
     definition.response_model.model_fields = {"specimen_code", "epoch", "curator"}
 
-    envelope = CatalogItemSearchService._to_search_envelope(definition, item)
+    envelope = CatalogItemSearchService.to_search_envelope(definition, item)
     assert envelope.id == synthetic_id
     assert envelope.kind == ItemKind.music
     assert "title" not in envelope.kind_data

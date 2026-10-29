@@ -136,3 +136,17 @@ class CatalogComicItemResponse(CatalogItemBaseResponse):
     volume_start_year: int | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+
+class CatalogComicSeriesResponse(BaseModel):
+    """One series: the issues sharing a series title, publisher and volume start year."""
+
+    series_title: str
+    publisher: str | None = None
+    volume_start_year: int | None = None
+    first_year: int | None = None
+    last_year: int | None = None
+    issue_count: int
+    cover_image_url: str | None = None
+
+    model_config = ConfigDict(extra="forbid")

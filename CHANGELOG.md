@@ -5,7 +5,7 @@
 ### Fixes
 - Restore fresh installations with public SeaweedFS image storage instead of unavailable MinIO images.
 ### Features
-- Add a Comics catalog with distinct publication fields and partial dates, one creator list and one character list per issue, upgrading existing Music/Games databases through ordered migration 3.
+- Add a Comics catalog with distinct publication fields and partial dates, one creator list and one character list per issue, a series search with issue counts and each series' issues in order, upgrading existing Music/Games databases through ordered migration 3.
 
 ### Refactors
 - Keep credits as names on each item: ordered migration 3 drops the unused person records, the person ids on Game credits and the `/creators` browse endpoints.

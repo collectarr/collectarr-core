@@ -95,8 +95,6 @@ class CatalogComicItemResponse(CatalogItemBaseResponse):
     catalog_number: str | None = None
     cover_date: dict[str, int] | str | None = None
     characters: list[CatalogComicCharacterResponse | str] | None = None
-    character_details: list[CatalogComicCharacterResponse] | None = None
-    contributors: list[CatalogComicCreatorResponse | str] | None = None
     country: str | None = None
     cover_image_url: str | None = None
     cover_price_cents: int | None = None

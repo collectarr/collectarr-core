@@ -23,3 +23,18 @@ def test_comic_publication_age_rejects_non_text_values():
         validate_catalog_item_payload(ItemKind.comic, {
             "title": "Issue", "publication_age": 2024,
         })
+
+
+def test_comic_credits_and_appearances_use_one_list_each():
+    payload = {
+        "title": "Issue",
+        "creators": [{"name": "Writer", "role": "Writer", "person_id": "p1"}],
+        "characters": ["Sidekick", {"name": "Hero", "character_id": "c1"}],
+        "contributors": [{"name": "Writer", "role": "Writer"}],
+        "character_details": [{"name": "Hero"}],
+    }
+    projected = validate_catalog_item_payload(ItemKind.comic, payload)
+    assert projected["creators"] == payload["creators"]
+    assert projected["characters"] == payload["characters"]
+    assert "contributors" not in projected
+    assert "character_details" not in projected

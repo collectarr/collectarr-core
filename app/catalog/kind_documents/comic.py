@@ -76,11 +76,6 @@ COMIC_CHARACTER = ChildObjectShape(
     allow_string_value=True,
 )
 
-COMIC_CHARACTER_DETAIL = ChildObjectShape(
-    fields=COMIC_CHARACTER.fields,
-    nullable=COMIC_CHARACTER.nullable,
-)
-
 COMIC_PERSON = ChildObjectShape(
     fields={**PERSON.fields, "join_phrase": STRING},
     nested=PERSON.nested,
@@ -119,9 +114,7 @@ DOCUMENT = KindDocumentShape(
             ).items()
         },
         "creators": replace(COMIC_PERSON, label="Creators"),
-        "contributors": replace(COMIC_PERSON, label="Contributors"),
         "characters": replace(COMIC_CHARACTER, label="Characters"),
-        "character_details": replace(COMIC_CHARACTER_DETAIL, label="Character Details"),
         "key_events": replace(KEY_EVENT, label="Key Events"),
     },
     required_root_fields=frozenset({"title"}),

@@ -11,9 +11,6 @@ docker compose exec api python -m app.scripts.bootstrap_schema
 docker compose exec api python -m app.scripts.seed_comics
 ```
 
-For a personal unRAID deployment without a reverse proxy or public domain, see
-`docs/unraid.md`.
-
 Back up:
 
 - PostgreSQL volume or logical `pg_dump`

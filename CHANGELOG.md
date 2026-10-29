@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Docs
+- Publish API source links and current schema contracts alongside the AGPL licensing guidance.
+
 ## 1.1.0 - 2026-10-25
 
 The Games catalog inventory baseline, automatic Music sort titles, and strict catalog schema enhancements for Collectarr Core.

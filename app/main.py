@@ -23,7 +23,11 @@ app = FastAPI(
     lifespan=lifespan,
     title=settings.app_name,
     version=API_VERSION,
-    description="Collectarr metadata and library backend API",
+    description=(
+        "Collectarr metadata and library backend API. "
+        "Source code (AGPL-3.0-only): "
+        "https://github.com/collectarr/collectarr-core"
+    ),
     openapi_tags=[
         {"name": "system", "description": "Health and diagnostics"},
         {"name": "auth", "description": "Authentication and registration"},

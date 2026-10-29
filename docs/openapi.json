@@ -5550,17 +5550,6 @@
             ],
             "title": "Id"
           },
-          "character_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Character Id"
-          },
           "real_name": {
             "anyOf": [
               {
@@ -5647,17 +5636,6 @@
               }
             ],
             "title": "Id"
-          },
-          "person_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Person Id"
           },
           "name": {
             "anyOf": [

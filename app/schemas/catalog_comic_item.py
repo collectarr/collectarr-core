@@ -22,7 +22,6 @@ class CatalogComicItemIdentifierResponse(BaseModel):
 
 class CatalogComicCreatorResponse(BaseModel):
     id: str | None = None
-    person_id: str | None = None
     name: str | None = None
     role: str | None = None
     role_id: str | None = None
@@ -37,7 +36,6 @@ class CatalogComicCreatorResponse(BaseModel):
 
 class CatalogComicCharacterResponse(BaseModel):
     id: str | None = None
-    character_id: str | None = None
     real_name: str | None = None
     name: str | None = None
     aliases: list[str] | None = None

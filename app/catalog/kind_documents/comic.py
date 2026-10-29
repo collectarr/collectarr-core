@@ -70,18 +70,26 @@ KEY_EVENT = ChildObjectShape(
     nullable=frozenset({"description"}),
 )
 
+# Comic credits and appearances are names on the issue, as in Music; they do
+# not reference shared person or character records.
 COMIC_CHARACTER = ChildObjectShape(
-    fields={**CHARACTER.fields, "real_name": STRING},
-    nullable=CHARACTER.nullable | frozenset({"real_name"}),
+    fields={
+        **{name: shape for name, shape in CHARACTER.fields.items() if name != "character_id"},
+        "real_name": STRING,
+    },
+    nullable=(CHARACTER.nullable - {"character_id"}) | frozenset({"real_name"}),
     allow_string_value=True,
 )
 
 COMIC_PERSON = ChildObjectShape(
-    fields={**PERSON.fields, "join_phrase": STRING},
+    fields={
+        **{name: shape for name, shape in PERSON.fields.items() if name != "person_id"},
+        "join_phrase": STRING,
+    },
     nested=PERSON.nested,
     required=PERSON.required,
     non_empty=PERSON.non_empty,
-    nullable=PERSON.nullable | frozenset({"join_phrase"}),
+    nullable=(PERSON.nullable - {"person_id"}) | frozenset({"join_phrase"}),
     allow_string_value=PERSON.allow_string_value,
 )
 

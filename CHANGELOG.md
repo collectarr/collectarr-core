@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Docs
+- Present releases with Collectarr artwork, editorial summaries, contributor credits and automatic change lists.
+
 ## 1.1.0 - 2026-10-25
 
 The Games catalog inventory baseline, automatic Music sort titles, and strict catalog schema enhancements for Collectarr Core.

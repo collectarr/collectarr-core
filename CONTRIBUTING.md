@@ -31,6 +31,9 @@ original terms; the historical notice is preserved in
 [LICENSES/MIT-legacy.txt](LICENSES/MIT-legacy.txt).
 See [LICENSE](LICENSE) for the full AGPLv3 terms, including source access
 requirements for users interacting remotely with modified versions.
+If you deploy a modified version, make its complete corresponding source
+available to remote users under AGPLv3 section 13, and update the source
+link presented in the API documentation to point to your modified source.
 
 ## Community
 

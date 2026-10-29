@@ -34,7 +34,7 @@ TRAILER_KINDS: frozenset[ItemKind] = VIDEO_KINDS | frozenset({
     ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy,
 })
 ALL_KINDS: frozenset[ItemKind] = frozenset({
-    ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy, ItemKind.collection,
+    ItemKind.music, ItemKind.comic, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy, ItemKind.collection,
 })
 CATALOG_KINDS: frozenset[ItemKind] = ALL_KINDS - {ItemKind.collection}
 

@@ -500,6 +500,34 @@ Tables not yet mapped to a primary domain bucket.
 - Check `ck_canonical_correction_proposals_base_present`: `base_revision IS NOT NULL OR base_hash IS NOT NULL`
 - Foreign keys: none
 
+### comic_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | yes | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_comic_items_barcode` (non-unique): `barcode`
+- Index `ix_comic_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_comic_items_details_gin` (non-unique): `details`
+- Index `ix_comic_items_sort_key` (non-unique): `sort_key`
+- Index `ix_comic_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_comic_items_title` (non-unique): `title`
+- Index `ix_comic_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### duplicate_review_details
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |

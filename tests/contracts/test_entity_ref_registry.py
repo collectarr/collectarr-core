@@ -12,6 +12,6 @@ def test_registry_exposes_music_and_its_shared_references():
     assert spec is not None and spec.kind is ItemKind.music
     assert spec.table_name == "music_items"
     assert set(DEFAULT_ENTITY_REF_REGISTRY.known_entity_types()) == {
-        "catalog_music_item", "catalog_game_item", "catalog_game_hardware_item",
+        "catalog_comic_item", "catalog_music_item", "catalog_game_item", "catalog_game_hardware_item",
         "catalog_game_toy_item", "organization", "person", "tag",
     }

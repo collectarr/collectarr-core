@@ -111,7 +111,7 @@ async def test_rate_limit_cleanup_removes_expired_client_buckets(monkeypatch):
 
 @pytest.mark.db
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind", ["boardgame", "book", "comic", "manga", "movie", "tv"])
+@pytest.mark.parametrize("kind", ["boardgame", "book", "manga", "movie", "tv"])
 async def test_unreleased_kind_validation_returns_serializable_errors(client, kind):
     response = await client.get("/api/v1/search", params={"kind": kind, "q": "test"})
     assert response.status_code == 422

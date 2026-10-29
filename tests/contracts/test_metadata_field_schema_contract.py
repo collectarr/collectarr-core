@@ -139,7 +139,7 @@ def test_normalized_derivations_are_byte_for_byte_stable():
     assert "synopsis" not in vt
     allowed = kind_allowed_keys()
     assert allowed[ItemKind.music] == {"genres"}
-    assert set(allowed) == {ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy}
+    assert set(allowed) == {ItemKind.music, ItemKind.comic, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy}
 
 
 def test_editable_fields_exclude_internal_bookkeeping():
@@ -161,7 +161,7 @@ def test_fields_for_kind_is_common_plus_kind_scoped():
 
 
 def test_kind_definitions_own_root_models_documents_and_route_metadata():
-    assert len(CATALOG_KIND_DEFINITIONS) == 4
+    assert len(CATALOG_KIND_DEFINITIONS) == 5
     for definition in CATALOG_KIND_DEFINITIONS:
         assert definition.model.__tablename__
         assert definition.document is not None

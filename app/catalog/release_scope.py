@@ -6,7 +6,7 @@ from pydantic import AfterValidator, WithJsonSchema
 
 from app.models.base import ItemKind
 
-RELEASED_CATALOG_KINDS = frozenset({ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy})
+RELEASED_CATALOG_KINDS = frozenset({ItemKind.music, ItemKind.comic, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy})
 
 
 def _require_released_kind(kind: ItemKind) -> ItemKind:

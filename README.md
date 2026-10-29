@@ -1,20 +1,21 @@
 # 🎼 Collectarr Core
 
-A self-hosted Music and Games catalog for Collectarr: discover albums and games,
+A self-hosted Music, Games and Comics catalog for Collectarr: discover albums, games and comics,
 keep edition details consistent and review improvements to shared catalog information.
 
 **License:** [GNU AGPLv3 only](LICENSE) (`AGPL-3.0-only`). See the
 [contribution guide](CONTRIBUTING.md) for development and licensing terms,
 including the historical MIT notice.
 
-**Current release supports Music and Games.** Baseline 1 established the Music
+**Catalog scope: Music, Games and Comics.** Baseline 1 established the Music
 baseline and shared catalog infrastructure. Ordered migration 2 introduced independent
-Games inventory catalogs (Games, Hardware and Toys). Other kinds arrive in future
+Games inventory catalogs (Games, Hardware and Toys). Ordered migration 3 adds
+Comics without replacing Music or Games data. Other kinds arrive in future
 versioned migrations.
 
 ## ✨ A catalog built around real releases
 
-- Search Music and Games releases using titles, creators, platforms and supported identifiers.
+- Search Music, Games and Comics using titles, creators and supported identifiers.
 - Keep edition details, credits, discs, tracks, media and artwork together.
 - Derive automatic sort titles for releases (e.g. "The Wall" -> "Wall, The").
 - Manage independent inventories for Games, Hardware and Toys without mixing personal copy state.

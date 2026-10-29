@@ -4,6 +4,8 @@
 
 ### Fixes
 - Restore fresh installations with public SeaweedFS image storage instead of unavailable MinIO images.
+### Features
+- Prepare Comics publication Age as a distinct catalog field, separate from audience ratings.
 
 ### CI & Build
 - Release notes list every merged pull request, direct commit and closed issue, and record new release summaries in the repository.

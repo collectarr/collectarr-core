@@ -44,9 +44,7 @@ Tables:
 - `entity_aliases`
 - `entity_links`
 - `organizations`
-- `persons`
 - `entity_organizations`
-- `entity_persons`
 - `tags`
 - `entity_tags`
 - `music_items`
@@ -103,7 +101,7 @@ Canonical Music catalog tables.
 
 ## Editorial and Taxonomy
 
-People, organizations and shared tagging tables.
+Organizations and shared tagging tables.
 
 ### organizations
 
@@ -128,30 +126,6 @@ People, organizations and shared tagging tables.
 - Check constraints: none
 - Foreign keys: none
 
-### persons
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| name | VARCHAR(255) | no | no | no | yes | - | - | - |
-| sort_name | VARCHAR(255) | yes | no | no | yes | - | - | - |
-| biography | TEXT | yes | no | no | no | - | - | - |
-| description | TEXT | yes | no | no | no | - | - | - |
-| image_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
-| api_detail_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
-| site_detail_url | VARCHAR(1024) | yes | no | no | no | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique constraints: none
-- Index `ix_persons_name` (non-unique): `name`
-- Index `ix_persons_sort_name` (non-unique): `sort_name`
-- Check constraints: none
-- Foreign keys: none
-
 ### entity_organizations
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -173,29 +147,6 @@ People, organizations and shared tagging tables.
 - Index `ix_entity_organizations_role` (non-unique): `role`
 - Check constraints: none
 - Foreign key `(anonymous)`: `organization_id` -> `organizations.id`
-- Note: Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.
-
-### entity_persons
-
-| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
-|---|---|---|---|---|---|---|---|---|
-| entity_type | VARCHAR(64) | no | no | no | no | - | - | - |
-| entity_id | UUID | no | no | no | no | - | - | - |
-| person_id | UUID | no | no | no | yes | - | - | persons.id |
-| role | VARCHAR(64) | no | no | no | yes | - | - | - |
-| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
-| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
-
-#### Constraints
-
-- Primary key: `id`
-- Unique `uq_entity_person_role`: `entity_type, entity_id, person_id, role`
-- Index `ix_entity_persons_entity` (non-unique): `entity_type, entity_id`
-- Index `ix_entity_persons_person` (non-unique): `person_id`
-- Index `ix_entity_persons_role` (non-unique): `role`
-- Check constraints: none
-- Foreign key `(anonymous)`: `person_id` -> `persons.id`
 - Note: Uses entity_type + entity_id as a polymorphic reference; target integrity is enforced in application logic rather than with a single database foreign key.
 
 ### entity_aliases

@@ -16,10 +16,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    and_,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import (
     Base,
@@ -38,16 +37,6 @@ class Organization(UuidMixin, TimestampMixin, Base):
     parent_publisher: Mapped[str | None] = mapped_column(String(255), index=True)
 
 
-class Person(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "persons"
-
-    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    sort_name: Mapped[str | None] = mapped_column(String(255), index=True)
-    biography: Mapped[str | None] = mapped_column(Text)
-    description: Mapped[str | None] = mapped_column(Text)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
 class EntityOrganization(UuidMixin, TimestampMixin, Base):
     __tablename__ = "entity_organizations"
     __table_args__ = (
@@ -70,30 +59,6 @@ class EntityOrganization(UuidMixin, TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
     organization: Mapped["Organization"] = relationship()
-
-
-class EntityPerson(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "entity_persons"
-    __table_args__ = (
-        UniqueConstraint(
-            "entity_type",
-            "entity_id",
-            "person_id",
-            "role",
-            name="uq_entity_person_role",
-        ),
-        Index("ix_entity_persons_entity", "entity_type", "entity_id"),
-        Index("ix_entity_persons_person", "person_id"),
-    )
-
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
-    person_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False
-    )
-    role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-
-    person: Mapped["Person"] = relationship()
 
 
 class EntityAlias(UuidMixin, TimestampMixin, Base):
@@ -133,79 +98,6 @@ class EntityLink(UuidMixin, TimestampMixin, Base):
     kind: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-
-class StoryArc(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "story_arcs"
-    __table_args__ = (UniqueConstraint("name", "publisher", name="uq_story_arcs_name_publisher"),)
-
-    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    description: Mapped[str | None] = mapped_column(Text)
-    publisher: Mapped[str | None] = mapped_column(String(255), index=True)
-    start_date: Mapped[date | None] = mapped_column(Date)
-    start_date_parts: Mapped[str | None] = mapped_column(String(64))
-    end_date: Mapped[date | None] = mapped_column(Date)
-    end_date_parts: Mapped[str | None] = mapped_column(String(64))
-    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
-
-
-class StoryArcItem(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "story_arc_items"
-    __table_args__ = (
-        UniqueConstraint("story_arc_id", "entity_type", "entity_id", name="uq_story_arc_item"),
-        Index("ix_story_arc_items_story_arc", "story_arc_id"),
-        Index("ix_story_arc_items_entity", "entity_type", "entity_id"),
-    )
-
-    story_arc_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("story_arcs.id", ondelete="CASCADE"), nullable=False
-    )
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    ordinal: Mapped[int | None] = mapped_column(Integer)
-
-    story_arc: Mapped["StoryArc"] = relationship()
-
-
-class Character(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "characters"
-
-    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    canonical_name: Mapped[str | None] = mapped_column(String(255), index=True)
-    description: Mapped[str | None] = mapped_column(Text)
-    image_url: Mapped[str | None] = mapped_column(String(1024))
-    api_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    site_detail_url: Mapped[str | None] = mapped_column(String(1024))
-    first_appearance_entity_type: Mapped[str | None] = mapped_column(String(64), index=True)
-    first_appearance_entity_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), index=True
-    )
-
-    alias_entries: Mapped[list["EntityAlias"]] = relationship(
-        primaryjoin=lambda: and_(
-            foreign(EntityAlias.entity_id) == Character.id,
-            EntityAlias.entity_type == "character",
-        ),
-        order_by="EntityAlias.position",
-        cascade="all, delete-orphan",
-    )
-class CharacterAppearance(UuidMixin, TimestampMixin, Base):
-    __tablename__ = "character_appearances"
-    __table_args__ = (
-        UniqueConstraint("character_id", "entity_type", "entity_id", name="uq_character_appearance"),
-        Index("ix_character_appearances_character", "character_id"),
-        Index("ix_character_appearances_entity", "entity_type", "entity_id"),
-    )
-
-    character_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"), nullable=False
-    )
-    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-
-    character: Mapped["Character"] = relationship()
-
 
 class Tag(UuidMixin, TimestampMixin, Base):
     __tablename__ = "tags"

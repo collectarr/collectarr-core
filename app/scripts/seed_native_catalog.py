@@ -9,11 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    EntityPerson,
     EntityTag,
-    Person,
-    StoryArc,
-    StoryArcItem,
     Tag,
 )
 from app.models.base import ItemKind
@@ -248,9 +244,7 @@ async def _seed_book(db: AsyncSession, entry: _Entry, cover_url: str | None, thu
             "sequence": 1,
         }]
     item.details = dict(item.details)
-    await _ensure_person_link(db, item.id, "catalog_book_item", entry.creator, "creator")
     await _ensure_tag_link(db, item.id, "catalog_book_item", entry.tag)
-    await _ensure_story_arc_link(db, item.id, "catalog_book_item", entry.story_arc)
     return [item]
 
 
@@ -289,15 +283,7 @@ async def _seed_comic(db: AsyncSession, entry: _Entry, cover_url: str | None, th
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
     }
-    await _ensure_person_link(db, item.id, "catalog_comic_item", entry.creator, "creator")
     await _ensure_tag_link(db, item.id, "catalog_comic_item", entry.tag)
-    await _ensure_story_arc_link(db, item.id, "catalog_comic_item", entry.story_arc)
-    await _ensure_character_appearance(
-        db,
-        item.id,
-        entry.character,
-        entity_type="catalog_comic_item",
-    )
     return [item]
 
 
@@ -343,15 +329,7 @@ async def _seed_manga(db: AsyncSession, entry: _Entry, cover_url: str | None, th
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
     }
-    await _ensure_person_link(db, item.id, "catalog_manga_item", entry.creator, "creator")
     await _ensure_tag_link(db, item.id, "catalog_manga_item", entry.tag)
-    await _ensure_story_arc_link(db, item.id, "catalog_manga_item", entry.story_arc)
-    await _ensure_character_appearance(
-        db,
-        item.id,
-        entry.character,
-        entity_type="catalog_manga_item",
-    )
     return [item]
 
 
@@ -389,7 +367,6 @@ async def _seed_movie(db: AsyncSession, entry: _Entry, cover_url: str | None, th
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
     }
-    await _ensure_person_link(db, item.id, "catalog_movie_item", entry.creator, "director")
     media = item.details.get("media") or []
     if not media:
         item.details["media"] = [{
@@ -431,7 +408,6 @@ async def _seed_tv(db: AsyncSession, entry: _Entry, cover_url: str | None, thumb
         "thumbnail_image_url": thumbnail_url,
     }
     await db.flush()
-    await _ensure_person_link(db, item.id, "catalog_tv_item", entry.creator, "creator")
     if not item.details.get("media"):
         item.details["media"] = [{
             "id": str(uuid4()),
@@ -657,26 +633,6 @@ async def _get_or_create_series(db: AsyncSession, model: type, title: str, publi
     return row
 
 
-async def _ensure_person_link(db: AsyncSession, entity_id: Any, entity_type: str, creator: tuple[str, str], role: str) -> None:
-    name, creator_role = creator
-    result = await db.execute(select(Person).where(Person.name == name))
-    person = result.scalar_one_or_none()
-    if person is None:
-        person = Person(name=name)
-        db.add(person)
-        await db.flush()
-    result = await db.execute(
-        select(EntityPerson).where(
-            EntityPerson.entity_type == entity_type,
-            EntityPerson.entity_id == entity_id,
-            EntityPerson.person_id == person.id,
-            EntityPerson.role == role,
-        )
-    )
-    if result.scalar_one_or_none() is None:
-        db.add(EntityPerson(entity_type=entity_type, entity_id=entity_id, person_id=person.id, role=role))
-
-
 async def _ensure_tag_link(db: AsyncSession, entity_id: Any, entity_type: str, tag_name: str | None) -> None:
     if not tag_name:
         return
@@ -698,26 +654,6 @@ async def _ensure_tag_link(db: AsyncSession, entity_id: Any, entity_type: str, t
         db.add(EntityTag(entity_type=entity_type, entity_id=entity_id, tag_id=tag.id))
 
 
-async def _ensure_story_arc_link(db: AsyncSession, entity_id: Any, entity_type: str, arc_name: str | None) -> None:
-    if not arc_name:
-        return
-    result = await db.execute(select(StoryArc).where(StoryArc.name == arc_name))
-    arc = result.scalar_one_or_none()
-    if arc is None:
-        arc = StoryArc(name=arc_name, description=f"Seed arc {arc_name}", publisher=None)
-        db.add(arc)
-        await db.flush()
-    result = await db.execute(
-        select(StoryArcItem).where(
-            StoryArcItem.story_arc_id == arc.id,
-            StoryArcItem.entity_type == entity_type,
-            StoryArcItem.entity_id == entity_id,
-        )
-    )
-    if result.scalar_one_or_none() is None:
-        db.add(StoryArcItem(story_arc_id=arc.id, entity_type=entity_type, entity_id=entity_id, ordinal=1))
-
-
 async def _ensure_book_item_series_membership(
     db: AsyncSession,
     item: BookItem,
@@ -732,41 +668,3 @@ async def _ensure_book_item_series_membership(
             "display_number": str(index),
         })
         item.details = {**item.details, "series_memberships": memberships}
-
-
-async def _ensure_character_appearance(
-    db: AsyncSession,
-    entity_id: Any,
-    character_name: str | None,
-    *,
-    entity_type: str,
-) -> None:
-    if not character_name:
-        return
-    from app.models import (  # local import to avoid circulars in all files
-        Character,
-        CharacterAppearance,
-    )
-
-    result = await db.execute(select(Character).where(Character.name == character_name))
-    character = result.scalar_one_or_none()
-    if character is None:
-        character = Character(name=character_name, description=f"Seed character {character_name}")
-        db.add(character)
-        await db.flush()
-    result = await db.execute(
-        select(CharacterAppearance).where(
-            CharacterAppearance.entity_type == entity_type,
-            CharacterAppearance.entity_id == entity_id,
-            CharacterAppearance.character_id == character.id,
-        )
-    )
-    if result.scalar_one_or_none() is None:
-        db.add(
-            CharacterAppearance(
-                entity_type=entity_type,
-                entity_id=entity_id,
-                character_id=character.id,
-                role="main",
-            )
-        )

@@ -114,10 +114,7 @@ _ENTITY_REF_REGISTRY = EntityRefRegistry(
             supports_links=True,
         ),
         "catalog_tv_item": EntityRefSpec("catalog_tv_item", "tv_items", "TV Catalog Item", kind=ItemKind.tv, supports_aliases=True, supports_links=True),
-        "character": EntityRefSpec("character", "characters", "Character", supports_aliases=True, supports_links=True),
-        "story_arc": EntityRefSpec("story_arc", "story_arcs", "Story arc", supports_aliases=True, supports_links=True),
         "organization": EntityRefSpec("organization", "organizations", "Organization", supports_aliases=True, supports_links=True),
-        "person": EntityRefSpec("person", "persons", "Person", supports_aliases=True, supports_links=True),
         "tag": EntityRefSpec("tag", "tags", "Tag", supports_aliases=True, supports_links=True),
     }
 )
@@ -126,5 +123,5 @@ _ENTITY_REF_REGISTRY = EntityRefRegistry(
 DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry({
     entity_type: spec for entity_type, spec in _ENTITY_REF_REGISTRY.specs_by_entity_type.items()
     if entity_type in {"catalog_comic_item", "catalog_music_item", "catalog_game_item", "catalog_game_hardware_item",
-                       "catalog_game_toy_item", "organization", "person", "tag"}
+                       "catalog_game_toy_item", "organization", "tag"}
 })

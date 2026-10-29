@@ -24,7 +24,6 @@ class CatalogBookItemPrintingResponse(BaseModel):
 
 class CatalogBookItemCreditResponse(BaseModel):
     id: UUID
-    person_id: UUID | None = None
     name: str
     role: str | None = None
     role_id: str | None = None
@@ -54,7 +53,6 @@ class CatalogBookItemSeriesMembershipResponse(BaseModel):
 
 class CatalogBookItemCharacterResponse(BaseModel):
     id: str | None = None
-    character_id: str | None = None
     name: str | None = None
     aliases: list[str] | None = None
     role: str | None = None

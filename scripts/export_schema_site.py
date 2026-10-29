@@ -62,18 +62,12 @@ DOMAIN_SPECS: list[dict[str, Any]] = [
     {
         "id": "editorial",
         "title": "Editorial and Taxonomy",
-        "description": "People, organizations and shared tagging tables.",
+        "description": "Organizations and shared tagging tables.",
         "tables": [
             "organizations",
-            "persons",
             "entity_organizations",
-            "entity_persons",
             "entity_aliases",
             "entity_links",
-            "story_arcs",
-            "story_arc_items",
-            "characters",
-            "character_appearances",
             "tags",
             "entity_tags",
             "metadata_taxonomies",
@@ -112,9 +106,7 @@ KIND_SHARED_TABLES = [
     "entity_aliases",
     "entity_links",
     "organizations",
-    "persons",
     "entity_organizations",
-    "entity_persons",
     "tags",
     "entity_tags",
 ]
@@ -122,17 +114,9 @@ KIND_SHARED_TABLES = [
 KIND_SPECIFIC_TABLES: dict[str, list[str]] = {
     "comic": [
         "comic_items",
-        "characters",
-        "character_appearances",
-        "story_arcs",
-        "story_arc_items",
     ],
     "manga": [
         "manga_items",
-        "characters",
-        "character_appearances",
-        "story_arcs",
-        "story_arc_items",
     ],
     "movie": [
         "movie_items",
@@ -162,7 +146,6 @@ POLYMORPHIC_LINK_TABLES = {
     "entity_aliases",
     "entity_links",
     "entity_organizations",
-    "entity_persons",
     "entity_tags",
     "image_assets",
 }

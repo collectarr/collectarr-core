@@ -188,14 +188,6 @@ async def test_entity_organizations_reference_existing_entities(schema_database)
 @pytest.mark.db
 @pytest.mark.usefixtures("clean_database")
 @pytest.mark.asyncio
-async def test_entity_persons_reference_existing_entities(schema_database):
-    async with AsyncSessionLocal() as db:
-        await _assert_rows_reference_existing_entities(db, source_table="entity_persons")
-
-
-@pytest.mark.db
-@pytest.mark.usefixtures("clean_database")
-@pytest.mark.asyncio
 async def test_entity_tags_reference_existing_entities(schema_database):
     async with AsyncSessionLocal() as db:
         await _assert_rows_reference_existing_entities(db, source_table="entity_tags")

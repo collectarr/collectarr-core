@@ -125,6 +125,6 @@ _ENTITY_REF_REGISTRY = EntityRefRegistry(
 
 DEFAULT_ENTITY_REF_REGISTRY = EntityRefRegistry({
     entity_type: spec for entity_type, spec in _ENTITY_REF_REGISTRY.specs_by_entity_type.items()
-    if entity_type in {"catalog_music_item", "catalog_game_item", "catalog_game_hardware_item",
+    if entity_type in {"catalog_comic_item", "catalog_music_item", "catalog_game_item", "catalog_game_hardware_item",
                        "catalog_game_toy_item", "organization", "person", "tag"}
 })

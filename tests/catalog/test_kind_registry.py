@@ -18,13 +18,13 @@ from app.schemas.metadata_shared import CatalogSearchPage
 
 
 def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
-    assert len(CATALOG_KIND_DEFINITIONS) == 4
+    assert len(CATALOG_KIND_DEFINITIONS) == 5
     assert set(CATALOG_KINDS_BY_ID) == {definition.kind for definition in CATALOG_KIND_DEFINITIONS}
     assert set(DOCUMENTS) == set(CATALOG_KINDS_BY_ID)
     assert set(CATALOG_KINDS_BY_MODEL) == {
         definition.model for definition in CATALOG_KIND_DEFINITIONS
     }
-    assert {media_type.kind for media_type in top_level_media_types} == {ItemKind.music, ItemKind.game}
+    assert {media_type.kind for media_type in top_level_media_types} == {ItemKind.music, ItemKind.comic, ItemKind.game}
     assert len(CATALOG_KINDS_BY_ROUTE) == sum(
         len(definition.route_segments) for definition in CATALOG_KIND_DEFINITIONS
     )
@@ -79,7 +79,7 @@ def test_music_credit_fields_are_not_part_of_other_kind_documents():
     assert "join_phrase" in comic_creator.fields
     assert not {"artist_id", "instrument"}.intersection(comic_creator.fields)
 
-    assert "CatalogComicCreatorResponse" not in app.openapi()["components"]["schemas"]
+    assert "CatalogComicCreatorResponse" in app.openapi()["components"]["schemas"]
 
 
 def test_kind_child_shapes_and_responses_are_composed_once():

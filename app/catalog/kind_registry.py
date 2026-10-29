@@ -264,7 +264,7 @@ _KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
 
 CATALOG_KIND_DEFINITIONS = tuple(
     definition for definition in _KIND_DEFINITIONS
-    if definition.kind in {ItemKind.music, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy}
+    if definition.kind in {ItemKind.music, ItemKind.comic, ItemKind.game, ItemKind.game_hardware, ItemKind.game_toy}
 )
 
 CATALOG_KINDS_BY_ID = {definition.kind: definition for definition in CATALOG_KIND_DEFINITIONS}

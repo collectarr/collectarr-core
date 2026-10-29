@@ -38,7 +38,7 @@ def test_movie_entity_refs_target_the_flat_catalog():
 
 
 def test_comic_entity_refs_target_the_flat_catalog():
-    assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_comic_item")
+    assert DEFAULT_ENTITY_REF_REGISTRY.is_known("catalog_comic_item")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_work")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_issue")
     assert not DEFAULT_ENTITY_REF_REGISTRY.is_known("comic_variant")

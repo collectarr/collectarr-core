@@ -1,5 +1,7 @@
 """Comic Catalog Item fields and contained relationships."""
 
+from dataclasses import replace
+
 from app.catalog.document_shape import (
     BOOLEAN,
     CHARACTER,
@@ -93,6 +95,8 @@ DOCUMENT = KindDocumentShape(
         "description": STRING,
         "series_title": STRING,
         "publication_age": STRING,
+        "age_rating": STRING,
+        "variant": STRING,
         "volume_name": STRING,
         "issue_number": STRING,
         "cover_price_cents": INTEGER,
@@ -105,12 +109,20 @@ DOCUMENT = KindDocumentShape(
         "volume_start_year": INTEGER,
     },
     children={
-        **common_root_children("identifiers", "external_links", "story_arcs"),
-        "creators": COMIC_PERSON,
-        "contributors": COMIC_PERSON,
-        "characters": COMIC_CHARACTER,
-        "character_details": COMIC_CHARACTER_DETAIL,
-        "key_events": KEY_EVENT,
+        **{
+            name: replace(shape, label={
+                "identifiers": "Identifiers", "external_links": "Links",
+                "story_arcs": "Story Arcs",
+            }[name])
+            for name, shape in common_root_children(
+                "identifiers", "external_links", "story_arcs"
+            ).items()
+        },
+        "creators": replace(COMIC_PERSON, label="Creators"),
+        "contributors": replace(COMIC_PERSON, label="Contributors"),
+        "characters": replace(COMIC_CHARACTER, label="Characters"),
+        "character_details": replace(COMIC_CHARACTER_DETAIL, label="Character Details"),
+        "key_events": replace(KEY_EVENT, label="Key Events"),
     },
     required_root_fields=frozenset({"title"}),
 )

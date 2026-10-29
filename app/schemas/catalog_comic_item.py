@@ -88,6 +88,8 @@ class CatalogComicItemResponse(CatalogItemBaseResponse):
     sort_key: str | None = None
 
     age_rating: str | None = None
+    publication_age: str | None = None
+    variant: str | None = None
     audience_rating: str | None = None
     barcode: str | None = None
     catalog_number: str | None = None

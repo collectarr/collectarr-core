@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.api.deps import CurrentAdmin, DbSession
 from app.catalog.release_scope import ReleasedCatalogKind
@@ -59,3 +60,28 @@ async def approve_canonical_correction_proposal(
     admin: CurrentAdmin,
 ) -> CanonicalCorrectionApprovalResponse:
     return await CanonicalCorrectionService(db).approve(proposal_id, actor=admin)
+
+
+@router.get(
+    "/metadata/correction-proposals",
+    response_model=list[CanonicalCorrectionProposalResponse],
+)
+async def list_canonical_correction_proposals(
+    db: DbSession,
+    admin: CurrentAdmin,
+    status: Literal["pending", "approved", "rejected"] | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[CanonicalCorrectionProposalResponse]:
+    return await CanonicalCorrectionService(db).list_proposals(status_filter=status, limit=limit)
+
+
+@router.post(
+    "/metadata/correction-proposals/{proposal_id}/reject",
+    response_model=CanonicalCorrectionProposalResponse,
+)
+async def reject_canonical_correction_proposal(
+    proposal_id: UUID,
+    db: DbSession,
+    admin: CurrentAdmin,
+) -> CanonicalCorrectionProposalResponse:
+    return await CanonicalCorrectionService(db).reject(proposal_id, actor=admin)

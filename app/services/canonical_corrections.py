@@ -64,6 +64,65 @@ class CanonicalCorrectionService:
         await self.db.refresh(proposal, attribute_names=["values"])
         return self._proposal_response(proposal, current.fields, diff, current.revision, current.hash)
 
+    async def list_proposals(self, *, status_filter: str | None, limit: int) -> list[CanonicalCorrectionProposalResponse]:
+        """Proposals newest first, each beside its target's current fields."""
+        query = (
+            select(CanonicalCorrectionProposal)
+            .options(selectinload(CanonicalCorrectionProposal.values))
+            .order_by(CanonicalCorrectionProposal.created_at.desc())
+            .limit(limit)
+        )
+        if status_filter is not None:
+            query = query.where(CanonicalCorrectionProposal.status == status_filter)
+        proposals = (await self.db.execute(query)).scalars().all()
+        responses = []
+        for proposal in proposals:
+            proposed = materialize_typed_values(proposal.values)
+            try:
+                current, diff = await self.targets.current_and_diff(
+                    kind=proposal.kind,
+                    entity_type=proposal.entity_type,
+                    entity_id=proposal.entity_id,
+                    scope=proposal.scope,
+                    proposed_fields=proposed if isinstance(proposed, dict) else {},
+                )
+            except ApiHTTPException:
+                # The target is gone; the proposal still lists, without a diff.
+                responses.append(self._proposal_response(proposal, {}, {}, None, None))
+                continue
+            responses.append(self._proposal_response(proposal, current.fields, diff, current.revision, current.hash))
+        return responses
+
+    async def reject(self, proposal_id: UUID, *, actor: User) -> CanonicalCorrectionProposalResponse:
+        proposal = (
+            await self.db.execute(
+                select(CanonicalCorrectionProposal)
+                .options(selectinload(CanonicalCorrectionProposal.values))
+                .where(CanonicalCorrectionProposal.id == proposal_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if proposal is None:
+            raise ApiHTTPException(status_code=404, code="canonical_correction_not_found", detail=f"Correction proposal {proposal_id} was not found.")
+        if proposal.status != "pending":
+            raise ApiHTTPException(status_code=status.HTTP_409_CONFLICT, code="canonical_correction_not_pending", detail=f"Correction proposal is already {proposal.status}.")
+        proposal.status = "rejected"
+        audit = AdminAuditLog(
+            action="canonical_correction_rejected",
+            actor_user_id=actor.id,
+            actor_email=actor.email,
+            entity_type=proposal.entity_type,
+            entity_id=proposal.entity_id,
+        )
+        audit.details = [
+            AdminAuditLogDetail(**row)
+            for row in flatten_typed_values({"proposal_id": str(proposal.id), "scope": proposal.scope})
+        ]
+        self.db.add(audit)
+        await self.db.commit()
+        await self.db.refresh(proposal, attribute_names=["values"])
+        return self._proposal_response(proposal, {}, {}, None, None)
+
     async def approve(self, proposal_id: UUID, *, actor: User) -> CanonicalCorrectionApprovalResponse:
         # Approval is an optimistic-concurrency transition. Lock the proposal
         # before reading its values so two admins cannot approve the same
@@ -135,8 +194,8 @@ class CanonicalCorrectionService:
         proposal: CanonicalCorrectionProposal,
         current_fields: dict[str, Any],
         diff: dict[str, Any],
-        current_revision: str,
-        current_hash: str,
+        current_revision: str | None,
+        current_hash: str | None,
     ) -> CanonicalCorrectionProposalResponse:
         return CanonicalCorrectionProposalResponse(
             id=proposal.id,
@@ -148,6 +207,7 @@ class CanonicalCorrectionService:
             base_hash=proposal.base_hash,
             proposed_fields=materialize_typed_values(proposal.values),
             status=proposal.status,
+            created_at=proposal.created_at,
             current_fields=current_fields,
             diff=diff,
             current_revision=current_revision,

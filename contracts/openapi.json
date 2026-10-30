@@ -1760,6 +1760,18 @@
             ],
             "title": "Base Revision"
           },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
           "current_fields": {
             "$ref": "#/components/schemas/JsonObject-Output"
           },
@@ -1980,6 +1992,18 @@
               }
             ],
             "title": "Base Revision"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
           },
           "current_fields": {
             "$ref": "#/components/schemas/JsonObject-Output"
@@ -5297,23 +5321,6 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
-      "ItemKind": {
-        "enum": [
-          "boardgame",
-          "book",
-          "collection",
-          "comic",
-          "game",
-          "game_hardware",
-          "game_toy",
-          "manga",
-          "movie",
-          "music",
-          "tv"
-        ],
-        "title": "ItemKind",
-        "type": "string"
-      },
       "JsonObject-Input": {
         "additionalProperties": {
           "$ref": "#/components/schemas/JsonValue-Input"
@@ -8088,6 +8095,80 @@
       }
     },
     "/api/v1/metadata/correction-proposals": {
+      "get": {
+        "operationId": "list_canonical_correction_proposals_api_v1_metadata_correction_proposals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "rejected"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CanonicalCorrectionProposalResponse"
+                  },
+                  "title": "Response List Canonical Correction Proposals Api V1 Metadata Correction Proposals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Canonical Correction Proposals",
+        "tags": [
+          "metadata",
+          "metadata"
+        ]
+      },
       "post": {
         "operationId": "create_canonical_correction_proposal_api_v1_metadata_correction_proposals_post",
         "requestBody": {
@@ -8172,6 +8253,55 @@
           }
         ],
         "summary": "Approve Canonical Correction Proposal",
+        "tags": [
+          "metadata",
+          "metadata"
+        ]
+      }
+    },
+    "/api/v1/metadata/correction-proposals/{proposal_id}/reject": {
+      "post": {
+        "operationId": "reject_canonical_correction_proposal_api_v1_metadata_correction_proposals__proposal_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalCorrectionProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Reject Canonical Correction Proposal",
         "tags": [
           "metadata",
           "metadata"

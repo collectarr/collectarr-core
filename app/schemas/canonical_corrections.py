@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -41,6 +42,7 @@ class CanonicalCorrectionProposalResponse(BaseModel):
     base_hash: str | None
     proposed_fields: JsonObject
     status: str
+    created_at: datetime | None = None
     current_fields: JsonObject = Field(default_factory=dict)
     diff: JsonObject = Field(default_factory=dict)
     current_revision: str | None = None

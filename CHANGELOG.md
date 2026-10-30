@@ -5,6 +5,7 @@
 ### Fixes
 - Restore fresh installations with public SeaweedFS image storage instead of unavailable MinIO images.
 ### Features
+- Administrators can list correction proposals beside each target's current values, newest first and by status, and reject them.
 - Add a Comics catalog with distinct publication fields and partial dates, one creator list and one character list per issue, a series search with issue counts and each series' issues in order, upgrading existing Music/Games databases through ordered migration 3.
 
 ### Refactors

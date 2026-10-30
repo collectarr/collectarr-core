@@ -341,3 +341,51 @@ async def test_music_nested_correction_rejects_invalid_or_duplicate_component_id
     )
     assert proposal.status_code == 422
     assert proposal.json()["code"] == "invalid_canonical_music_payload"
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_admins_list_corrections_beside_the_current_fields_and_reject_them(client):
+    entity_id = uuid4()
+    from app.db.session import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        db.add(MusicItem(id=entity_id, title="Before"))
+        actor = User(email="lister@example.test", password_hash="test", role=UserRole.admin)
+        db.add(actor)
+        await db.commit()
+
+    snapshot = await client.get(
+        f"/api/v1/metadata/correction-targets/music/{entity_id}",
+        params={"scope": "catalog_item"},
+    )
+    proposal = await client.post(
+        "/api/v1/metadata/correction-proposals",
+        json={
+            "kind": "music",
+            "entity_type": "catalog_music_item",
+            "entity_id": str(entity_id),
+            "scope": "catalog_item",
+            "base_hash": snapshot.json()["hash"],
+            "proposed_fields": {"title": "After"},
+        },
+    )
+    proposal_id = UUID(proposal.json()["id"])
+
+    async with AsyncSessionLocal() as db:
+        listed = await CanonicalCorrectionService(db).list_proposals(status_filter="pending", limit=50)
+        mine = next(row for row in listed if row.id == proposal_id)
+        assert mine.current_fields["title"] == "Before"
+        assert mine.diff["title"]["after"] == "After"
+        assert mine.created_at is not None
+
+        rejected = await CanonicalCorrectionService(db).reject(proposal_id, actor=actor)
+        assert rejected.status == "rejected"
+        with pytest.raises(Exception, match="already rejected"):
+            await CanonicalCorrectionService(db).reject(proposal_id, actor=actor)
+
+    async with AsyncSessionLocal() as db:
+        pending = await CanonicalCorrectionService(db).list_proposals(status_filter="pending", limit=50)
+        assert proposal_id not in {row.id for row in pending}
+        entity = await db.get(MusicItem, entity_id)
+        assert entity is not None and entity.title == "Before"

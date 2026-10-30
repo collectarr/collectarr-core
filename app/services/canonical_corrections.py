@@ -90,7 +90,13 @@ class CanonicalCorrectionService:
                 # The target is gone; the proposal still lists, without a diff.
                 responses.append(self._proposal_response(proposal, {}, {}, None, None))
                 continue
-            responses.append(self._proposal_response(proposal, current.fields, diff, current.revision, current.hash))
+            response = self._proposal_response(proposal, current.fields, diff, current.revision, current.hash)
+            # A pending proposal made against an older revision cannot apply.
+            response.stale = proposal.status == "pending" and (
+                (proposal.base_revision is not None and proposal.base_revision != current.revision)
+                or (proposal.base_hash is not None and proposal.base_hash != current.hash)
+            )
+            responses.append(response)
         return responses
 
     async def reject(self, proposal_id: UUID, *, actor: User) -> CanonicalCorrectionProposalResponse:

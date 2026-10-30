@@ -47,6 +47,7 @@ class CanonicalCorrectionProposalResponse(BaseModel):
     diff: JsonObject = Field(default_factory=dict)
     current_revision: str | None = None
     current_hash: str | None = None
+    stale: bool = False
 
 
 class CanonicalCorrectionFieldResponse(BaseModel):

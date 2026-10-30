@@ -746,7 +746,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contractVersion": "1.0.0",
   "coreCommit": "unknown",
-  "generatedAt": "2026-10-30T22:33:35.619678Z",
+  "generatedAt": "2026-10-30T22:35:12.598460Z",
   "roots": {
     "credit": {
       "$ref": "#/$defs/CatalogMusicCreditResponse"

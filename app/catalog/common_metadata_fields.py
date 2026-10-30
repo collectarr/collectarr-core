@@ -215,7 +215,7 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         VALUE_TYPE_STRING,
         "Item number",
         section=SECTION_ITEM,
-        kinds=CATALOG_KINDS - {ItemKind.music},
+        kinds=CATALOG_KINDS - {ItemKind.music, ItemKind.comic},
     ),
     MetadataFieldSpec(
         "series_title",
@@ -258,7 +258,7 @@ _EDITORIAL_FIELDS: tuple[MetadataFieldSpec, ...] = (
         VALUE_TYPE_STRING,
         "Primary variant",
         section=SECTION_PUBLISHING,
-        kinds=CATALOG_KINDS - {ItemKind.music},
+        kinds=CATALOG_KINDS - {ItemKind.music, ItemKind.comic},
     ),
     # Technical / release.
     MetadataFieldSpec(

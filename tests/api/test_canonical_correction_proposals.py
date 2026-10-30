@@ -389,3 +389,55 @@ async def test_admins_list_corrections_beside_the_current_fields_and_reject_them
         assert proposal_id not in {row.id for row in pending}
         entity = await db.get(MusicItem, entity_id)
         assert entity is not None and entity.title == "Before"
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_comic_corrections_cover_issue_variant_dates_and_credits(client):
+    from app.db.session import AsyncSessionLocal
+    from app.services.catalog_comic_items import CatalogComicItemService
+
+    async with AsyncSessionLocal() as db:
+        item = await CatalogComicItemService(db).create_from_proposal({
+            "title": "Fixture #1", "series_title": "Fixture", "issue_number": "1",
+            "release_date_parts": {"year": 2024, "month": 3},
+        })
+        actor = User(email="comic-admin@example.test", password_hash="test", role=UserRole.admin)
+        db.add(actor)
+        await db.commit()
+
+    snapshot = await client.get(
+        f"/api/v1/metadata/correction-targets/comic/{item.id}", params={"scope": "catalog_item"},
+    )
+    assert snapshot.status_code == 200, snapshot.text
+    keys = {field["key"] for field in snapshot.json()["field_schema"]}
+    assert {"issue_number", "variant", "variant_description", "cover_date",
+            "release_date_parts", "creators", "characters", "story_arcs"} <= keys
+    assert not {"item_number", "variant_name"} & keys
+
+    proposed = {
+        "issue_number": "1",
+        "variant": "B",
+        "variant_description": "Gold foil",
+        "cover_date": {"year": 2024, "month": 5},
+        "creators": [{"name": "Ada Quill", "role": "Writer"}],
+        "characters": [{"name": "Captain Vale", "real_name": "Mira Vale"}],
+    }
+    proposal = await client.post("/api/v1/metadata/correction-proposals", json={
+        "kind": "comic", "entity_type": snapshot.json()["entity_type"],
+        "entity_id": str(item.id), "scope": "catalog_item",
+        "base_hash": snapshot.json()["hash"], "proposed_fields": proposed,
+    })
+    assert proposal.status_code == 201, proposal.text
+    assert "issue_number" not in proposal.json()["diff"]
+
+    async with AsyncSessionLocal() as db:
+        await CatalogComicItemService(db).get(item.id)
+        await CanonicalCorrectionService(db).approve(UUID(proposal.json()["id"]), actor=actor)
+
+    read = (await client.get(f"/api/v1/metadata/comics/items/{item.id}")).json()
+    assert read["variant"] == "B"
+    assert read["variant_description"] == "Gold foil"
+    assert read["cover_date"] == {"year": 2024, "month": 5}
+    assert read["creators"][0]["name"] == "Ada Quill"
+    assert read["characters"][0]["real_name"] == "Mira Vale"

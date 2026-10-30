@@ -1831,6 +1831,11 @@
             "title": "Scope",
             "type": "string"
           },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -2063,6 +2068,11 @@
           "scope": {
             "title": "Scope",
             "type": "string"
+          },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
           },
           "status": {
             "title": "Status",

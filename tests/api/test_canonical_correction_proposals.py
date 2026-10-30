@@ -378,6 +378,13 @@ async def test_admins_list_corrections_beside_the_current_fields_and_reject_them
         assert mine.current_fields["title"] == "Before"
         assert mine.diff["title"]["after"] == "After"
         assert mine.created_at is not None
+        assert mine.stale is False
+
+        entity = await db.get(MusicItem, entity_id)
+        entity.title = "Changed elsewhere"
+        await db.commit()
+        relisted = await CanonicalCorrectionService(db).list_proposals(status_filter="pending", limit=50)
+        assert next(row for row in relisted if row.id == proposal_id).stale is True
 
         rejected = await CanonicalCorrectionService(db).reject(proposal_id, actor=actor)
         assert rejected.status == "rejected"
@@ -388,7 +395,7 @@ async def test_admins_list_corrections_beside_the_current_fields_and_reject_them
         pending = await CanonicalCorrectionService(db).list_proposals(status_filter="pending", limit=50)
         assert proposal_id not in {row.id for row in pending}
         entity = await db.get(MusicItem, entity_id)
-        assert entity is not None and entity.title == "Before"
+        assert entity is not None and entity.title == "Changed elsewhere"
 
 
 @pytest.mark.db

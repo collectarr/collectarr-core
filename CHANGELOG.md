@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### CI & Build
+- Releases file the Unreleased changelog entries under the new version and set the package version automatically.
 - Release banners count the issues open when the release was published instead of showing none.
 
 ## 1.2.0 - 2026-10-31

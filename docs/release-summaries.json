@@ -10,5 +10,13 @@
   "v0.1.4": "This release updates Collectarr. The complete change list below records the included work.",
   "v0.2.0": "This release updates Collectarr. The complete change list below records the included work.",
   "v1.0.0": "The stable Music-only catalog baseline for Collectarr, with strict version-1 contracts and the current Music payload shapes preserved.",
-  "v1.1.0": "The Games catalog inventory baseline, automatic Music sort titles, and strict catalog schema enhancements for Collectarr Core."
+  "v1.1.0": "The Games catalog inventory baseline, automatic Music sort titles, and strict catalog schema enhancements for Collectarr Core.",
+  "v1.2.0": {
+    "headline": "Comics catalog",
+    "summary": "Collectarr Core adds a Comics catalog with series search, each series' issues in order, partial dates, creators, characters and corrections for every issue field. Administrators can list correction proposals beside the current values, see which ones Core changed since, and reject them. Fresh installations use public SeaweedFS image storage instead of unavailable MinIO images, and self-hosting uses standard Docker Compose. Ordered migration 3 keeps credits as names and removes the unused person records.",
+    "highlights": [
+      "Comics series and issues",
+      "Review correction proposals"
+    ]
+  }
 }

@@ -15,6 +15,7 @@
 - Music artist credits and credits no longer carry artist or contributor ids; ordered migration 3 removes them from stored albums and proposals.
 
 ### CI & Build
+- Release banners count the issues open when the release was published instead of showing none.
 - Release notes list every merged pull request, direct commit and closed issue, and record new release summaries in the repository.
 - Simplify self-hosting to standard Docker Compose, removing Unraid-specific deployment.
 

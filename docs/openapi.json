@@ -770,14 +770,14 @@
         "summary": "Create Canonical Correction Proposal",
         "operationId": "create_canonical_correction_proposal_api_v1_metadata_correction_proposals_post",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CanonicalCorrectionProposalCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -786,6 +786,80 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CanonicalCorrectionProposalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "List Canonical Correction Proposals",
+        "operationId": "list_canonical_correction_proposals_api_v1_metadata_correction_proposals_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "rejected"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CanonicalCorrectionProposalResponse"
+                  },
+                  "title": "Response List Canonical Correction Proposals Api V1 Metadata Correction Proposals Get"
                 }
               }
             }
@@ -835,6 +909,55 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CanonicalCorrectionApprovalResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/correction-proposals/{proposal_id}/reject": {
+      "post": {
+        "tags": [
+          "metadata",
+          "metadata"
+        ],
+        "summary": "Reject Canonical Correction Proposal",
+        "operationId": "reject_canonical_correction_proposal_api_v1_metadata_correction_proposals__proposal_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Proposal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanonicalCorrectionProposalResponse"
                 }
               }
             }
@@ -5186,6 +5309,18 @@
             "type": "string",
             "title": "Status"
           },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
           "current_fields": {
             "$ref": "#/components/schemas/JsonObject-Output"
           },
@@ -5213,6 +5348,11 @@
               }
             ],
             "title": "Current Hash"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "default": false
           },
           "approved_by": {
             "anyOf": [
@@ -5419,6 +5559,18 @@
             "type": "string",
             "title": "Status"
           },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
           "current_fields": {
             "$ref": "#/components/schemas/JsonObject-Output"
           },
@@ -5446,6 +5598,11 @@
               }
             ],
             "title": "Current Hash"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale",
+            "default": false
           }
         },
         "type": "object",
@@ -8699,23 +8856,6 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
-      },
-      "ItemKind": {
-        "type": "string",
-        "enum": [
-          "boardgame",
-          "book",
-          "collection",
-          "comic",
-          "game",
-          "game_hardware",
-          "game_toy",
-          "manga",
-          "movie",
-          "music",
-          "tv"
-        ],
-        "title": "ItemKind"
       },
       "JsonObject-Input": {
         "additionalProperties": {

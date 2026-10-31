@@ -35,15 +35,16 @@ def docker(*args: str) -> str:
 
 @pytest.fixture
 def storage_service(tmp_path, monkeypatch):
-    # Resolve the shipped service without reading a local production env file.
-    env = tmp_path / "test.env"
+    # Resolve the shipped service without reading a local production env file:
+    # the services' `env_file: .env` resolves against this temporary project.
+    env = tmp_path / ".env"
     env.write_text(
         (ROOT / ".env.example").read_text()
         + "S3_ACCESS_KEY_ID=storage-test\nS3_SECRET_ACCESS_KEY=storage-test-secret\n"
     )
     config = json.loads(
         docker(
-            "compose", "--project-directory", str(ROOT), "--env-file", str(env),
+            "compose", "--project-directory", str(tmp_path), "--env-file", str(env),
             "-f", str(ROOT / "docker-compose.yml"), "config", "--no-env-resolution",
             "--format", "json",
         )

@@ -500,6 +500,7 @@ async def _seed_music(
             **existing_track,
             "id": existing_track.get("id") or str(uuid4()),
             "position": "1", "position_order": 0,
+            "is_header": False, "indent_level": 0,
             "title": f"{entry.title} Track 1", "artist": entry.creator[0],
             "duration_ms": 180000,
         }],

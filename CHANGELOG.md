@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### CI & Build
+- Release banners count the issues open when the release was published instead of showing none.
+
+## 1.2.0 - 2026-10-31
+
 ### Features
 - Administrators can list correction proposals beside each target's current values, newest first and by status, marked when Core changed since they were made, and reject them.
 - Add a Comics catalog with distinct publication fields and partial dates, one creator list and one character list per issue, a series search with issue counts and each series' issues in order, corrections for the issue number, variant, variant description, cover and release dates, price, key and the creator, character and story arc lists, upgrading existing Music/Games databases through ordered migration 3.
@@ -15,7 +20,6 @@
 - Music artist credits and credits no longer carry artist or contributor ids; ordered migration 3 removes them from stored albums and proposals.
 
 ### CI & Build
-- Release banners count the issues open when the release was published instead of showing none.
 - Release notes list every merged pull request, direct commit and closed issue, and record new release summaries in the repository.
 - Simplify self-hosting to standard Docker Compose, removing Unraid-specific deployment.
 

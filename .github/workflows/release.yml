@@ -34,6 +34,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref_name }}
+          # Pushing the release commit to the protected main branch needs RELEASE_TOKEN.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -88,6 +90,23 @@ jobs:
           fi
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
+      - name: Record the release in CHANGELOG.md
+        # Semantic-release tags the commit it runs on, so the release commit
+        # with the filed changelog is pushed first and becomes the tag.
+        if: steps.release_mode.outputs.publish_release == 'true' && !inputs.force_publish_existing && github.event_name != 'release'
+        shell: bash
+        env:
+          VERSION: ${{ steps.semantic_preview.outputs.new_release_version }}
+        run: |
+          python3 tool/prepare_changelog.py --version "$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): $VERSION"
+          git push origin HEAD:main || {
+            echo "::error title=Release commit not pushed::Add a token that may push to main as the RELEASE_TOKEN secret."
+            exit 1
+          }
 
       - name: Set up QEMU
         if: steps.release_mode.outputs.build_requested == 'true'

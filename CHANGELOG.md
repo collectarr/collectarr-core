@@ -8,6 +8,7 @@
 
 ### Fixes
 - Restore fresh installations with public SeaweedFS image storage instead of unavailable MinIO images.
+- The sample catalog seed (seed_all_libraries, seed_full) works again with the current Music track contract.
 
 ### Refactors
 - Keep credits as names on each item: ordered migration 3 drops the unused person records, the person ids on Game credits and the `/creators` browse endpoints.

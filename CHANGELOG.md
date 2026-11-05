@@ -5,6 +5,9 @@
 ### Docs
 - The README describes the current catalogs and self-hosting, shows the catalog count badges and has no emoji or screenshot placeholders.
 
+### Features
+- Search can list a game platform's catalog page by page, one item per title, and report how many games it holds.
+
 ### CI & Build
 - Catalog count badges cover every kind, refresh daily without a pull request, and fail visibly when no server is configured.
 - Release notes list the commits of each merged pull request under it instead of only its title.

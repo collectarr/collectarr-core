@@ -174,6 +174,7 @@ _KIND_DEFINITIONS: tuple[CatalogKindDefinition, ...] = tuple(
                 plural_label="Games",
                 route_segments=("games", "game"),
                 field_specs=game.FIELD_SPECS,
+                search_filter_fields=game.SEARCH_FILTER_FIELDS,
                 contained_count_fields=("identifiers",),
             ),
             CatalogKindDefinition(

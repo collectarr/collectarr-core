@@ -4,27 +4,24 @@ import pytest
 
 from app.main import app
 
-SEARCH_PATHS = (
-    "/api/v1/search",
-    "/api/v1/metadata/music/items",
-)
+PAGE_FIELDS = {"items", "next_offset", "has_more"}
+SEARCH_PATHS = {
+    "/api/v1/search": PAGE_FIELDS | {"total"},
+    "/api/v1/metadata/music/items": PAGE_FIELDS,
+}
 
 
 def test_catalog_search_routes_expose_a_page_contract() -> None:
     schema = app.openapi()
     components = schema["components"]["schemas"]
-    for path in SEARCH_PATHS:
+    for path, fields in SEARCH_PATHS.items():
         response = schema["paths"][path]["get"]["responses"]["200"]
         body_schema = response["content"]["application/json"]["schema"]
         if "$ref" in body_schema:
             component_name = body_schema["$ref"].rsplit("/", 1)[-1]
             body_schema = components[component_name]
 
-        assert set(body_schema["properties"]) == {
-            "items",
-            "next_offset",
-            "has_more",
-        }, path
+        assert set(body_schema["properties"]) == fields, path
         assert body_schema["properties"]["items"]["type"] == "array", path
 
 
@@ -35,6 +32,6 @@ async def test_empty_shared_and_music_searches_return_empty_pages(client) -> Non
     music = await client.get("/api/v1/metadata/music/items", params={"q": "missing"})
 
     assert shared.status_code == 200
-    assert shared.json() == {"items": [], "next_offset": None, "has_more": False}
+    assert shared.json() == {"items": [], "next_offset": None, "has_more": False, "total": None}
     assert music.status_code == 200
     assert music.json() == {"items": [], "next_offset": None, "has_more": False}

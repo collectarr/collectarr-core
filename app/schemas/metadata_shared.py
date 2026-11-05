@@ -37,6 +37,7 @@ class CatalogSearchPage(BaseModel):
     items: list[CatalogSearchItemEnvelope]
     next_offset: int | None
     has_more: bool
+    total: int | None = None
 
     model_config = ConfigDict(extra="forbid")
 

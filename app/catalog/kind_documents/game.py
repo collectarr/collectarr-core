@@ -14,6 +14,8 @@ from app.catalog.metadata_field_spec import (
 )
 from app.models.base import ItemKind
 
+SEARCH_FILTER_FIELDS = ("platforms",)
+
 FIELD_SPECS = (
     MetadataFieldSpec("creators", VALUE_TYPE_OBJECT_LIST, "Creators",
                       kinds=frozenset({ItemKind.game})),

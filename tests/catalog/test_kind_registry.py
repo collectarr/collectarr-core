@@ -37,7 +37,7 @@ def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
 
 
 def test_metadata_search_uses_a_paged_contract():
-    assert CatalogSearchPage.model_fields.keys() == {"items", "next_offset", "has_more"}
+    assert CatalogSearchPage.model_fields.keys() == {"items", "next_offset", "has_more", "total"}
     assert any(
         getattr(route, "path", "").endswith("/search") for route in metadata_search.router.routes
     )

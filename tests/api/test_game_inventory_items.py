@@ -4,6 +4,7 @@ import pytest
 
 from app.db.session import AsyncSessionLocal
 from app.services.catalog_game_hardware_items import CatalogGameHardwareItemService
+from app.services.catalog_game_items import CatalogGameItemService
 from app.services.catalog_game_toy_items import CatalogGameToyItemService
 
 
@@ -44,6 +45,69 @@ async def test_independent_inventory_create_read_search_and_correction_schema(cl
     response = await client.get(f"/api/v1/metadata/correction-targets/{kind}/{item.id}", params={"scope": "catalog_item"})
     assert response.status_code == 200, response.text
     assert forbidden not in response.json()["fields"]
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_game_search_lists_one_platform_by_pages_with_a_total(client):
+    async with AsyncSessionLocal() as db:
+        service = CatalogGameItemService(db)
+        for title, platforms in [
+            ("A platform fixture", ["PC"]),
+            ("B platform fixture", ["PC", "PlayStation 5"]),
+            ("C platform fixture", ["PlayStation 5"]),
+            ("D platform fixture", ["PC"]),
+        ]:
+            await service.create_from_proposal({"title": title, "platforms": platforms})
+        await db.commit()
+    params = {
+        "kind": "game",
+        "field_filters": json.dumps({"platforms": ["PC"]}),
+        "limit": 2,
+        "include_total": "true",
+    }
+    first = await client.get("/api/v1/search", params=params)
+    assert first.status_code == 200, first.text
+    assert first.json()["total"] == 3
+    assert first.json()["has_more"] is True
+    assert [item["kind_data"]["title"] for item in first.json()["items"]] == [
+        "A platform fixture",
+        "B platform fixture",
+    ]
+    second = await client.get("/api/v1/search", params={**params, "offset": first.json()["next_offset"]})
+    assert second.status_code == 200, second.text
+    assert [item["kind_data"]["title"] for item in second.json()["items"]] == ["D platform fixture"]
+    assert second.json()["has_more"] is False
+    narrowed = await client.get("/api/v1/search", params={**params, "q": "D platform"})
+    assert narrowed.json()["total"] == 1
+    untotalled = await client.get("/api/v1/search", params={"kind": "game", "q": "platform fixture"})
+    assert untotalled.json()["total"] is None
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_game_search_can_return_one_item_per_title(client):
+    async with AsyncSessionLocal() as db:
+        service = CatalogGameItemService(db)
+        for title, region in [
+            ("A edition fixture", "Europe"),
+            ("a Edition Fixture", "Japan"),
+            ("B edition fixture", "Europe"),
+        ]:
+            await service.create_from_proposal(
+                {"title": title, "platforms": ["PC"], "release_region": region}
+            )
+        await db.commit()
+    params = {"kind": "game", "q": "edition fixture", "include_total": "true"}
+    every_edition = await client.get("/api/v1/search", params=params)
+    assert every_edition.json()["total"] == 3
+    titles = await client.get("/api/v1/search", params={**params, "one_per_title": "true"})
+    assert titles.status_code == 200, titles.text
+    assert titles.json()["total"] == 2
+    assert [item["kind_data"]["title"].lower() for item in titles.json()["items"]] == [
+        "a edition fixture",
+        "b edition fixture",
+    ]
 
 
 @pytest.mark.db

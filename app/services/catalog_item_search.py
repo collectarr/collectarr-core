@@ -49,6 +49,8 @@ class CatalogItemSearchService:
         limit: int = 25,
         offset: int = 0,
         field_filters: dict[str, list[str]] | None = None,
+        include_total: bool = False,
+        one_per_title: bool = False,
     ) -> CatalogSearchPage:
         if field_filters:
             root = CATALOG_KINDS_BY_ID.get(kind)
@@ -110,6 +112,31 @@ class CatalogItemSearchService:
         candidates = union_all(
             *(self._candidate_query(root, arguments) for root in roots)
         ).subquery("catalog_item_search_candidates")
+        if one_per_title:
+            ranked = select(
+                candidates,
+                func.row_number()
+                .over(
+                    partition_by=(candidates.c.kind, candidates.c.title_value),
+                    order_by=(candidates.c.sort_value, candidates.c.item_id),
+                )
+                .label("title_rank"),
+            ).subquery("catalog_item_search_ranked")
+            candidates = (
+                select(
+                    ranked.c.kind,
+                    ranked.c.item_id,
+                    ranked.c.sort_value,
+                    ranked.c.title_value,
+                )
+                .where(ranked.c.title_rank == 1)
+                .subquery("catalog_item_search_titles")
+            )
+        total = (
+            await self.db.scalar(select(func.count()).select_from(candidates))
+            if include_total
+            else None
+        )
         selected_rows = (
             await self.db.execute(
                 select(candidates.c.kind, candidates.c.item_id)
@@ -124,7 +151,7 @@ class CatalogItemSearchService:
             )
         ).all()
         if not selected_rows:
-            return CatalogSearchPage(items=[], next_offset=None, has_more=False)
+            return CatalogSearchPage(items=[], next_offset=None, has_more=False, total=total)
 
         has_more = len(selected_rows) > limit
         page = selected_rows[:limit]
@@ -154,6 +181,7 @@ class CatalogItemSearchService:
             items=items,
             next_offset=offset + len(page) if has_more else None,
             has_more=has_more,
+            total=total,
         )
 
     async def lookup_barcode(
@@ -185,9 +213,16 @@ class CatalogItemSearchService:
         predicates = []
         for field, values in arguments.get("field_filters", {}).items():
             # Registrations choose the searchable detail fields. Within a
-            # field selected values are ORed; separate fields are ANDed.
-            predicates.append(or_(*(model.details.contains({field: value}) for value in values))
-                              if values else literal(False))
+            # field selected values are ORed; separate fields are ANDed. A
+            # nested list only contains a value wrapped in a list.
+            predicates.append(or_(*(
+                condition
+                for value in values
+                for condition in (
+                    model.details.contains({field: value}),
+                    model.details.contains({field: [value]}),
+                )
+            )) if values else literal(False))
 
         if query:
             pattern = f"%{query}%"

@@ -5308,6 +5308,17 @@
               }
             ],
             "title": "Next Offset"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           }
         },
         "required": [
@@ -9452,6 +9463,30 @@
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Count every match, for listings that show a total",
+            "in": "query",
+            "name": "include_total",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count every match, for listings that show a total",
+              "title": "Include Total",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Return one Catalog Item for each title of a kind",
+            "in": "query",
+            "name": "one_per_title",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return one Catalog Item for each title of a kind",
+              "title": "One Per Title",
+              "type": "boolean"
             }
           },
           {

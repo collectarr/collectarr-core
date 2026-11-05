@@ -32,6 +32,8 @@ async def search(
     barcode: str | None = Query(default=None, min_length=1),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(default=False, description="Count every match, for listings that show a total"),
+    one_per_title: bool = Query(default=False, description="Return one Catalog Item for each title of a kind"),
     field_filters: str | None = Query(default=None, max_length=20000, description="JSON object mapping catalog-owned filter fields to selected string values"),
 ) -> CatalogSearchPage:
     try:
@@ -41,6 +43,8 @@ async def search(
     return await MetadataService(db).search(
         query=q,
         field_filters=filters,
+        include_total=include_total,
+        one_per_title=one_per_title,
         kind=kind,
         series=series,
         issue_number=issue_number,

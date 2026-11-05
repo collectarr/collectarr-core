@@ -38,10 +38,14 @@ class MetadataFacade(MetadataReadService):
         limit: int = 25,
         offset: int = 0,
         field_filters: dict[str, list[str]] | None = None,
+        include_total: bool = False,
+        one_per_title: bool = False,
     ) -> CatalogSearchPage:
         return await self.search_service.search(
             query=query,
             field_filters=field_filters,
+            include_total=include_total,
+            one_per_title=one_per_title,
             kind=kind,
             series=series,
             issue_number=issue_number,

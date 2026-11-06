@@ -5,7 +5,7 @@
 ### CI & Build
 - Release notes list the commits of each merged pull request under it instead of only its title.
 - Releases file the Unreleased changelog entries under the new version and set the package version automatically.
-- Release banners count the issues open when the release was published instead of showing none.
+- Releases no longer carry a banner image and explain how to pull the published container image.
 
 ## 1.2.0 - 2026-10-31
 

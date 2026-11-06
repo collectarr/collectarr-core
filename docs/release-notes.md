@@ -1,6 +1,6 @@
 # Release notes
 
-Every GitHub release uses this order: Collectarr banner; `Changes since last release:`; Known Issues; Installing & Updating; About Collectarr; Community & Contributors; Support Collectarr; separator; automatic `What's Changed`, contributor credits and comparison link.
+Every GitHub release uses this order: `Changes since last release:`; Known Issues; Installing & Updating; About Collectarr; Community & Contributors; Support Collectarr; separator; automatic `What's Changed`, contributor credits and comparison link.
 
 Write a short English editorial summary in `docs/release-summaries.json`, keyed by release tag (for example `v1.2.0`). Explain user-visible outcomes, group related work, and do not claim tests or compatibility that were not checked. This summary is distinct from the complete change list. Keep `CHANGELOG.md` Unreleased entries grouped by Features, Fixes, Refactors, Docs and CI & Build for release preparation.
 
@@ -11,7 +11,3 @@ Preview the newest release with `python tool/release_notes.py --repo collectarr/
 The Release notes workflow runs after a successful Publish Release workflow and formats the newest release; run it manually with a tag, or with Backfill, to apply an edited summary to existing releases. It checks out main with its tags and commits summaries imported for new tags to `docs/release-summaries.json`, so every published summary stays versioned. Pushing to protected main needs the `RELEASE_TOKEN` secret.
 
 Before semantic-release tags a release, the release workflow runs `tool/prepare_changelog.py`: it files the Unreleased `CHANGELOG.md` entries under `## X.Y.Z - date`, sets the version in `pyproject.toml` and pushes them as `chore(release): X.Y.Z`, which becomes the tagged commit. Pushing to protected main needs the `RELEASE_TOKEN` secret.
-
-Each release opens with its own banner, uploaded once as the `release-banner.png` asset, so later artwork changes never alter past releases. `tool/release_banner.py` fills the release desk artwork in `docs/assets/release-banner/` with the version, the editorial headline, summary and two highlights, the number of `feat` and `fix` commits since the previous tag, and the repository's open issues and stars at the moment the release was published (stars later withdrawn are not counted), so older releases can be rendered again with the same numbers. An entry in `docs/release-summaries.json` may be plain summary text or an object with `summary`, `headline` and `highlights` (two short card phrases); without them the headline names the component and version and the highlights come from the first `feat` commits. Preview a banner with `python tool/release_banner.py --repo collectarr/REPOSITORY --tag vX.Y.Z --out banner.png`, overriding any slot with `--set headline=...`; it needs Pillow (`pip install pillow`). Replace a published banner with `tool/release_notes.py --tag vX.Y.Z --banner --write`.
-
-The artwork is the Collector's Release Desk reference image with its placeholder text removed by inpainting; slot positions live in `SLOTS` in `tool/release_banner.py`. Text uses Plus Jakarta Sans (SIL Open Font License, `OFL.txt` alongside).

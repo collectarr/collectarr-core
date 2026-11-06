@@ -4,10 +4,7 @@ import json
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
-
-import release_banner
 
 # GitHub rejects release descriptions over 125,000 characters.
 BODY_LIMIT = 120_000
@@ -83,11 +80,6 @@ def change_lines(repo, previous, tag):
         yield line
 
 
-def summary_text(entry):
-    """An editorial entry is the summary text, or an object with summary, headline and highlights."""
-    return entry if isinstance(entry, str) else entry['summary']
-
-
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__)
@@ -96,7 +88,6 @@ def main():
     selection.add_argument('--tag', help='Format this release; the newest published release by default')
     selection.add_argument('--all', action='store_true', help='Backfill every published release')
     parser.add_argument('--write', action='store_true', help='Update published release descriptions')
-    parser.add_argument('--banner', action='store_true', help='Render and upload the release banner again')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     summaries_path = root / 'docs' / 'release-summaries.json'
@@ -131,23 +122,10 @@ def main():
         credits = re.sub(r"## What's Changed\n.*?(?=\n## |\n\*\*Full Changelog|\Z)", '', generated, flags=re.DOTALL)
         credits = re.sub(r'\n{3,}', '\n\n', credits).strip()
         url = f'https://github.com/{args.repo}'
-        banner = f'{url}/releases/download/{tag}/release-banner.png'
-        if args.banner or 'release-banner.png' not in (a['name'] for a in release['assets']):
-            # Rendered once per release; stats are counted as of publication, so --banner can redo older releases.
-            # GitHub names the asset after the file.
-            path = Path(tempfile.mkdtemp()) / 'release-banner.png'
-            release_banner.render(release_banner.release_data(args.repo, tag, summaries[tag]), path)
-            if args.write:
-                subprocess.run(['gh', 'release', 'upload', tag, str(path), '--clobber', '--repo', args.repo], stdout=subprocess.DEVNULL, check=True)
-            else:
-                banner = path.as_uri()
-                print(f'Rendered the {tag} banner to {path}', file=sys.stderr)
         component = args.repo.removeprefix('collectarr/collectarr-').title()
-        header = f'''![Collectarr — Your collections. Connected.]({banner})
+        header = f'''## Changes since last release:
 
-## Changes since last release:
-
-{summary_text(summaries[tag])}
+{summaries[tag]}
 
 ## Known Issues
 
@@ -155,7 +133,7 @@ See [open issues]({url}/issues) for reported problems and current progress.
 
 ## Installing & Updating
 
-Use the downloads attached to this release where available. Follow the [README]({url}/blob/{tag}/README.md) for component-specific setup and update instructions.
+Run the published container image: `docker pull ghcr.io/{args.repo}:{tag.removeprefix('v')}`. Follow the [README]({url}/blob/{tag}/README.md) for setup and update instructions.
 
 ## About Collectarr
 

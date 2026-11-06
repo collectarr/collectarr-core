@@ -8,6 +8,7 @@
 
 ### Features
 - Search can list a game platform's catalog page by page, one item per title, and report how many games it holds.
+- The development stack gives Sync the signing secret, so each signed-in account syncs its own library.
 
 ### CI & Build
 - Release notes contain only a bulleted summary and a flat list of every commit.

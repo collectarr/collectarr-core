@@ -9,6 +9,7 @@ services:
     environment:
       ENVIRONMENT: development
       SYNC_API_KEY: ${SYNC_API_KEY:-collectarr-sync-dev-key}
+      SYNC_JWT_SECRET: ${SECRET_KEY:-change-me-in-production}
       SYNC_DATABASE_PATH: /data/collectarr-sync.db
     ports:
       - "8020:8020"

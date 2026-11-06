@@ -55,6 +55,7 @@ Configure the proxy with the generated `.pem` files.
 | Variable | Purpose | Rotation impact |
 |----------|---------|-----------------|
 | `SECRET_KEY` | JWT signing key | Invalidates all active sessions |
+| `SYNC_JWT_SECRET` | Sync's copy of `SECRET_KEY`, to accept Core sign-ins | Must change together with `SECRET_KEY` |
 | `DATABASE_URL` | PostgreSQL connection string | Restart API + worker |
 | `REDIS_URL` | Redis connection string | Restart API + worker |
 | `MEILI_MASTER_KEY` | Meilisearch admin key | Restart API + worker, re-index |
@@ -98,7 +99,7 @@ docker compose up -d api worker
 
 ### 4. `SYNC_API_KEY`
 
-Changing the sync key requires all paired devices to re-authenticate. Update
+Devices signed in to an account sync with that account, so only those without one need the key. Changing the sync key requires all paired devices to re-authenticate. Update
 `.env` in both `collectarr-core` and `collectarr-sync`, restart the sync
 service, and re-pair devices from the Flutter app settings.
 

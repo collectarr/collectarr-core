@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.0 - 2026-11-07
+
 ### Docs
 - The deployment guide no longer seeds sample comics into a new server.
 - The README describes the current catalogs and self-hosting, shows the catalog count badges and has no emoji or screenshot placeholders.

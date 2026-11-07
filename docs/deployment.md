@@ -8,7 +8,6 @@ Use Docker Compose for a self-hosted deployment on consumer hardware:
 Copy-Item .env.example .env
 docker compose up --build -d
 docker compose exec api python -m app.scripts.bootstrap_schema
-docker compose exec api python -m app.scripts.seed_comics
 ```
 
 Back up:

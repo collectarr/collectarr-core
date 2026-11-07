@@ -1,67 +1,66 @@
-# 🎼 Collectarr Core
+# Collectarr Core
 
-A self-hosted Music, Games and Comics catalog for Collectarr: discover albums, games and comics,
-keep edition details consistent and review improvements to shared catalog information.
+[![Catalog items](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-total.svg)](docs/deployment.md#catalog-badges)
+[![Music](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-music.svg)](docs/deployment.md#catalog-badges)
+[![Comics](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-comics.svg)](docs/deployment.md#catalog-badges)
+[![Games](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-games.svg)](docs/deployment.md#catalog-badges)
+[![Hardware](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-hardware.svg)](docs/deployment.md#catalog-badges)
+[![Toys](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-toys.svg)](docs/deployment.md#catalog-badges)
+
+A self-hosted catalog for Collectarr: discover albums, comics, games, gaming
+hardware and toys, keep edition details consistent and review improvements to
+shared catalog information.
 
 **License:** [GNU AGPLv3 only](LICENSE) (`AGPL-3.0-only`). See the
 [contribution guide](CONTRIBUTING.md) for development and licensing terms,
 including the historical MIT notice.
 
-**Catalog scope: Music, Games and Comics.** Baseline 1 established the Music
-baseline and shared catalog infrastructure. Ordered migration 2 introduced independent
-Games inventory catalogs (Games, Hardware and Toys). Ordered migration 3 adds
-Comics without replacing Music or Games data. Other kinds arrive in future
-versioned migrations.
+Core covers **Music**, **Comics** and **Games**, with separate **Hardware** and
+**Toys** inventories inside Games. Other kinds arrive in future versioned
+migrations.
 
-## ✨ A catalog built around real releases
+## A catalog built around real releases
 
-- Search Music, Games and Comics using titles, creators and supported identifiers.
+- Search each catalog using titles, creators and supported identifiers.
 - Keep edition details, credits, discs, tracks, media and artwork together.
 - Derive automatic sort titles for releases (e.g. "The Wall" -> "Wall, The").
-- Manage independent inventories for Games, Hardware and Toys without mixing personal copy state.
+- Manage independent inventories for Games, Hardware and Toys without mixing
+  personal copy state.
 - Describe recording details and credits at the correct album/disc scope.
 - Submit new catalog entries and propose corrections for review.
 - Let administrators review submissions and manage catalog quality.
 - Give the App a consistent contract for searching, adding and editing items.
 
 Core contains catalog facts. Your collection status, notes, loans, purchases,
-listening/playing history and custom values belong to the App and optional Sync service.
+listening/playing history and custom values belong to the App and optional Sync
+service.
 
-## 📸 A look inside
+## Self-hosting
 
-> **Screenshot placeholder — Add from Core:** searching for a catalog release.
->
-> **Screenshot placeholder — Catalog review:** proposed details and corrections.
-
-## 🧭 An independent CLZ-inspired project
-
-Core is part of Collectarr's independent **clean-room implementation inspired by
-CLZ workflows**. Collectarr is not affiliated with or endorsed by CLZ.
-No CLZ catalog dataset, implementation code or proprietary assets are bundled.
-
-## 🔒 Stable data, explicit upgrades
-
-The initial release created only the Music catalog and the shared infrastructure
-it needs as the v1 baseline. Ordered migration 2 added independent tables for Games,
-Hardware and Toys while preserving the Music baseline.
-All persistent schema changes require explicit versioned migrations.
-Adding another kind introduces its tables through an ordered migration rather than
-pre-creating unused schemas or replacing existing databases.
-
-Do not reset a live database, user backup or catalog as part of development.
-
-## 🚀 Use it with Collectarr
+Run the published container image, `ghcr.io/collectarr/collectarr-core`, or
+build the stack with Docker Compose. See [deployment](docs/deployment.md) for
+setup, backups and the catalog badges, and [HTTPS and secrets](docs/https-and-secrets.md)
+before exposing a server.
 
 Pair Core with [Collectarr App](https://github.com/collectarr/collectarr-app).
 Personal-device synchronization is provided separately by
 [Collectarr Sync](https://github.com/collectarr/collectarr-sync).
 
-<details>
-<summary>Self-hosting and development</summary>
+## Stable data, explicit upgrades
 
-See [deployment](docs/deployment.md) and [architecture](docs/architecture.md).
-Use Python 3.14 and the declared dependencies. Start with an isolated test
-PostgreSQL database when developing, and read [AGENTS.md](AGENTS.md) before
-changing schema, contracts or persistence.
+All persistent schema changes use explicit, ordered migrations. Adding a kind
+introduces its tables through a migration, without pre-creating unused schemas
+or replacing existing databases. Do not reset a live database, user backup or
+catalog as part of development.
 
-</details>
+## An independent CLZ-inspired project
+
+Core is part of Collectarr's independent **clean-room implementation inspired by
+CLZ workflows**. Collectarr is not affiliated with or endorsed by CLZ. No CLZ
+catalog dataset, implementation code or proprietary assets are bundled.
+
+## Development
+
+Read the [architecture](docs/architecture.md) overview and [AGENTS.md](AGENTS.md)
+before changing schema, contracts or persistence. Use Python 3.14 and the declared
+dependencies, and start with an isolated test PostgreSQL database.

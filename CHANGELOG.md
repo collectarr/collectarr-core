@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Docs
+- The README describes the current catalogs and self-hosting, shows the catalog count badges and has no emoji or screenshot placeholders.
+
 ### CI & Build
 - Catalog count badges cover every kind, refresh daily without a pull request, and fail visibly when no server is configured.
 - Release notes list the commits of each merged pull request under it instead of only its title.

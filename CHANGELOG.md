@@ -12,7 +12,6 @@
 ### CI & Build
 - Release notes contain only a bulleted summary and a flat list of every commit.
 - Catalog count badges cover every kind, refresh daily without a pull request, and fail visibly when no server is configured.
-- Release notes list the commits of each merged pull request under it instead of only its title.
 - Releases file the Unreleased changelog entries under the new version and set the package version automatically.
 - Releases no longer carry a banner image.
 

@@ -169,7 +169,7 @@ gh secret set COLLECTARR_BADGES_EMAIL
 gh secret set COLLECTARR_BADGES_PASSWORD
 ```
 
-`COLLECTARR_BADGES_TOKEN` can replace the email and password. The workflow fails without them; run it by hand from the Actions tab after setting them.
+`COLLECTARR_BADGES_BASE_URL` includes the API prefix, like `https://core.example.org/api/v1`. `COLLECTARR_BADGES_TOKEN` can replace the email and password. The workflow fails without them; run it by hand from the Actions tab after setting them.
 
 ## Readiness
 

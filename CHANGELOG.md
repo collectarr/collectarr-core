@@ -10,10 +10,11 @@
 - Search can list a game platform's catalog page by page, one item per title, and report how many games it holds.
 
 ### CI & Build
+- Release notes contain only a bulleted summary and a flat list of every commit.
 - Catalog count badges cover every kind, refresh daily without a pull request, and fail visibly when no server is configured.
 - Release notes list the commits of each merged pull request under it instead of only its title.
 - Releases file the Unreleased changelog entries under the new version and set the package version automatically.
-- Releases no longer carry a banner image and explain how to pull the published container image.
+- Releases no longer carry a banner image.
 
 ## 1.2.0 - 2026-10-31
 

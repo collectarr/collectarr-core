@@ -4,7 +4,6 @@ import argparse
 import base64
 import json
 import os
-from datetime import UTC, datetime
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,10 @@ from urllib import error, request
 KIND_SPECS = [
     ("total", "Catalog items", "catalog-total.svg", "#2f6feb"),
     ("music", "Music", "catalog-music.svg", "#db2777"),
+    ("comic", "Comics", "catalog-comics.svg", "#dc2626"),
+    ("game", "Games", "catalog-games.svg", "#16a34a"),
+    ("game_hardware", "Hardware", "catalog-hardware.svg", "#0891b2"),
+    ("game_toy", "Toys", "catalog-toys.svg", "#ea580c"),
 ]
 LEFT_COLOR = "#555"
 
@@ -26,29 +29,18 @@ def main() -> None:
     parser.add_argument(
         "--password-b64", default=os.getenv("COLLECTARR_BADGES_PASSWORD_B64")
     )
-    parser.add_argument("--output-dir", default="docs/badges")
-    parser.add_argument("--placeholder", action="store_true")
+    parser.add_argument("--output-dir", default="badges")
     args = parser.parse_args()
+
+    if not args.base_url:
+        raise SystemExit("Set COLLECTARR_BADGES_BASE_URL to the Core server the badges count.")
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.placeholder or not args.base_url:
-        payload = {
-            "items": None,
-            "items_by_kind": {kind: None for kind, *_ in KIND_SPECS if kind != "total"},
-            "generated_at": datetime.now(UTC).isoformat(),
-            "mode": "placeholder",
-        }
-    else:
-        password = _resolve_password(args.password, args.password_b64)
-        token = args.token or _login(args.base_url, args.email, password)
-        payload = _fetch_summary(args.base_url, token)
-        payload["generated_at"] = datetime.now(UTC).isoformat()
-        payload["mode"] = "live"
-
-    _write_manifest(output_dir / "catalog-summary.json", payload)
-    _write_badges(output_dir, payload)
+    password = _resolve_password(args.password, args.password_b64)
+    token = args.token or _login(args.base_url, args.email, password)
+    _write_badges(output_dir, _fetch_summary(args.base_url, token))
 
 
 def _resolve_password(password: str | None, password_b64: str | None) -> str | None:
@@ -106,10 +98,6 @@ def _request_json(req: request.Request) -> Any:
 
 def _url(base_url: str, path: str) -> str:
     return f"{base_url.rstrip('/')}{path}"
-
-
-def _write_manifest(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _write_badges(output_dir: Path, payload: dict[str, Any]) -> None:

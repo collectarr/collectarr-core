@@ -159,6 +159,18 @@ When `REDIS_URL` is set, Core stores rate-limit windows in Redis so multiple API
 replicas share the same protection. If Redis is unavailable or `REDIS_URL` is
 empty, Core falls back to in-process state so local development can continue.
 
+## Catalog Badges
+
+The `Catalog Badges` workflow counts the catalog of your server every day and commits changed badges to the `catalog-badges` branch, which the README displays. It needs a server GitHub's runners can reach and an account with admin read access, set as Actions secrets:
+
+```powershell
+gh secret set COLLECTARR_BADGES_BASE_URL
+gh secret set COLLECTARR_BADGES_EMAIL
+gh secret set COLLECTARR_BADGES_PASSWORD
+```
+
+`COLLECTARR_BADGES_TOKEN` can replace the email and password. The workflow fails without them; run it by hand from the Actions tab after setting them.
+
 ## Readiness
 
 The Compose stack waits for PostgreSQL, Redis and SeaweedFS health checks.

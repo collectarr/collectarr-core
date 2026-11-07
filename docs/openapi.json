@@ -1270,6 +1270,30 @@
             }
           },
           {
+            "name": "include_total",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Count every match, for listings that show a total",
+              "default": false,
+              "title": "Include Total"
+            },
+            "description": "Count every match, for listings that show a total"
+          },
+          {
+            "name": "one_per_title",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Return one Catalog Item for each title of a kind",
+              "default": false,
+              "title": "One Per Title"
+            },
+            "description": "Return one Catalog Item for each title of a kind"
+          },
+          {
             "name": "field_filters",
             "in": "query",
             "required": false,
@@ -8832,6 +8856,17 @@
           "has_more": {
             "type": "boolean",
             "title": "Has More"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           }
         },
         "additionalProperties": false,
@@ -8856,6 +8891,23 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "ItemKind": {
+        "type": "string",
+        "enum": [
+          "boardgame",
+          "book",
+          "collection",
+          "comic",
+          "game",
+          "game_hardware",
+          "game_toy",
+          "manga",
+          "movie",
+          "music",
+          "tv"
+        ],
+        "title": "ItemKind"
       },
       "JsonObject-Input": {
         "additionalProperties": {

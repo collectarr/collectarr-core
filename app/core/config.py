@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     image_download_timeout_seconds: float = 20.0
     max_image_bytes: int = 10 * 1024 * 1024
     max_image_pixels: int = 40_000_000
-    image_max_long_edge: int = Field(default=1280, ge=64)
+    image_max_long_edge: int = Field(default=1000, ge=64)
     image_quality: int = Field(default=82, ge=1, le=100)
     worker_index_interval_seconds: int = Field(default=900, ge=5)
     auth_rate_limit_requests: int = Field(default=20, ge=0)

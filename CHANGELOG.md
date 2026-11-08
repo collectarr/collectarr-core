@@ -5,6 +5,9 @@
 ### Features
 - New covers are stored with a 1000 px long edge, about 30% smaller, with little visible loss at normal display sizes.
 
+### CI & Build
+- A script compares cover sizes and WebP qualities on sample images, per kind.
+
 ## 1.3.0 - 2026-11-07
 
 ### Docs

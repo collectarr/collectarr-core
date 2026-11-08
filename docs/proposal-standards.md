@@ -151,7 +151,7 @@ detail that compression settings cannot recover: in the measurements below, a
 400 px cover shown at 560 px scored about 0.94 against 0.98 for a 560 px cover.
 
 Core accepts up to 10 MB and 40 megapixels, then stores WebP at quality 82 with
-a long edge of at most 1280 px (`IMAGE_QUALITY`, `IMAGE_MAX_LONG_EDGE`). These
+a long edge of at most 1000 px (`IMAGE_QUALITY`, `IMAGE_MAX_LONG_EDGE`). These
 apply to every kind.
 
 ### Measurements
@@ -177,8 +177,8 @@ edge stored and the long edge shown (worst 5 % SSIM):
 | --- | --- | --- | --- | --- | --- |
 | 640 | 64 KB | 0.981 | 0.949 | 0.896 | 0.851 |
 | 800 | 92 KB | 0.986 | 0.967 | 0.934 | 0.903 |
-| 1000 | 131 KB | 0.990 | 0.978 | 0.959 | 0.945 |
-| 1280 (current) | 190 KB | 0.994 | 0.986 | 0.978 | 0.972 |
+| 1000 (current) | 131 KB | 0.990 | 0.978 | 0.959 | 0.945 |
+| 1280 | 190 KB | 0.994 | 0.986 | 0.978 | 0.972 |
 
 Limits of this data: the comics are old halftone-printed scans, a hard case for
 compression, and only two game covers were available, too few to compare kinds.

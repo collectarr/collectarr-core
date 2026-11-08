@@ -5,6 +5,9 @@
 ### Features
 - New covers are stored with a 1000 px long edge, about 30% smaller, with little visible loss at normal display sizes.
 
+### Docs
+- The proposal standards explain each catalog field per kind and set the rules and sizes for covers.
+
 ### CI & Build
 - A script compares cover sizes and WebP qualities on sample images, per kind.
 

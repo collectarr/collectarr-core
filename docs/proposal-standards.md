@@ -170,7 +170,17 @@ means identical; "worst 5 %" is the fifth percentile.
 | 85 | 46-48 KB | 0.982-0.984 | 0.969-0.975 |
 | 90 | 59-60 KB | 0.989-0.990 | 0.981-0.985 |
 
-Limits of this data: every sample was already JPEG and at most about 650 px long,
-so sizes above 560 px, square music covers and product photos are unmeasured. The
-settings stay shared until originals for each kind have been run through the
-script.
+30 public-domain comic covers from larger originals, at quality 82, by the long
+edge stored and the long edge shown (worst 5 % SSIM):
+
+| Long edge | Median size | Shown 420 | Shown 630 | Shown 840 | Shown 1000 |
+| --- | --- | --- | --- | --- | --- |
+| 640 | 64 KB | 0.981 | 0.949 | 0.896 | 0.851 |
+| 800 | 92 KB | 0.986 | 0.967 | 0.934 | 0.903 |
+| 1000 | 131 KB | 0.990 | 0.978 | 0.959 | 0.945 |
+| 1280 (current) | 190 KB | 0.994 | 0.986 | 0.978 | 0.972 |
+
+Limits of this data: the comics are old halftone-printed scans, a hard case for
+compression, and only two game covers were available, too few to compare kinds.
+Square music covers and product photos are unmeasured. The settings stay shared
+until originals for each kind have been run through the script.

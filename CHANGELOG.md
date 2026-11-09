@@ -6,6 +6,7 @@
 - New covers are stored with a 1000 px long edge, about 30% smaller, with little visible loss at normal display sizes.
 
 ### Docs
+- The README adds the project logo and status badges.
 - The proposal standards explain each catalog field per kind and set the rules and sizes for covers.
 
 ### CI & Build

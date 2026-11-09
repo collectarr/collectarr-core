@@ -1,4 +1,24 @@
-# Collectarr Core
+<div align="center">
+
+<h1>
+  <img src="docs/assets/collectarr-icon.svg" alt="Collectarr Logo" width="128" height="128"><br>
+  Collectarr Core
+</h1>
+
+A self-hosted catalog for Collectarr: discover albums, comics, games, gaming
+hardware and toys, keep edition details consistent and review improvements to
+shared catalog information.
+
+[![Latest release](https://img.shields.io/github/v/release/collectarr/collectarr-core?label=latest&style=flat-square)](https://github.com/collectarr/collectarr-core/releases)
+[![License](https://img.shields.io/badge/License-AGPL--3.0--only-blue?style=flat-square)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/collectarr/collectarr-core/tests.yml?branch=main&style=flat-square&label=CI)](https://github.com/collectarr/collectarr-core/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/actions/workflow/status/collectarr/collectarr-core/release.yml?style=flat-square&label=release)](https://github.com/collectarr/collectarr-core/actions/workflows/release.yml)
+
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Container](https://img.shields.io/badge/Container-ghcr.io-2496ed?style=flat-square&logo=docker&logoColor=white)](https://github.com/collectarr/collectarr-core/pkgs/container/collectarr-core)
+[![Contributing](https://img.shields.io/badge/Contributing-guide-orange?style=flat-square&logo=handshake&logoColor=white)](CONTRIBUTING.md)
 
 [![Catalog items](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-total.svg)](docs/deployment.md#catalog-badges)
 [![Music](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-music.svg)](docs/deployment.md#catalog-badges)
@@ -7,9 +27,9 @@
 [![Hardware](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-hardware.svg)](docs/deployment.md#catalog-badges)
 [![Toys](https://raw.githubusercontent.com/collectarr/collectarr-core/catalog-badges/catalog-toys.svg)](docs/deployment.md#catalog-badges)
 
-A self-hosted catalog for Collectarr: discover albums, comics, games, gaming
-hardware and toys, keep edition details consistent and review improvements to
-shared catalog information.
+</div>
+
+---
 
 **License:** [GNU AGPLv3 only](LICENSE) (`AGPL-3.0-only`). See the
 [contribution guide](CONTRIBUTING.md) for development and licensing terms,

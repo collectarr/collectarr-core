@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.models import Base
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 # Shared catalog support and administration plus the sole released kind.
 BASELINE_TABLE_NAMES = frozenset({
@@ -27,7 +27,8 @@ BASELINE_TABLE_NAMES = frozenset({
 RETIRED_PERSON_TABLE_NAMES = frozenset({"persons", "entity_persons"})
 GAMES_TABLE_NAMES = frozenset({"game_items", "game_hardware_items", "game_toy_items"})
 COMICS_TABLE_NAMES = frozenset({"comic_items"})
-RELEASE_TABLE_NAMES = BASELINE_TABLE_NAMES | GAMES_TABLE_NAMES | COMICS_TABLE_NAMES
+BOOKS_TABLE_NAMES = frozenset({"book_items", "book_series"})
+RELEASE_TABLE_NAMES = BASELINE_TABLE_NAMES | GAMES_TABLE_NAMES | COMICS_TABLE_NAMES | BOOKS_TABLE_NAMES
 
 MIGRATION_METADATA = MetaData()
 schema_migrations = Table(
@@ -78,6 +79,8 @@ async def migrate_schema(connection: AsyncConnection) -> None:
         expected |= GAMES_TABLE_NAMES
     if versions[-1] >= 3:
         expected |= COMICS_TABLE_NAMES
+    if versions[-1] >= 4:
+        expected |= BOOKS_TABLE_NAMES
     if existing != expected:
         raise RuntimeError("Versioned database tables differ from the released schema; database left untouched.")
     if versions[-1] < 2:
@@ -145,6 +148,14 @@ async def migrate_schema(connection: AsyncConnection) -> None:
             table.to_metadata(metadata, schema=schema)
         await connection.run_sync(metadata.create_all)
         await connection.execute(schema_migrations.insert().values(version=3))
+
+    if versions[-1] < 4:
+        # Books joins the released schema without modifying existing catalogs.
+        metadata = MetaData()
+        for table in release_tables(BOOKS_TABLE_NAMES):
+            table.to_metadata(metadata, schema=schema)
+        await connection.run_sync(metadata.create_all)
+        await connection.execute(schema_migrations.insert().values(version=4))
 
 
 def _without_key(rows: Any, key: str) -> Any:

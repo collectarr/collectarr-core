@@ -63,6 +63,22 @@ class CatalogBookItemCharacterResponse(BaseModel):
 
 
 class CatalogBookItemResponse(CatalogItemBaseResponse):
+    box_set: str | None = None
+    publication_place: str | None = None
+    printed_by: str | None = None
+    paper_type: str | None = None
+    number_line: str | None = None
+    original_subtitle: str | None = None
+    original_country: str | None = None
+    original_publisher: str | None = None
+    original_publication_place: str | None = None
+    printing_number: int | None = None
+    width_mm: int | None = None
+    height_mm: int | None = None
+    spine_thickness_mm: int | None = None
+    weight_grams: int | None = None
+    extras: list[str] | None = None
+    audio_abridged: bool | None = None
     kind: Literal["book"] = "book"
     sort_key: str | None = None
 

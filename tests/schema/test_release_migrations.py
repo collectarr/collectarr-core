@@ -38,14 +38,14 @@ async def test_current_shape_installs_ordered_migrations_once():
             await migrate_schema(connection)
             names = set(await connection.run_sync(lambda conn: inspect(conn).get_table_names(schema=schema)))
             assert names == RELEASE_TABLE_NAMES | {"schema_migrations"}
-            assert (await connection.execute(select(schema_migrations.c.version).order_by(schema_migrations.c.version))).scalars().all() == [1, 2, 3]
+            assert (await connection.execute(select(schema_migrations.c.version).order_by(schema_migrations.c.version))).scalars().all() == [1, 2, 3, 4]
             album_id = uuid4()
             await connection.execute(MusicItem.__table__.insert().values(id=album_id, title="Preserved edition"))
             await migrate_schema(connection)
             assert (await connection.execute(select(MusicItem.title).where(MusicItem.id == album_id))).scalar_one() == "Preserved edition"
             async with AsyncSession(bind=connection, expire_on_commit=False) as session:
                 summary = await AdminMetadataService(session).catalog_summary()
-                assert summary.items_by_kind == {"music": 1, "comic": 0, "game": 0, "game_hardware": 0, "game_toy": 0}
+                assert summary.items_by_kind == {"music": 1, "book": 0, "comic": 0, "game": 0, "game_hardware": 0, "game_toy": 0}
             columns = await connection.run_sync(lambda conn: inspect(conn).get_columns("music_items", schema=schema))
             assert {column["name"] for column in columns} == set(MusicItem.__table__.columns.keys())
     finally:
@@ -149,10 +149,10 @@ async def test_released_baseline_upgrade_preserves_music_and_games(baseline_vers
             assert names == RELEASE_TABLE_NAMES | {"schema_migrations"}
             versions = (await connection.execute(select(schema_migrations.c.version).order_by(
                 schema_migrations.c.version))).scalars().all()
-            assert versions == [1, 2, 3]
+            assert versions == [1, 2, 3, 4]
             await migrate_schema(connection)
             assert (await connection.execute(select(schema_migrations.c.version).order_by(
-                schema_migrations.c.version))).scalars().all() == [1, 2, 3]
+                schema_migrations.c.version))).scalars().all() == [1, 2, 3, 4]
     finally:
         async with engine.begin() as connection:
             await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
@@ -178,6 +178,36 @@ async def test_unsupported_existing_schema_keeps_its_tables_and_data(version):
             assert (await connection.execute(text("SELECT value FROM preserved"))).scalar_one() == "data"
             names = set(await connection.run_sync(lambda conn: inspect(conn).get_table_names(schema=schema)))
             assert names == ({"preserved"} if version is None else {"preserved", "schema_migrations"})
+    finally:
+        async with engine.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+
+
+@pytest.mark.db
+@pytest.mark.usefixtures("clean_database")
+@pytest.mark.asyncio
+async def test_released_schema_three_upgrade_adds_books_and_preserves_existing_data():
+    from app.db.schema_migrations import BOOKS_TABLE_NAMES, COMICS_TABLE_NAMES
+
+    schema = "books_upgrade_" + uuid4().hex
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+            await connection.execute(text(f'SET LOCAL search_path TO "{schema}", public'))
+            metadata = MetaData()
+            for table in release_tables(BASELINE_TABLE_NAMES | GAMES_TABLE_NAMES | COMICS_TABLE_NAMES):
+                table.to_metadata(metadata, schema=schema)
+            await connection.run_sync(metadata.create_all)
+            await connection.run_sync(MIGRATION_METADATA.create_all)
+            await connection.execute(schema_migrations.insert(), [{"version": version} for version in (1, 2, 3)])
+            item_id = uuid4()
+            await connection.execute(MusicItem.__table__.insert().values(id=item_id, title="Preserve me"))
+            await migrate_schema(connection)
+            await migrate_schema(connection)
+            names = set(await connection.run_sync(lambda conn: inspect(conn).get_table_names(schema=schema)))
+            assert names >= BOOKS_TABLE_NAMES
+            assert (await connection.execute(select(MusicItem.title).where(MusicItem.id == item_id))).scalar_one() == "Preserve me"
+            assert (await connection.execute(select(schema_migrations.c.version).order_by(schema_migrations.c.version))).scalars().all() == [1, 2, 3, 4]
     finally:
         async with engine.begin() as connection:
             await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))

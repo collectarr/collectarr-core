@@ -18,17 +18,17 @@ from app.schemas.metadata_shared import CatalogSearchPage
 
 
 def test_flat_kind_registry_has_one_catalog_root_for_every_kind():
-    assert len(CATALOG_KIND_DEFINITIONS) == 5
+    assert len(CATALOG_KIND_DEFINITIONS) == 6
     assert set(CATALOG_KINDS_BY_ID) == {definition.kind for definition in CATALOG_KIND_DEFINITIONS}
     assert set(DOCUMENTS) == set(CATALOG_KINDS_BY_ID)
     assert set(CATALOG_KINDS_BY_MODEL) == {
         definition.model for definition in CATALOG_KIND_DEFINITIONS
     }
-    assert {media_type.kind for media_type in top_level_media_types} == {ItemKind.music, ItemKind.comic, ItemKind.game}
+    assert {media_type.kind for media_type in top_level_media_types} == {ItemKind.book, ItemKind.music, ItemKind.comic, ItemKind.game}
     assert len(CATALOG_KINDS_BY_ROUTE) == sum(
         len(definition.route_segments) for definition in CATALOG_KIND_DEFINITIONS
     )
-    assert ItemKind.book not in CATALOG_KINDS_BY_ID
+    assert ItemKind.book in CATALOG_KINDS_BY_ID
     assert CATALOG_KINDS_BY_ID[ItemKind.music].model.__tablename__ == "music_items"
     assert all(
         definition.route_module and definition.entity_type

@@ -1,5 +1,7 @@
 """Book Catalog Item fields and contained edition values."""
 
+from dataclasses import replace
+
 from app.catalog.document_shape import (
     BOOLEAN,
     CHARACTER,
@@ -139,6 +141,127 @@ FIELD_SPECS = (
     ),
 )
 
+FIELD_SPECS += (
+    MetadataFieldSpec(
+        "box_set",
+        VALUE_TYPE_STRING,
+        "Box Set",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "publication_place",
+        VALUE_TYPE_STRING,
+        "Publication Place",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "printed_by",
+        VALUE_TYPE_STRING,
+        "Printed By",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "paper_type",
+        VALUE_TYPE_STRING,
+        "Paper Type",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "number_line",
+        VALUE_TYPE_STRING,
+        "Number Line",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "original_subtitle",
+        VALUE_TYPE_STRING,
+        "Original Subtitle",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "original_country",
+        VALUE_TYPE_STRING,
+        "Original Country",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "original_publisher",
+        VALUE_TYPE_STRING,
+        "Original Publisher",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "original_publication_place",
+        VALUE_TYPE_STRING,
+        "Original Publication Place",
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "printing_number",
+        VALUE_TYPE_INTEGER,
+        "Printing",
+        input=INPUT_NUMBER,
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "width_mm",
+        VALUE_TYPE_INTEGER,
+        "Width (mm)",
+        input=INPUT_NUMBER,
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "height_mm",
+        VALUE_TYPE_INTEGER,
+        "Height (mm)",
+        input=INPUT_NUMBER,
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "spine_thickness_mm",
+        VALUE_TYPE_INTEGER,
+        "Spine Thickness (mm)",
+        input=INPUT_NUMBER,
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "weight_grams",
+        VALUE_TYPE_INTEGER,
+        "Weight (g)",
+        input=INPUT_NUMBER,
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "extras",
+        VALUE_TYPE_STRING_LIST,
+        "Extras",
+        input=INPUT_LIST,
+        section=SECTION_PUBLISHING,
+        kinds=frozenset({ItemKind.book}),
+    ),
+    MetadataFieldSpec(
+        "audio_abridged",
+        VALUE_TYPE_BOOLEAN,
+        "Audiobook Abridged",
+        section=SECTION_TECHNICAL,
+        kinds=frozenset({ItemKind.book}),
+    ),
+)
+
 _BOOK_PERSON = ChildObjectShape(
     fields=PERSON.fields,
     required=frozenset({"name"}),
@@ -182,8 +305,31 @@ BOOK_SERIES_MEMBERSHIP = ChildObjectShape(
     nullable=frozenset({"id", "sequence", "display_number"}),
 )
 
+def _validate_book_measurements(payload, path):
+    for key in ("printing_number", "width_mm", "height_mm", "spine_thickness_mm", "weight_grams"):
+        value = payload.get(key)
+        if value is not None and value < 0:
+            raise ValueError(f"{path}.{key} must not be negative")
+
+
 DOCUMENT = KindDocumentShape(
     root_fields={
+        "box_set": STRING,
+        "publication_place": STRING,
+        "printed_by": STRING,
+        "paper_type": STRING,
+        "number_line": STRING,
+        "original_subtitle": STRING,
+        "original_country": STRING,
+        "original_publisher": STRING,
+        "original_publication_place": STRING,
+        "printing_number": INTEGER,
+        "width_mm": INTEGER,
+        "height_mm": INTEGER,
+        "spine_thickness_mm": INTEGER,
+        "weight_grams": INTEGER,
+        "extras": STRING_LIST,
+        "audio_abridged": BOOLEAN,
         "description": STRING,
         "series_title": STRING,
         "volume_name": STRING,
@@ -205,14 +351,20 @@ DOCUMENT = KindDocumentShape(
         "back_cover_image_url": STRING,
     },
     children={
-        **common_root_children("identifiers", "external_links"),
-        "creators": _BOOK_PERSON,
-        "contributors": _BOOK_PERSON,
-        "printings": BOOK_PRINTING,
-        "series_memberships": BOOK_SERIES_MEMBERSHIP,
-        "characters": CHARACTER,
+        **{
+            name: replace(
+                shape, label={"identifiers": "Identifiers", "external_links": "Links"}[name]
+            )
+            for name, shape in common_root_children("identifiers", "external_links").items()
+        },
+        "creators": replace(_BOOK_PERSON, label="Authors"),
+        "contributors": replace(_BOOK_PERSON, label="Contributors"),
+        "printings": replace(BOOK_PRINTING, label="Printings"),
+        "series_memberships": replace(BOOK_SERIES_MEMBERSHIP, label="Series Memberships"),
+        "characters": replace(CHARACTER, label="Characters"),
     },
     required_root_fields=frozenset({"title"}),
+    validate_document=_validate_book_measurements,
 )
 
 __all__ = ["DOCUMENT", "FIELD_SPECS"]

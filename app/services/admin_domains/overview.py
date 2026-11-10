@@ -72,6 +72,7 @@ class AdminOverviewService:
         return AdminCatalogSummaryResponse(
             items=sum(items_by_kind.values()),
             items_by_kind=items_by_kind,
+            catalog_table_bytes_by_kind=await self._catalog_table_sizes_by_kind(),
             series=0,
             volumes=0,
             editions=0,
@@ -177,6 +178,17 @@ class AdminOverviewService:
             length = sum(func.coalesce(func.jsonb_array_length(value), 0) for value in values)
             total += int(await self.db.scalar(select(func.coalesce(func.sum(length), 0)).select_from(model)) or 0)
         return total
+
+    async def _catalog_table_sizes_by_kind(self) -> dict[str, int]:
+        # PostgreSQL includes table data, TOAST and indexes; shared tables and
+        # externally stored images cannot be attributed to a single kind.
+        sizes: dict[str, int] = {}
+        for definition in CATALOG_KIND_DEFINITIONS:
+            size = await self.db.scalar(
+                select(func.pg_total_relation_size(func.to_regclass(definition.table_name)))
+            )
+            sizes[definition.kind.value] = int(size or 0)
+        return sizes
 
     async def _item_counts_by_kind(self) -> dict[str, int]:
         counts = {definition.kind.value: 0 for definition in CATALOG_KIND_DEFINITIONS}

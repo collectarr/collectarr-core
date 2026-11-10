@@ -285,3 +285,26 @@ async def test_overview_reindex_search_replaces_documents_and_records_history(mo
     assert len(service.search_history()) == 1
     assert service.search_history()[0].ok is True
     assert service.search_history()[0].indexed_documents == 2
+
+@pytest.mark.asyncio
+async def test_overview_measures_catalog_table_sizes_per_kind():
+    from app.catalog.kind_registry import CATALOG_KIND_DEFINITIONS
+
+    class FakeDb:
+        def __init__(self):
+            self.tables = []
+
+        async def scalar(self, statement):
+            compiled = statement.compile()
+            self.tables.append(next(iter(compiled.params.values())))
+            assert "pg_total_relation_size" in str(compiled)
+            return len(self.tables) * 1024
+
+    db = FakeDb()
+    service = AdminOverviewService(db=db, duplicate_group_count=lambda: None)
+    sizes = await service._catalog_table_sizes_by_kind()
+    assert db.tables == [item.table_name for item in CATALOG_KIND_DEFINITIONS]
+    assert sizes == {
+        item.kind.value: (index + 1) * 1024
+        for index, item in enumerate(CATALOG_KIND_DEFINITIONS)
+    }

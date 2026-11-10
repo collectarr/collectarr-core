@@ -135,6 +135,7 @@ class AdminBundleReleaseCorrectionRequest(BaseModel):
 class AdminCatalogSummaryResponse(BaseModel):
     items: int
     items_by_kind: dict[str, int] = Field(default_factory=dict)
+    catalog_table_bytes_by_kind: dict[str, int] = Field(default_factory=dict)
     series: int
     volumes: int
     editions: int

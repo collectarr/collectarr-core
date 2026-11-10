@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Features
+- Admin summaries report catalog table storage for each kind.
 - Books joins the catalog with edition, physical measurements and audiobook metadata.
 - New covers are stored with a 1000 px long edge, about 30% smaller, with little visible loss at normal display sizes.
 

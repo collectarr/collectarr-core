@@ -13,6 +13,7 @@
 - The proposal standards explain each catalog field per kind and set the rules and sizes for covers.
 
 ### CI & Build
+- Published API contracts and schema diagrams include separate game and edition identities.
 - Refresh the published API contracts for admin storage metrics.
 - Client contracts include the Books catalog fields and routes.
 - A script compares cover sizes and WebP qualities on sample images, per kind.

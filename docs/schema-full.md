@@ -398,6 +398,65 @@ Tables not yet mapped to a primary domain bucket.
 - Check constraints: none
 - Foreign key `(anonymous)`: `audit_log_id` -> `admin_audit_logs.id`
 
+### book_items
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
+| details | JSONB | no | no | no | yes | - | - | - |
+| revision | INTEGER | no | no | no | no | 1 | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_book_items_barcode` (non-unique): `barcode`
+- Index `ix_book_items_catalog_number` (non-unique): `catalog_number`
+- Index `ix_book_items_details_gin` (non-unique): `details`
+- Index `ix_book_items_sort_key` (non-unique): `sort_key`
+- Index `ix_book_items_sort_key_trgm` (non-unique): `sort_key`
+- Index `ix_book_items_title` (non-unique): `title`
+- Index `ix_book_items_title_trgm` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
+### book_series
+
+| Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
+|---|---|---|---|---|---|---|---|---|
+| title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| slug | VARCHAR(255) | yes | no | no | yes | - | - | - |
+| description | TEXT | yes | no | no | no | - | - | - |
+| original_title | VARCHAR(255) | yes | no | no | no | - | - | - |
+| start_date | DATE | yes | no | no | no | - | - | - |
+| start_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
+| end_date | DATE | yes | no | no | no | - | - | - |
+| end_date_parts | VARCHAR(64) | yes | no | no | no | - | - | - |
+| status | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| language | VARCHAR(16) | yes | no | no | yes | - | - | - |
+| country | VARCHAR(64) | yes | no | no | yes | - | - | - |
+| id | UUID | no | yes | no | no | python:uuid.uuid4 | - | - |
+| created_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | no | no | no | python:app.models.base.TimestampMixin.<lambda> | - | - |
+
+#### Constraints
+
+- Primary key: `id`
+- Unique constraints: none
+- Index `ix_book_series_country` (non-unique): `country`
+- Index `ix_book_series_language` (non-unique): `language`
+- Index `ix_book_series_slug` (non-unique): `slug`
+- Index `ix_book_series_status` (non-unique): `status`
+- Index `ix_book_series_title` (non-unique): `title`
+- Check constraints: none
+- Foreign keys: none
+
 ### canonical_correction_proposal_values
 
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
@@ -588,6 +647,7 @@ Tables not yet mapped to a primary domain bucket.
 | Column | Type | Nullable | PK | Unique | Indexed | Default | Server default | References |
 |---|---|---|---|---|---|---|---|---|
 | title | VARCHAR(255) | no | no | no | yes | - | - | - |
+| parent_game_id | UUID | yes | no | no | yes | - | - | game_items.id |
 | sort_key | VARCHAR(255) | yes | no | no | yes | - | - | - |
 | barcode | VARCHAR(100) | yes | no | no | yes | - | - | - |
 | catalog_number | VARCHAR(100) | yes | no | no | yes | - | - | - |
@@ -604,12 +664,13 @@ Tables not yet mapped to a primary domain bucket.
 - Index `ix_game_items_barcode` (non-unique): `barcode`
 - Index `ix_game_items_catalog_number` (non-unique): `catalog_number`
 - Index `ix_game_items_details_gin` (non-unique): `details`
+- Index `ix_game_items_parent_game_id` (non-unique): `parent_game_id`
 - Index `ix_game_items_sort_key` (non-unique): `sort_key`
 - Index `ix_game_items_sort_key_trgm` (non-unique): `sort_key`
 - Index `ix_game_items_title` (non-unique): `title`
 - Index `ix_game_items_title_trgm` (non-unique): `title`
-- Check constraints: none
-- Foreign keys: none
+- Check `ck_game_items_not_own_parent`: `parent_game_id IS NULL OR parent_game_id <> id`
+- Foreign key `fk_game_items_parent_game_id`: `parent_game_id` -> `game_items.id`
 
 ### game_toy_items
 

@@ -8,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog.kind_documents.game_identity import game_record_for_edition
 from app.models import (
     EntityTag,
     Tag,
@@ -517,7 +518,7 @@ async def _seed_game(
     index: int,
 ) -> list[Any]:
     item = (
-        await db.execute(select(GameItem).where(GameItem.title == entry.title))
+        await db.execute(select(GameItem).where(GameItem.barcode == f"GAME-{index:03d}"))
     ).scalar_one_or_none()
     if item is None:
         item = GameItem(
@@ -550,6 +551,11 @@ async def _seed_game(
         "cover_image_url": cover_url,
         "thumbnail_image_url": thumbnail_url,
     }
+    if item.parent_game_id is None:
+        game = game_record_for_edition({**item.details, "title": item.title, "sort_key": item.sort_key})
+        db.add(game)
+        await db.flush()
+        item.parent_game_id = game.id
     return [item]
 
 

@@ -1,5 +1,9 @@
 """Video Game Catalog Item fields and contained identifiers."""
 
+from collections.abc import Mapping
+from typing import Any
+from uuid import UUID
+
 from app.catalog.document_shape import STRING, STRING_LIST, KindDocumentShape
 from app.catalog.kind_documents.common import common_root_children
 from app.catalog.metadata_field_spec import (
@@ -15,6 +19,14 @@ from app.catalog.metadata_field_spec import (
 from app.models.base import ItemKind
 
 SEARCH_FILTER_FIELDS = ("platforms",)
+
+
+def _validate_game_link(document: Mapping[str, Any], path: str) -> None:
+    if document.get("game_id") is not None:
+        try:
+            UUID(str(document["game_id"]))
+        except (ValueError, TypeError, AttributeError) as error:
+            raise ValueError(f"{path}.game_id must be a UUID") from error
 
 FIELD_SPECS = (
     MetadataFieldSpec("creators", VALUE_TYPE_OBJECT_LIST, "Creators",
@@ -73,6 +85,7 @@ FIELD_SPECS = (
 
 DOCUMENT = KindDocumentShape(
     root_fields={
+        "game_id": STRING,
         "description": STRING,
         "developers": STRING_LIST,
         "series_title": STRING,
@@ -87,5 +100,6 @@ DOCUMENT = KindDocumentShape(
         "trailer_urls",
     ),
     required_root_fields=frozenset({"title"}),
-    rejected_root_fields=frozenset({"toy_type", "toy_subtype", "hardware_type", "serial_number"}),
+    validate_document=_validate_game_link,
+    rejected_root_fields=frozenset({"toy_type", "toy_subtype", "hardware_type", "serial_number", "media_id", "parent_game_id"}),
 )

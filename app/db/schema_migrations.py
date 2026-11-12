@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import Column, DateTime, Integer, MetaData, Table, func, inspect, select, text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.catalog.kind_documents.game_identity import migrate_game_identities
 from app.models import Base
 
 CURRENT_SCHEMA_VERSION = 4
@@ -150,11 +151,12 @@ async def migrate_schema(connection: AsyncConnection) -> None:
         await connection.execute(schema_migrations.insert().values(version=3))
 
     if versions[-1] < 4:
-        # Books joins the released schema without modifying existing catalogs.
+        # Upgrade from released schema 3; fold unreleased schema work here.
         metadata = MetaData()
         for table in release_tables(BOOKS_TABLE_NAMES):
             table.to_metadata(metadata, schema=schema)
         await connection.run_sync(metadata.create_all)
+        await migrate_game_identities(connection, schema)
         await connection.execute(schema_migrations.insert().values(version=4))
 
 

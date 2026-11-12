@@ -440,7 +440,12 @@ class CatalogItemSearchService:
         # Each registered response owns the permitted catalog fields. Preserve
         # its typed detail values when the shared search summary has no value.
         for key in root.response_model.model_fields:
-            if key in details and key not in {"id", "kind", "revision"}:
+            if key in {"id", "kind", "revision"}:
+                continue
+            value = getattr(item, key, None)
+            if value is not None:
+                kind_data[key] = value
+            elif key in details:
                 kind_data.setdefault(key, details[key])
         return CatalogSearchItemEnvelope(
             id=item.id,

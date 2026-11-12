@@ -22,6 +22,8 @@ class CatalogGameItemIdentifierResponse(BaseModel):
 
 class CatalogGameItemResponse(CatalogItemBaseResponse):
     kind: Literal["game"] = "game"
+    game_id: UUID
+    media_id: UUID | None = None
     sort_key: str | None = None
 
     age_rating: str | None = None

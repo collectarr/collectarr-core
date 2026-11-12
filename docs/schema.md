@@ -21,7 +21,7 @@ independent reusable grouping.
 | --- | --- |
 | Music | `music_items` (discs and tracks are contained in `details`) |
 | Books | `book_items`, `book_series` (printings, credits, identifiers, and item membership are contained in `details`) |
-| Games | `game_items` (identifiers are contained in `details`) |
+| Games | `game_items` (game records and editions linked through `parent_game_id`; identifiers are contained in `details`) |
 | Hardware | `game_hardware_items` (edition fields only; serial numbers are personal) |
 | Toys | `game_toy_items` (type and subtype belong to Toys) |
 | Board games | `boardgame_items` (identifiers are contained in `details`) |
@@ -82,3 +82,16 @@ personal tags, location, quantity, signed-by, key item, and grading company.
 
 The sync schema is intentionally event-log-shaped so it can later move to PostgreSQL without
 changing the client sync contract.
+
+### Game and edition identities
+
+A game-level record has `game_id = id` and no `media_id`. A concrete edition
+links directly to that record through `parent_game_id`; its `game_id` is the
+parent ID and its `media_id` is its own ID. Both remain ordinary lookupable
+Game catalog records. Search can return either; title grouping still returns
+one result per title. IDs describe catalog records, never a user's copy.
+
+Creating an edition can specify an existing game-level `game_id`. Without one,
+edition metadata creates a separate parent, without guessing matches by title.
+Migration 4 retains existing record IDs, revisions, timestamps and metadata;
+edition records receive new parents and existing game-level records remain roots.

@@ -100,7 +100,10 @@ async def test_game_search_can_return_one_item_per_title(client):
         await db.commit()
     params = {"kind": "game", "q": "edition fixture", "include_total": "true"}
     every_edition = await client.get("/api/v1/search", params=params)
-    assert every_edition.json()["total"] == 3
+    # Search includes the game-level records as well as concrete editions.
+    assert every_edition.json()["total"] == 6
+    assert sum(bool(row["kind_data"].get("media_id"))
+               for row in every_edition.json()["items"]) == 3
     titles = await client.get("/api/v1/search", params={**params, "one_per_title": "true"})
     assert titles.status_code == 200, titles.text
     assert titles.json()["total"] == 2

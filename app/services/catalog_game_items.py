@@ -11,6 +11,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.catalog_item_schema import validate_catalog_item_payload
+from app.catalog.kind_documents.game_identity import game_record_for_edition, is_game_edition
 from app.core.errors import ApiHTTPException
 from app.models.base import ItemKind
 from app.models.catalog_game_item import GameItem
@@ -42,7 +43,23 @@ class CatalogGameItemService:
         if len(identifier_keys) != len(identifiers):
             raise ValueError("Game identifiers must be unique by type and normalized value")
 
+        game_id = payload.pop("game_id", None)
+        parent: GameItem | None = None
+        if game_id is not None:
+            parent = await self.db.get(GameItem, UUID(str(game_id)))
+            if parent is None or parent.parent_game_id is not None:
+                raise ValueError("game_id must identify an existing game-level catalog record")
+            platforms = set(payload.get("platforms") or [])
+            parent_platforms = set(parent.details.get("platforms") or [])
+            if platforms and parent_platforms and not platforms.issubset(parent_platforms):
+                raise ValueError("An edition's platforms must belong to its game")
+        elif is_game_edition(payload):
+            parent = game_record_for_edition(payload)
+            self.db.add(parent)
+            await self.db.flush()
+
         item = GameItem(
+            parent_game_id=parent.id if parent is not None else None,
             title=title.strip(),
             sort_key=_optional_string(payload.pop("sort_key", None)),
             barcode=_optional_string(payload.pop("barcode", None)),
@@ -121,6 +138,8 @@ def _response(item: GameItem) -> CatalogGameItemResponse:
             "sort_key": item.sort_key,
             "barcode": item.barcode,
             "catalog_number": item.catalog_number,
+            "game_id": item.game_id,
+            "media_id": item.media_id,
         }
     )
     return CatalogGameItemResponse.model_validate(
